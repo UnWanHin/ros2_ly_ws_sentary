@@ -67,7 +67,7 @@ namespace BehaviorTree{
 
         // ly_game_all
         GenSub<ly_game_all>([](Application& app, auto msg) {
-            app.myselfHealth = msg->self_health;
+            app.myselfHealth = msg->selfhealth;
         });
 
         // ly_enemy_op_hp
@@ -124,12 +124,12 @@ namespace BehaviorTree{
 
         // ly_team_buff
         GenSub<ly_team_buff>([](Application& app, auto msg) {
-            app.teamBuff.RecoveryBuff = msg->recovery_buff;
-            app.teamBuff.CoolingBuff = msg->cooling_buff;
-            app.teamBuff.DefenceBuff = msg->defence_buff;
-            app.teamBuff.VulnerabilityBuff = msg->vulnerability_buff;
-            app.teamBuff.AttackBuff = msg->attack_buff;
-            app.teamBuff.RemainingEnergy = msg->remaining_energy;
+            app.teamBuff.RecoveryBuff = msg->recoverybuff;
+            app.teamBuff.CoolingBuff = msg->coolingbuff;
+            app.teamBuff.DefenceBuff = msg->defencebuff;
+            app.teamBuff.VulnerabilityBuff = msg->vulnerabilitybuff;
+            app.teamBuff.AttackBuff = msg->attackbuff;
+            app.teamBuff.RemainingEnergy = msg->remainingenergy;
         });
 
         // ly_me_rfid
@@ -139,13 +139,13 @@ namespace BehaviorTree{
 
         // ly_position_data
         GenSub<ly_position_data>([](Application& app, auto msg) {
-            int FriendCarId = msg->friend_car_id;
-            app.friendRobots[FriendCarId].position_.X = msg->friend_x;
-            app.friendRobots[FriendCarId].position_.Y = 1500 - msg->friend_y;
-            int EnemyCarId = msg->enemy_car_id;
+            int FriendCarId = msg->friendcarid;
+            app.friendRobots[FriendCarId].position_.X = msg->friendx;
+            app.friendRobots[FriendCarId].position_.Y = 1500 - msg->friendy;
+            int EnemyCarId = msg->enemycarid;
             EnemyCarId = EnemyCarId % 100;
-            app.enemyRobots[EnemyCarId].position_.X = msg->enemy_x;
-            app.enemyRobots[EnemyCarId].position_.Y = 1500 - msg->enemy_y;
+            app.enemyRobots[EnemyCarId].position_.X = msg->enemyx;
+            app.enemyRobots[EnemyCarId].position_.Y = 1500 - msg->enemyy;
         });
 
         // ly_detector_armors

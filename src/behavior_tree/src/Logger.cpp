@@ -1,4 +1,6 @@
 #include "../include/Application.hpp"
+#include <filesystem>
+#include <cstdlib>
 
 using namespace Utils::Logger;
 
@@ -12,9 +14,16 @@ namespace BehaviorTree {
         // 转换为本地时间
         std::tm time_info = *std::localtime(&timestamp);
     
+        // [ROS 2] 用環境變量 $HOME 構建路徑，不再硬編碼 /home/hustlyrm
+        const char* home_dir = std::getenv("HOME");
+        std::string log_dir = home_dir ? std::string(home_dir) + "/Log" : "/tmp";
+
+        // 確保目錄存在
+        std::filesystem::create_directories(log_dir);
+
         // 使用 stringstream 构建文件名
         std::ostringstream oss;
-        oss << "/home/hustlyrm/Log/BT_"
+        oss << log_dir << "/BT_"
             << std::setw(4) << std::setfill('0') << (time_info.tm_year + 1900)
             << std::setw(2) << std::setfill('0') << (time_info.tm_mon + 1)
             << std::setw(2) << std::setfill('0') << time_info.tm_mday << "_"

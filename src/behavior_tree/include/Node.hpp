@@ -953,16 +953,16 @@ namespace BT {
         return NaviTeam::Unknown;
     }
     template<> inline TeamedLocation convertFromString(StringView str) {
-        if (str == "Home") return Home;
-        if (str == "Recovery") return Recovery;
-        if (str == "Castle") return Castle;
-        if (str == "CastleLeft") return CastleLeft;
-        if (str == "CastleRight") return CastleRight;
-        if (str == "FlyDefense") return FlyDefense;
-        if (str == "OutpostArea") return OutpostArea;
-        if (str == "MidShoot") return MidShoot;
-        if (str == "LeftShoot") return LeftShoot;
-        return TeamedLocation::Home;
+        if (str == "Home") return LangYa::Home;
+        if (str == "Recovery") return LangYa::Recovery;
+        if (str == "Castle") return LangYa::Castle;
+        if (str == "CastleLeft") return LangYa::CastleLeft;
+        if (str == "CastleRight") return LangYa::CastleRight1; // CastleRight 已重命名為 CastleRight1
+        if (str == "FlyDefense") return LangYa::FlyRoad;       // FlyDefense 已重命名為 FlyRoad
+        if (str == "OutpostArea") return LangYa::OutpostArea;
+        if (str == "MidShoot") return LangYa::MidShoot;
+        if (str == "LeftShoot") return LangYa::LeftShoot;
+        return LangYa::Home; // 默認返回 Home
     }
 
 // position="Home;Myself"

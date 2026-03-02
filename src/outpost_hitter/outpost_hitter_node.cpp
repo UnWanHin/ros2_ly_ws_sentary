@@ -88,9 +88,9 @@ namespace {
             rclcpp::Time stamp = msg->header.stamp;
             float yaw_now = msg->yaw;
             float pitch_now = msg->pitch; 
-            /// debug
-            yaw_now = 1000.0f;
-            pitch_now = 10.0f;
+            /// debug (已注釋，使用真實雲台角度)
+            // yaw_now = 1000.0f;
+            // pitch_now = 10.0f;
 
             Detections detections;
             convertToDetections(msg, detections);
@@ -132,8 +132,9 @@ namespace {
                 } else { // 量測更新
                     RCLCPP_WARN(node.get_logger(), "OutpostHitterNode> Running outpost predictor.");
                     
-                    // [ROS 2] Duration API 變更: toSec() -> seconds()
-                    int delta_time = static_cast<int>((stamp - last_time_stamp).seconds());
+                    // [修復] seconds() 返回 double，cast 成 int 會截斷幀間隔（~13ms → 0）
+                    // 改用毫秒整數，符合 OutpostPredictor::runPredictor 的 dt 單位
+                    int delta_time = static_cast<int>((stamp - last_time_stamp).seconds() * 1000.0);
                     last_time_stamp = stamp;
                     outpost_info = outpost_predictor->runPredictor(delta_time, *(min_pitch_armor), USE_MEASURE_UPDATE);
 

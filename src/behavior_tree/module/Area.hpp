@@ -35,7 +35,7 @@ namespace Area {
         }
 
         // 判断给定点 (x, y) 是否位于该点的区域内
-        bool near(const T x, const T y, const T distance, UnitTeam team) {
+        bool near(const T x, const T y, const T distance, UnitTeam team) const {
             const auto& point = (team == UnitTeam::Red) ? pointRed_ : pointBlue_;
             T dx = x - point.x;
             T dy = y - point.y;

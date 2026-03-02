@@ -441,6 +441,9 @@ int main(int argc, char **argv) try {
     global_node->GenSubscriber<ly_bt_target>(get_target_callback);
     global_node->GenSubscriber<ly_gimbal_angles>(gimbal_callback);
     global_node->GenSubscriber<ly_aa_enable>(aa_enable_callback);
+    // [修復] 補上缺失的訂閱者，否則 ra_enable/outpost_enable 永遠是 false
+    global_node->GenSubscriber<ly_ra_enable>(ra_enable_callback);
+    global_node->GenSubscriber<ly_outpost_enable>(outpost_enable_callback);
 
     // 進入圖像循環
     ImageLoop();

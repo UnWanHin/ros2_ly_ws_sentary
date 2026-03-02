@@ -1,62 +1,71 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<root BTCPP_format="3">
-  <BehaviorTree ID="MainTree"> <Sequence>
-      <SetAimTargetFromAim ArmorList="{ArmorList}"
-                           EnemyHealth="{EnemyHealth}"
-                           AimTarget="{AimTarget}"/>
-      
-      <SetNaviPosition MyTeam="{MyTeam}"
-                       TimeLeft="{TimeLeft}"
-                       SelfHealth="{SelfHealth}"
-                       AmmoLeft="{AmmoLeft}"
-                       FriendRobots="{FriendRobots}"
-                       EnemyRobots="{EnemyRobots}"
-                       SelfOutpostHealth="{SelfOutpostHealth}"
-                       EnemyOutpostHealth="{EnemyOutpostHealth}"
-                       TeamBuff="{TeamBuff}"
-                       CommandInterval="{CommandInterval}"
-                       LastCommandTime="{LastCommandTime}"
-                       DestinationID="{DestinationID}"/>
+<root BTCPP_format="4" main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <Sequence name="MainSequence">
+      <UpdateGlobalData/>
+      <SelectAimMode/>
+      <SelectStrategyMode/>
+      <SubTree ID="StrategyDispatch"/>
+      <PreprocessData/>
+      <SelectAimTarget/>
+      <PublishAll/>
+    </Sequence>
+  </BehaviorTree>
+
+  <BehaviorTree ID="StrategyDispatch">
+    <Fallback name="StrategySelector">
+      <CheckNeedRecovery/>
+      <SubTree ID="HitSentryStrategy"/>
+      <SubTree ID="HitHeroStrategy"/>
+      <SubTree ID="ProtectedStrategy"/>
+      <SubTree ID="NaviTestStrategy"/>
+    </Fallback>
+  </BehaviorTree>
+
+  <BehaviorTree ID="HitSentryStrategy">
+    <Sequence name="HitSentrySequence">
+      <IsStrategyHitSentry/>
+      <ExecuteHitSentryStrategy/>
+    </Sequence>
+  </BehaviorTree>
+
+  <BehaviorTree ID="HitHeroStrategy">
+    <Sequence name="HitHeroSequence">
+      <IsStrategyHitHero/>
+      <ExecuteHitHeroStrategy/>
+    </Sequence>
+  </BehaviorTree>
+
+  <BehaviorTree ID="ProtectedStrategy">
+    <Sequence name="ProtectedSequence">
+      <IsStrategyProtected/>
+      <ExecuteProtectedStrategy/>
+    </Sequence>
+  </BehaviorTree>
+
+  <BehaviorTree ID="NaviTestStrategy">
+    <Sequence name="NaviTestSequence">
+      <IsStrategyNaviTest/>
+      <ExecuteNaviTestStrategy/>
     </Sequence>
   </BehaviorTree>
 
   <TreeNodesModel>
-    <Action ID="SetAimTargetFromAim"
-            editable="true">
-      <input_port name="ArmorList"
-                  default="{ArmorList}"/>
-      <input_port name="EnemyHealth"
-                  default="{EnemyHealth}"/>
-      <output_port name="AimTarget"
-                   default="{AimTarget}"/>
-    </Action>
-    <Action ID="SetNaviPosition"
-            editable="true">
-      <input_port name="MyTeam"
-                  default="{MyTeam}"/>
-      <inout_port name="SelfHealth"
-                  default="{SelfHealth}" />
-      <input_port name="FriendRobots"
-                  default="{FriendRobots}"/>
-      <input_port name="EnemyRobots"
-                  default="{EnemyRobots}"/>
-      <input_port name="SelfOutpostHealth"
-                  default="{SelfOutpostHealth}"/>
-      <input_port name="EnemyOutpostHealth"
-                  default="{EnemyOutpostHealth}"/>
-      <input_port name="TeamBuff"
-                  default="{TeamBuff}"/>
-      <input_port name="TimeLeft"
-                  default="{TimeLeft}"/>
-      <input_port name="AmmoLeft"
-                  default="{AmmoLeft}"/>
-      <inout_port name="CommandInterval"
-                  default="{CommandInterval}"/>
-      <inout_port name="LastCommandTime"
-                  default="{LastCommandTime}"/>
-      <inout_port name="DestinationID"
-                  default="{DestinationID}"/>
-    </Action>
-  </TreeNodesModel>
+    <Action ID="UpdateGlobalData"/>
+    <Action ID="SelectAimMode"/>
+    <Action ID="SelectStrategyMode"/>
+    <Action ID="ExecuteHitSentryStrategy"/>
+    <Action ID="ExecuteHitHeroStrategy"/>
+    <Action ID="ExecuteProtectedStrategy"/>
+    <Action ID="ExecuteNaviTestStrategy"/>
+    <Action ID="PreprocessData"/>
+    <Action ID="SelectAimTarget"/>
+    <Action ID="PublishAll"/>
 
+    <Condition ID="CheckNeedRecovery"/>
+    <Condition ID="IsStrategyHitSentry"/>
+    <Condition ID="IsStrategyHitHero"/>
+    <Condition ID="IsStrategyProtected"/>
+    <Condition ID="IsStrategyNaviTest"/>
+  </TreeNodesModel>
 </root>

@@ -5,8 +5,9 @@
 #include <behaviortree_cpp/blackboard.h>
 #include <behaviortree_cpp/bt_factory.h>
 #include <behaviortree_cpp/condition_node.h>
-#include <behaviortree_cpp/loggers/bt_file_logger.h>
-#include <behaviortree_cpp/loggers/bt_zmq_publisher.h>
+#include <behaviortree_cpp/loggers/bt_file_logger_v2.h>
+// bt_zmq_publisher.h 在 BT.CPP v4 已移除，改用 groot2_publisher
+#include <behaviortree_cpp/loggers/groot2_publisher.h>
 
 // [ROS 2]
 #include <rclcpp/rclcpp.hpp>
@@ -36,6 +37,23 @@ using namespace Utils::Logger;
 using json = nlohmann::json;
 
 namespace BehaviorTree {
+
+enum class StrategyMode : std::uint8_t {
+    HitSentry = 0,
+    HitHero = 1,
+    Protected = 2,
+    NaviTest = 3
+};
+
+inline const char* StrategyModeToString(const StrategyMode mode) {
+    switch (mode) {
+        case StrategyMode::HitSentry: return "HitSentry";
+        case StrategyMode::HitHero: return "HitHero";
+        case StrategyMode::Protected: return "Protected";
+        case StrategyMode::NaviTest: return "NaviTest";
+        default: return "Unknown";
+    }
+}
 
     #define SET_POSITION(area, team) \
     do { \
@@ -108,10 +126,14 @@ private:
     VelocityType naviVelocity{0, 0}; /// 定义回调，接收导航的速度控制数据
     TimerClock naviCommandIntervalClock{Seconds{10}}, recoveryClock{Seconds{90}}; // 控制间隔，回家时间 
     std::uint8_t speedLevel{1}; // 0 没电, 1 正常, 2 快速
+    StrategyMode strategyMode_{StrategyMode::HitHero}; // 当前策略
 
-    BT::Blackboard::Ptr BlackBoard = BT::Blackboard::create(); // 行为树数据黑板
+    BT::Blackboard::Ptr GlobalBlackboard_ = BT::Blackboard::create(); // 跨 tick 持久黑板
+    BT::Blackboard::Ptr TickBlackboard_ = BT::Blackboard::create();   // 每次 tick 中间黑板
     BT::BehaviorTreeFactory Factory{}; // 行为树工厂
     BT::Tree BTree{}; // 行为树
+    std::unique_ptr<BT::FileLogger2> btFileLogger_; // bt_file_logger_v2
+    std::unique_ptr<BT::Groot2Publisher> btGrootPublisher_; // Groot2
     // ==========================================
 
     std::shared_ptr<Logger> LoggerPtr; // 日志
@@ -133,18 +155,17 @@ private:
     // [保留] 回调管理 (為了接口兼容性保留)
     MultiCallback<Application&> callbacks{*this};
 
-    // [修改] 訂閱生成器
+    // [ROS 2] 訂閱生成器 — 接受兩參數 lambda: [](Application& app, MsgSharedPtr msg){}
     template<typename TTopic>
-    void GenSub(auto callback) {
-        using MsgType = typename TTopic::Type;
+    void GenSub(std::function<void(Application&, typename TTopic::CallbackArg)> callback) {
+        using MsgType = typename TTopic::Msg;
         std::string topic_name = TTopic::Name;
 
         auto sub = node_->create_subscription<MsgType>(
             topic_name,
             rclcpp::QoS(10),
             [this, callback](const typename MsgType::SharedPtr msg) {
-                 // ROS 2 回調適配
-                 (this->*callback)(msg);
+                callback(*this, msg);
             }
         );
         subscribers_.push_back(sub);
@@ -180,7 +201,9 @@ private:
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_bt_target_;
 
 
+public:
     void SubscribeMessageAll();
+    void PrintMessageAll();
 
     // 发布消息
     void PublishMessageAll();
@@ -205,7 +228,7 @@ private:
     template<typename T>
     T GetInfoFromBlackBoard(const std::string &key) {
         T value{};
-        bool ValueExist = BlackBoard->get<T>(key, value);
+        bool ValueExist = GlobalBlackboard_->get<T>(key, value);
         if (!ValueExist) {
             if(LoggerPtr) LoggerPtr->Error("Blackboard key {} not found", key.c_str());
             else RCLCPP_ERROR(node_->get_logger(), "Blackboard key %s not found", key.c_str());
@@ -241,8 +264,25 @@ private:
     // 获取配置文件
     bool ConfigurationInit();
 
+    StrategyMode GetStrategyMode() const noexcept { return strategyMode_; }
+    void SetStrategyMode(const StrategyMode mode) noexcept { strategyMode_ = mode; }
+    AimMode GetAimMode() const noexcept { return aimMode; }
+    BT::Blackboard::Ptr GetGlobalBlackboard() const noexcept { return GlobalBlackboard_; }
+    BT::Blackboard::Ptr GetTickBlackboard() const noexcept { return TickBlackboard_; }
+    void ResetTickBlackboard() {
+        TickBlackboard_ = BT::Blackboard::create();
+        if (GlobalBlackboard_) {
+            GlobalBlackboard_->set("TickBlackboard", TickBlackboard_);
+        }
+    }
+    int ElapsedSeconds() const {
+        return static_cast<int>(std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::steady_clock::now() - gameStartTime).count());
+    }
+    std::vector<UnitType> GetHitableTargetsCopy() const { return hitableTargets; }
+    std::vector<UnitType> GetReliableEnemyPositionsCopy() const { return reliableEnemyPosuition; }
+    ArmorData GetTargetArmorCopy() const { return targetArmor; }
 
-public:
     Application(int argc, char **argv);
     ~Application();
     void Run();

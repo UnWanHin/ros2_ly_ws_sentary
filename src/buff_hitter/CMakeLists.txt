@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 1. 尋找依賴
 find_package(ament_cmake REQUIRED)
+find_package(ament_index_cpp REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
@@ -60,6 +61,7 @@ target_link_libraries(${PROJECT_NAME}_node
 # ROS 的庫用 ament_target_dependencies (它會自動處理 include 路徑！)
 ament_target_dependencies(${PROJECT_NAME}_node
     rclcpp
+    ament_index_cpp
     std_msgs
     sensor_msgs
     cv_bridge

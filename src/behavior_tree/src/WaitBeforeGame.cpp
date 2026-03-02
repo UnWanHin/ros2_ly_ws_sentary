@@ -16,18 +16,19 @@ namespace BehaviorTree {
         gimbalControlData.GimbalAngles.Yaw = gimbalAngles.Yaw;
         gimbalControlData.GimbalAngles.Pitch = AngleType{0};
 
-        boost::filesystem::path waiting_for_begin("/home/hustlyrm/workspace/devel/lib/behavior_tree/.waiting_for_begin");
         LoggerPtr->Info("Waiting For Game Start!");
 
-        ros::Time last_navi_command_time = ros::Time::now();
-        boost::system::error_code ec{};
-        while (exists(waiting_for_begin, ec) && ros::ok()) {
-            ros::spinOnce();
+        // [ROS 2] 用 rclcpp::Time 替代 ros::Time
+        rclcpp::Time last_navi_command_time = node_->now();
+
+        // [ROS 2] 不再依賴文件系統判斷，直接等待 is_game_begin 標誌
+        while (rclcpp::ok()) {
+            rclcpp::spin_some(node_);
             std::this_thread::sleep_for(std::chrono::milliseconds{10});
-            ros::Time now = ros::Time::now();
+            rclcpp::Time now = node_->now();
 
             SET_POSITION(Home, team);
-            // PubNaviGoal();
+
             if(naviCommandRateClock.trigger()) {
                 naviCommandRateClock.tick();
                 if(config.NaviSettings.UseXY) PubNaviGoalPos();
@@ -37,9 +38,9 @@ namespace BehaviorTree {
             if (naviVelocity.X || naviVelocity.Y) {
                 PubNaviControlData();
                 last_navi_command_time = now;
-            }
-            else {
-                if (now - last_navi_command_time > ros::Duration(3)) {
+            } else {
+                // [ROS 2] rclcpp::Duration 接受 std::chrono::duration
+                if ((now - last_navi_command_time).seconds() > 3.0) {
                     naviVelocity.X = 0;
                     naviVelocity.Y = 0;
                     PubNaviControlData();
@@ -58,8 +59,8 @@ namespace BehaviorTree {
     void Application::WaitBeforeGame() {
         LoggerPtr->Info("Waiting Before Game");
         /// 取得第一个云台数据包
-        while (ros::ok()) {
-            ros::spinOnce();
+        while (rclcpp::ok()) {
+            rclcpp::spin_some(node_);
             if (gimbalAngles.Yaw != 0 || gimbalAngles.Pitch != 0) {
                 LoggerPtr->Info("Waiting For First Gimbal Data");
                 break;

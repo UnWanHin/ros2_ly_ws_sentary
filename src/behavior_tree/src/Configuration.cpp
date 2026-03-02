@@ -43,12 +43,12 @@ namespace BehaviorTree {
     using json = nlohmann::json;
 
     bool Application::ConfigurationInit() {
-        std::ifstream ifs(config_file);
+        std::ifstream ifs(config_file_);
         if (!ifs.is_open()) {
-            LoggerPtr->Error("Failed to open config.json, file location: {}", config_file);
+            LoggerPtr->Error("Failed to open config.json, file location: {}", config_file_);
             return false;
         }
-        LoggerPtr->Info("Open config.json, file location: {}", config_file);
+        LoggerPtr->Info("Open config.json, file location: {}", config_file_);
 
         // 解析 JSON 文件
         json j;
@@ -70,6 +70,8 @@ namespace BehaviorTree {
         LoggerPtr->Debug("HitOutpost: {}", config.GameStrategySettings.HitOutpost);
         LoggerPtr->Debug("HitBuff: {}", config.GameStrategySettings.HitBuff);
         LoggerPtr->Debug("HitSentry: {}", config.GameStrategySettings.HitSentry);
+        LoggerPtr->Debug("TestNavi: {}", config.GameStrategySettings.TestNavi);
+        LoggerPtr->Debug("Protected: {}", config.GameStrategySettings.Protected);
         LoggerPtr->Debug("------ NaviSetting ------");
         LoggerPtr->Debug("UseXY: {}", config.NaviSettings.UseXY);
         LoggerPtr->Debug("------ End ------");
@@ -77,6 +79,18 @@ namespace BehaviorTree {
         fireRateClock.reset(config.RateSettings.FireRate);
         treeTickRateClock.reset(config.RateSettings.TreeTickRate);
         naviCommandRateClock.reset(config.RateSettings.NaviCommandRate);
+
+        // 与旧逻辑保持一致：SetPositionRepeat 的初始优先级
+        if (config.GameStrategySettings.HitSentry) {
+            strategyMode_ = StrategyMode::HitSentry;
+        } else if (config.GameStrategySettings.TestNavi) {
+            strategyMode_ = StrategyMode::NaviTest;
+        } else if (config.GameStrategySettings.Protected) {
+            strategyMode_ = StrategyMode::Protected;
+        } else {
+            strategyMode_ = StrategyMode::HitHero;
+        }
+        LoggerPtr->Info("Initial StrategyMode: {}", StrategyModeToString(strategyMode_));
         return true;
     }
 }

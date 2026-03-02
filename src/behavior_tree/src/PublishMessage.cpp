@@ -19,28 +19,25 @@ namespace BehaviorTree {
 
     void Application::PubAimModeEnableData() {
         {
-            using topic = ly_aa_enable;
-            topic::Msg msg;
+            std_msgs::msg::Bool msg;
             if (aimMode != AimMode::Buff) {
                 msg.data = true;
-            }else msg.data = false;
-            node.Publisher<topic>().publish(msg);
+            } else msg.data = false;
+            pub_aa_enable_->publish(msg);
         }
         {
-            using topic = ly_ra_enable;
-            topic::Msg msg;
+            std_msgs::msg::Bool msg;
             if (aimMode == AimMode::Buff) {
                 msg.data = true;
-            }else msg.data = false;
-            node.Publisher<topic>().publish(msg);
+            } else msg.data = false;
+            pub_ra_enable_->publish(msg);
         }
         {
-            using topic = ly_outpost_enable;
-            topic::Msg msg;
+            std_msgs::msg::Bool msg;
             if (aimMode == AimMode::Outpost) {
                 msg.data = true;
-            }else msg.data = false;
-            node.Publisher<topic>().publish(msg);
+            } else msg.data = false;
+            pub_outpost_enable_->publish(msg);
         }
     }
 
@@ -51,67 +48,66 @@ namespace BehaviorTree {
      */
     void Application::PubGimbalControlData() {
         {
-            using topic = ly_control_angles;
-            topic::Msg msg;
-            msg.Yaw = gimbalControlData.GimbalAngles.Yaw;
-            msg.Pitch = gimbalControlData.GimbalAngles.Pitch;
-            msg.header.stamp = ros::Time::now();
-            node.Publisher<topic>().publish(msg);
+            gimbal_driver::msg::GimbalAngles msg;
+            msg.yaw   = gimbalControlData.GimbalAngles.Yaw;
+            msg.pitch = gimbalControlData.GimbalAngles.Pitch;
+            msg.header.stamp = node_->now();
+            pub_gimbal_control_->publish(msg);
         }
         {
-            using topic = ly_control_firecode;
-            topic::Msg msg;
+            std_msgs::msg::UInt8 msg;
             msg.data = *reinterpret_cast<std::uint8_t *>(&gimbalControlData.FireCode);
-            node.Publisher<topic>().publish(msg);
+            pub_gimbal_firecode_->publish(msg);
         }
     }
+
     /**
      * @brief 发布自瞄应该击打的目标
      */
     void Application::PubAimTargetData() {
         {
-            using topic = ly_bt_target;
-            topic::Msg msg;
+            std_msgs::msg::UInt8 msg;
             msg.data = static_cast<uint8_t>(targetArmor.Type);
-            node.Publisher<topic>().publish(msg);
+            pub_bt_target_->publish(msg);
         }
     }
+
     /**
      * @brief 发布导航的底盘速度控制数据
      * @param naviVelocity 导航速度X, Y
      */
     void Application::PubNaviControlData() {
         {
-            using topic = ly_control_vel;
-            topic::Msg msg;
-            msg.X = naviVelocity.X;
-            msg.Y = naviVelocity.Y;
-            node.Publisher<topic>().publish(msg);
+            gimbal_driver::msg::Vel msg;
+            msg.x = naviVelocity.X;
+            msg.y = naviVelocity.Y;
+            pub_navi_vel_->publish(msg);
         }
     }
+
     /**
      * @brief 发布给导航的目标点
      */
     void Application::PubNaviGoal() {
         {
-            using topic = ly_navi_goal;
-            topic::Msg msg;
+            std_msgs::msg::UInt8 msg;
             msg.data = naviCommandGoal;
-            node.Publisher<topic>().publish(msg);
+            pub_navi_goal_->publish(msg);
         }
         {
-            using topic = ly_navi_speed_level;
-            topic::Msg msg;
+            std_msgs::msg::UInt8 msg;
             msg.data = speedLevel;
-            node.Publisher<topic>().publish(msg);
+            pub_navi_speed_level_->publish(msg);
         }
     }
 
     void Application::PubNaviGoalPos() {
-        using topic = ly_navi_goal_pos;
-        topic::Msg msg;
-        std::vector<uint16_t> data = {naviGoalPosition.x, naviGoalPosition.y};
+        std_msgs::msg::UInt16MultiArray msg;
+        std::vector<uint16_t> data = {
+            static_cast<uint16_t>(naviGoalPosition.x),
+            static_cast<uint16_t>(naviGoalPosition.y)
+        };
         msg.data = data;
-        node.Publisher<topic>().publish(msg);
+        pub_navi_goal_pos_->publish(msg);
     }
 }

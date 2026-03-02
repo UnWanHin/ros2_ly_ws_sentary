@@ -48,7 +48,21 @@ namespace BehaviorTree {
 
         // 5. 初始化配置與通訊
         SubscribeMessageAll();  // 建立訂閱
-        PublishMessageAll();    // 建立發布 (對應 GenPub)
+
+        // [修復] 初始化所有發布者指針 — 必須在 PublishMessageAll() 之前完成
+        // 每個指針對應 Topic.hpp 中的 topic 名稱和 Application.hpp 中聲明的類型
+        pub_aa_enable_       = node_->create_publisher<std_msgs::msg::Bool>(ly_aa_enable::Name, 10);
+        pub_ra_enable_       = node_->create_publisher<std_msgs::msg::Bool>(ly_ra_enable::Name, 10);
+        pub_outpost_enable_  = node_->create_publisher<std_msgs::msg::Bool>(ly_outpost_enable::Name, 10);
+        pub_gimbal_control_  = node_->create_publisher<gimbal_driver::msg::GimbalAngles>(ly_control_angles::Name, 10);
+        pub_gimbal_firecode_ = node_->create_publisher<std_msgs::msg::UInt8>(ly_control_firecode::Name, 10);
+        pub_navi_vel_        = node_->create_publisher<gimbal_driver::msg::Vel>(ly_navi_vel::Name, 10);
+        pub_navi_goal_       = node_->create_publisher<std_msgs::msg::UInt8>(ly_navi_goal::Name, 10);
+        pub_navi_goal_pos_   = node_->create_publisher<std_msgs::msg::UInt16MultiArray>(ly_navi_goal_pos::Name, 10);
+        pub_navi_speed_level_= node_->create_publisher<std_msgs::msg::UInt8>(ly_navi_speed_level::Name, 10);
+        pub_navi_lower_head_ = node_->create_publisher<std_msgs::msg::UInt8>(ly_navi_lower_head::Name, 10);
+        pub_bt_target_       = node_->create_publisher<std_msgs::msg::UInt8>(ly_bt_target::Name, 10);
+
         ConfigurationInit();    // 讀取 config.json
 
         // 6. 註冊與加載行為樹

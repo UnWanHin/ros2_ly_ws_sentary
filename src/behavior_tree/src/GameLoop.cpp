@@ -22,17 +22,31 @@ namespace BehaviorTree {
         std::uint16_t SelfHealth = myselfHealth;
         bool IsFindTarget = isFindTargetAtomic;
 
+        if (!GlobalBlackboard_) {
+            GlobalBlackboard_ = BT::Blackboard::create();
+        }
+
         // 将数据写入黑板
-        BlackBoard->set<UnitTeam>("MyTeam", team);
-        BlackBoard->set<std::uint16_t>("TimeLeft", timeLeft);
-        BlackBoard->set<std::uint16_t>("SelfHealth", SelfHealth);
-        BlackBoard->set<std::uint16_t>("AmmoLeft", ammoLeft);
-        BlackBoard->set<Robots>("FriendRobots", friendRobots);
-        BlackBoard->set<Robots>("EnemyRobots", enemyRobots);
-        BlackBoard->set<std::uint16_t>("EnemyOutpostHealth", enemyOutpostHealth);
-        BlackBoard->set<std::uint16_t>("SelfOutpostHealth", selfOutpostHealth);
-        BlackBoard->set("ArmorList", armorList);
-        BlackBoard->set("TeamBuff", teamBuff);
+        GlobalBlackboard_->set<UnitTeam>("MyTeam", team);
+        GlobalBlackboard_->set<std::uint16_t>("TimeLeft", timeLeft);
+        GlobalBlackboard_->set<std::uint16_t>("SelfHealth", SelfHealth);
+        GlobalBlackboard_->set<std::uint16_t>("AmmoLeft", ammoLeft);
+        GlobalBlackboard_->set<Robots>("FriendRobots", friendRobots);
+        GlobalBlackboard_->set<Robots>("EnemyRobots", enemyRobots);
+        GlobalBlackboard_->set<std::uint16_t>("EnemyOutpostHealth", enemyOutpostHealth);
+        GlobalBlackboard_->set<std::uint16_t>("SelfOutpostHealth", selfOutpostHealth);
+        GlobalBlackboard_->set<std::uint16_t>("SelfBaseHealth", selfBaseHealth);
+        GlobalBlackboard_->set<std::uint16_t>("EnemyBaseHealth", enemyBaseHealth);
+        GlobalBlackboard_->set<std::uint32_t>("RfidStatus", rfidStatus);
+        GlobalBlackboard_->set<std::uint32_t>("ExtEventData", extEventData);
+        GlobalBlackboard_->set("ArmorList", armorList);
+        GlobalBlackboard_->set("TeamBuff", teamBuff);
+        GlobalBlackboard_->set<std::uint8_t>("AimMode", static_cast<std::uint8_t>(aimMode));
+        GlobalBlackboard_->set<std::uint8_t>("NaviGoal", naviCommandGoal);
+        GlobalBlackboard_->set<int>("BuffShootCount", buff_shoot_count);
+        GlobalBlackboard_->set<std::uint8_t>("StrategyMode", static_cast<std::uint8_t>(strategyMode_));
+        GlobalBlackboard_->set<std::chrono::steady_clock::time_point>("GameStartTime", gameStartTime);
+        GlobalBlackboard_->set<bool>("IsFindTarget", IsFindTarget);
         
         LoggerPtr->Info("-------- update blackboard ----------");
         LoggerPtr->Info("TimeLeft: {}", timeLeft);
@@ -200,32 +214,40 @@ namespace BehaviorTree {
      */
     void Application::GameLoop() {
 
-        BlackBoard->set<UnitTeam>("MyTeam", team); // 队伍颜色
-        BlackBoard->set<std::chrono::steady_clock::time_point>(
-            "LastCommandTime", std::chrono::steady_clock::now()); // 上次发送命令的时间
-        BlackBoard->set<std::chrono::seconds>("CommandInterval", std::chrono::seconds{0}); // 命令间隔
-        BlackBoard->set<ArmorType>("AimTarget", ArmorType::Hero); // 辅瞄击打目标
-        BlackBoard->set<std::uint8_t>("naviCommandGoal", Home(team)); // 导航目的地
-        BlackBoard->set<std::shared_ptr<Logger>>("LoggerPtr", LoggerPtr);
+        if (!GlobalBlackboard_) {
+            GlobalBlackboard_ = BT::Blackboard::create();
+        }
+        ResetTickBlackboard();
 
-        while (ros::ok()) {
-            TransportData();
-            treeTickRateClock.sleep();
-            ros::spinOnce(); // 处理回调函数
-            UpdateBlackBoard();
-            LoggerPtr->Info("--------------------> BehaviorTree Root Tick Done! <--------------------");
+        GlobalBlackboard_->set<UnitTeam>("MyTeam", team); // 队伍颜色
+        GlobalBlackboard_->set<std::chrono::steady_clock::time_point>(
+            "LastCommandTime", std::chrono::steady_clock::now()); // 上次发送命令的时间
+        GlobalBlackboard_->set<std::chrono::seconds>("CommandInterval", std::chrono::seconds{0}); // 命令间隔
+        GlobalBlackboard_->set<ArmorType>("AimTarget", ArmorType::Hero); // 辅瞄击打目标
+        GlobalBlackboard_->set<std::uint8_t>("naviCommandGoal", Home(team)); // 导航目的地
+        GlobalBlackboard_->set<std::shared_ptr<Logger>>("LoggerPtr", LoggerPtr);
+        GlobalBlackboard_->set("TickBlackboard", TickBlackboard_);
+        UpdateBlackBoard();
+
+        while (rclcpp::ok()) {
+            rclcpp::spin_some(node_); // 处理回调函数
             LoggerPtr->Info("--------------------> BehaviorTree Root Tick! <--------------------");
             TreeTick();
+            LoggerPtr->Info("--------------------> BehaviorTree Root Tick Done! <--------------------");
+            treeTickRateClock.sleep();
         }
     }
 
     void Application::TreeTick() {
-        SetAimMode(); // 处理辅瞄模式
-        CheckDebug(); // 处理调试状态
-        ProcessData(); // 处理机器人数据
-        SetPositionRepeat(); // 设置位置
-        SetAimTarget(); // 设置击打目标
-        // BTree.tickRoot();
+        if (BTree.subtrees.empty()) {
+            LoggerPtr->Error("BehaviorTree is empty, skip tick.");
+            return;
+        }
+
+        const auto status = BTree.tickWhileRunning(std::chrono::milliseconds(1));
+        if (status == BT::NodeStatus::FAILURE) {
+            LoggerPtr->Warning("BehaviorTree tick returned FAILURE.");
+        }
     }
 
     void Application::SetAimMode() {
@@ -364,7 +386,7 @@ namespace BehaviorTree {
                             targetArmor.Distance = enemyRobots[UnitType::Infantry1].distance_;
                         }else {
                             targetArmor.Type = ArmorType::Infantry2;
-                            targetArmor.Distance = enemyRobots[UnitType::Infantry2].
+                            targetArmor.Distance = enemyRobots[UnitType::Infantry2].distance_;
                         }
                     } else { 
                         if(delta_health < 0) {

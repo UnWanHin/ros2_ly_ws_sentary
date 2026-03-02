@@ -41,6 +41,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <thread>
+#include <ament_index_cpp/get_package_share_directory.hpp>
 
 // TODO copy to auto aim detector
 LY_DEF_ROS_TOPIC(ly_aa_enable, "/ly/aa/enable", std_msgs::msg::Bool);
@@ -55,7 +56,7 @@ LY_DEF_ROS_TOPIC(ly_compressed_image, "/ly/compressed/image", sensor_msgs::msg::
 LY_DEF_ROS_TOPIC(ly_gimbal_angles, "/ly/gimbal/angles", gimbal_driver::msg::GimbalAngles);
 LY_DEF_ROS_TOPIC(ly_gimbal_firecode, "/ly/gimbal/firecode", std_msgs::msg::UInt8);
 
-LY_DEF_ROS_TOPIC(ly_buff_target, "ly/buff/target", auto_aim_common::msg::Target)
+LY_DEF_ROS_TOPIC(ly_buff_target, "/ly/buff/target", auto_aim_common::msg::Target)
 
 LY_DEF_ROS_TOPIC(ly_ra_angle_image, "/ly/ra/angle_image", auto_aim_common::msg::AngleImage);
 
@@ -327,7 +328,9 @@ int main(int argc, char **argv) try {
     rclcpp::init(argc, argv);
     roslog::info("main: running %s", Application::Name);
     Application app{};
-    app.Init("/home/hustlyrm/workspace/src/buff_hitter/config/config.json");
+    // [修復] 使用 ament_index_cpp 動態獲取包路徑，不再硬編碼機器路徑
+    std::string config_path = ament_index_cpp::get_package_share_directory("buff_hitter") + "/config/config.json";
+    app.Init(config_path);
     app.Run(argc, argv);
     rclcpp::shutdown();
     return 0;
