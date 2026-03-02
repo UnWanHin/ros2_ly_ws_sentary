@@ -52,6 +52,7 @@
 | `tracker_solver` | [tracker_solver.md](tracker_solver.md) | 跨幀多目標跟蹤 + 圖像座標→IMU座標解算 |
 | `predictor` | [predictor.md](predictor.md) | EKF預測目標位置 + 彈道補償 → 最終瞄準角 |
 | `behavior_tree` | [behavior_tree.md](behavior_tree.md) | 決策中心：匯總所有數據，控制模式切換和雲台指令 |
+| `sentry_manual` | [sentry_decision_autoaim_manual.md](sentry_decision_autoaim_manual.md) | 交接手冊：當前決策流程、SetPosition說明、輔瞄調參與鏈路自檢 |
 | `outpost_hitter` | [outpost_hitter.md](outpost_hitter.md) | 前哨站專用打擊節點（旋轉預測+打擊時機選擇） |
 | `buff_hitter` | [buff_hitter.md](buff_hitter.md) | 能量機關（打符）識別與瞄準節點 |
 | `record` | [record.md](record.md) | 錄像和射擊表CSV數據存儲目錄（非ROS節點） |
