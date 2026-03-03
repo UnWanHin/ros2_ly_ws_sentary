@@ -212,6 +212,7 @@ void TreeTick() {
 | `/ly/team/buff` | `teamBuff` | 增益狀態 |
 | `/ly/position/data` | `friendRobots`, `enemyRobots`（更新position） | UWB位置 |
 | `/ly/gimbal/angles` | `gimbalAngles` | 當前雲台角 |
+| `/ly/gimbal/posture` | `postureState` | 姿態回讀（0未知/1進攻/2防禦/3移動） |
 | `/ly/gimbal/vel` | `naviVelocity` | 底盤速度反饋 |
 | `/ly/predictor/target` | `autoAimData`, `isFindTargetAtomic` | 普通瞄準角度 |
 | `/ly/outpost/target` | `outpostAimData`, `isFindTargetAtomic` | 前哨瞄準角度 |
@@ -225,6 +226,7 @@ void TreeTick() {
 | `/ly/control/angles` | 目標雲台角（`gimbalControlData.GimbalAngles`） |
 | `/ly/control/firecode` | 火控碼（開火狀態、旋轉速度、瞄準模式） |
 | `/ly/control/vel` | 底盤速度指令（導航） |
+| `/ly/control/posture` | 姿態指令（0不下發/1進攻/2防禦/3移動） |
 | `/ly/aa/enable` | 普通瞄準開關 |
 | `/ly/ra/enable` | 打符模式開關 |
 | `/ly/outpost/enable` | 前哨站瞄準開關 |
@@ -272,7 +274,7 @@ SET_POSITION(BuffShoot, MyTeam);  // 設置導航目標為打符點位
 來自 `buff_hitter`（`ly/buff/target`）
 
 ### 發布（共10+個）
-控制類：`/ly/control/angles`, `/ly/control/firecode`, `/ly/control/vel`  
+控制類：`/ly/control/angles`, `/ly/control/firecode`, `/ly/control/vel`, `/ly/control/posture`  
 模式切換：`/ly/aa/enable`, `/ly/ra/enable`, `/ly/outpost/enable`  
 目標廣播：`/ly/bt/target`（→ `detector`, `predictor`）  
 導航：`/ly/navi/*`

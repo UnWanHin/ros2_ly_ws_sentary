@@ -96,6 +96,7 @@ private:
     std::array<ArmorData, 10> armorList; // 辅瞄返回的装甲板序列
     bool is_game_begin{false}; // 比赛开始的标志
     FireCodeType RecFireCode{}; // 云台的火控数据
+    std::uint8_t postureState{0}; // 云台/下位机回传姿态: 0=未知, 1=进攻, 2=防御, 3=移动
     std::uint8_t capV;
     std::uint8_t naviLowerHead{false};
 
@@ -118,6 +119,7 @@ private:
     AimData buffAimData{}; // 定义回调，接收的打符云台角度数据
     AimData outpostAimData{}; // 定义回调，接收的打哨站云台角度数据
     GimbalControlData gimbalControlData{}; /// 发送给云台的角度控制数据，火控数据等
+    std::uint8_t postureCommand{0}; // 姿态控制指令: 0=不下发, 1=进攻, 2=防御, 3=移动
     std::atomic<bool> isFindTargetAtomic{false}; // 在回调函数中，每接收一次消息就会被置为true，然后在发送完控制数据之后置为false
 
     std::uint8_t naviCommandGoal{0}; // 导航目标
@@ -187,6 +189,7 @@ private:
 
     rclcpp::Publisher<gimbal_driver::msg::GimbalAngles>::SharedPtr pub_gimbal_control_;
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_gimbal_firecode_;
+    rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_gimbal_posture_;
     rclcpp::Publisher<gimbal_driver::msg::Vel>::SharedPtr pub_gimbal_vel_;
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_gimbal_capV_;
 
@@ -209,6 +212,7 @@ public:
     void PublishMessageAll();
     void PubAimModeEnableData();
     void PubGimbalControlData();
+    void PubPostureControlData();
     void PubAimTargetData();
     void PubNaviControlData();
     void PubNaviGoal();

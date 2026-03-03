@@ -53,6 +53,7 @@
 | `predictor` | [predictor.md](predictor.md) | EKF預測目標位置 + 彈道補償 → 最終瞄準角 |
 | `behavior_tree` | [behavior_tree.md](behavior_tree.md) | 決策中心：匯總所有數據，控制模式切換和雲台指令 |
 | `sentry_manual` | [sentry_decision_autoaim_manual.md](sentry_decision_autoaim_manual.md) | 交接手冊：當前決策流程、SetPosition說明、輔瞄調參與鏈路自檢 |
+| `sentry_posture_change` | [sentry_posture_interface_change_2026-03-03.md](sentry_posture_interface_change_2026-03-03.md) | 哨兵姿態接口改造記錄：Topic 契約、代碼改動、下位機對接事項 |
 | `outpost_hitter` | [outpost_hitter.md](outpost_hitter.md) | 前哨站專用打擊節點（旋轉預測+打擊時機選擇） |
 | `buff_hitter` | [buff_hitter.md](buff_hitter.md) | 能量機關（打符）識別與瞄準節點 |
 | `record` | [record.md](record.md) | 錄像和射擊表CSV數據存儲目錄（非ROS節點） |
@@ -67,6 +68,7 @@
 | `/ly/gimbal/angles` | `GimbalAngles` | gimbal_driver | detector, tracker_solver, predictor, behavior_tree, shooting_table_calib |
 | `/ly/control/angles` | `GimbalAngles` | behavior_tree / shooting_table_calib | gimbal_driver |
 | `/ly/control/firecode` | `UInt8` | behavior_tree / shooting_table_calib | gimbal_driver |
+| `/ly/control/posture` | `UInt8` | behavior_tree（姿態決策） | gimbal_driver |
 | `/ly/me/is_team_red` | `Bool` | gimbal_driver | behavior_tree, detector |
 | `/ly/detector/armors` | `Armors` | detector | tracker_solver |
 | `/ly/outpost/armors` | `Armors` | detector（outpost_enable時） | outpost_hitter |
@@ -78,6 +80,7 @@
 | `/ly/bt/target` | `Int32（ArmorType）` | behavior_tree | detector, predictor |
 | `/ly/aa/enable` | `Bool` | behavior_tree | detector, buff_hitter |
 | `/ly/outpost/enable` | `Bool` | behavior_tree | detector |
+| `/ly/gimbal/posture` | `UInt8` | gimbal_driver | behavior_tree（姿態回讀） |
 | `/ly/bullet/speed` | `Float32` | gimbal_driver | predictor（應改）、outpost_hitter（應改）、buff_hitter（應改） |
 
 ---

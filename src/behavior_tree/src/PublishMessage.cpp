@@ -7,6 +7,7 @@ namespace BehaviorTree {
         
         PubAimModeEnableData();
         PubGimbalControlData();
+        PubPostureControlData();
         PubAimTargetData();
         PubNaviControlData();
         if(naviCommandRateClock.trigger()) {
@@ -59,6 +60,16 @@ namespace BehaviorTree {
             msg.data = *reinterpret_cast<std::uint8_t *>(&gimbalControlData.FireCode);
             pub_gimbal_firecode_->publish(msg);
         }
+    }
+
+    void Application::PubPostureControlData() {
+        // 0 作为“当前决策层不下发姿态”的保留值，避免影响现有链路。
+        if (postureCommand < 1 || postureCommand > 3) {
+            return;
+        }
+        std_msgs::msg::UInt8 msg;
+        msg.data = postureCommand;
+        pub_gimbal_posture_->publish(msg);
     }
 
     /**

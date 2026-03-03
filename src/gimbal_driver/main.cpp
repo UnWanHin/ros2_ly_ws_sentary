@@ -29,10 +29,12 @@ namespace
     LY_DEF_ROS_TOPIC(ly_control_angles, "/ly/control/angles", gimbal_driver::msg::GimbalAngles);
     LY_DEF_ROS_TOPIC(ly_control_firecode, "/ly/control/firecode", std_msgs::msg::UInt8);
     LY_DEF_ROS_TOPIC(ly_control_vel, "/ly/control/vel", gimbal_driver::msg::Vel);
+    LY_DEF_ROS_TOPIC(ly_control_posture, "/ly/control/posture", std_msgs::msg::UInt8);
 
     LY_DEF_ROS_TOPIC(ly_gimbal_angles, "/ly/gimbal/angles", gimbal_driver::msg::GimbalAngles);
     LY_DEF_ROS_TOPIC(ly_gimbal_firecode, "/ly/gimbal/firecode", std_msgs::msg::UInt8);
     LY_DEF_ROS_TOPIC(ly_gimbal_vel, "/ly/gimbal/vel", gimbal_driver::msg::Vel);
+    LY_DEF_ROS_TOPIC(ly_gimbal_posture, "/ly/gimbal/posture", std_msgs::msg::UInt8);
     LY_DEF_ROS_TOPIC(ly_gimbal_capV, "/ly/gimbal/capV", std_msgs::msg::UInt8);
     LY_DEF_ROS_TOPIC(ly_game_eventdata, "ly/gimbal/eventdata", std_msgs::msg::UInt32);
 
@@ -73,6 +75,19 @@ namespace
         std::atomic_bool DeviceError{ false };
         IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData> Device{};
         MultiCallback<GimbalControlData> CallbackGenerator;
+        std::uint8_t postureCommand_{0}; // 0=不控制, 1=进攻, 2=防御, 3=移动
+        std::uint8_t postureState_{0};   // 0=未知, 1=进攻, 2=防御, 3=移动
+
+        static bool IsValidPosture(std::uint8_t posture) noexcept {
+            return posture >= 1 && posture <= 3;
+        }
+
+        void PublishPosture(std::uint8_t posture) {
+            using topic = ly_gimbal_posture;
+            topic::Msg msg;
+            msg.data = posture;
+            Node.Publisher<topic>()->publish(msg);
+        }
 
         template<typename TTopic>
         void GenSub(auto modifier)
@@ -98,6 +113,20 @@ namespace
                                        g.Velocity.X = static_cast<int8_t>(m.x);
                                        g.Velocity.Y = static_cast<int8_t>(m.y);
                                    });
+
+            // 姿态控制单独走 Topic，不复用当前串口写结构，避免改包长导致链路不兼容。
+            Node.GenSubscriber<ly_control_posture>(
+                [this](ly_control_posture::CallbackArg m)
+                {
+                    const auto cmd = m->data;
+                    if (cmd != 0 && !IsValidPosture(cmd)) {
+                        roslog::warn("Invalid /ly/control/posture: %u (expect 0/1/2/3)", cmd);
+                        return;
+                    }
+                    postureCommand_ = cmd;
+                    // 在下位机尚未回传姿态前，先把控制量透传到 /ly/gimbal/posture 便于联调。
+                    PublishPosture(postureCommand_);
+                });
         }
 
         void  PubGimbalData(const GimbalData& data)
@@ -291,10 +320,20 @@ namespace
         }
 
         void PubExtendData(const ExtendData& data) {
-            using topic = ly_me_uwb_yaw;
-            topic::Msg msg;
-            msg.data = data.UWBAngleYaw;
-            Node.Publisher<topic>()->publish(msg);
+            {
+                using topic = ly_me_uwb_yaw;
+                topic::Msg msg;
+                msg.data = data.UWBAngleYaw;
+                Node.Publisher<topic>()->publish(msg);
+            }
+
+            // 约定: ExtendData.Reserve_16 的低 2 bit 为姿态状态(1/2/3)，0 表示未知。
+            // 这样不改报文长度，先做兼容接入。
+            const auto posture_raw = static_cast<std::uint8_t>(data.Reserve_16 & 0x03u);
+            if (IsValidPosture(posture_raw)) {
+                postureState_ = posture_raw;
+                PublishPosture(postureState_);
+            }
         }
 
         void LoopRead()

@@ -50,6 +50,11 @@ namespace BehaviorTree{
             app.RecFireCode.FireStatus = (msg->data & 0b11);
         });
 
+        // ly_gimbal_posture
+        GenSub<ly_gimbal_posture>([](Application& app, auto msg) {
+            app.postureState = msg->data;
+        });
+
         // ly_gimbal_capV
         GenSub<ly_gimbal_capV>([](Application& app, auto msg) {
             app.capV = msg->data;
