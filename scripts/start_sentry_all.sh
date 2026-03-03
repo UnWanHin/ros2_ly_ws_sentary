@@ -6,14 +6,18 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source_ros() {
   if [[ -n "${ROS_DISTRO:-}" ]] && [[ -f "/opt/ros/${ROS_DISTRO}/setup.bash" ]]; then
     # shellcheck disable=SC1090
+    set +u
     source "/opt/ros/${ROS_DISTRO}/setup.bash"
+    set -u
     return
   fi
 
   for distro in humble iron jazzy rolling; do
     if [[ -f "/opt/ros/${distro}/setup.bash" ]]; then
       # shellcheck disable=SC1090
+      set +u
       source "/opt/ros/${distro}/setup.bash"
+      set -u
       return
     fi
   done
@@ -25,7 +29,9 @@ source_ros() {
 source_workspace() {
   if [[ -f "${ROOT_DIR}/install/setup.bash" ]]; then
     # shellcheck disable=SC1091
+    set +u
     source "${ROOT_DIR}/install/setup.bash"
+    set -u
     return
   fi
 
