@@ -424,7 +424,8 @@ namespace
                         break;
 
                     default:
-                        roslog::error("Application::LoopRead: invalid type id({})", m.TypeID);
+                        roslog::error("Application::LoopRead: invalid type id(%u)",
+                                      static_cast<unsigned int>(m.TypeID));
                         break;
                 }
             });
@@ -461,7 +462,36 @@ namespace
             auto node = Node.GetNode();
             rclcpp::Rate rate(250);
             bool useVirtualDevice = false;
+            std::string serialDeviceName{"/dev/ttyACM0"};
+            int serialBaudRate = 115200;
             Node.GetParam<bool>("io_config/use_virtual_device", useVirtualDevice, false);
+            Node.GetParam<std::string>("io_config/device_name", serialDeviceName, std::string{"/dev/ttyACM0"});
+            Node.GetParam<int>("io_config/baud_rate", serialBaudRate, 115200);
+            int postureTypeId = static_cast<int>(postureTxTypeID_);
+            int postureRepeatCount = postureTxRepeatCount_;
+            int postureRepeatIntervalMs = static_cast<int>(postureTxInterval_.count());
+            Node.GetParam<int>("io_config/posture_type_id", postureTypeId, postureTypeId);
+            Node.GetParam<int>("io_config/posture_repeat_count", postureRepeatCount, postureRepeatCount);
+            Node.GetParam<int>("io_config/posture_repeat_interval_ms", postureRepeatIntervalMs, postureRepeatIntervalMs);
+
+            if (postureTypeId < 0 || postureTypeId > 255) {
+                roslog::warn("Invalid posture_type_id=%d, fallback to %u",
+                             postureTypeId, static_cast<unsigned int>(PostureControlTypeID));
+                postureTypeId = static_cast<int>(PostureControlTypeID);
+            }
+            if (postureRepeatCount <= 0) {
+                roslog::warn("Invalid posture_repeat_count=%d, fallback to 3", postureRepeatCount);
+                postureRepeatCount = 3;
+            }
+            if (postureRepeatIntervalMs <= 0) {
+                roslog::warn("Invalid posture_repeat_interval_ms=%d, fallback to 20",
+                             postureRepeatIntervalMs);
+                postureRepeatIntervalMs = 20;
+            }
+
+            postureTxTypeID_ = static_cast<std::uint8_t>(postureTypeId);
+            postureTxRepeatCount_ = postureRepeatCount;
+            postureTxInterval_ = std::chrono::milliseconds(postureRepeatIntervalMs);
             roslog::warn("posture_tx fixed mode: type_id=%u repeat_count=%d repeat_interval_ms=%d",
                          postureTxTypeID_, postureTxRepeatCount_,
                          static_cast<int>(postureTxInterval_.count()));
@@ -470,7 +500,7 @@ namespace
             {
                 if (!DeviceError) DeviceError = true;
                 std::this_thread::sleep_for(1s);
-                if (!Device.Initialize(useVirtualDevice)) continue;
+                if (!Device.Initialize(useVirtualDevice, serialDeviceName, serialBaudRate)) continue;
                 DeviceError = false;
                 postureLastSent_ = 0;
                 if (IsValidPosture(postureCommand_)) {

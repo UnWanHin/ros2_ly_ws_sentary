@@ -142,8 +142,14 @@
     # ----------------------------------------------------
     io_config:
       use_virtual_device: false        # 比赛建议 false；离车调试建议 true
-      device_name: "/dev/ttyACM0"     # 预留字段：当前 gimbal_driver 主程序未读取
-      baud_rate: 115200               # 预留字段：当前 gimbal_driver 主程序未读取
+      device_name: "/dev/ttyACM0"     # gimbal_driver 读取：首选串口设备名
+      baud_rate: 115200               # gimbal_driver 读取：串口波特率
+      posture_type_id: 7              # 姿态下发帧 TypeID（需与下位机协议一致）
+      posture_repeat_count: 3         # 每次姿态指令重发次数
+      posture_repeat_interval_ms: 20  # 姿态重发间隔(ms)
     "io_config/use_virtual_device": false # 比赛建议 false；离车调试建议 true
     "io_config/device_name": "/dev/ttyACM0"
     "io_config/baud_rate": 115200
+    "io_config/posture_type_id": 7
+    "io_config/posture_repeat_count": 3
+    "io_config/posture_repeat_interval_ms": 20

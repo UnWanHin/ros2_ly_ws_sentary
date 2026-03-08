@@ -390,10 +390,33 @@ extract_endpoint_nodes() {
   local info_text="$1"
   local endpoint="$2"
   awk -v endpoint="${endpoint}" '
-    /Endpoint type:/ { mode=$3 }
     /Node name:/ {
-      node=$3
-      if(mode == endpoint){ print node }
+      line=$0
+      sub(/^[[:space:]]*Node name:[[:space:]]*/, "", line)
+      sub(/,[[:space:]]*Node namespace:.*/, "", line)
+      sub(/[[:space:]]+$/, "", line)
+      node=line
+      if (node !~ /^\//) {
+        node="/" node
+      }
+      next
+    }
+    /Endpoint type:/ {
+      mode=$3
+      next
+    }
+    /^[[:space:]]*$/ {
+      if (node != "" && mode == endpoint) {
+        print node
+      }
+      node=""
+      mode=""
+      next
+    }
+    END {
+      if (node != "" && mode == endpoint) {
+        print node
+      }
     }
   ' <<< "${info_text}" | sort -u
 }

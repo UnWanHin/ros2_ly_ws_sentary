@@ -20,7 +20,7 @@ class IODevice {
     boost::asio::io_context IOContext{};
     std::unique_ptr<boost::asio::serial_port> DevicePtr{};
 
-    bool MakeDevice(const std::string_view name) noexcept try {
+    bool MakeDevice(const std::string_view name, const unsigned int baudRate) noexcept try {
 #pragma region serial_port constants
         using baud_rate_type = boost::asio::serial_port::baud_rate;
         using flow_control_type = boost::asio::serial_port::flow_control;
@@ -28,7 +28,7 @@ class IODevice {
         using stop_bits_type = boost::asio::serial_port::stop_bits;
         using character_size_type = boost::asio::serial_port::character_size;
         
-        static const baud_rate_type BaudRate{115200};
+        const baud_rate_type BaudRate{baudRate};
         static const flow_control_type FlowControl{flow_control_type::none};
         static const parity_type Parity{parity_type::none};
         static const stop_bits_type StopBits{stop_bits_type::one};
@@ -49,22 +49,36 @@ class IODevice {
         return true;
     }
     catch (const std::exception &ex) {
-        // 這裡的 log 會顯示連接失敗的原因，例如 "No such file or directory"
-        roslog::error("IODevice::MakeDevice: on device({}), reason: {}", name, ex.what());
+        roslog::error("IODevice::MakeDevice: on device(%s), baud(%u), reason: %s",
+                      std::string(name).c_str(), baudRate, ex.what());
         return false;
     }
 
 public:
     IODevice() noexcept = default;
 
-    bool Initialize(bool useVirtualDevice = false) noexcept try {
-        roslog::warn("use virtual? {}", useVirtualDevice);
+    bool Initialize(bool useVirtualDevice = false,
+                    const std::string& preferredDevice = "",
+                    int baudRate = 115200) noexcept try {
+        const unsigned int selectedBaudRate = baudRate > 0 ? static_cast<unsigned int>(baudRate) : 115200u;
+        if (baudRate <= 0) {
+            roslog::warn("Invalid baud_rate=%d, fallback to 115200", baudRate);
+        }
+        roslog::warn("IODevice::Initialize: use_virtual=%s, preferred_device=%s, baud=%u",
+                     useVirtualDevice ? "true" : "false",
+                     preferredDevice.empty() ? "<auto>" : preferredDevice.c_str(),
+                     selectedBaudRate);
 
         // 實車邏輯：嘗試連接真實串口
         static constexpr auto namelist = {"/dev/ttyACM0", "/dev/ttyACM1", "/dev/ttyACM2"};
         if(!useVirtualDevice){
-            for (const auto &name: namelist)
-                if (MakeDevice(name)) return true;
+            if (!preferredDevice.empty() && MakeDevice(preferredDevice, selectedBaudRate)) {
+                return true;
+            }
+            for (const auto &name: namelist) {
+                if (!preferredDevice.empty() && preferredDevice == name) continue;
+                if (MakeDevice(name, selectedBaudRate)) return true;
+            }
         }
 
         // 虛擬設備邏輯
@@ -89,7 +103,7 @@ public:
             */
 
             for (const auto& name : virtual_ports){
-                if (MakeDevice(name)) {
+                if (MakeDevice(name, selectedBaudRate)) {
                     // [修改] 註解掉 chmod，因為手動創建時已經指定 mode=666
                     /*
                     std::string cmd = "sudo chmod 666 " + std::string(name);
@@ -105,7 +119,7 @@ public:
         return false;
     }
     catch (const std::exception &ex) {
-        roslog::error("IODevice::Initialize: {}", ex.what());
+        roslog::error("IODevice::Initialize: %s", ex.what());
         return false;
     }
 
@@ -123,7 +137,7 @@ public:
     }
     catch (const std::exception &ex) {
         deviceError = true;
-        roslog::error("IODevice::LoopRead: {}", ex.what());
+        roslog::error("IODevice::LoopRead: %s", ex.what());
     }
 
     bool Write(const TWrite &item) noexcept try {
@@ -133,7 +147,7 @@ public:
         return true;
     }
     catch (const std::exception &ex) {
-        roslog::error("IODevice::Write: {}", ex.what());
+        roslog::error("IODevice::Write: %s", ex.what());
         return false;
     }
 
@@ -146,7 +160,7 @@ public:
         return true;
     }
     catch (const std::exception &ex) {
-        roslog::error("IODevice::WriteRaw: {}", ex.what());
+        roslog::error("IODevice::WriteRaw: %s", ex.what());
         return false;
     }
 };

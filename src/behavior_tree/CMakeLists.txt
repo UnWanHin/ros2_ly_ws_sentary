@@ -13,7 +13,48 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # =========================================
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(behaviortree_cpp REQUIRED) # BT v4
+get_filename_component(BTCPP_WS_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}" DIRECTORY)
+get_filename_component(BTCPP_WS_ROOT_DIR "${BTCPP_WS_SRC_DIR}" DIRECTORY)
+set(BTCPP_V4_ROOT "${BTCPP_WS_ROOT_DIR}/third_party/behaviortree_cpp_v4/install"
+  CACHE PATH "Install prefix of pinned BehaviorTree.CPP v4 (defaults to <ws>/third_party/behaviortree_cpp_v4/install)")
+set(BTCPP_V4_CMAKE_DIR_SHARE "${BTCPP_V4_ROOT}/share/behaviortree_cpp/cmake")
+set(BTCPP_V4_CMAKE_DIR_LIB "${BTCPP_V4_ROOT}/lib/cmake/behaviortree_cpp")
+set(BTCPP_V4_CMAKE_PATHS "")
+
+if(EXISTS "${BTCPP_V4_CMAKE_DIR_SHARE}/behaviortree_cppConfig.cmake")
+  list(APPEND BTCPP_V4_CMAKE_PATHS "${BTCPP_V4_CMAKE_DIR_SHARE}")
+endif()
+if(EXISTS "${BTCPP_V4_CMAKE_DIR_LIB}/behaviortree_cppConfig.cmake")
+  list(APPEND BTCPP_V4_CMAKE_PATHS "${BTCPP_V4_CMAKE_DIR_LIB}")
+endif()
+
+if(BTCPP_V4_CMAKE_PATHS STREQUAL "")
+  message(FATAL_ERROR
+    "Pinned BT v4 config not found under:\n"
+    "  - ${BTCPP_V4_CMAKE_DIR_SHARE}\n"
+    "  - ${BTCPP_V4_CMAKE_DIR_LIB}\n"
+    "Please install/copy BehaviorTree.CPP v4 into ${BTCPP_V4_ROOT} first.")
+endif()
+
+find_package(behaviortree_cpp CONFIG REQUIRED
+  PATHS ${BTCPP_V4_CMAKE_PATHS}
+  NO_DEFAULT_PATH
+)
+
+if(NOT DEFINED behaviortree_cpp_VERSION OR behaviortree_cpp_VERSION VERSION_LESS 4.0.0)
+  message(FATAL_ERROR
+    "behavior_tree requires BehaviorTree.CPP v4+, but found version '${behaviortree_cpp_VERSION}'.")
+endif()
+
+message(STATUS "Pinned BehaviorTree.CPP version: ${behaviortree_cpp_VERSION}")
+message(STATUS "Pinned BehaviorTree.CPP root: ${BTCPP_V4_ROOT}")
+if(TARGET behaviortree_cpp::behaviortree_cpp)
+  set(BTCPP_LINK_TARGET behaviortree_cpp::behaviortree_cpp)
+elseif(TARGET BT::behaviortree_cpp)
+  set(BTCPP_LINK_TARGET BT::behaviortree_cpp)
+else()
+  message(FATAL_ERROR "No known BT target found. Expected behaviortree_cpp::behaviortree_cpp or BT::behaviortree_cpp.")
+endif()
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)    # 根據你的要求保留
 find_package(ament_index_cpp REQUIRED)  # 用於相對路徑
@@ -46,11 +87,15 @@ add_executable(${PROJECT_NAME}_node
   ${SRC_FILES}
 )
 
+set_target_properties(${PROJECT_NAME}_node PROPERTIES
+  BUILD_RPATH "${BTCPP_V4_ROOT}/lib"
+  INSTALL_RPATH "${BTCPP_V4_ROOT}/lib"
+)
+
 # 設置頭文件路徑
 target_include_directories(${PROJECT_NAME}_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
-  ${behaviortree_cpp_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS} # 顯式包含 Boost 頭文件路徑
 )
 
@@ -61,7 +106,7 @@ target_link_libraries(${PROJECT_NAME}_node
   fmt::fmt
   Boost::system
   Boost::filesystem
-  behaviortree_cpp::behaviortree_cpp
+  ${BTCPP_LINK_TARGET}
   
   # [關鍵修復] 連結舊專案的 Logger 庫
   # 假設 Logger/CMakeLists.txt 裡定義的 library 名字叫 Utils::Logger
