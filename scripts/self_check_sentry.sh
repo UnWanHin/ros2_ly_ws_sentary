@@ -347,13 +347,17 @@ check_launch_mode_hints() {
   use_video="$(extract_yaml_quoted_key_value "${yaml_file}" 'detector_config/use_video')"
   use_virtual="$(extract_yaml_quoted_key_value "${yaml_file}" 'io_config/use_virtual_device')"
 
-  if [[ "${use_video}" == "false" ]]; then
+  if (( OFFLINE_MODE == 1 )); then
+    pass "Offline launch override: detector_config/use_video will be forced to true."
+  elif [[ "${use_video}" == "false" ]]; then
     warn "Current config requires real camera (detector_config/use_video=false). If offline, set true."
   else
     pass "Current config uses video input (detector_config/use_video=true)."
   fi
 
-  if [[ "${use_virtual}" == "false" ]]; then
+  if (( OFFLINE_MODE == 1 )); then
+    pass "Offline launch override: io_config/use_virtual_device will be forced to true."
+  elif [[ "${use_virtual}" == "false" ]]; then
     warn "Current config requires real serial device (io_config/use_virtual_device=false). If offline, set true."
   else
     pass "Current config uses virtual IO (io_config/use_virtual_device=true)."
@@ -698,6 +702,7 @@ if (( STATIC_ONLY == 0 )); then
   check_node_sub "/gimbal_driver" "/ly/control/angles" hard
   check_node_sub "/gimbal_driver" "/ly/control/firecode" hard
   check_node_sub "/gimbal_driver" "/ly/control/vel" hard
+  check_node_sub "/gimbal_driver" "/ly/control/posture" hard
 
   # detector
   check_node_sub "/detector" "/ly/aa/enable" hard
@@ -729,6 +734,7 @@ if (( STATIC_ONLY == 0 )); then
 
   # behavior_tree inputs
   check_node_sub "/behavior_tree" "/ly/gimbal/angles" hard
+  check_node_sub "/behavior_tree" "/ly/gimbal/posture" hard
   check_node_sub "/behavior_tree" "/ly/game/is_start" hard
   check_node_sub "/behavior_tree" "/ly/game/time_left" hard
   check_node_sub "/behavior_tree" "/ly/me/is_team_red" hard
@@ -739,6 +745,7 @@ if (( STATIC_ONLY == 0 )); then
   # behavior_tree outputs
   check_node_pub "/behavior_tree" "/ly/control/angles" hard
   check_node_pub "/behavior_tree" "/ly/control/firecode" hard
+  check_node_pub "/behavior_tree" "/ly/control/posture" hard
   check_node_pub "/behavior_tree" "/ly/aa/enable" hard
   check_node_pub "/behavior_tree" "/ly/ra/enable" hard
   check_node_pub "/behavior_tree" "/ly/outpost/enable" hard
@@ -748,6 +755,7 @@ if (( STATIC_ONLY == 0 )); then
   print_section "Critical Topic Links"
   check_topic_link "/ly/control/angles" "gimbal_driver/msg/GimbalAngles" "/behavior_tree" "/gimbal_driver" hard
   check_topic_link "/ly/control/firecode" "std_msgs/msg/UInt8" "/behavior_tree" "/gimbal_driver" hard
+  check_topic_link "/ly/control/posture" "std_msgs/msg/UInt8" "/behavior_tree" "/gimbal_driver" hard
 
   # 兼容鏈路檢查：電控側仍訂閱 /ly/control/vel，若沒有發布者視為缺口
   check_topic_link "/ly/control/vel" "gimbal_driver/msg/Vel" "/behavior_tree" "/gimbal_driver" hard
@@ -762,6 +770,7 @@ if (( STATIC_ONLY == 0 )); then
   check_topic_link "/ly/detector/armors" "auto_aim_common/msg/Armors" "/detector" "/tracker_solver,/behavior_tree" warn
   check_topic_link "/ly/tracker/results" "auto_aim_common/msg/Trackers" "/tracker_solver" "/predictor_node" warn
   check_topic_link "/ly/predictor/target" "auto_aim_common/msg/Target" "/predictor_node" "/behavior_tree" warn
+  check_topic_link "/ly/gimbal/posture" "std_msgs/msg/UInt8" "/gimbal_driver" "/behavior_tree" warn
   check_topic_link "/ly/ra/angle_image" "auto_aim_common/msg/AngleImage" "/detector" "${BUFF_NODE:-/buff_hitter}" warn
   check_topic_link "/ly/buff/target" "auto_aim_common/msg/Target" "${BUFF_NODE:-/buff_hitter}" "/behavior_tree" warn
   check_topic_link "/ly/outpost/armors" "auto_aim_common/msg/Armors" "/detector" "${OUTPOST_NODE:-/outpost_hitter}" warn

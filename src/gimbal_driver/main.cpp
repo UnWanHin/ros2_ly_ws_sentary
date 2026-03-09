@@ -171,8 +171,7 @@ namespace
                                            }
                                            postureCommand_ = cmd;
                                            g.Posture = cmd;
-                                           // 在下位机尚未回传姿态前，先把控制量透传到 /ly/gimbal/posture 便于联调。
-                                           PublishPosture(postureCommand_);
+                                           // /ly/gimbal/posture 仅由下位机回传驱动，避免命令回环掩盖真实执行状态。
                                            if (cmd == 0) {
                                                posturePendingRepeat_ = 0;
                                                posturePendingToSend_ = 0;

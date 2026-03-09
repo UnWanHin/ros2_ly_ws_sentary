@@ -1,0 +1,1 @@
+ignore vendor install tree during workspace package discovery

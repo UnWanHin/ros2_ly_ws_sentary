@@ -128,7 +128,6 @@ void Application::RuntimeGuardLoop() {
         if (last_loop_ns > 0 &&
             (now_ns - last_loop_ns) > static_cast<std::int64_t>(kRuntimeLoopStallMs) * kNanoPerMilli) {
             RequestSoftRecovery(RuntimeFaultCode::LoopStall);
-            PublishSafeControl("loop_stall", true);
         }
 
         if (runtimeTickInProgress_.load(std::memory_order_relaxed)) {
@@ -136,7 +135,6 @@ void Application::RuntimeGuardLoop() {
             if (tick_start_ns > 0 &&
                 (now_ns - tick_start_ns) > static_cast<std::int64_t>(kRuntimeTickStallMs) * kNanoPerMilli) {
                 RequestSoftRecovery(RuntimeFaultCode::TickStall);
-                PublishSafeControl("tick_stall", true);
             }
         }
 

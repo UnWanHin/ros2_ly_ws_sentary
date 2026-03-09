@@ -24,17 +24,18 @@ ros2 launch <pkg> <launch_file> --show-args
 ### A) 感知链路调试（不控火）
 
 ```bash
-ros2 launch detector auto_aim.launch.py
+ros2 launch detector auto_aim.launch.py offline:=true
 ```
 
 - 启动：`gimbal_driver + detector + tracker_solver + predictor`。
 - 结果：只会产出检测/预测数据，不会主动发布 `/ly/control/firecode`。
+- `offline:=true` 会强制虚拟串口与视频回放覆盖，无需反复改 YAML。
 
 ### B) 火控联调（离车推荐）
 
 ```bash
 # 终端 1
-ros2 launch detector auto_aim.launch.py
+ros2 launch detector auto_aim.launch.py offline:=true
 
 # 终端 2
 ros2 run detector mapper_node \
@@ -47,6 +48,7 @@ ros2 run detector mapper_node \
 
 - `mapper_node` 默认仅接管 `/ly/control/angles`、`/ly/control/firecode` 与 `/ly/bt/target`。
 - 队伍颜色默认不由 mapper 发布（`--publish-team false`），仍由 `gimbal_driver` 的裁判链路提供。
+- 联调时确保单控制源：不要与 `behavior_tree` 同时写 `/ly/control/angles`、`/ly/control/firecode`。
 
 ### C) 决策联调（behavior_tree）
 
@@ -63,6 +65,7 @@ ros2 launch behavior_tree sentry_all.launch.py
 - 该开关仅影响 detector 的敌我颜色过滤逻辑：
   - `debug_mode=true + debug_team_blue=true`：强制按蓝方视角过滤。
   - `debug_mode=true + debug_team_blue=false`：强制按红方视角过滤。
+- 当前默认值建议为：`debug_mode=false`、`debug_team_blue=false`（优先使用裁判队色）。
 - 它不是“全系统调试模式”，不会控制 behavior_tree 的开赛等待流程。
 
 ## 1) gimbal_driver 单测

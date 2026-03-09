@@ -54,13 +54,13 @@
     # 是否开启调试模式
     # 比赛建议: false
     # 调试建议: true（仅在需要详细日志时开启）
-    "detector_config.debug_mode": true
-    "detector_config/debug_mode": true
+    "detector_config.debug_mode": false
+    "detector_config/debug_mode": false
     # 颜色调试开关
     # 比赛建议: 按真实敌我颜色设置（通常 false）
     # 调试建议: 误识别时临时切换排查
-    "detector_config.debug_team_blue": true
-    "detector_config/debug_team_blue": true 
+    "detector_config.debug_team_blue": false
+    "detector_config/debug_team_blue": false 
     
     # 图像显示相关
     # 比赛建议: web_show=false, show=false, draw=false/true(看算力)

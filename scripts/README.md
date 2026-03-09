@@ -95,6 +95,8 @@
 - 若使用 `--launch` 且失败，脚本会自动输出 `Launch Diagnosis`，包含崩溃签名与最近日志尾部。
 - 运行前会提示当前配置是否要求“真实相机/真实串口”，避免离车时误用比赛参数。
 - 使用 `--offline` 时，会自动传 `offline:=true` 给 launch，避免每次手改 YAML。
+- 运行时链路检查已覆盖 posture 合约：`/ly/control/posture` 与 `/ly/gimbal/posture`。
+- 若 `ros2 run` 直接报 `Segmentation fault` 且日志里有 `Failed opening file ~/.ros/log/... Permission denied`，先修复日志目录权限或临时设置 `export ROS_LOG_DIR=/tmp/ros2_logs` 再复测。
 
 ## 比赛/调试开关位置
 

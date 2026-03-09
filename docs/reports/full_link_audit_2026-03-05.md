@@ -29,8 +29,9 @@
 
 ## 4. 未完全落地/需特别注意项
 
-1. 姿态控制未下发到串口协议  
-   当前 `/ly/control/posture` 仅在 ROS 内回环到 `/ly/gimbal/posture`，`GimbalControlData` 不含 posture 字段，未真正发到下位机。
+1. （已闭环）姿态控制已并入串口主控制幀  
+   当前 `GimbalControlData` 已包含 `Posture` 字段（14B 主幀），`/ly/control/posture` 会下发到下位机；  
+   `/ly/gimbal/posture` 语义为下位机回读（来源 `ExtendData.Reserve_16` 低 2 bit），不再建议作为命令镜像使用。
 
 2. `/ly/control/vel` 由 `behavior_tree` 速度桥接发布  
    当前链路为：`/ly/navi/vel -> behavior_tree -> /ly/control/vel -> gimbal_driver`。
