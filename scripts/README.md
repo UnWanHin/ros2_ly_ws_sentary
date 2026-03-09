@@ -68,6 +68,20 @@
 ./scripts/start_sentry_all.sh
 ```
 
+二次启动卡住时，优先用清理模式（默认已开启）：
+
+```bash
+./scripts/start_sentry_all.sh --cleanup-existing
+```
+
+脚本会把 `ROS_LOG_DIR` 默认指向 `/tmp/ros2_logs`，避免 `~/.ros/log` 权限异常导致 launch 直接失败。
+
+若你明确要保留当前正在跑的进程，可禁用清理并在冲突时失败退出：
+
+```bash
+./scripts/start_sentry_all.sh --no-cleanup-existing
+```
+
 ## 结果判定
 
 - `FAIL: 0`：通过。

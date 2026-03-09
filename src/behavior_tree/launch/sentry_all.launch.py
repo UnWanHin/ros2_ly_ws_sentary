@@ -2,7 +2,7 @@
 import os
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, LogInfo, Shutdown
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -44,6 +44,11 @@ def generate_launch_description():
         DeclareLaunchArgument("use_behavior_tree", default_value="true"),
     ]
 
+    info_logs = [
+        LogInfo(msg=["[sentry_all] config: ", config_file]),
+        LogInfo(msg=["[sentry_all] output: ", output]),
+    ]
+
     nodes = [
         Node(
             package="gimbal_driver",
@@ -51,6 +56,7 @@ def generate_launch_description():
             name="gimbal_driver",
             output=output,
             parameters=[config_file],
+            on_exit=Shutdown(reason="gimbal_driver exited"),
             condition=IfCondition(use_gimbal),
         ),
         Node(
@@ -59,6 +65,7 @@ def generate_launch_description():
             name="detector",
             output=output,
             parameters=[config_file],
+            on_exit=Shutdown(reason="detector exited"),
             condition=IfCondition(use_detector),
         ),
         Node(
@@ -67,6 +74,7 @@ def generate_launch_description():
             name="tracker_solver",
             output=output,
             parameters=[config_file],
+            on_exit=Shutdown(reason="tracker_solver exited"),
             condition=IfCondition(use_tracker),
         ),
         Node(
@@ -75,6 +83,7 @@ def generate_launch_description():
             name="predictor_node",
             output=output,
             parameters=[config_file],
+            on_exit=Shutdown(reason="predictor_node exited"),
             condition=IfCondition(use_predictor),
         ),
         Node(
@@ -83,6 +92,7 @@ def generate_launch_description():
             name="outpost_hitter",
             output=output,
             parameters=[config_file],
+            on_exit=Shutdown(reason="outpost_hitter exited"),
             condition=IfCondition(use_outpost),
         ),
         Node(
@@ -91,6 +101,7 @@ def generate_launch_description():
             name="buff_hitter",
             output=output,
             parameters=[config_file],
+            on_exit=Shutdown(reason="buff_hitter exited"),
             condition=IfCondition(use_buff),
         ),
         Node(
@@ -98,9 +109,9 @@ def generate_launch_description():
             executable="behavior_tree_node",
             name="behavior_tree",
             output=output,
-            emulate_tty=True,
+            on_exit=Shutdown(reason="behavior_tree exited"),
             condition=IfCondition(use_behavior_tree),
         ),
     ]
 
-    return LaunchDescription(launch_args + nodes)
+    return LaunchDescription(launch_args + info_logs + nodes)

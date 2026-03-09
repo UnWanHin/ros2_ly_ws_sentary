@@ -1,31 +1,62 @@
 #!/usr/bin/env python3
 import os
+
 from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, LogInfo, Shutdown
+from launch.conditions import IfCondition
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
+
 def generate_launch_description():
-    config_file = os.path.join(
-        get_package_share_directory('detector'),
-        'config',
-        'auto_aim_config.yaml'
-    )
-    
-    print(f"\033[92m[能量機關模式] 載入配置: {config_file}\033[0m")
-    
-    return LaunchDescription([
+    detector_share = get_package_share_directory("detector")
+    default_config_file = os.path.join(detector_share, "config", "auto_aim_config.yaml")
+
+    config_file = LaunchConfiguration("config_file")
+    output = LaunchConfiguration("output")
+    use_gimbal = LaunchConfiguration("use_gimbal")
+    use_buff = LaunchConfiguration("use_buff")
+
+    launch_args = [
+        DeclareLaunchArgument(
+            "config_file",
+            default_value=default_config_file,
+            description="Shared YAML config file for buff chain.",
+        ),
+        DeclareLaunchArgument(
+            "output",
+            default_value="screen",
+            description="ROS node output mode: screen or log.",
+        ),
+        DeclareLaunchArgument("use_gimbal", default_value="true"),
+        DeclareLaunchArgument("use_buff", default_value="true"),
+    ]
+
+    info_logs = [
+        LogInfo(msg=["[buff] config: ", config_file]),
+        LogInfo(msg=["[buff] output: ", output]),
+    ]
+
+    nodes = [
         Node(
-            package='gimbal_driver',
-            executable='gimbal_driver_node',
-            name='gimbal_driver',
-            output='screen',
-            parameters=[config_file]
+            package="gimbal_driver",
+            executable="gimbal_driver_node",
+            name="gimbal_driver",
+            output=output,
+            parameters=[config_file],
+            on_exit=Shutdown(reason="gimbal_driver exited"),
+            condition=IfCondition(use_gimbal),
         ),
         Node(
-            package='buff_hitter',
-            executable='buff_hitter_node',
-            name='buff_hitter',
-            output='screen',
-            parameters=[config_file]
+            package="buff_hitter",
+            executable="buff_hitter_node",
+            name="buff_hitter",
+            output=output,
+            parameters=[config_file],
+            on_exit=Shutdown(reason="buff_hitter exited"),
+            condition=IfCondition(use_buff),
         ),
-    ])
+    ]
+
+    return LaunchDescription(launch_args + info_logs + nodes)

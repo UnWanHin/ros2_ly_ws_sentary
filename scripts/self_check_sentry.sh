@@ -645,7 +645,7 @@ if (( STATIC_ONLY == 0 && AUTO_LAUNCH == 1 )); then
   info "Launching stack by scripts/start_sentry_all.sh (log: ${LAUNCH_LOG})"
   (
     cd "${ROOT_DIR}"
-    ./scripts/start_sentry_all.sh "${LAUNCH_ARGS[@]}"
+    ./scripts/start_sentry_all.sh --cleanup-existing "${LAUNCH_ARGS[@]}"
   ) >"${LAUNCH_LOG}" 2>&1 &
   LAUNCH_PID="$!"
   sleep "${WAIT_SECONDS}"

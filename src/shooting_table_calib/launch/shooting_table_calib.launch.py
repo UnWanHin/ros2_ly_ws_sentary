@@ -1,49 +1,78 @@
 #!/usr/bin/env python3
-from launch import LaunchDescription
-from launch_ros.actions import Node
-from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
-from ament_index_python.packages import get_package_share_directory
 import os
 
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, LogInfo, Shutdown
+from launch.conditions import IfCondition
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
+from ament_index_python.packages import get_package_share_directory
+
+
 def generate_launch_description():
-    # 獲取套件路徑
-    detector_share = get_package_share_directory('detector')
-    
-    # 參數檔案路徑
-    config_file = os.path.join(detector_share, 'config', 'auto_aim_config.yaml')
-    
-    return LaunchDescription([
-        # gimbal_driver 節點
-        Node(
-            package='gimbal_driver',
-            executable='gimbal_driver_node',
-            name='gimbal_driver',
-            output='log',
-            parameters=[config_file]
+    detector_share = get_package_share_directory("detector")
+    default_config_file = os.path.join(detector_share, "config", "auto_aim_config.yaml")
+
+    config_file = LaunchConfiguration("config_file")
+    output = LaunchConfiguration("output")
+    use_gimbal = LaunchConfiguration("use_gimbal")
+    use_calib = LaunchConfiguration("use_calib")
+    team_red = LaunchConfiguration("team_red")
+    web_show = LaunchConfiguration("web_show")
+    draw_image = LaunchConfiguration("draw_image")
+
+    launch_args = [
+        DeclareLaunchArgument(
+            "config_file",
+            default_value=default_config_file,
+            description="Shared YAML config file for calibration chain.",
         ),
-        
-        # shooting_table_calib 節點
+        DeclareLaunchArgument(
+            "output",
+            default_value="screen",
+            description="ROS node output mode: screen or log.",
+        ),
+        DeclareLaunchArgument("use_gimbal", default_value="true"),
+        DeclareLaunchArgument("use_calib", default_value="true"),
+        DeclareLaunchArgument("team_red", default_value="true"),
+        DeclareLaunchArgument("web_show", default_value="true"),
+        DeclareLaunchArgument("draw_image", default_value="true"),
+    ]
+
+    info_logs = [
+        LogInfo(msg=["[shooting_table_calib] config: ", config_file]),
+        LogInfo(msg=["[shooting_table_calib] output: ", output]),
+    ]
+
+    nodes = [
         Node(
-            package='shooting_table_calib',
-            executable='shooting_table_calib_node',
-            name='shooting_table_calib',
-            output='screen',
+            package="gimbal_driver",
+            executable="gimbal_driver_node",
+            name="gimbal_driver",
+            output=output,
+            parameters=[config_file],
+            on_exit=Shutdown(reason="gimbal_driver exited"),
+            condition=IfCondition(use_gimbal),
+        ),
+        Node(
+            package="shooting_table_calib",
+            executable="shooting_table_calib_node",
+            name="shooting_table_calib",
+            output=output,
             parameters=[
                 config_file,
                 {
-                    # detector 配置路徑 (保留原始接口)
-                    'detector_config.classifier_path': os.path.join(detector_share, 'Extras', 'classifier.xml'),
-                    'detector_config.detector_path': os.path.join(detector_share, 'Extras', 'armor_detector_model.xml'),
-                    'detector_config.car_model_path': os.path.join(detector_share, 'Extras', 'car_detector_model.xml'),
-                    
-                    # 隊伍顏色 (保留原始接口)
-                    'team_red': True,
-                    
-                    # 顯示設置 (保留原始接口)
-                    'web_show': True,
-                    'draw_image': True,
+                    "detector_config.classifier_path": os.path.join(detector_share, "Extras", "classifier.xml"),
+                    "detector_config.detector_path": os.path.join(detector_share, "Extras", "armor_detector_model.xml"),
+                    "detector_config.car_model_path": os.path.join(detector_share, "Extras", "car_detector_model.xml"),
+                    "team_red": team_red,
+                    "web_show": web_show,
+                    "draw_image": draw_image,
                 }
-            ]
+            ],
+            on_exit=Shutdown(reason="shooting_table_calib exited"),
+            condition=IfCondition(use_calib),
         ),
-    ])
+    ]
+
+    return LaunchDescription(launch_args + info_logs + nodes)

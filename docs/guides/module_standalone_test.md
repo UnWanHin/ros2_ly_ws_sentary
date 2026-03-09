@@ -47,6 +47,27 @@ ros2 launch gimbal_driver gimbal_driver.launch
 ros2 launch detector auto_aim.launch.py
 ```
 
+查看可选参数（含 mapper 与隔离话题）：
+
+```bash
+ros2 launch detector auto_aim.launch.py --show-args
+```
+
+可选：同一条 launch 内启动 mapper（默认隔离到 debug 控制话题，不直接驱动云台）：
+
+```bash
+ros2 launch detector auto_aim.launch.py use_mapper:=true
+```
+
+若要让 mapper 直接驱动云台（仅限单控制源联调）：
+
+```bash
+ros2 launch detector auto_aim.launch.py \
+  use_mapper:=true \
+  mapper_angles_topic:=/ly/control/angles \
+  mapper_firecode_topic:=/ly/control/firecode
+```
+
 打符链路：
 
 ```bash
@@ -105,11 +126,24 @@ python3 src/detector/script/fire_flip_test.py --start-detector true --params-fil
 python3 src/detector/script/mapper_node.py --target-id 6 --enable-fire true --auto-fire true
 ```
 
+建议联调时同时观察控制话题发布者，避免多写冲突导致云台抽动：
+
+```bash
+ros2 topic info /ly/control/angles -v
+ros2 topic info /ly/control/firecode -v
+```
+
+若发布者超过 1 个（例如 `behavior_tree` 与 `mapper_node` 同时在写），先停掉其中一个控制源。
+
 ## 备注
 
 - 日常整链路仍建议使用：
   `ros2 launch behavior_tree sentry_all.launch.py`
 - 单测时若出现参数不生效，优先检查是否正确加载 `detector/config/auto_aim_config.yaml`。
+- 若出现“第一次正常、第二次卡住”，先检查是否有残留控制源：
+  - `ros2 topic info /ly/control/angles -v`
+  - `ros2 topic info /ly/control/firecode -v`
+  - `pgrep -af "gimbal_driver_node|detector_node|tracker_solver_node|predictor_node|behavior_tree_node|mapper_node|fire_flip_test"`
 - 统一自检入口（推荐）：
   - 离车：`./scripts/self_check_pc.sh`
   - 上车：`./scripts/self_check_robot.sh`

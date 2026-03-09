@@ -4,9 +4,11 @@
 #include "httplib.h"
 #include <mutex>
 #include <thread>
+#include <chrono>
 #include <vector>
 #include <memory>
 #include <iostream>
+#include <atomic>
 
 class VideoStreamer {
 public:
@@ -14,22 +16,39 @@ public:
 
     // 初始化服务器（需要在程序启动时调用一次）
     static void init() {
-        if (!initialized_) {
-            server_ = std::make_unique<httplib::Server>();
-            server_running_ = true;
-            server_thread_ = std::thread(startServer);
-            initialized_ = true;
+        std::lock_guard<std::mutex> lock(lifecycle_mutex_);
+        if (initialized_) {
+            return;
         }
+        server_ = std::make_unique<httplib::Server>();
+        server_running_.store(true);
+        server_thread_ = std::thread(startServer);
+        initialized_ = true;
     }
 
     // 清理资源（程序退出前调用）
     static void cleanup() {
-        server_running_ = false;
+        {
+            std::lock_guard<std::mutex> lock(lifecycle_mutex_);
+            if (!initialized_) {
+                return;
+            }
+            server_running_.store(false);
+            if (server_) {
+                server_->stop();
+            }
+        }
+
         if (server_thread_.joinable()) {
             server_thread_.join();
         }
-        server_.reset();
-        initialized_ = false;
+
+        {
+            std::lock_guard<std::mutex> lock(lifecycle_mutex_);
+            current_frame_.clear();
+            server_.reset();
+            initialized_ = false;
+        }
     }
 
     // 设置当前帧数据
@@ -48,11 +67,21 @@ public:
 private:
     // 服务器启动函数，供线程调用
     static void startServer() {
+        auto* server = server_.get();
+        if (!server) {
+            std::cerr << "[VideoStreamer] server is null, skip start." << std::endl;
+            return;
+        }
+
         // 设置视频流接口
-        server_->Get("/stream", [](const httplib::Request& req, httplib::Response& res) {
+        server->Get("/stream", [](const httplib::Request& req, httplib::Response& res) {
             res.set_chunked_content_provider(
                 "multipart/x-mixed-replace; boundary=frame",
                 [](size_t offset, httplib::DataSink& sink) -> bool {
+                    if (!server_running_.load()) {
+                        return false;
+                    }
+
                     std::vector<uchar> frame_data;
                     {
                         std::lock_guard<std::mutex> lock(frame_mutex_);
@@ -65,12 +94,16 @@ private:
                         sink.write(header.data(), header.size());
                         sink.write(reinterpret_cast<const char*>(frame_data.data()), frame_data.size());
                     }
-                    return true;
+
+                    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                    return server_running_.load();
                 }
             );
             });
         std::cout << "Server started at http://" << local_ip_.c_str() << ":" << port_ << "/stream" << std::endl;
-        server_->listen(local_ip_.c_str(), port_);
+        if (!server->listen(local_ip_.c_str(), port_)) {
+            std::cerr << "[VideoStreamer] listen failed at " << local_ip_ << ":" << port_ << std::endl;
+        }
     }
 
 private:
@@ -79,9 +112,10 @@ private:
     inline static int jpeg_quality_ = 50;
     inline static std::unique_ptr<httplib::Server> server_;
     inline static std::thread server_thread_;
+    inline static std::mutex lifecycle_mutex_;
     inline static std::mutex frame_mutex_;
     inline static std::vector<uchar> current_frame_;
-    inline static bool server_running_ = false;
+    inline static std::atomic_bool server_running_{false};
     inline static bool initialized_ = false;
 };
 
