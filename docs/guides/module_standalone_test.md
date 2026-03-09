@@ -50,6 +50,30 @@ ros2 run detector mapper_node \
 - 队伍颜色默认不由 mapper 发布（`--publish-team false`），仍由 `gimbal_driver` 的裁判链路提供。
 - 联调时确保单控制源：不要与 `behavior_tree` 同时写 `/ly/control/angles`、`/ly/control/firecode`。
 
+可直接使用脚本一键拉起（默认 `fire` 模式）：
+
+```bash
+./scripts/start_autoaim_debug.sh
+```
+
+仅感知链（不控火）：
+
+```bash
+./scripts/start_autoaim_debug.sh --mode perception
+```
+
+### E) BT 外配置化功能测试（单控制源）
+
+```bash
+./scripts/feature_test/run_feature_test.sh
+```
+
+- 配置文件：`scripts/config/sentry_feature_test.yaml`
+- 当前 Phase 1 支持：
+  - 云台：`armor`、`scan`
+  - 底盘：`velocity`
+- 默认拒绝与 `/behavior_tree` 并行控制；若检测到 `/ly/control/*` 多发布者会直接退出。
+
 ### C) 决策联调（behavior_tree）
 
 ```bash

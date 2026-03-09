@@ -88,6 +88,58 @@
 ./scripts/start_sentry_all.sh --no-cleanup-existing
 ```
 
+## 5. `start_autoaim_debug.sh`（auto_aim + mapper 联调）
+
+用途：
+- 面向“感知链/火控链”拆分联调，不拉起 behavior_tree。
+- 支持三种模式：`perception`（仅感知）、`mapper`（仅 mapper）、`fire`（感知+mapper，默认）。
+- 默认 `--offline`，并带残留进程清理、单控制源保护（防止与 behavior_tree 同时写 control 话题）。
+
+常用命令：
+
+```bash
+# 默认：感知链 + mapper（火控联调）
+./scripts/start_autoaim_debug.sh
+
+# 仅感知链（不控火）
+./scripts/start_autoaim_debug.sh --mode perception
+
+# 仅 mapper（要求感知链已启动）
+./scripts/start_autoaim_debug.sh --mode mapper
+
+# 指定 mapper 目标优先级与回退目标
+./scripts/start_autoaim_debug.sh --target-priority "6,3,4,5" --target-id 6
+
+# 在线模式（不传 offline:=true）
+./scripts/start_autoaim_debug.sh --online
+```
+
+## 6. `feature_test/run_feature_test.sh`（BT 外功能测试框架，单控制源）
+
+用途：
+- 使用单个配置文件启动“云台/底盘”功能测试，运行在 `behavior_tree` 外。
+- 默认启用“单控制源保护”：检测到 `/behavior_tree` 或控制话题多发布者时拒绝接管。
+
+默认配置文件：
+- `scripts/config/sentry_feature_test.yaml`
+
+常用命令：
+
+```bash
+# 按配置运行（默认是 gimbal armor）
+./scripts/feature_test/run_feature_test.sh
+
+# 只预览命令，不执行
+./scripts/feature_test/run_feature_test.sh --dry-run
+
+# 指定配置文件
+./scripts/feature_test/run_feature_test.sh --config ./scripts/config/sentry_feature_test.yaml
+```
+
+当前 Phase 1 支持：
+- 云台：`armor`、`scan`
+- 底盘：`velocity`
+
 ## 结果判定
 
 - `FAIL: 0`：通过。
