@@ -63,6 +63,13 @@
 - `ExecuteProtectedStrategy` -> `SetPositionProtect()`
 - `ExecuteNaviTestStrategy` -> `SetPositionNaviTest()`
 
+### 2.3 當前「調試模式」邊界（重要）
+
+- `behavior_tree` 啟動後，會先 `WaitBeforeGame()`，再在 `WaitForGameStart()` 等待 `/ly/game/is_start=true`。
+- `Application::CheckDebug()` 只覆蓋 `AimMode`（例如強制 Buff / Outpost），不會跳過開賽等待。
+- `detector_config.debug_mode/debug_team_blue` 只影響 detector 的敵我顏色過濾，不是全鏈路總開關。
+- 離車環境無穩定裁判數據時，建議使用 `detector + mapper_node` 做火控聯調。
+
 ---
 
 ## 3. `SetPosition` 現在是什麼狀態
@@ -132,6 +139,8 @@ BT 節點實際調用的就是這些函數。
 - `detector_config/debug_team_blue`
 - `detector_config/use_video`
 - `detector_config/use_ros_bag`
+
+補充：`debug_mode/debug_team_blue` 僅影響 detector 顏色過濾；不控制 behavior_tree 的啟停或開賽等待。
 
 3. PnP / 外參（影響角度解算）
 - `solver_config/camera_offset`
@@ -234,7 +243,17 @@ ros2 topic hz /ly/detector/armors
 - `buff_hitter`
 - `behavior_tree`
 
-快速火控測試請另起終端按需啟動 `mapper_node.py` 或 `fire_flip_test.py`，默認不隨 `sentry_all` 自動啟動。
+快速火控測試請另起終端按需啟動 `mapper_node` 或 `fire_flip_test`，默認不隨 `sentry_all` 自動啟動。
+
+示例（mapper 火控聯調）：
+```bash
+ros2 run detector mapper_node \
+  --target-priority 6,3,4,5 \
+  --target-id 6 \
+  --publish-team false \
+  --enable-fire true \
+  --auto-fire true
+```
 
 ### 8.2 常用參數
 

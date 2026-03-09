@@ -19,6 +19,52 @@ mkdir -p ${ROS_LOG_DIR}
 ros2 launch <pkg> <launch_file> --show-args
 ```
 
+## 调试模式现状（按当前代码）
+
+### A) 感知链路调试（不控火）
+
+```bash
+ros2 launch detector auto_aim.launch.py
+```
+
+- 启动：`gimbal_driver + detector + tracker_solver + predictor`。
+- 结果：只会产出检测/预测数据，不会主动发布 `/ly/control/firecode`。
+
+### B) 火控联调（离车推荐）
+
+```bash
+# 终端 1
+ros2 launch detector auto_aim.launch.py
+
+# 终端 2
+ros2 run detector mapper_node \
+  --target-priority 6,3,4,5 \
+  --target-id 6 \
+  --publish-team false \
+  --enable-fire true \
+  --auto-fire true
+```
+
+- `mapper_node` 默认仅接管 `/ly/control/angles`、`/ly/control/firecode` 与 `/ly/bt/target`。
+- 队伍颜色默认不由 mapper 发布（`--publish-team false`），仍由 `gimbal_driver` 的裁判链路提供。
+
+### C) 决策联调（behavior_tree）
+
+```bash
+ros2 launch behavior_tree sentry_all.launch.py
+```
+
+- `behavior_tree` 在进入主循环前会等待 `/ly/game/is_start`，未开赛时会停在等待阶段。
+- `Application::CheckDebug()` 只覆盖 `AimMode`（例如强制 Buff/Outpost），不负责跳过开赛等待。
+- 若离车环境没有稳定裁判数据，优先使用模式 A/B 做调试。
+
+### D) `detector_config.debug_mode` 的真实作用
+
+- 该开关仅影响 detector 的敌我颜色过滤逻辑：
+  - `debug_mode=true + debug_team_blue=true`：强制按蓝方视角过滤。
+  - `debug_mode=true + debug_team_blue=false`：强制按红方视角过滤。
+- 它不是“全系统调试模式”，不会控制 behavior_tree 的开赛等待流程。
+
 ## 1) gimbal_driver 单测
 
 推荐入口（Python launch）：
@@ -120,10 +166,24 @@ python3 src/detector/script/fire_flip_test.py --fire-hz 8.0
 python3 src/detector/script/fire_flip_test.py --start-detector true --params-file src/detector/config/auto_aim_config.yaml
 ```
 
-目标映射工具（`/ly/predictor/target` -> `/ly/control/angles`）：
+目标映射工具（`/ly/predictor/target` -> `/ly/control/angles`，并发布 `/ly/bt/target` 供目标类型选择）：
 
 ```bash
-python3 src/detector/script/mapper_node.py --target-id 6 --enable-fire true --auto-fire true
+ros2 run detector mapper_node \
+  --target-priority 6,3,4,5 \
+  --target-id 6 \
+  --publish-team false \
+  --enable-fire true \
+  --auto-fire true
+```
+
+说明：
+- 默认 `--publish-team false`，队伍颜色由 `gimbal_driver`（裁判系统）发布，避免与 mapper 冲突。
+- `--target-priority` 为目标类型优先级（按顺序命中当前可见类型），`--target-id` 为回退目标。
+- 若离线无裁判数据需临时注入队伍颜色，可显式开启：
+
+```bash
+ros2 run detector mapper_node --publish-team true --red true
 ```
 
 建议联调时同时观察控制话题发布者，避免多写冲突导致云台抽动：

@@ -23,7 +23,12 @@ source install/setup.bash
 ros2 launch detector auto_aim.launch.py
 
 # 終端 2: 啟動測試控制（有目標才翻轉開火）
-python3 src/detector/script/mapper_node.py --target-id 6 --enable-fire true --auto-fire true
+ros2 run detector mapper_node \
+  --target-priority 6,3,4,5 \
+  --target-id 6 \
+  --publish-team false \
+  --enable-fire true \
+  --auto-fire true
 
 # 或純火控翻轉壓測（不依賴目標）
 python3 src/detector/script/fire_flip_test.py --fire-hz 8.0
@@ -40,6 +45,7 @@ python3 src/detector/script/fire_flip_test.py --fire-hz 8.0
 - ✅ 檢測到有效目標立即開火
 - ✅ 無需 behavior_tree 決策
 - ✅ 適合快速測試瞄準和開火功能
+- ✅ 隊伍顏色默認由 `gimbal_driver`（裁判鏈路）提供，`mapper_node` 默認不覆蓋
 - ⚠️ 沒有智能決策（不考慮血量、彈藥等）
 
 ---
@@ -71,6 +77,7 @@ ros2 launch behavior_tree behavior_tree.launch.py
 - ✅ 根據血量、彈藥、遊戲狀態決策
 - ✅ 支持目標優先級選擇
 - ✅ 支持模式自動切換（自瞄/前哨/能量機關）
+- ⚠️ `behavior_tree` 進主循環前會等待 `/ly/game/is_start=true`
 - ⚠️ 需要 behavior_tree 決策模塊完整實現
 
 ---
@@ -249,7 +256,7 @@ pkill -f behavior_tree_node
 2. **啟動感知鏈路 + 測試節點**:
 ```bash
 ros2 launch detector auto_aim.launch.py
-python3 src/detector/script/mapper_node.py --target-id 6 --enable-fire true --auto-fire true
+ros2 run detector mapper_node --target-priority 6,3,4,5 --target-id 6 --publish-team false --enable-fire true --auto-fire true
 ```
 
 ---
@@ -288,7 +295,7 @@ source install/setup.bash
 **測試模式**:
 ```bash
 ros2 launch detector auto_aim.launch.py
-python3 src/detector/script/mapper_node.py --target-id 6 --enable-fire true --auto-fire true
+ros2 run detector mapper_node --target-priority 6,3,4,5 --target-id 6 --publish-team false --enable-fire true --auto-fire true
 ```
 
 **正常模式**:
