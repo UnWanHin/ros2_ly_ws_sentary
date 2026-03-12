@@ -87,6 +87,8 @@ namespace BehaviorTree{
         // ly_game_all
         GenSub<ly_game_all>([](Application& app, auto msg) {
             app.myselfHealth = msg->selfhealth;
+            app.hasReceivedMyselfHealth_ = true;
+            app.lastMyselfHealthRxTime = std::chrono::steady_clock::now();
         });
 
         // ly_enemy_op_hp
@@ -112,6 +114,8 @@ namespace BehaviorTree{
         // ly_me_ammo_left
         GenSub<ly_me_ammo_left>([](Application& app, auto msg) {
             app.ammoLeft = msg->data;
+            app.hasReceivedAmmoLeft_ = true;
+            app.lastAmmoLeftRxTime = std::chrono::steady_clock::now();
         });
 
         // ly_game_time_left
@@ -122,6 +126,8 @@ namespace BehaviorTree{
         // ly_game_is_start
         GenSub<ly_game_is_start>([](Application& app, auto msg) {
             app.is_game_begin = msg->data;
+            app.hasReceivedGameStartFlag_ = true;
+            app.lastGameStartRxTime = std::chrono::steady_clock::now();
         });
 
         // ly_navi_vel
@@ -159,12 +165,30 @@ namespace BehaviorTree{
         // ly_position_data
         GenSub<ly_position_data>([](Application& app, auto msg) {
             int FriendCarId = msg->friendcarid;
-            app.friendRobots[FriendCarId].position_.X = msg->friendx;
-            app.friendRobots[FriendCarId].position_.Y = 1500 - msg->friendy;
+            auto in_range = [](const int idx) { return idx >= 0 && idx < 10; };
+            auto maybe_warn_invalid_id = [&](const char* side, const int raw_id) {
+                const auto now = std::chrono::steady_clock::now();
+                if (now - app.lastPositionDataGuardLogTime_ > std::chrono::seconds(2)) {
+                    app.LoggerPtr->Warning(
+                        "Ignore invalid {} car id from /ly/position/data: {}",
+                        side, raw_id);
+                    app.lastPositionDataGuardLogTime_ = now;
+                }
+            };
+            if (in_range(FriendCarId)) {
+                app.friendRobots[FriendCarId].position_.X = msg->friendx;
+                app.friendRobots[FriendCarId].position_.Y = 1500 - msg->friendy;
+            } else {
+                maybe_warn_invalid_id("friend", FriendCarId);
+            }
             int EnemyCarId = msg->enemycarid;
             EnemyCarId = EnemyCarId % 100;
-            app.enemyRobots[EnemyCarId].position_.X = msg->enemyx;
-            app.enemyRobots[EnemyCarId].position_.Y = 1500 - msg->enemyy;
+            if (in_range(EnemyCarId)) {
+                app.enemyRobots[EnemyCarId].position_.X = msg->enemyx;
+                app.enemyRobots[EnemyCarId].position_.Y = 1500 - msg->enemyy;
+            } else {
+                maybe_warn_invalid_id("enemy", EnemyCarId);
+            }
         });
 
         // ly_detector_armors

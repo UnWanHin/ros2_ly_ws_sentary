@@ -29,6 +29,9 @@ def generate_launch_description():
     competition_profile = LaunchConfiguration("competition_profile")
     bt_config_file = LaunchConfiguration("bt_config_file")
     bt_tree_file = LaunchConfiguration("bt_tree_file")
+    debug_bypass_is_start = LaunchConfiguration("debug_bypass_is_start")
+    wait_for_game_start_timeout_sec = LaunchConfiguration("wait_for_game_start_timeout_sec")
+    league_referee_stale_timeout_ms = LaunchConfiguration("league_referee_stale_timeout_ms")
 
     use_gimbal = LaunchConfiguration("use_gimbal")
     use_detector = LaunchConfiguration("use_detector")
@@ -65,6 +68,21 @@ def generate_launch_description():
             default_value="",
             description="Optional behavior_tree XML path. Relative paths resolve under behavior_tree share dir.",
         ),
+        DeclareLaunchArgument(
+            "debug_bypass_is_start",
+            default_value="false",
+            description="Debug only: true will bypass waiting /ly/game/is_start gate.",
+        ),
+        DeclareLaunchArgument(
+            "wait_for_game_start_timeout_sec",
+            default_value="0",
+            description="0 disables timeout. >0 continues after waiting this many seconds for /ly/game/is_start.",
+        ),
+        DeclareLaunchArgument(
+            "league_referee_stale_timeout_ms",
+            default_value="0",
+            description="0 disables stale-check. >0 enables league referee freshness guard for HP/Ammo recovery.",
+        ),
         DeclareLaunchArgument("use_gimbal", default_value="true"),
         DeclareLaunchArgument("use_detector", default_value="true"),
         DeclareLaunchArgument("use_tracker", default_value="true"),
@@ -86,6 +104,9 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] competition_profile: ", competition_profile]),
         LogInfo(msg=["[sentry_all] bt_config_file: ", bt_config_file]),
         LogInfo(msg=["[sentry_all] bt_tree_file: ", bt_tree_file]),
+        LogInfo(msg=["[sentry_all] debug_bypass_is_start: ", debug_bypass_is_start]),
+        LogInfo(msg=["[sentry_all] wait_for_game_start_timeout_sec: ", wait_for_game_start_timeout_sec]),
+        LogInfo(msg=["[sentry_all] league_referee_stale_timeout_ms: ", league_referee_stale_timeout_ms]),
     ]
 
     nodes = [
@@ -197,6 +218,9 @@ def generate_launch_description():
                     "competition_profile": competition_profile,
                     "bt_config_file": bt_config_file,
                     "bt_tree_file": bt_tree_file,
+                    "debug_bypass_is_start": debug_bypass_is_start,
+                    "wait_for_game_start_timeout_sec": wait_for_game_start_timeout_sec,
+                    "league_referee_stale_timeout_ms": league_referee_stale_timeout_ms,
                 }
             ],
             on_exit=Shutdown(reason="behavior_tree exited"),

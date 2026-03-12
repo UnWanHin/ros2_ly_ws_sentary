@@ -20,12 +20,16 @@ namespace BehaviorTree {
 
         // [ROS 2] 用 rclcpp::Time 替代 ros::Time
         rclcpp::Time last_navi_command_time = node_->now();
+        const auto wait_begin = std::chrono::steady_clock::now();
+        auto last_wait_log = wait_begin;
+        bool bypass_logged = false;
 
         // [ROS 2] 不再依賴文件系統判斷，直接等待 is_game_begin 標誌
         while (rclcpp::ok()) {
             rclcpp::spin_some(node_);
             std::this_thread::sleep_for(std::chrono::milliseconds{10});
             rclcpp::Time now = node_->now();
+            const auto now_steady = std::chrono::steady_clock::now();
 
             SET_POSITION(Home, team);
 
@@ -47,6 +51,32 @@ namespace BehaviorTree {
                 }
             }
             PubGimbalControlData();
+
+            if (debugBypassGameStart_) {
+                if (!bypass_logged) {
+                    LoggerPtr->Warning(
+                        "debug_bypass_is_start=true, skip waiting for /ly/game/is_start.");
+                    bypass_logged = true;
+                }
+                break;
+            }
+
+            if (waitForGameStartTimeoutSec_ > 0 &&
+                (now_steady - wait_begin) > std::chrono::seconds(waitForGameStartTimeoutSec_)) {
+                LoggerPtr->Warning(
+                    "WaitForGameStart timeout after {}s, continue without is_start gate.",
+                    waitForGameStartTimeoutSec_);
+                break;
+            }
+
+            if (now_steady - last_wait_log > std::chrono::seconds(2)) {
+                if (!hasReceivedGameStartFlag_) {
+                    LoggerPtr->Warning("Waiting /ly/game/is_start message...");
+                } else {
+                    LoggerPtr->Debug("Waiting /ly/game/is_start=true...");
+                }
+                last_wait_log = now_steady;
+            }
 
             if (is_game_begin) {
                 LoggerPtr->Info("!!!!Game !! start!!!!");

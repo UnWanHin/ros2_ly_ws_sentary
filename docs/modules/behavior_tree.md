@@ -123,6 +123,7 @@ Application::Application()
 ├── InitLogger()              → 初始化日誌（Logger子系統）
 ├── 從 ament_index 獲取包路徑 → 定位 Scripts/main.xml 和 config.json
 ├── 可選讀取 `competition_profile` / `bt_config_file` / `bt_tree_file`
+├── 可選讀取 `debug_bypass_is_start` / `wait_for_game_start_timeout_sec` / `league_referee_stale_timeout_ms`
 ├── SubscribeMessageAll()     → 訂閱全部上游 Topics
 ├── PublishMessageAll()       → 創建全部發布者
 ├── ConfigurationInit()       → 讀取 config.json
@@ -134,7 +135,7 @@ Application::Application()
 
 ```
 Run()
-├── WaitBeforeGame()  ← 等待比賽開始（阻塞，監聽 /ly/game/is_start）
+├── WaitBeforeGame()  ← 等待比賽開始（默認阻塞，監聽 /ly/game/is_start）
 ├── gameStartTime = now()
 └── GameLoop()        ← 主循環
 ```
@@ -213,9 +214,10 @@ void TreeTick() {
 | 訂閱 Topic | 更新的變量 | 說明 |
 |-----------|-----------|------|
 | `/ly/me/is_team_red` | `team` | 我方顏色 |
+| `/ly/game/all` | `myselfHealth` | 下位機彙總裁判數據（自血） |
 | `/ly/game/is_start` | `is_game_begin` | 比賽開始標誌 |
 | `/ly/game/time_left` | `timeLeft` | 剩餘時間 |
-| `/ly/me/hp` | `myselfHealth`（取sentry值）、`friendRobots` | 我方血量 |
+| `/ly/me/hp` | `friendRobots` | 我方各車血量明細 |
 | `/ly/enemy/hp` | `enemyRobots` | 敵方血量 |
 | `/ly/me/ammo_left` | `ammoLeft` | 子彈數 |
 | `/ly/enemy/op_hp` | `enemyOutpostHealth` | 敵方前哨血量 |
@@ -230,6 +232,12 @@ void TreeTick() {
 | `/ly/outpost/target` | `outpostAimData`, `isFindTargetAtomic` | 前哨瞄準角度 |
 | `ly/buff/target` | `buffAimData`, `isFindTargetAtomic` | 打符瞄準角度 |
 | `/ly/gimbal/capV` | `capV` | 電容電壓 |
+
+安全降級（兼容默認行為）：
+
+- `/ly/position/data` 會做 ID 邊界檢查，非法 `carid` 直接忽略並節流告警。
+- 聯盟賽回補判斷只在 `myselfHealth/ammoLeft` 已收到（且可選地未過期）時生效，避免默認值 `0` 誤觸發回補。
+- `wait_for_game_start_timeout_sec`、`debug_bypass_is_start` 默認關閉，不改變原始開賽門控行為。
 
 ### `src/PublishMessage.cpp` — 所有發布函數
 
@@ -259,17 +267,25 @@ void TreeTick() {
   - 若未顯式指定 `bt_config_file`，默認回退到 `Scripts/config.json`
 - `bt_config_file:=Scripts/ConfigJson/regional_competition.json`
   - 顯式指定某份 BT JSON 配置
+- `wait_for_game_start_timeout_sec:=0`
+  - 0=禁用超時（默認）；>0 時超時後跳過 `is_start` 門控（調試用）
+- `debug_bypass_is_start:=false`
+  - true=直接跳過 `is_start` 門控（調試用，默認 false）
+- `league_referee_stale_timeout_ms:=0`
+  - 0=禁用新鮮度檢查（默認）；>0 時聯盟賽回補會檢查 hp/ammo 回傳是否過期
 
 推薦啟動方式（腳本入口）：
 
 - `./scripts/start_sentry_all.sh`
   - 啟動時可選 `1/2`：`1=league`、`2=regional`
   - 腳本會自動對齊 `competition_profile` 與 `bt_config_file`
-  - 腳本會強制 `config_file` 為實機配置 `scripts/config/auto_aim_config_competition.yaml`
+  - `config_file` 默認沿用 launch 默認（`detector/config/auto_aim_config.yaml`），只在顯式傳入時覆蓋
 - `./scripts/start_sentry_all.sh --mode 1 --no-prompt`
   - 非交互固定聯盟賽
 - `./scripts/start_sentry_all.sh --mode 2 --no-prompt`
   - 非交互固定分區賽
+- `./scripts/start_sentry_all_nogate.sh`
+  - 調試入口：固定注入 `debug_bypass_is_start:=true`，可在無裁判 `is_start` 下聯調其他模塊
 
 ### 聯盟賽決策（當前實作）
 

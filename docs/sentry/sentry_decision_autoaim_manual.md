@@ -81,6 +81,7 @@
 - 規則：
   - `myselfHealth < HealthRecoveryThreshold` 時回 `Recovery`
   - `ammoLeft <= AmmoRecoveryThreshold` 時也可回 `Recovery`
+  - 以上判斷只在對應裁判數據「已收到（可選：未過期）」時生效，避免默認 `0` 誤判
   - 其他時間固定去 `OccupyArea`
 
 `PatrolGoals` 仍保留在配置裡，之後如果你想把聯盟賽擴成「多個占點/巡邏點輪換」，只要往裡加序號即可；目前默認是空，等於只跑一個占點。
@@ -88,6 +89,10 @@
 ### 2.4 當前「調試模式」邊界（重要）
 
 - `behavior_tree` 啟動後，會先 `WaitBeforeGame()`，再在 `WaitForGameStart()` 等待 `/ly/game/is_start=true`。
+- 新增兩個可選調試參數（默認關閉，不影響比賽路徑）：
+  - `debug_bypass_is_start:=true`：直接跳過 `is_start` 門控
+  - `wait_for_game_start_timeout_sec:=N`：等待 N 秒後跳過門控
+- 便捷腳本：`./scripts/start_sentry_all_nogate.sh`（固定注入 `debug_bypass_is_start:=true`）
 - `Application::CheckDebug()` 只覆蓋 `AimMode`（例如強制 Buff / Outpost），不會跳過開賽等待。
 - `detector_config.debug_mode/debug_team_blue` 只影響 detector 的敵我顏色過濾，不是全鏈路總開關。
 - 離車環境無穩定裁判數據時，建議使用 `detector + mapper_node` 做火控聯調。
@@ -145,8 +150,9 @@ BT 節點實際調用的就是這些函數。
 - 直接 `ros2 launch behavior_tree sentry_all.launch.py`：
   - 默認讀 `src/detector/config/auto_aim_config.yaml`
 - `./scripts/start_sentry_all.sh`：
-  - 腳本會強制用實機 YAML：`scripts/config/auto_aim_config_competition.yaml`
-  - 即使外部傳 `config_file` 也會被覆蓋（避免現場混入調試配置）
+  - 默認沿用 launch 默認 YAML（`detector/config/auto_aim_config.yaml`）
+  - 僅注入模式相關參數（`competition_profile` / `bt_config_file` / `offline`）
+  - 需要時可手動傳 `config_file:=...` 覆蓋
 
 同一份參數會被多個節點共用（detector / predictor / gimbal_driver 等 launch 都載這份）。
 
@@ -195,6 +201,7 @@ BT 節點實際調用的就是這些函數。
 - `Rate.FireRate / TreeTickRate / NaviCommandRate`
 - `CompetitionProfile`
 - `LeagueStrategy.UseHealthRecovery / HealthRecoveryThreshold / UseAmmoRecovery / AmmoRecoveryThreshold / MainGoal / PatrolGoals / GoalHoldSec`
+- `debug_bypass_is_start / wait_for_game_start_timeout_sec / league_referee_stale_timeout_ms`（ROS 參數，默認關閉）
 
 當前聯盟賽推薦值：
 - `CompetitionProfile = "league"`

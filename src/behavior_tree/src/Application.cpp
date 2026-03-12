@@ -29,6 +29,56 @@ std::string ReadStringParameter(rclcpp::Node& node, const std::string& name, con
     return value;
 }
 
+bool ReadBoolParameter(rclcpp::Node& node, const std::string& name, const bool default_value) {
+    if (!node.has_parameter(name)) {
+        node.declare_parameter(name, default_value);
+    }
+    rclcpp::Parameter param;
+    if (!node.get_parameter(name, param)) {
+        return default_value;
+    }
+    if (param.get_type() == rclcpp::ParameterType::PARAMETER_BOOL) {
+        return param.as_bool();
+    }
+    if (param.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
+        return param.as_int() != 0;
+    }
+    if (param.get_type() == rclcpp::ParameterType::PARAMETER_STRING) {
+        auto value = NormalizeProfile(param.as_string());
+        if (value == "true" || value == "1" || value == "yes" || value == "on") {
+            return true;
+        }
+        if (value == "false" || value == "0" || value == "no" || value == "off") {
+            return false;
+        }
+    }
+    return default_value;
+}
+
+int ReadIntParameter(rclcpp::Node& node, const std::string& name, const int default_value) {
+    if (!node.has_parameter(name)) {
+        node.declare_parameter(name, default_value);
+    }
+    rclcpp::Parameter param;
+    if (!node.get_parameter(name, param)) {
+        return default_value;
+    }
+    if (param.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
+        return static_cast<int>(param.as_int());
+    }
+    if (param.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE) {
+        return static_cast<int>(param.as_double());
+    }
+    if (param.get_type() == rclcpp::ParameterType::PARAMETER_STRING) {
+        try {
+            return std::stoi(param.as_string());
+        } catch (...) {
+            return default_value;
+        }
+    }
+    return default_value;
+}
+
 std::string ResolveBehaviorTreePath(const std::string& pkg_path, const std::string& configured_path) {
     if (configured_path.empty()) {
         return {};
@@ -96,6 +146,9 @@ std::string DefaultConfigPathForProfile(const std::string& pkg_path, const std::
             competitionProfileOverride_ = ReadStringParameter(*node_, "competition_profile", "");
             const std::string tree_override = ReadStringParameter(*node_, "bt_tree_file", "");
             const std::string config_override = ReadStringParameter(*node_, "bt_config_file", "");
+            debugBypassGameStart_ = ReadBoolParameter(*node_, "debug_bypass_is_start", false);
+            waitForGameStartTimeoutSec_ = std::max(0, ReadIntParameter(*node_, "wait_for_game_start_timeout_sec", 0));
+            leagueRefereeStaleTimeoutMs_ = std::max(0, ReadIntParameter(*node_, "league_referee_stale_timeout_ms", 0));
 
             const std::string default_tree_file = pkg_path + "/Scripts/main.xml";
             const std::string default_config_file = DefaultConfigPathForProfile(pkg_path, competitionProfileOverride_);
@@ -114,6 +167,9 @@ std::string DefaultConfigPathForProfile(const std::string& pkg_path, const std::
             } else {
                 LoggerPtr->Info("Competition profile override: {}", competitionProfileOverride_);
             }
+            LoggerPtr->Info("debug_bypass_is_start: {}", debugBypassGameStart_ ? "true" : "false");
+            LoggerPtr->Info("wait_for_game_start_timeout_sec: {}", waitForGameStartTimeoutSec_);
+            LoggerPtr->Info("league_referee_stale_timeout_ms: {}", leagueRefereeStaleTimeoutMs_);
         } catch (const std::exception& e) {
             RCLCPP_ERROR(node_->get_logger(), "Error: Could not find package 'behavior_tree'.");
             throw e;

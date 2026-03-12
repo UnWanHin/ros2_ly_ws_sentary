@@ -115,6 +115,12 @@ private:
     std::uint16_t ammoLeft{0}; // 剩余子弹数
     std::uint16_t timeLeft{0}; // 比赛剩余时间
     std::uint16_t myselfHealth{0}; // 自己的血量
+    bool hasReceivedMyselfHealth_{false};
+    bool hasReceivedAmmoLeft_{false};
+    bool hasReceivedGameStartFlag_{false};
+    std::chrono::steady_clock::time_point lastMyselfHealthRxTime{};
+    std::chrono::steady_clock::time_point lastAmmoLeftRxTime{};
+    std::chrono::steady_clock::time_point lastGameStartRxTime{};
     
     Robots friendRobots; // 己方机器人的信息
     Robots enemyRobots; // 敌方机器人的信息
@@ -167,8 +173,13 @@ private:
     StrategyMode strategyMode_{StrategyMode::HitHero}; // 当前策略
     CompetitionProfile competitionProfile_{CompetitionProfile::Regional};
     std::string competitionProfileOverride_{};
+    bool debugBypassGameStart_{false};
+    int waitForGameStartTimeoutSec_{0};
+    int leagueRefereeStaleTimeoutMs_{0};
     std::size_t leaguePatrolGoalIndex_{0};
     bool leaguePatrolGoalInitialized_{false};
+    std::chrono::steady_clock::time_point lastLeagueRecoveryGuardLogTime_{};
+    std::chrono::steady_clock::time_point lastPositionDataGuardLogTime_{};
 
     // ==========================================
     // Runtime Guard (L1/L2)

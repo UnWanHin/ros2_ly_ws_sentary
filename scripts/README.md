@@ -2,6 +2,14 @@
 
 本目录放运行与自检脚本。下面按“用途 -> 命令 -> 结果判定”给出最常用入口。
 
+## 目录分层（已整理）
+
+- `scripts/launch/`：启动类脚本实现（整链路、无门控、auto_aim联调）。
+- `scripts/feature_test/standalone/`：单独功能测试（交互入口 + 各模式 + 工具脚本）。
+- `scripts/feature_test/`：配置驱动的功能测试框架（Phase 1）。
+- `scripts/config/`：测试与比赛配置模板。
+- 根目录 `scripts/*.sh`：兼容入口（薄封装，保持旧命令可用）。
+
 ## 1. `self_check_pc.sh`（离车自检）
 
 用途：
@@ -67,7 +75,8 @@
 用途：
 - 直接启动 `sentry_all.launch.py`，常用于手工调试或配合其他脚本。
 - 启动前可用 `1/2` 选择 `competition_profile`（`league/regional`）。
-- 脚本内强制使用实机参数 YAML：`scripts/config/auto_aim_config_competition.yaml`（会覆盖外部传入的 `config_file`）。
+- 默认沿用 launch 的配置文件（`detector/config/auto_aim_config.yaml`）。
+- 脚本主要注入模式相关参数（如 `competition_profile` / `bt_config_file` / `offline`），不再强制覆盖 `config_file`。
 
 ```bash
 ./scripts/start_sentry_all.sh
@@ -78,6 +87,14 @@
 # 非交互指定模式
 ./scripts/start_sentry_all.sh --mode 1 --no-prompt     # league
 ./scripts/start_sentry_all.sh --mode regional --no-prompt
+
+# 如需覆盖配置文件，可显式传入
+./scripts/start_sentry_all.sh -- config_file:=/abs/path/auto_aim_config.yaml
+
+# 单独联调时可选（默认都关闭，不影响正式比赛）
+./scripts/start_sentry_all.sh -- wait_for_game_start_timeout_sec:=8
+./scripts/start_sentry_all.sh -- debug_bypass_is_start:=true
+./scripts/start_sentry_all.sh -- league_referee_stale_timeout_ms:=2000
 ```
 
 二次启动卡住时，优先用清理模式（默认已开启）：
@@ -98,7 +115,7 @@
 
 用途：
 - 兼容旧命令入口，内部仍会调用 `start_sentry_all.sh`。
-- 比赛模式选择、`competition_profile` 与实机 YAML 强制策略，统一由 `start_sentry_all.sh` 处理。
+- 比赛模式选择与 `competition_profile` 对齐逻辑，统一由 `start_sentry_all.sh` 处理。
 
 常用命令：
 
@@ -111,12 +128,33 @@
 ./scripts/start_sentry_all_competition.sh -- use_buff:=false use_outpost:=false
 ```
 
+## 4.2 `start_sentry_all_nogate.sh`（绕过开赛门控）
+
+用途：
+- 调试/联调专用，启动时固定注入 `debug_bypass_is_start:=true`。
+- 适合在没有裁判系统 `is_start` 的场景下验证上位机与导航等链路。
+- 其余参数透传给 `start_sentry_all.sh`。
+
+常用命令：
+
+```bash
+# 直接绕过 is_start 门控启动
+./scripts/start_sentry_all_nogate.sh
+
+# 联盟赛 + 非交互
+./scripts/start_sentry_all_nogate.sh --mode 1 --no-prompt
+
+# 也可继续追加 launch 参数
+./scripts/start_sentry_all_nogate.sh -- wait_for_game_start_timeout_sec:=8
+```
+
 ## 5. `start_autoaim_debug.sh`（auto_aim + mapper 联调）
 
 用途：
 - 面向“感知链/火控链”拆分联调，不拉起 behavior_tree。
 - 支持三种模式：`perception`（仅感知）、`mapper`（仅 mapper）、`fire`（感知+mapper，默认）。
-- 默认 `--offline`，并带残留进程清理、单控制源保护（防止与 behavior_tree 同时写 control 话题）。
+- 默认 `--offline`，并带残留进程清理、单控制源保护（防止与 behavior_tree 或其他发布者同时写 control 话题）。
+- 已加实例锁（`/tmp/sentry_autoaim_debug.lock`），并修复退出时后台 launch 清理。
 
 常用命令：
 
@@ -136,6 +174,67 @@
 # 在线模式（不传 offline:=true）
 ./scripts/start_autoaim_debug.sh --online
 ```
+
+## 5.1 `start_autoaim_test.sh`（一键辅瞄联调）
+
+用途：
+- 薄封装入口（已整理到 `feature_test/standalone/modes/armor_mode.sh`），默认等价于 `start_autoaim_debug.sh --mode fire --offline`。
+- 适合你只想快速验证辅瞄链路时直接开跑。
+
+常用命令：
+
+```bash
+./scripts/start_autoaim_test.sh
+./scripts/start_autoaim_test.sh --online
+./scripts/start_autoaim_test.sh --target-priority "6,3,4,5" --target-id 6
+```
+
+## 5.2 `start_chassis_gyro_test.sh`（一键底盘陀螺链路）
+
+用途：
+- 自动拉起最小链路（仅 `gimbal_driver`），然后持续发布 `FireCode.Rotate` 到 `/ly/control/firecode`。
+- 用于底盘陀螺/旋转链路联调，不依赖 behavior_tree 与裁判开赛门控。
+- 脚本主体已整理到 `feature_test/standalone/modes/chassis_spin_mode.sh`。
+
+常用命令：
+
+```bash
+./scripts/start_chassis_gyro_test.sh
+./scripts/start_chassis_gyro_test.sh --offline --rotate-level 2
+./scripts/start_chassis_gyro_test.sh --mode 1 --hz 30 --wait 6
+```
+
+## 5.3 `start_standalone_test.sh`（交互式单入口）
+
+用途：
+- 统一单独测试入口，交互选择模式：
+  - `1` 打装甲板（Armor）
+  - `2` 打大符（Buff）
+  - `3` 打前哨（Outpost）
+  - `4` 小陀螺（Chassis Spin）
+- 统一加了互斥锁（`/tmp/sentry_standalone_test.lock`）和 Ctrl+C 清理，减少重复节点与卡进程。
+
+常用命令：
+
+```bash
+# 交互选择模式
+./scripts/start_standalone_test.sh
+
+# 非交互直接选模式
+./scripts/start_standalone_test.sh --select 1 --online
+./scripts/start_standalone_test.sh --select 2 --online --enable-fire true
+./scripts/start_standalone_test.sh --select 3 --offline
+./scripts/start_standalone_test.sh --select 4 --rotate-level 2
+```
+
+目录整理（单独测脚本）：
+- `scripts/feature_test/standalone/run_standalone_menu.sh`
+- `scripts/feature_test/standalone/modes/armor_mode.sh`
+- `scripts/feature_test/standalone/modes/buff_mode.sh`
+- `scripts/feature_test/standalone/modes/outpost_mode.sh`
+- `scripts/feature_test/standalone/modes/chassis_spin_mode.sh`
+- `scripts/feature_test/standalone/tools/control_mode_publisher.py`
+- `scripts/feature_test/standalone/tools/target_to_control_bridge.py`
 
 ## 6. `feature_test/run_feature_test.sh`（BT 外功能测试框架，单控制源）
 

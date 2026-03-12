@@ -225,6 +225,24 @@ check_file_exists() {
   fi
 }
 
+check_executable_file() {
+  local path="$1"
+  if [[ -x "${path}" ]]; then
+    pass "Executable OK: ${path}"
+  else
+    fail "Executable missing or not executable: ${path}"
+  fi
+}
+
+check_bash_syntax() {
+  local path="$1"
+  if timeout "${CMD_TIMEOUT}s" bash -n "${path}" >/dev/null 2>&1; then
+    pass "Shell syntax OK: ${path}"
+  else
+    fail "Shell syntax error: ${path}"
+  fi
+}
+
 trim_text() {
   local text="$1"
   text="${text#"${text%%[![:space:]]*}"}"
@@ -631,7 +649,27 @@ if (( RUNTIME_ONLY == 0 )); then
   check_file_exists "${ROOT_DIR}/src/behavior_tree/launch/sentry_all.launch.py"
   check_file_exists "${ROOT_DIR}/src/detector/config/auto_aim_config.yaml"
   check_file_exists "${ROOT_DIR}/scripts/start_sentry_all.sh"
+  check_file_exists "${ROOT_DIR}/scripts/launch/start_sentry_all.sh"
+  check_file_exists "${ROOT_DIR}/scripts/start_autoaim_debug.sh"
+  check_file_exists "${ROOT_DIR}/scripts/launch/start_autoaim_debug.sh"
+  check_file_exists "${ROOT_DIR}/scripts/start_standalone_test.sh"
+  check_file_exists "${ROOT_DIR}/scripts/feature_test/standalone/run_standalone_menu.sh"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/include/BTNodes.hpp"
+
+  check_executable_file "${ROOT_DIR}/scripts/start_sentry_all.sh"
+  check_executable_file "${ROOT_DIR}/scripts/launch/start_sentry_all.sh"
+  check_executable_file "${ROOT_DIR}/scripts/start_autoaim_debug.sh"
+  check_executable_file "${ROOT_DIR}/scripts/launch/start_autoaim_debug.sh"
+  check_executable_file "${ROOT_DIR}/scripts/start_standalone_test.sh"
+  check_executable_file "${ROOT_DIR}/scripts/feature_test/standalone/run_standalone_menu.sh"
+
+  check_bash_syntax "${ROOT_DIR}/scripts/start_sentry_all.sh"
+  check_bash_syntax "${ROOT_DIR}/scripts/launch/start_sentry_all.sh"
+  check_bash_syntax "${ROOT_DIR}/scripts/start_autoaim_debug.sh"
+  check_bash_syntax "${ROOT_DIR}/scripts/launch/start_autoaim_debug.sh"
+  check_bash_syntax "${ROOT_DIR}/scripts/start_standalone_test.sh"
+  check_bash_syntax "${ROOT_DIR}/scripts/feature_test/standalone/run_standalone_menu.sh"
+
   check_camera_sn_config "${ROOT_DIR}/src/detector/config/auto_aim_config.yaml"
   check_legacy_hardcoded_camera_sn
 

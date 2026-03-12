@@ -643,12 +643,44 @@ namespace BehaviorTree {
         int now_time = 420 - timeLeft;
         if (IsLeagueProfile()) {
             const auto& league = config.LeagueStrategySettings;
-            const bool health_low = league.UseHealthRecovery &&
-                myselfHealth < league.HealthRecoveryThreshold;
-            const bool ammo_low = league.UseAmmoRecovery &&
-                ammoLeft <= league.AmmoRecoveryThreshold;
+            const auto now = std::chrono::steady_clock::now();
+            auto is_referee_value_ready = [&](const bool has_received,
+                                              const std::chrono::steady_clock::time_point& last_rx_time) {
+                if (!has_received) {
+                    return false;
+                }
+                if (leagueRefereeStaleTimeoutMs_ <= 0) {
+                    return true;
+                }
+                if (last_rx_time.time_since_epoch().count() == 0) {
+                    return false;
+                }
+                const auto age_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    now - last_rx_time).count();
+                return age_ms <= leagueRefereeStaleTimeoutMs_;
+            };
 
-            if (naviCommandGoal == Recovery(MyTeam) && (health_low || ammo_low)) {
+            const bool health_ready = is_referee_value_ready(hasReceivedMyselfHealth_, lastMyselfHealthRxTime);
+            const bool ammo_ready = is_referee_value_ready(hasReceivedAmmoLeft_, lastAmmoLeftRxTime);
+            const bool health_low = league.UseHealthRecovery && health_ready &&
+                myselfHealth < league.HealthRecoveryThreshold;
+            const bool ammo_low = league.UseAmmoRecovery && ammo_ready &&
+                ammoLeft <= league.AmmoRecoveryThreshold;
+            const bool missing_health_input = league.UseHealthRecovery && !health_ready;
+            const bool missing_ammo_input = league.UseAmmoRecovery && !ammo_ready;
+
+            if ((missing_health_input || missing_ammo_input) &&
+                (now - lastLeagueRecoveryGuardLogTime_ > std::chrono::seconds(2))) {
+                LoggerPtr->Warning(
+                    "League recovery guard: skip invalid referee inputs (health_ready={} ammo_ready={} stale_timeout_ms={})",
+                    health_ready ? 1 : 0,
+                    ammo_ready ? 1 : 0,
+                    leagueRefereeStaleTimeoutMs_);
+                lastLeagueRecoveryGuardLogTime_ = now;
+            }
+
+            if (naviCommandGoal == Recovery(MyTeam) &&
+                (health_low || ammo_low || missing_health_input || missing_ammo_input)) {
                 naviCommandIntervalClock.reset(Seconds{1});
                 return true;
             }
