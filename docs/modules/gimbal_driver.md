@@ -79,7 +79,8 @@ main()
 
 #### 「讀取」路徑：`LoopRead()` → `Pub*()`
 
-從串口讀到 `TypedMessage`，根據 `TypeID` 分發到不同的 `Pub*` 函數：
+從串口讀到 `TypedMessage`，根據 `TypeID` 分發到不同的 `Pub*` 函數。
+當前上行是分型幀模式，實際使用 `TypeID=0..6`：
 
 | TypeID 對應數據結構 | 調用函數 | 發布的 Topic |
 |---|---|---|
@@ -89,11 +90,12 @@ main()
 | `HealthEnemyData` | `PubHealthEnemyData()` | `/ly/enemy/hp`, `/ly/enemy/base_hp` |
 | `RFIDAndBuffData` | `PubRFIDAndBuffData()` | `/ly/me/rfid`, `/ly/team/buff` |
 | `PositionData` | `PubPositionData()` | `/ly/position/data`, `/ly/me/uwb_pos`, `/ly/bullet/speed` |
-| `ExtendData` | `PubExtendData()` | `/ly/me/uwb_yaw`, `/ly/gimbal/posture` |
+| `ExtendData` | `PubExtendData()` | `/ly/me/uwb_yaw`, `/ly/gimbal/posture`（`Reserve_16` 低 2 bit） |
 
 #### 「寫入」路徑：`GenSubs()` → `Device.Write()`
 
-訂閱上層控制指令，寫入共享的 `GimbalControlData` 結構體，然後由 `CallbackGenerator` 觸發寫入串口：
+訂閱上層控制指令，寫入共享的 `GimbalControlData` 結構體，然後由 `CallbackGenerator` 觸發寫入串口。
+當前下行不是 `TypedMessage<TypeID=7>`，而是直接寫原始 `GimbalControlData` 主控制幀：
 
 | 訂閱 Topic | 對應字段 | 說明 |
 |---|---|---|
@@ -121,7 +123,7 @@ main()
 | `HealthMyselfData` / `HealthEnemyData` | 我方/敵方各機器人血量 |
 | `RFIDAndBuffData` | RFID狀態 + 能量機關增益（防禦、攻擊、回血等） |
 | `PositionData` | UWB定位數據（友/敵機器人X、Y座標）+ 子彈速度 |
-| `ExtendData` | UWB yaw 角（自身朝向） |
+| `ExtendData` | UWB yaw 角（自身朝向）+ `Reserve_16` 低 2 bit 姿態回讀 |
 | `FireCodeType` | 位域：`FireStatus`（開火狀態）、`Rotate`（旋轉速度0-3）、`AimMode`（瞄準模式） |
 
 ---
@@ -137,6 +139,16 @@ class IODevice {
     void LoopRead(std::atomic_bool& error, std::function<void(const ReadType&)> callback);  // 持續讀取
 };
 ```
+
+當前 `gimbal_driver` 實例化為：
+
+```cpp
+IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData>
+```
+
+含義：
+- 上行：讀 `TypedMessage`，依 `TypeID` 分發 `0..6`
+- 下行：直接寫 `GimbalControlData`，姿態已并入 `Posture` 字段，沒有獨立 `TypeID=7`
 
 **虛擬設備模式**（`useVirtualDevice=true`）：用於在沒有硬件時做本地迴環測試，通過 `TestVirtualLoopback()` 驗證數據收發。
 

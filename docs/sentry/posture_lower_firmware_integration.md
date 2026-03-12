@@ -10,6 +10,7 @@
 - 保留 `/ly/control/posture` ROS 接口不变
 - 串口层将姿态写入 `GimbalControlData.Posture`
 - 不再下发独立 `TypeID=7` 姿态幀
+- 姿态回读沿用上行 `TypeID=6` 的 `ExtendData`，从 `Reserve_16` 低 2 bit 取值
 
 ---
 
@@ -26,6 +27,7 @@
 - 结构体：`GimbalControlData`
 - 姿态字段：`Posture`
 - 切换重发：默认 3 次，间隔 20ms（可配置）
+- 注意：当前下发不再封装额外 `TypeID`，下位机直接按 14B 主控制幀解析
 
 主控制幀布局（14B）：
 1. `HeadFlag` : `0x21` (`'!'`)
@@ -48,7 +50,7 @@
    - `2` 防御  
    - `3` 移动  
 4. 维护 `sentry_cmd_shadow`，只改 bit21-22，不重置其它位。  
-5. 若当前固件已有独立 `TypeID=7` 分支，可过渡期保留；稳定后建议移除。  
+5. 若当前固件已有独立 `TypeID=7` 分支，可仅作灰度兼容；当前上位机已不再发送该幀。  
 
 ---
 
@@ -107,7 +109,7 @@ static inline uint32_t set_sentry_posture_bits(uint32_t sentry_cmd, uint8_t post
 
 ## 4. 状态回传约定
 
-上位机继续从 `ExtendData.Reserve_16` 低 2 bit 读取姿态并发布 `/ly/gimbal/posture`：
+上位机继续从上行 `TypeID=6` 的 `ExtendData.Reserve_16` 低 2 bit 读取姿态并发布 `/ly/gimbal/posture`：
 - `0` 未知
 - `1` 进攻
 - `2` 防御

@@ -88,6 +88,26 @@
 ./scripts/start_sentry_all.sh --no-cleanup-existing
 ```
 
+## 4.1 `start_sentry_all_competition.sh`（比赛版整链路启动）
+
+用途：
+- 默认使用比赛版参数文件：`scripts/config/auto_aim_config_competition.yaml`
+- 仍可透传 `start_sentry_all.sh` 的选项和 launch 参数
+
+常用命令：
+
+```bash
+# 比赛版启动（无需手动传 config_file）
+./scripts/start_sentry_all_competition.sh
+
+# 仍可使用 offline 或其它 launch 参数
+./scripts/start_sentry_all_competition.sh --offline
+./scripts/start_sentry_all_competition.sh -- use_buff:=false use_outpost:=false
+
+# 如需指定其他配置，传 config_file 覆盖默认
+./scripts/start_sentry_all_competition.sh -- --config_file:=/abs/path/your_config.yaml
+```
+
 ## 5. `start_autoaim_debug.sh`（auto_aim + mapper 联调）
 
 用途：

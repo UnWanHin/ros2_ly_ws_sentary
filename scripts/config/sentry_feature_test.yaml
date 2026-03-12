@@ -9,7 +9,7 @@ global:
   # 是否离线模式：
   # true  -> 传给 auto_aim 脚本 offline，适合离车视频回放调试
   # false -> 在线模式，按真实设备链路运行
-  offline: true
+  offline: false
 
   # 启动前是否清理同类残留进程
   # 建议保持 true，避免“第二次启动卡住”

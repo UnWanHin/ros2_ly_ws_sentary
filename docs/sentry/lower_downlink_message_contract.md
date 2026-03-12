@@ -6,6 +6,9 @@
 不包含上行回传细节（上行姿态回读可参考 `ExtendData` 约定）。
 
 当前下发采用**单通道单主幀**：角度/底盘速度/火控/姿态全部并入 `GimbalControlData`。
+当前实现中：
+- 上行：`TypedMessage` + `TypeID=0..6`
+- 下行：直接写 `GimbalControlData` 原始主幀，不再发送独立 `TypeID=7`
 
 ---
 
