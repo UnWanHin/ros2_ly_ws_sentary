@@ -17,6 +17,7 @@ Purpose:
 Examples:
   ./${SCRIPT_NAME}
   ./${SCRIPT_NAME} --mode 1 --no-prompt
+  ./${SCRIPT_NAME} --mode 3 --no-prompt
   ./${SCRIPT_NAME} --offline
   ./${SCRIPT_NAME} -- wait_for_game_start_timeout_sec:=8
 EOF

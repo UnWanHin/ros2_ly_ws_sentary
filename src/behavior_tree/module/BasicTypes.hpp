@@ -395,6 +395,26 @@ namespace LangYa
         int GoalHoldSec{15};
     };
 
+    struct ShowcasePatrolSetting {
+        bool Enable{false};
+        std::vector<std::uint8_t> Goals{};
+        int GoalHoldSec{5};
+        bool Random{false};
+        bool DisableTeamOffset{false};
+    };
+
+    struct NaviDebugSetting {
+        bool Enable{false};
+        std::string PlanFile{};
+        std::string ActivePlan{};
+        std::vector<std::uint8_t> Goals{};
+        int GoalHoldSec{5};
+        bool Random{false};
+        bool DisableTeamOffset{false};
+        bool IgnoreRecovery{true};
+        std::uint8_t SpeedLevel{1};
+    };
+
     // 姿态模块配置
     struct PostureSetting {
         bool Enable{true};
@@ -408,6 +428,9 @@ namespace LangYa
         bool OptimisticAck{true};     // 回读缺失时是否乐观确认
         int TargetKeepMs{800};        // 目标短时丢失容忍，防止姿态抖动
         int DamageKeepSec{4};         // 最近受击保持时间窗口
+        int DamageBurstWindowMs{0};   // 短时间受击统计窗口，0=关闭
+        int DamageBurstThreshold{0};  // 窗口内累计掉血阈值，0=关闭
+        int DamageBurstDefenseHoldSec{0}; // 触发短时重受击后的防守保持时长
         int LowHealthThreshold{120};  // 低血阈值
         int VeryLowHealthThreshold{80}; // 极低血阈值
         int LowAmmoThreshold{30};     // 低弹阈值
@@ -421,6 +444,8 @@ namespace LangYa
         GameStrategy GameStrategySettings{};
         NaviSetting NaviSettings{};
         LeagueStrategySetting LeagueStrategySettings{};
+        ShowcasePatrolSetting ShowcasePatrolSettings{};
+        NaviDebugSetting NaviDebugSettings{};
         PostureSetting PostureSettings{};
         int ScanCounter{1};  /// 扫描模式计数器，一定值后Yaw动一次
         std::string CompetitionProfile{"regional"};

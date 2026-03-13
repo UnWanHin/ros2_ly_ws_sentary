@@ -32,6 +32,8 @@ docs/
 4. 哨兵专项（2026 姿态机制）  
 [sentry/decision_runtime_behavior.md](sentry/decision_runtime_behavior.md)  
 [sentry/sentry_decision_autoaim_manual.md](sentry/sentry_decision_autoaim_manual.md)  
+[sentry/showcase_demo_runbook.md](sentry/showcase_demo_runbook.md)  
+[sentry/navi_debug_runbook.md](sentry/navi_debug_runbook.md)  
 [sentry/sentry_posture_system.md](sentry/sentry_posture_system.md)  
 [sentry/sentry_posture_interface_change_2026-03-03.md](sentry/sentry_posture_interface_change_2026-03-03.md)  
 [sentry/posture_lower_firmware_integration.md](sentry/posture_lower_firmware_integration.md)  

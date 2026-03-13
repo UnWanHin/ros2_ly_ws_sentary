@@ -15,6 +15,7 @@ Examples:
 
   # 指定模式（非交互）
   ./${SCRIPT_NAME} --mode 1 --no-prompt
+  ./${SCRIPT_NAME} --mode 3 --no-prompt
 
   # 仍可传入 start_sentry_all.sh 的选项
   ./${SCRIPT_NAME} --offline

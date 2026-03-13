@@ -13,6 +13,8 @@ STACK_NODE_REGEX="/(gimbal_driver_node|detector_node|tracker_solver_node|predict
 STACK_LAUNCH_REGEX="ros2 launch behavior_tree sentry_all.launch.py"
 BT_CONFIG_REGIONAL_REL="Scripts/ConfigJson/regional_competition.json"
 BT_CONFIG_LEAGUE_REL="Scripts/ConfigJson/league_competition.json"
+BT_CONFIG_SHOWCASE_REL="Scripts/ConfigJson/showcase_competition.json"
+SELECTED_MODE_KIND=""
 SELECTED_COMPETITION_PROFILE=""
 
 : "${ROS_LOG_DIR:=/tmp/ros2_logs}"
@@ -22,7 +24,7 @@ export ROS_LOG_DIR
 usage() {
   cat <<EOF
 Usage:
-  ${SCRIPT_NAME} [--cleanup-existing|--no-cleanup-existing] [--offline] [--mode 1|2|league|regional] [--no-prompt] [-- <launch_args...>]
+  ${SCRIPT_NAME} [--cleanup-existing|--no-cleanup-existing] [--offline] [--mode 1|2|3|league|regional|showcase] [--no-prompt] [-- <launch_args...>]
 
 Examples:
   ./${SCRIPT_NAME}
@@ -30,6 +32,7 @@ Examples:
   ./${SCRIPT_NAME} --offline
   ./${SCRIPT_NAME} --mode 1
   ./${SCRIPT_NAME} --mode regional --no-prompt
+  ./${SCRIPT_NAME} --mode 3 --no-prompt
   ./${SCRIPT_NAME} -- use_buff:=false use_outpost:=false
 EOF
 }
@@ -50,7 +53,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --mode)
       if [[ $# -lt 2 ]]; then
-        echo "[ERROR] --mode requires a value: 1|2|league|regional" >&2
+        echo "[ERROR] --mode requires a value: 1|2|3|league|regional|showcase" >&2
         exit 2
       fi
       MODE_ARG="$2"
@@ -87,6 +90,43 @@ normalize_competition_profile() {
     2|regional)
       echo "regional"
       return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+normalize_mode_kind() {
+  local raw="${1:-}"
+  local normalized="${raw,,}"
+  case "${normalized}" in
+    1|league)
+      echo "league"
+      return 0
+      ;;
+    2|regional)
+      echo "regional"
+      return 0
+      ;;
+    3|showcase|demo)
+      echo "showcase"
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+competition_profile_for_mode() {
+  local mode_kind="${1:-regional}"
+  case "${mode_kind}" in
+    league)
+      echo "league"
+      ;;
+    regional|showcase)
+      echo "regional"
       ;;
     *)
       return 1
@@ -139,6 +179,7 @@ select_competition_profile() {
     local arg_value
     arg_value="$(launch_arg_value "competition_profile" || true)"
     if SELECTED_COMPETITION_PROFILE="$(normalize_competition_profile "${arg_value}")"; then
+      SELECTED_MODE_KIND="${SELECTED_COMPETITION_PROFILE}"
       strip_launch_arg_key "competition_profile"
       LAUNCH_ARGS=("competition_profile:=${SELECTED_COMPETITION_PROFILE}" "${LAUNCH_ARGS[@]}")
       echo "[INFO] competition_profile from launch args: ${SELECTED_COMPETITION_PROFILE}" >&2
@@ -149,29 +190,33 @@ select_competition_profile() {
   fi
 
   if [[ -n "${MODE_ARG}" ]]; then
-    if ! SELECTED_COMPETITION_PROFILE="$(normalize_competition_profile "${MODE_ARG}")"; then
-      echo "[ERROR] Invalid --mode: ${MODE_ARG}. Use 1|2|league|regional." >&2
+    if ! SELECTED_MODE_KIND="$(normalize_mode_kind "${MODE_ARG}")"; then
+      echo "[ERROR] Invalid --mode: ${MODE_ARG}. Use 1|2|3|league|regional|showcase." >&2
       exit 2
     fi
+    SELECTED_COMPETITION_PROFILE="$(competition_profile_for_mode "${SELECTED_MODE_KIND}")"
   fi
 
-  if [[ -z "${SELECTED_COMPETITION_PROFILE}" ]] && (( PROMPT_MODE == 1 )) && [[ -t 0 ]]; then
+  if [[ -z "${SELECTED_MODE_KIND}" ]] && (( PROMPT_MODE == 1 )) && [[ -t 0 ]]; then
     while true; do
-      echo "[PROMPT] Select competition profile:" >&2
+      echo "[PROMPT] Select startup mode:" >&2
       echo "  1) league" >&2
       echo "  2) regional" >&2
-      read -r -p "Input 1 or 2 [default: 2]: " choice
+      echo "  3) showcase" >&2
+      read -r -p "Input 1, 2 or 3 [default: 2]: " choice
       choice="${choice:-2}"
-      if SELECTED_COMPETITION_PROFILE="$(normalize_competition_profile "${choice}")"; then
+      if SELECTED_MODE_KIND="$(normalize_mode_kind "${choice}")"; then
+        SELECTED_COMPETITION_PROFILE="$(competition_profile_for_mode "${SELECTED_MODE_KIND}")"
         break
       fi
       echo "[WARN] Invalid input: ${choice}" >&2
     done
   fi
 
-  if [[ -z "${SELECTED_COMPETITION_PROFILE}" ]]; then
+  if [[ -z "${SELECTED_MODE_KIND}" ]]; then
+    SELECTED_MODE_KIND="regional"
     SELECTED_COMPETITION_PROFILE="regional"
-    echo "[INFO] Non-interactive mode: default competition_profile:=regional" >&2
+    echo "[INFO] Non-interactive mode: default mode:=regional competition_profile:=regional" >&2
   fi
 
   LAUNCH_ARGS=("competition_profile:=${SELECTED_COMPETITION_PROFILE}" "${LAUNCH_ARGS[@]}")
@@ -183,11 +228,17 @@ set_bt_config_by_profile() {
     return
   fi
 
-  if [[ "${SELECTED_COMPETITION_PROFILE}" == "league" ]]; then
-    LAUNCH_ARGS=("bt_config_file:=${BT_CONFIG_LEAGUE_REL}" "${LAUNCH_ARGS[@]}")
-  else
-    LAUNCH_ARGS=("bt_config_file:=${BT_CONFIG_REGIONAL_REL}" "${LAUNCH_ARGS[@]}")
-  fi
+  case "${SELECTED_MODE_KIND}" in
+    league)
+      LAUNCH_ARGS=("bt_config_file:=${BT_CONFIG_LEAGUE_REL}" "${LAUNCH_ARGS[@]}")
+      ;;
+    showcase)
+      LAUNCH_ARGS=("bt_config_file:=${BT_CONFIG_SHOWCASE_REL}" "${LAUNCH_ARGS[@]}")
+      ;;
+    *)
+      LAUNCH_ARGS=("bt_config_file:=${BT_CONFIG_REGIONAL_REL}" "${LAUNCH_ARGS[@]}")
+      ;;
+  esac
 }
 
 if (( OFFLINE_MODE == 1 )); then
@@ -201,6 +252,7 @@ select_competition_profile
 set_bt_config_by_profile
 
 echo "[INFO] Effective competition_profile: ${SELECTED_COMPETITION_PROFILE}" >&2
+echo "[INFO] Effective mode: ${SELECTED_MODE_KIND}" >&2
 echo "[INFO] Effective bt_config_file: $(launch_arg_value bt_config_file || true)" >&2
 if has_launch_arg_key "config_file"; then
   echo "[INFO] Effective config_file (from launch args): $(launch_arg_value config_file || true)" >&2

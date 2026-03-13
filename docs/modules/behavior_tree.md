@@ -23,7 +23,8 @@ behavior_tree/
 │   ├── config.json             # 默認/兼容策略配置文件
 │   └── ConfigJson/             # 可切換比賽 profile 配置
 │       ├── regional_competition.json
-│       └── league_competition.json
+│       ├── league_competition.json
+│       └── showcase_competition.json
 ├── include/
 │   ├── Application.hpp         # 核心類：所有狀態變量 + 所有函數聲明
 │   ├── Node.hpp                # BT節點定義（BT v4 動作節點/條件節點等）
@@ -265,6 +266,12 @@ void TreeTick() {
 - `competition_profile:=regional`
   - 保持分區賽/原有複雜策略
   - 若未顯式指定 `bt_config_file`，默認回退到 `Scripts/config.json`
+- `bt_config_file:=Scripts/ConfigJson/showcase_competition.json`
+  - 展示模式配置：仍走 regional 主流程，但縮短姿態切換等待，並支持短時受擊切防守
+  - 展示巡邏點位在 `ShowcasePatrol.Goals` 修改；`DisableTeamOffset=true` 時直接下發基礎點位 ID `0..18`
+- `bt_config_file:=Scripts/ConfigJson/navi_debug_competition.json`
+  - 導航調試配置：固定走 `NaviTest`，並從 `Scripts/ConfigJson/navi_debug_points.json` 讀臨時點位計劃
+  - 支持命名 plan、隨機/順序巡邏、獨立速度等級、可選忽略回血回補
 - `bt_config_file:=Scripts/ConfigJson/regional_competition.json`
   - 顯式指定某份 BT JSON 配置
 - `wait_for_game_start_timeout_sec:=0`
@@ -277,13 +284,15 @@ void TreeTick() {
 推薦啟動方式（腳本入口）：
 
 - `./scripts/start_sentry_all.sh`
-  - 啟動時可選 `1/2`：`1=league`、`2=regional`
+  - 啟動時可選 `1/2/3`：`1=league`、`2=regional`、`3=showcase`
   - 腳本會自動對齊 `competition_profile` 與 `bt_config_file`
   - `config_file` 默認沿用 launch 默認（`detector/config/auto_aim_config.yaml`），只在顯式傳入時覆蓋
 - `./scripts/start_sentry_all.sh --mode 1 --no-prompt`
   - 非交互固定聯盟賽
 - `./scripts/start_sentry_all.sh --mode 2 --no-prompt`
   - 非交互固定分區賽
+- `./scripts/start_sentry_all.sh --mode 3 --no-prompt`
+  - 非交互固定展示模式（regional profile + showcase 配置）
 - `./scripts/start_sentry_all_nogate.sh`
   - 調試入口：固定注入 `debug_bypass_is_start:=true`，可在無裁判 `is_start` 下聯調其他模塊
 

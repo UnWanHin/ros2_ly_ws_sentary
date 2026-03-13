@@ -10,6 +10,39 @@
 - `scripts/config/`：测试与比赛配置模板。
 - 根目录 `scripts/*.sh`：兼容入口（薄封装，保持旧命令可用）。
 
+## 快速选脚本
+
+如果你只想快速判断该用哪个入口，看这里：
+
+- `./scripts/start_sentry_showcase.sh`
+  - 展示整链路入口
+  - 默认会带 `detector / tracker_solver / predictor / behavior_tree`
+  - 有普通辅瞄
+  - 有姿态展示
+  - 有导航巡逻
+  - 小陀螺不是“强制常开”，而是仍由 `behavior_tree` 当前火控逻辑决定
+- `./scripts/start_sentry_navi_debug.sh`
+  - 只测 `behavior_tree -> /ly/navi/goal`
+  - 默认只起 `behavior_tree`
+  - 没有辅瞄
+  - 没有独立小陀螺测试
+  - 适合临时点位 JSON 联调导航
+- `./scripts/start_navi_patrol_test.sh`
+  - 最轻量的导航点位序号巡逻脚本
+  - 不走 `behavior_tree`
+  - 没有辅瞄
+  - 没有小陀螺
+- `./scripts/start_autoaim_test.sh`
+  - 只测辅瞄链
+  - 不走 `behavior_tree`
+  - 没有导航巡逻
+  - 没有独立小陀螺
+- `./scripts/start_chassis_gyro_test.sh`
+  - 只测小陀螺/Rotate 位
+  - 不走 `behavior_tree`
+  - 不带辅瞄
+  - 不带导航巡逻
+
 ## 1. `self_check_pc.sh`（离车自检）
 
 用途：
@@ -74,9 +107,10 @@
 
 用途：
 - 直接启动 `sentry_all.launch.py`，常用于手工调试或配合其他脚本。
-- 启动前可用 `1/2` 选择 `competition_profile`（`league/regional`）。
+- 启动前可用 `1/2/3` 选择启动模式（`league/regional/showcase`）。
 - 默认沿用 launch 的配置文件（`detector/config/auto_aim_config.yaml`）。
 - 脚本主要注入模式相关参数（如 `competition_profile` / `bt_config_file` / `offline`），不再强制覆盖 `config_file`。
+- 其中 `mode 3` 保持 `competition_profile:=regional`，但自动切到展示专用 `showcase_competition.json`。
 
 ```bash
 ./scripts/start_sentry_all.sh
@@ -87,6 +121,7 @@
 # 非交互指定模式
 ./scripts/start_sentry_all.sh --mode 1 --no-prompt     # league
 ./scripts/start_sentry_all.sh --mode regional --no-prompt
+./scripts/start_sentry_all.sh --mode 3 --no-prompt     # showcase
 
 # 如需覆盖配置文件，可显式传入
 ./scripts/start_sentry_all.sh -- config_file:=/abs/path/auto_aim_config.yaml
@@ -144,8 +179,67 @@
 # 联盟赛 + 非交互
 ./scripts/start_sentry_all_nogate.sh --mode 1 --no-prompt
 
+# 展示模式 + 非交互
+./scripts/start_sentry_all_nogate.sh --mode 3 --no-prompt
+
 # 也可继续追加 launch 参数
 ./scripts/start_sentry_all_nogate.sh -- wait_for_game_start_timeout_sec:=8
+```
+
+## 4.3 `start_sentry_showcase.sh`（展示/调试专用入口）
+
+用途：
+- 展示姿态切换时的一键入口。
+- 固定使用 `mode 3`，默认绕过 `is_start` 门控，减少现场操作量。
+- 内部调用 `start_sentry_all_nogate.sh --mode 3 --no-prompt`。
+- 默认仍会起整套展示主链：`gimbal_driver / detector / tracker_solver / predictor / outpost_hitter / buff_hitter / behavior_tree`。
+- 这意味着它有普通辅瞄链路，也有姿态展示链路。
+- 这条入口里的小陀螺不是独立“强制常开模式”，而是由 `behavior_tree` 火控/旋转逻辑决定；如果你只想单独测小陀螺，用 `start_chassis_gyro_test.sh`。
+- 展示巡逻点位在 `src/behavior_tree/Scripts/ConfigJson/showcase_competition.json` 的 `ShowcasePatrol.Goals` 修改。
+- `ShowcasePatrol.Random = true` 时随机切点。
+- `ShowcasePatrol.Random = false` 时按 `ShowcasePatrol.Goals` 数组顺序轮巡。
+- 若 `ShowcasePatrol.DisableTeamOffset = true`，展示模式会直接下发基础点位 ID `0..18` 到 `/ly/navi/goal`。
+
+常用命令：
+
+```bash
+# 默认：展示模式 + 跳过开赛门控
+./scripts/start_sentry_showcase.sh
+
+# 接裁判系统时保留门控
+./scripts/start_sentry_showcase.sh --with-gate
+
+# 离线模式
+./scripts/start_sentry_showcase.sh --offline
+
+# 接裁判系统，且只想保留普通辅瞄 + 姿态展示主链路
+./scripts/start_sentry_showcase.sh --with-gate -- use_buff:=false use_outpost:=false
+
+# 继续透传 launch 参数
+./scripts/start_sentry_showcase.sh -- use_buff:=false use_outpost:=false
+```
+
+## 4.4 `start_sentry_navi_debug.sh`（导航调试专用入口）
+
+用途：
+- 只拉起 `behavior_tree`，专门测试 `/ly/navi/goal` 发点链路。
+- 固定使用 `bt_config_file:=Scripts/ConfigJson/navi_debug_competition.json`。
+- 默认绕过开赛门控，适合无裁判系统时联调导航。
+- 临时点位计划单独放在 `src/behavior_tree/Scripts/ConfigJson/navi_debug_points.json`。
+- 默认没有辅瞄、没有姿态展示、没有独立小陀螺测试。
+- `NaviDebug` 只负责按 JSON 发点；要单独测辅瞄或小陀螺，请分别用 `start_autoaim_test.sh` 和 `start_chassis_gyro_test.sh`。
+
+常用命令：
+
+```bash
+# 默认：behavior_tree only + NaviDebug + 跳过开赛门控
+./scripts/start_sentry_navi_debug.sh
+
+# 接裁判系统时保留门控
+./scripts/start_sentry_navi_debug.sh --with-gate
+
+# 如需一起带 gimbal_driver，可继续透传 launch 参数
+./scripts/start_sentry_navi_debug.sh -- use_gimbal:=true
 ```
 
 ## 5. `start_autoaim_debug.sh`（auto_aim + mapper 联调）
@@ -155,6 +249,7 @@
 - 支持三种模式：`perception`（仅感知）、`mapper`（仅 mapper）、`fire`（感知+mapper，默认）。
 - 默认 `--offline`，并带残留进程清理、单控制源保护（防止与 behavior_tree 或其他发布者同时写 control 话题）。
 - 已加实例锁（`/tmp/sentry_autoaim_debug.lock`），并修复退出时后台 launch 清理。
+- 注意：这条链路不经过裁判系统 `is_start` 门控；若你需要“开赛后才接管控制”，请改用 `start_sentry_showcase.sh --with-gate` 或 `start_sentry_all.sh --mode 3 --no-prompt`。
 
 常用命令：
 
@@ -180,6 +275,7 @@
 用途：
 - 薄封装入口（已整理到 `feature_test/standalone/modes/armor_mode.sh`），默认等价于 `start_autoaim_debug.sh --mode fire --offline`。
 - 适合你只想快速验证辅瞄链路时直接开跑。
+- 同样不走裁判系统开赛门控。
 
 常用命令：
 
@@ -212,6 +308,7 @@
   - `2` 打大符（Buff）
   - `3` 打前哨（Outpost）
   - `4` 小陀螺（Chassis Spin）
+  - `5` 导航巡逻（Navi Patrol）
 - 统一加了互斥锁（`/tmp/sentry_standalone_test.lock`）和 Ctrl+C 清理，减少重复节点与卡进程。
 
 常用命令：
@@ -225,6 +322,7 @@
 ./scripts/start_standalone_test.sh --select 2 --online --enable-fire true
 ./scripts/start_standalone_test.sh --select 3 --offline
 ./scripts/start_standalone_test.sh --select 4 --rotate-level 2
+./scripts/start_standalone_test.sh --select 5 --plan test_site_sequence
 ```
 
 目录整理（单独测脚本）：
@@ -233,10 +331,49 @@
 - `scripts/feature_test/standalone/modes/buff_mode.sh`
 - `scripts/feature_test/standalone/modes/outpost_mode.sh`
 - `scripts/feature_test/standalone/modes/chassis_spin_mode.sh`
+- `scripts/feature_test/standalone/modes/navi_patrol_mode.sh`
 - `scripts/feature_test/standalone/tools/control_mode_publisher.py`
+- `scripts/feature_test/standalone/tools/nav_goal_patrol_pub.py`
 - `scripts/feature_test/standalone/tools/target_to_control_bridge.py`
 
-## 5.4 `start_navi_goal_cli.sh`（导航点位序号联调）
+## 5.4 `start_navi_patrol_test.sh`（导航临时点位自动巡逻）
+
+用途：
+- 读取 `src/behavior_tree/Scripts/ConfigJson/navi_debug_points.json`，自动持续发布：
+  - `/ly/navi/goal`
+  - `/ly/navi/speed_level`
+- 支持命名 plan、随机发点、顺序轮巡。
+- 与 `behavior_tree` 的 `NaviDebug` 共享同一份临时点位计划文件。
+
+常用命令：
+
+```bash
+# 按 JSON 的 ActivePlan 自动巡逻
+./scripts/start_navi_patrol_test.sh
+
+# 指定某个 plan
+./scripts/start_navi_patrol_test.sh --plan test_site_sequence
+
+# 指定蓝方序号映射并提高发布频率
+./scripts/start_navi_patrol_test.sh --team blue --hz 5
+```
+
+临时点位文件：
+- `src/behavior_tree/Scripts/ConfigJson/navi_debug_points.json`
+
+字段说明：
+- `ActivePlan`：当前生效的 plan 名
+- `Plans.<name>.Mode`：`random` 或 `sequence`
+- `Plans.<name>.GoalHoldSec`：每点停留秒数
+- `Plans.<name>.SpeedLevel`：下发到 `/ly/navi/speed_level`
+- `Plans.<name>.DisableTeamOffset`：`true` 时直接发基础 ID `0..18`
+- `Plans.<name>.Goals`：基础点位 ID 列表
+
+补充：
+- `Mode=sequence` 时，按 `Goals` 数组顺序依次发点。
+- `Mode=random` 时，会在 `Goals` 里随机切点，尽量避免连续重复同一个点。
+
+## 5.5 `start_navi_goal_cli.sh`（导航点位序号联调）
 
 用途：
 - 手动联调导航链路，交互输入并持续发布：

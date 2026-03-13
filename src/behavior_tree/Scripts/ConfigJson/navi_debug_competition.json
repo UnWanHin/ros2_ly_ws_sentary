@@ -1,0 +1,38 @@
+{
+    "CompetitionProfile": "regional",
+    "AimDebug": {
+        "StopFire": true,
+        "StopRotate": true,
+        "StopScan": true,
+        "HitBuff": false,
+        "HitOutpost": false,
+        "HitCar": false
+    },
+    "Rate": {
+        "FireRate": 20,
+        "TreeTickRate": 100,
+        "NaviCommandRate": 2
+    },
+    "GameStrategy": {
+        "HitBuff": false,
+        "HitOutpost": false,
+        "TestNavi": true,
+        "HitSentry": false,
+        "Protected": false
+    },
+    "NaviSetting": {
+        "UseXY": false
+    },
+    "NaviDebug": {
+        "Enable": true,
+        "PlanFile": "Scripts/ConfigJson/navi_debug_points.json",
+        "ActivePlan": "test_site_random",
+        "IgnoreRecovery": true,
+        "DisableTeamOffset": true,
+        "SpeedLevel": 1
+    },
+    "Posture": {
+        "Enable": false
+    },
+    "ScanCounter": 1
+}

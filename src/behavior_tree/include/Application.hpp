@@ -15,6 +15,7 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
+#include <deque>
 #include <string>
 #include <atomic>
 #include <thread>
@@ -159,6 +160,12 @@ private:
     std::atomic<bool> isFindTargetAtomic{false}; // 在回调函数中，每接收一次消息就会被置为true，然后在发送完控制数据之后置为false
     std::chrono::steady_clock::time_point lastTargetSeenTime{}; // 最近一次收到目标回调
     std::chrono::steady_clock::time_point lastDamageTime{};     // 最近一次检测到掉血
+    struct DamageSample {
+        std::chrono::steady_clock::time_point Time{};
+        std::uint16_t Delta{0};
+    };
+    std::deque<DamageSample> postureRecentDamageSamples_{};
+    std::chrono::steady_clock::time_point lastDamageBurstTime_{};
     bool postureHealthInitialized_{false};
     std::uint16_t postureLastHealth_{0};
     SentryPosture postureLastDesired_{SentryPosture::Unknown};
@@ -178,6 +185,10 @@ private:
     int leagueRefereeStaleTimeoutMs_{0};
     std::size_t leaguePatrolGoalIndex_{0};
     bool leaguePatrolGoalInitialized_{false};
+    std::size_t showcasePatrolGoalIndex_{0};
+    bool showcasePatrolGoalInitialized_{false};
+    std::size_t naviDebugGoalIndex_{0};
+    bool naviDebugGoalInitialized_{false};
     std::chrono::steady_clock::time_point lastLeagueRecoveryGuardLogTime_{};
     std::chrono::steady_clock::time_point lastPositionDataGuardLogTime_{};
 
@@ -283,6 +294,8 @@ private:
     
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_bt_target_;
 
+    void RecordDamageSample(std::chrono::steady_clock::time_point now, std::uint16_t damage);
+
 
 public:
     void SubscribeMessageAll();
@@ -332,8 +345,10 @@ public:
     void SetPositionHitSentry();
     void SetPositionHitHero();
     void SetPositionLeagueSimple();
-    void SetPositionByBaseGoal(std::uint8_t base_goal_id, UnitTeam team);
-    std::uint8_t ResolveGoalId(std::uint8_t base_goal_id, UnitTeam team) const noexcept;
+    void SetPositionShowcasePatrol();
+    void SetPositionNaviDebugPlan();
+    void SetPositionByBaseGoal(std::uint8_t base_goal_id, UnitTeam team, bool apply_team_offset = true);
+    std::uint8_t ResolveGoalId(std::uint8_t base_goal_id, UnitTeam team, bool apply_team_offset = true) const noexcept;
     void SetAimTarget();
     void SetAimTargetNormal();
     void SetAimMode();
@@ -342,6 +357,7 @@ public:
     SentryPosture SelectDesiredPosture(bool has_target) const;
     bool HasRecentTarget() const;
     bool IsUnderFireRecent() const;
+    bool IsUnderFireBurst() const;
 
     // 行为树初始化
     bool LoadBehaviorTree() noexcept;
@@ -374,6 +390,8 @@ public:
     CompetitionProfile GetCompetitionProfile() const noexcept { return competitionProfile_; }
     void SetCompetitionProfile(const CompetitionProfile profile) noexcept { competitionProfile_ = profile; }
     bool IsLeagueProfile() const noexcept { return competitionProfile_ == CompetitionProfile::League; }
+    bool IsShowcasePatrolEnabled() const noexcept { return config.ShowcasePatrolSettings.Enable; }
+    bool IsNaviDebugEnabled() const noexcept { return config.NaviDebugSettings.Enable; }
     AimMode GetAimMode() const noexcept { return aimMode; }
     BT::Blackboard::Ptr GetGlobalBlackboard() const noexcept { return GlobalBlackboard_; }
     BT::Blackboard::Ptr GetTickBlackboard() const noexcept { return TickBlackboard_; }

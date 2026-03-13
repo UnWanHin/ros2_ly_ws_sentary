@@ -42,6 +42,68 @@ bool Application::IsUnderFireRecent() const {
     return (std::chrono::steady_clock::now() - lastDamageTime) <= std::chrono::seconds(keep_sec);
 }
 
+bool Application::IsUnderFireBurst() const {
+    const auto now = std::chrono::steady_clock::now();
+    const int hold_sec = std::max(0, config.PostureSettings.DamageBurstDefenseHoldSec);
+    if (hold_sec > 0 && lastDamageBurstTime_.time_since_epoch().count() != 0 &&
+        (now - lastDamageBurstTime_) <= std::chrono::seconds(hold_sec)) {
+        return true;
+    }
+
+    const int window_ms = std::max(0, config.PostureSettings.DamageBurstWindowMs);
+    const int threshold = std::max(0, config.PostureSettings.DamageBurstThreshold);
+    if (window_ms <= 0 || threshold <= 0) {
+        return false;
+    }
+
+    std::uint32_t total_damage = 0;
+    for (auto it = postureRecentDamageSamples_.rbegin(); it != postureRecentDamageSamples_.rend(); ++it) {
+        if ((now - it->Time) > std::chrono::milliseconds(window_ms)) {
+            break;
+        }
+        total_damage += it->Delta;
+        if (total_damage >= static_cast<std::uint32_t>(threshold)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void Application::RecordDamageSample(const std::chrono::steady_clock::time_point now, const std::uint16_t damage) {
+    if (damage == 0U) {
+        return;
+    }
+
+    postureRecentDamageSamples_.push_back({now, damage});
+
+    const int window_ms = std::max(0, config.PostureSettings.DamageBurstWindowMs);
+    if (window_ms > 0) {
+        const auto cutoff = now - std::chrono::milliseconds(window_ms);
+        while (!postureRecentDamageSamples_.empty() && postureRecentDamageSamples_.front().Time < cutoff) {
+            postureRecentDamageSamples_.pop_front();
+        }
+    } else if (postureRecentDamageSamples_.size() > 32U) {
+        postureRecentDamageSamples_.pop_front();
+    }
+
+    const int threshold = std::max(0, config.PostureSettings.DamageBurstThreshold);
+    if (window_ms <= 0 || threshold <= 0) {
+        return;
+    }
+
+    std::uint32_t total_damage = 0;
+    for (auto it = postureRecentDamageSamples_.rbegin(); it != postureRecentDamageSamples_.rend(); ++it) {
+        if ((now - it->Time) > std::chrono::milliseconds(window_ms)) {
+            break;
+        }
+        total_damage += it->Delta;
+        if (total_damage >= static_cast<std::uint32_t>(threshold)) {
+            lastDamageBurstTime_ = now;
+            return;
+        }
+    }
+}
+
 SentryPosture Application::SelectDesiredPosture(const bool has_target) const {
     if (!config.PostureSettings.Enable) {
         return SentryPosture::Unknown;
@@ -99,6 +161,11 @@ SentryPosture Application::SelectDesiredPosture(const bool has_target) const {
     const bool low_health = myselfHealth <= static_cast<std::uint16_t>(config.PostureSettings.LowHealthThreshold);
     const bool low_ammo = ammoLeft <= static_cast<std::uint16_t>(config.PostureSettings.LowAmmoThreshold);
     const bool under_fire = IsUnderFireRecent();
+    const bool under_fire_burst = IsUnderFireBurst();
+
+    if (under_fire_burst) {
+        return SentryPosture::Defense;
+    }
 
     if (low_energy) {
         score.Defense += 6;
@@ -179,6 +246,7 @@ void Application::UpdatePostureCommand(const bool has_target) {
         postureLastHealth_ = myselfHealth;
         postureHealthInitialized_ = true;
     } else if (myselfHealth < postureLastHealth_) {
+        RecordDamageSample(now, static_cast<std::uint16_t>(postureLastHealth_ - myselfHealth));
         lastDamageTime = now;
         postureLastHealth_ = myselfHealth;
     } else {
@@ -198,13 +266,14 @@ void Application::UpdatePostureCommand(const bool has_target) {
 
     if (LoggerPtr && (decision.Sent || desired_changed || reason_changed)) {
         LoggerPtr->Info(
-            "[Posture] cmd={} desired={} current={} pending={} has_target_recent={} under_fire={} feedback_stale={} reason={}",
+            "[Posture] cmd={} desired={} current={} pending={} has_target_recent={} under_fire={} under_fire_burst={} feedback_stale={} reason={}",
             static_cast<int>(postureCommand),
             PostureToString(desired),
             PostureToString(runtime.Current),
             PostureToString(runtime.Pending),
             has_target_recent ? 1 : 0,
             IsUnderFireRecent() ? 1 : 0,
+            IsUnderFireBurst() ? 1 : 0,
             runtime.FeedbackStale ? 1 : 0,
             decision.Reason);
     }

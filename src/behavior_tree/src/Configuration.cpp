@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
 
 namespace {
 
@@ -21,6 +22,119 @@ BehaviorTree::CompetitionProfile ParseCompetitionProfile(const std::string& valu
 
 bool IsValidBaseGoal(const std::uint8_t goal_id) {
     return goal_id <= LangYa::OccupyArea.ID;
+}
+
+std::string ResolveBehaviorTreeConfigPath(const std::string& configured_path) {
+    if (configured_path.empty()) {
+        return {};
+    }
+
+    const std::filesystem::path path(configured_path);
+    if (path.is_absolute()) {
+        return path.lexically_normal().string();
+    }
+
+    try {
+        const auto pkg_path = ament_index_cpp::get_package_share_directory("behavior_tree");
+        return (std::filesystem::path(pkg_path) / path).lexically_normal().string();
+    } catch (...) {
+        return path.lexically_normal().string();
+    }
+}
+
+bool LoadNaviDebugPlanFile(LangYa::NaviDebugSetting& nd, const std::shared_ptr<Logger>& logger) {
+    const std::string default_plan_file = "Scripts/ConfigJson/navi_debug_points.json";
+    nd.PlanFile = ResolveBehaviorTreeConfigPath(nd.PlanFile.empty() ? default_plan_file : nd.PlanFile);
+
+    std::ifstream ifs(nd.PlanFile);
+    if (!ifs.is_open()) {
+        if (logger) {
+            logger->Warning("Failed to open NaviDebug plan file: {}", nd.PlanFile);
+        }
+        return false;
+    }
+
+    nlohmann::json root;
+    ifs >> root;
+
+    const nlohmann::json* selected_plan = nullptr;
+    std::string selected_plan_name = nd.ActivePlan.empty()
+        ? root.value("ActivePlan", std::string{})
+        : nd.ActivePlan;
+
+    const auto plans_it = root.find("Plans");
+    if (plans_it != root.end() && plans_it->is_object()) {
+        if (selected_plan_name.empty()) {
+            if (plans_it->size() == 1U) {
+                selected_plan_name = plans_it->begin().key();
+            } else if (plans_it->contains("default")) {
+                selected_plan_name = "default";
+            }
+        }
+        if (!selected_plan_name.empty()) {
+            const auto selected_it = plans_it->find(selected_plan_name);
+            if (selected_it != plans_it->end() && selected_it->is_object()) {
+                selected_plan = &(*selected_it);
+            }
+        }
+        if (selected_plan == nullptr && !plans_it->empty()) {
+            selected_plan_name = plans_it->begin().key();
+            selected_plan = &plans_it->begin().value();
+            if (logger) {
+                logger->Warning("NaviDebug plan '{}' not found, fallback to first plan '{}'.",
+                    nd.ActivePlan, selected_plan_name);
+            }
+        }
+    } else {
+        selected_plan = &root;
+        if (selected_plan_name.empty()) {
+            selected_plan_name = "<root>";
+        }
+    }
+
+    if (selected_plan == nullptr || !selected_plan->is_object()) {
+        if (logger) {
+            logger->Warning("NaviDebug plan file '{}' has no valid plan object.", nd.PlanFile);
+        }
+        return false;
+    }
+
+    nd.ActivePlan = selected_plan_name;
+    nd.GoalHoldSec = selected_plan->value("GoalHoldSec", nd.GoalHoldSec);
+    nd.DisableTeamOffset = selected_plan->value("DisableTeamOffset", nd.DisableTeamOffset);
+    nd.IgnoreRecovery = selected_plan->value("IgnoreRecovery", nd.IgnoreRecovery);
+    nd.SpeedLevel = static_cast<std::uint8_t>(
+        std::clamp(selected_plan->value("SpeedLevel", static_cast<int>(nd.SpeedLevel)), 0, 2));
+
+    const std::string plan_mode = NormalizeProfile(selected_plan->value(
+        "Mode", nd.Random ? std::string("random") : std::string("sequence")));
+    if (plan_mode == "random") {
+        nd.Random = true;
+    } else if (plan_mode == "sequence" || plan_mode == "sequential" || plan_mode == "ordered") {
+        nd.Random = false;
+    } else {
+        nd.Random = selected_plan->value("Random", nd.Random);
+    }
+
+    if (selected_plan->contains("Goals")) {
+        selected_plan->at("Goals").get_to(nd.Goals);
+    } else {
+        nd.Goals.clear();
+    }
+
+    if (logger) {
+        logger->Info(
+            "Loaded NaviDebug plan file='{}' active_plan='{}' mode={} goals={} hold_sec={} speed={} disable_team_offset={} ignore_recovery={}",
+            nd.PlanFile,
+            nd.ActivePlan,
+            nd.Random ? "random" : "sequence",
+            nd.Goals.size(),
+            nd.GoalHoldSec,
+            static_cast<int>(nd.SpeedLevel),
+            nd.DisableTeamOffset ? 1 : 0,
+            nd.IgnoreRecovery ? 1 : 0);
+    }
+    return true;
 }
 
 }  // namespace
@@ -66,6 +180,31 @@ namespace LangYa {
         }
     }
 
+    void from_json(const json& j, ShowcasePatrolSetting& sp) {
+        sp.Enable = j.value("Enable", sp.Enable);
+        sp.GoalHoldSec = j.value("GoalHoldSec", sp.GoalHoldSec);
+        sp.Random = j.value("Random", sp.Random);
+        sp.DisableTeamOffset = j.value("DisableTeamOffset", sp.DisableTeamOffset);
+        if (j.contains("Goals")) {
+            j.at("Goals").get_to(sp.Goals);
+        }
+    }
+
+    void from_json(const json& j, NaviDebugSetting& nd) {
+        nd.Enable = j.value("Enable", nd.Enable);
+        nd.PlanFile = j.value("PlanFile", nd.PlanFile);
+        nd.ActivePlan = j.value("ActivePlan", nd.ActivePlan);
+        nd.GoalHoldSec = j.value("GoalHoldSec", nd.GoalHoldSec);
+        nd.Random = j.value("Random", nd.Random);
+        nd.DisableTeamOffset = j.value("DisableTeamOffset", nd.DisableTeamOffset);
+        nd.IgnoreRecovery = j.value("IgnoreRecovery", nd.IgnoreRecovery);
+        nd.SpeedLevel = static_cast<std::uint8_t>(
+            std::clamp(j.value("SpeedLevel", static_cast<int>(nd.SpeedLevel)), 0, 2));
+        if (j.contains("Goals")) {
+            j.at("Goals").get_to(nd.Goals);
+        }
+    }
+
     void from_json(const json& j, PostureSetting& ps) {
         ps.Enable = j.value("Enable", ps.Enable);
         ps.SwitchCooldownSec = j.value("SwitchCooldownSec", ps.SwitchCooldownSec);
@@ -78,6 +217,9 @@ namespace LangYa {
         ps.OptimisticAck = j.value("OptimisticAck", ps.OptimisticAck);
         ps.TargetKeepMs = j.value("TargetKeepMs", ps.TargetKeepMs);
         ps.DamageKeepSec = j.value("DamageKeepSec", ps.DamageKeepSec);
+        ps.DamageBurstWindowMs = j.value("DamageBurstWindowMs", ps.DamageBurstWindowMs);
+        ps.DamageBurstThreshold = j.value("DamageBurstThreshold", ps.DamageBurstThreshold);
+        ps.DamageBurstDefenseHoldSec = j.value("DamageBurstDefenseHoldSec", ps.DamageBurstDefenseHoldSec);
         ps.LowHealthThreshold = j.value("LowHealthThreshold", ps.LowHealthThreshold);
         ps.VeryLowHealthThreshold = j.value("VeryLowHealthThreshold", ps.VeryLowHealthThreshold);
         ps.LowAmmoThreshold = j.value("LowAmmoThreshold", ps.LowAmmoThreshold);
@@ -100,6 +242,12 @@ namespace LangYa {
         }
         if (j.contains("LeagueStrategy")) {
             j.at("LeagueStrategy").get_to(c.LeagueStrategySettings);
+        }
+        if (j.contains("ShowcasePatrol")) {
+            j.at("ShowcasePatrol").get_to(c.ShowcasePatrolSettings);
+        }
+        if (j.contains("NaviDebug")) {
+            j.at("NaviDebug").get_to(c.NaviDebugSettings);
         }
         if (j.contains("Posture")) {
             j.at("Posture").get_to(c.PostureSettings);
@@ -151,6 +299,15 @@ namespace BehaviorTree {
         LoggerPtr->Debug("AmmoRecoveryThreshold: {}", config.LeagueStrategySettings.AmmoRecoveryThreshold);
         LoggerPtr->Debug("MainGoal: {}", static_cast<int>(config.LeagueStrategySettings.MainGoal));
         LoggerPtr->Debug("GoalHoldSec: {}", config.LeagueStrategySettings.GoalHoldSec);
+        LoggerPtr->Debug("------ ShowcasePatrol ------");
+        LoggerPtr->Debug("Enable: {}", config.ShowcasePatrolSettings.Enable);
+        LoggerPtr->Debug("GoalHoldSec: {}", config.ShowcasePatrolSettings.GoalHoldSec);
+        LoggerPtr->Debug("Random: {}", config.ShowcasePatrolSettings.Random);
+        LoggerPtr->Debug("DisableTeamOffset: {}", config.ShowcasePatrolSettings.DisableTeamOffset);
+        LoggerPtr->Debug("------ NaviDebug ------");
+        LoggerPtr->Debug("Enable: {}", config.NaviDebugSettings.Enable);
+        LoggerPtr->Debug("PlanFile: {}", config.NaviDebugSettings.PlanFile);
+        LoggerPtr->Debug("ActivePlan: {}", config.NaviDebugSettings.ActivePlan);
         LoggerPtr->Debug("------ PostureSetting ------");
         LoggerPtr->Debug("Enable: {}", config.PostureSettings.Enable);
         LoggerPtr->Debug("SwitchCooldownSec: {}", config.PostureSettings.SwitchCooldownSec);
@@ -163,6 +320,9 @@ namespace BehaviorTree {
         LoggerPtr->Debug("OptimisticAck: {}", config.PostureSettings.OptimisticAck);
         LoggerPtr->Debug("TargetKeepMs: {}", config.PostureSettings.TargetKeepMs);
         LoggerPtr->Debug("DamageKeepSec: {}", config.PostureSettings.DamageKeepSec);
+        LoggerPtr->Debug("DamageBurstWindowMs: {}", config.PostureSettings.DamageBurstWindowMs);
+        LoggerPtr->Debug("DamageBurstThreshold: {}", config.PostureSettings.DamageBurstThreshold);
+        LoggerPtr->Debug("DamageBurstDefenseHoldSec: {}", config.PostureSettings.DamageBurstDefenseHoldSec);
         LoggerPtr->Debug("LowHealthThreshold: {}", config.PostureSettings.LowHealthThreshold);
         LoggerPtr->Debug("VeryLowHealthThreshold: {}", config.PostureSettings.VeryLowHealthThreshold);
         LoggerPtr->Debug("LowAmmoThreshold: {}", config.PostureSettings.LowAmmoThreshold);
@@ -196,6 +356,60 @@ namespace BehaviorTree {
         }
         config.LeagueStrategySettings.PatrolGoals = std::move(sanitized_patrol_goals);
 
+        if (config.ShowcasePatrolSettings.GoalHoldSec <= 0) {
+            LoggerPtr->Warning(
+                "Invalid ShowcasePatrol.GoalHoldSec={}, fallback to 5.",
+                config.ShowcasePatrolSettings.GoalHoldSec);
+            config.ShowcasePatrolSettings.GoalHoldSec = 5;
+        }
+        std::vector<std::uint8_t> sanitized_showcase_goals;
+        sanitized_showcase_goals.reserve(config.ShowcasePatrolSettings.Goals.size());
+        for (const auto goal_id : config.ShowcasePatrolSettings.Goals) {
+            if (!IsValidBaseGoal(goal_id)) {
+                LoggerPtr->Warning("Ignore invalid ShowcasePatrol.Goals item={}.", static_cast<int>(goal_id));
+                continue;
+            }
+            if (std::find(sanitized_showcase_goals.begin(), sanitized_showcase_goals.end(), goal_id) ==
+                sanitized_showcase_goals.end()) {
+                sanitized_showcase_goals.push_back(goal_id);
+            }
+        }
+        config.ShowcasePatrolSettings.Goals = std::move(sanitized_showcase_goals);
+        if (config.ShowcasePatrolSettings.Enable && config.ShowcasePatrolSettings.Goals.empty()) {
+            LoggerPtr->Warning("ShowcasePatrol enabled but no valid goals found, fallback to OccupyArea.");
+            config.ShowcasePatrolSettings.Goals.push_back(LangYa::OccupyArea.ID);
+        }
+
+        if (config.NaviDebugSettings.Enable) {
+            if (!LoadNaviDebugPlanFile(config.NaviDebugSettings, LoggerPtr)) {
+                LoggerPtr->Warning("Disable NaviDebug and fallback to legacy TestNavi route.");
+                config.NaviDebugSettings.Enable = false;
+            }
+        }
+        if (config.NaviDebugSettings.GoalHoldSec <= 0) {
+            LoggerPtr->Warning(
+                "Invalid NaviDebug.GoalHoldSec={}, fallback to 5.",
+                config.NaviDebugSettings.GoalHoldSec);
+            config.NaviDebugSettings.GoalHoldSec = 5;
+        }
+        std::vector<std::uint8_t> sanitized_navi_debug_goals;
+        sanitized_navi_debug_goals.reserve(config.NaviDebugSettings.Goals.size());
+        for (const auto goal_id : config.NaviDebugSettings.Goals) {
+            if (!IsValidBaseGoal(goal_id)) {
+                LoggerPtr->Warning("Ignore invalid NaviDebug.Goals item={}.", static_cast<int>(goal_id));
+                continue;
+            }
+            if (std::find(sanitized_navi_debug_goals.begin(), sanitized_navi_debug_goals.end(), goal_id) ==
+                sanitized_navi_debug_goals.end()) {
+                sanitized_navi_debug_goals.push_back(goal_id);
+            }
+        }
+        config.NaviDebugSettings.Goals = std::move(sanitized_navi_debug_goals);
+        if (config.NaviDebugSettings.Enable && config.NaviDebugSettings.Goals.empty()) {
+            LoggerPtr->Warning("NaviDebug enabled but no valid goals found, fallback to OccupyArea.");
+            config.NaviDebugSettings.Goals.push_back(LangYa::OccupyArea.ID);
+        }
+
         const std::string config_profile = NormalizeProfile(config.CompetitionProfile);
         const std::string effective_profile = competitionProfileOverride_.empty()
             ? config_profile
@@ -212,6 +426,12 @@ namespace BehaviorTree {
         LoggerPtr->Info("Effective CompetitionProfile: {}", CompetitionProfileToString(competitionProfile_));
         if (competitionProfile_ == CompetitionProfile::League && config.NaviSettings.UseXY) {
             LoggerPtr->Warning("League profile is using UseXY=true. Goal-ID mode is recommended for league.");
+        }
+        if (config.ShowcasePatrolSettings.Enable && config.NaviSettings.UseXY) {
+            LoggerPtr->Warning("ShowcasePatrol is enabled with UseXY=true. DisableTeamOffset only affects /ly/navi/goal.");
+        }
+        if (config.NaviDebugSettings.Enable && config.NaviSettings.UseXY) {
+            LoggerPtr->Warning("NaviDebug is enabled with UseXY=true. Dedicated point-plan mode recommends /ly/navi/goal.");
         }
 
         // 与旧逻辑保持一致：SetPositionRepeat 的初始优先级
@@ -232,6 +452,10 @@ namespace BehaviorTree {
         postureManager_.Reset(std::chrono::steady_clock::now(), SentryPosture::Move);
         leaguePatrolGoalIndex_ = 0;
         leaguePatrolGoalInitialized_ = false;
+        showcasePatrolGoalIndex_ = 0;
+        showcasePatrolGoalInitialized_ = false;
+        naviDebugGoalIndex_ = 0;
+        naviDebugGoalInitialized_ = false;
 
         return true;
     }

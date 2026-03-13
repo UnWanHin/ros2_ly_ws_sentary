@@ -1,0 +1,21 @@
+{
+    "ActivePlan": "test_site_random",
+    "Plans": {
+        "test_site_random": {
+            "Mode": "random",
+            "GoalHoldSec": 5,
+            "SpeedLevel": 1,
+            "DisableTeamOffset": true,
+            "IgnoreRecovery": true,
+            "Goals": [6, 11, 14, 15]
+        },
+        "test_site_sequence": {
+            "Mode": "sequence",
+            "GoalHoldSec": 4,
+            "SpeedLevel": 1,
+            "DisableTeamOffset": true,
+            "IgnoreRecovery": true,
+            "Goals": [3, 6, 11, 16]
+        }
+    }
+}

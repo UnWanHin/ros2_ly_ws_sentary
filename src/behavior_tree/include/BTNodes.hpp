@@ -81,6 +81,11 @@ public:
             global_board->set("StrategyMode", static_cast<std::uint8_t>(StrategyMode::LeagueSimple));
             return BT::NodeStatus::SUCCESS;
         }
+        if (app_->IsNaviDebugEnabled()) {
+            app_->SetStrategyMode(StrategyMode::NaviTest);
+            global_board->set("StrategyMode", static_cast<std::uint8_t>(StrategyMode::NaviTest));
+            return BT::NodeStatus::SUCCESS;
+        }
 
         const int now_time = app_->ElapsedSeconds();
 
@@ -353,6 +358,7 @@ public:
             tick_board->set("PostureDegradedMove", runtime.Degraded[3]);
             tick_board->set("PostureHasRecentTarget", app_->HasRecentTarget());
             tick_board->set("PostureUnderFireRecent", app_->IsUnderFireRecent());
+            tick_board->set("PostureUnderFireBurst", app_->IsUnderFireBurst());
         }
 
         if (global_board) {
@@ -369,6 +375,7 @@ public:
             global_board->set("PostureDegradedMove", runtime.Degraded[3]);
             global_board->set("PostureHasRecentTarget", app_->HasRecentTarget());
             global_board->set("PostureUnderFireRecent", app_->IsUnderFireRecent());
+            global_board->set("PostureUnderFireBurst", app_->IsUnderFireBurst());
         }
         return BT::NodeStatus::SUCCESS;
     }

@@ -20,7 +20,7 @@ LAUNCH_LOG=""
 usage() {
   cat <<EOF
 Usage:
-  $(basename "$0") [--offline|--online] [--mode 1|2|league|regional] [--rotate-level 0..3] [--hz N] [--wait SEC] [--config-file PATH]
+  $(basename "$0") [--offline|--online] [--mode 1|2|3|league|regional|showcase] [--rotate-level 0..3] [--hz N] [--wait SEC] [--config-file PATH]
 
 Purpose:
   Start minimal stack (gimbal_driver only) and publish /ly/control/firecode Rotate bits.

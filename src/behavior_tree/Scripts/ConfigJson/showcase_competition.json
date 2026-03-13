@@ -1,0 +1,54 @@
+{
+    "CompetitionProfile": "regional",
+    "AimDebug": {
+        "StopFire": false,
+        "StopRotate": false,
+        "StopScan": false,
+        "HitBuff": false,
+        "HitOutpost": false,
+        "HitCar": false
+    },
+    "Rate": {
+        "FireRate": 20,
+        "TreeTickRate": 100,
+        "NaviCommandRate": 1
+    },
+    "GameStrategy": {
+        "HitBuff": false,
+        "HitOutpost": false,
+        "TestNavi": false,
+        "HitSentry": false,
+        "Protected": false
+    },
+    "NaviSetting": {
+        "UseXY": false
+    },
+    "ShowcasePatrol": {
+        "Enable": true,
+        "Goals": [6, 11, 14, 15],
+        "GoalHoldSec": 5,
+        "Random": true,
+        "DisableTeamOffset": true
+    },
+    "Posture": {
+        "Enable": true,
+        "SwitchCooldownSec": 1,
+        "MaxSinglePostureSec": 180,
+        "EarlyRotateSec": 165,
+        "MinHoldSec": 1,
+        "PendingAckTimeoutMs": 300,
+        "RetryIntervalMs": 150,
+        "MaxRetryCount": 4,
+        "OptimisticAck": true,
+        "TargetKeepMs": 400,
+        "DamageKeepSec": 4,
+        "DamageBurstWindowMs": 1200,
+        "DamageBurstThreshold": 25,
+        "DamageBurstDefenseHoldSec": 3,
+        "LowHealthThreshold": 120,
+        "VeryLowHealthThreshold": 80,
+        "LowAmmoThreshold": 30,
+        "ScoreHysteresis": 1
+    },
+    "ScanCounter": 1
+}

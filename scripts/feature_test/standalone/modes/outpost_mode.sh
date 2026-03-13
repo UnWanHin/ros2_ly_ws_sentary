@@ -42,7 +42,7 @@ Purpose:
 
 Options:
   --offline|--online
-  --mode 1|2|league|regional
+  --mode 1|2|3|league|regional|showcase
   --wait SEC
   --config-file PATH
   --enable-fire true|false

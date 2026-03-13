@@ -194,6 +194,9 @@ BT 節點實際調用的就是這些函數。
 - `src/behavior_tree/Scripts/config.json`
 - `src/behavior_tree/Scripts/ConfigJson/regional_competition.json`
 - `src/behavior_tree/Scripts/ConfigJson/league_competition.json`
+- `src/behavior_tree/Scripts/ConfigJson/showcase_competition.json`
+- `src/behavior_tree/Scripts/ConfigJson/navi_debug_competition.json`
+- `src/behavior_tree/Scripts/ConfigJson/navi_debug_points.json`
 
 常改項：
 - `GameStrategy.HitSentry / TestNavi / Protected / HitBuff / HitOutpost`（初始策略）
@@ -201,6 +204,9 @@ BT 節點實際調用的就是這些函數。
 - `Rate.FireRate / TreeTickRate / NaviCommandRate`
 - `CompetitionProfile`
 - `LeagueStrategy.UseHealthRecovery / HealthRecoveryThreshold / UseAmmoRecovery / AmmoRecoveryThreshold / MainGoal / PatrolGoals / GoalHoldSec`
+- `ShowcasePatrol.Enable / Goals / GoalHoldSec / Random / DisableTeamOffset`
+- `NaviDebug.Enable / PlanFile / ActivePlan / IgnoreRecovery / DisableTeamOffset / SpeedLevel`
+- `Posture.DamageBurstWindowMs / DamageBurstThreshold / DamageBurstDefenseHoldSec`
 - `debug_bypass_is_start / wait_for_game_start_timeout_sec / league_referee_stale_timeout_ms`（ROS 參數，默認關閉）
 
 當前聯盟賽推薦值：
@@ -208,6 +214,18 @@ BT 節點實際調用的就是這些函數。
 - `NaviSetting.UseXY = false`
 - `LeagueStrategy.MainGoal = 18`（`OccupyArea`）
 - `LeagueStrategy.PatrolGoals = []`
+
+當前展示模式補充：
+- `src/behavior_tree/Scripts/ConfigJson/showcase_competition.json`
+- `ShowcasePatrol.Goals = [6, 11, 14, 15]` 可直接改成你現場要演示的點位序列
+- `ShowcasePatrol.DisableTeamOffset = true` 時，`/ly/navi/goal` 直接發基礎 ID `0..18`
+
+當前導航調試模式補充：
+- `src/behavior_tree/Scripts/ConfigJson/navi_debug_competition.json`
+- `src/behavior_tree/Scripts/ConfigJson/navi_debug_points.json`
+- `NaviDebug.ActivePlan` 或點位文件內的 `ActivePlan` 可切換臨時路線
+- `Plans.<name>.Mode = random|sequence`
+- `Plans.<name>.Goals = [...]` 只改序號列表，不改老點位定義
 
 ---
 
@@ -279,12 +297,14 @@ ros2 topic hz /ly/detector/armors
 - `./scripts/start_sentry_all.sh`
 
 腳本模式選擇（推薦）：
-- 交互選擇（1=league, 2=regional）
+- 交互選擇（1=league, 2=regional, 3=showcase）
   - `./scripts/start_sentry_all.sh`
 - 非交互聯盟賽
   - `./scripts/start_sentry_all.sh --mode 1 --no-prompt`
 - 非交互分區賽
   - `./scripts/start_sentry_all.sh --mode 2 --no-prompt`
+- 非交互展示模式
+  - `./scripts/start_sentry_all.sh --mode 3 --no-prompt`
 
 ### 8.1 默認行為
 
@@ -345,18 +365,21 @@ ros2 launch behavior_tree sentry_all.launch.py \
 
 本次對齊檢查結論：
 - `start_sentry_all.sh` -> `sentry_all.launch.py` -> `behavior_tree` 的參數鏈路已對齊
-  - `competition_profile`：可選 1/2 或顯式傳入
-  - `bt_config_file`：按 profile 自動對齊（league/regional）
-  - `config_file`：腳本層強制實機 YAML（防止誤用調試配置）
+  - `--mode`：可選 `1/2/3` 或顯式傳入 `league/regional/showcase`
+  - `competition_profile`：由啟動模式自動對齊；其中 `mode 3` 仍映射到 `regional`
+  - `bt_config_file`：按啟動模式自動對齊（`league/regional/showcase`）
+  - `config_file`：默認沿用 launch 默認 YAML，僅在顯式傳入時覆蓋
 - BT 層策略鏈路已對齊
   - `league`：固定走 `LeagueSimple`
   - `regional`：保持原分區賽策略切換
+  - `showcase`：沿用 `regional` 主流程，但使用展示專用姿態參數
 - 導航發布鏈路已對齊
   - `UseXY=false` -> 發 `/ly/navi/goal`
   - `UseXY=true` -> 發 `/ly/navi/goal_pos`
 
 驗證記錄：
-- `./scripts/self_check_sentry.sh --static-only`：通過（PASS 19 / FAIL 0）
+- `./scripts/self_check_sentry.sh --static-only`：通過（PASS 36 / WARN 0 / FAIL 0）
+- `colcon build --packages-select behavior_tree`：通過
 - `./scripts/self_check_sentry.sh --runtime-only --launch --wait 5 --skip-hz`：
   - 在當前沙箱環境受 DDS 權限限制（`RTPS_TRANSPORT_SHM/UDP permission denied`）未通過
   - 屬於環境限制，不是策略鏈路配置錯配
