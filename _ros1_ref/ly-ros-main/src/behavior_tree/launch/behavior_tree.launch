@@ -1,0 +1,5 @@
+<launch>
+  <node pkg="behavior_tree" type="behavior_tree_node" name="behavior_tree" output="log">
+    <env name="ROS_LOG_DIR" value="$HOME/workspace/logs/behavior_tree/log" />
+  </node>
+</launch>

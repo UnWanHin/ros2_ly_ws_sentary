@@ -32,7 +32,10 @@ namespace BehaviorTree {
     void Application::UpdateBlackBoard() {
 
         std::uint16_t SelfHealth = myselfHealth;
-        bool IsFindTarget = isFindTargetAtomic;
+        const bool has_auto_target = autoAimData.Fresh && autoAimData.Valid;
+        const bool has_buff_target = buffAimData.Fresh && buffAimData.Valid && buffAimData.BuffFollow;
+        const bool has_outpost_target = outpostAimData.Fresh && outpostAimData.Valid;
+        const bool IsFindTarget = has_auto_target || has_buff_target || has_outpost_target;
 
         if (!GlobalBlackboard_) {
             GlobalBlackboard_ = BT::Blackboard::create();
@@ -150,7 +153,9 @@ namespace BehaviorTree {
             activeAimData = &outpostAimData;
         }
         GimbalAnglesType nextAngles = gimbalAngles;
-        const bool FindTarget = activeAimData->Fresh && activeAimData->Valid;
+        const bool FindTarget = activeAimData->Fresh &&
+                                activeAimData->Valid &&
+                                (aimMode != AimMode::Buff || activeAimData->BuffFollow);
         if (FindTarget) {
             const auto& locked_angles = activeAimData->Angles;
             const bool target_status_allow_fire = activeAimData->FireStatus;

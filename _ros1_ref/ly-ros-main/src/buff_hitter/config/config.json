@@ -1,0 +1,90 @@
+{
+    "car_name": "quanxiang",
+    "quanxiang": {
+        "UDP": {
+            "enable": false,
+            "ip": "192.168.137.1",
+            "port": 4096
+        },
+        "auto_white_balance": true,
+        "baud_rate": 115200,
+        "buff": {
+            "EfficiencyFirst": true,
+            "SMALL_POWER_RUNE_ROTATION_SPEED": 1.04719,
+            "armor_width": 270,
+            "buff_model_path": "/home/hustlyrm/workspace/src/buff_hitter/utils/buff_models/red_best.xml",
+            "buff_size": 270,
+            "max_distance_to_buff": 10,
+            "min_distance_to_buff": 3,
+            "power_radius": 700,
+            "COMPANSATE_TIME": 210,
+            "COMPANSATE_PITCH": -0.9,
+            "COMPANSATE_YAW": -0.5,
+            "GRAVITY": 9.8,
+            "buff_calculate_FPS": 120,
+            "tvec_c2g": [
+                0,    
+                52.6,
+                0
+            ]
+        },
+        "camera_id": "auto",
+        "car_model_path": "../utils/models/yolo11n-416sgd4.xml",
+        "controller": {
+            "armor_yaw_shoot_allow": 45,
+            "bullet_speed": 23,
+            "mouse_require": false,
+            "pic_camera_x": 640,
+            "pic_camera_y": 512,
+            "pitch_offset": 0,
+            "shoot_delay": 0,
+            "shoot_pitch_tol": 10,
+            "shoot_yaw_tol": 10,
+            "x_offset": 0,
+            "y_offset": 0.053,
+            "yaw_offset": 2,
+            "z_offset": 0
+        },
+        "enemy_color": "auto",
+        "exposure_time": 350,
+        "force_shoot": false,
+        "gain": 12,
+        "model_path": "../utils/models/armor_yolo_x.xml",
+        "record_enable": false,
+        "serial_name": "/dev/ttyACM0|/dev/ttyACM1|/dev/ttyUSB0|/dev/ttyUSB1",
+        "shoot_enable": true,
+        "solver": {
+            "X": 637.5,
+            "X1": -1.1057582434606322e-05,
+            "X2": 0.0005263443676652912,
+            "Y": 496.5,
+            "Y1": 0.0005689002206238117,
+            "Y2": 2.8155987489051654e-05,
+            "camera_distortion_matrix": [-0.1059, -0.3427, 0.0072, 0, 1.4125],
+            "camera_intrinsic_matrix": [
+                [
+                    1331.1,
+                    0,
+                    624.5817
+                ],
+                [
+                    0,
+                    1330.1,
+                    526.3662
+                ],
+                [
+                    0,
+                    0,
+                    1
+                ]
+            ],
+            "pitch_offset": -1.5,
+            "tvec_c2g": [
+                -45,    
+                0,
+                0
+            ]
+        },
+        "web_debug": true
+    }
+}

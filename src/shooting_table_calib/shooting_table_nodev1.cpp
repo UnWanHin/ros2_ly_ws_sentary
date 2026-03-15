@@ -251,6 +251,8 @@ namespace {
         // 状态变量
         std::vector<ShootingRecord> records;
         std::string csv_filename;
+        std::string current_init_stage{"not_started"};
+        bool csv_file_created{false};
         
         // 控制参数
         double pitch_adjustment = 0.0;
@@ -315,23 +317,40 @@ namespace {
         {
         }
 
+        void markInitStage(const std::string& stage)
+        {
+            current_init_stage = stage;
+            roslog::info("Init stage: {}", current_init_stage);
+            std::cout << "[INIT] " << current_init_stage << "\n";
+        }
+
         void Initialize()
         {
             // 注意：solver/predictor/controller 在 create*() 時會讀取全局 node 指針；
             // 必須先由 main 設置全局指針，再執行初始化流程。
+            markInitStage("load shoot table params");
             loadShootTableParams();
+            markInitStage("initialize video");
             initializeVideo();
+            markInitStage("initialize camera");
             initializeCamera();
+            markInitStage("initialize detector");
             initializeDetector();
+            markInitStage("initialize algorithms");
             initializeAlgorithms();
+            markInitStage("setup ros topics");
             setupRosTopics();
+            markInitStage("create calibration csv");
             createCSVFile();
+            markInitStage("print instructions");
             printInstructions();
 
             if (web_show) {
+                markInitStage("start web streamer");
                 VideoStreamer::init();
             }
 
+            markInitStage("ready");
             last_param_check = this->now();
         }
         
@@ -540,10 +559,32 @@ namespace {
                      << "target_x,target_y,target_z,absolute_yaw,absolute_pitch,target_yaw,"
                      << "fitted_pitch,fitted_yaw\n";
                 file.close();
+                csv_file_created = true;
                 roslog::info("Created CSV file: {}", csv_filename);
+                std::cout << "✓ Created CSV file: " << csv_filename << "\n";
+                std::cout << "✓ Calibration CSV directory: " << record_dir << "\n";
+            } else {
+                throw std::runtime_error("Failed to create CSV file: " + csv_filename);
             }
         }
 
+    public:
+        bool hasCreatedCsvFile() const
+        {
+            return csv_file_created;
+        }
+
+        const std::string& currentInitStage() const
+        {
+            return current_init_stage;
+        }
+
+        const std::string& currentCsvFile() const
+        {
+            return csv_filename;
+        }
+
+    private:
         void sendFireControlCommand()
         {
             // 构造火控数据包
@@ -1027,25 +1068,27 @@ namespace {
                 record.timestamp = this->now();
                 
                 std::ofstream file(csv_filename, std::ios::app);
-                if (file.is_open()) {
-                    file << std::fixed << std::setprecision(6)
-                         << record.timestamp.seconds() << ","
-                         << record.z_height << ","
-                         << record.horizontal_distance << ","
-                         << record.relative_yaw << ","
-                         << record.relative_pitch << ","
-                         << record.target_world_coord.x << ","
-                         << record.target_world_coord.y << ","
-                         << record.target_world_coord.z << ","
-                         << record.absolute_yaw << ","
-                         << record.absolute_pitch << ","
-                         << record.target_yaw << ","
-                         << record.fitted_pitch << ","
-                         << record.fitted_yaw << std::endl;
-                    file.close();
+                if (!file.is_open()) {
+                    throw std::runtime_error("Failed to open CSV file: " + csv_filename);
                 }
+                file << std::fixed << std::setprecision(6)
+                     << record.timestamp.seconds() << ","
+                     << record.z_height << ","
+                     << record.horizontal_distance << ","
+                     << record.relative_yaw << ","
+                     << record.relative_pitch << ","
+                     << record.target_world_coord.x << ","
+                     << record.target_world_coord.y << ","
+                     << record.target_world_coord.z << ","
+                     << record.absolute_yaw << ","
+                     << record.absolute_pitch << ","
+                     << record.target_yaw << ","
+                     << record.fitted_pitch << ","
+                     << record.fitted_yaw << std::endl;
+                file.close();
                 records.push_back(record);
-                std::cout << "✓ Record saved!\n";
+                std::cout << "✓ Record saved! samples=" << records.size()
+                          << ", csv=" << csv_filename << "\n";
                 
                 is_shooting.store(false);
                 aim_only_mode.store(false);
@@ -1120,7 +1163,10 @@ namespace {
                 case 's': pitch_adjustment -= adjustment_step; break;
                 case 'd': yaw_adjustment += adjustment_step; break;
                 case 'j': yaw_adjustment -= adjustment_step; break;
-                case 'h': saveShootingRecord(); break;
+                case 'h':
+                    std::cout << "💾 Saving shooting record to " << csv_filename << " ...\n";
+                    saveShootingRecord();
+                    break;
                 case 'r':
                     pitch_adjustment = 0; yaw_adjustment = 0;
                     control_valid = false; is_aiming = false; is_shooting = false;
@@ -1220,6 +1266,14 @@ int main(int argc, char** argv)
         node->spin_loop();
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
+        if (node->hasCreatedCsvFile()) {
+            std::cerr << "✗ Node exited after CSV creation. Current CSV: "
+                      << node->currentCsvFile() << std::endl;
+        } else {
+            std::cerr << "✗ Node exited before CSV creation. Last init stage: "
+                      << node->currentInitStage() << std::endl;
+            std::cerr << "✗ No new calibration CSV was created under $HOME/workspace/record" << std::endl;
+        }
         return 1;
     }
     

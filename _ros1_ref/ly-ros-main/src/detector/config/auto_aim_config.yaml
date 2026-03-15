@@ -1,0 +1,84 @@
+---
+# 相机参数
+camera_param:
+  camera_sn: "KE0200060396"
+  ExposureTime: 4000
+  Gain: 16
+  RedBalanceRatio: 1.2266
+  GreenBalanceRatio: 1.0
+  BlueBalanceRatio: 1.3711
+  # WhiteBalance: 4000
+
+sub_camera_param:
+  camera_sn: "FDN23020229"
+  ExposureTime: 6000
+  Gain: 8
+  RedBalanceRatio: 1.9531
+  GreenBalanceRatio: 1.0
+  BlueBalanceRatio: 2.1563
+  # WhiteBalance: 4000
+
+#  detector模块调试配置
+detector_config:
+  classifier_path: "/home/hustlyrm/workspace/src/detector/Extras/classifier.xml"
+  detector_path: "/home/hustlyrm/workspace/src/detector/Extras/armor_detector_model.xml"
+  car_model_path: "/home/hustlyrm/workspace/src/detector/Extras/car_detector_model.xml"
+  # 是否开启调试模式
+  debug_mode: false
+  debug_team_blue: true
+  # 图像是否显示（通过网页端实现 可以观察local_ip:8001/stream）
+  web_show: true
+  show: false  # 是否发布相机话题 pub_image 打符的时候一定要开
+  draw: true   # 是否开启绘制
+  use_ros_bag: false
+  # 是否开启保存视频（内录）
+  save_video: false  # 这个暂时还用不了
+  use_video: false  # 是否使用视频作为图像源
+  video_path: "/home/hustlyrm/workspace/record/video_20250518_224840.mp4"  # 视频路径
+
+#  相机坐标系：       装甲板坐标系：     世界坐标系:
+#         z   x           y             和相机坐标系一致
+#         |  /\           ^
+#         ^  /            |
+#         | /             |
+#  y <----o/              o----> x
+#
+# solver模块配置
+solver_config:
+  camera_offset: [0.0, 0.0, 52.6]  # 相机到枪口的偏移(单位: mm)
+  # camera_rotation: [0.0, 3.5, -0.5]  # 相机旋转角度(单位: °)-> roll pitch yaw  高打低情况下
+  camera_rotation: [0.0, 3.3, 0.0]  # 相机旋转角度(单位: °)-> roll pitch yaw  水平情况下如此
+  camera_intrinsic_matrix: [
+    1331.1, 0, 624.5817,
+    0, 1330.1, 526.3662,
+    0, 0, 1
+  ]
+  camera_distortion_coefficients: [
+    -0.1059, -0.3427, 0.0072, 0, 1.4125
+  ]
+
+controller_config:
+  bullet_speed: 23  # 子弹速度(单位: m/s)
+  shoot_delay: 0.02  # 预测延迟
+
+
+shoot_table_adjust:
+  enable: true
+  pitch:
+    intercept: 0.5  # 偏移量(单位: °)
+    coef_z: 0.0  # z轴系数
+    coef_d: 0.0  # 距离系数
+    coef_z2: 0.0
+    coef_zd: 0.0
+    coef_d2: 0.3
+  yaw:
+    intercept: 0.0  # 偏移量(单位: °)
+    coef_z: 0.0  # z轴系数
+    coef_d: 0.0  # 距离系数
+    coef_z2: 0.0
+    coef_zd: 0.0
+    coef_d2: 0.5
+
+# io模块配置
+io_config:
+  use_virtual_device: false  # 是否使用虚拟设备

@@ -1,0 +1,34 @@
+#pragma once
+#include <Eigen/Core>
+#include <vector>
+#include <array>
+#include "auto_aim_common/Location.hpp"
+
+namespace ly_auto_aim::inline predictor
+{
+    struct Armor {
+        enum armor_status {
+            NONEXIST,//temply not used
+            UNSEEN,
+            AVAILABLE
+        };
+        XYZ center;
+        double yaw;
+        double theta;// like yaws
+        int id;
+        armor_status status = NONEXIST;
+    };
+
+    struct Prediction {
+        XYZ center;
+        int id;
+        double vx, vy;
+        double z1, z2;
+        double theta, omega;
+        double r1, r2;
+        std::array<Armor, 4> armors;
+        bool stable = true;
+    };
+
+    typedef std::vector<Prediction> Predictions;
+};

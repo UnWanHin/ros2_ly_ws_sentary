@@ -21,23 +21,17 @@ namespace BehaviorTree {
     void Application::PubAimModeEnableData() {
         {
             std_msgs::msg::Bool msg;
-            if (aimMode != AimMode::Buff) {
-                msg.data = true;
-            } else msg.data = false;
+            msg.data = (aimMode == AimMode::AutoAim || aimMode == AimMode::RotateScan);
             pub_aa_enable_->publish(msg);
         }
         {
             std_msgs::msg::Bool msg;
-            if (aimMode == AimMode::Buff) {
-                msg.data = true;
-            } else msg.data = false;
+            msg.data = (aimMode == AimMode::Buff);
             pub_ra_enable_->publish(msg);
         }
         {
             std_msgs::msg::Bool msg;
-            if (aimMode == AimMode::Outpost) {
-                msg.data = true;
-            } else msg.data = false;
+            msg.data = (aimMode == AimMode::Outpost);
             pub_outpost_enable_->publish(msg);
         }
     }

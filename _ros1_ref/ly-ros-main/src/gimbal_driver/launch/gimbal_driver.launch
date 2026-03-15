@@ -1,0 +1,5 @@
+<launch>
+  <node pkg="gimbal_driver" type="gimbal_driver_node" name="gimbal_driver" output="log">
+    <env name="ROS_LOG_DIR" value="$HOME/workspace/logs/gimbal_driver/log" />
+  </node>
+</launch>

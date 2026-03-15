@@ -1,0 +1,22 @@
+{
+    "AimDebug" :{
+        "StopFire" : false,
+        "StopRotate":  false,
+        "StopScan" : false,
+        "HitBuff": false,
+        "HitOutpost": false
+    },
+    "Rate" : {
+        "FireRate" : 15,
+        "TreeTickRate" : 100,
+        "NaviCommandRate" : 2
+    },
+    "GameStrategy" : {
+        "HitBuff": false,
+        "HitOutpost": false,
+        "TestNavi": false,
+        "HitSentry": true,
+        "Protected": false
+    },
+    "ScanCounter" : 1
+}

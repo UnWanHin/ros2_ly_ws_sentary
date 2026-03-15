@@ -1,0 +1,1 @@
+cp /home/hustlyrm/workspace/src/behavior_tree/Scripts/ConfigJson/hit_sentry.json /home/hustlyrm/workspace/src/behavior_tree/Scripts/config.json

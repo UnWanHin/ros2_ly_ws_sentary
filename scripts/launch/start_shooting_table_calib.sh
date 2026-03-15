@@ -13,6 +13,18 @@ WEB_SHOW="true"
 DRAW_IMAGE="true"
 CONFIG_FILE=""
 PARAM_MANAGER_CMD=""
+FIT_LATEST=0
+FIT_ALL=0
+FIT_CSV=""
+AUTO_FIT=1
+WRITE_CONFIG=""
+OUTPUT_FIT_YAML=""
+DEFAULT_RECORD_DIR="${HOME:-.}/workspace/record"
+RECORD_DIR="${DEFAULT_RECORD_DIR}"
+DEFAULT_COMPETITION_CONFIG="${ROOT_DIR}/scripts/config/auto_aim_config_competition.yaml"
+AUTO_FIT_EXPLICIT=0
+WRITE_CONFIG_EXPLICIT=0
+DISABLE_DEFAULT_WRITE_CONFIG=0
 
 usage() {
   cat <<EOF
@@ -27,6 +39,15 @@ Options:
   --team <red|blue>           Team color for calib node. Default: red.
   --web-show <true|false>     Enable web show. Default: true.
   --draw-image <true|false>   Enable image draw. Default: true.
+  --record-dir <path>         Calibration CSV directory used by fitting. Does not change node save path.
+  --fit-latest                Fit the newest shooting_table_*.csv and exit.
+  --fit-all                   Fit all shooting_table_*.csv under --record-dir and exit.
+  --fit-csv <path>            Fit a specific CSV file and exit.
+  --auto-fit                  After calib exits, fit the current session CSV automatically. Default: enabled.
+  --no-auto-fit               Disable the default post-exit auto-fit behavior.
+  --write-config <path>       Write fitted coefficients back into a YAML config file.
+  --no-write-config           Do not sync fitted coefficients back into a config file.
+  --output-fit-yaml <path>    Output ROS2 parameter override YAML path for fitted coefficients.
   --param-manager-cmd "<cmd>" Optional command to start param manager in background.
   -h, --help                  Show help.
 
@@ -34,8 +55,59 @@ Examples:
   ./${SCRIPT_NAME}
   ./${SCRIPT_NAME} --team blue --web-show false
   ./${SCRIPT_NAME} --config /path/to/auto_aim_config.yaml
+  ./${SCRIPT_NAME} --no-auto-fit
+  ./${SCRIPT_NAME} --fit-latest --write-config scripts/config/auto_aim_config_competition.yaml
+  ./${SCRIPT_NAME} --auto-fit --write-config scripts/config/auto_aim_config_competition.yaml
   ./${SCRIPT_NAME} --param-manager-cmd "bash /home/liu/workspace/scripts/param_manager.bash"
 EOF
+}
+
+FIT_TOOL="${ROOT_DIR}/scripts/tools/fit_shooting_table.py"
+
+run_fit() {
+  local args=()
+  if (( FIT_LATEST == 1 )); then
+    args+=("--latest")
+  fi
+  if (( FIT_ALL == 1 )); then
+    args+=("--all-in-dir")
+  fi
+  if [[ -n "${FIT_CSV}" ]]; then
+    args+=("${FIT_CSV}")
+  fi
+  args+=("--record-dir" "${RECORD_DIR}")
+  if [[ -n "${OUTPUT_FIT_YAML}" ]]; then
+    args+=("--output-yaml" "${OUTPUT_FIT_YAML}")
+  fi
+  if [[ -n "${WRITE_CONFIG}" ]]; then
+    args+=("--write-config" "${WRITE_CONFIG}")
+  fi
+  python3 "${FIT_TOOL}" "${args[@]}"
+}
+
+select_latest_csv_since() {
+  local dir="$1"
+  local min_mtime="$2"
+  local best_csv=""
+  local best_mtime=-1
+  local csv=""
+  local mtime=0
+
+  shopt -s nullglob
+  for csv in "${dir}"/shooting_table_*.csv; do
+    mtime=$(stat -c %Y "${csv}" 2>/dev/null || echo 0)
+    if (( mtime >= min_mtime && mtime > best_mtime )); then
+      best_csv="${csv}"
+      best_mtime=${mtime}
+    fi
+  done
+  shopt -u nullglob
+
+  if [[ -n "${best_csv}" ]]; then
+    printf '%s\n' "${best_csv}"
+    return 0
+  fi
+  return 1
 }
 
 EXTRA_LAUNCH_ARGS=()
@@ -82,6 +154,46 @@ while [[ $# -gt 0 ]]; do
       DRAW_IMAGE="$2"
       shift 2
       ;;
+    --record-dir)
+      RECORD_DIR="$2"
+      shift 2
+      ;;
+    --fit-latest)
+      FIT_LATEST=1
+      shift
+      ;;
+    --fit-all)
+      FIT_ALL=1
+      shift
+      ;;
+    --fit-csv)
+      FIT_CSV="$2"
+      shift 2
+      ;;
+    --auto-fit)
+      AUTO_FIT=1
+      AUTO_FIT_EXPLICIT=1
+      shift
+      ;;
+    --no-auto-fit)
+      AUTO_FIT=0
+      AUTO_FIT_EXPLICIT=1
+      shift
+      ;;
+    --write-config)
+      WRITE_CONFIG="$2"
+      WRITE_CONFIG_EXPLICIT=1
+      shift 2
+      ;;
+    --no-write-config)
+      WRITE_CONFIG=""
+      DISABLE_DEFAULT_WRITE_CONFIG=1
+      shift
+      ;;
+    --output-fit-yaml)
+      OUTPUT_FIT_YAML="$2"
+      shift 2
+      ;;
     --param-manager-cmd)
       PARAM_MANAGER_CMD="$2"
       shift 2
@@ -102,6 +214,36 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+FIT_MODE_COUNT=0
+(( FIT_LATEST == 1 )) && FIT_MODE_COUNT=$((FIT_MODE_COUNT + 1))
+(( FIT_ALL == 1 )) && FIT_MODE_COUNT=$((FIT_MODE_COUNT + 1))
+[[ -n "${FIT_CSV}" ]] && FIT_MODE_COUNT=$((FIT_MODE_COUNT + 1))
+if (( FIT_MODE_COUNT > 1 )); then
+  echo "[ERROR] Only one of --fit-latest, --fit-all, --fit-csv may be specified." >&2
+  exit 2
+fi
+if (( AUTO_FIT_EXPLICIT == 1 )) && (( AUTO_FIT == 1 )) && (( FIT_MODE_COUNT > 0 )); then
+  echo "[ERROR] --auto-fit cannot be combined with --fit-latest/--fit-all/--fit-csv." >&2
+  exit 2
+fi
+
+if (( FIT_MODE_COUNT == 0 )) && (( AUTO_FIT == 1 )) && (( WRITE_CONFIG_EXPLICIT == 0 )) && (( DISABLE_DEFAULT_WRITE_CONFIG == 0 )); then
+  if [[ -f "${DEFAULT_COMPETITION_CONFIG}" ]]; then
+    WRITE_CONFIG="${DEFAULT_COMPETITION_CONFIG}"
+  else
+    echo "[WARN] Default competition config not found: ${DEFAULT_COMPETITION_CONFIG}" >&2
+  fi
+fi
+
+if (( FIT_MODE_COUNT > 0 )); then
+  if [[ ! -f "${FIT_TOOL}" ]]; then
+    echo "[ERROR] fit tool not found: ${FIT_TOOL}" >&2
+    exit 1
+  fi
+  run_fit
+  exit $?
+fi
 
 if [[ ! -f "${ROOT_DIR}/install/setup.bash" ]]; then
   echo "[ERROR] ${ROOT_DIR}/install/setup.bash not found. Please run colcon build first." >&2
@@ -152,11 +294,46 @@ fi
 echo "Starting Shooting Table Calibration System (ROS2)..."
 echo "===================================================="
 echo "[INFO] output=${OUTPUT_MODE} use_gimbal=${USE_GIMBAL} use_calib=${USE_CALIB} team_red=${TEAM_RED} debug_team_blue=${DEBUG_TEAM_BLUE} web_show=${WEB_SHOW} draw_image=${DRAW_IMAGE}"
+echo "[INFO] fit_record_dir=${RECORD_DIR} auto_fit=${AUTO_FIT}"
 if [[ -n "${CONFIG_FILE}" ]]; then
   echo "[INFO] config_file=${CONFIG_FILE}"
 fi
+if [[ -n "${WRITE_CONFIG}" ]]; then
+  echo "[INFO] write_config=${WRITE_CONFIG}"
+fi
+if [[ -n "${OUTPUT_FIT_YAML}" ]]; then
+  echo "[INFO] output_fit_yaml=${OUTPUT_FIT_YAML}"
+fi
+if [[ "${RECORD_DIR}" != "${DEFAULT_RECORD_DIR}" ]]; then
+  echo "[WARN] shooting_table_calib node still saves CSV to ${DEFAULT_RECORD_DIR}; --record-dir only changes fitter input."
+fi
 
 cd "${ROOT_DIR}"
+if (( AUTO_FIT == 1 )); then
+  launch_start_time=$(date +%s)
+  ros2 launch shooting_table_calib shooting_table_calib.launch.py \
+    "${LAUNCH_ARGS[@]}" \
+    "${EXTRA_LAUNCH_ARGS[@]}"
+  launch_exit=$?
+  if (( launch_exit != 0 )); then
+    exit "${launch_exit}"
+  fi
+  FIT_LATEST=0
+  FIT_ALL=0
+  FIT_CSV="$(select_latest_csv_since "${DEFAULT_RECORD_DIR}" "${launch_start_time}" || true)"
+  if [[ -n "${FIT_CSV}" ]]; then
+    echo "[INFO] Auto-fitting current session CSV: ${FIT_CSV}"
+  else
+    FIT_LATEST=1
+    echo "[WARN] Could not uniquely identify the current session CSV. Falling back to latest file in ${DEFAULT_RECORD_DIR}."
+  fi
+  if [[ -n "${WRITE_CONFIG}" ]] && [[ "${WRITE_CONFIG}" == "${DEFAULT_COMPETITION_CONFIG}" ]]; then
+    echo "[INFO] Syncing fitted coefficients into competition config: ${WRITE_CONFIG}"
+  fi
+  run_fit
+  exit $?
+fi
+
 exec ros2 launch shooting_table_calib shooting_table_calib.launch.py \
   "${LAUNCH_ARGS[@]}" \
   "${EXTRA_LAUNCH_ARGS[@]}"

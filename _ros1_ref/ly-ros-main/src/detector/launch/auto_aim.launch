@@ -1,0 +1,15 @@
+<launch>
+  <rosparam file="$(find detector)/config/auto_aim_config.yaml" command="load"/>
+  <env name="ROS_LOG_DIR" value="$(env HOME)/workspace/logs/auto_aim/log" />
+  <node pkg="gimbal_driver" type="gimbal_driver_node" name="gimbal_driver" output="log">
+    <env name="ROS_LOG_DIR" value="$(env HOME)/workspace/logs/gimbal_driver/log" />
+  </node>
+  <node pkg="behavior_tree" type="behavior_tree_node" name="behavior_tree" output="log">
+    <env name="ROS_LOG_DIR" value="$(env HOME)/workspace/logs/behavior_tree/log" />
+  </node>
+  <node pkg="detector" type="detector_node" name="detector" output="log"/>
+  <node pkg="tracker_solver" type="tracker_solver_node" name="tracker_solver" output="log"/>
+  <node pkg="predictor" type="predictor_node" name="predictor" output="log"/>
+  <node pkg="buff_hitter" type="buff_hitter_node" name="buff_hitter" output="log" />
+  <node pkg="outpost_hitter" type="outpost_hitter_node" name="outpost_hitter" output="screen" />
+</launch>

@@ -1,0 +1,40 @@
+<launch>
+  <!-- 加载配置文件 -->
+  <rosparam file="$(find detector)/config/auto_aim_config.yaml" command="load"/>
+  
+  <!-- 设置日志目录 -->
+  <env name="ROS_LOG_DIR" value="$(env HOME)/workspace/logs/shooting_table_calib/log" />
+  
+  <!-- 启动gimbal_driver节点 -->
+  <node pkg="gimbal_driver" type="gimbal_driver_node" name="gimbal_driver" output="log">
+    <env name="ROS_LOG_DIR" value="$(env HOME)/workspace/logs/gimbal_driver/log" />
+  </node>
+  
+  <!-- 启动shooting_table_calib节点 -->
+  <node pkg="shooting_table_calib" type="shooting_table_calib_node" name="shooting_table_calib" output="screen">
+    <env name="ROS_LOG_DIR" value="$(env HOME)/workspace/logs/shooting_table_calib/log" />
+    <rosparam>
+      # 相机参数
+      camera_sn: "KE0200060396"
+      camera_param:
+        ExposureTime: 4000.0
+        Gain: 12.0
+        RedBalanceRatio: 1.2266
+        GreenBalanceRatio: 1.0
+        BlueBalanceRatio: 1.3711
+      
+      # detector配置路径
+      detector_config:
+        classifier_path: "$(find detector)/models/classifier.onnx"
+        detector_path: "$(find detector)/models/detector.onnx"
+        car_model_path: "$(find detector)/models/car_model.onnx"
+      
+      # 队伍颜色
+      team_red: true
+      
+      # 显示设置
+      web_show: true
+      draw_image: true
+    </rosparam>
+  </node>
+</launch>
