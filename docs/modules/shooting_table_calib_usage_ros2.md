@@ -1,7 +1,7 @@
 # shooting_table_calib ROS2 使用说明（当前版本）
 
 本文档对应当前工作区脚本与节点实现：
-- 启动脚本：`scripts/start_shooting_table_calib.sh`
+- 启动脚本：`scripts/debug.sh shooting-table-calib`
 - 实际入口：`scripts/launch/start_shooting_table_calib.sh`
 - 拟合工具：`scripts/tools/fit_shooting_table.py`
 - 节点源码：`src/shooting_table_calib/shooting_table_nodev1.cpp`
@@ -28,19 +28,22 @@ pkill -f "gimbal_driver_node"
 红队（默认推荐）：
 
 ```bash
-./scripts/start_shooting_table_calib.sh --team red --output screen
+./scripts/debug.sh shooting-table-calib --team red --output screen
 ```
 
 蓝队：
 
 ```bash
-./scripts/start_shooting_table_calib.sh --team blue --output screen
+./scripts/debug.sh shooting-table-calib --team blue --output screen
 ```
 
 说明：
 - `--output screen` 必须使用，键盘交互才正常。
 - 不带 `--team` 时默认等同 `--team red`。
-- 直接用默认命令启动时，退出标定后会自动拟合当前这轮 CSV，并同步到比赛配置 `scripts/config/auto_aim_config_competition.yaml`。
+- 直接用默认命令启动时，只会采集并保存当前这轮 CSV，不会自动拟合，也不会自动改 YAML。
+- 启动时会询问你：
+  - `new`：新建一份时间戳 CSV
+  - `latest`：沿用当前目录最新的 `shooting_table_*.csv` 继续追加
 
 ## 3. 启动成功判据
 
@@ -84,63 +87,104 @@ pkill -f "gimbal_driver_node"
 ~/workspace/record/shooting_table_*.csv
 ```
 
+如果你不想交互选择，也可以显式指定：
+
+```bash
+./scripts/debug.sh shooting-table-calib --new-csv
+./scripts/debug.sh shooting-table-calib --latest-csv
+./scripts/debug.sh shooting-table-calib --csv-path /abs/path/my_session.csv
+```
+
 注意：
 - 当前实现里，`h` 只是追加保存一条 CSV 记录，不会在按下当下立刻做拟合。
 - `r` 只是重置当前控制状态，不会删除或清空 CSV。
-- 节点不会在运行中热更新拟合参数；默认启动脚本会在你退出标定后自动拟合当前这轮 CSV。
+- 节点不会在运行中热更新拟合参数；默认启动脚本只负责采集 CSV。
 
 ## 6. 拟合与回写流程
 
 默认推荐流程：
 
 ```bash
-./scripts/start_shooting_table_calib.sh --team red --output screen
+./scripts/debug.sh shooting-table-calib --team red --output screen
 ```
 
-做完这一轮标定后按 `q` 退出。脚本会自动：
-- 找到当前这轮新生成的 `shooting_table_*.csv`
-- 做拟合
-- 把结果写回 `scripts/config/auto_aim_config_competition.yaml`
+做完这一轮标定后按 `q` 退出。脚本默认只会留下这一轮新的 `shooting_table_*.csv`，不会自动拟合，也不会自动改配置。
 
-随后直接运行：
+如果你想手动拟合最新一份 CSV：
 
 ```bash
-./scripts/start_competition_autoaim_test.sh
+./scripts/debug.sh shooting-table-calib --fit-latest
 ```
 
-就会使用这份最新拟合，因为该脚本默认加载的就是 `scripts/config/auto_aim_config_competition.yaml`。
-
-只拟合最新一份 CSV，生成一个参数覆盖 YAML：
+只拟合最新一份 CSV，并直接回写比赛配置：
 
 ```bash
-./scripts/start_shooting_table_calib.sh --fit-latest
-```
-
-拟合最新一份 CSV，并直接回写比赛配置：
-
-```bash
-./scripts/start_shooting_table_calib.sh --fit-latest \
+./scripts/debug.sh shooting-table-calib --fit-latest
+./scripts/debug.sh shooting-table-calib --fit-latest \
   --write-config scripts/config/auto_aim_config_competition.yaml
 ```
 
-如果你只想采集，不想退出后自动拟合：
+如果你想“退出后自动拟合当前这一轮 CSV”，再显式打开：
 
 ```bash
-./scripts/start_shooting_table_calib.sh --team red --output screen --no-auto-fit
+./scripts/debug.sh shooting-table-calib --team red --output screen --auto-fit
 ```
 
 把 `~/workspace/record` 下全部 CSV 一起拟合：
 
 ```bash
-./scripts/start_shooting_table_calib.sh --fit-all
+./scripts/debug.sh shooting-table-calib --fit-all
 ```
 
 说明：
 - 默认 CSV 采集目录是 `~/workspace/record`。
-- `--record-dir` 只影响“拟合时去哪里找 CSV”，不会改变节点实际保存 CSV 的路径。
-- 默认标定启动会在退出后自动同步比赛配置；如果不想覆盖比赛配置，使用 `--no-write-config`。
+- `--record-dir` 同时影响节点保存路径和拟合查找路径。
+- 默认标定启动不会自动改比赛配置；只有显式加 `--write-config` 才会回写 YAML。
 - `--write-config` 会原地改 YAML，并生成一个 `.bak.<timestamp>` 备份文件。
 - 如果只想先看拟合结果，不改正式配置，就只用 `--fit-latest` 或加 `--output-fit-yaml <path>`。
+
+## 6.1 拟合参数与配置键对应
+
+拟合脚本 `scripts/tools/fit_shooting_table.py` 会为 `pitch` 和 `yaw` 各生成 6 个参数：
+
+- `intercept`
+- `coef_z`
+- `coef_d`
+- `coef_z2`
+- `coef_zd`
+- `coef_d2`
+
+对应写入的配置键有两套：
+
+第一套：
+- `shoot_table_adjust.enable`
+- `shoot_table_adjust.pitch.intercept`
+- `shoot_table_adjust.pitch.coef_z`
+- `shoot_table_adjust.pitch.coef_d`
+- `shoot_table_adjust.pitch.coef_z2`
+- `shoot_table_adjust.pitch.coef_zd`
+- `shoot_table_adjust.pitch.coef_d2`
+- `shoot_table_adjust.yaw.intercept`
+- `shoot_table_adjust.yaw.coef_z`
+- `shoot_table_adjust.yaw.coef_d`
+- `shoot_table_adjust.yaw.coef_z2`
+- `shoot_table_adjust.yaw.coef_zd`
+- `shoot_table_adjust.yaw.coef_d2`
+
+第二套（镜像给控制器）：
+- `controller_config.shoot_table_adjust.enable`
+- `controller_config.shoot_table_adjust.pitch.intercept`
+- `controller_config.shoot_table_adjust.pitch.coef_z`
+- `controller_config.shoot_table_adjust.pitch.coef_d`
+- `controller_config.shoot_table_adjust.pitch.coef_z2`
+- `controller_config.shoot_table_adjust.pitch.coef_zd`
+- `controller_config.shoot_table_adjust.pitch.coef_d2`
+- `controller_config.shoot_table_adjust.yaw.intercept`
+- `controller_config.shoot_table_adjust.yaw.coef_z`
+- `controller_config.shoot_table_adjust.yaw.coef_d`
+- `controller_config.shoot_table_adjust.yaw.coef_z2`
+- `controller_config.shoot_table_adjust.yaw.coef_zd`
+- `controller_config.shoot_table_adjust.yaw.coef_d2`
 
 ## 7. 开火安全保护（已启用）
 
@@ -184,7 +228,7 @@ pkill -f "gimbal_driver_node"
 无相机/离线回放可使用：
 
 ```bash
-./scripts/start_shooting_table_calib.sh --team red --use-gimbal false --output screen -- \
+./scripts/debug.sh shooting-table-calib --team red --use-gimbal false --output screen -- \
   detector_config.use_video:=true \
   detector_config/use_video:=true \
   detector_config.video_path:=src/record/record.mkv \

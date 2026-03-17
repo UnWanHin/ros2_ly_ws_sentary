@@ -1,7 +1,7 @@
 # Competition config (derived from src/detector/config/auto_aim_config.yaml)
 # Notes:
 # - This file is intended for on-robot matches (real camera + real MCU).
-# - Use with: ./scripts/start_sentry_all.sh -- --config_file:=/abs/path/auto_aim_config_competition.yaml
+# - Use with: ./scripts/start.sh gated -- --config_file:=/abs/path/auto_aim_config_competition.yaml
 
 /**:
   ros__parameters:

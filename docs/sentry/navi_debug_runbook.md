@@ -60,19 +60,19 @@
 ### 3.1 最轻量：不走 BT，直接自动发点
 
 ```bash
-./scripts/start_navi_patrol_test.sh
+./scripts/debug.sh navi-patrol
 ```
 
 指定计划名：
 
 ```bash
-./scripts/start_navi_patrol_test.sh --plan test_site_sequence
+./scripts/debug.sh navi-patrol --plan test_site_sequence
 ```
 
 蓝方映射：
 
 ```bash
-./scripts/start_navi_patrol_test.sh --team blue
+./scripts/debug.sh navi-patrol --team blue
 ```
 
 ### 3.2 走 BT 的导航调试模式
@@ -113,5 +113,5 @@
 
 - 这套方案只改“发哪些点位 ID”，不改导航侧坐标定义。
 - 如果你现场要的是全新 XY 临时坐标，那还得让导航侧支持新的坐标表，或改回 `/ly/navi/goal_pos`。
-- `./scripts/start_navi_patrol_test.sh` 直接读取 `src/behavior_tree/Scripts/ConfigJson/navi_debug_points.json`。
+- `./scripts/debug.sh navi-patrol` 直接读取 `src/behavior_tree/Scripts/ConfigJson/navi_debug_points.json`。
 - `./scripts/start_sentry_navi_debug.sh` 里的 `behavior_tree` 运行时读取的是 `install/behavior_tree/share/behavior_tree/Scripts/ConfigJson/*.json`，所以改完源文件后要先 `colcon build --packages-select behavior_tree`。

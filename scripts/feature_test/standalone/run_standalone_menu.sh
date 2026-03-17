@@ -6,7 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 usage() {
   cat <<EOF
 Usage:
-  $(basename "$0") [--select 1|2|3|4|5] [mode_args...]
+  $(basename "$0") [--select 1|2|3|4|5|6] [mode_args...]
 
 Menu:
   1) Armor board (auto_aim + mapper)
@@ -14,11 +14,13 @@ Menu:
   3) Outpost (standalone)
   4) Chassis spin (firecode.rotate)
   5) Navi patrol (/ly/navi/goal)
+  6) Chassis spin + translate (/ly/control/firecode + /ly/control/vel)
 
 Examples:
   ./scripts/feature_test/standalone/run_standalone_menu.sh
   ./scripts/feature_test/standalone/run_standalone_menu.sh --select 1 --online
   ./scripts/feature_test/standalone/run_standalone_menu.sh --select 4 --rotate-level 2
+  ./scripts/feature_test/standalone/run_standalone_menu.sh --select 6 --speed-x 30 --period-sec 6
   ./scripts/feature_test/standalone/run_standalone_menu.sh --select 5 --plan test_site_sequence
 EOF
 }
@@ -50,7 +52,8 @@ if [[ -z "${SELECTION}" ]]; then
   echo "  3) Outpost"
   echo "  4) Chassis spin"
   echo "  5) Navi patrol"
-  read -r -p "Input 1-5: " SELECTION
+  echo "  6) Chassis spin + translate"
+  read -r -p "Input 1-6: " SELECTION
 fi
 
 MODE_SCRIPT=""
@@ -69,6 +72,9 @@ case "${SELECTION}" in
     ;;
   5)
     MODE_SCRIPT="${ROOT_DIR}/scripts/feature_test/standalone/modes/navi_patrol_mode.sh"
+    ;;
+  6)
+    MODE_SCRIPT="${ROOT_DIR}/scripts/feature_test/standalone/modes/chassis_spin_translate_mode.sh"
     ;;
   *)
     echo "[ERROR] Invalid selection: ${SELECTION}" >&2

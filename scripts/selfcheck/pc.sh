@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT_NAME="$(basename "$0")"
 
 : "${ROS_LOG_DIR:=/tmp/ros2_logs}"
@@ -93,7 +93,7 @@ if (( DO_TEST == 1 )); then
 fi
 
 log "Running static self-check suite"
-"${ROOT_DIR}/scripts/self_check_sentry.sh" --static-only
+"${ROOT_DIR}/scripts/selfcheck/sentry.sh" --static-only
 
 log "Checking launch syntax"
 ros2 launch behavior_tree sentry_all.launch.py --show-args >/dev/null

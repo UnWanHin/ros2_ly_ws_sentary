@@ -2,8 +2,8 @@
 
 本指南对应两套脚本：
 
-- 电脑端（离车）：`scripts/self_check_pc.sh`
-- 车端（上车）：`scripts/self_check_robot.sh`
+- 电脑端（离车）：`scripts/selfcheck.sh pc`
+- 车端（上车）：`scripts/selfcheck.sh robot`
 
 目标是把“能编译/能启动”和“实机链路正常”分开检查，减少上车排障时间。
 
@@ -13,17 +13,17 @@
 
 ```bash
 cd ~/ros2_ly_ws_sentary
-./scripts/self_check_pc.sh
+./scripts/selfcheck.sh pc
 ```
 
 常用参数：
 
 ```bash
 # 不重建，只跑静态检查
-./scripts/self_check_pc.sh --no-build
+./scripts/selfcheck.sh pc --no-build
 
 # 指定包并执行 colcon test
-./scripts/self_check_pc.sh --packages "behavior_tree outpost_hitter predictor" --test
+./scripts/selfcheck.sh pc --packages "behavior_tree outpost_hitter predictor" --test
 ```
 
 ## 2. 车端上车自检
@@ -32,19 +32,19 @@ cd ~/ros2_ly_ws_sentary
 
 ```bash
 cd ~/ros2_ly_ws_sentary
-./scripts/self_check_robot.sh
+./scripts/selfcheck.sh robot
 ```
 
-说明：该脚本默认调用 `self_check_sentry.sh --runtime-only --launch`，只做运行态检查，避免重复静态检查。
+说明：该脚本默认调用 `selfcheck.sh sentry --runtime-only --launch`，只做运行态检查，避免重复静态检查。
 
 常用参数：
 
 ```bash
 # 含频率采样（更严格）
-./scripts/self_check_robot.sh --with-hz
+./scripts/selfcheck.sh robot --with-hz
 
 # 传给 sentry_all.launch.py 的参数
-./scripts/self_check_robot.sh -- --config_file:=/abs/path/auto_aim_config.yaml
+./scripts/selfcheck.sh robot -- --config_file:=/abs/path/auto_aim_config.yaml
 ```
 
 ## 3. 基础套件说明
@@ -52,7 +52,7 @@ cd ~/ros2_ly_ws_sentary
 两套脚本都复用主套件：
 
 ```bash
-./scripts/self_check_sentry.sh
+./scripts/selfcheck.sh sentry
 ```
 
 新增模式：
@@ -63,13 +63,13 @@ cd ~/ros2_ly_ws_sentary
 你常用的运行时命令（离车先验证 ROS 图）：
 
 ```bash
-./scripts/self_check_sentry.sh --runtime-only --launch --wait 12 --skip-hz
+./scripts/selfcheck.sh sentry --runtime-only --launch --wait 12 --skip-hz
 ```
 
 完整频率版：
 
 ```bash
-./scripts/self_check_sentry.sh --runtime-only --launch --wait 12
+./scripts/selfcheck.sh sentry --runtime-only --launch --wait 12
 ```
 
 当使用 `--launch` 时，若失败会自动打印 `Launch Diagnosis`，给出崩溃签名和最近日志尾部，优先定位相机/串口/进程崩溃。

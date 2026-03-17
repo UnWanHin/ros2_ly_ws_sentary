@@ -24,7 +24,7 @@
 推荐直接用专用脚本：
 
 ```bash
-./scripts/start_sentry_showcase.sh
+./scripts/start.sh showcase
 ```
 
 默认行为：
@@ -36,13 +36,13 @@
 如果现场已经接裁判系统，想保留开赛门控：
 
 ```bash
-./scripts/start_sentry_showcase.sh --with-gate
+./scripts/start.sh showcase --with-gate
 ```
 
 如果你想把“辅瞄控制输出”和“姿态切换”都放进裁判系统门控里，推荐直接跑整车展示链路，而不是单独跑辅瞄脚本：
 
 ```bash
-./scripts/start_sentry_showcase.sh --with-gate -- use_buff:=false use_outpost:=false
+./scripts/start.sh showcase --with-gate -- use_buff:=false use_outpost:=false
 ```
 
 说明：
@@ -54,7 +54,7 @@
 如果是离线/回放：
 
 ```bash
-./scripts/start_sentry_showcase.sh --offline
+./scripts/start.sh showcase --offline
 ```
 
 ### 2.2 辅瞄单独跑
@@ -62,7 +62,7 @@
 最简单的单独辅瞄入口：
 
 ```bash
-./scripts/start_autoaim_test.sh
+./scripts/debug.sh autoaim-test
 ```
 
 这条命令实际等价于：
@@ -112,7 +112,7 @@
 ### 3.2 要看完整辅瞄链并直接控云台
 
 ```bash
-./scripts/start_autoaim_test.sh --online
+./scripts/debug.sh autoaim-test --online
 ```
 
 或：
@@ -181,7 +181,7 @@
 
 当前展示入口能力：
 
-- `./scripts/start_sentry_showcase.sh` 默认会起整套展示主链
+- `./scripts/start.sh showcase` 默认会起整套展示主链
 - 有普通辅瞄
 - 有姿态展示
 - 有展示巡逻
@@ -290,7 +290,7 @@
 如果还要直接控云台：
 
 ```bash
-./scripts/start_autoaim_test.sh --online
+./scripts/debug.sh autoaim-test --online
 ```
 
 展示点：
@@ -302,7 +302,7 @@
 如果现场明确要求“通过裁判系统开赛后才开始控制”，改用：
 
 ```bash
-./scripts/start_sentry_showcase.sh --with-gate -- use_buff:=false use_outpost:=false
+./scripts/start.sh showcase --with-gate -- use_buff:=false use_outpost:=false
 ```
 
 这时展示上看到的是：
@@ -316,7 +316,7 @@
 推荐命令：
 
 ```bash
-./scripts/start_sentry_showcase.sh
+./scripts/start.sh showcase
 ```
 
 推荐讲解顺序：

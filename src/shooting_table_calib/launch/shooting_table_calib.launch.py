@@ -34,6 +34,9 @@ def generate_launch_description():
     auto_lock_fire = LaunchConfiguration("auto_lock_fire")
     auto_fire = LaunchConfiguration("auto_fire")
     auto_target_type = LaunchConfiguration("auto_target_type")
+    record_dir = LaunchConfiguration("record_dir")
+    csv_strategy = LaunchConfiguration("csv_strategy")
+    csv_path = LaunchConfiguration("csv_path")
 
     launch_args = [
         DeclareLaunchArgument(
@@ -55,6 +58,9 @@ def generate_launch_description():
         DeclareLaunchArgument("auto_lock_fire", default_value="false"),
         DeclareLaunchArgument("auto_fire", default_value="true"),
         DeclareLaunchArgument("auto_target_type", default_value="4"),
+        DeclareLaunchArgument("record_dir", default_value=""),
+        DeclareLaunchArgument("csv_strategy", default_value="new"),
+        DeclareLaunchArgument("csv_path", default_value=""),
     ]
 
     info_logs = [
@@ -63,6 +69,9 @@ def generate_launch_description():
         LogInfo(msg=["[shooting_table_calib] auto_lock_fire: ", auto_lock_fire]),
         LogInfo(msg=["[shooting_table_calib] auto_fire: ", auto_fire]),
         LogInfo(msg=["[shooting_table_calib] auto_target_type: ", auto_target_type]),
+        LogInfo(msg=["[shooting_table_calib] record_dir: ", record_dir]),
+        LogInfo(msg=["[shooting_table_calib] csv_strategy: ", csv_strategy]),
+        LogInfo(msg=["[shooting_table_calib] csv_path: ", csv_path]),
     ]
 
     nodes = [
@@ -94,6 +103,9 @@ def generate_launch_description():
                     "shooting_table_calib.auto_lock_fire": auto_lock_fire,
                     "shooting_table_calib.auto_fire": auto_fire,
                     "shooting_table_calib.auto_target_type": auto_target_type,
+                    "shooting_table_calib.record_dir": record_dir,
+                    "shooting_table_calib.csv_strategy": csv_strategy,
+                    "shooting_table_calib.csv_path": csv_path,
                 }
             ],
             on_exit=Shutdown(reason="shooting_table_calib exited"),

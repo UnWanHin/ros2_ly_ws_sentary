@@ -31,8 +31,17 @@
 cd ~/ros2_ly_ws_sentary
 colcon build
 source install/setup.bash
-./scripts/self_check_sentry.sh --skip-hz
+./scripts/selfcheck.sh sentry --skip-hz
 ```
+
+也可以直接用三个顶层菜单入口：
+
+```bash
+./scripts/start.sh
+./scripts/debug.sh
+./scripts/selfcheck.sh
+```
+
 
 说明：
 - 根目录仅保留这份接手指南，其他文档已迁入 `docs/`。

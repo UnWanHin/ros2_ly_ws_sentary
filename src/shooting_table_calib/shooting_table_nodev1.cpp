@@ -59,6 +59,7 @@
 #include <sstream>
 #include <initializer_list>
 #include <limits>
+#include <filesystem>
 
 using namespace ly_auto_aim;
 using namespace LangYa;
@@ -604,14 +605,86 @@ namespace {
 
         void createCSVFile()
         {
-            // 使用當前用戶的 home 目錄
+            namespace fs = std::filesystem;
+
             const char* home = std::getenv("HOME");
-            std::string record_dir = home ? std::string(home) + "/workspace/record" : "./record";
-            system(("mkdir -p " + record_dir).c_str());
-            
-            csv_filename = record_dir + "/shooting_table_" +
-                           std::to_string(std::time(nullptr)) + ".csv";
-            
+            const std::string default_record_dir = home ? std::string(home) + "/workspace/record" : "./record";
+            std::string record_dir = default_record_dir;
+            std::string csv_strategy = "new";
+            std::string csv_path_param;
+
+            getParamSafe("shooting_table_calib.record_dir", record_dir, default_record_dir);
+            getParamSafe("shooting_table_calib.csv_strategy", csv_strategy, std::string("new"));
+            getParamSafe("shooting_table_calib.csv_path", csv_path_param, std::string(""));
+
+            fs::path record_dir_path(record_dir);
+            std::error_code ec;
+            fs::create_directories(record_dir_path, ec);
+            if (ec) {
+                throw std::runtime_error("Failed to create record dir: " + record_dir_path.string());
+            }
+
+            fs::path selected_csv_path;
+            bool reusing_existing_csv = false;
+
+            if (!csv_path_param.empty()) {
+                selected_csv_path = fs::path(csv_path_param);
+                if (selected_csv_path.is_relative()) {
+                    selected_csv_path = record_dir_path / selected_csv_path;
+                }
+            } else if (csv_strategy == "latest") {
+                fs::file_time_type latest_time{};
+                bool found_latest = false;
+                for (const auto& entry : fs::directory_iterator(record_dir_path, ec)) {
+                    if (ec || !entry.is_regular_file()) {
+                        continue;
+                    }
+                    const auto filename = entry.path().filename().string();
+                    if (filename.rfind("shooting_table_", 0) != 0 || entry.path().extension() != ".csv") {
+                        continue;
+                    }
+                    const auto mtime = fs::last_write_time(entry.path(), ec);
+                    if (ec) {
+                        continue;
+                    }
+                    if (!found_latest || mtime > latest_time) {
+                        latest_time = mtime;
+                        selected_csv_path = entry.path();
+                        found_latest = true;
+                    }
+                }
+                if (found_latest) {
+                    reusing_existing_csv = true;
+                }
+            }
+
+            if (selected_csv_path.empty()) {
+                selected_csv_path = record_dir_path / ("shooting_table_" + std::to_string(std::time(nullptr)) + ".csv");
+            }
+
+            csv_filename = selected_csv_path.string();
+
+            const bool file_has_content =
+                fs::exists(selected_csv_path, ec) &&
+                !ec &&
+                fs::is_regular_file(selected_csv_path, ec) &&
+                !ec &&
+                fs::file_size(selected_csv_path, ec) > 0 &&
+                !ec;
+
+            if (file_has_content) {
+                std::ofstream file(csv_filename, std::ios::app);
+                if (!file.is_open()) {
+                    throw std::runtime_error("Failed to open CSV file for append: " + csv_filename);
+                }
+                file.close();
+                csv_file_created = true;
+                roslog::info("Reusing CSV file: {}", csv_filename);
+                std::cout << "✓ Reusing CSV file: " << csv_filename << "\n";
+                std::cout << "✓ Calibration CSV directory: " << record_dir_path.string() << "\n";
+                return;
+            }
+
             std::ofstream file(csv_filename);
             if (file.is_open()) {
                 file << "timestamp,z_height,horizontal_distance,relative_yaw,relative_pitch,"
@@ -619,9 +692,14 @@ namespace {
                      << "fitted_pitch,fitted_yaw\n";
                 file.close();
                 csv_file_created = true;
-                roslog::info("Created CSV file: {}", csv_filename);
-                std::cout << "✓ Created CSV file: " << csv_filename << "\n";
-                std::cout << "✓ Calibration CSV directory: " << record_dir << "\n";
+                if (reusing_existing_csv) {
+                    roslog::info("Latest CSV missing/empty, created new CSV file: {}", csv_filename);
+                    std::cout << "✓ Latest CSV not found or empty, created new CSV file: " << csv_filename << "\n";
+                } else {
+                    roslog::info("Created CSV file: {}", csv_filename);
+                    std::cout << "✓ Created CSV file: " << csv_filename << "\n";
+                }
+                std::cout << "✓ Calibration CSV directory: " << record_dir_path.string() << "\n";
             } else {
                 throw std::runtime_error("Failed to create CSV file: " + csv_filename);
             }

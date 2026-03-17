@@ -29,7 +29,6 @@ namespace roslog_fmt {
         RCLCPP_ERROR(get_logger(), "%s", fmt::vformat(format_str, fmt::make_format_args(args...)).c_str());
     }
 }
-
 // [ROS 2] 宏替換：讓文件內的 roslog 調用指向我們定義的 roslog_fmt
 #define roslog roslog_fmt
 

@@ -57,8 +57,8 @@
 2. 打符模式再改 `buff_hitter/config/config.json`。
 3. 若涉及前哨彈速/角度偏置，再做代碼改動並 `colcon build --packages-select outpost_hitter buff_hitter`。
 4. 每次改動後執行：
-   - 離車：`./scripts/self_check_pc.sh`
-   - 上車：`./scripts/self_check_robot.sh`
+   - 離車：`./scripts/selfcheck.sh pc`
+   - 上車：`./scripts/selfcheck.sh robot`
 
 ## 4. 交接時必記錄
 

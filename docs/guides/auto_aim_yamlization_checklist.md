@@ -77,14 +77,14 @@
 
 1. 代碼驗證  
 - `colcon build --packages-select <changed_pkgs>`
-- `./scripts/self_check_pc.sh --no-build`
+- `./scripts/selfcheck.sh pc --no-build`
 
 2. 參數生效驗證  
 - 啟動節點時打印「最終生效值」
 - 改 YAML 後重啟節點，確認日志中的值變更
 
 3. 鏈路回歸  
-- `./scripts/self_check_sentry.sh --runtime-only --launch --wait 12 --skip-hz`
+- `./scripts/selfcheck.sh sentry --runtime-only --launch --wait 12 --skip-hz`
 
 ## 5. 建議執行順序
 
@@ -93,4 +93,3 @@
 3. `DirectionJudger` + `OutpostPredictor` 閾值化  
 4. `buff_hitter` JSON -> YAML 覆蓋層  
 5. `detector` 模型閾值外置
-

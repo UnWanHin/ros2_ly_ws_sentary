@@ -40,7 +40,7 @@ Examples:
   ./${SCRIPT_NAME} --use-gimbal false --output log -- detector_config.use_video:=true detector_config.video_path:=src/record/record.mkv
 
 Notes:
-  - Other options are forwarded to scripts/start_shooting_table_calib.sh unchanged.
+  - Other options are forwarded to scripts/debug/shooting_table_calib.sh unchanged.
   - This script defaults to --no-auto-fit, because it is for direct autoaim verification rather than calibration fitting.
 EOF
 }
@@ -119,7 +119,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 CMD=(
-  "${ROOT_DIR}/scripts/start_shooting_table_calib.sh"
+  "${ROOT_DIR}/scripts/debug/shooting_table_calib.sh"
   --no-auto-fit
   "${PASSTHROUGH_ARGS[@]}"
   --
@@ -130,7 +130,7 @@ CMD=(
 )
 
 echo "[INFO] shooting_table_autoaim mode=shooting_table_only auto_lock_fire=true auto_fire=${AUTO_FIRE} auto_target_type=${TARGET_TYPE}"
-echo "[INFO] forwarding to scripts/start_shooting_table_calib.sh"
+echo "[INFO] forwarding to scripts/debug/shooting_table_calib.sh"
 
 if (( DRY_RUN == 1 )); then
   printf "[INFO] dry-run cmd:"

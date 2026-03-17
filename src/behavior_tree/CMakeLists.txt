@@ -187,6 +187,12 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/launch")
   )
 endif()
 
+if(EXISTS "${BTCPP_WS_ROOT_DIR}/scripts/config/auto_aim_config_competition.yaml")
+  install(FILES "${BTCPP_WS_ROOT_DIR}/scripts/config/auto_aim_config_competition.yaml"
+    DESTINATION share/${PROJECT_NAME}/config
+  )
+endif()
+
 # 安裝 Include (如果需要給別人用)
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/include")
   install(DIRECTORY include/

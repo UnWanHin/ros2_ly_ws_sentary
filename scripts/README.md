@@ -1,491 +1,249 @@
-# Scripts Usage Guide
+# Scripts Guide
 
-本目录放运行与自检脚本。下面按“用途 -> 命令 -> 结果判定”给出最常用入口。
+这次把 `scripts/` 重新收敛了，根目录只保留 3 个入口：
 
-## 目录分层（已整理）
+- `./scripts/start.sh`
+- `./scripts/debug.sh`
+- `./scripts/selfcheck.sh`
 
-- `scripts/launch/`：启动类脚本实现（整链路、无门控、auto_aim联调）。
-- `scripts/feature_test/standalone/`：单独功能测试（交互入口 + 各模式 + 工具脚本）。
-- `scripts/feature_test/`：配置驱动的功能测试框架（Phase 1）。
-- `scripts/config/`：测试与比赛配置模板。
-- 根目录 `scripts/*.sh`：兼容入口（薄封装，保持旧命令可用）。
+它们都支持两种用法：
 
-## 快速选脚本
+- 不带参数：进入交互菜单
+- 带子命令：直接转发到对应分类脚本
 
-如果你只想快速判断该用哪个入口，看这里：
-
-- `./scripts/start_sentry_showcase.sh`
-  - 展示整链路入口
-  - 默认会带 `detector / tracker_solver / predictor / behavior_tree`
-  - 有普通辅瞄
-  - 有姿态展示
-  - 有导航巡逻
-  - 小陀螺不是“强制常开”，而是仍由 `behavior_tree` 当前火控逻辑决定
-- `./scripts/start_sentry_navi_debug.sh`
-  - 只测 `behavior_tree -> /ly/navi/goal`
-  - 默认只起 `behavior_tree`
-  - 没有辅瞄
-  - 没有独立小陀螺测试
-  - 适合临时点位 JSON 联调导航
-- `./scripts/start_navi_patrol_test.sh`
-  - 最轻量的导航点位序号巡逻脚本
-  - 不走 `behavior_tree`
-  - 没有辅瞄
-  - 没有小陀螺
-- `./scripts/start_autoaim_test.sh`
-  - 只测辅瞄链
-  - 不走 `behavior_tree`
-  - 没有导航巡逻
-  - 没有独立小陀螺
-- `./scripts/start_chassis_gyro_test.sh`
-  - 只测小陀螺/Rotate 位
-  - 不走 `behavior_tree`
-  - 不带辅瞄
-  - 不带导航巡逻
-- `./scripts/start_ballistic_error_log.sh`
-  - 只做日志诊断（订阅 `/rosout`）
-  - 聚焦弹道/解算/锁敌失效关键报错
-  - 适合“8081有框但云台不锁”排障
-
-## 1. `self_check_pc.sh`（离车自检）
-
-用途：
-- 开发机执行，验证构建、静态配置契约、launch 语法。
-- 不依赖车端硬件链路。
-
-常用命令：
+例如：
 
 ```bash
-# 标准离车自检（会先构建）
-./scripts/self_check_pc.sh
-
-# 仅静态检查，不重建
-./scripts/self_check_pc.sh --no-build
-
-# 指定包并执行 colcon test
-./scripts/self_check_pc.sh --packages "behavior_tree outpost_hitter predictor" --test
+./scripts/start.sh
+./scripts/start.sh gated --mode league
+./scripts/debug.sh autoaim-debug --online
+./scripts/selfcheck.sh sentry --runtime-only --launch --wait 12 --skip-hz
 ```
 
-## 2. `self_check_robot.sh`（上车自检）
+## 目录结构
 
-用途：
-- 车载机执行，检查串口候选设备、权限、网络可达，以及运行时 ROS2 图契约。
-- 会调用 `self_check_sentry.sh --runtime-only --launch` 自动拉起整链路。
-- 默认只跑运行态（`--runtime-only`），避免重复静态检查。
+```text
+scripts/
+├── start.sh                 # 启动类总入口（交互菜单）
+├── debug.sh                 # 调试/联调类总入口（交互菜单）
+├── selfcheck.sh             # 自检类总入口（交互菜单）
+├── start/                   # 启动类分类脚本
+├── debug/                   # 调试类分类脚本
+├── selfcheck/               # 自检类分类脚本
+├── launch/                  # 真实启动实现
+├── feature_test/            # 单项功能测试框架
+├── tools/                   # 工具脚本
+└── config/                  # 比赛/测试配置
+```
 
-常用命令：
+原则：
+
+- `scripts/start/`、`scripts/debug/`、`scripts/selfcheck/` 是你平时真正需要打开的分类入口。
+- `scripts/launch/` 是实现层，不是给人记命令用的。
+- 旧的根目录壳脚本已经删掉，避免同一件事出现两三个名字。
+
+## 一眼看懂
+
+### 1. 正式比赛主入口
+
+用这个：
 
 ```bash
-# 快速上车自检（默认跳过 hz）
-./scripts/self_check_robot.sh
-
-# 严格上车自检（含 hz 采样）
-./scripts/self_check_robot.sh --with-hz
-
-# 传递 launch 参数
-./scripts/self_check_robot.sh -- --config_file:=/abs/path/auto_aim_config.yaml
+./scripts/start.sh gated --mode league      # 联盟赛，有门控
+./scripts/start.sh gated --mode regional    # 分区赛，有门控
+./scripts/start.sh nogate --mode league     # 联盟赛，无门控
+./scripts/start.sh nogate --mode regional   # 分区赛，无门控
 ```
 
-## 3. `self_check_sentry.sh`（基础自检套件）
+对应脚本：
 
-用途：
-- 核心检查脚本，支持静态/运行时分模式，PC 与 Robot 脚本均复用它。
+- `scripts/start/sentry_all.sh`
+- `scripts/start/sentry_all_nogate.sh`
+- 实际实现：`scripts/launch/start_sentry_all.sh`
 
-常用命令：
+### 2. `competition_autoaim` 是什么
+
+现在用这个名字：
 
 ```bash
-# 仅静态（文件、配置、BT XML）
-./scripts/self_check_sentry.sh --static-only
-
-# 离线模式运行时链路（自动传 offline:=true）
-./scripts/self_check_sentry.sh --runtime-only --launch --offline --wait 12 --skip-hz
-
-# 仅运行时链路（你提到的命令）
-./scripts/self_check_sentry.sh --runtime-only --launch --wait 12 --skip-hz
-
-# 运行时链路 + 频率
-./scripts/self_check_sentry.sh --runtime-only --launch --wait 12
+./scripts/debug.sh competition-autoaim
 ```
 
-## 4. `start_sentry_all.sh`（整链路启动）
+对应脚本：
 
-用途：
-- 直接启动 `sentry_all.launch.py`，常用于手工调试或配合其他脚本。
-- 启动前可用 `1/2/3` 选择启动模式（`league/regional/showcase`）。
-- 默认沿用 launch 的配置文件（`detector/config/auto_aim_config.yaml`）。
-- 脚本主要注入模式相关参数（如 `competition_profile` / `bt_config_file` / `offline`），不再强制覆盖 `config_file`。
-- 其中 `mode 3` 保持 `competition_profile:=regional`，但自动切到展示专用 `showcase_competition.json`。
+- `scripts/debug/competition_autoaim.sh`
+- 实际实现：`scripts/launch/start_competition_autoaim_test.sh`
+
+它不是“正式比赛完全等价入口”，而是“比赛风格辅瞄预设”。
+
+默认行为：
+
+- 使用 `scripts/config/auto_aim_config_competition.yaml`
+- 默认 `--mode regional`
+- 默认 `--nogate`
+- 默认启用：`gimbal_driver / detector / tracker_solver / predictor / behavior_tree`
+- 默认关闭：`buff_hitter / outpost_hitter`
+
+所以它适合：
+
+- 快速验证比赛风格的 autoaim 主链
+- 快速看 `behavior_tree` + `predictor` 的联调效果
+
+但它不等于正式比赛整套默认路径，因为正式比赛主入口仍然是：
 
 ```bash
-./scripts/start_sentry_all.sh
-
-# 离线模式（强制虚拟串口 + 视频回放参数覆盖）
-./scripts/start_sentry_all.sh --offline
-
-# 非交互指定模式
-./scripts/start_sentry_all.sh --mode 1 --no-prompt     # league
-./scripts/start_sentry_all.sh --mode regional --no-prompt
-./scripts/start_sentry_all.sh --mode 3 --no-prompt     # showcase
-
-# 如需覆盖配置文件，可显式传入
-./scripts/start_sentry_all.sh -- config_file:=/abs/path/auto_aim_config.yaml
-
-# 单独联调时可选（默认都关闭，不影响正式比赛）
-./scripts/start_sentry_all.sh -- wait_for_game_start_timeout_sec:=8
-./scripts/start_sentry_all.sh -- debug_bypass_is_start:=true
-./scripts/start_sentry_all.sh -- league_referee_stale_timeout_ms:=2000
+./scripts/start.sh gated --mode league
+./scripts/start.sh gated --mode regional
 ```
 
-二次启动卡住时，优先用清理模式（默认已开启）：
+### 3. `showcase` 是什么
+
+`showcase` 不是联赛，也不是分区赛。
+
+它只是“姿态展示 / 展示巡逻”模式。
+
+现在用这个：
 
 ```bash
-./scripts/start_sentry_all.sh --cleanup-existing
+./scripts/start.sh showcase
 ```
 
-脚本会把 `ROS_LOG_DIR` 默认指向 `/tmp/ros2_logs`，避免 `~/.ros/log` 权限异常导致 launch 直接失败。
+对应脚本：
 
-若你明确要保留当前正在跑的进程，可禁用清理并在冲突时失败退出：
+- `scripts/start/showcase.sh`
+- 实际实现：`scripts/launch/start_sentry_showcase.sh`
+
+核心特点：
+
+- 固定走 `mode 3`
+- 底层还是 `regional` 主流程
+- 自动换成 `showcase_competition.json`
+- 用于姿态展示、展示巡逻、演示链路
+
+### 4. `start_sentry_all_competition.sh` 还要不要
+
+不要了，已经删掉。
+
+原因很简单：
+
+- 它原来只是兼容壳
+- 最终还是转发到 `start_sentry_all.sh`
+- 保留它只会让“正式入口到底是谁”更乱
+
+## 分类脚本对照
+
+### Start
+
+| 分类脚本 | 用途 | 实际实现 |
+| --- | --- | --- |
+| `scripts/start/sentry_all.sh` | 正式整链路入口 | `scripts/launch/start_sentry_all.sh` |
+| `scripts/start/sentry_all_nogate.sh` | 绕过开赛门控的整链路入口 | `scripts/launch/start_sentry_all_nogate.sh` |
+| `scripts/start/showcase.sh` | 姿态展示 / 展示巡逻 | `scripts/launch/start_sentry_showcase.sh` |
+
+### Debug
+
+| 分类脚本 | 用途 | 实际实现 |
+| --- | --- | --- |
+| `scripts/debug/competition_autoaim.sh` | 比赛风格辅瞄预设 | `scripts/launch/start_competition_autoaim_test.sh` |
+| `scripts/debug/autoaim_debug.sh` | 感知链 / mapper / 火控联调 | `scripts/launch/start_autoaim_debug.sh` |
+| `scripts/debug/autoaim_test.sh` | 一键装甲板辅瞄测试 | `scripts/feature_test/standalone/modes/armor_mode.sh` |
+| `scripts/debug/navi_debug.sh` | behavior_tree-only 导航调试 | `scripts/launch/start_sentry_navi_debug.sh` |
+| `scripts/debug/standalone.sh` | 单项功能测试菜单 | `scripts/feature_test/standalone/run_standalone_menu.sh` |
+| `scripts/debug/navi_patrol.sh` | JSON 巡逻点发 `/ly/navi/goal` | `scripts/feature_test/standalone/modes/navi_patrol_mode.sh` |
+| `scripts/debug/navi_goal_cli.sh` | 手动发导航目标 | `scripts/feature_test/standalone/tools/navi_goal_cli_pub.py` |
+| `scripts/debug/ballistic_error_log.sh` | 过滤弹道/锁敌日志 | `scripts/tools/monitor_ballistic_errors.sh` |
+| `scripts/debug/shooting_table_calib.sh` | 射表标定 | `scripts/launch/start_shooting_table_calib.sh` |
+| `scripts/debug/shooting_table_autoaim.sh` | 射表直连 autoaim 验证 | `scripts/launch/start_shooting_table_autoaim.sh` |
+| `scripts/debug/chassis_gyro.sh` | 小陀螺/Rotate 链路测试 | `scripts/feature_test/standalone/modes/chassis_spin_mode.sh` |
+
+### Selfcheck
+
+| 分类脚本 | 用途 |
+| --- | --- |
+| `scripts/selfcheck/pc.sh` | 开发机 build + 静态自检 |
+| `scripts/selfcheck/robot.sh` | 上车硬件/网络预检查 + 运行态自检包装 |
+| `scripts/selfcheck/sentry.sh` | 底层核心套件，可做静态或运行态检查 |
+
+## 三个顶层菜单怎么用
+
+### `./scripts/start.sh`
+
+菜单项：
+
+1. `gated`
+2. `nogate`
+
+说明：
+
+- 进入后会继续二次询问你要跑 `league` 还是 `regional`
+- `showcase` 仍保留为直达入口，但不出现在交互菜单里：
 
 ```bash
-./scripts/start_sentry_all.sh --no-cleanup-existing
+./scripts/start.sh showcase
 ```
 
-## 4.1 `start_sentry_all_competition.sh`（兼容入口）
+### `./scripts/debug.sh`
 
-用途：
-- 兼容旧命令入口，内部仍会调用 `start_sentry_all.sh`。
-- 比赛模式选择与 `competition_profile` 对齐逻辑，统一由 `start_sentry_all.sh` 处理。
+菜单项：
 
-常用命令：
+1. `competition-autoaim`
+2. `autoaim-debug`
+3. `autoaim-test`
+4. `navi-debug`
+5. `standalone`
+6. `navi-patrol`
+7. `navi-goal-cli`
+8. `ballistic-log`
+9. `shooting-table-calib`
+10. `shooting-table-autoaim`
+11. `chassis-gyro`
+
+### `./scripts/selfcheck.sh`
+
+菜单项：
+
+1. `pc`
+2. `robot`
+3. `sentry`
+
+区别：
+
+- `pc`：开发机用。可选 build，然后跑静态检查。
+- `robot`：车上用。先看串口/权限/网络，再调用 `sentry` 做运行态检查。
+- `sentry`：底层总套件。既能 `--static-only`，也能 `--runtime-only --launch`。`pc` 和 `robot` 都是在包装它。
+
+## 常用命令
 
 ```bash
-# 比赛版启动（会进入 start_sentry_all 的模式选择）
-./scripts/start_sentry_all_competition.sh
+# 联盟赛，有门控
+./scripts/start.sh gated --mode league
 
-# 仍可使用 offline 或其它 launch 参数
-./scripts/start_sentry_all_competition.sh --offline
-./scripts/start_sentry_all_competition.sh -- use_buff:=false use_outpost:=false
+# 分区赛，无门控
+./scripts/start.sh nogate --mode regional
+
+# 展示姿态
+./scripts/start.sh showcase
+
+# 比赛风格 autoaim 预设
+./scripts/debug.sh competition-autoaim --mode league
+
+# 射表标定
+./scripts/debug.sh shooting-table-calib --team red --output screen
+
+# 一键装甲板联调
+./scripts/debug.sh autoaim-test --online
+
+# 导航调试
+./scripts/debug.sh navi-debug
+
+# 离车自检
+./scripts/selfcheck.sh pc
+
+# 上车运行态自检
+./scripts/selfcheck.sh robot --with-hz
 ```
 
-## 4.2 `start_sentry_all_nogate.sh`（绕过开赛门控）
+## 备注
 
-用途：
-- 调试/联调专用，启动时固定注入 `debug_bypass_is_start:=true`。
-- 适合在没有裁判系统 `is_start` 的场景下验证上位机与导航等链路。
-- 其余参数透传给 `start_sentry_all.sh`。
-
-常用命令：
-
-```bash
-# 直接绕过 is_start 门控启动
-./scripts/start_sentry_all_nogate.sh
-
-# 联盟赛 + 非交互
-./scripts/start_sentry_all_nogate.sh --mode 1 --no-prompt
-
-# 展示模式 + 非交互
-./scripts/start_sentry_all_nogate.sh --mode 3 --no-prompt
-
-# 也可继续追加 launch 参数
-./scripts/start_sentry_all_nogate.sh -- wait_for_game_start_timeout_sec:=8
-```
-
-## 4.3 `start_sentry_showcase.sh`（展示/调试专用入口）
-
-用途：
-- 展示姿态切换时的一键入口。
-- 固定使用 `mode 3`，默认绕过 `is_start` 门控，减少现场操作量。
-- 内部调用 `start_sentry_all_nogate.sh --mode 3 --no-prompt`。
-- 默认仍会起整套展示主链：`gimbal_driver / detector / tracker_solver / predictor / outpost_hitter / buff_hitter / behavior_tree`。
-- 这意味着它有普通辅瞄链路，也有姿态展示链路。
-- 这条入口里的小陀螺不是独立“强制常开模式”，而是由 `behavior_tree` 火控/旋转逻辑决定；如果你只想单独测小陀螺，用 `start_chassis_gyro_test.sh`。
-- 展示巡逻点位在 `src/behavior_tree/Scripts/ConfigJson/showcase_competition.json` 的 `ShowcasePatrol.Goals` 修改。
-- `ShowcasePatrol.Random = true` 时随机切点。
-- `ShowcasePatrol.Random = false` 时按 `ShowcasePatrol.Goals` 数组顺序轮巡。
-- `ShowcasePatrol.IgnoreRecovery = true` 时忽略回血/补弹回补，适合无裁判系统的巡逻+姿态展示。
-- 若 `ShowcasePatrol.DisableTeamOffset = true`，展示模式会直接下发基础点位 ID `0..18` 到 `/ly/navi/goal`。
-
-常用命令：
-
-```bash
-# 默认：展示模式 + 跳过开赛门控
-./scripts/start_sentry_showcase.sh
-
-# 接裁判系统时保留门控
-./scripts/start_sentry_showcase.sh --with-gate
-
-# 离线模式
-./scripts/start_sentry_showcase.sh --offline
-
-# 接裁判系统，且只想保留普通辅瞄 + 姿态展示主链路
-./scripts/start_sentry_showcase.sh --with-gate -- use_buff:=false use_outpost:=false
-
-# 继续透传 launch 参数
-./scripts/start_sentry_showcase.sh -- use_buff:=false use_outpost:=false
-```
-
-## 4.4 `start_sentry_navi_debug.sh`（导航调试专用入口）
-
-用途：
-- 只拉起 `behavior_tree`，专门测试 `/ly/navi/goal` 发点链路。
-- 固定使用 `bt_config_file:=Scripts/ConfigJson/navi_debug_competition.json`。
-- 默认绕过开赛门控，适合无裁判系统时联调导航。
-- 临时点位计划单独放在 `src/behavior_tree/Scripts/ConfigJson/navi_debug_points.json`。
-- 默认没有辅瞄、没有姿态展示、没有独立小陀螺测试。
-- `NaviDebug` 只负责按 JSON 发点；要单独测辅瞄或小陀螺，请分别用 `start_autoaim_test.sh` 和 `start_chassis_gyro_test.sh`。
-
-常用命令：
-
-```bash
-# 默认：behavior_tree only + NaviDebug + 跳过开赛门控
-./scripts/start_sentry_navi_debug.sh
-
-# 接裁判系统时保留门控
-./scripts/start_sentry_navi_debug.sh --with-gate
-
-# 如需一起带 gimbal_driver，可继续透传 launch 参数
-./scripts/start_sentry_navi_debug.sh -- use_gimbal:=true
-```
-
-## 5. `start_autoaim_debug.sh`（auto_aim + mapper 联调）
-
-用途：
-- 面向“感知链/火控链”拆分联调，不拉起 behavior_tree。
-- 支持三种模式：`perception`（仅感知）、`mapper`（仅 mapper）、`fire`（感知+mapper，默认）。
-- 默认 `--offline`，并带残留进程清理、单控制源保护（防止与 behavior_tree 或其他发布者同时写 control 话题）。
-- 已加实例锁（`/tmp/sentry_autoaim_debug.lock`），并修复退出时后台 launch 清理。
-- 注意：这条链路不经过裁判系统 `is_start` 门控；若你需要“开赛后才接管控制”，请改用 `start_sentry_showcase.sh --with-gate` 或 `start_sentry_all.sh --mode 3 --no-prompt`。
-
-常用命令：
-
-```bash
-# 默认：感知链 + mapper（火控联调）
-./scripts/start_autoaim_debug.sh
-
-# 仅感知链（不控火）
-./scripts/start_autoaim_debug.sh --mode perception
-
-# 仅 mapper（要求感知链已启动）
-./scripts/start_autoaim_debug.sh --mode mapper
-
-# 指定 mapper 目标优先级与回退目标
-./scripts/start_autoaim_debug.sh --target-priority "6,3,4,5" --target-id 6
-
-# 在线模式（不传 offline:=true）
-./scripts/start_autoaim_debug.sh --online
-```
-
-## 6. `start_ballistic_error_log.sh`（弹道报错诊断）
-
-用途：
-- 从 `/rosout` 实时筛选弹道与锁敌相关日志。
-- 默认抓失败类关键字：
-  - `calcPitchYawWithShootTable failed`
-  - `calcPitchYaw failed`
-  - `calculateBallisticSolution`
-  - `Control invalid`
-  - `No available armor`
-  - `Invalid car id` / `New car id invalid`
-  - `Car <id> is not stable`
-  - `Critical input stale`
-  - `Runtime safe-control published`
-
-常用命令：
-
-```bash
-# 默认：只看失败相关日志
-./scripts/start_ballistic_error_log.sh
-
-# 同时看成功信号（Control valid / 补偿已应用）
-./scripts/start_ballistic_error_log.sh --with-valid
-
-# 30 秒自动停止并落盘
-./scripts/start_ballistic_error_log.sh --timeout 30 --output /tmp/ballistic.log
-```
-
-建议联测方式：
-- 终端 A：启动比赛链路  
-  `./scripts/start_competition_autoaim_test.sh --nogate --mode regional --no-prompt --cleanup-existing`
-- 终端 B：运行本脚本观察拒锁原因  
-  `./scripts/start_ballistic_error_log.sh --with-valid`
-
-## 5.1 `start_autoaim_test.sh`（一键辅瞄联调）
-
-用途：
-- 薄封装入口（已整理到 `feature_test/standalone/modes/armor_mode.sh`），默认等价于 `start_autoaim_debug.sh --mode fire --offline`。
-- 适合你只想快速验证辅瞄链路时直接开跑。
-- 同样不走裁判系统开赛门控。
-
-常用命令：
-
-```bash
-./scripts/start_autoaim_test.sh
-./scripts/start_autoaim_test.sh --online
-./scripts/start_autoaim_test.sh --target-priority "6,3,4,5" --target-id 6
-```
-
-## 5.2 `start_chassis_gyro_test.sh`（一键底盘陀螺链路）
-
-用途：
-- 自动拉起最小链路（仅 `gimbal_driver`），然后持续发布 `FireCode.Rotate` 到 `/ly/control/firecode`。
-- 用于底盘陀螺/旋转链路联调，不依赖 behavior_tree 与裁判开赛门控。
-- 脚本主体已整理到 `feature_test/standalone/modes/chassis_spin_mode.sh`。
-
-常用命令：
-
-```bash
-./scripts/start_chassis_gyro_test.sh
-./scripts/start_chassis_gyro_test.sh --offline --rotate-level 2
-./scripts/start_chassis_gyro_test.sh --mode 1 --hz 30 --wait 6
-```
-
-## 5.3 `start_standalone_test.sh`（交互式单入口）
-
-用途：
-- 统一单独测试入口，交互选择模式：
-  - `1` 打装甲板（Armor）
-  - `2` 打大符（Buff）
-  - `3` 打前哨（Outpost）
-  - `4` 小陀螺（Chassis Spin）
-  - `5` 导航巡逻（Navi Patrol）
-- 统一加了互斥锁（`/tmp/sentry_standalone_test.lock`）和 Ctrl+C 清理，减少重复节点与卡进程。
-
-常用命令：
-
-```bash
-# 交互选择模式
-./scripts/start_standalone_test.sh
-
-# 非交互直接选模式
-./scripts/start_standalone_test.sh --select 1 --online
-./scripts/start_standalone_test.sh --select 2 --online --enable-fire true
-./scripts/start_standalone_test.sh --select 3 --offline
-./scripts/start_standalone_test.sh --select 4 --rotate-level 2
-./scripts/start_standalone_test.sh --select 5 --plan test_site_sequence
-```
-
-目录整理（单独测脚本）：
-- `scripts/feature_test/standalone/run_standalone_menu.sh`
-- `scripts/feature_test/standalone/modes/armor_mode.sh`
-- `scripts/feature_test/standalone/modes/buff_mode.sh`
-- `scripts/feature_test/standalone/modes/outpost_mode.sh`
-- `scripts/feature_test/standalone/modes/chassis_spin_mode.sh`
-- `scripts/feature_test/standalone/modes/navi_patrol_mode.sh`
-- `scripts/feature_test/standalone/tools/control_mode_publisher.py`
-- `scripts/feature_test/standalone/tools/nav_goal_patrol_pub.py`
-- `scripts/feature_test/standalone/tools/target_to_control_bridge.py`
-
-## 5.4 `start_navi_patrol_test.sh`（导航临时点位自动巡逻）
-
-用途：
-- 读取 `src/behavior_tree/Scripts/ConfigJson/navi_debug_points.json`，自动持续发布：
-  - `/ly/navi/goal`
-  - `/ly/navi/speed_level`
-- 支持命名 plan、随机发点、顺序轮巡。
-- 与 `behavior_tree` 的 `NaviDebug` 共享同一份临时点位计划文件。
-
-常用命令：
-
-```bash
-# 按 JSON 的 ActivePlan 自动巡逻
-./scripts/start_navi_patrol_test.sh
-
-# 指定某个 plan
-./scripts/start_navi_patrol_test.sh --plan test_site_sequence
-
-# 指定蓝方序号映射并提高发布频率
-./scripts/start_navi_patrol_test.sh --team blue --hz 5
-```
-
-临时点位文件：
-- `src/behavior_tree/Scripts/ConfigJson/navi_debug_points.json`
-
-字段说明：
-- `ActivePlan`：当前生效的 plan 名
-- `Plans.<name>.Mode`：`random` 或 `sequence`
-- `Plans.<name>.GoalHoldSec`：每点停留秒数
-- `Plans.<name>.SpeedLevel`：下发到 `/ly/navi/speed_level`
-- `Plans.<name>.DisableTeamOffset`：`true` 时直接发基础 ID `0..18`
-- `Plans.<name>.Goals`：基础点位 ID 列表
-
-补充：
-- `Mode=sequence` 时，按 `Goals` 数组顺序依次发点。
-- `Mode=random` 时，会在 `Goals` 里随机切点，尽量避免连续重复同一个点。
-
-## 5.5 `start_navi_goal_cli.sh`（导航点位序号联调）
-
-用途：
-- 手动联调导航链路，交互输入并持续发布：
-  - `/ly/navi/goal`（点位序号）
-  - `/ly/navi/speed_level`（可选）
-- 适合和导航同学联调“序号链路是否打通”。
-
-常用命令：
-
-```bash
-# 进入交互模式
-./scripts/start_navi_goal_cli.sh
-
-# 可调发布频率
-./scripts/start_navi_goal_cli.sh --hz 5
-```
-
-交互命令：
-- `<id>`：设置并持续发布 goal 序号（0~255）
-- `s <speed>`：设置 speed_level
-- `<id> <speed>`：同时设置 goal 和 speed
-- `p`：查看当前值
-- `q`：退出
-
-## 6. `feature_test/run_feature_test.sh`（BT 外功能测试框架，单控制源）
-
-用途：
-- 使用单个配置文件启动“云台/底盘”功能测试，运行在 `behavior_tree` 外。
-- 默认启用“单控制源保护”：检测到 `/behavior_tree` 或控制话题多发布者时拒绝接管。
-
-默认配置文件：
-- `scripts/config/sentry_feature_test.yaml`
-
-常用命令：
-
-```bash
-# 按配置运行（默认是 gimbal armor）
-./scripts/feature_test/run_feature_test.sh
-
-# 只预览命令，不执行
-./scripts/feature_test/run_feature_test.sh --dry-run
-
-# 指定配置文件
-./scripts/feature_test/run_feature_test.sh --config ./scripts/config/sentry_feature_test.yaml
-```
-
-当前 Phase 1 支持：
-- 云台：`armor`、`scan`
-- 底盘：`velocity`
-
-## 结果判定
-
-- `FAIL: 0`：通过。
-- `WARN > 0`：可继续，但需确认是否为当前场景预期（如未接网线）。
-- 若使用 `--launch` 且失败，脚本会自动输出 `Launch Diagnosis`，包含崩溃签名与最近日志尾部。
-- 运行前会提示当前配置是否要求“真实相机/真实串口”，避免离车时误用比赛参数。
-- 使用 `--offline` 时，会自动传 `offline:=true` 给 launch，避免每次手改 YAML。
-- 运行时链路检查已覆盖 posture 合约：`/ly/control/posture` 与 `/ly/gimbal/posture`。
-- 若 `ros2 run` 直接报 `Segmentation fault` 且日志里有 `Failed opening file ~/.ros/log/... Permission denied`，先修复日志目录权限或临时设置 `export ROS_LOG_DIR=/tmp/ros2_logs` 再复测。
-
-## 比赛/调试开关位置
-
-统一在：
-
-- `src/detector/config/auto_aim_config.yaml`
-
-重点键位（已在 YAML 内写明“比赛建议/调试建议”注释）：
-
-- `detector_config/use_video`
-- `detector_config/debug_mode`
-- `detector_config/web_show`
-- `detector_config/show`
-- `detector_config/draw`
-- `detector_config/use_ros_bag`
-- `detector_config/save_video`
-- `io_config/use_virtual_device`
+- 这次重构只收敛了 `scripts/` 的入口层，`scripts/launch/`、`feature_test/`、`tools/` 仍保留实现。
+- 仓库里其他文档如果还出现旧命令，按上面的新入口映射替换理解即可。

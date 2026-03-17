@@ -12,7 +12,7 @@
 import os
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, GroupAction, LogInfo, Shutdown
+from launch.actions import DeclareLaunchArgument, GroupAction, LogInfo, OpaqueFunction, SetLaunchConfiguration, Shutdown
 from launch.conditions import IfCondition, LaunchConfigurationEquals, LaunchConfigurationNotEquals
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -20,10 +20,49 @@ from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description():
+    def normalize_mode(raw: str) -> str:
+        normalized = (raw or "").strip().lower()
+        if normalized in ("1", "league"):
+            return "league"
+        if normalized in ("3", "showcase", "demo"):
+            return "showcase"
+        return "regional"
+
+    def resolve_mode_defaults(context):
+        mode_raw = LaunchConfiguration("mode").perform(context)
+        competition_profile_raw = LaunchConfiguration("competition_profile").perform(context).strip()
+        bt_config_file_raw = LaunchConfiguration("bt_config_file").perform(context).strip()
+
+        if mode_raw.strip():
+            mode_kind = normalize_mode(mode_raw)
+        elif bt_config_file_raw.endswith("showcase_competition.json"):
+            mode_kind = "showcase"
+        elif competition_profile_raw.strip().lower() == "league":
+            mode_kind = "league"
+        else:
+            mode_kind = "regional"
+
+        resolved_profile = competition_profile_raw or ("league" if mode_kind == "league" else "regional")
+        if bt_config_file_raw:
+            resolved_bt_config = bt_config_file_raw
+        elif mode_kind == "league":
+            resolved_bt_config = "Scripts/ConfigJson/league_competition.json"
+        elif mode_kind == "showcase":
+            resolved_bt_config = "Scripts/ConfigJson/showcase_competition.json"
+        else:
+            resolved_bt_config = "Scripts/ConfigJson/regional_competition.json"
+
+        return [
+            SetLaunchConfiguration("resolved_mode_kind", mode_kind),
+            SetLaunchConfiguration("resolved_competition_profile", resolved_profile),
+            SetLaunchConfiguration("resolved_bt_config_file", resolved_bt_config),
+        ]
+
     # detector 包内统一参数文件（被多个节点共享）
     detector_share = get_package_share_directory("detector")
     default_config_file = os.path.join(detector_share, "config", "auto_aim_config.yaml")
 
+    mode = LaunchConfiguration("mode")
     config_file = LaunchConfiguration("config_file")
     output = LaunchConfiguration("output")
     competition_profile = LaunchConfiguration("competition_profile")
@@ -41,8 +80,16 @@ def generate_launch_description():
     use_buff = LaunchConfiguration("use_buff")
     use_behavior_tree = LaunchConfiguration("use_behavior_tree")
     offline = LaunchConfiguration("offline")
+    resolved_mode_kind = LaunchConfiguration("resolved_mode_kind")
+    resolved_competition_profile = LaunchConfiguration("resolved_competition_profile")
+    resolved_bt_config_file = LaunchConfiguration("resolved_bt_config_file")
 
     launch_args = [
+        DeclareLaunchArgument(
+            "mode",
+            default_value="",
+            description="Startup mode: league/regional/showcase. Empty falls back to regional unless overridden.",
+        ),
         DeclareLaunchArgument(
             "config_file",
             default_value=default_config_file,
@@ -95,14 +142,22 @@ def generate_launch_description():
             default_value="false",
             description="Offline profile: force virtual IO and video replay without editing YAML.",
         ),
+        DeclareLaunchArgument("resolved_mode_kind", default_value=""),
+        DeclareLaunchArgument("resolved_competition_profile", default_value=""),
+        DeclareLaunchArgument("resolved_bt_config_file", default_value=""),
+        OpaqueFunction(function=resolve_mode_defaults),
     ]
 
     info_logs = [
+        LogInfo(msg=["[sentry_all] mode: ", mode]),
         LogInfo(msg=["[sentry_all] config: ", config_file]),
         LogInfo(msg=["[sentry_all] output: ", output]),
         LogInfo(msg=["[sentry_all] offline: ", offline]),
         LogInfo(msg=["[sentry_all] competition_profile: ", competition_profile]),
         LogInfo(msg=["[sentry_all] bt_config_file: ", bt_config_file]),
+        LogInfo(msg=["[sentry_all] resolved_mode: ", resolved_mode_kind]),
+        LogInfo(msg=["[sentry_all] resolved_competition_profile: ", resolved_competition_profile]),
+        LogInfo(msg=["[sentry_all] resolved_bt_config_file: ", resolved_bt_config_file]),
         LogInfo(msg=["[sentry_all] bt_tree_file: ", bt_tree_file]),
         LogInfo(msg=["[sentry_all] debug_bypass_is_start: ", debug_bypass_is_start]),
         LogInfo(msg=["[sentry_all] wait_for_game_start_timeout_sec: ", wait_for_game_start_timeout_sec]),
@@ -215,8 +270,8 @@ def generate_launch_description():
             output=output,
             parameters=[
                 {
-                    "competition_profile": competition_profile,
-                    "bt_config_file": bt_config_file,
+                    "competition_profile": resolved_competition_profile,
+                    "bt_config_file": resolved_bt_config_file,
                     "bt_tree_file": bt_tree_file,
                     "debug_bypass_is_start": debug_bypass_is_start,
                     "wait_for_game_start_timeout_sec": wait_for_game_start_timeout_sec,

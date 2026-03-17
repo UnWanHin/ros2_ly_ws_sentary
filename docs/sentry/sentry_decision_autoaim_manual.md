@@ -149,7 +149,7 @@ BT 節點實際調用的就是這些函數。
 但要分兩種啟動方式看：
 - 直接 `ros2 launch behavior_tree sentry_all.launch.py`：
   - 默認讀 `src/detector/config/auto_aim_config.yaml`
-- `./scripts/start_sentry_all.sh`：
+- `./scripts/start.sh gated`：
   - 默認沿用 launch 默認 YAML（`detector/config/auto_aim_config.yaml`）
   - 僅注入模式相關參數（`competition_profile` / `bt_config_file` / `offline`）
   - 需要時可手動傳 `config_file:=...` 覆蓋
@@ -296,17 +296,17 @@ ros2 topic hz /ly/detector/armors
 - `ros2 launch behavior_tree sentry_all.launch.py`
 
 也提供工作區快捷腳本：
-- `./scripts/start_sentry_all.sh`
+- `./scripts/start.sh gated`
 
 腳本模式選擇（推薦）：
 - 交互選擇（1=league, 2=regional, 3=showcase）
-  - `./scripts/start_sentry_all.sh`
+  - `./scripts/start.sh gated`
 - 非交互聯盟賽
-  - `./scripts/start_sentry_all.sh --mode 1 --no-prompt`
+  - `./scripts/start.sh gated --mode league`
 - 非交互分區賽
-  - `./scripts/start_sentry_all.sh --mode 2 --no-prompt`
+  - `./scripts/start.sh gated --mode regional`
 - 非交互展示模式
-  - `./scripts/start_sentry_all.sh --mode 3 --no-prompt`
+  - `./scripts/start.sh showcase`
 
 ### 8.1 默認行為
 
@@ -366,7 +366,7 @@ ros2 launch behavior_tree sentry_all.launch.py \
 ## 9. 鏈路對齊檢查（2026-03-12）
 
 本次對齊檢查結論：
-- `start_sentry_all.sh` -> `sentry_all.launch.py` -> `behavior_tree` 的參數鏈路已對齊
+- `scripts/start.sh gated` / `scripts/start.sh nogate` -> `sentry_all.launch.py` -> `behavior_tree` 的參數鏈路已對齊
   - `--mode`：可選 `1/2/3` 或顯式傳入 `league/regional/showcase`
   - `competition_profile`：由啟動模式自動對齊；其中 `mode 3` 仍映射到 `regional`
   - `bt_config_file`：按啟動模式自動對齊（`league/regional/showcase`）
@@ -380,8 +380,8 @@ ros2 launch behavior_tree sentry_all.launch.py \
   - `UseXY=true` -> 發 `/ly/navi/goal_pos`
 
 驗證記錄：
-- `./scripts/self_check_sentry.sh --static-only`：通過（PASS 36 / WARN 0 / FAIL 0）
+- `./scripts/selfcheck.sh sentry --static-only`：通過（PASS 36 / WARN 0 / FAIL 0）
 - `colcon build --packages-select behavior_tree`：通過
-- `./scripts/self_check_sentry.sh --runtime-only --launch --wait 5 --skip-hz`：
+- `./scripts/selfcheck.sh sentry --runtime-only --launch --wait 5 --skip-hz`：
   - 在當前沙箱環境受 DDS 權限限制（`RTPS_TRANSPORT_SHM/UDP permission denied`）未通過
   - 屬於環境限制，不是策略鏈路配置錯配

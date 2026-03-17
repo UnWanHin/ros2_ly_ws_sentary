@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 This repository is a ROS2 workspace built with `colcon`.
 - `src/`: all runtime packages (`gimbal_driver`, `detector`, `tracker_solver`, `predictor`, `behavior_tree`, `buff_hitter`, `outpost_hitter`, `shooting_table_calib`, `auto_aim_common`).
-- `scripts/`: operational scripts (for example, `self_check_sentry.sh`, `start_sentry_all.sh`).
+- `scripts/`: operational scripts (for example, `selfcheck.sh`, `start.sh`).
 - `docs/`: contributor-facing documentation, organized by `architecture/`, `guides/`, `modules/`, `sentry/`, `reports/`, `rules/`.
 - Generated artifacts: `build/`, `install/`, `log/` (do not commit).
 
@@ -14,9 +14,9 @@ This repository is a ROS2 workspace built with `colcon`.
   Faster iterative build for selected modules.
 - `source install/setup.bash`  
   Load built packages into the current shell.
-- `./scripts/self_check_sentry.sh --skip-hz`  
+- `./scripts/selfcheck.sh sentry --skip-hz`  
   Static + graph contract checks (without frequency sampling).
-- `./scripts/self_check_sentry.sh --launch --wait 10`  
+- `./scripts/selfcheck.sh sentry --launch --wait 10`  
   Launch stack and run end-to-end runtime checks.
 - `colcon test && colcon test-result --verbose`  
   Run package tests where available.
@@ -30,7 +30,7 @@ This repository is a ROS2 workspace built with `colcon`.
 - Avoid hardcoded hardware values (camera SN, device name, baud rate); keep them in YAML.
 
 ## Testing Guidelines
-- Minimum before PR: targeted build for changed packages + `self_check_sentry.sh --skip-hz`.
+- Minimum before PR: targeted build for changed packages + `selfcheck.sh sentry --skip-hz`.
 - For runtime/link changes, include one launched self-check run or explain why unavailable.
 - If changing topics/messages/params, validate publisher-subscriber contracts and update docs.
 

@@ -10,30 +10,35 @@ source "${ROOT_DIR}/scripts/feature_test/standalone/lib/common.sh"
 OFFLINE_MODE=0
 MODE_ARG="regional"
 ROTATE_LEVEL=1
+SPEED_X=20
+SPEED_Y=0
+PERIOD_SEC=4
 HZ=20
 WAIT_SEC=4
 CONFIG_FILE=""
 LAUNCH_PID=""
-SPIN_PID=""
+TEST_PID=""
 LAUNCH_LOG=""
 
 usage() {
   cat <<EOF
 Usage:
-  $(basename "$0") [--offline|--online] [--mode 1|2|3|league|regional|showcase] [--rotate-level 0..3] [--hz N] [--wait SEC] [--config-file PATH]
+  $(basename "$0") [--offline|--online] [--mode 1|2|3|league|regional|showcase] [--rotate-level 0..3] [--speed-x N] [--speed-y N] [--period-sec SEC] [--hz N] [--wait SEC] [--config-file PATH]
 
 Purpose:
-  Start minimal stack (gimbal_driver only) and publish /ly/control/firecode Rotate bits.
-  This is for chassis gyro/spin link testing without BT/referee gate.
+  Start minimal stack (gimbal_driver only) and publish:
+    - /ly/control/firecode Rotate bits
+    - /ly/control/vel back-and-forth translation
+  This is for chassis spin + translation link testing without BT/referee gate.
 
 Examples:
-  ./scripts/feature_test/standalone/modes/chassis_spin_mode.sh
-  ./scripts/feature_test/standalone/modes/chassis_spin_mode.sh --offline --rotate-level 2
+  ./scripts/feature_test/standalone/modes/chassis_spin_translate_mode.sh
+  ./scripts/feature_test/standalone/modes/chassis_spin_translate_mode.sh --offline --rotate-level 2 --speed-x 30 --period-sec 6
 EOF
 }
 
 cleanup() {
-  st_stop_pid "${SPIN_PID}" "chassis_spin_pub"
+  st_stop_pid "${TEST_PID}" "chassis_spin_translate_pub"
   st_stop_pid "${LAUNCH_PID}" "minimal_stack"
   st_release_lock "${LOCK_FILE}"
 }
@@ -56,6 +61,18 @@ while [[ $# -gt 0 ]]; do
       ;;
     --rotate-level)
       ROTATE_LEVEL="$2"
+      shift 2
+      ;;
+    --speed-x)
+      SPEED_X="$2"
+      shift 2
+      ;;
+    --speed-y)
+      SPEED_Y="$2"
+      shift 2
+      ;;
+    --period-sec)
+      PERIOD_SEC="$2"
       shift 2
       ;;
     --hz)
@@ -117,7 +134,7 @@ LAUNCH_CMD=(
   "${LAUNCH_ARGS[@]}"
 )
 
-LAUNCH_LOG="$(mktemp /tmp/chassis_gyro_launch.XXXXXX.log)"
+LAUNCH_LOG="$(mktemp /tmp/chassis_spin_translate_launch.XXXXXX.log)"
 st_info "Launching minimal stack, log=${LAUNCH_LOG}"
 "${LAUNCH_CMD[@]}" >"${LAUNCH_LOG}" 2>&1 &
 LAUNCH_PID="$!"
@@ -129,11 +146,15 @@ if ! kill -0 "${LAUNCH_PID}" 2>/dev/null; then
   exit 1
 fi
 
-st_info "Start chassis spin publisher: rotate=${ROTATE_LEVEL}, hz=${HZ}"
-python3 "${ROOT_DIR}/scripts/feature_test/chassis_spin_test.py" \
+st_info "Start chassis spin+translate publisher: rotate=${ROTATE_LEVEL}, vel=(${SPEED_X},${SPEED_Y}), period=${PERIOD_SEC}, hz=${HZ}"
+python3 "${ROOT_DIR}/scripts/feature_test/chassis_spin_translate_test.py" \
   --rotate-level "${ROTATE_LEVEL}" \
+  --speed-x "${SPEED_X}" \
+  --speed-y "${SPEED_Y}" \
+  --period-sec "${PERIOD_SEC}" \
   --hz "${HZ}" \
-  --topic "/ly/control/firecode" &
-SPIN_PID="$!"
+  --vel-topic "/ly/control/vel" \
+  --firecode-topic "/ly/control/firecode" &
+TEST_PID="$!"
 
-wait "${SPIN_PID}"
+wait "${TEST_PID}"

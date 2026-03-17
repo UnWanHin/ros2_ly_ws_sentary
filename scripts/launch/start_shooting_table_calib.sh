@@ -16,7 +16,7 @@ PARAM_MANAGER_CMD=""
 FIT_LATEST=0
 FIT_ALL=0
 FIT_CSV=""
-AUTO_FIT=1
+AUTO_FIT=0
 WRITE_CONFIG=""
 OUTPUT_FIT_YAML=""
 DEFAULT_RECORD_DIR="${HOME:-.}/workspace/record"
@@ -25,6 +25,8 @@ DEFAULT_COMPETITION_CONFIG="${ROOT_DIR}/scripts/config/auto_aim_config_competiti
 AUTO_FIT_EXPLICIT=0
 WRITE_CONFIG_EXPLICIT=0
 DISABLE_DEFAULT_WRITE_CONFIG=0
+CSV_STRATEGY=""
+CSV_PATH=""
 
 usage() {
   cat <<EOF
@@ -39,12 +41,16 @@ Options:
   --team <red|blue>           Team color for calib node. Default: red.
   --web-show <true|false>     Enable web show. Default: true.
   --draw-image <true|false>   Enable image draw. Default: true.
-  --record-dir <path>         Calibration CSV directory used by fitting. Does not change node save path.
+  --record-dir <path>         Calibration CSV directory used by node save path and fitting.
+  --csv-strategy <new|latest> CSV target selection. new=create timestamped CSV, latest=append newest CSV.
+  --new-csv                   Shortcut for --csv-strategy new.
+  --latest-csv                Shortcut for --csv-strategy latest.
+  --csv-path <path>           Append/create a specific CSV file path.
   --fit-latest                Fit the newest shooting_table_*.csv and exit.
   --fit-all                   Fit all shooting_table_*.csv under --record-dir and exit.
   --fit-csv <path>            Fit a specific CSV file and exit.
-  --auto-fit                  After calib exits, fit the current session CSV automatically. Default: enabled.
-  --no-auto-fit               Disable the default post-exit auto-fit behavior.
+  --auto-fit                  After calib exits, fit the current session CSV automatically. Default: disabled.
+  --no-auto-fit               Explicitly keep CSV-only collection without post-exit fitting.
   --write-config <path>       Write fitted coefficients back into a YAML config file.
   --no-write-config           Do not sync fitted coefficients back into a config file.
   --output-fit-yaml <path>    Output ROS2 parameter override YAML path for fitted coefficients.
@@ -53,9 +59,10 @@ Options:
 
 Examples:
   ./${SCRIPT_NAME}
+  ./${SCRIPT_NAME} --latest-csv
   ./${SCRIPT_NAME} --team blue --web-show false
   ./${SCRIPT_NAME} --config /path/to/auto_aim_config.yaml
-  ./${SCRIPT_NAME} --no-auto-fit
+  ./${SCRIPT_NAME}
   ./${SCRIPT_NAME} --fit-latest --write-config scripts/config/auto_aim_config_competition.yaml
   ./${SCRIPT_NAME} --auto-fit --write-config scripts/config/auto_aim_config_competition.yaml
   ./${SCRIPT_NAME} --param-manager-cmd "bash /home/liu/workspace/scripts/param_manager.bash"
@@ -110,6 +117,24 @@ select_latest_csv_since() {
   return 1
 }
 
+normalize_csv_strategy() {
+  local raw="${1:-}"
+  local normalized="${raw,,}"
+  case "${normalized}" in
+    new)
+      echo "new"
+      return 0
+      ;;
+    latest|reuse|append)
+      echo "latest"
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 EXTRA_LAUNCH_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -156,6 +181,22 @@ while [[ $# -gt 0 ]]; do
       ;;
     --record-dir)
       RECORD_DIR="$2"
+      shift 2
+      ;;
+    --csv-strategy)
+      CSV_STRATEGY="$2"
+      shift 2
+      ;;
+    --new-csv)
+      CSV_STRATEGY="new"
+      shift
+      ;;
+    --latest-csv)
+      CSV_STRATEGY="latest"
+      shift
+      ;;
+    --csv-path)
+      CSV_PATH="$2"
       shift 2
       ;;
     --fit-latest)
@@ -227,13 +268,13 @@ if (( AUTO_FIT_EXPLICIT == 1 )) && (( AUTO_FIT == 1 )) && (( FIT_MODE_COUNT > 0 
   echo "[ERROR] --auto-fit cannot be combined with --fit-latest/--fit-all/--fit-csv." >&2
   exit 2
 fi
-
-if (( FIT_MODE_COUNT == 0 )) && (( AUTO_FIT == 1 )) && (( WRITE_CONFIG_EXPLICIT == 0 )) && (( DISABLE_DEFAULT_WRITE_CONFIG == 0 )); then
-  if [[ -f "${DEFAULT_COMPETITION_CONFIG}" ]]; then
-    WRITE_CONFIG="${DEFAULT_COMPETITION_CONFIG}"
-  else
-    echo "[WARN] Default competition config not found: ${DEFAULT_COMPETITION_CONFIG}" >&2
-  fi
+if [[ -n "${CSV_STRATEGY}" ]] && ! normalize_csv_strategy "${CSV_STRATEGY}" >/dev/null; then
+  echo "[ERROR] --csv-strategy only supports new|latest" >&2
+  exit 2
+fi
+if [[ -n "${CSV_PATH}" ]] && (( FIT_MODE_COUNT > 0 )); then
+  echo "[ERROR] --csv-path is only for live calibration launch, not fit-only mode." >&2
+  exit 2
 fi
 
 if (( FIT_MODE_COUNT > 0 )); then
@@ -243,6 +284,30 @@ if (( FIT_MODE_COUNT > 0 )); then
   fi
   run_fit
   exit $?
+fi
+
+if [[ -z "${CSV_PATH}" ]] && [[ -z "${CSV_STRATEGY}" ]] && [[ "${USE_CALIB}" == "true" ]] && [[ -t 0 ]]; then
+  echo "[PROMPT] CSV target mode:"
+  echo "  1) new    - create a new timestamped CSV"
+  echo "  2) latest - append to newest shooting_table_*.csv"
+  read -r -p "Input 1 or 2 [default: 1]: " csv_choice
+  csv_choice="${csv_choice:-1}"
+  case "${csv_choice}" in
+    1)
+      CSV_STRATEGY="new"
+      ;;
+    2)
+      CSV_STRATEGY="latest"
+      ;;
+    *)
+      echo "[WARN] Invalid CSV choice: ${csv_choice}. Fallback to new." >&2
+      CSV_STRATEGY="new"
+      ;;
+  esac
+fi
+
+if [[ -z "${CSV_STRATEGY}" ]]; then
+  CSV_STRATEGY="new"
 fi
 
 if [[ ! -f "${ROOT_DIR}/install/setup.bash" ]]; then
@@ -281,6 +346,8 @@ LAUNCH_ARGS=(
   "debug_team_blue:=${DEBUG_TEAM_BLUE}"
   "web_show:=${WEB_SHOW}"
   "draw_image:=${DRAW_IMAGE}"
+  "record_dir:=${RECORD_DIR}"
+  "csv_strategy:=${CSV_STRATEGY}"
 )
 
 if [[ -n "${CONFIG_FILE}" ]]; then
@@ -290,13 +357,19 @@ if [[ -n "${CONFIG_FILE}" ]]; then
   fi
   LAUNCH_ARGS+=("config_file:=${CONFIG_FILE}")
 fi
+if [[ -n "${CSV_PATH}" ]]; then
+  LAUNCH_ARGS+=("csv_path:=${CSV_PATH}")
+fi
 
 echo "Starting Shooting Table Calibration System (ROS2)..."
 echo "===================================================="
 echo "[INFO] output=${OUTPUT_MODE} use_gimbal=${USE_GIMBAL} use_calib=${USE_CALIB} team_red=${TEAM_RED} debug_team_blue=${DEBUG_TEAM_BLUE} web_show=${WEB_SHOW} draw_image=${DRAW_IMAGE}"
-echo "[INFO] fit_record_dir=${RECORD_DIR} auto_fit=${AUTO_FIT}"
+echo "[INFO] record_dir=${RECORD_DIR} csv_strategy=${CSV_STRATEGY} auto_fit=${AUTO_FIT}"
 if [[ -n "${CONFIG_FILE}" ]]; then
   echo "[INFO] config_file=${CONFIG_FILE}"
+fi
+if [[ -n "${CSV_PATH}" ]]; then
+  echo "[INFO] csv_path=${CSV_PATH}"
 fi
 if [[ -n "${WRITE_CONFIG}" ]]; then
   echo "[INFO] write_config=${WRITE_CONFIG}"
@@ -304,10 +377,6 @@ fi
 if [[ -n "${OUTPUT_FIT_YAML}" ]]; then
   echo "[INFO] output_fit_yaml=${OUTPUT_FIT_YAML}"
 fi
-if [[ "${RECORD_DIR}" != "${DEFAULT_RECORD_DIR}" ]]; then
-  echo "[WARN] shooting_table_calib node still saves CSV to ${DEFAULT_RECORD_DIR}; --record-dir only changes fitter input."
-fi
-
 cd "${ROOT_DIR}"
 if (( AUTO_FIT == 1 )); then
   launch_start_time=$(date +%s)
@@ -326,9 +395,6 @@ if (( AUTO_FIT == 1 )); then
   else
     FIT_LATEST=1
     echo "[WARN] Could not uniquely identify the current session CSV. Falling back to latest file in ${DEFAULT_RECORD_DIR}."
-  fi
-  if [[ -n "${WRITE_CONFIG}" ]] && [[ "${WRITE_CONFIG}" == "${DEFAULT_COMPETITION_CONFIG}" ]]; then
-    echo "[INFO] Syncing fitted coefficients into competition config: ${WRITE_CONFIG}"
   fi
   run_fit
   exit $?

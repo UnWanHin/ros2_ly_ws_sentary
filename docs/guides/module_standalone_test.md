@@ -232,5 +232,5 @@ ros2 topic info /ly/control/firecode -v
   - `ros2 topic info /ly/control/firecode -v`
   - `pgrep -af "gimbal_driver_node|detector_node|tracker_solver_node|predictor_node|behavior_tree_node|mapper_node|fire_flip_test"`
 - 统一自检入口（推荐）：
-  - 离车：`./scripts/self_check_pc.sh`
-  - 上车：`./scripts/self_check_robot.sh`
+  - 离车：`./scripts/selfcheck.sh pc`
+  - 上车：`./scripts/selfcheck.sh robot`

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT_NAME="$(basename "$0")"
 
 : "${ROS_LOG_DIR:=/tmp/ros2_logs}"
@@ -115,6 +115,6 @@ if (( ${#LAUNCH_ARGS[@]} > 0 )); then
 fi
 
 log "Running runtime self-check suite"
-"${ROOT_DIR}/scripts/self_check_sentry.sh" "${SELF_CHECK_ARGS[@]}"
+"${ROOT_DIR}/scripts/selfcheck/sentry.sh" "${SELF_CHECK_ARGS[@]}"
 
 log "Robot self-check completed"

@@ -58,8 +58,10 @@ void MotionModel::initMotionModel()
          0,     0,     0,     0,     0,    0,     0,     0,     0,    0.1, 0,     0,
          0.004, 0.02,  0,     0,     0,    0,     0,     0,     0,    0,   0.6,   0,
          0,     0,     0.004, 0.02,  0,    0,     0,     0,     0,    0,   0,     0.6;
+         
 
     // step2 观测的值有哪些
+    //R:
     base_measurement_noise_ = MatrixYY::Zero();
     base_measurement_noise_ << 0.005, 0,     0,     0,     0,     0,     0,
                                0,     0.005, 0,     0,     0,     0,     0,

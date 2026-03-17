@@ -211,7 +211,7 @@ namespace
 
         };
 
-        StateTimer state_timer{std::chrono::milliseconds(100), std::chrono::milliseconds(2000)};
+        StateTimer state_timer{std::chrono::milliseconds(100), std::chrono::milliseconds(2000)}; //簡學長寫的timer，使用的話則關掉下面的false &&
         //TODO 
 
         void GenSubs()

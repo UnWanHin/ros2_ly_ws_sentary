@@ -208,7 +208,8 @@ namespace BehaviorTree {
             if(aimMode != AimMode::Buff) {
                 /// 云台控制数据均匀变化
                 //#if false
-                if (!config.AimDebugSettings.StopScan && now - lastFoundEnemyTime > kLostTargetHold) {
+                //if (!config.AimDebugSettings.StopScan && now - lastFoundEnemyTime > kLostTargetHold) {
+                if (false){
                     static auto last_searching_log = std::chrono::steady_clock::time_point{};
                     if (now - last_searching_log > std::chrono::seconds(2)) {
                         LoggerPtr->Debug("Searching Target...");
