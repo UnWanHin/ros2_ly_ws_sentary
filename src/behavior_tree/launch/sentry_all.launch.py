@@ -58,9 +58,9 @@ def generate_launch_description():
             SetLaunchConfiguration("resolved_bt_config_file", resolved_bt_config),
         ]
 
-    # detector 包内统一参数文件（被多个节点共享）
-    detector_share = get_package_share_directory("detector")
-    default_config_file = os.path.join(detector_share, "config", "auto_aim_config.yaml")
+    # 比赛相关入口默认使用比赛配置；如需覆盖，仍可显式传入 config_file:=...
+    behavior_tree_share = get_package_share_directory("behavior_tree")
+    default_config_file = os.path.join(behavior_tree_share, "config", "auto_aim_config_competition.yaml")
 
     mode = LaunchConfiguration("mode")
     config_file = LaunchConfiguration("config_file")

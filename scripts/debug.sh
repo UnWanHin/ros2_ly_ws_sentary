@@ -19,8 +19,10 @@ Entries:
   ballistic-log         /rosout ballistic log filter.
   shooting-table-calib  Shooting table calibration/debug.
   shooting-table-autoaim Shooting-table direct autoaim verification.
+  control-angles-test    Publish one /ly/control/angles GimbalAngles command.
   chassis-gyro          FireCode.Rotate chain test.
   chassis-gyro-translate FireCode.Rotate + /ly/control/vel round-trip test.
+  posture-test          /ly/control/posture cycle test and /ly/gimbal/posture watch.
 
 Examples:
   ./scripts/debug.sh
@@ -64,11 +66,17 @@ run_entry() {
     10|shooting-table-autoaim|shooting_table_autoaim)
       exec "${ROOT_DIR}/debug/shooting_table_autoaim.sh" "$@"
       ;;
-    11|chassis-gyro|chassis_gyro|gyro)
+    11|control-angles-test|control_angles_test|control-angles|control_angles)
+      exec "${ROOT_DIR}/debug/control_angles_test.sh" "$@"
+      ;;
+    12|chassis-gyro|chassis_gyro|gyro)
       exec "${ROOT_DIR}/debug/chassis_gyro.sh" "$@"
       ;;
-    12|chassis-gyro-translate|chassis_gyro_translate|gyro-translate|gyro_translate)
+    13|chassis-gyro-translate|chassis_gyro_translate|gyro-translate|gyro_translate)
       exec "${ROOT_DIR}/debug/chassis_spin_translate.sh" "$@"
+      ;;
+    14|posture-test|posture_test|posture)
+      exec "${ROOT_DIR}/debug/posture_test.sh" "$@"
       ;;
     ""|menu)
       ;;
@@ -100,8 +108,10 @@ echo "  7) navi-goal-cli"
 echo "  8) ballistic-log"
 echo "  9) shooting-table-calib"
 echo " 10) shooting-table-autoaim"
-echo " 11) chassis-gyro"
-echo " 12) chassis-gyro-translate"
-read -r -p "Input 1-12 [default: 2]: " choice
+echo " 11) control-angles-test"
+echo " 12) chassis-gyro"
+echo " 13) chassis-gyro-translate"
+echo " 14) posture-test"
+read -r -p "Input 1-14 [default: 2]: " choice
 choice="${choice:-2}"
 run_entry "${choice}"

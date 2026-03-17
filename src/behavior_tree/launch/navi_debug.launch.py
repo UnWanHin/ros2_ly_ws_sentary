@@ -11,9 +11,8 @@ from launch.substitutions import LaunchConfiguration
 
 def generate_launch_description():
     behavior_tree_share = get_package_share_directory("behavior_tree")
-    detector_share = get_package_share_directory("detector")
     sentry_all_launch = os.path.join(behavior_tree_share, "launch", "sentry_all.launch.py")
-    default_config_file = os.path.join(detector_share, "config", "auto_aim_config.yaml")
+    default_config_file = os.path.join(behavior_tree_share, "config", "auto_aim_config_competition.yaml")
 
     launch_args = [
         DeclareLaunchArgument("config_file", default_value=default_config_file),

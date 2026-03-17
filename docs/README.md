@@ -21,15 +21,17 @@ docs/
 
 1. 全局链路  
 [architecture/message_and_link_flow.md](architecture/message_and_link_flow.md)
-2. 当前系统运行行为  
+2. `/ly/control/angles` 专项链路追踪
+[architecture/control_angles_data_flow.md](architecture/control_angles_data_flow.md)
+3. 当前系统运行行为
 [architecture/system_behavior.md](architecture/system_behavior.md)
-3. 模块文档（建议按数据流）  
+4. 模块文档（建议按数据流）
 [modules/gimbal_driver.md](modules/gimbal_driver.md)  
 [modules/detector.md](modules/detector.md)  
 [modules/tracker_solver.md](modules/tracker_solver.md)  
 [modules/predictor.md](modules/predictor.md)  
 [modules/behavior_tree.md](modules/behavior_tree.md)
-4. 哨兵专项（2026 姿态机制）  
+5. 哨兵专项（2026 姿态机制）
 [sentry/decision_runtime_behavior.md](sentry/decision_runtime_behavior.md)  
 [sentry/sentry_decision_autoaim_manual.md](sentry/sentry_decision_autoaim_manual.md)  
 [sentry/showcase_demo_runbook.md](sentry/showcase_demo_runbook.md)  
@@ -39,7 +41,7 @@ docs/
 [sentry/posture_lower_firmware_integration.md](sentry/posture_lower_firmware_integration.md)  
 [sentry/posture_firmware_integration_checklist.md](sentry/posture_firmware_integration_checklist.md)  
 [sentry/lower_downlink_message_contract.md](sentry/lower_downlink_message_contract.md)
-5. 落地执行与上车前检查  
+6. 落地执行与上车前检查
 [guides/config_setup_guide.md](guides/config_setup_guide.md)  
 [guides/auto_aim_tuning_handover.md](guides/auto_aim_tuning_handover.md)  
 [guides/auto_aim_yamlization_checklist.md](guides/auto_aim_yamlization_checklist.md)  
@@ -48,7 +50,7 @@ docs/
 [guides/module_standalone_test.md](guides/module_standalone_test.md)  
 [guides/test_guide.md](guides/test_guide.md)  
 [guides/preflight_checklist.md](guides/preflight_checklist.md)
-6. 近期稳定性修复记录（接口不变）  
+7. 近期稳定性修复记录（接口不变）
 [reports/stability_fix_no_interface_change_2026-03-05.md](reports/stability_fix_no_interface_change_2026-03-05.md)
 [reports/self_check_status_2026-03-05.md](reports/self_check_status_2026-03-05.md)
 [reports/repository_completeness_audit_2026-03-05.md](reports/repository_completeness_audit_2026-03-05.md)
