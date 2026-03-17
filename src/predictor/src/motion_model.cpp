@@ -220,7 +220,7 @@ void MotionModel::Update(const VectorY& measure_vec, const Time::TimeStamp& time
     }
 
     ekf.setTotalId(id1, id2);
-    roslog::info("set total id: {}, {}", id1, id2);
+    // roslog::info("set total id: {}, {}", id1, id2);
     VectorX state = ekf.update(measure_adjust, timestamp, armor_id);
     ekf.resetVisibleId();
     if (!state.allFinite()) {

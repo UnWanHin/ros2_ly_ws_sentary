@@ -290,7 +290,7 @@ CarTrackResults Tracker::getCarTrackResult(const Time::TimeStamp& time, const Gi
             old_matched[old_idx] = true;
             new_matched[new_idx] = true;
             new_car_ids[new_idx] = std::get<1>(old_car_rects[old_idx]); // 记录匹配的car_id
-            roslog::info("MATCH carid: {} to carid: {}", std::get<1>(old_car_rects[old_idx]), std::get<2>(car_rects[new_idx]));
+            // roslog::info("MATCH carid: {} to carid: {}", std::get<1>(old_car_rects[old_idx]), std::get<2>(car_rects[new_idx]));
         }
     }
     

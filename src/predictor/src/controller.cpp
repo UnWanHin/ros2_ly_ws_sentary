@@ -197,8 +197,8 @@ bool Controller::calcPitchYawWithShootTable(double& pitch, double& yaw, double& 
         pitch += pitch_compensation;
         yaw += yaw_compensation;
         
-        roslog::info("Applied shoot table compensation - pitch: {} rad, yaw: {} rad", 
-                    pitch_compensation, yaw_compensation);
+        // roslog::info("Applied shoot table compensation - pitch: {} rad, yaw: {} rad",
+        //             pitch_compensation, yaw_compensation);
     }
     
     return success;

@@ -43,14 +43,14 @@ public:
         if(newTrack)
         {
             newTrack = false;
-            roslog::info("new track initialized for car");
+            // roslog::info("new track initialized for car");
             oldtheta = 0;
             omega = 0;
             oldtheta = calcTheta(get<0>(currentPoints[0]), get<1>(currentPoints[0]), 0);
         }
         else
             dt = (time - last_time).seconds();
-        roslog::info("delta_time:{} ms",dt);
+        // roslog::info("delta_time:{} ms",dt);
         last_time = time;
         double pred_theta = oldtheta + omega * dt;
         auto sortedPoints = currentPoints;
@@ -78,7 +78,7 @@ public:
             newtheta += calcTheta(get<0>(sortedPoints[j]), get<1>(sortedPoints[j]), min_index + j);
         }
         newtheta /= sortedPoints.size();
-        roslog::info("newtheta,oldtheta:{},{}",newtheta,oldtheta);
+        // roslog::info("newtheta,oldtheta:{},{}",newtheta,oldtheta);
         double newomega = 0;
         if(dt > 0.0001)
             newomega = std::remainder(newtheta - oldtheta, 2 * M_PI) / dt;
@@ -86,7 +86,7 @@ public:
             newomega = 0;
         while(std::abs(newomega)>maxOmega)newomega/=2;
         omega = alpha * newomega + (1 - alpha) * omega;
-        roslog::info("newomega:{}",omega);
+        // roslog::info("newomega:{}",omega);
         oldtheta = newtheta;
         return result;
     }

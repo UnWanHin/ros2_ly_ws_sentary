@@ -306,6 +306,80 @@
 3. `/ly/control/firecode`
    - 是否仍只在满足开火条件时翻转
 
+## 离车复测结果（2026-03-18）
+
+本次使用离车方案 A 复测：
+
+- `ros2 launch detector auto_aim.launch.py offline:=true use_gimbal:=false output:=log`
+
+观测 topic：
+
+- `/ly/detector/armors`
+- `/ly/tracker/results`
+- `/ly/predictor/target`
+
+### 1. 清日志前
+
+离车实测结果：
+
+- `/ly/detector/armors` 约 `6.8 Hz`
+- `/ly/tracker/results` 约 `9.6 Hz`
+- `/ly/predictor/target` 约 `4.4 Hz`
+
+结论：
+
+- 主问题不是 `behavior_tree`
+- 更不是电控 PID
+- 因为本次测试根本没有启动 `behavior_tree`，也没有接实车
+- 慢是 `detector -> tracker_solver -> predictor` 这一段自己就慢
+
+### 2. 注释高频日志后
+
+本次注释的高频日志位置：
+
+- `src/tracker_solver/src/tracker.cpp`
+- `src/tracker_solver/include/car_tracker/tracker_matcher_with_whole_car.hpp`
+- `src/predictor/src/controller.cpp`
+- `src/predictor/src/motion_model.cpp`
+
+重新离车实测结果：
+
+- `/ly/detector/armors` `24.100 Hz`
+- `/ly/tracker/results` `24.172 Hz`
+- `/ly/predictor/target` `24.122 Hz`
+
+结论：
+
+- 之前“纯慢”的直接主因就是高频日志刷屏
+- 注释这些日志后，前半段链路频率已恢复到约 `24 Hz`
+- 因此如果上车后仍有“纯慢”现象，应继续区分：
+  - `/ly/control/angles` 是否也慢
+  - `/ly/gimbal/angles` 是否比 `/ly/control/angles` 更慢
+
+### 3. 当前 `status=false` 的判断
+
+离车抓到的 `/ly/predictor/target` 样本中：
+
+- `yaw/pitch` 正常输出
+- `status=false`
+
+结合当前控制逻辑：
+
+- 若 `calcPitchYawWithShootTable()` 失败，则通常会直接返回当前云台角，离车默认更接近 `0/0`
+- 实测样本里的 `yaw/pitch` 已经是有效解算角，不像是早退分支
+- 当前 `controller` 在成功解算后，只会因为两类条件把 `valid` 重新打回 `false`
+  - `unstable_track`
+  - `yaw_jump_reject`
+
+当前离车样本中的 `yaw` 幅值不大，工程上更像：
+
+- `status=false` 主要由 `unstable_track` 触发
+
+也就是说：
+
+- “慢”已经通过注释高频日志显著改善
+- “火控没恢复”则更像是 `predictor/controller` 仍然认为当前轨迹不够稳定
+
 ## 结论
 
 这次调整保留了原有链路设计：
