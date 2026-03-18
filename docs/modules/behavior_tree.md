@@ -101,7 +101,7 @@ rclcpp::shutdown();
 | `armorList` | `array<ArmorData,10>` | `/ly/predictor/target` 等（含距離和類型） |
 | `gimbalAngles` | `GimbalAnglesType` | `/ly/gimbal/angles` |
 | `naviVelocity` | `VelocityType` | `/ly/gimbal/vel`（底盤速度反饋） |
-| `isFindTargetAtomic` | `atomic<bool>` | 每次收到有效 `Target.msg`（status=true）時置 true |
+| `isFindTargetAtomic` | `atomic<bool>` | 消息到达时置 true，当前真正的跟随门控更依赖 `AimData.Valid/HasLatchedAngles/LastValidTime` |
 
 **決策輸出數據**：
 | 變量 | 說明 |
@@ -201,11 +201,12 @@ void TreeTick() {
 這個函數決定最終發出什麼角度和火控碼：
 
 1. **小陀螺控制**：根據血量下降速度（`healthDecreaseDetector`）和底盤速度（`naviVelocity`），動態設置 `FireCode.Rotate`（0=停止、1-3=不同速度）
-2. **有目標時**：
+2. **有有效目標角時**：
    - 按 `aimMode` 從對應的 `Aim*Data` 取角度
-   - 觸發開火（`fireRateClock` 控製開火頻率）  
-   - 打符模式下只在 `buffAimData.FireStatus=true` 時翻轉開火狀態
+   - 只要 `AimData.Valid=true` 就持續沿用該角，不再要求每幀都 `Fresh=true`
+   - 觸發開火（`fireRateClock` 控製開火頻率）
 3. **無目標時（超過2秒）**：切換到掃描模式，Yaw+3° 偏移，Pitch 用 `SineWave` 做俯仰波動
+4. **無目標但已有 latched angle 時**：優先沿用最近一次目標角，而不是直接回當前雲台反饋角
 4. 調用 `PublishMessageAll()` 發出最終指令
 
 ---
@@ -229,7 +230,7 @@ void TreeTick() {
 | `/ly/gimbal/angles` | `gimbalAngles` | 當前雲台角 |
 | `/ly/gimbal/posture` | `postureState` | 姿態回讀（0未知/1進攻/2防禦/3移動） |
 | `/ly/gimbal/vel` | `naviVelocity` | 底盤速度反饋 |
-| `/ly/predictor/target` | `autoAimData`, `isFindTargetAtomic` | 普通瞄準角度 |
+| `/ly/predictor/target` | `autoAimData`, `isFindTargetAtomic` | 普通瞄準角度；消息一来即置 `Valid/HasLatchedAngles`，有限角则刷新 `Angles` |
 | `/ly/outpost/target` | `outpostAimData`, `isFindTargetAtomic` | 前哨瞄準角度 |
 | `ly/buff/target` | `buffAimData`, `isFindTargetAtomic` | 打符瞄準角度 |
 | `/ly/gimbal/capV` | `capV` | 電容電壓 |
@@ -334,7 +335,7 @@ void TreeTick() {
 | `GimbalAnglesType` | {Yaw, Pitch}（float） |
 | `GimbalControlData` | {GimbalAngles, FireCode, Velocity} |
 | `FireCodeType` | 位域：FireStatus, Rotate(2bit), AimMode |
-| `AimData` | {Angles(YawPitch), FireStatus, BuffFollow} |
+| `AimData` | {Angles(YawPitch), FireStatus, BuffFollow, Valid, Fresh, HasLatchedAngles, LastValidTime} |
 | `RateClock` | 固定頻率時鐘（用毫秒計時） |
 | `TimerClock` | 計時器（用於判斷是否到達某時刻） |
 | `DescentDetector<T>` | 下降檢測器，用於血量減少判斷 |

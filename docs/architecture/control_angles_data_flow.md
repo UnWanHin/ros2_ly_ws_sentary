@@ -156,11 +156,13 @@ Node.Publisher<ly_gimbal_angles>()->publish(msg);
 
 关键流程：
 
-1. `predictor->update(...)` 先用当前帧观测更新状态
-2. `controller->control(...)` 按当前目标类型和弹速做控制解算
+1. `/ly/tracker/results` 回调先用当前帧观测更新状态
+2. `predictor_node` 以固定 `10ms` timer 调 `controller->control(...)`
 3. `controller` 内部调用 `predictFunc(now + flyTime + shootDelay)` 取未来时刻目标
 4. `calcPitchYawWithShootTable(...)` 计算最终期望 yaw/pitch
-5. 填入 `Target.msg`
+5. `Target.msg` 持续发布：
+   - 有预测时发布角度
+   - 完全失锁时发布 `status=false` 且 `yaw/pitch=NaN`
 
 关键点：
 
@@ -176,17 +178,19 @@ Node.Publisher<ly_gimbal_angles>()->publish(msg);
 
 当前主链路里，`behavior_tree` 是 `/ly/control/angles` 的唯一默认发布者。
 
-它会订阅 `/ly/predictor/target`，把有效目标写入 `autoAimData.Angles`：
+它会订阅 `/ly/predictor/target`，当前语义是：
 
-- `status=true`
-- `yaw/pitch` 为有限值
+- 消息一来就把目标置为“可锁”
+- 若 `yaw/pitch` 有限值，则刷新 `autoAimData.Angles`
+- `status` 只继续作为 fire 许可写入 `FireStatus`
 
 然后在 `PublishTogether()` 里：
 
 1. 判断当前 `aimMode`
-2. 若当前有新鲜有效目标，则 `nextAngles = activeAimData->Angles`
-3. 若短时丢帧，则维持上一帧锁角一段时间
-4. 若完全没目标，则回退到当前云台角
+2. 若当前 `AimData.Valid=true`，则直接 `nextAngles = activeAimData->Angles`
+3. 若暂时没目标，但已有 latched angle，则沿用最近一次目标角
+4. 若超过扫描等待时间仍无目标，则进入扫描逻辑
+5. 仅在从未锁到过角时，才回退到当前云台角
 5. 最终写入 `gimbalControlData.GimbalAngles`
 
 最后由 `PubGimbalControlData()` 发布 `/ly/control/angles`。
@@ -372,4 +376,3 @@ ros2 topic info /ly/control/angles -v
   [`src/behavior_tree/src/SubscribeMessage.cpp`](../../src/behavior_tree/src/SubscribeMessage.cpp)  
   [`src/behavior_tree/src/GameLoop.cpp`](../../src/behavior_tree/src/GameLoop.cpp)  
   [`src/behavior_tree/src/PublishMessage.cpp`](../../src/behavior_tree/src/PublishMessage.cpp)
-

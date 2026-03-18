@@ -439,9 +439,32 @@ void ImageLoop() {
                     }
                 };
 
+                auto log_detection_summary = [&](const std::size_t raw_count,
+                                                 const std::size_t filtered_count,
+                                                 const std::size_t car_count,
+                                                 const char* stage) {
+                    static auto last_log_time = std::chrono::steady_clock::time_point{};
+                    const auto log_now = std::chrono::steady_clock::now();
+                    if (log_now - last_log_time < std::chrono::seconds(1)) {
+                        return;
+                    }
+                    last_log_time = log_now;
+                    RCLCPP_INFO(
+                        global_node->get_logger(),
+                        "detector summary: stage=%s raw_armors=%zu filtered_armors=%zu cars=%zu target_type=%d aa_enable=%s outpost_enable=%s",
+                        stage,
+                        raw_count,
+                        filtered_count,
+                        car_count,
+                        static_cast<int>(atomic_target.load()),
+                        aa_enable.load() ? "true" : "false",
+                        outpost_enable.load() ? "true" : "false");
+                };
+
                 armors.Armors.clear();
                 
                 if (!carAndArmorDetector.Detect(image, armors.Armors, cars)) {
+                    log_detection_summary(0, 0, 0, "detect_fail");
                     publish_result();
                     continue;
                 }
@@ -461,6 +484,7 @@ void ImageLoop() {
 
                 ly_auto_aim::ArmorType target = atomic_target;
                 if (!filter.Filter(armors.Armors, target, filtered_armors)) {
+                    log_detection_summary(armors.Armors.size(), 0, armor_list_msg.cars.size(), "filter_empty");
                     publish_result();
                     continue;
                 }
@@ -471,6 +495,12 @@ void ImageLoop() {
 
                 if(draw_image) DrawAllArmor(image, filtered_armors);
                 if(draw_image) DrawAllCar(image, cars);
+
+                log_detection_summary(
+                    armors.Armors.size(),
+                    filtered_armors.size(),
+                    armor_list_msg.cars.size(),
+                    "publish");
 
                 publish_result();
             }

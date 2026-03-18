@@ -226,7 +226,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData>
 | `/ly/me/hp` | `Health` | 我方各機器人血量 |
 | `/ly/enemy/hp` | `Health` | 敵方各機器人血量 |
 | `/ly/me/ammo_left` | `UInt16` | 剩餘子彈 |
-| `/ly/bullet/speed` | `Float32` | 子彈速度（m/s，從 PositionData 解析） |
+| `/ly/bullet/speed` | `Float32` | 子彈速度（m/s，当前代码先解析原始值后又固定覆写为 `23.0f`） |
 | `/ly/team/buff` | `BuffData` | 能量機關增益狀態 |
 | `/ly/position/data` | `PositionData` | UWB位置數據 |
 | `/ly/me/uwb_pos` | `UInt16MultiArray` | 自身UWB位置[x, y] |
@@ -256,5 +256,5 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData>
 - **串口協議調整**：修改 `module/BasicTypes.hpp` 的結構體時一定要注意字節對齊和電控端的協議版本一致
 - **姿態指令協議策略**：姿態併入 `GimbalControlData.Posture`，主包長度變更需與下位機同步升級
 - **新增 Topic**：在 `main.cpp` 增加 `LY_DEF_ROS_TOPIC` 定義和對應的 `Pub*()` 函數，並在 `LoopRead()` 的 switch-case 中處理
-- **`/ly/bullet/speed`**：子彈速度從 `PositionData` 解析，換算公式為 `data.BulletSpeed / 100.0f`（原始值為 cm/s × 100 的整數）
+- **`/ly/bullet/speed`**：当前实现先按 `data.BulletSpeed / 100.0f` 解析，再覆写为 `23.0f`；如需使用真实弹速，需同步修改 `gimbal_driver/main.cpp` 与 `predictor/src/controller.cpp`
 - **虛擬設備**：調試時可設置 YAML 參數 `io_config/use_virtual_device: true` 來使用迴環模式而無需電控硬件

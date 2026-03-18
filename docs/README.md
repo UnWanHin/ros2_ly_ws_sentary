@@ -24,15 +24,17 @@ docs/
 [architecture/message_and_link_flow.md](architecture/message_and_link_flow.md)
 2. `/ly/control/angles` 专项链路追踪
 [architecture/control_angles_data_flow.md](architecture/control_angles_data_flow.md)
-3. 当前系统运行行为
+3. `/ly/control/firecode` 专项链路追踪
+[architecture/fire_control_flow.md](architecture/fire_control_flow.md)
+4. 当前系统运行行为
 [architecture/system_behavior.md](architecture/system_behavior.md)
-4. 模块文档（建议按数据流）
+5. 模块文档（建议按数据流）
 [modules/gimbal_driver.md](modules/gimbal_driver.md)  
 [modules/detector.md](modules/detector.md)  
 [modules/tracker_solver.md](modules/tracker_solver.md)  
 [modules/predictor.md](modules/predictor.md)  
 [modules/behavior_tree.md](modules/behavior_tree.md)
-5. 哨兵专项（2026 姿态机制）
+6. 哨兵专项（2026 姿态机制）
 [sentry/decision_runtime_behavior.md](sentry/decision_runtime_behavior.md)  
 [sentry/sentry_decision_autoaim_manual.md](sentry/sentry_decision_autoaim_manual.md)  
 [sentry/optional_items_demo_runbook.md](sentry/optional_items_demo_runbook.md)  
@@ -43,7 +45,7 @@ docs/
 [sentry/posture_lower_firmware_integration.md](sentry/posture_lower_firmware_integration.md)  
 [sentry/posture_firmware_integration_checklist.md](sentry/posture_firmware_integration_checklist.md)  
 [sentry/lower_downlink_message_contract.md](sentry/lower_downlink_message_contract.md)
-6. 落地执行与上车前检查
+7. 落地执行与上车前检查
 [guides/config_setup_guide.md](guides/config_setup_guide.md)  
 [guides/auto_aim_tuning_handover.md](guides/auto_aim_tuning_handover.md)  
 [guides/auto_aim_yamlization_checklist.md](guides/auto_aim_yamlization_checklist.md)  
@@ -52,12 +54,12 @@ docs/
 [guides/module_standalone_test.md](guides/module_standalone_test.md)  
 [guides/test_guide.md](guides/test_guide.md)  
 [guides/preflight_checklist.md](guides/preflight_checklist.md)
-7. 近期稳定性修复记录（接口不变）
+8. 近期稳定性修复记录（接口不变）
 [reports/stability_fix_no_interface_change_2026-03-05.md](reports/stability_fix_no_interface_change_2026-03-05.md)
 [reports/self_check_status_2026-03-05.md](reports/self_check_status_2026-03-05.md)
 [reports/repository_completeness_audit_2026-03-05.md](reports/repository_completeness_audit_2026-03-05.md)
 [reports/full_link_audit_2026-03-05.md](reports/full_link_audit_2026-03-05.md)
-8. 重要行为变更与调参记录
+9. 重要行为变更与调参记录
 [record/autoaim_follow_fire_change_2026-03-18.md](record/autoaim_follow_fire_change_2026-03-18.md)  
 [record/README.md](record/README.md)
 

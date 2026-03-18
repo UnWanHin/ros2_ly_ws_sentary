@@ -77,10 +77,22 @@ int main() {
 
 | Topic | 消息類型 | 說明 |
 |-------|----------|------|
-| `/ly/predictor/target` | `Target` | 最終瞄準角度（只有 `control_result.valid=true` 時才發布） |
-| `/ly/predictor/debug` | `DebugFilter` | 調試信息（車中心位置、速度、半徑等） |
+| `/ly/predictor/target` | `Target` | 最終瞄準角度（固定頻率發布；`status=false` 時也會發布） |
+| `/ly/predictor/debug` | `DebugFilter` | 調試信息（僅在 `status=true` 且有 prediction 時發布） |
 
-#### `predictor_callback()` — 核心流程
+#### 当前结构：订阅 update + timer publish
+
+当前 `predictor_node` 已拆成两段：
+
+1. `predictor_callback()`
+   - 接收 `/ly/tracker/results`
+   - 只更新内部模型与最近观测
+2. `publish_timer_callback()`
+   - 固定 `10ms`
+   - 调 `controller->control(...)`
+   - 发布 `/ly/predictor/target`
+
+#### `predictor_callback()` — 观测更新流程
 
 ```
 predictor_callback(Trackers.msg)
@@ -91,20 +103,31 @@ predictor_callback(Trackers.msg)
 │
 ├── convertMsgToTrackResults()    // Trackers.msg → TrackResultPairs（含IMU座標）
 │
-├── target = automic_target.load()      // 當前打擊目標ID
-├── bullet_speed = atomic_bullet_speed.load()  // 實時彈速
-│
-├── control_result = controller->control(gimbal_angle, target, bullet_speed)
-│   └── 內部調用 predictor->predict(timestamp)  // 通過 registPredictFunc 傳入的函數指針
-│
 ├── timestamp = rclcpp::Time(msg->header.stamp).seconds()  // 清洗時間戳
 ├── predictor->update(track_results, timestamp)  // 用新觀測更新EKF
+├── 記錄最近一次 gimbal_angle / header / observation time
+└── 返回，等待 timer 發布
+```
+
+#### `publish_timer_callback()` — 固定频率发布流程
+
+```
+publish_timer_callback()  // 10ms
 │
-├── predictions = predictor->predict(timestamp)  // 獲取預測結果（調試用）
+├── predictions = predictor->predict(now)
+├── has_predictions ? observation_fresh ?
 │
-└── if(control_result.valid):
-    ├── publish → /ly/predictor/target
-    └── publish → /ly/predictor/debug
+├── if 沒 prediction 且觀測已 stale:
+│   ├── status = false
+│   ├── yaw = NaN
+│   └── pitch = NaN
+│
+└── else:
+    ├── control_result = controller->control(...)
+    ├── status = control_result.valid
+    ├── yaw = control_result.yaw_actual_want
+    ├── pitch = control_result.pitch_actual_want
+    └── publish /ly/predictor/target
 ```
 
 ---
@@ -189,7 +212,10 @@ struct ControlResult {
 };
 ```
 
-`valid=false` 時，`predictor_node` 不發布 `/ly/predictor/target`，`behavior_tree` 的 `isFindTarget` 保持 false。
+当前 `predictor_node` 会持续发布 `/ly/predictor/target`：
+
+- `valid=true`：表示当前允许 fire
+- `valid=false`：仍可能发布角度，或在完全失锁时发布 `NaN`
 
 ---
 
@@ -209,23 +235,22 @@ struct ControlResult {
          │
          ▼
 PredictorNode::predictor_callback()
-├── controller->control()
-│   └── predictor->predict()  ← 預測未來位置
-│
 ├── predictor->update()       ← 用觀測更新EKF
-│
-└── predictor->predict()      ← 獲取調試預測結果
+└── 緩存最近觀測
          │
          ▼
-/ly/predictor/target (Target.msg: yaw, pitch, status)   → behavior_tree
-/ly/predictor/debug  (DebugFilter.msg: 速度、半徑等)     → 調試工具
+PredictorNode::publish_timer_callback()  // 10ms
+├── predictor->predict()
+├── controller->control()
+├── publish → /ly/predictor/target
+└── publish → /ly/predictor/debug (條件式)
 ```
 
 ---
 
 ## 修改注意事項
 
-- **彈速**：`atomic_bullet_speed` 默認 23.0f，從 `gimbal_driver` 的 `/ly/bullet/speed` 實時更新，比賽前確認單位是 m/s
+- **彈速**：`atomic_bullet_speed` 默認 23.0f，但当前 `controller.cpp` 内部仍会强制回写 `23.0f`，因此更像固定弹速模型
 - **時間戳清洗**：`predictor->update()` 和 `predict()` 的時間戳都必須先轉 double 秒，否則 ROS2 不同時鐘源會異常
-- **`valid` 判斷**：`controller->control()` 返回 valid=false 的情況：目標丟失、跟蹤不穩定、瞄準角超過安全範圍等
+- **`valid` 判斷**：当前 `status=false` 的主要原因可以通过 `predictor_node` 的节流日志看到，如 `no_predictions_and_stale`、`no_prediction` 等
 - **EKF發散**：當 `v_yaw`（角速度）估計發散時（小陀螺高速旋轉），可能出現瞄準角跳動，需要在 `motion_model.cpp` 調整過程噪聲 Q 矩陣
