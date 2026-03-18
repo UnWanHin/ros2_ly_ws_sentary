@@ -22,6 +22,7 @@ Entries:
   control-angles-test    Publish one /ly/control/angles GimbalAngles command.
   chassis-gyro          FireCode.Rotate chain test.
   chassis-gyro-translate FireCode.Rotate + /ly/control/vel round-trip test.
+  rotate-level-test     /ly/control/firecode rotate level cycle test.
   posture-test          /ly/control/posture cycle test and /ly/gimbal/posture watch.
 
 Examples:
@@ -75,7 +76,10 @@ run_entry() {
     13|chassis-gyro-translate|chassis_gyro_translate|gyro-translate|gyro_translate)
       exec "${ROOT_DIR}/debug/chassis_spin_translate.sh" "$@"
       ;;
-    14|posture-test|posture_test|posture)
+    14|rotate-level-test|rotate_level_test|rotate-level|rotate_level)
+      exec "${ROOT_DIR}/debug/rotate_level_test.sh" "$@"
+      ;;
+    15|posture-test|posture_test|posture)
       exec "${ROOT_DIR}/debug/posture_test.sh" "$@"
       ;;
     ""|menu)
@@ -111,7 +115,8 @@ echo " 10) shooting-table-autoaim"
 echo " 11) control-angles-test"
 echo " 12) chassis-gyro"
 echo " 13) chassis-gyro-translate"
-echo " 14) posture-test"
-read -r -p "Input 1-14 [default: 2]: " choice
+echo " 14) rotate-level-test"
+echo " 15) posture-test"
+read -r -p "Input 1-15 [default: 2]: " choice
 choice="${choice:-2}"
 run_entry "${choice}"

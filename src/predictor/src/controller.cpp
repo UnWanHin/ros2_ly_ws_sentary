@@ -369,10 +369,9 @@ ControlResult Controller::control(const GimbalAngleType& gimbal_angle, int targe
     result.pitch_actual_want = result.pitch_setpoint;
     result.yaw_actual_want = result.yaw_setpoint;
     result.valid = true;
-    float yaw_diff = result.yaw_actual_want - gimbal_angle.yaw;
+    float yaw_diff = std::remainder(result.yaw_actual_want - gimbal_angle.yaw, 360.0f);
     const bool unstable_track = !it->stable;
-    const bool yaw_jump_reject = (yaw_diff > 80.0f || yaw_diff < -80.0f);
-    if (unstable_track || yaw_jump_reject) {
+    if (unstable_track) {
         result.valid = false;
         roslog::debug(
             "Control invalid: car_id={}, armor_id={}, stable={}, yaw_diff_deg={}",
