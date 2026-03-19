@@ -32,3 +32,15 @@
     "controller_config.shoot_table_adjust.yaw.coef_z2": 0.0
     "controller_config.shoot_table_adjust.yaw.coef_zd": 0.0
     "controller_config.shoot_table_adjust.yaw.coef_d2": 0.5
+
+    # ----------------------------------------------------
+    # MotionModel Q/R (process and measurement noise)
+    # ----------------------------------------------------
+    "motion_model.q_ax_jerk_base": 96.0
+    "motion_model.q_ay_jerk_base": 96.0
+    "motion_model.q_omega_accel_base": 5
+    "motion_model.q_r1_drift_base": 0.0002
+    "motion_model.q_r2_drift_base": 0.0002
+    "motion_model.q_z1_drift_base": 0.001
+    "motion_model.q_z2_drift_base": 0.001
+    "motion_model.r_scale": 0.05

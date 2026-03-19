@@ -1,21 +1,49 @@
 #include "predictor/motion_model.hpp"
 #include <algorithm>
 #include <cmath>
+#include <string>
 #include <rclcpp/rclcpp.hpp>
 
 namespace ly_auto_aim::inline predictor {
+extern rclcpp::Node::SharedPtr global_predictor_node;
 namespace {
 constexpr double kDefaultFilterDt = 0.015;
 constexpr double kMinFilterDt = 1e-3;
-constexpr double kMaxFilterDt = 0.08;
-constexpr double kHardOutlierScale = 120.0;
-constexpr double kMaxMeasurementScale = 250.0;
+constexpr double kMaxFilterDt = 0.20;
+constexpr double kNoiseMin = 1e-9;
+
+double clampPositive(const double value, const double fallback) {
+    if (!std::isfinite(value) || value <= kNoiseMin) {
+        return fallback;
+    }
+    return value;
+}
 
 double clampFilterDt(const double dt) {
     if (!std::isfinite(dt)) {
         return kDefaultFilterDt;
     }
     return std::clamp(dt, kMinFilterDt, kMaxFilterDt);
+}
+
+double readDoubleParam(const std::string& key, const double default_value) {
+    if (!global_predictor_node) {
+        return default_value;
+    }
+    if (!global_predictor_node->has_parameter(key)) {
+        global_predictor_node->declare_parameter(key, default_value);
+    }
+    double value = default_value;
+    global_predictor_node->get_parameter(key, value);
+    if (!std::isfinite(value)) {
+        RCLCPP_WARN(
+            global_predictor_node->get_logger(),
+            "Invalid non-finite param %s, fallback to %.6f",
+            key.c_str(),
+            default_value);
+        return default_value;
+    }
+    return value;
 }
 }  // namespace
 
@@ -44,6 +72,8 @@ inline Eigen::Matrix2d build_Q_AngleVel(double q_ang_accel_base, double dt) {
 
 void MotionModel::initMotionModel()
 {
+    loadTuningParams();
+
     MatrixXX P = MatrixXX::Zero();
 	// step1 卡尔曼里面的状态有什么
     P << 0.2,   0.08,  0,     0,     0,    0,     0,     0,     0,    0,   0.004, 0,
@@ -58,6 +88,18 @@ void MotionModel::initMotionModel()
          0,     0,     0,     0,     0,    0,     0,     0,     0,    0.1, 0,     0,
          0.004, 0.02,  0,     0,     0,    0,     0,     0,     0,    0,   0.6,   0,
          0,     0,     0.004, 0.02,  0,    0,     0,     0,     0,    0,   0,     0.6;
+
+    // 平移响应增强：提高速度/加速度不确定性与耦合，缩短速度收敛时间
+    P(0, 1) = P(1, 0) = 0.45;
+    P(2, 3) = P(3, 2) = 0.45;
+    P(1, 1) = 3.2;
+    P(3, 3) = 3.2;
+    P(0, 10) = P(10, 0) = 0.10;
+    P(2, 11) = P(11, 2) = 0.10;
+    P(1, 10) = P(10, 1) = 0.80;
+    P(3, 11) = P(11, 3) = 0.80;
+    P(10, 10) = 10.0;
+    P(11, 11) = 10.0;
          
 
     // step2 观测的值有哪些
@@ -70,9 +112,46 @@ void MotionModel::initMotionModel()
                                0,     0,     0,     0,     0.04,  0.015, 0,
                                0,     0,     0,     0,     0.015, 0.04,  0,
                                0,     0,     0,     0,     0,     0,     0.002;
-    base_measurement_noise_ *= 0.25; // step 3 这个噪声怎么取值
+    base_measurement_noise_ *= measurement_noise_scale_;
 
     ekf.init(P, buildProcessNoise(kDefaultFilterDt), base_measurement_noise_);
+}
+
+void MotionModel::loadTuningParams()
+{
+    const double default_q_ax_jerk = q_ax_jerk_base_;
+    const double default_q_ay_jerk = q_ay_jerk_base_;
+    const double default_q_omega_accel = q_omega_accel_base_;
+    const double default_q_r1_drift = q_r1_drift_base_;
+    const double default_q_r2_drift = q_r2_drift_base_;
+    const double default_q_z1_drift = q_z1_drift_base_;
+    const double default_q_z2_drift = q_z2_drift_base_;
+    const double default_r_scale = measurement_noise_scale_;
+
+    q_ax_jerk_base_ = clampPositive(
+        readDoubleParam("motion_model.q_ax_jerk_base", default_q_ax_jerk),
+        default_q_ax_jerk);
+    q_ay_jerk_base_ = clampPositive(
+        readDoubleParam("motion_model.q_ay_jerk_base", default_q_ay_jerk),
+        default_q_ay_jerk);
+    q_omega_accel_base_ = clampPositive(
+        readDoubleParam("motion_model.q_omega_accel_base", default_q_omega_accel),
+        default_q_omega_accel);
+    q_r1_drift_base_ = clampPositive(
+        readDoubleParam("motion_model.q_r1_drift_base", default_q_r1_drift),
+        default_q_r1_drift);
+    q_r2_drift_base_ = clampPositive(
+        readDoubleParam("motion_model.q_r2_drift_base", default_q_r2_drift),
+        default_q_r2_drift);
+    q_z1_drift_base_ = clampPositive(
+        readDoubleParam("motion_model.q_z1_drift_base", default_q_z1_drift),
+        default_q_z1_drift);
+    q_z2_drift_base_ = clampPositive(
+        readDoubleParam("motion_model.q_z2_drift_base", default_q_z2_drift),
+        default_q_z2_drift);
+    measurement_noise_scale_ = clampPositive(
+        readDoubleParam("motion_model.r_scale", default_r_scale),
+        default_r_scale);
 }
 
 MatrixXX MotionModel::buildProcessNoise(double dt) const
@@ -80,77 +159,31 @@ MatrixXX MotionModel::buildProcessNoise(double dt) const
     dt = clampFilterDt(dt);
     MatrixXX Q_val = MatrixXX::Zero();
 
-    constexpr double q_ax_jerk_base = 1.5;
-    constexpr double q_ay_jerk_base = 1.5;
-    constexpr double q_omega_accel_base = 0.4;
-    constexpr double q_r1_drift_base = 1e-5;
-    constexpr double q_r2_drift_base = 1e-5;
-    constexpr double q_z1_drift_base = 1e-4;
-    constexpr double q_z2_drift_base = 1e-4;
-
-    const Eigen::Matrix3d Q_xva = build_Q_PVA(q_ax_jerk_base, dt);
+    const Eigen::Matrix3d Q_xva = build_Q_PVA(q_ax_jerk_base_, dt);
     Q_val(0,0)   = Q_xva(0,0); Q_val(0,1)   = Q_xva(0,1); Q_val(0,10)  = Q_xva(0,2);
     Q_val(1,0)   = Q_xva(1,0); Q_val(1,1)   = Q_xva(1,1); Q_val(1,10)  = Q_xva(1,2);
     Q_val(10,0)  = Q_xva(2,0); Q_val(10,1)  = Q_xva(2,1); Q_val(10,10) = Q_xva(2,2);
 
-    const Eigen::Matrix3d Q_yva = build_Q_PVA(q_ay_jerk_base, dt);
+    const Eigen::Matrix3d Q_yva = build_Q_PVA(q_ay_jerk_base_, dt);
     Q_val(2,2)   = Q_yva(0,0); Q_val(2,3)   = Q_yva(0,1); Q_val(2,11)  = Q_yva(0,2);
     Q_val(3,2)   = Q_yva(1,0); Q_val(3,3)   = Q_yva(1,1); Q_val(3,11)  = Q_yva(1,2);
     Q_val(11,2)  = Q_yva(2,0); Q_val(11,3)  = Q_yva(2,1); Q_val(11,11) = Q_yva(2,2);
 
-    const Eigen::Matrix2d Q_to = build_Q_AngleVel(q_omega_accel_base, dt);
+    const Eigen::Matrix2d Q_to = build_Q_AngleVel(q_omega_accel_base_, dt);
     Q_val(4,4) = Q_to(0,0); Q_val(4,5) = Q_to(0,1);
     Q_val(5,4) = Q_to(1,0); Q_val(5,5) = Q_to(1,1);
 
-    Q_val(6,6) = q_r1_drift_base * dt;
-    Q_val(7,7) = q_r2_drift_base * dt;
-    Q_val(8,8) = q_z1_drift_base * dt;
-    Q_val(9,9) = q_z2_drift_base * dt;
+    Q_val(6,6) = q_r1_drift_base_ * dt;
+    Q_val(7,7) = q_r2_drift_base_ * dt;
+    Q_val(8,8) = q_z1_drift_base_ * dt;
+    Q_val(9,9) = q_z2_drift_base_ * dt;
     return Q_val;
 }
 
-void MotionModel::refreshNoiseCovariances(const double dt, const double measurement_scale)
+void MotionModel::refreshNoiseCovariances(const double dt)
 {
     ekf.setQ(buildProcessNoise(dt));
-    ekf.setR(base_measurement_noise_ * std::clamp(measurement_scale, 1.0, kMaxMeasurementScale));
-}
-
-double MotionModel::computeMeasurementScale(const VectorY& innovation) const
-{
-    VectorY soft_limit;
-    soft_limit << 0.05, 0.05, 0.18, 0.10, 0.10, 0.10, 0.08;
-    VectorY hard_limit;
-    hard_limit << 0.14, 0.14, 0.45, 0.26, 0.26, 0.26, 0.22;
-
-    const VectorY abs_innovation = innovation.cwiseAbs();
-    double scale = 1.0;
-    bool has_hard_outlier = false;
-    for (int i = 0; i < N_Y; ++i) {
-        const double soft = std::max(soft_limit[i], 1e-6);
-        const double ratio = abs_innovation[i] / soft;
-        if (ratio > 1.0) {
-            scale = std::max(scale, 1.0 + 4.0 * ratio * ratio);
-        }
-        if (abs_innovation[i] > hard_limit[i]) {
-            has_hard_outlier = true;
-        }
-    }
-    if (has_hard_outlier) {
-        scale = std::max(scale, kHardOutlierScale);
-    }
-    return std::min(scale, kMaxMeasurementScale);
-}
-
-VectorY MotionModel::limitInnovation(const VectorY& innovation) const
-{
-    VectorY hard_limit;
-    hard_limit << 0.14, 0.14, 0.45, 0.26, 0.26, 0.26, 0.22;
-
-    VectorY limited = innovation;
-    for (int i = 0; i < N_Y; ++i) {
-        limited[i] = std::clamp(limited[i], -hard_limit[i], hard_limit[i]);
-    }
-    return limited;
+    ekf.setR(base_measurement_noise_);
 }
 
 VectorX MotionModel::getPredictResult(const Time::TimeStamp& timestamp)
@@ -194,18 +227,14 @@ void MotionModel::Update(const VectorY& measure_vec, const Time::TimeStamp& time
         return;
     }
 
-    VectorY innovation = measure_adjust - measure_pred;
-    const double measurement_scale = computeMeasurementScale(innovation);
-    innovation = limitInnovation(innovation);
-    measure_adjust = measure_pred + innovation;
-    refreshNoiseCovariances(dt, measurement_scale);
+    const VectorY innovation = measure_adjust - measure_pred;
 
     static auto residual_logger = rclcpp::get_logger("predictor.motion_model");
     RCLCPP_DEBUG(
         residual_logger,
-        "residual: [%.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f], scale=%.2f",
+        "residual: [%.4f, %.4f, %.4f, %.4f, %.4f, %.4f, %.4f]",
         innovation[0], innovation[1], innovation[2], innovation[3],
-        innovation[4], innovation[5], innovation[6], measurement_scale);
+        innovation[4], innovation[5], innovation[6]);
 
     const VectorY innovation_abs = innovation.cwiseAbs();
     if (innovation_abs[0] > 0.5 || innovation_abs[1] > 0.5 || innovation_abs[2] > 0.5) {

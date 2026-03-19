@@ -183,13 +183,14 @@ namespace BehaviorTree {
             }
         }
         else { // 未识别到目标
-            gimbalControlData.FireCode.AimMode = 0;
+            
             if(aimMode != AimMode::Buff) {
                 if (!config.AimDebugSettings.StopScan && now - lastFoundEnemyTime > std::chrono::milliseconds(2000)) {
                     static auto last_searching_log = std::chrono::steady_clock::time_point{};
                     if (now - last_searching_log > std::chrono::seconds(2)) {
                         LoggerPtr->Debug("Searching Target...");
                         last_searching_log = now;
+                        gimbalControlData.FireCode.AimMode = 0;
                     }
                     const auto current_time = std::chrono::steady_clock::now();
                     nextAngles = GimbalAnglesType{

@@ -18,7 +18,6 @@ get_filename_component(BTCPP_WS_ROOT_DIR "${BTCPP_WS_SRC_DIR}" DIRECTORY)
 set(BTCPP_V4_ROOT "${BTCPP_WS_ROOT_DIR}/third_party/behaviortree_cpp_v4/install"
   CACHE PATH "Install prefix of pinned BehaviorTree.CPP v4 (defaults to <ws>/third_party/behaviortree_cpp_v4/install)")
 set(BTCPP_MIN_VERSION "4.0.0")
-option(BTCPP_FORCE_PINNED "Force behavior_tree to use the workspace-pinned BehaviorTree.CPP copy" ON)
 set(BTCPP_V4_CMAKE_DIR_SHARE "${BTCPP_V4_ROOT}/share/behaviortree_cpp/cmake")
 set(BTCPP_V4_CMAKE_DIR_LIB "${BTCPP_V4_ROOT}/lib/cmake/behaviortree_cpp")
 set(BTCPP_V4_CMAKE_PATHS "")
@@ -31,6 +30,12 @@ endif()
 if(EXISTS "${BTCPP_V4_CMAKE_DIR_LIB}/behaviortree_cppConfig.cmake")
   list(APPEND BTCPP_V4_CMAKE_PATHS "${BTCPP_V4_CMAKE_DIR_LIB}")
 endif()
+
+set(BTCPP_FORCE_PINNED_DEFAULT OFF)
+if(BTCPP_V4_CMAKE_PATHS)
+  set(BTCPP_FORCE_PINNED_DEFAULT ON)
+endif()
+option(BTCPP_FORCE_PINNED "Force behavior_tree to use the workspace-pinned BehaviorTree.CPP copy" ${BTCPP_FORCE_PINNED_DEFAULT})
 
 if(DEFINED ENV{AMENT_PREFIX_PATH} AND NOT "$ENV{AMENT_PREFIX_PATH}" STREQUAL "")
   string(REPLACE ":" ";" BTCPP_AMENT_PREFIX_PATHS "$ENV{AMENT_PREFIX_PATH}")
@@ -49,6 +54,13 @@ list(REMOVE_ITEM BTCPP_SYSTEM_PREFIX_PATHS
   "${BTCPP_V4_ROOT}"
   "${BTCPP_V4_CMAKE_DIR_SHARE}"
   "${BTCPP_V4_CMAKE_DIR_LIB}")
+set(BTCPP_SYSTEM_PREFIX_PATHS_EXISTING "")
+foreach(BTCPP_PREFIX IN LISTS BTCPP_SYSTEM_PREFIX_PATHS)
+  if(EXISTS "${BTCPP_PREFIX}")
+    list(APPEND BTCPP_SYSTEM_PREFIX_PATHS_EXISTING "${BTCPP_PREFIX}")
+  endif()
+endforeach()
+set(BTCPP_SYSTEM_PREFIX_PATHS "${BTCPP_SYSTEM_PREFIX_PATHS_EXISTING}")
 
 # 旧 build 目录可能缓存了 fallback 的 third_party 路径；在“系统优先”模式下先清掉它，
 # 避免 find_package 继续复用旧结果而跳过真正的系统搜索。
@@ -61,6 +73,16 @@ if(DEFINED behaviortree_cpp_DIR AND NOT behaviortree_cpp_DIR MATCHES "-NOTFOUND$
     unset(behaviortree_cpp_DIR CACHE)
     unset(behaviortree_cpp_FOUND)
   endif()
+endif()
+
+if(BTCPP_FORCE_PINNED AND NOT BTCPP_V4_CMAKE_PATHS)
+  message(WARNING
+    "BehaviorTree.CPP: BTCPP_FORCE_PINNED=ON but pinned workspace copy was not found.\n"
+    "Retrying system/package-manager search instead.\n"
+    "Expected pinned config in one of:\n"
+    "  - ${BTCPP_V4_CMAKE_DIR_SHARE}\n"
+    "  - ${BTCPP_V4_CMAKE_DIR_LIB}")
+  set(BTCPP_FORCE_PINNED FALSE)
 endif()
 
 if(BTCPP_FORCE_PINNED)

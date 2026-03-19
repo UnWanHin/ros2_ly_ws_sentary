@@ -25,7 +25,7 @@ class TimeEKF
     using MatrixYY = Eigen::Matrix<double, N_Y, N_Y>;
     static constexpr double kDefaultDt = 0.015;
     static constexpr double kMinDt = 1e-3;
-    static constexpr double kMaxDt = 0.08;
+    static constexpr double kMaxDt = 0.20;
     public:
     // predict func there will not update inner state
     // which is significant different from so-called predict in EKF
