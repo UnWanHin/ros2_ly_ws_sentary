@@ -479,8 +479,33 @@ namespace
                         break;
 
                     case GameData::TypeID:
-                        PubGameData(m.GetDataAs<GameData>());
+                    {
+                        const auto& game_data = m.GetDataAs<GameData>();
+                        static auto last_game_dump_time = std::chrono::steady_clock::time_point{};
+                        const auto now = std::chrono::steady_clock::now();
+                        if (now - last_game_dump_time > std::chrono::milliseconds(200)) {
+                            last_game_dump_time = now;
+                            const auto self_health_swapped = static_cast<std::uint16_t>(
+                                (game_data.SelfHealth >> 8) | (game_data.SelfHealth << 8));
+                            roslog::info(
+                                "RX GameData raw[12]=%02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X | "
+                                "parsed gamecode=0x%04X ammo=%u time=%u self=%u self_swapped=%u ext=0x%08X",
+                                static_cast<unsigned int>(m.Data[0]), static_cast<unsigned int>(m.Data[1]),
+                                static_cast<unsigned int>(m.Data[2]), static_cast<unsigned int>(m.Data[3]),
+                                static_cast<unsigned int>(m.Data[4]), static_cast<unsigned int>(m.Data[5]),
+                                static_cast<unsigned int>(m.Data[6]), static_cast<unsigned int>(m.Data[7]),
+                                static_cast<unsigned int>(m.Data[8]), static_cast<unsigned int>(m.Data[9]),
+                                static_cast<unsigned int>(m.Data[10]), static_cast<unsigned int>(m.Data[11]),
+                                static_cast<unsigned int>(*reinterpret_cast<const std::uint16_t*>(&game_data.GameCode)),
+                                static_cast<unsigned int>(game_data.AmmoLeft),
+                                static_cast<unsigned int>(game_data.TimeLeft),
+                                static_cast<unsigned int>(game_data.SelfHealth),
+                                static_cast<unsigned int>(self_health_swapped),
+                                static_cast<unsigned int>(game_data.ExtEventData));
+                        }
+                        PubGameData(game_data);
                         break;
+                    }
 
                     case HealthMyselfData::TypeID:
                         PubHealthMyselfData(m.GetDataAs<HealthMyselfData>());
