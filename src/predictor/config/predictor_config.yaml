@@ -20,18 +20,18 @@
     
     # 射擊表開關
     "controller_config.shoot_table_adjust.enable": true
-    "controller_config.shoot_table_adjust.pitch.intercept": 0.5
-    "controller_config.shoot_table_adjust.pitch.coef_z": 0.0
-    "controller_config.shoot_table_adjust.pitch.coef_d": 0.0
-    "controller_config.shoot_table_adjust.pitch.coef_z2": 0.0
-    "controller_config.shoot_table_adjust.pitch.coef_zd": 0.0
-    "controller_config.shoot_table_adjust.pitch.coef_d2": 0.3
-    "controller_config.shoot_table_adjust.yaw.intercept": 0.0
-    "controller_config.shoot_table_adjust.yaw.coef_z": 0.0
-    "controller_config.shoot_table_adjust.yaw.coef_d": 0.0
-    "controller_config.shoot_table_adjust.yaw.coef_z2": 0.0
-    "controller_config.shoot_table_adjust.yaw.coef_zd": 0.0
-    "controller_config.shoot_table_adjust.yaw.coef_d2": 0.5
+    "controller_config.shoot_table_adjust.pitch.intercept": -1.428237
+    "controller_config.shoot_table_adjust.pitch.coef_z": -8.305226
+    "controller_config.shoot_table_adjust.pitch.coef_d": 0.382394
+    "controller_config.shoot_table_adjust.pitch.coef_z2": -0.055430
+    "controller_config.shoot_table_adjust.pitch.coef_zd": 2.316426
+    "controller_config.shoot_table_adjust.pitch.coef_d2": 0.072275
+    "controller_config.shoot_table_adjust.yaw.intercept": -0.337271
+    "controller_config.shoot_table_adjust.yaw.coef_z": -7.101441
+    "controller_config.shoot_table_adjust.yaw.coef_d": -0.727940
+    "controller_config.shoot_table_adjust.yaw.coef_z2": 8.601493
+    "controller_config.shoot_table_adjust.yaw.coef_zd": 1.944495
+    "controller_config.shoot_table_adjust.yaw.coef_d2": 0.141359
 
     # ----------------------------------------------------
     # MotionModel Q/R (process and measurement noise)
