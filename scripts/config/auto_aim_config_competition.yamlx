@@ -1,8 +1,7 @@
 # Competition config (derived from src/detector/config/auto_aim_config.yaml)
 # Notes:
 # - This file is intended for on-robot matches (real camera + real MCU).
-# - Use with:
-#   ./scripts/start.sh gated -- --config_file:=/abs/path/auto_aim_config_competition.yaml
+# - Use with: ./scripts/start.sh gated -- --config_file:=/abs/path/auto_aim_config_competition.yaml
 
 /**:
   ros__parameters:
@@ -48,73 +47,61 @@
     solver_config:
       camera_offset: [0.0, 0.0, 52.6]
       camera_rotation: [0.0, 3.3, 0.0]
-      camera_intrinsic_matrix:
-        - 1281.23456
-        - 0.0
-        - 630.293177
-        - 0.0
-        - 1280.62617
-        - 508.575495
-        - 0.0
-        - 0.0
-        - 1.0
-      camera_distortion_coefficients:
-        - -0.19702588
-        - 0.10417594
-        - 0.00093009
-        - 0.00060859
-        - 0.09416784
+      camera_intrinsic_matrix: [ 
+# old:
+#        1331.1, 0.0, 624.5817,
+#        0.0, 1330.1, 526.3662,
+#        0.0, 0.0, 1.0
+# new:
+        1281.23456, 0.00000000, 630.293177,
+        0.00000000, 1280.62617, 508.575495,
+        0.00000000, 0.00000000, 1.00000
+      ]
+      camera_distortion_coefficients: [
+        # old
+        # -0.1059, -0.3427, 0.0072, 0.0, 1.4125
+        # new
+        -0.19702588, 0.10417594,  0.00093009,  0.00060859,  0.09416784
+      ]
 
     "solver_config/camera_offset": [0.0, 0.0, 52.6]
     "solver_config/camera_rotation": [0.0, 3.3, 0.0]
-    "solver_config/camera_intrinsic_matrix":
-      - 1281.23456
-      - 0.0
-      - 630.293177
-      - 0.0
-      - 1280.62617
-      - 508.575495
-      - 0.0
-      - 0.0
-      - 1.0
-    "solver_config/camera_distortion_coefficients":
-      - -0.19702588
-      - 0.10417594
-      - 0.00093009
-      - 0.00060859
-      - 0.09416784
+    "solver_config/camera_intrinsic_matrix": [ 
+# old:
+#        1331.1, 0.0, 624.5817,
+#        0.0, 1330.1, 526.3662,
+#        0.0, 0.0, 1.0
+# new:
+        1281.23456, 0.00000000, 630.293177,
+        0.00000000, 1280.62617, 508.575495,
+        0.00000000, 0.00000000, 1.00000
+      ]
+    "solver_config/camera_distortion_coefficients": [
+        # old
+        # -0.1059, -0.3427, 0.0072, 0.0, 1.4125
+        # new
+        -0.19702588, 0.10417594,  0.00093009,  0.00060859,  0.09416784
+      ]
 
     controller_config:
-      bullet_speed: 23.0
+      bullet_speed: 23.0 #23
       shoot_delay: 0.02
       shoot_table_adjust:
         enable: true
         pitch:
-          intercept: -1.428
-          coef_z: -8.30
-          coef_d: 0.382
-          coef_z2: -0.055
-          coef_zd: 2.316
-          coef_d2: 0.072
+          intercept: 3.0
+          coef_z: 0.0
+          coef_d: 0.0
+          coef_z2: 0.0
+          coef_zd: 0.0
+          coef_d2: 0.0
         yaw:
-          intercept: -0.337
-          coef_z: -7.101
-          coef_d: -0.727
-          coef_z2: 8.601
-          coef_zd: 1.944
-          coef_d2: 0.141
-
-    # ----------------------------------------------------
-    # MotionModel Q/R (process and measurement noise)
-    # ----------------------------------------------------
-    "motion_model.q_ax_jerk_base": 40.0
-    "motion_model.q_ay_jerk_base": 40.0
-    "motion_model.q_omega_accel_base": 0.2
-    "motion_model.q_r1_drift_base": 0.00001
-    "motion_model.q_r2_drift_base": 0.00001
-    "motion_model.q_z1_drift_base": 0.01
-    "motion_model.q_z2_drift_base": 0.01
-    "motion_model.r_scale": 0.1
+          intercept: 0.0
+          coef_z: 0.0
+          coef_d: 0.0
+          coef_z2: 0.0
+          coef_zd: 0.0
+          coef_d2: 0.0
 
     io_config:
       use_virtual_device: false
@@ -122,7 +109,6 @@
       baud_rate: 115200
       posture_repeat_count: 3
       posture_repeat_interval_ms: 20
-
     "io_config/use_virtual_device": false
     "io_config/device_name": "/dev/ttyACM0"
     "io_config/baud_rate": 115200

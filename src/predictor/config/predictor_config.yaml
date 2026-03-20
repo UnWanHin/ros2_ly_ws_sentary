@@ -20,13 +20,13 @@
     
     # 射擊表開關
     "controller_config.shoot_table_adjust.enable": true
-    "controller_config.shoot_table_adjust.pitch.intercept": -1.428237
+    "controller_config.shoot_table_adjust.pitch.intercept": -1.278237
     "controller_config.shoot_table_adjust.pitch.coef_z": -8.305226
     "controller_config.shoot_table_adjust.pitch.coef_d": 0.382394
     "controller_config.shoot_table_adjust.pitch.coef_z2": -0.055430
     "controller_config.shoot_table_adjust.pitch.coef_zd": 2.316426
     "controller_config.shoot_table_adjust.pitch.coef_d2": 0.072275
-    "controller_config.shoot_table_adjust.yaw.intercept": -0.337271
+    "controller_config.shoot_table_adjust.yaw.intercept": -0.437271
     "controller_config.shoot_table_adjust.yaw.coef_z": -7.101441
     "controller_config.shoot_table_adjust.yaw.coef_d": -0.727940
     "controller_config.shoot_table_adjust.yaw.coef_z2": 8.601493
@@ -36,11 +36,11 @@
     # ----------------------------------------------------
     # MotionModel Q/R (process and measurement noise)
     # ----------------------------------------------------
-    "motion_model.q_ax_jerk_base": 96.0
-    "motion_model.q_ay_jerk_base": 96.0
-    "motion_model.q_omega_accel_base": 5
-    "motion_model.q_r1_drift_base": 0.0002
-    "motion_model.q_r2_drift_base": 0.0002
-    "motion_model.q_z1_drift_base": 0.001
-    "motion_model.q_z2_drift_base": 0.001
-    "motion_model.r_scale": 0.05
+    "motion_model.q_ax_jerk_base": 40.0
+    "motion_model.q_ay_jerk_base": 40.0
+    "motion_model.q_omega_accel_base": 0.2
+    "motion_model.q_r1_drift_base": 0.00001
+    "motion_model.q_r2_drift_base": 0.00001
+    "motion_model.q_z1_drift_base": 0.01
+    "motion_model.q_z2_drift_base": 0.01
+    "motion_model.r_scale": 0.015

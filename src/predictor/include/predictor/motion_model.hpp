@@ -171,14 +171,23 @@ private:
     int id1 = -1;
     int id2 = -1;
     MatrixYY base_measurement_noise_ = MatrixYY::Identity();
-    double q_ax_jerk_base_ = 96.0;
-    double q_ay_jerk_base_ = 96.0;
-    double q_omega_accel_base_ = 2.5;
-    double q_r1_drift_base_ = 2e-4;
-    double q_r2_drift_base_ = 2e-4;
-    double q_z1_drift_base_ = 1e-3;
-    double q_z2_drift_base_ = 1e-3;
-    double measurement_noise_scale_ = 0.05;
+    // double q_ax_jerk_base_ = 215;
+    // double q_ay_jerk_base_ = 96.0;
+    // double q_omega_accel_base_ = 9;
+    // double q_r1_drift_base_ = 2e-4;
+    // double q_r2_drift_base_ = 2e-4;
+    // double q_z1_drift_base_ = 1e-3;
+    // double q_z2_drift_base_ = 1e-3;
+
+    double q_ax_jerk_base_ = 40;
+    double q_ay_jerk_base_ = 40.0;
+    double q_omega_accel_base_ = 0.02;
+    double q_r1_drift_base_ = 1e-5;
+    double q_r2_drift_base_ = 1e-5;
+    double q_z1_drift_base_ = 1e-2;
+    double q_z2_drift_base_ = 1e-2;
+
+    double measurement_noise_scale_ = 0.1;
     VectorX first_state_estimate(const VectorY& measure, const int armor_id)
     {
         VectorX state;
