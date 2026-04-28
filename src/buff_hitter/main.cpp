@@ -28,6 +28,7 @@
 
 // gimbal_driver - 去掉重复，根据实际文件后缀决定
 #include "gimbal_driver/msg/gimbal_angles.hpp"
+#include "gimbal_driver/msg/fire_code.hpp"
 #include "gimbal_driver/msg/uwb_pos.hpp"
 #include "gimbal_driver/msg/vel.hpp"
 #include "gimbal_driver/msg/health.hpp"
@@ -76,7 +77,7 @@ LY_DEF_ROS_TOPIC(ly_ra_image, "/ly/ra/image", sensor_msgs::msg::Image);
 LY_DEF_ROS_TOPIC(ly_compressed_image, "/ly/compressed/image", sensor_msgs::msg::CompressedImage);
 
 LY_DEF_ROS_TOPIC(ly_gimbal_angles, "/ly/gimbal/angles", gimbal_driver::msg::GimbalAngles);
-LY_DEF_ROS_TOPIC(ly_gimbal_firecode, "/ly/gimbal/firecode", std_msgs::msg::UInt8);
+LY_DEF_ROS_TOPIC(ly_gimbal_firecode, "/ly/gimbal/firecode", gimbal_driver::msg::FireCode);
 LY_DEF_ROS_TOPIC(ly_bullet_speed, "/ly/bullet/speed", std_msgs::msg::Float32);
 
 LY_DEF_ROS_TOPIC(ly_buff_target, "/ly/buff/target", auto_aim_common::msg::Target)
@@ -85,7 +86,7 @@ LY_DEF_ROS_TOPIC(ly_buff_debug, "/ly/buff/debug", auto_aim_common::msg::BuffDebu
 LY_DEF_ROS_TOPIC(ly_ra_angle_image, "/ly/ra/angle_image", auto_aim_common::msg::AngleImage);
 
 // LY_DEF_ROS_TOPIC(ly_control_angles, "/ly/control/angles", gimbal_driver::msg::GimbalAngles);
-// LY_DEF_ROS_TOPIC(ly_control_firecode, "/ly/control/firecode", std_msgs::msg::UInt8);
+// LY_DEF_ROS_TOPIC(ly_control_firecode, "/ly/control/firecode", gimbal_driver::msg::FireCode);
 
 template<typename T, std::size_t MaxN = 10>
 struct SimpleAvg {
@@ -268,8 +269,8 @@ private:
             roslog::info("received messasge: {}", m.data);
              g.Enable = m.data; 
             });
-        // GenSub<ly_gimbal_firecode>([](RA_MultiThreadVariables &g, const std_msgs::msg::UInt8 &m) {
-        //     *reinterpret_cast<std::uint8_t *>(&g.FireCode) = m.data;
+        // GenSub<ly_gimbal_firecode>([](RA_MultiThreadVariables &g, const gimbal_driver::msg::FireCode &m) {
+        //     g.FireCode.FireStatus = m.fire_status & 0b11;
         // });
         // GenSub<ly_ra_image>(
         //     [](RA_MultiThreadVariables &g, const sensor_msgs::msg::Image &m) {
@@ -307,7 +308,7 @@ private:
         // {
         //     using topic = ly_control_firecode;
         //     topic::Msg msg;
-        //     msg.data = *reinterpret_cast<const std::uint8_t *>(&firecode);
+        //     msg.field_mask = gimbal_driver::msg::FireCode::FIELD_ALL;
         //     Node.Publisher<topic>().publish(msg);
         // }
     }

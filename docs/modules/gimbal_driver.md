@@ -86,7 +86,7 @@ main()
 | TypeID 對應數據結構 | 調用函數 | 發布的 Topic |
 |---|---|---|
 | `GimbalData` | `PubGimbalData()` | `/ly/gimbal/angles`, `/ly/gimbal/firecode`, `/ly/gimbal/vel`, `/ly/gimbal/capV` |
-| `GameData` | `PubGameData()` | `/ly/game/all`, `/ly/me/ammo_left`, `/ly/enemy/op_hp`, `/ly/me/is_team_red`, `/ly/game/is_start`, `/ly/game/time_left`, 等 |
+| `GameData` | `PubGameData()` | `/ly/game/all`, `/ly/game/event_data`, `/ly/me/ammo_left`, `/ly/enemy/op_hp`, `/ly/me/is_team_red`, `/ly/game/is_start`, `/ly/game/time_left`, 等 |
 | `HealthMyselfData` | `PubHealthMyselfData()` | `/ly/me/hp`, `/ly/me/base_hp` |
 | `HealthEnemyData` | `PubHealthEnemyData()` | `/ly/enemy/hp`, `/ly/enemy/base_hp` |
 | `RFIDAndBuffData` | `PubRFIDAndBuffData()` | `/ly/me/rfid`, `/ly/team/buff` |
@@ -102,8 +102,8 @@ main()
 | 訂閱 Topic | 對應字段 | 說明 |
 |---|---|---|
 | `/ly/control/angles` (`GimbalAngles`) | `GimbalControlData.GimbalAngles.Yaw/Pitch` | 期望雲台角 |
-| `/ly/control/firecode` (`UInt8`) | `GimbalControlData.FireCode` | 開火指令、旋轉模式 |
-| `/ly/control/vel` (`Vel`) | `GimbalControlData.Velocity.X/Y` | 底盤速度（導航用） |
+| `/ly/control/firecode` (`FireCode`) | `GimbalControlData.FireCode` | 分字段開火/電容/模式/旋轉指令 |
+| `/ly/control/vel` (`ControlVelocity`) | `GimbalControlData.Velocity.X/Y` | 語義速度；`use_raw=true` 時保留原 int8 下發 |
 | `/ly/control/posture` (`UInt8`) | `GimbalControlData.Posture` | 姿態指令（0=保留, 1=進攻, 2=防禦, 3=移動） |
 
 姿態下發採用「主控制幀並入字段」策略：
@@ -231,19 +231,21 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData>
 | `/ly/me/ammo_left` | `UInt16` | 剩餘子彈 |
 | `/ly/bullet/speed` | `Float32` | 子彈速度（m/s，当前代码发布 `PositionData.BulletSpeed / 100.0f`） |
 | `/ly/team/buff` | `BuffData` | 能量機關增益狀態 |
+| `/ly/me/rfid` | `RfidStatus` | 0x0209 `rfid_status` 低 32 位拆字段 |
 | `/ly/position/data` | `PositionData` | UWB位置數據 |
 | `/ly/me/uwb_pos` | `UInt16MultiArray` | 自身UWB位置[x, y] |
 | `/ly/gimbal/chassis` | `Chassis` | 底盘四元反馈（`steer_angle`, `angular_velocity`, `velocity_x`, `velocity_y`） |
 | `/ly/gimbal/posture` | `UInt8` | 姿態回讀（來源 `ChassisData.Posture`，先低 8 位再回退高 8 位；僅 1/2/3 視為有效） |
 | `ly/gimbal/eventdata` | `UInt32` | 場地事件原始值（當前 topic 字符串無前導 `/`） |
+| `/ly/game/event_data` | `EventData` | 0x0101 `event_data` 按 RM2026 V1.3.0 拆字段 |
 
 ### 訂閱的 Topics
 
 | Topic | 消息類型 | 說明 |
 |-------|----------|------|
 | `/ly/control/angles` | `GimbalAngles` | 接收決策節點的目標角度 |
-| `/ly/control/firecode` | `UInt8` | 接收開火指令 |
-| `/ly/control/vel` | `Vel` | 接收速度指令（導航） |
+| `/ly/control/firecode` | `FireCode` | 接收分字段火控指令 |
+| `/ly/control/vel` | `ControlVelocity` | 接收語義速度/原始速度指令 |
 | `/ly/control/posture` | `UInt8` | 接收姿態指令（上位決策輸入） |
 
 ### 姿態下發参数

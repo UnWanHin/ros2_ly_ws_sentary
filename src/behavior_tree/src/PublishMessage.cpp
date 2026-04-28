@@ -4,6 +4,22 @@
 
 #include "../include/Application.hpp"
 
+namespace {
+    constexpr float kVelocityRawToMps = 0.025f;
+
+    gimbal_driver::msg::FireCode MakeFireCodeMsg(const LangYa::FireCodeType& firecode, const rclcpp::Time& stamp) {
+        gimbal_driver::msg::FireCode msg;
+        msg.header.stamp = stamp;
+        msg.field_mask = gimbal_driver::msg::FireCode::FIELD_ALL;
+        msg.fire_status = firecode.FireStatus;
+        msg.cap_state = firecode.CapState;
+        msg.hole_mode = firecode.HoleMode != 0;
+        msg.aim_mode = firecode.AimMode != 0;
+        msg.rotate = firecode.Rotate;
+        msg.raw = *reinterpret_cast<const std::uint8_t*>(&firecode);
+        return msg;
+    }
+}
 
 namespace BehaviorTree {
 
@@ -70,8 +86,7 @@ namespace BehaviorTree {
             pub_gimbal_control_->publish(msg);
         }
         {
-            std_msgs::msg::UInt8 msg;
-            msg.data = *reinterpret_cast<std::uint8_t *>(&gimbalControlData.FireCode);
+            auto msg = MakeFireCodeMsg(gimbalControlData.FireCode, node_->now());
             pub_gimbal_firecode_->publish(msg);
         }
     }
@@ -103,9 +118,13 @@ namespace BehaviorTree {
      */
     void Application::PubNaviControlData() {
         {
-            gimbal_driver::msg::Vel msg;
-            msg.x = naviVelocity.X;
-            msg.y = naviVelocity.Y;
+            gimbal_driver::msg::ControlVelocity msg;
+            msg.header.stamp = node_->now();
+            msg.x_mps = static_cast<float>(naviVelocity.X) * kVelocityRawToMps;
+            msg.y_mps = static_cast<float>(naviVelocity.Y) * kVelocityRawToMps;
+            msg.raw_x = naviVelocity.X;
+            msg.raw_y = naviVelocity.Y;
+            msg.use_raw = true;
             // 桥接到 gimbal_driver 控制口，恢复 navi->BT->control_vel 老链路。
             pub_gimbal_vel_->publish(msg);
             // 兼容保留：继续发布到 /ly/navi/vel，避免影响外部联调工具。

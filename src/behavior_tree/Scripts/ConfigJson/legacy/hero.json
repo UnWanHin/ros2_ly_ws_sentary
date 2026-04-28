@@ -5,7 +5,8 @@
         "StopScan" : false,
         "HitBuff": false,
         "HitOutpost": false,
-        "HitCar": false
+        "HitCar": false,
+        "LatchedTargetHoldMs": 100
     },
     "Rate" : {
         "FireRate" : 20,
@@ -18,6 +19,10 @@
         "TestNavi": false,
         "HitSentry": false,
         "Protected": false
+    },
+    "DamageOpenGate": {
+        "Enable": false,
+        "HealthDropThreshold": 30
     },
     "NaviSetting" : {
         "UseXY": true

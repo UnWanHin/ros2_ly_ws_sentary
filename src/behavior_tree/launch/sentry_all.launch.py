@@ -21,6 +21,7 @@ from launch.actions import DeclareLaunchArgument, GroupAction, LogInfo, OpaqueFu
 from launch.conditions import IfCondition, LaunchConfigurationEquals, LaunchConfigurationNotEquals
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from ament_index_python.packages import get_package_share_directory
 
 
@@ -94,6 +95,8 @@ def generate_launch_description():
     publish_navi_goal = LaunchConfiguration("publish_navi_goal")
     wait_for_game_start_timeout_sec = LaunchConfiguration("wait_for_game_start_timeout_sec")
     league_referee_stale_timeout_ms = LaunchConfiguration("league_referee_stale_timeout_ms")
+    firecode_partial_hold_ms = LaunchConfiguration("firecode_partial_hold_ms")
+    velocity_raw_to_mps = LaunchConfiguration("velocity_raw_to_mps")
     decision_trace_enabled = LaunchConfiguration("decision_trace_enabled")
     decision_trace_file = LaunchConfiguration("decision_trace_file")
     decision_trace_every_n_ticks = LaunchConfiguration("decision_trace_every_n_ticks")
@@ -192,6 +195,16 @@ def generate_launch_description():
             description="0 disables stale-check. >0 enables league referee freshness guard for HP/Ammo recovery.",
         ),
         DeclareLaunchArgument(
+            "firecode_partial_hold_ms",
+            default_value="100",
+            description="gimbal_driver FireCode partial-field hold time before stale fields degrade to 0.",
+        ),
+        DeclareLaunchArgument(
+            "velocity_raw_to_mps",
+            default_value="0.025",
+            description="gimbal_driver scale from lower raw int8 velocity to m/s.",
+        ),
+        DeclareLaunchArgument(
             "decision_trace_enabled",
             default_value="false",
             description="Debug only: enable JSONL decision trace for offline pygame replay.",
@@ -245,6 +258,8 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] publish_navi_goal: ", publish_navi_goal]),
         LogInfo(msg=["[sentry_all] wait_for_game_start_timeout_sec: ", wait_for_game_start_timeout_sec]),
         LogInfo(msg=["[sentry_all] league_referee_stale_timeout_ms: ", league_referee_stale_timeout_ms]),
+        LogInfo(msg=["[sentry_all] firecode_partial_hold_ms: ", firecode_partial_hold_ms]),
+        LogInfo(msg=["[sentry_all] velocity_raw_to_mps: ", velocity_raw_to_mps]),
         LogInfo(msg=["[sentry_all] decision_trace_enabled: ", decision_trace_enabled]),
         LogInfo(msg=["[sentry_all] decision_trace_file: ", decision_trace_file]),
         LogInfo(msg=["[sentry_all] decision_trace_every_n_ticks: ", decision_trace_every_n_ticks]),
@@ -259,7 +274,24 @@ def generate_launch_description():
                     executable="gimbal_driver_node",
                     name="gimbal_driver",
                     output=output,
-                    parameters=[base_config_file, config_file],
+                    parameters=[
+                        base_config_file,
+                        config_file,
+                        {
+                            "io_config/firecode_partial_hold_ms": ParameterValue(
+                                firecode_partial_hold_ms, value_type=int
+                            ),
+                            "io_config.firecode_partial_hold_ms": ParameterValue(
+                                firecode_partial_hold_ms, value_type=int
+                            ),
+                            "io_config/velocity_raw_to_mps": ParameterValue(
+                                velocity_raw_to_mps, value_type=float
+                            ),
+                            "io_config.velocity_raw_to_mps": ParameterValue(
+                                velocity_raw_to_mps, value_type=float
+                            ),
+                        },
+                    ],
                     on_exit=Shutdown(reason="gimbal_driver exited"),
                     condition=LaunchConfigurationNotEquals("offline", "true"),
                 ),
@@ -274,6 +306,18 @@ def generate_launch_description():
                         {
                             "io_config/use_virtual_device": True,
                             "io_config.use_virtual_device": True,
+                            "io_config/firecode_partial_hold_ms": ParameterValue(
+                                firecode_partial_hold_ms, value_type=int
+                            ),
+                            "io_config.firecode_partial_hold_ms": ParameterValue(
+                                firecode_partial_hold_ms, value_type=int
+                            ),
+                            "io_config/velocity_raw_to_mps": ParameterValue(
+                                velocity_raw_to_mps, value_type=float
+                            ),
+                            "io_config.velocity_raw_to_mps": ParameterValue(
+                                velocity_raw_to_mps, value_type=float
+                            ),
                         },
                     ],
                     on_exit=Shutdown(reason="gimbal_driver exited"),

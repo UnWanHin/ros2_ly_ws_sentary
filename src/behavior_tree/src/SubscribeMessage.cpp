@@ -62,7 +62,11 @@ namespace BehaviorTree{
 
         // ly_gimbal_firecode
         GenSub<ly_gimbal_firecode>([](Application& app, auto msg) {
-            app.RecFireCode.FireStatus = (msg->data & 0b11);
+            app.RecFireCode.FireStatus = msg->fire_status & 0b11;
+            app.RecFireCode.CapState = msg->cap_state & 0b11;
+            app.RecFireCode.HoleMode = msg->hole_mode ? 1 : 0;
+            app.RecFireCode.AimMode = msg->aim_mode ? 1 : 0;
+            app.RecFireCode.Rotate = msg->rotate & 0b11;
         });
 
         // ly_gimbal_chassis
@@ -86,6 +90,11 @@ namespace BehaviorTree{
         // ly_game_eventdata
         GenSub<ly_game_eventdata>([](Application& app, auto msg) {
             app.extEventData = msg->data;
+        });
+
+        // ly_game_event_data
+        GenSub<ly_game_event_data>([](Application& app, auto msg) {
+            app.extEventData = msg->raw;
         });
 
         // 兼容历史 topic（无前导 '/'）:
@@ -166,12 +175,6 @@ namespace BehaviorTree{
             app.naviLowerHead = msg->data;
         });
 
-        /**
-         *     LY_DEF_ROS_TOPIC(ly_team_buff, "/ly/team/buff", gimbal_driver::BuffData);
-    LY_DEF_ROS_TOPIC(ly_me_rfid, "/ly/me/rfid", std_msgs::UInt32);
-    LY_DEF_ROS_TOPIC(ly_position_data, "/ly/position/data", gimbal_driver::PositionData);
-         */
-
         // ly_team_buff
         GenSub<ly_team_buff>([](Application& app, auto msg) {
             app.teamBuff.RecoveryBuff = msg->recoverybuff;
@@ -184,7 +187,7 @@ namespace BehaviorTree{
 
         // ly_me_rfid
         GenSub<ly_me_rfid>([](Application& app, auto msg) {
-            app.rfidStatus = msg->data;
+            app.rfidStatus = msg->raw;
         });
 
         // ly_position_data

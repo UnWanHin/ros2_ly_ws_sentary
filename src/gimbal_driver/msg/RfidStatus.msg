@@ -1,0 +1,38 @@
+# Decoded referee 0x0209 rfid_status low 32 bits, aligned with
+# RoboMaster 2026 university series communication protocol V1.3.0 (2026-03-27).
+# The extra rfid_status_2 byte is not carried by the current TypeID=4 payload.
+
+std_msgs/Header header
+uint32 raw
+bool self_base_gain_point
+bool self_central_highland_gain_point
+bool enemy_central_highland_gain_point
+bool self_trapezoid_highland_gain_point
+bool enemy_trapezoid_highland_gain_point
+bool self_fly_ramp_front
+bool self_fly_ramp_back
+bool enemy_fly_ramp_front
+bool enemy_fly_ramp_back
+bool self_central_highland_lower_crossing
+bool self_central_highland_upper_crossing
+bool enemy_central_highland_lower_crossing
+bool enemy_central_highland_upper_crossing
+bool self_road_lower_crossing
+bool self_road_upper_crossing
+bool enemy_road_lower_crossing
+bool enemy_road_upper_crossing
+bool self_fortress_gain_point
+bool self_outpost_gain_point
+bool self_non_resource_supply_or_rmul_supply
+bool self_resource_supply
+bool self_assembly_gain_point
+bool enemy_assembly_gain_point
+bool center_gain_point
+bool enemy_fortress_gain_point
+bool enemy_outpost_gain_point
+bool self_tunnel_road_lower
+bool self_tunnel_road_middle
+bool self_tunnel_road_upper
+bool self_tunnel_trapezoid_low
+bool self_tunnel_trapezoid_middle
+bool self_tunnel_trapezoid_high

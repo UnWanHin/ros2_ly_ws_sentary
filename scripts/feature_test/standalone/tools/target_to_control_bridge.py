@@ -12,8 +12,7 @@ import rclpy
 from rclpy.node import Node
 
 from auto_aim_common.msg import Target
-from gimbal_driver.msg import GimbalAngles
-from std_msgs.msg import UInt8
+from gimbal_driver.msg import FireCode, GimbalAngles
 
 
 def parse_bool(value: str) -> bool:
@@ -31,14 +30,6 @@ class TargetState:
     pitch: float
     status: bool
     rx_ns: int
-
-
-def encode_firecode(fire_status: int, aim_mode: bool) -> int:
-    # bit0-1 FireStatus(00/11), bit2-3 CapState, bit4 HoleMode, bit5 AimMode, bit6-7 Rotate
-    value = (fire_status & 0x03)
-    if aim_mode:
-        value |= (1 << 5)
-    return value & 0xFF
 
 
 class TargetToControlBridge(Node):
@@ -60,7 +51,7 @@ class TargetToControlBridge(Node):
         self.safe_firecode = max(0, min(255, int(safe_firecode)))
 
         self.pub_angles = self.create_publisher(GimbalAngles, angles_topic, 10)
-        self.pub_firecode = self.create_publisher(UInt8, firecode_topic, 10)
+        self.pub_firecode = self.create_publisher(FireCode, firecode_topic, 10)
         self.sub_target = self.create_subscription(Target, target_topic, self._on_target, 10)
 
         self.latest_target: Optional[TargetState] = None
@@ -85,9 +76,25 @@ class TargetToControlBridge(Node):
             rx_ns=now_ns,
         )
 
-    def _publish_firecode(self, value: int) -> None:
-        msg = UInt8()
-        msg.data = int(value) & 0xFF
+    def _publish_safe_firecode(self) -> None:
+        raw = self.safe_firecode
+        msg = FireCode()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.field_mask = FireCode.FIELD_ALL
+        msg.fire_status = raw & 0x03
+        msg.cap_state = (raw >> 2) & 0x03
+        msg.hole_mode = ((raw >> 4) & 0x01) != 0
+        msg.aim_mode = ((raw >> 5) & 0x01) != 0
+        msg.rotate = (raw >> 6) & 0x03
+        msg.raw = raw
+        self.pub_firecode.publish(msg)
+
+    def _publish_firecode(self, fire_status: int, aim_mode: bool) -> None:
+        msg = FireCode()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.field_mask = FireCode.FIELD_FIRE_STATUS | FireCode.FIELD_AIM_MODE
+        msg.fire_status = int(fire_status) & 0x03
+        msg.aim_mode = bool(aim_mode)
         self.pub_firecode.publish(msg)
 
     def _on_timer(self) -> None:
@@ -97,7 +104,7 @@ class TargetToControlBridge(Node):
                 self.get_logger().warn("target timeout, fallback to safe firecode")
             self.last_aim_active = False
             self.fire_status = 0
-            self._publish_firecode(self.safe_firecode)
+            self._publish_safe_firecode()
             return
 
         angles = GimbalAngles()
@@ -114,7 +121,7 @@ class TargetToControlBridge(Node):
         if not should_fire:
             self.fire_status = 0
 
-        self._publish_firecode(encode_firecode(self.fire_status, aim_active))
+        self._publish_firecode(self.fire_status, aim_active)
         self.last_aim_active = aim_active
 
 

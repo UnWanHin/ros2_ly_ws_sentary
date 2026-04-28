@@ -4,7 +4,8 @@
         "StopRotate":  false,
         "StopScan" : false,
         "HitBuff": false,
-        "HitOutpost": false
+        "HitOutpost": false,
+        "LatchedTargetHoldMs": 100
     },
     "Rate" : {
         "FireRate" : 15,
@@ -17,6 +18,10 @@
         "TestNavi": false,
         "HitSentry": true,
         "Protected": false
+    },
+    "DamageOpenGate": {
+        "Enable": false,
+        "HealthDropThreshold": 30
     },
     "DecisionAutonomy": {
         "Enable": false,

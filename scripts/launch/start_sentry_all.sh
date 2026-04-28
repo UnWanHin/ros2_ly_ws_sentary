@@ -57,11 +57,7 @@ read_common_bt_log_dir() {
   [[ -f "${config_file}" ]] || return 1
 
   local value=""
-  value="$(sed -nE 's/^[[:space:]]*bt_log_dir:[[:space:]]*"?([^"#]+)"?[[:space:]]*(#.*)?$/\1/p' "${config_file}" | head -n 1)"
-
-  # trim leading / trailing spaces
-  value="${value#"${value%%[![:space:]]*}"}"
-  value="${value%"${value##*[![:space:]]}"}"
+  value="$(read_common_scalar "${config_file}" "bt_log_dir")" || return 1
   [[ -n "${value}" ]] || return 1
 
   if [[ "${value}" == "~" ]]; then
@@ -69,6 +65,22 @@ read_common_bt_log_dir() {
   elif [[ "${value}" == "~/"* ]]; then
     value="${HOME}/${value#"~/"}"
   fi
+
+  printf '%s\n' "${value}"
+}
+
+read_common_scalar() {
+  local config_file="$1"
+  local key="$2"
+  [[ -f "${config_file}" ]] || return 1
+
+  local value=""
+  value="$(sed -nE "s/^[[:space:]]*${key}:[[:space:]]*\"?([^\"#]+)\"?[[:space:]]*(#.*)?$/\\1/p" "${config_file}" | head -n 1)"
+
+  # trim leading / trailing spaces
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  [[ -n "${value}" ]] || return 1
 
   printf '%s\n' "${value}"
 }
@@ -170,6 +182,24 @@ if ! has_launch_arg_key "config_file"; then
   echo "[INFO] default config_file(override)=${DEFAULT_OVERRIDE_CONFIG_FILE}"
 else
   for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == config_file:=* ]] && echo "[INFO] override config_file=${arg#config_file:=}"; done
+fi
+
+if ! has_launch_arg_key "firecode_partial_hold_ms"; then
+  if FIRECODE_PARTIAL_HOLD_MS_FROM_COMMON="$(read_common_scalar "${DEFAULT_COMMON_CONFIG_FILE}" "firecode_partial_hold_ms")"; then
+    LAUNCH_ARGS=("firecode_partial_hold_ms:=${FIRECODE_PARTIAL_HOLD_MS_FROM_COMMON}" "${LAUNCH_ARGS[@]}")
+    echo "[INFO] default firecode_partial_hold_ms=${FIRECODE_PARTIAL_HOLD_MS_FROM_COMMON} (from ${DEFAULT_COMMON_CONFIG_FILE})"
+  fi
+else
+  for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == firecode_partial_hold_ms:=* ]] && echo "[INFO] override firecode_partial_hold_ms=${arg#firecode_partial_hold_ms:=}"; done
+fi
+
+if ! has_launch_arg_key "velocity_raw_to_mps"; then
+  if VELOCITY_RAW_TO_MPS_FROM_COMMON="$(read_common_scalar "${DEFAULT_COMMON_CONFIG_FILE}" "velocity_raw_to_mps")"; then
+    LAUNCH_ARGS=("velocity_raw_to_mps:=${VELOCITY_RAW_TO_MPS_FROM_COMMON}" "${LAUNCH_ARGS[@]}")
+    echo "[INFO] default velocity_raw_to_mps=${VELOCITY_RAW_TO_MPS_FROM_COMMON} (from ${DEFAULT_COMMON_CONFIG_FILE})"
+  fi
+else
+  for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == velocity_raw_to_mps:=* ]] && echo "[INFO] override velocity_raw_to_mps=${arg#velocity_raw_to_mps:=}"; done
 fi
 
 if [[ -n "${MODE_ARG}" ]]; then

@@ -203,8 +203,12 @@
       baud_rate: 115200               # gimbal_driver 读取：串口波特率
       posture_repeat_count: 3         # 姿态重发次数（并入主控制帧）
       posture_repeat_interval_ms: 20  # 姿态重发间隔(ms)
+      firecode_partial_hold_ms: 100   # FireCode 分字段更新保留窗口，超时字段退回 0
+      velocity_raw_to_mps: 0.025      # 下位机 int8 速度单位到 m/s 的换算
     "io_config/use_virtual_device": false # 比赛建议 false；离车调试建议 true
     "io_config/device_name": "/dev/ttyACM0"
     "io_config/baud_rate": 115200
     "io_config/posture_repeat_count": 3
     "io_config/posture_repeat_interval_ms": 20
+    "io_config/firecode_partial_hold_ms": 100
+    "io_config/velocity_raw_to_mps": 0.025

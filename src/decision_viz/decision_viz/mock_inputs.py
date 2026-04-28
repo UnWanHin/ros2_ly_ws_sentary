@@ -49,9 +49,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         import rclpy
         from auto_aim_common.msg import Target
-        from gimbal_driver.msg import BuffData, GameData, GimbalAngles, Health
+        from gimbal_driver.msg import BuffData, GameData, GimbalAngles, Health, RfidStatus
         from rclpy.node import Node
-        from std_msgs.msg import Bool, UInt8, UInt16, UInt32
+        from std_msgs.msg import Bool, UInt8, UInt16
     except ImportError as exc:
         print(
             "ROS Python deps are missing. Source ROS/workspace first, e.g. "
@@ -100,7 +100,7 @@ def main(argv: list[str] | None = None) -> int:
             self.pub_me_hp = self.create_publisher(Health, "/ly/me/hp", 10)
             self.pub_enemy_hp = self.create_publisher(Health, "/ly/enemy/hp", 10)
             self.pub_team_buff = self.create_publisher(BuffData, "/ly/team/buff", 10)
-            self.pub_rfid = self.create_publisher(UInt32, "/ly/me/rfid", 10)
+            self.pub_rfid = self.create_publisher(RfidStatus, "/ly/me/rfid", 10)
 
             self.target_source = args.target_source
             self.pub_target = None
@@ -257,8 +257,8 @@ def main(argv: list[str] | None = None) -> int:
             team_buff.remainingenergy = 0
             self.pub_team_buff.publish(team_buff)
 
-            rfid = UInt32()
-            rfid.data = 0
+            rfid = RfidStatus()
+            rfid.raw = 0
             self.pub_rfid.publish(rfid)
 
             if self.pub_target is not None:

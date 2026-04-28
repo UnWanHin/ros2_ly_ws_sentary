@@ -10,7 +10,10 @@ from dataclasses import dataclass
 import rclpy
 from rclpy.node import Node
 
-from gimbal_driver.msg import Vel
+from gimbal_driver.msg import ControlVelocity
+
+
+VELOCITY_RAW_TO_MPS = 0.025
 
 
 def clamp_int8(value: int) -> int:
@@ -29,7 +32,7 @@ class ChassisVelNode(Node):
     def __init__(self, profile: VelocityProfile, hz: float, topic: str) -> None:
         super().__init__("chassis_vel_test")
         self.profile = profile
-        self.publisher = self.create_publisher(Vel, topic, 10)
+        self.publisher = self.create_publisher(ControlVelocity, topic, 10)
         self.tick = 0
         self.hz = max(1.0, hz)
         self.timer = self.create_timer(1.0 / self.hz, self._on_timer)
@@ -56,9 +59,13 @@ class ChassisVelNode(Node):
 
     def _on_timer(self) -> None:
         x, y = self._resolve_speed()
-        msg = Vel()
-        msg.x = int(x)
-        msg.y = int(y)
+        msg = ControlVelocity()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.raw_x = clamp_int8(x)
+        msg.raw_y = clamp_int8(y)
+        msg.x_mps = float(msg.raw_x) * VELOCITY_RAW_TO_MPS
+        msg.y_mps = float(msg.raw_y) * VELOCITY_RAW_TO_MPS
+        msg.use_raw = True
         self.publisher.publish(msg)
         self.tick += 1
 

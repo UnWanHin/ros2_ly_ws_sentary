@@ -1,0 +1,20 @@
+# Decoded referee 0x0101 event_data, aligned with
+# RoboMaster 2026 university series communication protocol V1.3.0 (2026-03-27).
+
+std_msgs/Header header
+uint32 raw
+uint8 self_supply_status
+bool self_supply_occupied
+bool self_supply_reserved
+bool self_rmul_supply_occupied
+uint8 self_small_energy_status
+uint8 self_large_energy_status
+uint8 self_central_highland_status
+uint8 self_trapezoid_highland_status
+uint16 enemy_last_dart_hit_time
+uint8 enemy_last_dart_hit_target
+uint8 center_gain_point_status
+uint8 self_fortress_gain_point_status
+uint8 self_outpost_gain_point_status
+bool self_base_gain_point_status
+uint8 reserved

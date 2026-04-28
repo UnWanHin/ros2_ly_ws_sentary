@@ -8,7 +8,7 @@ import argparse
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import UInt8
+from gimbal_driver.msg import FireCode
 
 
 def clamp_rotate_level(value: int) -> int:
@@ -20,23 +20,17 @@ class ChassisSpinNode(Node):
         super().__init__("chassis_spin_test")
         self.rotate_level = clamp_rotate_level(rotate_level)
         self.topic = topic
-        self.pub = self.create_publisher(UInt8, topic, 10)
+        self.pub = self.create_publisher(FireCode, topic, 10)
         self.timer = self.create_timer(1.0 / max(1.0, float(hz)), self._on_timer)
-        self.frame = self._encode_firecode(self.rotate_level)
         self.get_logger().info(
-            f"spin test started: rotate={self.rotate_level}, frame=0x{self.frame:02X}, topic={self.topic}"
+            f"spin test started: rotate={self.rotate_level}, topic={self.topic}"
         )
 
-    @staticmethod
-    def _encode_firecode(rotate_level: int) -> int:
-        # FireCode bit layout:
-        # bit0-1 FireStatus, bit2-3 CapState, bit4 HoleMode, bit5 AimMode, bit6-7 Rotate
-        # Keep FireStatus/other bits at 0, only set rotate bits.
-        return (clamp_rotate_level(rotate_level) & 0x03) << 6
-
     def _on_timer(self) -> None:
-        msg = UInt8()
-        msg.data = int(self.frame)
+        msg = FireCode()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.field_mask = FireCode.FIELD_ROTATE
+        msg.rotate = self.rotate_level
         self.pub.publish(msg)
 
 
@@ -60,4 +54,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

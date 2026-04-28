@@ -49,11 +49,12 @@
 - `/ly/control/angles` (`gimbal_driver/msg/GimbalAngles`)
   - `yaw` -> `GimbalAngles.Yaw`
   - `pitch` -> `GimbalAngles.Pitch`
-- `/ly/control/vel` (`gimbal_driver/msg/Vel`)
-  - `x` -> `Velocity.X`
-  - `y` -> `Velocity.Y`
-- `/ly/control/firecode` (`std_msgs/msg/UInt8`)
-  - `data` 原样写入 `FireCode` 字节
+- `/ly/control/vel` (`gimbal_driver/msg/ControlVelocity`)
+  - `x_mps/y_mps` 按 `velocity_raw_to_mps` 编码到 `Velocity.X/Y`
+  - `use_raw=true` 时 `raw_x/raw_y` 直接写入 `Velocity.X/Y`
+- `/ly/control/firecode` (`gimbal_driver/msg/FireCode`)
+  - `fire_status/cap_state/hole_mode/aim_mode/rotate` -> `FireCode` 各 bit
+  - `field_mask` 非 0 时只更新指定字段；未更新字段 100ms 后退回 0
 - `/ly/control/posture` (`std_msgs/msg/UInt8`)
   - `1` 进攻
   - `2` 防御
@@ -145,12 +146,12 @@ ros2 topic pub /ly/control/angles gimbal_driver/msg/GimbalAngles "{yaw: 10.0, pi
 
 2. 发速度：
 ```bash
-ros2 topic pub /ly/control/vel gimbal_driver/msg/Vel "{x: 10, y: -10}" -1
+ros2 topic pub /ly/control/vel gimbal_driver/msg/ControlVelocity "{x_mps: 0.25, y_mps: -0.25}" -1
 ```
 
-3. 发火控字节（示例 `0x03`）：
+3. 发火控（示例 `fire_status=3`）：
 ```bash
-ros2 topic pub /ly/control/firecode std_msgs/msg/UInt8 "{data: 3}" -1
+ros2 topic pub /ly/control/firecode gimbal_driver/msg/FireCode "{field_mask: 1, fire_status: 3}" -1
 ```
 
 4. 发姿态（防御）：

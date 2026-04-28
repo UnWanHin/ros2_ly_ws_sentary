@@ -86,7 +86,11 @@ find_package(geometry_msgs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/GimbalAngles.msg"
   "msg/Chassis.msg"
+  "msg/ControlVelocity.msg"
+  "msg/EventData.msg"
+  "msg/FireCode.msg"
   "msg/GimbalYaw.msg"
+  "msg/RfidStatus.msg"
   "msg/UWBPos.msg"
   "msg/Vel.msg"
   "msg/Health.msg"

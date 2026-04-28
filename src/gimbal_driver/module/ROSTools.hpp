@@ -61,6 +61,13 @@ namespace LangYa
                 PostEvent(Global);
             };
         }
+
+        void Modify(std::function<void(TGlobal&)> modifier) noexcept
+        {
+            std::lock_guard lock{ Mutex };
+            modifier(Global);
+            PostEvent(Global);
+        }
     };
 
     template<const char* TName, typename TMessage>

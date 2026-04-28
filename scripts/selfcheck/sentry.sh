@@ -834,11 +834,11 @@ if (( STATIC_ONLY == 0 )); then
 
   print_section "Critical Topic Links"
   check_topic_link "/ly/control/angles" "gimbal_driver/msg/GimbalAngles" "/behavior_tree" "/gimbal_driver" hard
-  check_topic_link "/ly/control/firecode" "std_msgs/msg/UInt8" "/behavior_tree" "/gimbal_driver" hard
+  check_topic_link "/ly/control/firecode" "gimbal_driver/msg/FireCode" "/behavior_tree" "/gimbal_driver" hard
   check_topic_link "/ly/control/posture" "std_msgs/msg/UInt8" "/behavior_tree" "/gimbal_driver" hard
 
   # 兼容鏈路檢查：電控側仍訂閱 /ly/control/vel，若沒有發布者視為缺口
-  check_topic_link "/ly/control/vel" "gimbal_driver/msg/Vel" "/behavior_tree" "/gimbal_driver" hard
+  check_topic_link "/ly/control/vel" "gimbal_driver/msg/ControlVelocity" "/behavior_tree" "/gimbal_driver" hard
 
   check_topic_link "/ly/bt/target" "std_msgs/msg/UInt8" "/behavior_tree" "/detector,/predictor_node" hard
   check_topic_link "/ly/aa/enable" "std_msgs/msg/Bool" "/behavior_tree" "/detector,${BUFF_NODE:-/buff_hitter}" hard

@@ -13,8 +13,7 @@ import rclpy
 from rclpy.node import Node
 
 from auto_aim_common.msg import BuffDebug
-from gimbal_driver.msg import GimbalAngles
-from std_msgs.msg import UInt8
+from gimbal_driver.msg import FireCode, GimbalAngles
 
 
 def parse_bool(value) -> bool:
@@ -73,7 +72,7 @@ class BuffShootingTableCalibNode(Node):
 
         self.debug_sub = self.create_subscription(BuffDebug, self.debug_topic, self.on_debug, 30)
         self.gimbal_sub = self.create_subscription(GimbalAngles, self.gimbal_topic, self.on_gimbal, 30)
-        self.firecode_sub = self.create_subscription(UInt8, self.firecode_topic, self.on_firecode, 30)
+        self.firecode_sub = self.create_subscription(FireCode, self.firecode_topic, self.on_firecode, 30)
 
         self.info_timer = self.create_timer(5.0, self.print_stats)
 
@@ -159,8 +158,8 @@ class BuffShootingTableCalibNode(Node):
         # static mode: keep all valid modes by default; offline fitter can filter mode later.
         return True
 
-    def on_firecode(self, msg: UInt8) -> None:
-        fire_active = (int(msg.data) & 0b11) != 0
+    def on_firecode(self, msg: FireCode) -> None:
+        fire_active = (int(msg.fire_status) & 0b11) != 0
         should_sample = fire_active
         if self.sample_on_rising_edge:
             should_sample = fire_active and not self.last_fire_active
@@ -203,7 +202,7 @@ class BuffShootingTableCalibNode(Node):
                 f"{timestamp:.6f}",
                 int(debug.mode),
                 bool(debug.status),
-                int(msg.data),
+                int(msg.raw),
                 float(debug.target_yaw),
                 float(debug.target_pitch),
                 float(gimbal.yaw),

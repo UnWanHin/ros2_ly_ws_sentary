@@ -190,9 +190,13 @@
       baud_rate: 115200
       posture_repeat_count: 3
       posture_repeat_interval_ms: 20
+      firecode_partial_hold_ms: 100
+      velocity_raw_to_mps: 0.025
 
     "io_config/use_virtual_device": false
     "io_config/device_name": "/dev/ttyACM0"
     "io_config/baud_rate": 115200
     "io_config/posture_repeat_count": 3
     "io_config/posture_repeat_interval_ms": 20
+    "io_config/firecode_partial_hold_ms": 100
+    "io_config/velocity_raw_to_mps": 0.025

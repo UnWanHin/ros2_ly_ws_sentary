@@ -207,9 +207,9 @@ std::string DefaultConfigPathForProfile(const std::string& pkg_path, const std::
         pub_ra_enable_       = node_->create_publisher<std_msgs::msg::Bool>(ly_ra_enable::Name, 10);
         pub_outpost_enable_  = node_->create_publisher<std_msgs::msg::Bool>(ly_outpost_enable::Name, 10);
         pub_gimbal_control_  = node_->create_publisher<gimbal_driver::msg::GimbalAngles>(ly_control_angles::Name, 10);
-        pub_gimbal_firecode_ = node_->create_publisher<std_msgs::msg::UInt8>(ly_control_firecode::Name, 10);
+        pub_gimbal_firecode_ = node_->create_publisher<gimbal_driver::msg::FireCode>(ly_control_firecode::Name, 10);
         pub_gimbal_posture_  = node_->create_publisher<std_msgs::msg::UInt8>(ly_control_posture::Name, 10);
-        pub_gimbal_vel_      = node_->create_publisher<gimbal_driver::msg::Vel>(ly_control_vel::Name, 10);
+        pub_gimbal_vel_      = node_->create_publisher<gimbal_driver::msg::ControlVelocity>(ly_control_vel::Name, 10);
         pub_navi_vel_        = node_->create_publisher<gimbal_driver::msg::Vel>(ly_navi_vel::Name, 10);
         pub_navi_target_rel_ = node_->create_publisher<auto_aim_common::msg::RelativeTarget>(ly_navi_target_rel::Name, 10);
         pub_navi_goal_       = node_->create_publisher<std_msgs::msg::UInt8>(ly_navi_goal::Name, 10);

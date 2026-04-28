@@ -1,3 +1,8 @@
 # Shared startup options for launch wrapper scripts.
 # Used by scripts/launch/start_sentry_all.sh when BT_LOG_DIR is not set.
 bt_log_dir: ~/Log
+
+# gimbal_driver semantic control tuning.
+# start_sentry_all.sh reads these and passes them as ROS parameters.
+firecode_partial_hold_ms: 100
+velocity_raw_to_mps: 0.025

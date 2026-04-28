@@ -382,6 +382,7 @@ namespace LangYa
         bool HitCar{false};
         bool FireRequireTargetStatus{true};
         bool ReuseLatchedAnglesOnNoTarget{true};
+        int LatchedTargetHoldMs{100};
     };
 
     // 巡逻扫描配置
@@ -402,6 +403,12 @@ namespace LangYa
         bool HitSentry{false}; // 攻击哨兵
         bool Protected{false}; // 保守模式
     };
+
+    struct DamageOpenGateSetting {
+        bool Enable{false};
+        std::uint16_t HealthDropThreshold{30};
+    };
+
     struct NaviSetting {
         bool UseXY{true};
         // UseXY=true 时：
@@ -423,8 +430,6 @@ namespace LangYa
         int HealthRecoveryExitStableSec{1};
         int HealthRecoveryMaxHoldSec{12};
         int HealthRecoveryCooldownSec{20};
-        bool EnableDamageOpenGate{false};
-        std::uint16_t DamageOpenGateThreshold{30};
         std::uint8_t MainGoal{OccupyArea.ID};
         std::vector<std::uint8_t> PatrolGoals{};
         int GoalHoldSec{15};
@@ -566,6 +571,7 @@ namespace LangYa
         PatrolScanSetting PatrolScanSettings{};
         Rate RateSettings{};
         GameStrategy GameStrategySettings{};
+        DamageOpenGateSetting DamageOpenGateSettings{};
         NaviSetting NaviSettings{};
         LeagueStrategySetting LeagueStrategySettings{};
         ShowcasePatrolSetting ShowcasePatrolSettings{};

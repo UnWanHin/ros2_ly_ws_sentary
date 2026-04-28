@@ -44,6 +44,7 @@
 #include <auto_aim_common/SolverType.hpp>
 #include <auto_aim_common/TrackerType.hpp>
 #include <gimbal_driver/msg/gimbal_angles.hpp>
+#include <gimbal_driver/msg/fire_code.hpp>
 #include <std_msgs/msg/u_int8.hpp>
 #include <auto_aim_common/Location.hpp>
 
@@ -313,7 +314,7 @@ namespace {
         rclcpp::Subscription<gimbal_driver::msg::GimbalAngles>::SharedPtr gimbal_sub_;
         rclcpp::Publisher<gimbal_driver::msg::GimbalAngles>::SharedPtr control_pub_;
         rclcpp::Publisher<auto_aim_common::msg::Target>::SharedPtr target_pub_;
-        rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr firecode_pub_;
+        rclcpp::Publisher<gimbal_driver::msg::FireCode>::SharedPtr firecode_pub_;
 
     public:
         ShootingTableCalibNode()
@@ -609,7 +610,7 @@ namespace {
             // 初始化发布者
             control_pub_ = this->create_publisher<gimbal_driver::msg::GimbalAngles>("/ly/control/angles", 10);
             target_pub_ = this->create_publisher<auto_aim_common::msg::Target>("/ly/predictor/target", 10);
-            firecode_pub_ = this->create_publisher<std_msgs::msg::UInt8>("/ly/control/firecode", 10);
+            firecode_pub_ = this->create_publisher<gimbal_driver::msg::FireCode>("/ly/control/firecode", 10);
         }
 
         void createCSVFile()
@@ -734,13 +735,15 @@ namespace {
         void sendFireControlCommand()
         {
             // 构造火控数据包
-            std_msgs::msg::UInt8 fire_msg;
-            fire_msg.data = fire_control.fire_status;  
+            gimbal_driver::msg::FireCode fire_msg;
+            fire_msg.header.stamp = this->now();
+            fire_msg.field_mask = gimbal_driver::msg::FireCode::FIELD_FIRE_STATUS;
+            fire_msg.fire_status = fire_control.fire_status & 0b11;
             
             firecode_pub_->publish(fire_msg);
             
-            roslog::info("Fire control sent - FireCode: 0b{:08b} ({})", 
-                         fire_msg.data, fire_msg.data);
+            roslog::info("Fire control sent - fire_status={} field_mask={}",
+                         fire_msg.fire_status, fire_msg.field_mask);
         }
 
         void flipFireStatus()

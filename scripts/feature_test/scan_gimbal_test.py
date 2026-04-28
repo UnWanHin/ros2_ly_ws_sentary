@@ -9,8 +9,7 @@ import argparse
 import rclpy
 from rclpy.node import Node
 
-from gimbal_driver.msg import GimbalAngles
-from std_msgs.msg import UInt8
+from gimbal_driver.msg import FireCode, GimbalAngles
 
 
 class ScanGimbalNode(Node):
@@ -38,7 +37,7 @@ class ScanGimbalNode(Node):
         self.safe_firecode = max(0, min(255, safe_firecode))
 
         self.angles_pub = self.create_publisher(GimbalAngles, angles_topic, 10)
-        self.firecode_pub = self.create_publisher(UInt8, firecode_topic, 10)
+        self.firecode_pub = self.create_publisher(FireCode, firecode_topic, 10)
         period = 1.0 / max(1.0, hz)
         self.timer = self.create_timer(period, self._on_timer)
 
@@ -55,8 +54,15 @@ class ScanGimbalNode(Node):
         msg.pitch = float(self.pitch)
         self.angles_pub.publish(msg)
 
-        fire_msg = UInt8()
-        fire_msg.data = self.safe_firecode
+        fire_msg = FireCode()
+        fire_msg.header.stamp = msg.header.stamp
+        fire_msg.field_mask = FireCode.FIELD_ALL
+        fire_msg.fire_status = self.safe_firecode & 0x03
+        fire_msg.cap_state = (self.safe_firecode >> 2) & 0x03
+        fire_msg.hole_mode = ((self.safe_firecode >> 4) & 0x01) != 0
+        fire_msg.aim_mode = ((self.safe_firecode >> 5) & 0x01) != 0
+        fire_msg.rotate = (self.safe_firecode >> 6) & 0x03
+        fire_msg.raw = self.safe_firecode
         self.firecode_pub.publish(fire_msg)
 
         self.yaw += self.direction * self.step_deg

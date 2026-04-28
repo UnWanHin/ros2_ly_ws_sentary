@@ -375,6 +375,17 @@ namespace BehaviorTree {
         GimbalAnglesType nextAngles = gimbalAngles;
         VelocityType nextVelocity = naviVelocityInput;
         const bool find_target = isFindTargetAtomic.load(std::memory_order_relaxed);
+        const bool has_recent_latched_target = [&]() {
+            if (find_target || !config.AimDebugSettings.ReuseLatchedAnglesOnNoTarget ||
+                !activeAimData->HasLatchedAngles ||
+                activeAimData->LastValidTime.time_since_epoch().count() == 0) {
+                return false;
+            }
+            const int hold_ms = std::max(0, config.AimDebugSettings.LatchedTargetHoldMs);
+            return hold_ms > 0 &&
+                   (now - activeAimData->LastValidTime) <= std::chrono::milliseconds(hold_ms);
+        }();
+        const bool has_target_for_angles = find_target || has_recent_latched_target;
         const auto chase_mode_enabled = [&]() -> bool {
             if (!config.ChaseSettings.Enable || !config.ChaseSettings.FollowAimTarget) {
                 return false;
@@ -409,10 +420,14 @@ namespace BehaviorTree {
             patrolScanCenterInitialized_ = false;
             patrolScanActiveMode_ = 0;
         };
-        if (find_target) {
+        if (has_target_for_angles) {
             reset_patrol_scan_state();
-            LoggerPtr->Debug("Find Target, AimMode={}", static_cast<int>(aimMode));
-            if (!config.AimDebugSettings.StopFire){
+            LoggerPtr->Debug(
+                "Aim target active, AimMode={}, fresh={}, held={}",
+                static_cast<int>(aimMode),
+                find_target ? 1 : 0,
+                has_recent_latched_target ? 1 : 0);
+            if (find_target && !config.AimDebugSettings.StopFire){
                 if(aimMode == AimMode::Buff) { // 打符模式
                     if(activeAimData->FireStatus){
                         /// 立刻响应不需要tick
@@ -428,16 +443,24 @@ namespace BehaviorTree {
                         gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
                     }
                 }
+            } else {
+                gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
             }
             gimbalControlData.FireCode.AimMode = 1;
-            lastFoundEnemyTime = now;
+            if (find_target) {
+                lastFoundEnemyTime = now;
+            }
             
             nextAngles = activeAimData->Angles;
             if (aimMode != AimMode::Buff && aimMode != AimMode::Outpost) {
-                LoggerPtr->Debug("AutoAim Angles -> Pitch: {}, Yaw: {}", autoAimData.Angles.Pitch, autoAimData.Angles.Yaw);
+                LoggerPtr->Debug(
+                    "AutoAim Angles -> Pitch: {}, Yaw: {}",
+                    autoAimData.Angles.Pitch,
+                    autoAimData.Angles.Yaw);
             }
         }
         else { // 未识别到目标
+            gimbalControlData.FireCode.AimMode = 0;
             
             if(aimMode != AimMode::Buff) {
                 if (!config.AimDebugSettings.StopScan && now - lastFoundEnemyTime > std::chrono::milliseconds(2000)) {
@@ -519,14 +542,6 @@ namespace BehaviorTree {
                     if (aimMode == AimMode::Outpost) {
                         nextAngles.Pitch += 15.0f;
                     }
-                } else if (config.AimDebugSettings.ReuseLatchedAnglesOnNoTarget &&
-                           activeAimData->HasLatchedAngles) {
-                    reset_patrol_scan_state();
-                    nextAngles = activeAimData->Angles;
-                    LoggerPtr->Debug(
-                        "Reuse latched aim angles -> Pitch: {}, Yaw: {}",
-                        nextAngles.Pitch,
-                        nextAngles.Yaw);
                 } else {
                     reset_patrol_scan_state();
                     nextAngles = gimbalAngles;
@@ -567,7 +582,7 @@ namespace BehaviorTree {
             const bool use_relative_target_topic = config.ChaseSettings.UseRelativeTargetTopic;
             const bool use_tf_goal_bridge =
                 config.NaviSettings.UseXY && config.NaviSettings.UseTfGoalBridge;
-            bool has_chase_target = find_target;
+            bool has_chase_target = has_target_for_angles;
             if (!has_chase_target &&
                 config.ChaseSettings.LostTargetHoldMs > 0 &&
                 activeAimData->HasLatchedAngles &&
@@ -669,7 +684,7 @@ namespace BehaviorTree {
         }
 
         // lower_head 只在未锁目标时生效，并且整对角一起切换，避免混用旧 yaw/new pitch。
-        if(naviLowerHead && !find_target) {
+        if(naviLowerHead && !has_target_for_angles) {
             nextAngles = GimbalAnglesType{gimbalAngles.Yaw, -15.0f}; //-22.5 - 26.0
         }
         gimbalControlData.GimbalAngles = nextAngles;

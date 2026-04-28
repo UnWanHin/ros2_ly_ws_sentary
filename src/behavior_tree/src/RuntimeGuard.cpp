@@ -99,15 +99,30 @@ void Application::PublishSafeControl(const char* reason, const bool from_guard_t
         }
 
         if (pub_gimbal_firecode_) {
-            std_msgs::msg::UInt8 fire_msg;
-            fire_msg.data = *reinterpret_cast<std::uint8_t*>(&gimbalControlData.FireCode);
+            gimbal_driver::msg::FireCode fire_msg;
+            if (node_) {
+                fire_msg.header.stamp = node_->now();
+            }
+            fire_msg.field_mask = gimbal_driver::msg::FireCode::FIELD_ALL;
+            fire_msg.fire_status = gimbalControlData.FireCode.FireStatus;
+            fire_msg.cap_state = gimbalControlData.FireCode.CapState;
+            fire_msg.hole_mode = gimbalControlData.FireCode.HoleMode != 0;
+            fire_msg.aim_mode = gimbalControlData.FireCode.AimMode != 0;
+            fire_msg.rotate = gimbalControlData.FireCode.Rotate;
+            fire_msg.raw = *reinterpret_cast<std::uint8_t*>(&gimbalControlData.FireCode);
             pub_gimbal_firecode_->publish(fire_msg);
         }
 
         if (pub_gimbal_vel_) {
-            gimbal_driver::msg::Vel vel_msg;
-            vel_msg.x = 0;
-            vel_msg.y = 0;
+            gimbal_driver::msg::ControlVelocity vel_msg;
+            if (node_) {
+                vel_msg.header.stamp = node_->now();
+            }
+            vel_msg.x_mps = 0.0f;
+            vel_msg.y_mps = 0.0f;
+            vel_msg.raw_x = 0;
+            vel_msg.raw_y = 0;
+            vel_msg.use_raw = true;
             pub_gimbal_vel_->publish(vel_msg);
         }
 

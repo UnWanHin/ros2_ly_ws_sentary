@@ -16,12 +16,18 @@
 #include <chrono>
 #include <thread>
 #include <algorithm>
+#include <array>
 #include <bit>
+#include <cmath>
 #include <rclcpp/utilities.hpp>
 #include <rclcpp/executors.hpp>
 
 #include "gimbal_driver/msg/gimbal_angles.hpp"
 #include "gimbal_driver/msg/chassis.hpp"
+#include "gimbal_driver/msg/control_velocity.hpp"
+#include "gimbal_driver/msg/event_data.hpp"
+#include "gimbal_driver/msg/fire_code.hpp"
+#include "gimbal_driver/msg/rfid_status.hpp"
 #include "gimbal_driver/msg/uwb_pos.hpp"
 #include "gimbal_driver/msg/vel.hpp"
 #include "gimbal_driver/msg/health.hpp"
@@ -45,18 +51,19 @@ using namespace LangYa;
 namespace
 {
     LY_DEF_ROS_TOPIC(ly_control_angles, "/ly/control/angles", gimbal_driver::msg::GimbalAngles);
-    LY_DEF_ROS_TOPIC(ly_control_firecode, "/ly/control/firecode", std_msgs::msg::UInt8);
-    LY_DEF_ROS_TOPIC(ly_control_vel, "/ly/control/vel", gimbal_driver::msg::Vel);
+    LY_DEF_ROS_TOPIC(ly_control_firecode, "/ly/control/firecode", gimbal_driver::msg::FireCode);
+    LY_DEF_ROS_TOPIC(ly_control_vel, "/ly/control/vel", gimbal_driver::msg::ControlVelocity);
     LY_DEF_ROS_TOPIC(ly_control_posture, "/ly/control/posture", std_msgs::msg::UInt8);
 
     LY_DEF_ROS_TOPIC(ly_gimbal_angles, "/ly/gimbal/angles", gimbal_driver::msg::GimbalAngles);
-    LY_DEF_ROS_TOPIC(ly_gimbal_firecode, "/ly/gimbal/firecode", std_msgs::msg::UInt8);
+    LY_DEF_ROS_TOPIC(ly_gimbal_firecode, "/ly/gimbal/firecode", gimbal_driver::msg::FireCode);
     LY_DEF_ROS_TOPIC(ly_gimbal_vel, "/ly/gimbal/vel", gimbal_driver::msg::Vel);
     LY_DEF_ROS_TOPIC(ly_gimbal_chassis, "/ly/gimbal/chassis", gimbal_driver::msg::Chassis);
     LY_DEF_ROS_TOPIC(ly_gimbal_big_yaw_angles, "/ly/gimbal/big_yaw_angles", std_msgs::msg::Float32);
     LY_DEF_ROS_TOPIC(ly_gimbal_posture, "/ly/gimbal/posture", std_msgs::msg::UInt8);
     LY_DEF_ROS_TOPIC(ly_gimbal_capV, "/ly/gimbal/capV", std_msgs::msg::UInt8);
     LY_DEF_ROS_TOPIC(ly_game_eventdata, "ly/gimbal/eventdata", std_msgs::msg::UInt32);
+    LY_DEF_ROS_TOPIC(ly_game_event_data, "/ly/game/event_data", gimbal_driver::msg::EventData);
 
     LY_DEF_ROS_TOPIC(ly_me_is_precaution, "/ly/me/is_precaution", std_msgs::msg::Bool);
     LY_DEF_ROS_TOPIC(ly_me_is_at_home, "/ly/me/is_at_home", std_msgs::msg::Bool);
@@ -80,7 +87,7 @@ namespace
     LY_DEF_ROS_TOPIC(ly_bullet_speed, "/ly/bullet/speed", std_msgs::msg::Float32);
 
     LY_DEF_ROS_TOPIC(ly_team_buff, "/ly/team/buff", gimbal_driver::msg::BuffData);
-    LY_DEF_ROS_TOPIC(ly_me_rfid, "/ly/me/rfid", std_msgs::msg::UInt32);
+    LY_DEF_ROS_TOPIC(ly_me_rfid, "/ly/me/rfid", gimbal_driver::msg::RfidStatus);
     LY_DEF_ROS_TOPIC(ly_position_data, "/ly/position/data", gimbal_driver::msg::PositionData);
         
 
@@ -100,15 +107,140 @@ namespace
         std::uint8_t postureState_{0};   // 0=未知, 1=进攻, 2=防御, 3=移动
         int postureTxRepeatCount_{3};
         std::chrono::milliseconds postureTxInterval_{20};
+        std::chrono::milliseconds firecodePartialHold_{100};
+        float velocityRawToMps_{0.025f};
         std::uint8_t posturePendingToSend_{0};
         std::uint8_t postureLastSent_{0};
         int posturePendingRepeat_{0};
+        std::array<std::chrono::steady_clock::time_point, 5> firecodeLastUpdate_{};
         std::chrono::steady_clock::time_point postureNextSendTime_{
             std::chrono::steady_clock::time_point::min()
         };
 
+        enum FireCodeFieldIndex : std::size_t {
+            kFireStatusField = 0,
+            kCapStateField,
+            kHoleModeField,
+            kAimModeField,
+            kRotateField,
+        };
+
         static bool IsValidPosture(std::uint8_t posture) noexcept {
             return posture >= 1 && posture <= 3;
+        }
+
+        static std::uint8_t ClampU2(std::uint8_t value) noexcept {
+            return static_cast<std::uint8_t>(value & 0x03u);
+        }
+
+        static std::int8_t ClampInt8(int value) noexcept {
+            return static_cast<std::int8_t>(std::clamp(value, -128, 127));
+        }
+
+        static bool Bit(const std::uint32_t raw, const unsigned shift) noexcept {
+            return ((raw >> shift) & 0x1u) != 0u;
+        }
+
+        static std::uint8_t BitsU8(const std::uint32_t raw, const unsigned shift, const unsigned width) noexcept {
+            const std::uint32_t mask = (1u << width) - 1u;
+            return static_cast<std::uint8_t>((raw >> shift) & mask);
+        }
+
+        static std::uint16_t BitsU16(const std::uint32_t raw, const unsigned shift, const unsigned width) noexcept {
+            const std::uint32_t mask = (1u << width) - 1u;
+            return static_cast<std::uint16_t>((raw >> shift) & mask);
+        }
+
+        static std::uint8_t FireCodeRaw(const FireCodeType& firecode) noexcept {
+            return *reinterpret_cast<const std::uint8_t*>(&firecode);
+        }
+
+        static FireCodeType FireCodeFromRaw(std::uint8_t raw) noexcept {
+            FireCodeType firecode{};
+            *reinterpret_cast<std::uint8_t*>(&firecode) = raw;
+            return firecode;
+        }
+
+        static gimbal_driver::msg::EventData ToEventDataMsg(std::uint32_t raw) {
+            gimbal_driver::msg::EventData msg;
+            msg.raw = raw;
+            msg.self_supply_status = BitsU8(raw, 0, 3);
+            msg.self_supply_occupied = Bit(raw, 0);
+            msg.self_supply_reserved = Bit(raw, 1);
+            msg.self_rmul_supply_occupied = Bit(raw, 2);
+            msg.self_small_energy_status = BitsU8(raw, 3, 2);
+            msg.self_large_energy_status = BitsU8(raw, 5, 2);
+            msg.self_central_highland_status = BitsU8(raw, 7, 2);
+            msg.self_trapezoid_highland_status = BitsU8(raw, 9, 2);
+            msg.enemy_last_dart_hit_time = BitsU16(raw, 11, 9);
+            msg.enemy_last_dart_hit_target = BitsU8(raw, 20, 3);
+            msg.center_gain_point_status = BitsU8(raw, 23, 2);
+            msg.self_fortress_gain_point_status = BitsU8(raw, 25, 2);
+            msg.self_outpost_gain_point_status = BitsU8(raw, 27, 2);
+            msg.self_base_gain_point_status = Bit(raw, 29);
+            msg.reserved = BitsU8(raw, 30, 2);
+            return msg;
+        }
+
+        static gimbal_driver::msg::RfidStatus ToRfidStatusMsg(std::uint32_t raw) {
+            gimbal_driver::msg::RfidStatus msg;
+            msg.raw = raw;
+            msg.self_base_gain_point = Bit(raw, 0);
+            msg.self_central_highland_gain_point = Bit(raw, 1);
+            msg.enemy_central_highland_gain_point = Bit(raw, 2);
+            msg.self_trapezoid_highland_gain_point = Bit(raw, 3);
+            msg.enemy_trapezoid_highland_gain_point = Bit(raw, 4);
+            msg.self_fly_ramp_front = Bit(raw, 5);
+            msg.self_fly_ramp_back = Bit(raw, 6);
+            msg.enemy_fly_ramp_front = Bit(raw, 7);
+            msg.enemy_fly_ramp_back = Bit(raw, 8);
+            msg.self_central_highland_lower_crossing = Bit(raw, 9);
+            msg.self_central_highland_upper_crossing = Bit(raw, 10);
+            msg.enemy_central_highland_lower_crossing = Bit(raw, 11);
+            msg.enemy_central_highland_upper_crossing = Bit(raw, 12);
+            msg.self_road_lower_crossing = Bit(raw, 13);
+            msg.self_road_upper_crossing = Bit(raw, 14);
+            msg.enemy_road_lower_crossing = Bit(raw, 15);
+            msg.enemy_road_upper_crossing = Bit(raw, 16);
+            msg.self_fortress_gain_point = Bit(raw, 17);
+            msg.self_outpost_gain_point = Bit(raw, 18);
+            msg.self_non_resource_supply_or_rmul_supply = Bit(raw, 19);
+            msg.self_resource_supply = Bit(raw, 20);
+            msg.self_assembly_gain_point = Bit(raw, 21);
+            msg.enemy_assembly_gain_point = Bit(raw, 22);
+            msg.center_gain_point = Bit(raw, 23);
+            msg.enemy_fortress_gain_point = Bit(raw, 24);
+            msg.enemy_outpost_gain_point = Bit(raw, 25);
+            msg.self_tunnel_road_lower = Bit(raw, 26);
+            msg.self_tunnel_road_middle = Bit(raw, 27);
+            msg.self_tunnel_road_upper = Bit(raw, 28);
+            msg.self_tunnel_trapezoid_low = Bit(raw, 29);
+            msg.self_tunnel_trapezoid_middle = Bit(raw, 30);
+            msg.self_tunnel_trapezoid_high = Bit(raw, 31);
+            return msg;
+        }
+
+        static gimbal_driver::msg::FireCode ToFireCodeMsg(const FireCodeType& firecode) {
+            gimbal_driver::msg::FireCode msg;
+            msg.field_mask = gimbal_driver::msg::FireCode::FIELD_ALL;
+            msg.fire_status = firecode.FireStatus;
+            msg.cap_state = firecode.CapState;
+            msg.hole_mode = firecode.HoleMode != 0;
+            msg.aim_mode = firecode.AimMode != 0;
+            msg.rotate = firecode.Rotate;
+            msg.raw = FireCodeRaw(firecode);
+            return msg;
+        }
+
+        std::int8_t EncodeVelocityRaw(float meters_per_second) const noexcept {
+            if (velocityRawToMps_ <= 0.0f) {
+                return 0;
+            }
+            return ClampInt8(static_cast<int>(std::lround(meters_per_second / velocityRawToMps_)));
+        }
+
+        float DecodeVelocityRaw(std::int8_t raw) const noexcept {
+            return static_cast<float>(raw) * velocityRawToMps_;
         }
 
         static std::uint8_t DecodePostureFromU16(std::uint16_t posture_raw) noexcept {
@@ -174,6 +306,68 @@ namespace
             topic::Msg msg;
             msg.data = posture;
             Node.Publisher<topic>()->publish(msg);
+        }
+
+        void DegradeStaleFireCode(FireCodeType& firecode, const std::chrono::steady_clock::time_point now) const {
+            auto stale = [&](FireCodeFieldIndex field) {
+                const auto stamp = firecodeLastUpdate_[static_cast<std::size_t>(field)];
+                return stamp.time_since_epoch().count() == 0 ||
+                       (now - stamp) > firecodePartialHold_;
+            };
+
+            if (stale(kFireStatusField)) firecode.FireStatus = 0;
+            if (stale(kCapStateField)) firecode.CapState = 0;
+            if (stale(kHoleModeField)) firecode.HoleMode = 0;
+            if (stale(kAimModeField)) firecode.AimMode = 0;
+            if (stale(kRotateField)) firecode.Rotate = 0;
+        }
+
+        void ApplyFireCodeCommand(GimbalControlData& g, const gimbal_driver::msg::FireCode& m) {
+            const auto now = std::chrono::steady_clock::now();
+            const bool full_snapshot = (m.field_mask == 0) ||
+                ((m.field_mask & gimbal_driver::msg::FireCode::FIELD_ALL) == gimbal_driver::msg::FireCode::FIELD_ALL);
+
+            auto mark = [&](FireCodeFieldIndex field) {
+                firecodeLastUpdate_[static_cast<std::size_t>(field)] = now;
+            };
+
+            if (full_snapshot || (m.field_mask & gimbal_driver::msg::FireCode::FIELD_FIRE_STATUS)) {
+                g.FireCode.FireStatus = ClampU2(m.fire_status);
+                mark(kFireStatusField);
+            }
+            if (full_snapshot || (m.field_mask & gimbal_driver::msg::FireCode::FIELD_CAP_STATE)) {
+                g.FireCode.CapState = ClampU2(m.cap_state);
+                mark(kCapStateField);
+            }
+            if (full_snapshot || (m.field_mask & gimbal_driver::msg::FireCode::FIELD_HOLE_MODE)) {
+                g.FireCode.HoleMode = m.hole_mode ? 1 : 0;
+                mark(kHoleModeField);
+            }
+            if (full_snapshot || (m.field_mask & gimbal_driver::msg::FireCode::FIELD_AIM_MODE)) {
+                g.FireCode.AimMode = m.aim_mode ? 1 : 0;
+                mark(kAimModeField);
+            }
+            if (full_snapshot || (m.field_mask & gimbal_driver::msg::FireCode::FIELD_ROTATE)) {
+                g.FireCode.Rotate = ClampU2(m.rotate);
+                mark(kRotateField);
+            }
+
+            if (!full_snapshot) {
+                DegradeStaleFireCode(g.FireCode, now);
+            }
+        }
+
+        void MaybeApplyFireCodeStaleFallback() {
+            const auto now = std::chrono::steady_clock::now();
+            auto next = controlShadow_.FireCode;
+            const auto before_raw = FireCodeRaw(next);
+            DegradeStaleFireCode(next, now);
+            if (FireCodeRaw(next) == before_raw) {
+                return;
+            }
+            CallbackGenerator.Modify([&](GimbalControlData& g) {
+                g.FireCode = next;
+            });
         }
 
         template<typename TTopic>
@@ -244,18 +438,23 @@ namespace
                                             g.GimbalAngles.Pitch = static_cast<float>(m.pitch);  
                                         });
 
-            GenSub<ly_control_firecode>([this](GimbalControlData& g, const std_msgs::msg::UInt8& m)
+            GenSub<ly_control_firecode>([this](GimbalControlData& g, const gimbal_driver::msg::FireCode& m)
                                         {
-                                            *reinterpret_cast<std::uint8_t*>(&g.FireCode) = m.data;
-                                            if (false && !state_timer.check()) {  
+                                            ApplyFireCodeCommand(g, m);
+                                            if (false && !state_timer.check()) {
                                                 g.FireCode.FireStatus = 0;
                                             }
                                         });
 
-            GenSub<ly_control_vel>([](GimbalControlData& g, const gimbal_driver::msg::Vel& m)
+            GenSub<ly_control_vel>([this](GimbalControlData& g, const gimbal_driver::msg::ControlVelocity& m)
                                    {
-                                       g.Velocity.X = static_cast<int8_t>(m.x);
-                                       g.Velocity.Y = static_cast<int8_t>(m.y);
+                                       if (m.use_raw) {
+                                           g.Velocity.X = m.raw_x;
+                                           g.Velocity.Y = m.raw_y;
+                                           return;
+                                       }
+                                       g.Velocity.X = EncodeVelocityRaw(m.x_mps);
+                                       g.Velocity.Y = EncodeVelocityRaw(m.y_mps);
                                    });
 
             GenSub<ly_control_posture>([this](GimbalControlData& g, const std_msgs::msg::UInt8& m)
@@ -289,8 +488,8 @@ namespace
             }
             {
                 using topic = ly_gimbal_firecode;
-                topic::Msg msg;
-                msg.data = *reinterpret_cast<const std::uint8_t*>(&data.FireCode);
+                auto msg = ToFireCodeMsg(data.FireCode);
+                msg.header.stamp = Node.GetNode()->now();
                 Node.Publisher<topic>()->publish(msg);
             }
             {
@@ -367,13 +566,19 @@ namespace
                 msg.data = static_cast<std::uint32_t>(data.ExtEventData);
                 Node.Publisher<topic>()->publish(msg);
             }
+            {
+                using topic = ly_game_event_data;
+                auto msg = ToEventDataMsg(data.ExtEventData);
+                msg.header.stamp = Node.GetNode()->now();
+                Node.Publisher<topic>()->publish(msg);
+            }
         }
 
         void PubRFIDAndBuffData(const RFIDAndBuffData& data){
             {
                 using topic = ly_me_rfid;
-                topic::Msg msg;
-                msg.data = data.RFIDStatus;
+                auto msg = ToRfidStatusMsg(data.RFIDStatus);
+                msg.header.stamp = Node.GetNode()->now();
                 Node.Publisher<topic>()->publish(msg);
             }
             {
@@ -616,6 +821,8 @@ namespace
             getParamCompat("io_config/baud_rate", "io_config.baud_rate", serialBaudRate, 115200);
             int postureRepeatCount = postureTxRepeatCount_;
             int postureRepeatIntervalMs = static_cast<int>(postureTxInterval_.count());
+            int firecodePartialHoldMs = static_cast<int>(firecodePartialHold_.count());
+            double velocityRawToMps = velocityRawToMps_;
             getParamCompat(
                 "io_config/posture_repeat_count",
                 "io_config.posture_repeat_count",
@@ -626,6 +833,16 @@ namespace
                 "io_config.posture_repeat_interval_ms",
                 postureRepeatIntervalMs,
                 postureRepeatIntervalMs);
+            getParamCompat(
+                "io_config/firecode_partial_hold_ms",
+                "io_config.firecode_partial_hold_ms",
+                firecodePartialHoldMs,
+                firecodePartialHoldMs);
+            getParamCompat(
+                "io_config/velocity_raw_to_mps",
+                "io_config.velocity_raw_to_mps",
+                velocityRawToMps,
+                velocityRawToMps);
 
             if (postureRepeatCount <= 0) {
                 roslog::warn("Invalid posture_repeat_count=%d, fallback to 3", postureRepeatCount);
@@ -636,12 +853,25 @@ namespace
                              postureRepeatIntervalMs);
                 postureRepeatIntervalMs = 20;
             }
+            if (firecodePartialHoldMs <= 0) {
+                roslog::warn("Invalid firecode_partial_hold_ms=%d, fallback to 100", firecodePartialHoldMs);
+                firecodePartialHoldMs = 100;
+            }
+            if (velocityRawToMps <= 0.0) {
+                roslog::warn("Invalid velocity_raw_to_mps=%f, fallback to 0.025", velocityRawToMps);
+                velocityRawToMps = 0.025;
+            }
 
             postureTxRepeatCount_ = postureRepeatCount;
             postureTxInterval_ = std::chrono::milliseconds(postureRepeatIntervalMs);
+            firecodePartialHold_ = std::chrono::milliseconds(firecodePartialHoldMs);
+            velocityRawToMps_ = static_cast<float>(velocityRawToMps);
             roslog::warn("posture_tx merged mode: repeat_count=%d repeat_interval_ms=%d",
                          postureTxRepeatCount_,
                          static_cast<int>(postureTxInterval_.count()));
+            roslog::warn("semantic control: firecode_partial_hold_ms=%d velocity_raw_to_mps=%.4f",
+                         static_cast<int>(firecodePartialHold_.count()),
+                         static_cast<double>(velocityRawToMps_));
 
             while (rclcpp::ok())
             {
@@ -658,6 +888,7 @@ namespace
                 std::jthread reading{ [this, useVirtualDevice] { useVirtualDevice ? TestVirtualLoopback() : LoopRead(); } };
                 while (!DeviceError) {
                     rclcpp::spin_some(node);
+                    MaybeApplyFireCodeStaleFallback();
                     MaybeSendPostureTx();
                     rate.sleep();
                 }

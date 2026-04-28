@@ -11,16 +11,8 @@ import rclpy
 from rclpy.node import Node
 
 from auto_aim_common.msg import Target
-from gimbal_driver.msg import GimbalAngles, Vel
+from gimbal_driver.msg import ControlVelocity, FireCode, GimbalAngles
 from std_msgs.msg import Bool, UInt8
-
-
-def encode_firecode(fire_status: int, aim_mode: bool) -> int:
-    # bit0-1 FireStatus, bit5 AimMode
-    value = fire_status & 0x03
-    if aim_mode:
-        value |= (1 << 5)
-    return value & 0xFF
 
 
 @dataclass
@@ -87,8 +79,8 @@ class BuffTestBridge(Node):
         self.pub_outpost_enable = self.create_publisher(Bool, self.outpost_enable_topic, 10)
         self.pub_bt_target = self.create_publisher(UInt8, self.bt_target_topic, 10)
         self.pub_angles = self.create_publisher(GimbalAngles, self.control_angles_topic, 50)
-        self.pub_firecode = self.create_publisher(UInt8, self.control_firecode_topic, 50)
-        self.pub_vel = self.create_publisher(Vel, self.control_vel_topic, 20)
+        self.pub_firecode = self.create_publisher(FireCode, self.control_firecode_topic, 50)
+        self.pub_vel = self.create_publisher(ControlVelocity, self.control_vel_topic, 20)
 
         self.sub_target = self.create_subscription(Target, self.target_topic, self._on_target, 20)
 
@@ -141,14 +133,21 @@ class BuffTestBridge(Node):
     def _publish_zero_velocity(self) -> None:
         if not self.zero_velocity:
             return
-        vel_msg = Vel()
-        vel_msg.x = 0
-        vel_msg.y = 0
+        vel_msg = ControlVelocity()
+        vel_msg.header.stamp = self.get_clock().now().to_msg()
+        vel_msg.x_mps = 0.0
+        vel_msg.y_mps = 0.0
+        vel_msg.raw_x = 0
+        vel_msg.raw_y = 0
+        vel_msg.use_raw = True
         self.pub_vel.publish(vel_msg)
 
-    def _publish_firecode(self, value: int) -> None:
-        msg = UInt8()
-        msg.data = int(value) & 0xFF
+    def _publish_firecode(self, fire_status: int, aim_mode: bool) -> None:
+        msg = FireCode()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.field_mask = FireCode.FIELD_FIRE_STATUS | FireCode.FIELD_AIM_MODE
+        msg.fire_status = int(fire_status) & 0x03
+        msg.aim_mode = bool(aim_mode)
         self.pub_firecode.publish(msg)
 
     def _on_control_timer(self) -> None:
@@ -161,7 +160,7 @@ class BuffTestBridge(Node):
 
         if not target_fresh:
             self.fire_status = 0
-            self._publish_firecode(encode_firecode(self.fire_status, False))
+            self._publish_firecode(self.fire_status, False)
             self._publish_zero_velocity()
             if now_ns - self.last_timeout_log_ns > int(2e9):
                 self.get_logger().warn("buff target timeout, publish safe firecode.")
@@ -184,7 +183,7 @@ class BuffTestBridge(Node):
         if not should_fire:
             self.fire_status = 0
 
-        self._publish_firecode(encode_firecode(self.fire_status, True))
+        self._publish_firecode(self.fire_status, True)
         self._publish_zero_velocity()
 
 

@@ -54,9 +54,9 @@ Options:
   -h, --help       Show help.
 
 Rotate level mapping:
-  level 1 -> firecode 64  (0x40)
-  level 2 -> firecode 128 (0x80)
-  level 3 -> firecode 192 (0xC0)
+  level 1 -> FireCode.rotate=1
+  level 2 -> FireCode.rotate=2
+  level 3 -> FireCode.rotate=3
 EOF
 }
 
@@ -161,21 +161,20 @@ launch_gimbal_driver() {
   fi
 }
 
-encode_rotate_level() {
+validate_rotate_level() {
   local level="$1"
   if ! [[ "${level}" =~ ^[1-3]$ ]]; then
     echo "[ERROR] rotate level must be 1..3, got: ${level}" >&2
     exit 2
   fi
-  printf "%d" $(( (level & 0x03) << 6 ))
 }
 
 publish_once() {
   local level="$1"
-  local raw
-  raw="$(encode_rotate_level "${level}")"
-  echo "[ROTATE-TEST][TX] topic=${TX_TOPIC} level=${level} data=${raw}" >&2
-  ros2 topic pub "${TX_TOPIC}" std_msgs/msg/UInt8 "{data: ${raw}}" -1 >/dev/null
+  validate_rotate_level "${level}"
+  echo "[ROTATE-TEST][TX] topic=${TX_TOPIC} rotate=${level}" >&2
+  ros2 topic pub "${TX_TOPIC}" gimbal_driver/msg/FireCode \
+    "{field_mask: 16, rotate: ${level}}" -1 >/dev/null
 }
 
 run_tx_loop() {

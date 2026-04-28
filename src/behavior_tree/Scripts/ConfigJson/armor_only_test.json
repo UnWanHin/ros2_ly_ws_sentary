@@ -8,7 +8,8 @@
         "HitOutpost": false,
         "HitCar": false,
         "FireRequireTargetStatus": true,
-        "ReuseLatchedAnglesOnNoTarget": false
+        "ReuseLatchedAnglesOnNoTarget": false,
+        "LatchedTargetHoldMs": 100
     },
     "Rate": {
         "FireRate": 20,
@@ -21,6 +22,10 @@
         "TestNavi": false,
         "HitSentry": false,
         "Protected": false
+    },
+    "DamageOpenGate": {
+        "Enable": false,
+        "HealthDropThreshold": 30
     },
     "NaviSetting": {
         "UseXY": true
@@ -102,8 +107,6 @@
         "HealthRecoveryExitStableSec": 1,
         "HealthRecoveryMaxHoldSec": 12,
         "HealthRecoveryCooldownSec": 20,
-        "EnableDamageOpenGate": false,
-        "DamageOpenGateThreshold": 30,
         "MainGoal": 3,
         "PatrolGoals": [],
         "GoalHoldSec": 15

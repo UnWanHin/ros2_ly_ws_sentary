@@ -184,6 +184,7 @@ namespace LangYa {
         ad.HitCar = j.value("HitCar", ad.HitCar);
         ad.FireRequireTargetStatus = j.value("FireRequireTargetStatus", ad.FireRequireTargetStatus);
         ad.ReuseLatchedAnglesOnNoTarget = j.value("ReuseLatchedAnglesOnNoTarget", ad.ReuseLatchedAnglesOnNoTarget);
+        ad.LatchedTargetHoldMs = j.value("LatchedTargetHoldMs", ad.LatchedTargetHoldMs);
     }
 
     void from_json(const json& j, PatrolScanSetting& ps) {
@@ -202,6 +203,12 @@ namespace LangYa {
         gs.HitSentry = j.value("HitSentry", gs.HitSentry);
         gs.Protected = j.value("Protected", gs.Protected);
     }
+
+    void from_json(const json& j, DamageOpenGateSetting& dog) {
+        dog.Enable = j.value("Enable", dog.Enable);
+        dog.HealthDropThreshold = j.value("HealthDropThreshold", dog.HealthDropThreshold);
+    }
+
     void from_json(const json& j, NaviSetting& ns) {
         ns.UseXY = j.value("UseXY", ns.UseXY);
         ns.UseTfGoalBridge = j.value("UseTfGoalBridge", ns.UseTfGoalBridge);
@@ -220,8 +227,6 @@ namespace LangYa {
         ls.HealthRecoveryExitStableSec = j.value("HealthRecoveryExitStableSec", ls.HealthRecoveryExitStableSec);
         ls.HealthRecoveryMaxHoldSec = j.value("HealthRecoveryMaxHoldSec", ls.HealthRecoveryMaxHoldSec);
         ls.HealthRecoveryCooldownSec = j.value("HealthRecoveryCooldownSec", ls.HealthRecoveryCooldownSec);
-        ls.EnableDamageOpenGate = j.value("EnableDamageOpenGate", ls.EnableDamageOpenGate);
-        ls.DamageOpenGateThreshold = j.value("DamageOpenGateThreshold", ls.DamageOpenGateThreshold);
         ls.MainGoal = j.value("MainGoal", ls.MainGoal);
         ls.GoalHoldSec = j.value("GoalHoldSec", ls.GoalHoldSec);
         if (j.contains("PatrolGoals")) {
@@ -391,6 +396,9 @@ namespace LangYa {
         if (j.contains("GameStrategy")) {
             j.at("GameStrategy").get_to(c.GameStrategySettings);
         }
+        if (j.contains("DamageOpenGate")) {
+            j.at("DamageOpenGate").get_to(c.DamageOpenGateSettings);
+        }
         c.ScanCounter = j.value("ScanCounter", c.ScanCounter);
         if (j.contains("NaviSetting")) {
             j.at("NaviSetting").get_to(c.NaviSettings);
@@ -449,6 +457,7 @@ namespace BehaviorTree {
         LoggerPtr->Debug("HitCar: {}", config.AimDebugSettings.HitCar);
         LoggerPtr->Debug("FireRequireTargetStatus: {}", config.AimDebugSettings.FireRequireTargetStatus);
         LoggerPtr->Debug("ReuseLatchedAnglesOnNoTarget: {}", config.AimDebugSettings.ReuseLatchedAnglesOnNoTarget);
+        LoggerPtr->Debug("LatchedTargetHoldMs: {}", config.AimDebugSettings.LatchedTargetHoldMs);
         LoggerPtr->Debug("------ PatrolScan ------");
         LoggerPtr->Debug("Mode: {}", config.PatrolScanSettings.Mode);
         LoggerPtr->Debug("------ Rate ------");
@@ -462,6 +471,9 @@ namespace BehaviorTree {
         LoggerPtr->Debug("HitSentry: {}", config.GameStrategySettings.HitSentry);
         LoggerPtr->Debug("TestNavi: {}", config.GameStrategySettings.TestNavi);
         LoggerPtr->Debug("Protected: {}", config.GameStrategySettings.Protected);
+        LoggerPtr->Debug("------ DamageOpenGate ------");
+        LoggerPtr->Debug("Enable: {}", config.DamageOpenGateSettings.Enable);
+        LoggerPtr->Debug("HealthDropThreshold: {}", config.DamageOpenGateSettings.HealthDropThreshold);
         LoggerPtr->Debug("------ NaviSetting ------");
         LoggerPtr->Debug("UseXY: {}", config.NaviSettings.UseXY);
         LoggerPtr->Debug("UseTfGoalBridge: {}", config.NaviSettings.UseTfGoalBridge);
@@ -478,8 +490,6 @@ namespace BehaviorTree {
         LoggerPtr->Debug("HealthRecoveryExitStableSec: {}", config.LeagueStrategySettings.HealthRecoveryExitStableSec);
         LoggerPtr->Debug("HealthRecoveryMaxHoldSec: {}", config.LeagueStrategySettings.HealthRecoveryMaxHoldSec);
         LoggerPtr->Debug("HealthRecoveryCooldownSec: {}", config.LeagueStrategySettings.HealthRecoveryCooldownSec);
-        LoggerPtr->Debug("EnableDamageOpenGate: {}", config.LeagueStrategySettings.EnableDamageOpenGate);
-        LoggerPtr->Debug("DamageOpenGateThreshold: {}", config.LeagueStrategySettings.DamageOpenGateThreshold);
         LoggerPtr->Debug("MainGoal: {}", static_cast<int>(config.LeagueStrategySettings.MainGoal));
         LoggerPtr->Debug("GoalHoldSec: {}", config.LeagueStrategySettings.GoalHoldSec);
         LoggerPtr->Debug("------ ShowcasePatrol ------");
@@ -633,16 +643,16 @@ namespace BehaviorTree {
                 config.LeagueStrategySettings.HealthRecoveryCooldownSec);
             config.LeagueStrategySettings.HealthRecoveryCooldownSec = 0;
         }
-        if (config.LeagueStrategySettings.DamageOpenGateThreshold == 0) {
+        if (config.DamageOpenGateSettings.HealthDropThreshold == 0) {
             LoggerPtr->Warning(
-                "Invalid LeagueStrategy.DamageOpenGateThreshold=0, fallback to 30.");
-            config.LeagueStrategySettings.DamageOpenGateThreshold = 30;
+                "Invalid DamageOpenGate.HealthDropThreshold=0, fallback to 30.");
+            config.DamageOpenGateSettings.HealthDropThreshold = 30;
         }
-        if (config.LeagueStrategySettings.DamageOpenGateThreshold > 400) {
+        if (config.DamageOpenGateSettings.HealthDropThreshold > 400) {
             LoggerPtr->Warning(
-                "Invalid LeagueStrategy.DamageOpenGateThreshold={}, clamp to 400.",
-                config.LeagueStrategySettings.DamageOpenGateThreshold);
-            config.LeagueStrategySettings.DamageOpenGateThreshold = 400;
+                "Invalid DamageOpenGate.HealthDropThreshold={}, clamp to 400.",
+                config.DamageOpenGateSettings.HealthDropThreshold);
+            config.DamageOpenGateSettings.HealthDropThreshold = 400;
         }
         if (!IsValidBaseGoal(config.LeagueStrategySettings.MainGoal)) {
             LoggerPtr->Warning(

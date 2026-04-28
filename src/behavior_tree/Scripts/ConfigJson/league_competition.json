@@ -7,7 +7,8 @@
         "HitBuff": false,
         "HitOutpost": false,
         "HitCar": false,
-        "FireRequireTargetStatus": false
+        "FireRequireTargetStatus": false,
+        "LatchedTargetHoldMs": 100
     },
     "PatrolScan": {
         "Mode": 2
@@ -23,6 +24,10 @@
         "TestNavi": false,
         "HitSentry": false,
         "Protected": false
+    },
+    "DamageOpenGate": {
+        "Enable": false,
+        "HealthDropThreshold": 30
     },
     "NaviSetting": {
         "UseXY": false,
@@ -105,8 +110,6 @@
         "HealthRecoveryExitStableSec": 1,
         "HealthRecoveryMaxHoldSec": 12,
         "HealthRecoveryCooldownSec": 20,
-        "EnableDamageOpenGate": false,
-        "DamageOpenGateThreshold": 30,
         "MainGoal": 3,
         "PatrolGoals": [],
         "GoalHoldSec": 15

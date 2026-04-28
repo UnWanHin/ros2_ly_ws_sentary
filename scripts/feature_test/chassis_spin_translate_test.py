@@ -11,8 +11,10 @@ import rclpy
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 
-from gimbal_driver.msg import Vel
-from std_msgs.msg import UInt8
+from gimbal_driver.msg import ControlVelocity, FireCode
+
+
+VELOCITY_RAW_TO_MPS = 0.025
 
 
 def clamp_int8(value: int) -> int:
@@ -48,10 +50,8 @@ class ChassisSpinTranslateNode(Node):
         self.half_period_ns = max(1, int(self.profile.period_sec * 1e9 / 2.0))
         self.start_ns = self.get_clock().now().nanoseconds
         self.last_direction: int | None = None
-        self.firecode_frame = self._encode_firecode(self.rotate_level)
-
-        self.vel_pub = self.create_publisher(Vel, vel_topic, 10)
-        self.firecode_pub = self.create_publisher(UInt8, firecode_topic, 10)
+        self.vel_pub = self.create_publisher(ControlVelocity, vel_topic, 10)
+        self.firecode_pub = self.create_publisher(FireCode, firecode_topic, 10)
         self.timer = self.create_timer(1.0 / self.hz, self._on_timer)
 
         self.get_logger().info(
@@ -62,23 +62,27 @@ class ChassisSpinTranslateNode(Node):
             f"vel_topic={vel_topic} firecode_topic={firecode_topic}"
         )
 
-    @staticmethod
-    def _encode_firecode(rotate_level: int) -> int:
-        return (clamp_rotate_level(rotate_level) & 0x03) << 6
-
     def _current_direction(self) -> int:
         elapsed_ns = self.get_clock().now().nanoseconds - self.start_ns
         phase = (elapsed_ns // self.half_period_ns) % 2
         return 1 if phase == 0 else -1
 
-    def _publish(self, speed_x: int, speed_y: int, firecode: int) -> None:
-        vel_msg = Vel()
-        vel_msg.x = int(speed_x)
-        vel_msg.y = int(speed_y)
+    def _publish(self, speed_x: int, speed_y: int, rotate: int) -> None:
+        now = self.get_clock().now().to_msg()
+
+        vel_msg = ControlVelocity()
+        vel_msg.header.stamp = now
+        vel_msg.raw_x = clamp_int8(speed_x)
+        vel_msg.raw_y = clamp_int8(speed_y)
+        vel_msg.x_mps = float(vel_msg.raw_x) * VELOCITY_RAW_TO_MPS
+        vel_msg.y_mps = float(vel_msg.raw_y) * VELOCITY_RAW_TO_MPS
+        vel_msg.use_raw = True
         self.vel_pub.publish(vel_msg)
 
-        fire_msg = UInt8()
-        fire_msg.data = int(firecode) & 0xFF
+        fire_msg = FireCode()
+        fire_msg.header.stamp = now
+        fire_msg.field_mask = FireCode.FIELD_ROTATE
+        fire_msg.rotate = clamp_rotate_level(rotate)
         self.firecode_pub.publish(fire_msg)
 
     def _publish_stop(self) -> None:
@@ -97,7 +101,7 @@ class ChassisSpinTranslateNode(Node):
         self._publish(
             direction * self.profile.speed_x,
             direction * self.profile.speed_y,
-            self.firecode_frame,
+            self.rotate_level,
         )
 
     def shutdown(self) -> None:

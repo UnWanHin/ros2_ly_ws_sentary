@@ -13,7 +13,7 @@ from typing import List
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import UInt8
+from gimbal_driver.msg import FireCode
 
 
 def str2bool(value: str) -> bool:
@@ -30,7 +30,7 @@ def str2bool(value: str) -> bool:
 class FireFlipTestNode(Node):
     def __init__(self, fire_hz: float, diag_period: float = 1.0):
         super().__init__('fire_flip_test')
-        self.fire_pub = self.create_publisher(UInt8, '/ly/control/firecode', 10)
+        self.fire_pub = self.create_publisher(FireCode, '/ly/control/firecode', 10)
         self.fire_status = 0
         self.tx_count = 0
         self.diag_period = max(diag_period, 0.2)
@@ -56,8 +56,10 @@ class FireFlipTestNode(Node):
         return sorted(nodes)
 
     def _publish_fire(self, value: int):
-        msg = UInt8()
-        msg.data = value
+        msg = FireCode()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.field_mask = FireCode.FIELD_FIRE_STATUS
+        msg.fire_status = int(value) & 0b11
         self.fire_pub.publish(msg)
         self.tx_count += 1
 

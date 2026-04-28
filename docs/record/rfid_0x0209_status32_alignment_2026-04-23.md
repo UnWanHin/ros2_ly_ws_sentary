@@ -71,6 +71,6 @@ static_assert(sizeof(RFIDAndBuffData) == sizeof(GimbalData), "TypeID=4 payload m
 
 ## 5. 兼容性结论
 
-- ROS topic 契约不变：`/ly/me/rfid` 仍是 `UInt32`。
-- `behavior_tree` 当前仍按原样透传 `rfidStatus`，不做位拆解，行为不变。
+- 2026-04-28 更新：`/ly/me/rfid` 已改为 `gimbal_driver/msg/RfidStatus`，不再是 `UInt32`。
+- `behavior_tree` 从 `/ly/me/rfid.raw` 写回内部 `rfidStatus`，内部仍保留 `uint32` 缓存。
 - 本次属于协议语义对齐，不引入链路长度变化。

@@ -62,11 +62,11 @@ struct GimbalControlData
 | byte offset | 字段 | 类型 | 来源 | 当前上位机写法 |
 |---|---|---|---|---|
 | 0 | `HeadFlag` | `uint8` | 固定值 | `'!'` / `0x21` |
-| 1 | `Velocity.X` | `int8` | `/ly/control/vel.x` | 直接 `static_cast<int8_t>` |
-| 2 | `Velocity.Y` | `int8` | `/ly/control/vel.y` | 直接 `static_cast<int8_t>` |
+| 1 | `Velocity.X` | `int8` | `/ly/control/vel.raw_x` 或 `x_mps` 编码 | `use_raw=true` 直接写；否则按 `velocity_raw_to_mps` 编码 |
+| 2 | `Velocity.Y` | `int8` | `/ly/control/vel.raw_y` 或 `y_mps` 编码 | `use_raw=true` 直接写；否则按 `velocity_raw_to_mps` 编码 |
 | 3~6 | `GimbalAngles.Yaw` | `float` | `/ly/control/angles.yaw` | 直接写 `float` |
 | 7~10 | `GimbalAngles.Pitch` | `float` | `/ly/control/angles.pitch` | 直接写 `float` |
-| 11 | `FireCode` | `uint8` | `/ly/control/firecode.data` | 原样写 1 字节 |
+| 11 | `FireCode` | `uint8` | `/ly/control/firecode` 分字段 | `FireCode` msg 组包；partial 字段 100ms 超时退回 0 |
 | 12 | `Posture` | `uint8` | `/ly/control/posture.data` | 仅接受 `0/1/2/3` |
 | 13 | `Tail` | `uint8` | 固定值 | `0x00` |
 
@@ -76,9 +76,9 @@ struct GimbalControlData
 |---|---|---|---|
 | `/ly/control/angles` | `yaw` | `GimbalAngles.Yaw` | 云台目标 yaw |
 | `/ly/control/angles` | `pitch` | `GimbalAngles.Pitch` | 云台目标 pitch |
-| `/ly/control/vel` | `x` | `Velocity.X` | 底盘速度 x |
-| `/ly/control/vel` | `y` | `Velocity.Y` | 底盘速度 y |
-| `/ly/control/firecode` | `data` | `FireCode` | 整字节原样写入 |
+| `/ly/control/vel` | `x_mps/raw_x/use_raw` | `Velocity.X` | 语义速度或原始 int8 |
+| `/ly/control/vel` | `y_mps/raw_y/use_raw` | `Velocity.Y` | 语义速度或原始 int8 |
+| `/ly/control/firecode` | `fire_status/cap_state/hole_mode/aim_mode/rotate/field_mask` | `FireCode` | 分字段组包 |
 | `/ly/control/posture` | `data` | `Posture` | `0=保留, 1=进攻, 2=防御, 3=移动` |
 
 ### 3.1.3 `FireCode` 位定义
@@ -169,7 +169,7 @@ struct GimbalData
 | `GimbalAngles.Pitch` | 直接读 `float` | `/ly/gimbal/angles` | `pitch` |
 | `Velocity.X` | 直接读 `int8` | `/ly/gimbal/vel` | `x` |
 | `Velocity.Y` | 直接读 `int8` | `/ly/gimbal/vel` | `y` |
-| `FireCode` | 整字节重解释 | `/ly/gimbal/firecode` | `data` |
+| `FireCode` | 位字段拆解并保留 `raw` | `/ly/gimbal/firecode` | `fire_status/cap_state/hole_mode/aim_mode/rotate/raw` |
 | `CapV` | 直接读 `uint8` | `/ly/gimbal/capV` | `data` |
 
 ---
@@ -236,6 +236,7 @@ struct GameData
 | `SelfHealth` | 直接读 `uint16` | `/ly/game/all` | `selfhealth` |
 | `ExtEventData` | 整体转 `uint32` | `/ly/game/all` | `exteventdata` |
 | `ExtEventData` | 整体转 `uint32` | `ly/gimbal/eventdata` | `data`，注意当前 topic 字符串无前导 `/` |
+| `ExtEventData` | 按 V1.3.0 bit 拆字段 | `/ly/game/event_data` | `EventData` |
 | `GameCode.EnemyOutpostHealth` | `* 25` | `/ly/enemy/op_hp` | `data` |
 | `GameCode.HeroPrecaution` | 直接读 bit | `/ly/me/is_precaution` | `data` |
 | `GameCode.IsGameBegin` | 直接读 bit | `/ly/game/is_start` | `data` |
@@ -332,7 +333,7 @@ struct RFIDAndBuffData{
 
 | 串口字段 | 发布 topic | ROS 字段 / 备注 |
 |---|---|---|
-| `RFIDStatus` | `/ly/me/rfid` | `data` |
+| `RFIDStatus` | `/ly/me/rfid` | `RfidStatus` 拆字段，仍只覆盖 bit0-31 |
 | `BuffStatus.RecoveryBuff` | `/ly/team/buff` | `recoverybuff` |
 | `BuffStatus.CoolingBuff` | `/ly/team/buff` | `coolingbuff` |
 | `BuffStatus.DefenceBuff` | `/ly/team/buff` | `defencebuff` |
@@ -493,9 +494,9 @@ struct ChassisData {
 |---|---|---|
 | 云台目标角 yaw | `GimbalControlData.GimbalAngles.Yaw` | `/ly/control/angles` |
 | 云台目标角 pitch | `GimbalControlData.GimbalAngles.Pitch` | `/ly/control/angles` |
-| 底盘速度 x | `GimbalControlData.Velocity.X` | `/ly/control/vel` |
-| 底盘速度 y | `GimbalControlData.Velocity.Y` | `/ly/control/vel` |
-| 火控字节 | `GimbalControlData.FireCode` | `/ly/control/firecode` |
+| 底盘速度 x | `GimbalControlData.Velocity.X` | `/ly/control/vel` (`ControlVelocity`) |
+| 底盘速度 y | `GimbalControlData.Velocity.Y` | `/ly/control/vel` (`ControlVelocity`) |
+| 火控字段 | `GimbalControlData.FireCode` | `/ly/control/firecode` (`FireCode`) |
 | 姿态指令 | `GimbalControlData.Posture` | `/ly/control/posture` |
 
 ## 6.2 下位机 -> 上位机已对接
@@ -504,7 +505,7 @@ struct ChassisData {
 |---|---|---|---|
 | `0` | 云台角 | `GimbalData.GimbalAngles` | `/ly/gimbal/angles` |
 | `0` | 底盘速度 | `GimbalData.Velocity` | `/ly/gimbal/vel` |
-| `0` | 火控状态字节 | `GimbalData.FireCode` | `/ly/gimbal/firecode` |
+| `0` | 火控状态 | `GimbalData.FireCode` | `/ly/gimbal/firecode` (`FireCode`) |
 | `0` | 电容值 | `GimbalData.CapV` | `/ly/gimbal/capV` |
 | `1` | 比赛摘要 | `GameData` | `/ly/game/all` |
 | `1` | 子弹余量 | `GameData.AmmoLeft` | `/ly/me/ammo_left` |
@@ -515,7 +516,7 @@ struct ChassisData {
 | `1` | 比赛开始标志 | `GameCode.IsGameBegin` | `/ly/game/is_start` |
 | `1` | 我方颜色 | `GameCode.IsMyTeamRed` | `/ly/me/is_team_red` |
 | `1` | 回家标志 | `GameCode.IsReturnedHome` | `/ly/me/is_at_home` |
-| `1` | 场地事件原始值 | `GameData.ExtEventData` | `/ly/game/all`, `ly/gimbal/eventdata` |
+| `1` | 场地事件原始值/拆字段 | `GameData.ExtEventData` | `/ly/game/all`, `ly/gimbal/eventdata`, `/ly/game/event_data` |
 | `2` | 我方各兵种血量 | `HealthMyselfData` | `/ly/me/hp` |
 | `2` | 我方基地血量 | `HealthMyselfData.BaseMyself` | `/ly/me/base_hp` |
 | `3` | 敌方各兵种血量 | `HealthEnemyData` | `/ly/enemy/hp` |

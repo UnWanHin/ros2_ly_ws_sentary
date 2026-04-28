@@ -333,9 +333,9 @@ private:
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr pub_outpost_enable_;
 
     rclcpp::Publisher<gimbal_driver::msg::GimbalAngles>::SharedPtr pub_gimbal_control_;
-    rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_gimbal_firecode_;
+    rclcpp::Publisher<gimbal_driver::msg::FireCode>::SharedPtr pub_gimbal_firecode_;
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_gimbal_posture_;
-    rclcpp::Publisher<gimbal_driver::msg::Vel>::SharedPtr pub_gimbal_vel_;
+    rclcpp::Publisher<gimbal_driver::msg::ControlVelocity>::SharedPtr pub_gimbal_vel_;
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_gimbal_capV_;
 
     rclcpp::Publisher<auto_aim_common::msg::Target>::SharedPtr pub_predictor_target_;
