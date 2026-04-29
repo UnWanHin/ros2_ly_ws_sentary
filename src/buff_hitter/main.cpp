@@ -79,6 +79,7 @@ LY_DEF_ROS_TOPIC(ly_compressed_image, "/ly/compressed/image", sensor_msgs::msg::
 LY_DEF_ROS_TOPIC(ly_gimbal_angles, "/ly/gimbal/angles", gimbal_driver::msg::GimbalAngles);
 LY_DEF_ROS_TOPIC(ly_gimbal_firecode, "/ly/gimbal/firecode", gimbal_driver::msg::FireCode);
 LY_DEF_ROS_TOPIC(ly_bullet_speed, "/ly/bullet/speed", std_msgs::msg::Float32);
+LY_DEF_ROS_TOPIC(ly_me_is_team_red, "/ly/me/is_team_red", std_msgs::msg::Bool);
 
 LY_DEF_ROS_TOPIC(ly_buff_target, "/ly/buff/target", auto_aim_common::msg::Target)
 LY_DEF_ROS_TOPIC(ly_buff_debug, "/ly/buff/debug", auto_aim_common::msg::BuffDebug)
@@ -169,7 +170,10 @@ private:
     double bullet_speed_alpha_{0.5};
     bool dynamic_bullet_speed_enable_{true};
     bool has_filtered_bullet_speed_{true};
-    int enemy_color_{0};  // 0 red, 1 blue
+    std::atomic<int> enemy_color_{0};  // 0 red, 1 blue
+    bool buff_color_auto_{true};
+    std::atomic<bool> has_my_team_color_{false};
+    bool warned_waiting_team_color_{false};
     int default_buff_mode_{0};  // 0 auto, 1 small, 2 big
     int buff_mode_{1};          // active mode
     std::atomic<int> requested_buff_mode_{0};  // 0: follow default, 1: small, 2: big
@@ -218,6 +222,19 @@ private:
         const int mode = static_cast<int>(msg->data);
         if (mode >= 0 && mode <= 2) {
             requested_buff_mode_.store(mode, std::memory_order_relaxed);
+        }
+    }
+
+    void my_team_callback(const std_msgs::msg::Bool::ConstSharedPtr msg) {
+        if (!msg || !buff_color_auto_) return;
+        const int target_color = msg->data ? 0 : 1;
+        const int previous = enemy_color_.exchange(target_color, std::memory_order_relaxed);
+        const bool had_color = has_my_team_color_.exchange(true, std::memory_order_relaxed);
+        if (!had_color || previous != target_color) {
+            roslog::info(
+                "buff target color auto: my_team={}, target_buff={}",
+                msg->data ? "red" : "blue",
+                target_color == 0 ? "red" : "blue");
         }
     }
 
@@ -409,11 +426,8 @@ public:
         roslog::info(
             "buff bullet speed cfg: dynamic={}, default={} min={} alpha={}",
             dynamic_bullet_speed_enable_, filtered_bullet_speed_mps_, min_bullet_speed_mps_, bullet_speed_alpha_);
-        if (enemy_color == "blue") {
-            enemy_color_ = 1;
-        } else {
-            enemy_color_ = 0;
-        }
+        buff_color_auto_ = (enemy_color == "auto");
+        enemy_color_.store(enemy_color == "blue" ? 1 : 0, std::memory_order_relaxed);
 
         if (buff_param.exists("default_mode")) {
             default_buff_mode_ = buff_param["default_mode"].Int();
@@ -497,7 +511,7 @@ public:
         roslog::info("buff model path: red={}, blue={}", red_buff_model_path, blue_buff_model_path);
         roslog::info(
             "buff mode cfg: enemy_color={} default_mode={} topic_switch={} reload_big_buff={} two_target_enable={} two_target_timeout={}",
-            enemy_color_, default_buff_mode_, mode_switch_topic_enable_, reload_big_buff_,
+            enemy_color_.load(std::memory_order_relaxed), default_buff_mode_, mode_switch_topic_enable_, reload_big_buff_,
             two_target_enable_, two_target_cycle_timeout_sec_);
 
         std::vector<double> solver_intrinsic_flat;
@@ -658,6 +672,8 @@ public:
         [this](const std_msgs::msg::UInt8::ConstSharedPtr msg) { ra_mode_callback(msg); });
     Node.GenSubscriber<ly_bullet_speed>(
         [this](const std_msgs::msg::Float32::ConstSharedPtr msg) { bullet_speed_callback(msg); });
+    Node.GenSubscriber<ly_me_is_team_red>(
+        [this](const std_msgs::msg::Bool::ConstSharedPtr msg) { my_team_callback(msg); });
     
     using namespace std::chrono_literals;
     
@@ -690,8 +706,22 @@ public:
         // Do your work here
         buff_success = false;
         // roslog::warn("PITCH_NOW:{} YAW_NOW:{} ",last_var.GimbalAngles.pitch, last_var.GimbalAngles.yaw); 
+
+        if (buff_color_auto_ && !has_my_team_color_.load(std::memory_order_relaxed)) {
+            if (!warned_waiting_team_color_) {
+                roslog::warn("buff target color auto: waiting for /ly/me/is_team_red");
+                warned_waiting_team_color_ = true;
+            }
+            prev_shoot_cmd_ = false;
+            last_var.buffHitterShoot = false;
+            last_var.buff_follow = true;
+            PubData(last_var.buffHitterShoot, last_var.GimbalAngles);
+            PubDebug(false, buff_mode_, last_var.GimbalAngles, cv::Point3f{}, 0.0, 0.0, 0.0);
+            std::this_thread::sleep_for(10ms);
+            continue;
+        }
         
-        if (buff_detector().buffDetect(image, enemy_color_) == false)
+        if (buff_detector().buffDetect(image, enemy_color_.load(std::memory_order_relaxed)) == false)
         {
             roslog::error("buff_detector fail");
             dual_target_active_ = false;
