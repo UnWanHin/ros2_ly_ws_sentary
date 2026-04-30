@@ -14,9 +14,9 @@
 參考方向：
 
 - `sentry.aim`：短 target timeout、用消息時間戳做 TF/控制、哨兵外參。
-- `TDrone`：只參考時間對齊與響應節奏思路，不搬它的無人機外參，也不搬它的預測模型。
+- `TDrone`：solver/PnP 思路可作準確性參考；響應上參考它的時間對齊與週期輸出節奏。
 
-按 2026-05-01 的判斷，預測主體仍保留本倉庫原本 predictor；本次沒有改成 TDrone predictor。
+按 2026-05-01 的判斷，預測主體仍保留本倉庫原本 predictor；本次沒有改成 TDrone predictor，也不搬它的無人機外參。
 
 ## 根因 / 判斷
 
@@ -153,6 +153,7 @@
 
 - 不要把 TDrone 的 predictor 直接搬過來；它的目標模型與無人機場景不匹配。
 - 不要把 TDrone 外參套到哨兵。
+- TDrone 的 solver/PnP 可以繼續作對照，但要逐項驗證座標系與相機模型後再移植。
 - 不要在時間戳和 PnP 還沒驗乾淨前大改 predictor 結構。
 
 ## 驗證
