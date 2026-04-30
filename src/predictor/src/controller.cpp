@@ -435,6 +435,9 @@ ControlResult Controller::control(const GimbalAngleType& gimbal_angle, int targe
         roslog::warn("calcPitchYawWithShootTable failed");
         return result;
     }
+    if (std::isfinite(time) && time > 0.0) {
+        flyTime = rclcpp::Duration::from_seconds(time);
+    }
     result.pitch_setpoint = pitch * 180 / PI;
     result.yaw_setpoint = yaw * 180 / PI;
     result.yaw_setpoint = result.yaw_setpoint + std::round((gimbal_angle.yaw - result.yaw_setpoint) / 360.0f) * 360.0f;

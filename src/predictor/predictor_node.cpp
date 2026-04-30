@@ -176,13 +176,25 @@ namespace {
 
                 std::lock_guard<std::mutex> lock(data_mutex);
                 const auto update_stats = predictor->update(track_results, timestamp);
+                const auto callback_time = node.now();
                 last_gimbal_angle_ = gimbal_angle;
                 last_tracker_header_ = msg->header;
-                last_update_time_ = node.now();
+                last_update_time_ = callback_time;
                 has_tracker_input_ = true;
                 has_new_tracker_frame_.store(true, std::memory_order_release);
                 if (update_stats.model_update_count > 0) {
                     last_observation_time_ = last_update_time_;
+                }
+                if (last_update_stats_log_time_.nanoseconds() == 0 ||
+                    (callback_time - last_update_stats_log_time_) > update_stats_log_interval_) {
+                    RCLCPP_INFO(
+                        node.get_logger(),
+                        "predictor update stats: armors=%zu cars=%zu model_updates=%zu tracker_age_ms=%.1f",
+                        update_stats.armor_count,
+                        update_stats.car_count,
+                        update_stats.model_update_count,
+                        (callback_time - rclcpp::Time(msg->header.stamp)).seconds() * 1000.0);
+                    last_update_stats_log_time_ = callback_time;
                 }
             }
 
@@ -340,6 +352,7 @@ namespace {
             std_msgs::msg::Header last_tracker_header_{};
             rclcpp::Time last_update_time_{};
             rclcpp::Time last_observation_time_{};
+            rclcpp::Time last_update_stats_log_time_{};
             std::atomic_bool has_tracker_input_{false};
             std::atomic_bool has_new_tracker_frame_{false};
             bool publish_only_on_new_tracker_frame_{false};
@@ -347,6 +360,7 @@ namespace {
             rclcpp::Duration coast_timeout_{rclcpp::Duration::from_seconds(0.10)};
             rclcpp::Time last_invalid_reason_log_time_{};
             const rclcpp::Duration invalid_reason_log_interval_{rclcpp::Duration::from_seconds(0.5)};
+            const rclcpp::Duration update_stats_log_interval_{rclcpp::Duration::from_seconds(1.0)};
     };
 }
 

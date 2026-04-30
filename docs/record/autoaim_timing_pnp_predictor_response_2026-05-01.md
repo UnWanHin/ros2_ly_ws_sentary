@@ -66,7 +66,9 @@
 涉及文件：
 
 - `src/predictor/include/predictor/predictor.hpp`
+- `src/predictor/include/predictor/motion_model.hpp`
 - `src/predictor/src/predictor.cpp`
+- `src/predictor/src/controller.cpp`
 - `src/predictor/predictor_node.cpp`
 - `src/predictor/config/predictor_config.yaml`
 
@@ -78,6 +80,23 @@
 - 不再因為 armor-only 幀就新建/保留可預測模型。
 - 新增 `predictor_config.coast_timeout_sec`，默認 `0.10`，對齊 `sentry.aim` 的短目標超時思路。
 - `publish_only_on_new_tracker_frame` 默認 `false`，保留 100Hz timer 輸出節奏；這是響應節奏參考，不是 TDrone 預測模型移植。
+- 對照 `change_buff_infantry/upload-infantry-buff-20260428` 後，採用步兵 predictor 的 pitch 觀測處理：`pitch_top/pitch_bottom/pitch_center` 不再由整車 bbox 上下邊界推導，而是保持為裝甲板中心 pitch，避免 bbox 像素量化造成 pitch 階梯。
+- 對照步兵 controller 後，裝甲板彈道計算成功時把實際 `time` 回寫到 `flyTime`，讓下一輪控制用最新飛行時間做提前量；舊邏輯只在車中心估算/無可用裝甲板 fallback 時更新，可能讓提前時間滯後。
+
+### 步兵 predictor 對照
+
+參考分支：
+
+- `https://github.com/xty2025/change_buff_infantry/tree/upload-infantry-buff-20260428`
+- 本地分析路徑：`/tmp/change_buff_infantry_upload_20260428`
+
+判斷：
+
+- 該分支的步兵 predictor 與本倉庫 predictor 同源，都是 12 維狀態、10 維觀測的整車 EKF。
+- 可直接借鑑的是 pitch 觀測策略：它在 `measureFunc` 中讓 `m[7] = m[8] = m[9] = m[0]`，避免 bbox top/bottom pitch 帶來階梯。
+- 不直接搬它的全套 controller / config / 外參；步兵相機、彈道表、串口控制和哨兵 ROS2 鏈路不同。
+- 本倉庫仍保留 `predictor_config.coast_timeout_sec` 與 BT status gate 來保證響應和失效行為。
+- 該分支 controller 每次 ballistic 成功會刷新 `cached_fly_time_`；本倉庫已對齊這點，避免 flight-time 提前量用舊值。
 
 ### behavior_tree
 
@@ -115,6 +134,9 @@
 - `predictor_config.coast_timeout_sec: 0.10`
   - 調大：短暫丟檢更平滑，但更容易吃舊目標。
   - 調小：失效更快，但抖動或偶發漏幀時更容易斷跟。
+- predictor pitch 觀測策略：
+  - 目前固定使用裝甲板中心 pitch 作 `pitch_top/pitch_bottom/pitch_center`。
+  - 這不是 YAML 參數；它是為了跟步兵 predictor 一樣避免 bbox 上下邊界量化階梯，先作為穩定性修正保留在代碼中。
 
 `src/predictor/config/predictor_config.yaml`：
 
@@ -142,6 +164,7 @@
 - `/ly/tracker/results` 的裝甲板 yaw 是否還會跨目標跳解。
 - `/ly/predictor/target` 是否在丟觀測後約 100ms 內停止發布有效 target；若後續發布 invalid target，BT 也應按 `status=false` 處理。
 - `/ly/control/angles` 是否還在 target invalid 後繼續追舊角。
+- predictor log 裡 `armor_count/car_count/model_update_count` 的關係；如果 `armor_count > 0` 但 `model_update_count` 長時間為 0，說明響應慢主要卡在 car bbox 匹配/更新門檻，而不是 timer。
 
 若要快調：
 
@@ -163,12 +186,14 @@
 ```bash
 git diff --check
 source /opt/ros/humble/setup.bash && colcon build --packages-select detector tracker_solver predictor behavior_tree --allow-overriding detector tracker_solver predictor behavior_tree
+source /opt/ros/humble/setup.bash && colcon build --packages-select predictor --allow-overriding predictor
 ```
 
 結果：
 
 - `git diff --check` 通過。
 - `detector`、`tracker_solver`、`predictor`、`behavior_tree` 均 build 通過。
+- 步兵 predictor pitch 觀測移植與 controller flight-time 回寫後，`predictor` 單包 build 通過。
 
 已執行：
 
@@ -187,6 +212,7 @@ source /opt/ros/humble/setup.bash && colcon build --packages-select detector tra
 
 - Daheng `nTimestamp` 還沒有映射到 ROS clock；目前只是保留 metadata 供排查。
 - predictor 還沒有做真正 armor-only EKF update；現在只是避免 armor-only 幀刷新有效模型。
+- 如果實機仍然覺得 predictor 響應慢，下一個要驗證的是 car bbox 是否每幀穩定匹配。若 car bbox 掉幀，現在 EKF 不會用 armor-only 幀更新模型；正確改法是給 armor-only update 單獨觀測模型或高 R masking，而不是把缺失的 bbox 邊界硬塞進現有 10 維觀測。
 - `tracker_solver` 和 `predictor/src/solver.cpp` 仍有 solver copy 分歧；本次只改真正發布 PnP 結果的 `tracker_solver`。
 - `shoot_delay` 沒有實測總延遲前不要亂改。
 - 沒有移植 `sentry.aim` 全套 TF/controller，只同步哨兵外參與短超時響應思想。

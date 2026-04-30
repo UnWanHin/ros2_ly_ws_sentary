@@ -110,12 +110,11 @@ struct measureFunc{
             m[5] = angle[(this->total_id2 + 1)%4];
         }
 
-        const T center_dist = ceres::sqrt(x * x + y * y);
-        const T z_top = (s[8] > s[9]) ? s[8] : s[9];
-        const T z_bottom = (s[8] > s[9]) ? s[9] : s[8];
-        m[7] = ceres::atan2(z_top, center_dist);
-        m[8] = ceres::atan2(z_bottom, center_dist);
-        m[9] = ceres::atan2((s[8] + s[9]) * T(0.5), center_dist);
+        // Follow the infantry predictor: keep pitch observation continuous.
+        // Bbox-derived top/bottom pitch is quantized and easily creates steps.
+        m[7] = m[0];
+        m[8] = m[0];
+        m[9] = m[0];
     }
     int id;
     int total_id1 = -1;

@@ -127,8 +127,6 @@ namespace ly_auto_aim:: inline predictor {
             CXYD temp;
             double leftx = trackResult.bounding_rect.x;
             double rightx = trackResult.bounding_rect.x + trackResult.bounding_rect.width;
-            double topy = trackResult.bounding_rect.y;
-            double bottomy = trackResult.bounding_rect.y + trackResult.bounding_rect.height;
             if(measures.find(trackResult.car_id) == measures.end())
                 continue;
             for(auto& measure_tuple: measures[trackResult.car_id])
@@ -144,17 +142,8 @@ namespace ly_auto_aim:: inline predictor {
                 double yaw_diff = std::remainder(std::get<0>(measure_tuple)[5] - std::get<0>(measure_tuple)[4], 2 * M_PI)/2.0;
                 std::get<0>(measure_tuple)[6] = yaw_diff + std::get<0>(measure_tuple)[4];
 
-                temp = std::get<2>(measure_tuple).cxy;
-                temp.cy = topy;
-                edge.cxy = temp;
-                std::get<0>(measure_tuple)[7] = static_cast<PYD>(edge.pyd_imu).pitch;
-
-                temp.cy = bottomy;
-                edge.cxy = temp;
-                std::get<0>(measure_tuple)[8] = static_cast<PYD>(edge.pyd_imu).pitch;
-                double pitch_diff =
-                    std::remainder(std::get<0>(measure_tuple)[8] - std::get<0>(measure_tuple)[7], 2 * M_PI) / 2.0;
-                std::get<0>(measure_tuple)[9] = pitch_diff + std::get<0>(measure_tuple)[7];
+                // Infantry predictor keeps pitch_top/pitch_bottom/pitch_center
+                // equal to the armor center pitch to avoid bbox quantization steps.
                 std::get<3>(measure_tuple) = true;
             }
         }
