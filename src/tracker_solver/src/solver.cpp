@@ -3,6 +3,9 @@
 // Keep behavior and interface changes synchronized with related modules.
 
 #include "solver/solver.hpp"
+#include <algorithm>
+#include <cmath>
+#include <limits>
 #include <Logger/Logger.hpp>
 #include <opencv2/core/eigen.hpp>
 #include <rclcpp/rclcpp.hpp> // [ROS 2]
@@ -199,17 +202,115 @@ cv::Point2f exactCenter(const std::vector<cv::Point2f> &points) {
 
 inline double normalizeAngle(double angle) { return std::remainder(angle, 2 * M_PI); }
 
+struct PnPSelection {
+    bool valid = false;
+    int index = -1;
+    double armor_yaw = 0.0;
+    double reprojection_error = std::numeric_limits<double>::max();
+    double score = std::numeric_limits<double>::max();
+    cv::Mat tvec;
+};
+
+double armorYawFromRvec(const cv::Mat &rvec)
+{
+    cv::Mat rotMat;
+    cv::Rodrigues(rvec, rotMat);
+    return normalizeAngle(std::atan2(rotMat.at<double>(2, 0), rotMat.at<double>(0, 0)));
+}
+
+double reprojectionError(
+    const std::vector<cv::Point3f> &objectPoints,
+    const std::vector<cv::Point2f> &imagePoints,
+    const cv::Mat &cameraMatrix,
+    const cv::Mat &distCoeffs,
+    const cv::Mat &rvec,
+    const cv::Mat &tvec)
+{
+    std::vector<cv::Point2f> projected;
+    cv::projectPoints(objectPoints, rvec, tvec, cameraMatrix, distCoeffs, projected);
+    if (projected.size() != imagePoints.size() || projected.empty()) {
+        return std::numeric_limits<double>::max();
+    }
+
+    double error = 0.0;
+    for (std::size_t i = 0; i < projected.size(); ++i) {
+        error += cv::norm(projected[i] - imagePoints[i]);
+    }
+    return error / static_cast<double>(projected.size());
+}
+
+PnPSelection selectPnPSolution(
+    const std::vector<cv::Point3f> &objectPoints,
+    const std::vector<cv::Point2f> &imagePoints,
+    const cv::Mat &cameraMatrix,
+    const cv::Mat &distCoeffs,
+    const std::vector<cv::Mat> &rvecs,
+    const std::vector<cv::Mat> &tvecs,
+    bool hasYawHistory,
+    double previousYaw,
+    bool hasWholeCarYawHint,
+    double wholeCarYawHint)
+{
+    constexpr double kYawHistoryPenaltyPxPerRad = 2.0;
+    constexpr double kWholeCarHintPenaltyPxPerRad = 4.0;
+
+    PnPSelection best;
+    const auto count = std::min(rvecs.size(), tvecs.size());
+    for (std::size_t i = 0; i < count; ++i) {
+        if (rvecs[i].empty() || tvecs[i].empty()) {
+            continue;
+        }
+        const double z = tvecs[i].at<double>(2);
+        if (!std::isfinite(z) || z <= 0.0) {
+            continue;
+        }
+
+        const double armor_yaw = armorYawFromRvec(rvecs[i]);
+        const double reproj_error = reprojectionError(
+            objectPoints, imagePoints, cameraMatrix, distCoeffs, rvecs[i], tvecs[i]);
+        if (!std::isfinite(armor_yaw) || !std::isfinite(reproj_error)) {
+            continue;
+        }
+
+        double score = reproj_error;
+        if (hasYawHistory) {
+            score += kYawHistoryPenaltyPxPerRad *
+                     std::abs(normalizeAngle(armor_yaw - previousYaw));
+        }
+        if (hasWholeCarYawHint) {
+            score += kWholeCarHintPenaltyPxPerRad *
+                     std::abs(normalizeAngle(armor_yaw - wholeCarYawHint));
+        }
+
+        roslog::debug(
+            "PnP solution {}: yaw={}, reproj_error={}, score={}, has_history={}, has_whole_car_hint={}",
+            i,
+            armor_yaw,
+            reproj_error,
+            score,
+            hasYawHistory ? 1 : 0,
+            hasWholeCarYawHint ? 1 : 0);
+
+        if (score < best.score) {
+            best.valid = true;
+            best.index = static_cast<int>(i);
+            best.armor_yaw = armor_yaw;
+            best.reprojection_error = reproj_error;
+            best.score = score;
+            best.tvec = tvecs[i].clone();
+        }
+    }
+    return best;
+}
+
 // return {pyd, armor_yaw}
 std::pair<XYZ, double> Solver::camera2world(
-    const ArmorXYV &trackResult, const GimbalAngleType &gimbalAngle_deg, bool isLarge) {
+    const ArmorXYV &trackResult, const GimbalAngleType &gimbalAngle_deg, bool isLarge,
+    int car_id, int armor_id) {
     cv::Mat cameraMatrix, distCoeffs;
     cv::eigen2cv(cameraIntrinsicMatrix, cameraMatrix);
     cv::eigen2cv(distorationCoefficients, distCoeffs);
-    auto gimbal_roll = 0.0, gimbal_pitch = gimbalAngle_deg.pitch * M_PI / 180,
-         gimbal_yaw = gimbalAngle_deg.yaw * M_PI / 180; //TODO
-    Eigen::Matrix3d R = (Eigen::AngleAxisd(gimbal_yaw, Eigen::Vector3d::UnitZ()).toRotationMatrix() *
-                         Eigen::AngleAxisd(gimbal_pitch, Eigen::Vector3d::UnitY()).toRotationMatrix() *
-                         Eigen::AngleAxisd(gimbal_roll, Eigen::Vector3d::UnitX()).toRotationMatrix());
+    const auto gimbal_yaw = gimbalAngle_deg.yaw * M_PI / 180;
 
     if (trackResult.size() != 4) return std::make_pair(XYZ(), 0.0);
 
@@ -223,67 +324,62 @@ std::pair<XYZ, double> Solver::camera2world(
     std::vector<cv::Mat> rvecs, tvecs;
     int solutions = cv::solvePnPGeneric(
         objectPoints, imagePoints, cameraMatrix, distCoeffs, rvecs, tvecs, false, cv::SOLVEPNP_IPPE);
-
-    static double prev_armor_yaw = 0.0; 
-    double armor_yaw = 0.0;
-    double min_diff = std::numeric_limits<double>::max();
-    cv::Mat tvec;
-
-    if (solutions > 0 && std::abs(prev_armor_yaw) < 1e-6) {
-        cv::Mat rotMat;
-        cv::Rodrigues(rvecs[0], rotMat);
-        prev_armor_yaw = atan2(rotMat.at<double>(2, 0), rotMat.at<double>(0, 0));
-        prev_armor_yaw = normalizeAngle(prev_armor_yaw);
+    if (solutions <= 0 || rvecs.empty() || tvecs.empty()) {
+        roslog::warn("solvePnPGeneric returned no valid armor-only solution for car_id={}, armor_id={}", car_id, armor_id);
+        return std::make_pair(XYZ(), 0.0);
     }
 
-    for (int i = 0; i < solutions; i++) {
-        cv::Mat rotMat;
-        cv::Rodrigues(rvecs[i], rotMat);
-        double current_yaw = atan2(rotMat.at<double>(2, 0), rotMat.at<double>(0, 0));
-        current_yaw = normalizeAngle(current_yaw);
-
-        double diff = std::abs(normalizeAngle(current_yaw - prev_armor_yaw));
-        double dist = tvecs[i].at<double>(0) * tvecs[i].at<double>(0) +
-                      tvecs[i].at<double>(1) * tvecs[i].at<double>(1) + 
-                      tvecs[i].at<double>(2) * tvecs[i].at<double>(2);
-        dist = std::sqrt(dist);
-
-        if (diff < min_diff) {
-            min_diff = diff;
-            armor_yaw = current_yaw;
-            tvec = tvecs[i];
-        }
-
-        roslog::debug("Solution {}: armor_yaw = {}, diff = {}, dist = {}", i, current_yaw, diff, dist);
+    const auto key = std::make_pair(car_id, armor_id);
+    const auto history_it = armorYawHistory_.find(key);
+    const bool has_history = history_it != armorYawHistory_.end();
+    const double previous_yaw = has_history ? history_it->second : 0.0;
+    const auto selected = selectPnPSolution(
+        objectPoints,
+        imagePoints,
+        cameraMatrix,
+        distCoeffs,
+        rvecs,
+        tvecs,
+        has_history,
+        previous_yaw,
+        false,
+        0.0);
+    if (!selected.valid) {
+        roslog::warn("No usable armor-only PnP solution for car_id={}, armor_id={}", car_id, armor_id);
+        return std::make_pair(XYZ(), 0.0);
     }
+    armorYawHistory_[key] = selected.armor_yaw;
 
-    prev_armor_yaw = armor_yaw;
+    roslog::debug(
+        "Selected armor-only PnP solution {}: yaw={}, reproj_error={}, score={}, car_id={}, armor_id={}",
+        selected.index,
+        selected.armor_yaw,
+        selected.reprojection_error,
+        selected.score,
+        car_id,
+        armor_id);
 
-    roslog::debug("Selected armor_yaw: {}", armor_yaw);
-
-    XYZ camera(tvec.at<double>(2), -tvec.at<double>(0), -tvec.at<double>(1)); 
+    const auto &tvec = selected.tvec;
+    XYZ camera(tvec.at<double>(2), -tvec.at<double>(0), -tvec.at<double>(1));
     roslog::debug("before transform: x:{},y:{},z:{}", camera.x, camera.y, camera.z);
     XYZ result = camera2world(camera, gimbalAngle_deg);
     
     roslog::debug("x:{},y:{},z:{},dist:{}",result.x,result.y,result.z, sqrt(result.x*result.x + result.y*result.y + result.z*result.z));
-    return std::make_pair(result, armor_yaw + gimbal_yaw);
+    return std::make_pair(result, selected.armor_yaw + gimbal_yaw);
 }
 
 std::pair<XYZ, double> Solver::camera2worldWithWholeCar(
-    const ArmorXYV &trackResult, const GimbalAngleType &gimbalAngle_deg, const cv::Rect &bounding_rect, bool isLarge) {
+    const ArmorXYV &trackResult, const GimbalAngleType &gimbalAngle_deg, const cv::Rect &bounding_rect, bool isLarge,
+    int car_id, int armor_id) {
     cv::Mat cameraMatrix, distCoeffs;
     cv::eigen2cv(cameraIntrinsicMatrix, cameraMatrix);
     cv::eigen2cv(distorationCoefficients, distCoeffs);
-    auto gimbal_roll = 0.0, gimbal_pitch = gimbalAngle_deg.pitch * M_PI / 180,
-         gimbal_yaw = gimbalAngle_deg.yaw * M_PI / 180;
-    Eigen::Matrix3d R = (Eigen::AngleAxisd(gimbal_yaw, Eigen::Vector3d::UnitZ()).toRotationMatrix() *
-                         Eigen::AngleAxisd(-gimbal_pitch, Eigen::Vector3d::UnitY()).toRotationMatrix() *
-                         Eigen::AngleAxisd(gimbal_roll, Eigen::Vector3d::UnitX()).toRotationMatrix());
+    const auto gimbal_yaw = gimbalAngle_deg.yaw * M_PI / 180;
 
     if (trackResult.size() != 4) return std::make_pair(XYZ(), 0.0);
     if (bounding_rect.width <= 1) {
         roslog::warn("Invalid bounding_rect.width={}, fallback to armor-only PnP.", bounding_rect.width);
-        return camera2world(trackResult, gimbalAngle_deg, isLarge);
+        return camera2world(trackResult, gimbalAngle_deg, isLarge, car_id, armor_id);
     }
 
     std::vector<cv::Point3f> objectPoints = isLarge ? LargeArmorPoints : SmallArmorPoints;
@@ -298,62 +394,53 @@ std::pair<XYZ, double> Solver::camera2worldWithWholeCar(
         objectPoints, imagePoints, cameraMatrix, distCoeffs, rvecs, tvecs, false, cv::SOLVEPNP_IPPE);
     if (solutions <= 0 || rvecs.empty() || tvecs.empty()) {
         roslog::warn("solvePnPGeneric returned no valid solution, fallback to armor-only PnP.");
-        return camera2world(trackResult, gimbalAngle_deg, isLarge);
+        return camera2world(trackResult, gimbalAngle_deg, isLarge, car_id, armor_id);
     }
-
-    double estimate_armor_yaw = 0.0; 
-    double armor_yaw = 0.0;
-    double min_diff = std::numeric_limits<double>::max();
-    cv::Mat tvec;
 
     double rect_center_x = (bounding_rect.x + bounding_rect.width / 2);
     double armor_center_x = (imagePoints[0].x + imagePoints[1].x + imagePoints[2].x + imagePoints[3].x) / 4;
     double half_width = bounding_rect.width / 2;
     const double ratio = (armor_center_x - rect_center_x) / half_width;
-    estimate_armor_yaw = std::asin(std::clamp(ratio, -1.0, 1.0));
+    const double estimate_armor_yaw = std::asin(std::clamp(ratio, -1.0, 1.0));
+    const auto key = std::make_pair(car_id, armor_id);
+    const auto history_it = armorYawHistory_.find(key);
+    const bool has_history = history_it != armorYawHistory_.end();
+    const double previous_yaw = has_history ? history_it->second : 0.0;
+    const auto selected = selectPnPSolution(
+        objectPoints,
+        imagePoints,
+        cameraMatrix,
+        distCoeffs,
+        rvecs,
+        tvecs,
+        has_history,
+        previous_yaw,
+        true,
+        estimate_armor_yaw);
 
-    for (int i = 0; i < solutions; i++) {
-        cv::Mat rotMat;
-        cv::Rodrigues(rvecs[i], rotMat);
-        double current_yaw = atan2(rotMat.at<double>(2, 0), rotMat.at<double>(0, 0));
-        current_yaw = normalizeAngle(current_yaw);
-
-        double diff = std::abs(normalizeAngle(current_yaw - estimate_armor_yaw));
-        double dist = tvecs[i].at<double>(0) * tvecs[i].at<double>(0) +
-                      tvecs[i].at<double>(1) * tvecs[i].at<double>(1) + 
-                      tvecs[i].at<double>(2) * tvecs[i].at<double>(2);
-        dist = std::sqrt(dist);
-
-        if (diff < min_diff) {
-            min_diff = diff;
-            armor_yaw = current_yaw;
-            tvec = tvecs[i];
-        }
-
-        roslog::debug("Solution {}: armor_yaw = {}, diff = {}, dist = {}", i, current_yaw, diff, dist);
-    }
-
-    if((estimate_armor_yaw>0) && (armor_yaw<0)) {
-        armor_yaw = -armor_yaw;
-    }
-    else if((estimate_armor_yaw<0) && (armor_yaw>0))
-    {
-        armor_yaw = -armor_yaw;
-    }
-
-    roslog::debug("Selected armor_yaw: {}", armor_yaw);
-
-    if (tvec.empty()) {
+    if (!selected.valid) {
         roslog::warn("Empty tvec after solution selection, fallback to armor-only PnP.");
-        return camera2world(trackResult, gimbalAngle_deg, isLarge);
+        return camera2world(trackResult, gimbalAngle_deg, isLarge, car_id, armor_id);
     }
+    armorYawHistory_[key] = selected.armor_yaw;
 
-    XYZ camera(tvec.at<double>(2), -tvec.at<double>(0), -tvec.at<double>(1)); 
+    roslog::debug(
+        "Selected whole-car PnP solution {}: yaw={}, whole_car_hint={}, reproj_error={}, score={}, car_id={}, armor_id={}",
+        selected.index,
+        selected.armor_yaw,
+        estimate_armor_yaw,
+        selected.reprojection_error,
+        selected.score,
+        car_id,
+        armor_id);
+
+    const auto &tvec = selected.tvec;
+    XYZ camera(tvec.at<double>(2), -tvec.at<double>(0), -tvec.at<double>(1));
     roslog::debug("before transform: x:{},y:{},z:{}", camera.x, camera.y, camera.z);
     XYZ result = camera2world(camera, gimbalAngle_deg);
     
     roslog::debug("x:{},y:{},z:{}, dist: {}", result.x, result.y, result.z, sqrt(result.x * result.x + result.y * result.y + result.z * result.z));
-    return std::make_pair(result, armor_yaw + gimbal_yaw);
+    return std::make_pair(result, selected.armor_yaw + gimbal_yaw);
 }
 
 void Solver::solve_all(
@@ -366,12 +453,22 @@ void Solver::solve_all(
         double yaw = 0.0;
         if (it == trackResults.second.end()) {
             roslog::debug("No car track result found for car_id: {}", trackResult.car_id);
-            std::tie(xyz_imu, yaw) = camera2world(trackResult.armor, gimbalAngle_deg, trackResult.car_id == 1);
+            std::tie(xyz_imu, yaw) = camera2world(
+                trackResult.armor,
+                gimbalAngle_deg,
+                trackResult.car_id == 1,
+                trackResult.car_id,
+                trackResult.armor_id);
         }
         else {
             roslog::debug("Car track result found for car_id: {}", trackResult.car_id);
             std::tie(xyz_imu, yaw) = camera2worldWithWholeCar(
-                trackResult.armor, gimbalAngle_deg, it->bounding_rect, trackResult.car_id == 1);
+                trackResult.armor,
+                gimbalAngle_deg,
+                it->bounding_rect,
+                trackResult.car_id == 1,
+                trackResult.car_id,
+                trackResult.armor_id);
         }
         roslog::debug("solver finished for car_id: {}", trackResult.car_id);
         trackResult.location.imu = gimbalAngle_deg;

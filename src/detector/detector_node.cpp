@@ -30,10 +30,12 @@
 #include <initializer_list>
 #include <memory>
 #include <vector>
+#include <deque>
 #include <mutex>
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/msg/image.hpp>
@@ -201,6 +203,17 @@ constexpr size_t MAX_STACK_SIZE = 30;
 
 std::atomic<float> gimbal_angles_yaw;
 std::atomic<float> gimbal_angles_pitch;
+
+struct TimestampedGimbalAngles {
+    rclcpp::Time stamp{0, 0, RCL_ROS_TIME};
+    float yaw = 0.0f;
+    float pitch = 0.0f;
+    bool valid = false;
+};
+
+constexpr std::size_t kMaxGimbalAngleSamples = 200;
+std::mutex gimbal_angle_buffer_mutex;
+std::deque<TimestampedGimbalAngles> gimbal_angle_buffer;
 
 std::atomic<ly_auto_aim::ArmorType> atomic_target{};
 ly_auto_aim::PNPAimResult aim_result{};
@@ -493,9 +506,46 @@ void my_team_callback(const std_msgs::msg::Bool::ConstSharedPtr msg) {
     myTeamRed = msg->data;
 }
 
+TimestampedGimbalAngles FindClosestGimbalAngles(const rclcpp::Time& frame_stamp) {
+    TimestampedGimbalAngles best;
+    best.stamp = frame_stamp;
+    best.yaw = gimbal_angles_yaw.load();
+    best.pitch = gimbal_angles_pitch.load();
+
+    std::lock_guard<std::mutex> lock(gimbal_angle_buffer_mutex);
+    if (gimbal_angle_buffer.empty()) {
+        return best;
+    }
+
+    std::int64_t best_diff = std::numeric_limits<std::int64_t>::max();
+    const auto frame_ns = frame_stamp.nanoseconds();
+    for (const auto& sample : gimbal_angle_buffer) {
+        const auto sample_ns = sample.stamp.nanoseconds();
+        const auto diff = sample_ns > frame_ns ? sample_ns - frame_ns : frame_ns - sample_ns;
+        if (diff < best_diff) {
+            best_diff = diff;
+            best = sample;
+        }
+    }
+    return best;
+}
+
 void gimbal_callback(const gimbal_driver::msg::GimbalAngles::ConstSharedPtr msg) {
     gimbal_angles_yaw = msg->yaw;
     gimbal_angles_pitch = msg->pitch;
+
+    TimestampedGimbalAngles sample;
+    const bool has_stamp = msg->header.stamp.sec != 0 || msg->header.stamp.nanosec != 0;
+    sample.stamp = has_stamp ? rclcpp::Time(msg->header.stamp) : global_node->now();
+    sample.yaw = msg->yaw;
+    sample.pitch = msg->pitch;
+    sample.valid = true;
+
+    std::lock_guard<std::mutex> lock(gimbal_angle_buffer_mutex);
+    gimbal_angle_buffer.push_back(sample);
+    while (gimbal_angle_buffer.size() > kMaxGimbalAngleSamples) {
+        gimbal_angle_buffer.pop_front();
+    }
 }
 
 void get_target_callback(const std_msgs::msg::UInt8::ConstSharedPtr msg) {
@@ -984,9 +1034,26 @@ void ImageLoop() {
                 auto_aim_common::msg::Armors high_armor_list_msg;
                 std::vector<ly_auto_aim::ArmorObject> filtered_armors{};
                 ly_auto_aim::ArmorObject target_armor;
+                rclcpp::Time frame_stamp = global_node->now();
 
                 if(!use_ros_bag){
-                    if (!Cam.GetImage(image)) continue;
+                    rclcpp::spin_some(global_node);
+                    LangYa::CameraFrameMeta frame_meta;
+                    if (!Cam.GetImage(image, &frame_meta)) continue;
+                    frame_stamp = global_node->now();
+                    if (frame_meta.valid) {
+                        static auto last_frame_meta_log_time = std::chrono::steady_clock::time_point{};
+                        const auto frame_meta_log_now = std::chrono::steady_clock::now();
+                        if (frame_meta_log_now - last_frame_meta_log_time >= std::chrono::seconds(2)) {
+                            RCLCPP_DEBUG(
+                                global_node->get_logger(),
+                                "detector frame meta: frame_id=%llu device_timestamp=%llu host_stamp_ns=%lld",
+                                static_cast<unsigned long long>(frame_meta.frame_id),
+                                static_cast<unsigned long long>(frame_meta.device_timestamp),
+                                static_cast<long long>(frame_stamp.nanoseconds()));
+                            last_frame_meta_log_time = frame_meta_log_now;
+                        }
+                    }
                     if (!use_video) {
                         // Match sentry.aim: Daheng camera returns RGB, detector works on BGR.
                         cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
@@ -997,22 +1064,22 @@ void ImageLoop() {
 
                 if(use_ros_bag){
                     image = callbackQueue.wait_and_pop();
+                    frame_stamp = global_node->now();
                 }
                 if (image.empty()) continue;
+                const auto frame_angles = FindClosestGimbalAngles(frame_stamp);
 
                 if(ra_enable && !image.empty()){
                     GimbalAnglesType temp_angles{
-                        gimbal_angles_yaw.load(),
-                        gimbal_angles_pitch.load()
+                        frame_angles.yaw,
+                        frame_angles.pitch
                     };
                     angle_image_stack.push({image.clone(), temp_angles});
                 }
 
-                armors.TimeAngles.yaw = gimbal_angles_yaw;
-                armors.TimeAngles.pitch = gimbal_angles_pitch;
-
-                // ROS2 获取当前时间
-                armors.TimeStamp = global_node->now();
+                armors.TimeAngles.yaw = frame_angles.yaw;
+                armors.TimeAngles.pitch = frame_angles.pitch;
+                armors.TimeStamp = frame_stamp;
 
                 armor_list_msg.armors.clear();
                 armor_list_msg.cars.clear();

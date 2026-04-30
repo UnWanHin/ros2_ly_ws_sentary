@@ -236,23 +236,26 @@ namespace BehaviorTree{
         // ly_predictor_target
         GenSub<ly_predictor_target>([](Application& app, auto msg) {
             auto &obj = app;
+            const bool target_valid = msg->status;
             obj.autoAimData.Angles = GimbalAnglesType{
                 static_cast<AngleType>(msg->yaw),
                 static_cast<AngleType>(msg->pitch)
             };
             obj.autoAimData.BuffFollow = false;
-            // Align with ly-ros-main: predictor callback itself means "track and allow fire".
-            obj.autoAimData.FireStatus = true;
-            obj.autoAimData.Valid = true;
-            obj.autoAimData.Fresh = true;
+            obj.autoAimData.FireStatus = target_valid;
+            obj.autoAimData.Valid = target_valid;
+            obj.autoAimData.Fresh = target_valid;
             const auto now = std::chrono::steady_clock::now();
-            obj.autoAimData.HasLatchedAngles = true;
-            obj.autoAimData.LastValidTime = now;
-            // 任一目标源回调都会置位 isFindTargetAtomic；
-            // 发布端按该标记决定是否进入瞄准/开火分支。
-            obj.isFindTargetAtomic = true;
-            obj.lastTargetSeenTime = now;
-            obj.LoggerPtr->Debug("Predictor callback latched old-style auto-aim angles.");
+            if (target_valid) {
+                obj.autoAimData.HasLatchedAngles = true;
+                obj.autoAimData.LastValidTime = now;
+                obj.isFindTargetAtomic = true;
+                obj.lastTargetSeenTime = now;
+                obj.LoggerPtr->Debug("Predictor callback latched valid auto-aim angles.");
+            } else {
+                obj.autoAimData.HasLatchedAngles = false;
+                obj.LoggerPtr->Debug("Predictor callback ignored invalid auto-aim target.");
+            }
         });
 
         // ly_buff_target

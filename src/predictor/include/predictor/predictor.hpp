@@ -17,6 +17,12 @@ namespace ly_auto_aim::inline predictor {
     // [ROS 2] 聲明全局節點指針，讓外部可以看到
     extern rclcpp::Node::SharedPtr global_predictor_node;
 
+    struct PredictorUpdateStats {
+        std::size_t armor_count = 0;
+        std::size_t car_count = 0;
+        std::size_t model_update_count = 0;
+    };
+
 class Predictor{
 private:
     std::mutex car_mutex;
@@ -28,7 +34,7 @@ private:
 public:
     std::function<Predictions(Time::TimeStamp)> predictFunc();
     Predictions predict(Time::TimeStamp timestamp);
-    void update(const TrackResultPairs& trackResults, const Time::TimeStamp& timestamp);
+    PredictorUpdateStats update(const TrackResultPairs& trackResults, const Time::TimeStamp& timestamp);
     bool Stable() const{return true;};
     
 };

@@ -86,7 +86,7 @@
       x: 0.1168
       y: 0.0746
       z: 0.1146
-      yaw: -1.3746
+      yaw: -1.5746
       pitch: -0.0738
       roll: -1.5913
       parent_frame: "gimbal_barrel"
@@ -99,7 +99,7 @@
     "barrel_to_camera/x": 0.1168
     "barrel_to_camera/y": 0.0746
     "barrel_to_camera/z": 0.1146
-    "barrel_to_camera/yaw": -1.3746
+    "barrel_to_camera/yaw": -1.5746
     "barrel_to_camera/pitch": -0.0738
     "barrel_to_camera/roll": -1.5913
     "barrel_to_camera/parent_frame": "gimbal_barrel"

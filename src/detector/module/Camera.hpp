@@ -5,6 +5,7 @@
 #pragma once
 
 #include <opencv2/opencv.hpp>
+#include <cstdint>
 #include <memory>
 
 #include <camera/GxAPI.h>
@@ -269,6 +270,12 @@ namespace LangYa {
 
     };
 
+    struct CameraFrameMeta {
+        std::uint64_t frame_id = 0;
+        std::uint64_t device_timestamp = 0;
+        bool valid = false;
+    };
+
     class Camera
     {
         std::unique_ptr<GX_DEV_HANDLE> DeviceHandle{};
@@ -415,8 +422,11 @@ namespace LangYa {
         }
 
         // this function do not check if this instance is initialized
-        bool GetImage(cv::Mat& image) noexcept
+        bool GetImage(cv::Mat& image, CameraFrameMeta* frame_meta = nullptr) noexcept
         {
+            if (frame_meta != nullptr) {
+                *frame_meta = {};
+            }
             if(Mode == CaptureMode::VideoFile)
             {
                 return VideoCap.read(image);
@@ -455,6 +465,11 @@ namespace LangYa {
     
                 image.create(frame.nHeight, frame.nWidth, CV_8UC3);
                 ConvertRaw8ToRGB24(frame, image);
+                if (frame_meta != nullptr) {
+                    frame_meta->frame_id = frame.nFrameID;
+                    frame_meta->device_timestamp = frame.nTimestamp;
+                    frame_meta->valid = true;
+                }
                 const auto return_result = GXQAllBufs(deviceHandle);
                 if (return_result != GX_STATUS_SUCCESS)
                     roslog::error("Camera::GetImage: cannot return buffer: {}", GetLibError());

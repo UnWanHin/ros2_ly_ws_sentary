@@ -5,6 +5,7 @@
 #pragma once
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <map>
 #include <opencv2/opencv.hpp>
 #include <RosTools/RosTools.hpp>
 #include <Logger/Logger.hpp>
@@ -42,6 +43,7 @@ private:
     Eigen::Vector3d cameraRotation;
     Eigen::Matrix3d cameraRotationMatrix;
     double f_x, f_y, c_x, c_y;
+    std::map<std::pair<int, int>, double> armorYawHistory_;
 
 public:
     // [ROS 2] 構造函數只聲明 (實現移至 .cpp)
@@ -111,9 +113,10 @@ public:
 	}
 
     std::pair<XYZ, double> camera2world(
-        const ArmorXYV &trackResult, const GimbalAngleType &gimbalAngle_deg, bool isLarge);
+        const ArmorXYV &trackResult, const GimbalAngleType &gimbalAngle_deg, bool isLarge,
+        int car_id = -1, int armor_id = -1);
     std::pair<XYZ, double> camera2worldWithWholeCar(const ArmorXYV &trackResult, const GimbalAngleType &gimbalAngle_deg,
-        const cv::Rect &bounding_rect, bool isLarge);
+        const cv::Rect &bounding_rect, bool isLarge, int car_id = -1, int armor_id = -1);
 
     void solve_all( std::pair<std::vector<TrackResult>, std::vector<CarTrackResult>>& trackResults, 
                     GimbalAngleType& gimbalAngle_deg);

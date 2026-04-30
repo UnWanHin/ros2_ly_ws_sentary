@@ -98,8 +98,12 @@ namespace ly_auto_aim:: inline predictor {
         return predictions;
     }
 
-    void Predictor::update(const TrackResultPairs& trackResults, const Time::TimeStamp& timestamp)
+    PredictorUpdateStats Predictor::update(const TrackResultPairs& trackResults, const Time::TimeStamp& timestamp)
     {
+        PredictorUpdateStats stats;
+        stats.armor_count = trackResults.first.size();
+        stats.car_count = trackResults.second.size();
+
         std::map<int, std::vector<std::tuple<VectorY, int, location::Location, bool>>> measures;
         for(const auto& trackResult : trackResults.first)
         {
@@ -115,7 +119,6 @@ namespace ly_auto_aim:: inline predictor {
             measure[8] = pyd.pitch;
             measure[9] = pyd.pitch;
             measures[trackResult.car_id].push_back(std::make_tuple(measure, trackResult.armor_id, trackResult.location, false));
-            detect_count[trackResult.car_id] = 0;
         }
         
         for(const auto& trackResult : trackResults.second)
@@ -158,6 +161,14 @@ namespace ly_auto_aim:: inline predictor {
         
         for(auto& [carid, measure_vec] : measures)
         {
+            const bool has_valid_measure = std::any_of(
+                measure_vec.begin(),
+                measure_vec.end(),
+                [](const auto& measure) { return std::get<3>(measure); });
+            if (!has_valid_measure) {
+                continue;
+            }
+
             std::lock_guard<std::mutex> lock(car_mutex);
             if(cars.find(carid) == cars.end())
             {
@@ -177,7 +188,11 @@ namespace ly_auto_aim:: inline predictor {
 
             for(auto& measure: measure_vec)
                 if(std::get<3>(measure))
+                {
                     cars[carid]->Update(world2model(std::get<0>(measure)), timestamp, std::get<1>(measure));
+                    stats.model_update_count++;
+                    detect_count[carid] = 0;
+                }
         }
         
         std::lock_guard<std::mutex> lock(car_mutex);
@@ -194,6 +209,7 @@ namespace ly_auto_aim:: inline predictor {
                 ++it;
             }
         }
+        return stats;
     }
 
     Prediction Predictor::model2world(const VectorX& state, std::function<VectorY(const VectorX&, int)> measureFunc)

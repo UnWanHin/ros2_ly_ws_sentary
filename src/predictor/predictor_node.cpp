@@ -90,11 +90,18 @@ namespace {
                     "predictor_config.require_observation_fresh_for_target",
                     require_observation_fresh_for_target_,
                     require_observation_fresh_for_target_);
+                double coast_timeout_sec = coast_timeout_.seconds();
+                node.GetParam(
+                    "predictor_config.coast_timeout_sec",
+                    coast_timeout_sec,
+                    coast_timeout_sec);
+                coast_timeout_ = rclcpp::Duration::from_seconds(coast_timeout_sec);
                 RCLCPP_INFO(
                     node.get_logger(),
-                    "predictor_config.publish_only_on_new_tracker_frame=%s, predictor_config.require_observation_fresh_for_target=%s",
+                    "predictor_config.publish_only_on_new_tracker_frame=%s, predictor_config.require_observation_fresh_for_target=%s, predictor_config.coast_timeout_sec=%.3f",
                     publish_only_on_new_tracker_frame_ ? "true" : "false",
-                    require_observation_fresh_for_target_ ? "true" : "false");
+                    require_observation_fresh_for_target_ ? "true" : "false",
+                    coast_timeout_.seconds());
                 
                 location::Location::registerSolver(solver);
                 
@@ -168,13 +175,13 @@ namespace {
                 Time::TimeStamp timestamp(msg_time_sec);
 
                 std::lock_guard<std::mutex> lock(data_mutex);
-                predictor->update(track_results, timestamp);
+                const auto update_stats = predictor->update(track_results, timestamp);
                 last_gimbal_angle_ = gimbal_angle;
                 last_tracker_header_ = msg->header;
                 last_update_time_ = node.now();
                 has_tracker_input_ = true;
                 has_new_tracker_frame_.store(true, std::memory_order_release);
-                if (!track_results.first.empty()) {
+                if (update_stats.model_update_count > 0) {
                     last_observation_time_ = last_update_time_;
                 }
             }
@@ -337,7 +344,7 @@ namespace {
             std::atomic_bool has_new_tracker_frame_{false};
             bool publish_only_on_new_tracker_frame_{false};
             bool require_observation_fresh_for_target_{false};
-            const rclcpp::Duration coast_timeout_{rclcpp::Duration::from_seconds(0.5)};
+            rclcpp::Duration coast_timeout_{rclcpp::Duration::from_seconds(0.10)};
             rclcpp::Time last_invalid_reason_log_time_{};
             const rclcpp::Duration invalid_reason_log_interval_{rclcpp::Duration::from_seconds(0.5)};
     };
