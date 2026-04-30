@@ -4,6 +4,7 @@
       publish_only_on_new_tracker_frame: false
       require_observation_fresh_for_target: true
       coast_timeout_sec: 0.10
+      max_tracker_age_sec: 0.15
 
     controller_config:
       bullet_speed: 23.0

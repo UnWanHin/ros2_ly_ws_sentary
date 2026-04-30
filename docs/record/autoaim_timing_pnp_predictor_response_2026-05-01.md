@@ -38,6 +38,7 @@
 
 - `src/tracker_solver/include/solver/solver.hpp`
 - `src/tracker_solver/src/solver.cpp`
+- `src/tracker_solver/car_tracker_solver_node.cpp`
 
 行為：
 
@@ -46,6 +47,8 @@
 - 有 history 時加 yaw continuity penalty；有 whole-car bbox 時只加弱 yaw hint penalty。
 - 首次無 history 時主要看 reprojection error。
 - whole-car bbox 無效或 PnP 解不可用時回退 armor-only PnP。
+- `solver` 保存本幀 PnP debug record，`tracker_solver_node` 在 AimTimer 開啟時輸出 `event=pnp`，包含 IPPE 解數、選中解、reprojection error、score、armor/world yaw 和解算後 world xyz。
+- solver 啟動時檢查相機矩陣是否是標準正焦距 / `K[2,2] = 1`；單節點缺參時先初始化 identity/zero，避免未初始化矩陣讓 PnP 診斷輸出亂值。
 
 ### detector
 
@@ -77,6 +80,9 @@
 - `Predictor::update()` 回傳 `PredictorUpdateStats`。
 - 只有匹配到整車 bbox 並真正 `MotionModel::Update()` 的 measurement 才增加 `model_update_count`。
 - `predictor_node` 只有 `model_update_count > 0` 才刷新 `last_observation_time_`。
+- `predictor_node` 同時保存有效 update 對應的 tracker `header.stamp`，並用 `predictor_config.max_tracker_age_sec` 限制太舊的 tracker 幀，避免 callback 時間是新的、但觀測本身已經落後。
+- `predictor_node` 1Hz 輸出 `armors/cars/model_updates/tracker_age_ms/max_xyz_jump/max_yaw_jump_deg`，用於區分「時間舊」和「world 坐標抖」。
+- AimTimer 開啟時，`predictor_node` 每個 tracker update 輸出 `event=tracker_update`，每個 publish timer 輸出 `event=target_timer`，用於對齊 tracker 幀時間、模型 update、控制輸出和 target suppression 原因。
 - 不再因為 armor-only 幀就新建/保留可預測模型。
 - 新增 `predictor_config.coast_timeout_sec`，默認 `0.10`，對齊 `sentry.aim` 的短目標超時思路。
 - `publish_only_on_new_tracker_frame` 默認 `false`，保留 100Hz timer 輸出節奏；這是響應節奏參考，不是 TDrone 預測模型移植。
@@ -103,12 +109,82 @@
 涉及文件：
 
 - `src/behavior_tree/src/SubscribeMessage.cpp`
+- `src/behavior_tree/src/Logger.cpp`
+- `config/common.yaml`
+- `scripts/launch/start_sentry_all.sh`
 
 行為：
 
 - `/ly/predictor/target` 回調尊重 `msg->status`。
 - `FireStatus`、`Valid`、`Fresh` 都由 `msg->status` 決定。
 - 只有有效 target 才 latch yaw/pitch、更新 `LastValidTime`、置位 `isFindTargetAtomic`。
+- BT 自己的文件 log 從原來默認 `~/Log/BT_*.log` 改為 `~/Log/BT/BT_*.log`。
+- BT 普通文件 log 增加 `bt_file_log_enable` 開關；關閉後仍保留 console log，不再生成 `BT_*.log`。
+- `BT_LOG_DIR` 環境變數仍可覆蓋；未設時 `start_sentry_all.sh` 從 `config/common.yaml` 讀 `bt_log_dir: ~/Log/BT`。
+- `BT_APP_FILE_LOG_ENABLE` 環境變數仍可臨時覆蓋；未設時 `start_sentry_all.sh` 從 `config/common.yaml` 讀 `bt_file_log_enable`。
+
+### AimTimer 診斷日誌
+
+涉及文件：
+
+- `config/base_config.yaml`
+- `config/common.yaml`
+- `scripts/launch/start_sentry_all.sh`
+- `src/behavior_tree/launch/sentry_all.launch.py`
+- `src/tracker_solver/car_tracker_solver_node.cpp`
+- `src/tracker_solver/include/solver/solver.hpp`
+- `src/tracker_solver/src/solver.cpp`
+- `src/predictor/predictor_node.cpp`
+
+開關：
+
+```yaml
+aim_timer_log:
+  enable: true
+  dir: "~/Log/AimTimer"
+
+"aim_timer_log/enable": true
+"aim_timer_log/dir": "~/Log/AimTimer"
+```
+
+默認仍是 `false`，避免正常跑車時一直寫高頻文件。打開後會生成：
+
+- `~/Log/AimTimer/AT_YYYYMMDD_HHMMSS_tracker_solver.log`
+- `~/Log/AimTimer/AT_YYYYMMDD_HHMMSS_predictor.log`
+
+`common.yaml` 也提供啟動層開關，`start_sentry_all.sh` 會把它轉成 launch 參數覆蓋到 tracker_solver / predictor：
+
+```yaml
+aim_timer_log_enable: false
+aim_timer_log_dir: ~/Log/AimTimer
+```
+
+兩層配置的作用不同：
+
+- `base_config.yaml`：直接 `ros2 launch` 或單節點啟動時的 ROS 參數默認。
+- `common.yaml`：`scripts/launch/start_sentry_all.sh` 的現場入口；值會覆蓋 `base_config.yaml`。
+
+關鍵事件：
+
+- `node=tracker_solver event=tracker_frame`
+  - `input_age_ms`：detector armors stamp 到 tracker_solver callback 的時間差。
+  - `max_xyz_jump` / `max_yaw_jump_deg`：tracker_solver 解算後 world 坐標和 yaw 的幀間最大跳變。
+  - `det_armors/track_armors/det_cars/track_cars`：檢測和 tracker 輸出的數量關係。
+- `node=tracker_solver event=pnp`
+  - `mode=whole_car|armor_only`：當幀用了整車 bbox 提示還是純裝甲板 PnP。
+  - `solutions/selected`：IPPE 解數和選中解 index。
+  - `reproj_px/score`：重投影誤差和加 penalty 後的選解分數。
+  - `has_history/has_whole_car_hint`：是否用了 yaw continuity / 整車弱提示。
+  - `armor_yaw_deg/world_yaw_deg/world_x/world_y/world_z`：PnP 直接輸出與轉到 world 後的位置。
+- `node=predictor event=tracker_update`
+  - `tracker_age_ms`：tracker results stamp 到 predictor callback 的時間差。
+  - `armors/cars/model_updates`：是否有裝甲、有整車 bbox、EKF 是否真正 update。
+  - `max_xyz_jump/max_yaw_jump_deg`：predictor 看到的 tracker 輸入是否已經抖。
+- `node=predictor event=target_timer`
+  - `receive_age_ms`：最近一次有效 model update 到控制 timer 的時間。
+  - `tracker_stamp_age_ms`：最近一次有效觀測 stamp 到控制 timer 的時間。
+  - `observation_fresh/status/publish/reason`：target 是正常發布，還是因 stale / no_prediction / controller invalid 被壓掉。
+  - `yaw_cmd_deg/pitch_cmd_deg/gimbal_yaw_deg/gimbal_pitch_deg`：控制輸出和當前雲台角。
 
 ### sentry.aim 外參同步
 
@@ -134,6 +210,9 @@
 - `predictor_config.coast_timeout_sec: 0.10`
   - 調大：短暫丟檢更平滑，但更容易吃舊目標。
   - 調小：失效更快，但抖動或偶發漏幀時更容易斷跟。
+- `predictor_config.max_tracker_age_sec: 0.15`
+  - 用 tracker message `header.stamp` 判斷觀測是否足夠新。
+  - 如果 `tracker_stamp_age_ms` 長期接近或超過這個值，說明慢主要是時間鏈路/檢測延遲，不應靠加大 EKF 追蹤參數掩蓋。
 - predictor pitch 觀測策略：
   - 目前固定使用裝甲板中心 pitch 作 `pitch_top/pitch_bottom/pitch_center`。
   - 這不是 YAML 參數；它是為了跟步兵 predictor 一樣避免 bbox 上下邊界量化階梯，先作為穩定性修正保留在代碼中。
@@ -150,6 +229,25 @@
 
 暫時不做成 YAML，是因為 PnP 還需要先用實機 log 看 reprojection error / yaw jump，再決定是否暴露成調參項。
 
+`config/base_config.yaml`：
+
+- `aim_timer_log.enable: false`
+  - 改成 `true` 後輸出 AimTimer 文件日誌。
+- `aim_timer_log.dir: "~/Log/AimTimer"`
+  - 可以臨時改到 `/tmp/AimTimerTest` 做本機測試。
+
+`config/common.yaml`：
+
+- `bt_file_log_enable: true`
+  - `true`：生成 `~/Log/BT/BT_YYYYMMDD_HHMMSS.log`。
+  - `false`：只保留 console log，不寫 BT 普通文件 log。
+- `bt_log_dir: ~/Log/BT`
+  - 只在 `bt_file_log_enable: true` 時由啟動腳本創建。
+- `aim_timer_log_enable: false`
+  - `start_sentry_all.sh` 讀取後傳給 `sentry_all.launch.py`，再覆蓋 tracker_solver / predictor 的 `aim_timer_log.enable`。
+- `aim_timer_log_dir: ~/Log/AimTimer`
+  - `start_sentry_all.sh` 讀取後傳給 `sentry_all.launch.py`，再覆蓋 tracker_solver / predictor 的 `aim_timer_log.dir`。
+
 `src/detector/detector_node.cpp` 目前仍在代碼內：
 
 - `kMaxGimbalAngleSamples = 200`
@@ -164,7 +262,12 @@
 - `/ly/tracker/results` 的裝甲板 yaw 是否還會跨目標跳解。
 - `/ly/predictor/target` 是否在丟觀測後約 100ms 內停止發布有效 target；若後續發布 invalid target，BT 也應按 `status=false` 處理。
 - `/ly/control/angles` 是否還在 target invalid 後繼續追舊角。
-- predictor log 裡 `armor_count/car_count/model_update_count` 的關係；如果 `armor_count > 0` 但 `model_update_count` 長時間為 0，說明響應慢主要卡在 car bbox 匹配/更新門檻，而不是 timer。
+- predictor log 裡 `armors/cars/model_updates` 的關係；如果 `armors > 0` 但 `model_updates = 0` 長時間出現，說明響應慢主要卡在 car bbox 匹配/更新門檻，而不是 timer。
+- predictor log 裡 `tracker_age_ms`；如果它長期偏大，說明控制端拿到的不是最新觀測。
+- predictor log 裡 `max_xyz_jump/max_yaw_jump_deg`；如果這兩個明顯跳，說明 tracker_solver 輸出的世界坐標/裝甲 yaw 在抖。
+- AimTimer `tracker_solver event=pnp` 裡 `reproj_px` 若長期很大或 `selected` 在 0/1 之間頻繁切，優先查 PnP 角點順序、相機 K/D、裝甲尺寸、whole-car hint 是否污染選解。
+- AimTimer `tracker_solver event=tracker_frame input_age_ms` 已經很大時，慢在 detector -> tracker_solver 之前；`predictor event=tracker_update tracker_age_ms` 才變大時，慢在 tracker_solver -> predictor 或 ROS 調度。
+- AimTimer `predictor event=target_timer observation_fresh=0` 且 `reason=observation_stale/no_predictions_and_stale`，表示控制端正在拒絕舊觀測，不應再靠延長超時掩蓋。
 
 若要快調：
 
@@ -187,6 +290,7 @@
 git diff --check
 source /opt/ros/humble/setup.bash && colcon build --packages-select detector tracker_solver predictor behavior_tree --allow-overriding detector tracker_solver predictor behavior_tree
 source /opt/ros/humble/setup.bash && colcon build --packages-select predictor --allow-overriding predictor
+source /opt/ros/humble/setup.bash && colcon build --packages-select tracker_solver predictor behavior_tree --allow-overriding tracker_solver predictor behavior_tree
 ```
 
 結果：
@@ -194,6 +298,26 @@ source /opt/ros/humble/setup.bash && colcon build --packages-select predictor --
 - `git diff --check` 通過。
 - `detector`、`tracker_solver`、`predictor`、`behavior_tree` 均 build 通過。
 - 步兵 predictor pitch 觀測移植與 controller flight-time 回寫後，`predictor` 單包 build 通過。
+- AimTimer / BT log 分組改動後，`tracker_solver`、`predictor`、`behavior_tree` targeted build 通過。
+
+已執行 AimTimer 開關短測：
+
+```bash
+mkdir -p /tmp/ros2_logs /tmp/AimTimerTest2
+export ROS_LOG_DIR=/tmp/ros2_logs
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+timeout 2s ros2 run predictor predictor_node --ros-args -p aim_timer_log.enable:=true -p aim_timer_log.dir:=/tmp/AimTimerTest2
+timeout 2s ros2 run tracker_solver tracker_solver_node --ros-args -p aim_timer_log.enable:=true -p aim_timer_log.dir:=/tmp/AimTimerTest2
+```
+
+結果：
+
+- 兩個命令因 `timeout` 退出，這是預期。
+- 沙盒環境有 FastDDS UDP socket 權限警告，不影響本次文件建立驗證。
+- 成功生成：
+  - `/tmp/AimTimerTest2/AT_20260501_023240_predictor.log`
+  - `/tmp/AimTimerTest2/AT_20260501_023240_tracker_solver.log`
 
 已執行：
 

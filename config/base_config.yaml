@@ -105,6 +105,15 @@
     "barrel_to_camera/parent_frame": "gimbal_barrel"
     "barrel_to_camera/child_frame": "gx_camera"
 
+    # Aim timing / PnP diagnostics.
+    # When enabled, tracker_solver and predictor write AT_* logs under this directory.
+    aim_timer_log:
+      enable: false
+      dir: "~/Log/AimTimer"
+
+    "aim_timer_log/enable": false
+    "aim_timer_log/dir": "~/Log/AimTimer"
+
     # Solver intrinsics / extrinsics (shared by detector / tracker_solver / predictor / outpost_hitter)
     solver_config:
       camera_offset: [0.0, 0.0, 52.6]

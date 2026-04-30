@@ -1,6 +1,9 @@
 # Shared startup options for launch wrapper scripts.
-# Used by scripts/launch/start_sentry_all.sh when BT_LOG_DIR is not set.
-bt_log_dir: ~/Log
+# Used by scripts/launch/start_sentry_all.sh for file logging and runtime defaults.
+bt_file_log_enable: true
+bt_log_dir: ~/Log/BT
+aim_timer_log_enable: false
+aim_timer_log_dir: ~/Log/AimTimer
 
 # gimbal_driver semantic control tuning.
 # start_sentry_all.sh reads these and passes them as ROS parameters.

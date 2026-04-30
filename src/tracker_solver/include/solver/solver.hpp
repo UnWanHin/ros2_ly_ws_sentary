@@ -5,10 +5,12 @@
 #pragma once
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <limits>
 #include <map>
 #include <opencv2/opencv.hpp>
 #include <RosTools/RosTools.hpp>
 #include <Logger/Logger.hpp>
+#include <vector>
 #include "auto_aim_common/Location.hpp"
 #include "auto_aim_common/SolverType.hpp"
 #include "auto_aim_common/TrackerType.hpp"
@@ -31,6 +33,25 @@ struct CameraIntrinsicsParameterPack {
     Eigen::Vector5d GetDistortionCoefficients() const;
 };
 
+struct PnPDebugRecord {
+    int car_id = -1;
+    int armor_id = -1;
+    bool used_whole_car = false;
+    bool valid = false;
+    bool has_yaw_history = false;
+    bool has_whole_car_yaw_hint = false;
+    int solution_count = 0;
+    int selected_index = -1;
+    double armor_yaw_rad = 0.0;
+    double world_yaw_rad = 0.0;
+    double whole_car_yaw_hint_rad = 0.0;
+    double reprojection_error_px = std::numeric_limits<double>::max();
+    double score = std::numeric_limits<double>::max();
+    double world_x = 0.0;
+    double world_y = 0.0;
+    double world_z = 0.0;
+};
+
 /**
  * @brief 完整名称其实是pnp_solver，使用了pnp算法来计算距离，但是使用线性拟合的办法计算全局的yaw和pitch
  * @note 后面可以把pitch和yaw的的计算优化一下
@@ -44,6 +65,8 @@ private:
     Eigen::Matrix3d cameraRotationMatrix;
     double f_x, f_y, c_x, c_y;
     std::map<std::pair<int, int>, double> armorYawHistory_;
+    bool pnpDebugEnabled_ = false;
+    std::vector<PnPDebugRecord> lastPnPDebugRecords_;
 
 public:
     // [ROS 2] 構造函數只聲明 (實現移至 .cpp)
@@ -118,8 +141,11 @@ public:
     std::pair<XYZ, double> camera2worldWithWholeCar(const ArmorXYV &trackResult, const GimbalAngleType &gimbalAngle_deg,
         const cv::Rect &bounding_rect, bool isLarge, int car_id = -1, int armor_id = -1);
 
-    void solve_all( std::pair<std::vector<TrackResult>, std::vector<CarTrackResult>>& trackResults, 
+    void solve_all( std::pair<std::vector<TrackResult>, std::vector<CarTrackResult>>& trackResults,
                     GimbalAngleType& gimbalAngle_deg);
+
+    const std::vector<PnPDebugRecord>& getLastPnPDebugRecords() const { return lastPnPDebugRecords_; }
+    void setPnPDebugEnabled(bool enabled);
 
     void setCameraIntrinsicMatrix(const Eigen::Matrix3d &cameraIntrinsicMatrix);
     void setCameraOffset(const Eigen::Vector3d &cameraOffset);

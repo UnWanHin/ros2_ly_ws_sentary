@@ -3,8 +3,11 @@
 // Keep behavior and interface changes synchronized with related modules.
 
 #include "../include/Application.hpp"
+#include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <cstdlib>
+#include <string>
 #include <vector>
 
 using namespace Utils::Logger;
@@ -12,6 +15,23 @@ using namespace Utils::Logger;
 namespace BehaviorTree {
 
     namespace {
+    bool EnvEnabled(const char* name, bool default_value) {
+        const char* raw = std::getenv(name);
+        if (!raw || !*raw) {
+            return default_value;
+        }
+        std::string value(raw);
+        std::transform(value.begin(), value.end(), value.begin(),
+            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        if (value == "1" || value == "true" || value == "yes" || value == "on") {
+            return true;
+        }
+        if (value == "0" || value == "false" || value == "no" || value == "off") {
+            return false;
+        }
+        return default_value;
+    }
+
     std::string ResolveLogDir() {
         std::vector<std::string> candidates;
         if (const char* bt_log_dir = std::getenv("BT_LOG_DIR"); bt_log_dir && *bt_log_dir) {
@@ -21,7 +41,7 @@ namespace BehaviorTree {
             candidates.emplace_back(ros_log_dir);
         }
         if (const char* home_dir = std::getenv("HOME"); home_dir && *home_dir) {
-            candidates.emplace_back(std::string(home_dir) + "/Log");
+            candidates.emplace_back(std::string(home_dir) + "/Log/BT");
         }
         candidates.emplace_back("/tmp");
 
@@ -67,9 +87,15 @@ namespace BehaviorTree {
     } 
     bool Application::InitLogger() {
         LoggerPtr = std::make_shared<Logger>();
-        auto filename = GenerateLogFilename();  // 动态生成文件名
         auto consolePolicy = std::make_shared<ConsoleLogPolicy>();
         LoggerPtr->AddPolicy(consolePolicy);
+        if (!EnvEnabled("BT_APP_FILE_LOG_ENABLE", true)) {
+            if (node_) {
+                RCLCPP_INFO(node_->get_logger(), "BT app file logger disabled by BT_APP_FILE_LOG_ENABLE.");
+            }
+            return true;
+        }
+        auto filename = GenerateLogFilename();  // 动态生成文件名
         try {
             auto filePolicy = std::make_shared<FileLogPolicy>(filename);
             LoggerPtr->AddPolicy(filePolicy);

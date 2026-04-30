@@ -37,9 +37,21 @@
 #include "solver/solver.hpp"
 
 #include <atomic>
+#include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <cmath>
+#include <cstdlib>
+#include <ctime>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <limits>
+#include <map>
+#include <mutex>
+#include <sstream>
+#include <string>
+#include <utility>
 
 using namespace LangYa;
 using namespace ly_auto_aim;
@@ -71,6 +83,100 @@ namespace {
         }
     }
 
+    class AimTimerFileLogger {
+    public:
+        bool Open(bool enabled, const std::string& dir, const std::string& component) {
+            enabled_ = enabled;
+            if (!enabled_) {
+                return false;
+            }
+
+            try {
+                const auto log_dir = std::filesystem::path(ExpandHome(dir.empty() ? "~/Log/AimTimer" : dir));
+                std::filesystem::create_directories(log_dir);
+                path_ = (log_dir / BuildFileName(component)).string();
+                stream_.open(path_, std::ios::out | std::ios::app);
+                if (!stream_.is_open()) {
+                    enabled_ = false;
+                    return false;
+                }
+                Write("event=logger_start component=" + component + " file=" + path_);
+                return true;
+            } catch (...) {
+                enabled_ = false;
+                return false;
+            }
+        }
+
+        bool Enabled() const {
+            return enabled_ && stream_.is_open();
+        }
+
+        const std::string& Path() const {
+            return path_;
+        }
+
+        void Write(const std::string& line) {
+            if (!Enabled()) {
+                return;
+            }
+            std::lock_guard<std::mutex> lock(mutex_);
+            stream_ << "wall_time=" << NowString() << " " << line << '\n';
+            stream_.flush();
+        }
+
+    private:
+        static std::string ExpandHome(const std::string& path) {
+            const char* home = std::getenv("HOME");
+            if (!home || !*home) {
+                return path;
+            }
+            if (path == "~") {
+                return std::string(home);
+            }
+            if (path.rfind("~/", 0) == 0) {
+                return std::string(home) + "/" + path.substr(2);
+            }
+            return path;
+        }
+
+        static std::string TimestampString(const char* format) {
+            const auto now = std::chrono::system_clock::now();
+            const auto now_time = std::chrono::system_clock::to_time_t(now);
+            std::tm time_info{};
+            localtime_r(&now_time, &time_info);
+            std::ostringstream oss;
+            oss << std::put_time(&time_info, format);
+            return oss.str();
+        }
+
+        static std::string NowString() {
+            const auto now = std::chrono::system_clock::now();
+            const auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                    now.time_since_epoch()) %
+                                1000;
+            std::ostringstream oss;
+            oss << TimestampString("%Y-%m-%dT%H:%M:%S") << '.'
+                << std::setw(3) << std::setfill('0') << now_ms.count();
+            return oss.str();
+        }
+
+        static std::string BuildFileName(const std::string& component) {
+            std::ostringstream oss;
+            oss << "AT_" << TimestampString("%Y%m%d_%H%M%S");
+            if (!component.empty()) {
+                oss << "_" << component;
+            }
+            oss << ".log";
+            return oss.str();
+        }
+
+        bool enabled_ = false;
+        std::string path_;
+        std::ofstream stream_;
+        mutable std::mutex mutex_;
+    };
+
     class PredictorNode {
         public:
             // 【修改 1】構造函數清空！只做最基本的 node 初始化
@@ -96,12 +202,20 @@ namespace {
                     coast_timeout_sec,
                     coast_timeout_sec);
                 coast_timeout_ = rclcpp::Duration::from_seconds(coast_timeout_sec);
+                double max_tracker_age_sec = max_tracker_age_.seconds();
+                node.GetParam(
+                    "predictor_config.max_tracker_age_sec",
+                    max_tracker_age_sec,
+                    max_tracker_age_sec);
+                max_tracker_age_ = rclcpp::Duration::from_seconds(max_tracker_age_sec);
+                InitAimTimerLogger();
                 RCLCPP_INFO(
                     node.get_logger(),
-                    "predictor_config.publish_only_on_new_tracker_frame=%s, predictor_config.require_observation_fresh_for_target=%s, predictor_config.coast_timeout_sec=%.3f",
+                    "predictor_config.publish_only_on_new_tracker_frame=%s, predictor_config.require_observation_fresh_for_target=%s, predictor_config.coast_timeout_sec=%.3f, predictor_config.max_tracker_age_sec=%.3f",
                     publish_only_on_new_tracker_frame_ ? "true" : "false",
                     require_observation_fresh_for_target_ ? "true" : "false",
-                    coast_timeout_.seconds());
+                    coast_timeout_.seconds(),
+                    max_tracker_age_.seconds());
                 
                 location::Location::registerSolver(solver);
                 
@@ -171,10 +285,33 @@ namespace {
 
                 TrackResultPairs track_results;
                 convertMsgToTrackResults(msg, track_results, gimbal_angle);
-                const double msg_time_sec = rclcpp::Time(msg->header.stamp).seconds();
+                const auto tracker_stamp = rclcpp::Time(msg->header.stamp);
+                const double msg_time_sec = tracker_stamp.seconds();
                 Time::TimeStamp timestamp(msg_time_sec);
 
                 std::lock_guard<std::mutex> lock(data_mutex);
+                double max_xyz_jump = 0.0;
+                double max_yaw_jump_deg = 0.0;
+                std::size_t jump_sample_count = 0;
+                for (const auto& track_result : track_results.first) {
+                    const auto key = std::make_pair(track_result.car_id, track_result.armor_id);
+                    const auto previous = last_tracker_observations_.find(key);
+                    if (previous != last_tracker_observations_.end()) {
+                        const auto& prev = previous->second;
+                        const XYZ now_xyz = track_result.location.xyz_imu;
+                        const double dx = now_xyz.x - prev.xyz.x;
+                        const double dy = now_xyz.y - prev.xyz.y;
+                        const double dz = now_xyz.z - prev.xyz.z;
+                        max_xyz_jump = std::max(max_xyz_jump, std::sqrt(dx * dx + dy * dy + dz * dz));
+                        max_yaw_jump_deg = std::max(
+                            max_yaw_jump_deg,
+                            std::abs(std::remainder(track_result.yaw - prev.yaw, 2.0 * M_PI)) * 180.0 / M_PI);
+                        ++jump_sample_count;
+                    }
+                    last_tracker_observations_[key] = TrackerObservationSnapshot{
+                        track_result.location.xyz_imu,
+                        track_result.yaw};
+                }
                 const auto update_stats = predictor->update(track_results, timestamp);
                 const auto callback_time = node.now();
                 last_gimbal_angle_ = gimbal_angle;
@@ -184,16 +321,28 @@ namespace {
                 has_new_tracker_frame_.store(true, std::memory_order_release);
                 if (update_stats.model_update_count > 0) {
                     last_observation_time_ = last_update_time_;
+                    last_observation_stamp_ = tracker_stamp;
                 }
+                LogAimTimerTrackerUpdate(
+                    update_stats,
+                    track_results,
+                    callback_time,
+                    tracker_stamp,
+                    max_xyz_jump,
+                    max_yaw_jump_deg,
+                    jump_sample_count);
                 if (last_update_stats_log_time_.nanoseconds() == 0 ||
                     (callback_time - last_update_stats_log_time_) > update_stats_log_interval_) {
                     RCLCPP_INFO(
                         node.get_logger(),
-                        "predictor update stats: armors=%zu cars=%zu model_updates=%zu tracker_age_ms=%.1f",
+                        "predictor update stats: armors=%zu cars=%zu model_updates=%zu tracker_age_ms=%.1f max_xyz_jump=%.3f max_yaw_jump_deg=%.2f jump_samples=%zu",
                         update_stats.armor_count,
                         update_stats.car_count,
                         update_stats.model_update_count,
-                        (callback_time - rclcpp::Time(msg->header.stamp)).seconds() * 1000.0);
+                        (callback_time - tracker_stamp).seconds() * 1000.0,
+                        max_xyz_jump,
+                        max_yaw_jump_deg,
+                        jump_sample_count);
                     last_update_stats_log_time_ = callback_time;
                 }
             }
@@ -224,13 +373,23 @@ namespace {
                     const Time::TimeStamp timestamp(now_sec);
                     const auto predictions = predictor->predict(timestamp);
                     const bool has_predictions = !predictions.empty();
-                    const bool observation_fresh =
+                    const bool observation_receive_fresh =
                         last_observation_time_.nanoseconds() != 0 &&
                         (now - last_observation_time_) <= coast_timeout_;
+                    const bool tracker_stamp_fresh =
+                        last_observation_stamp_.nanoseconds() != 0 &&
+                        (now - last_observation_stamp_) <= max_tracker_age_;
+                    const bool observation_fresh = observation_receive_fresh && tracker_stamp_fresh;
                     const auto observation_age_ms =
                         last_observation_time_.nanoseconds() == 0
                             ? -1.0
                             : (now - last_observation_time_).seconds() * 1000.0;
+                    const auto tracker_stamp_age_ms =
+                        last_observation_stamp_.nanoseconds() == 0
+                            ? -1.0
+                            : (now - last_observation_stamp_).seconds() * 1000.0;
+                    bool finite_target = true;
+                    std::string aim_timer_reason = "not_evaluated";
                     const bool can_log_invalid_reason =
                         last_invalid_reason_log_time_.nanoseconds() == 0 ||
                         (now - last_invalid_reason_log_time_) > invalid_reason_log_interval_;
@@ -275,14 +434,17 @@ namespace {
                         // Keep the predictor's robust stale/no-prediction handling,
                         // but do not publish invalid targets to behavior_tree.
                         target_msg.status = false;
+                        finite_target = std::isfinite(target_msg.yaw) && std::isfinite(target_msg.pitch);
+                        aim_timer_reason = has_predictions ? "observation_stale" : "no_predictions_and_stale";
                     } else {
                         const auto control_result =
                             controller->control(last_gimbal_angle_, target, bullet_speed);
                         target_msg.status = control_result.valid;
                         target_msg.yaw = control_result.yaw_actual_want;
                         target_msg.pitch = control_result.pitch_actual_want;
+                        aim_timer_reason = InvalidReasonToString(control_result.invalid_reason);
 
-                        const bool finite_target =
+                        finite_target =
                             std::isfinite(target_msg.yaw) && std::isfinite(target_msg.pitch);
                         if (target_msg.status && finite_target) {
                             publish_target = true;
@@ -307,11 +469,12 @@ namespace {
                         if ((!target_msg.status || !finite_target) && can_log_invalid_reason) {
                             RCLCPP_INFO(
                                 node.get_logger(),
-                                "predictor target suppressed reason=%s has_predictions=%s observation_fresh=%s observation_age_ms=%.1f finite_target=%s yaw=%.2f pitch=%.2f",
+                                "predictor target suppressed reason=%s has_predictions=%s observation_fresh=%s receive_age_ms=%.1f tracker_stamp_age_ms=%.1f finite_target=%s yaw=%.2f pitch=%.2f",
                                 InvalidReasonToString(control_result.invalid_reason),
                                 has_predictions ? "true" : "false",
                                 observation_fresh ? "true" : "false",
                                 observation_age_ms,
+                                tracker_stamp_age_ms,
                                 finite_target ? "true" : "false",
                                 target_msg.yaw,
                                 target_msg.pitch);
@@ -323,10 +486,26 @@ namespace {
                         can_log_invalid_reason) {
                         RCLCPP_INFO(
                             node.get_logger(),
-                            "predictor status=false reason=no_predictions_and_stale has_predictions=false observation_fresh=false observation_age_ms=%.1f",
-                            observation_age_ms);
+                            "predictor status=false reason=no_predictions_and_stale has_predictions=false observation_fresh=false receive_age_ms=%.1f tracker_stamp_age_ms=%.1f",
+                            observation_age_ms,
+                            tracker_stamp_age_ms);
                         last_invalid_reason_log_time_ = now;
                     }
+                    LogAimTimerTarget(
+                        now,
+                        target,
+                        bullet_speed,
+                        predictions.size(),
+                        has_predictions,
+                        observation_receive_fresh,
+                        tracker_stamp_fresh,
+                        observation_fresh,
+                        observation_age_ms,
+                        tracker_stamp_age_ms,
+                        finite_target,
+                        publish_target,
+                        target_msg,
+                        aim_timer_reason);
                 }
 
                 if (publish_target) {
@@ -340,6 +519,132 @@ namespace {
                 }
             }
 
+            template <typename T>
+            void ReadParamWithAlias(
+                const std::string& dot_name,
+                const std::string& slash_name,
+                T& value,
+                const T& default_value) {
+                if (node.has_parameter(dot_name)) {
+                    (void)node.get_parameter(dot_name, value);
+                    return;
+                }
+                if (node.has_parameter(slash_name)) {
+                    (void)node.get_parameter(slash_name, value);
+                    return;
+                }
+                node.declare_parameter(dot_name, default_value);
+                (void)node.get_parameter(dot_name, value);
+            }
+
+            void InitAimTimerLogger() {
+                bool enabled = false;
+                std::string dir = "~/Log/AimTimer";
+                ReadParamWithAlias("aim_timer_log.enable", "aim_timer_log/enable", enabled, enabled);
+                ReadParamWithAlias("aim_timer_log.dir", "aim_timer_log/dir", dir, dir);
+
+                if (!enabled) {
+                    return;
+                }
+
+                if (aim_timer_logger_.Open(enabled, dir, "predictor")) {
+                    RCLCPP_INFO(node.get_logger(), "AimTimer predictor log enabled: %s", aim_timer_logger_.Path().c_str());
+                } else {
+                    RCLCPP_WARN(node.get_logger(), "AimTimer predictor log requested but file open failed.");
+                }
+            }
+
+            void LogAimTimerTrackerUpdate(
+                const PredictorUpdateStats& stats,
+                const TrackResultPairs& track_results,
+                const rclcpp::Time& callback_time,
+                const rclcpp::Time& tracker_stamp,
+                double max_xyz_jump,
+                double max_yaw_jump_deg,
+                std::size_t jump_sample_count) {
+                if (!aim_timer_logger_.Enabled()) {
+                    return;
+                }
+
+                {
+                    std::ostringstream oss;
+                    oss << std::fixed << std::setprecision(3)
+                        << "node=predictor event=tracker_update"
+                        << " stamp_sec=" << tracker_stamp.seconds()
+                        << " callback_sec=" << callback_time.seconds()
+                        << " tracker_age_ms=" << (callback_time.seconds() - tracker_stamp.seconds()) * 1000.0
+                        << " armors=" << stats.armor_count
+                        << " cars=" << stats.car_count
+                        << " model_updates=" << stats.model_update_count
+                        << " max_xyz_jump=" << max_xyz_jump
+                        << " max_yaw_jump_deg=" << max_yaw_jump_deg
+                        << " jump_samples=" << jump_sample_count
+                        << " gimbal_pitch_deg=" << last_gimbal_angle_.pitch
+                        << " gimbal_yaw_deg=" << last_gimbal_angle_.yaw;
+                    aim_timer_logger_.Write(oss.str());
+                }
+
+                for (const auto& track_result : track_results.first) {
+                    const XYZ xyz = track_result.location.xyz_imu;
+                    const double distance = std::sqrt(xyz.x * xyz.x + xyz.y * xyz.y + xyz.z * xyz.z);
+                    std::ostringstream oss;
+                    oss << std::fixed << std::setprecision(4)
+                        << "node=predictor event=tracker_armor_input"
+                        << " car_id=" << track_result.car_id
+                        << " armor_id=" << track_result.armor_id
+                        << " x=" << xyz.x
+                        << " y=" << xyz.y
+                        << " z=" << xyz.z
+                        << " distance=" << distance
+                        << " yaw_rad=" << track_result.yaw
+                        << " yaw_deg=" << track_result.yaw * 180.0 / M_PI;
+                    aim_timer_logger_.Write(oss.str());
+                }
+            }
+
+            void LogAimTimerTarget(
+                const rclcpp::Time& now,
+                int target,
+                float bullet_speed,
+                std::size_t prediction_count,
+                bool has_predictions,
+                bool observation_receive_fresh,
+                bool tracker_stamp_fresh,
+                bool observation_fresh,
+                double observation_age_ms,
+                double tracker_stamp_age_ms,
+                bool finite_target,
+                bool publish_target,
+                const auto_aim_common::msg::Target& target_msg,
+                const std::string& reason) {
+                if (!aim_timer_logger_.Enabled()) {
+                    return;
+                }
+
+                std::ostringstream oss;
+                oss << std::fixed << std::setprecision(3)
+                    << "node=predictor event=target_timer"
+                    << " now_sec=" << now.seconds()
+                    << " target_type=" << target
+                    << " bullet_speed=" << bullet_speed
+                    << " prediction_count=" << prediction_count
+                    << " has_predictions=" << (has_predictions ? 1 : 0)
+                    << " receive_fresh=" << (observation_receive_fresh ? 1 : 0)
+                    << " tracker_stamp_fresh=" << (tracker_stamp_fresh ? 1 : 0)
+                    << " observation_fresh=" << (observation_fresh ? 1 : 0)
+                    << " receive_age_ms=" << observation_age_ms
+                    << " tracker_stamp_age_ms=" << tracker_stamp_age_ms
+                    << " status=" << (target_msg.status ? 1 : 0)
+                    << " publish=" << (publish_target ? 1 : 0)
+                    << " finite_target=" << (finite_target ? 1 : 0)
+                    << " yaw_cmd_deg=" << target_msg.yaw
+                    << " pitch_cmd_deg=" << target_msg.pitch
+                    << " gimbal_yaw_deg=" << last_gimbal_angle_.yaw
+                    << " gimbal_pitch_deg=" << last_gimbal_angle_.pitch
+                    << " reason=" << reason;
+                aim_timer_logger_.Write(oss.str());
+            }
+
         public: 
             ROSNode<AppName> node;
         private:
@@ -347,20 +652,28 @@ namespace {
             std::unique_ptr<ly_auto_aim::predictor::Predictor> predictor;
             std::shared_ptr<ly_auto_aim::controller::Controller> controller;
             std::mutex data_mutex;
+            struct TrackerObservationSnapshot {
+                XYZ xyz;
+                double yaw = 0.0;
+            };
+            std::map<std::pair<int, int>, TrackerObservationSnapshot> last_tracker_observations_;
             rclcpp::TimerBase::SharedPtr publish_timer_{};
             GimbalAngleType last_gimbal_angle_{0.0, 0.0};
             std_msgs::msg::Header last_tracker_header_{};
             rclcpp::Time last_update_time_{};
             rclcpp::Time last_observation_time_{};
+            rclcpp::Time last_observation_stamp_{};
             rclcpp::Time last_update_stats_log_time_{};
             std::atomic_bool has_tracker_input_{false};
             std::atomic_bool has_new_tracker_frame_{false};
             bool publish_only_on_new_tracker_frame_{false};
             bool require_observation_fresh_for_target_{false};
             rclcpp::Duration coast_timeout_{rclcpp::Duration::from_seconds(0.10)};
+            rclcpp::Duration max_tracker_age_{rclcpp::Duration::from_seconds(0.15)};
             rclcpp::Time last_invalid_reason_log_time_{};
             const rclcpp::Duration invalid_reason_log_interval_{rclcpp::Duration::from_seconds(0.5)};
             const rclcpp::Duration update_stats_log_interval_{rclcpp::Duration::from_seconds(1.0)};
+            AimTimerFileLogger aim_timer_logger_;
     };
 }
 

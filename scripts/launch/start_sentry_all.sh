@@ -69,6 +69,58 @@ read_common_bt_log_dir() {
   printf '%s\n' "${value}"
 }
 
+read_common_bt_file_log_enable() {
+  local config_file="$1"
+  [[ -f "${config_file}" ]] || return 1
+
+  local value=""
+  value="$(read_common_scalar "${config_file}" "bt_file_log_enable")" || return 1
+  read_common_bool_value "${value}"
+}
+
+read_common_aim_timer_log_enable() {
+  local config_file="$1"
+  [[ -f "${config_file}" ]] || return 1
+
+  local value=""
+  value="$(read_common_scalar "${config_file}" "aim_timer_log_enable")" || return 1
+  read_common_bool_value "${value}"
+}
+
+read_common_aim_timer_log_dir() {
+  local config_file="$1"
+  [[ -f "${config_file}" ]] || return 1
+
+  local value=""
+  value="$(read_common_scalar "${config_file}" "aim_timer_log_dir")" || return 1
+  [[ -n "${value}" ]] || return 1
+
+  if [[ "${value}" == "~" ]]; then
+    value="${HOME}"
+  elif [[ "${value}" == "~/"* ]]; then
+    value="${HOME}/${value#"~/"}"
+  fi
+
+  printf '%s\n' "${value}"
+}
+
+read_common_bool_value() {
+  local value="$1"
+  value="$(printf '%s' "${value}" | tr '[:upper:]' '[:lower:]')"
+
+  case "${value}" in
+    true|1|yes|on)
+      printf '1\n'
+      ;;
+    false|0|no|off)
+      printf '0\n'
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 read_common_scalar() {
   local config_file="$1"
   local key="$2"
@@ -129,18 +181,55 @@ done
 source_ros_workspace "${ROOT_DIR}"
 cleanup_existing_launch_tree "${CLEANUP_EXISTING}" "${STACK_LAUNCH_REGEX}"
 
+if [[ -z "${BT_APP_FILE_LOG_ENABLE:-}" ]]; then
+  if BT_APP_FILE_LOG_ENABLE_FROM_COMMON="$(read_common_bt_file_log_enable "${DEFAULT_COMMON_CONFIG_FILE}")"; then
+    export BT_APP_FILE_LOG_ENABLE="${BT_APP_FILE_LOG_ENABLE_FROM_COMMON}"
+    echo "[INFO] default BT_APP_FILE_LOG_ENABLE=${BT_APP_FILE_LOG_ENABLE} (from ${DEFAULT_COMMON_CONFIG_FILE})"
+  else
+    export BT_APP_FILE_LOG_ENABLE="1"
+    echo "[INFO] default BT_APP_FILE_LOG_ENABLE=${BT_APP_FILE_LOG_ENABLE}"
+  fi
+else
+  echo "[INFO] use BT_APP_FILE_LOG_ENABLE=${BT_APP_FILE_LOG_ENABLE}"
+fi
+
 if [[ -z "${BT_LOG_DIR:-}" ]]; then
   if BT_LOG_DIR_FROM_COMMON="$(read_common_bt_log_dir "${DEFAULT_COMMON_CONFIG_FILE}")"; then
     export BT_LOG_DIR="${BT_LOG_DIR_FROM_COMMON}"
     echo "[INFO] default BT_LOG_DIR=${BT_LOG_DIR} (from ${DEFAULT_COMMON_CONFIG_FILE})"
   else
-    export BT_LOG_DIR="${HOME}/Log"
+    export BT_LOG_DIR="${HOME}/Log/BT"
     echo "[INFO] default BT_LOG_DIR=${BT_LOG_DIR}"
   fi
 else
   echo "[INFO] use BT_LOG_DIR=${BT_LOG_DIR}"
 fi
-mkdir -p "${BT_LOG_DIR}"
+if [[ "${BT_APP_FILE_LOG_ENABLE}" != "0" ]]; then
+  mkdir -p "${BT_LOG_DIR}"
+fi
+
+if ! has_launch_arg_key "aim_timer_log_enable"; then
+  if AIM_TIMER_LOG_ENABLE_FROM_COMMON="$(read_common_aim_timer_log_enable "${DEFAULT_COMMON_CONFIG_FILE}")"; then
+    if [[ "${AIM_TIMER_LOG_ENABLE_FROM_COMMON}" == "0" ]]; then
+      AIM_TIMER_LOG_ENABLE_LAUNCH="false"
+    else
+      AIM_TIMER_LOG_ENABLE_LAUNCH="true"
+    fi
+    LAUNCH_ARGS=("aim_timer_log_enable:=${AIM_TIMER_LOG_ENABLE_LAUNCH}" "${LAUNCH_ARGS[@]}")
+    echo "[INFO] default aim_timer_log_enable=${AIM_TIMER_LOG_ENABLE_LAUNCH} (from ${DEFAULT_COMMON_CONFIG_FILE})"
+  fi
+else
+  for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == aim_timer_log_enable:=* ]] && echo "[INFO] override aim_timer_log_enable=${arg#aim_timer_log_enable:=}"; done
+fi
+
+if ! has_launch_arg_key "aim_timer_log_dir"; then
+  if AIM_TIMER_LOG_DIR_FROM_COMMON="$(read_common_aim_timer_log_dir "${DEFAULT_COMMON_CONFIG_FILE}")"; then
+    LAUNCH_ARGS=("aim_timer_log_dir:=${AIM_TIMER_LOG_DIR_FROM_COMMON}" "${LAUNCH_ARGS[@]}")
+    echo "[INFO] default aim_timer_log_dir=${AIM_TIMER_LOG_DIR_FROM_COMMON} (from ${DEFAULT_COMMON_CONFIG_FILE})"
+  fi
+else
+  for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == aim_timer_log_dir:=* ]] && echo "[INFO] override aim_timer_log_dir=${arg#aim_timer_log_dir:=}"; done
+fi
 
 if ! has_launch_arg_key "base_config_file"; then
   LAUNCH_ARGS=("base_config_file:=${DEFAULT_BASE_CONFIG_FILE}" "${LAUNCH_ARGS[@]}")

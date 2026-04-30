@@ -97,6 +97,8 @@ def generate_launch_description():
     league_referee_stale_timeout_ms = LaunchConfiguration("league_referee_stale_timeout_ms")
     firecode_partial_hold_ms = LaunchConfiguration("firecode_partial_hold_ms")
     velocity_raw_to_mps = LaunchConfiguration("velocity_raw_to_mps")
+    aim_timer_log_enable = LaunchConfiguration("aim_timer_log_enable")
+    aim_timer_log_dir = LaunchConfiguration("aim_timer_log_dir")
     decision_trace_enabled = LaunchConfiguration("decision_trace_enabled")
     decision_trace_file = LaunchConfiguration("decision_trace_file")
     decision_trace_every_n_ticks = LaunchConfiguration("decision_trace_every_n_ticks")
@@ -205,6 +207,16 @@ def generate_launch_description():
             description="gimbal_driver scale from lower raw int8 velocity to m/s.",
         ),
         DeclareLaunchArgument(
+            "aim_timer_log_enable",
+            default_value="false",
+            description="Enable tracker_solver/predictor AimTimer file diagnostics.",
+        ),
+        DeclareLaunchArgument(
+            "aim_timer_log_dir",
+            default_value="~/Log/AimTimer",
+            description="AimTimer diagnostics output directory.",
+        ),
+        DeclareLaunchArgument(
             "decision_trace_enabled",
             default_value="false",
             description="Debug only: enable JSONL decision trace for offline pygame replay.",
@@ -260,6 +272,8 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] league_referee_stale_timeout_ms: ", league_referee_stale_timeout_ms]),
         LogInfo(msg=["[sentry_all] firecode_partial_hold_ms: ", firecode_partial_hold_ms]),
         LogInfo(msg=["[sentry_all] velocity_raw_to_mps: ", velocity_raw_to_mps]),
+        LogInfo(msg=["[sentry_all] aim_timer_log_enable: ", aim_timer_log_enable]),
+        LogInfo(msg=["[sentry_all] aim_timer_log_dir: ", aim_timer_log_dir]),
         LogInfo(msg=["[sentry_all] decision_trace_enabled: ", decision_trace_enabled]),
         LogInfo(msg=["[sentry_all] decision_trace_file: ", decision_trace_file]),
         LogInfo(msg=["[sentry_all] decision_trace_every_n_ticks: ", decision_trace_every_n_ticks]),
@@ -364,7 +378,17 @@ def generate_launch_description():
             executable="tracker_solver_node",
             name="tracker_solver",
             output=output,
-            parameters=[base_config_file, predictor_config_file, config_file],
+            parameters=[
+                base_config_file,
+                predictor_config_file,
+                config_file,
+                {
+                    "aim_timer_log.enable": ParameterValue(aim_timer_log_enable, value_type=bool),
+                    "aim_timer_log/enable": ParameterValue(aim_timer_log_enable, value_type=bool),
+                    "aim_timer_log.dir": ParameterValue(aim_timer_log_dir, value_type=str),
+                    "aim_timer_log/dir": ParameterValue(aim_timer_log_dir, value_type=str),
+                },
+            ],
             on_exit=Shutdown(reason="tracker_solver exited"),
             condition=IfCondition(use_tracker),
         ),
@@ -373,7 +397,17 @@ def generate_launch_description():
             executable="predictor_node",
             name="predictor_node",
             output=output,
-            parameters=[base_config_file, predictor_config_file, config_file],
+            parameters=[
+                base_config_file,
+                predictor_config_file,
+                config_file,
+                {
+                    "aim_timer_log.enable": ParameterValue(aim_timer_log_enable, value_type=bool),
+                    "aim_timer_log/enable": ParameterValue(aim_timer_log_enable, value_type=bool),
+                    "aim_timer_log.dir": ParameterValue(aim_timer_log_dir, value_type=str),
+                    "aim_timer_log/dir": ParameterValue(aim_timer_log_dir, value_type=str),
+                },
+            ],
             on_exit=Shutdown(reason="predictor_node exited"),
             condition=IfCondition(use_predictor),
         ),
