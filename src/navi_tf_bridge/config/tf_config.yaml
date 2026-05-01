@@ -33,7 +33,7 @@ target_rel_to_goal_pos_node:
     #   rigid  : rotation + translation
     #   affine : 2x2 linear + translation (supports mirror/scale/shear)
     #   auto   : solve both rigid/affine and choose lower RMSE (tie -> rigid)
-    use_raw_goal_static_calibration: false
+    use_raw_goal_static_calibration: true
     raw_goal_calibration_model: auto
     raw_goal_calibration_unit: cm
     raw_goal_source_frame: official_map
