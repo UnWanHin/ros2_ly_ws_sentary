@@ -48,7 +48,7 @@
 ### 3) 追击 TF 变换链修正（source -> map）
 
 追击点转换使用 `RelativeTarget.header.frame_id`（若为空则用 `target_rel_default_frame`）作为来源，  
-直接做单段 TF 查询 `map <- source_frame` 后发布 `/ly/navi/goal_pos`。
+直接做单段 TF 查询 `map <- source_frame` 后发布 `geometry_msgs/PoseStamped /goal_pose`。
 
 新增参数：
 

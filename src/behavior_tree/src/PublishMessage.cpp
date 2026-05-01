@@ -47,8 +47,8 @@ namespace BehaviorTree {
                 config.NaviSettings.UseTfGoalBridge &&
                 enable_relative_target_topic;
             // 导航目标按模式二选一：
-            // UseXY=true 走 /ly/navi/goal_pos；否则走 /ly/navi/goal。
-            // 追击+relative_topic+tf bridge 场景下，由 bridge 独占 /ly/navi/goal_pos。
+            // UseXY=true 且不走 bridge 时直发 /ly/navi/goal_pos；否则走 /ly/navi/goal。
+            // 追击+relative_topic+tf bridge 场景下，由 bridge 输出 /goal_pose。
             if(config.NaviSettings.UseXY && !use_tf_goal_bridge) PubNaviGoalPos();
             else PubNaviGoal();
         }
@@ -175,7 +175,7 @@ namespace BehaviorTree {
         };
         msg.data = data;
         if (config.NaviSettings.UseTfGoalBridge && pub_navi_goal_pos_raw_) {
-            // 统一由 navi_tf_bridge 输出 /ly/navi/goal_pos，BT 仅发布 raw 点位输入。
+            // 统一由 navi_tf_bridge 输出 /goal_pose，BT 仅发布 raw 点位输入。
             pub_navi_goal_pos_raw_->publish(msg);
             return;
         }

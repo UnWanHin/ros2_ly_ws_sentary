@@ -19,7 +19,7 @@
 - 雲台控制：`/ly/control/angles`、`/ly/control/firecode`
 - 模式使能：`/ly/aa/enable`、`/ly/ra/enable`、`/ly/outpost/enable`
 - 目標類型：`/ly/bt/target`
-- 導航：`/ly/navi/goal` 或 `/ly/navi/goal_pos`、`/ly/navi/speed_level`
+- 導航：`/ly/navi/goal`、bridge 輸入 `/ly/navi/goal_pos_raw` / `/ly/navi/target_rel`，最終 `geometry_msgs/PoseStamped /goal_pose`、`/ly/navi/speed_level`
 
 接口名稱、消息類型、字段名保持不變。
 
@@ -377,7 +377,8 @@ ros2 launch behavior_tree sentry_all.launch.py \
   - `showcase`：沿用 `regional` 主流程，但使用展示專用姿態參數
 - 導航發布鏈路已對齊
   - `UseXY=false` -> 發 `/ly/navi/goal`
-  - `UseXY=true` -> 發 `/ly/navi/goal_pos`
+  - `UseXY=true` + `UseTfGoalBridge=true` -> BT 發 `/ly/navi/goal_pos_raw`，bridge 最終發 `/goal_pose`
+  - `UseXY=true` + `UseTfGoalBridge=false` -> legacy 直發 `/ly/navi/goal_pos`
 
 驗證記錄：
 - `./scripts/selfcheck.sh sentry --static-only`：通過（PASS 36 / WARN 0 / FAIL 0）

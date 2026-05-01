@@ -264,11 +264,11 @@ void Application::WriteDecisionTrace(const std::string_view event) {
     if (use_tf_goal_bridge) {
         output_kind = "relative_target_bridge";
         output_topic = ly_navi_target_rel::Name;
-        final_goal_pos_topic = ly_navi_goal_pos::Name;
+        final_goal_pos_topic = "/goal_pose";
     } else if (uses_goal_pos) {
         output_kind = uses_goal_pos_bridge ? "goal_pos_raw_bridge" : "goal_pos";
         output_topic = uses_goal_pos_bridge ? ly_navi_goal_pos_raw::Name : ly_navi_goal_pos::Name;
-        final_goal_pos_topic = ly_navi_goal_pos::Name;
+        final_goal_pos_topic = uses_goal_pos_bridge ? "/goal_pose" : ly_navi_goal_pos::Name;
     }
 
     json record;

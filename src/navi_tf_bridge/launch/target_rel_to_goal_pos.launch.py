@@ -68,6 +68,10 @@ def generate_launch_description():
             default_value=str(get_default("output_goal_pos_topic", "/ly/navi/goal_pos")),
         ),
         DeclareLaunchArgument(
+            "output_goal_pose_topic",
+            default_value=str(get_default("output_goal_pose_topic", "/goal_pose")),
+        ),
+        DeclareLaunchArgument(
             "input_goal_pos_raw_topic",
             default_value=str(get_default("input_goal_pos_raw_topic", "/ly/navi/goal_pos_raw")),
         ),
@@ -96,11 +100,39 @@ def generate_launch_description():
             default_value=_bool_default(get_default("publish_target_map", True)),
         ),
         DeclareLaunchArgument(
+            "publish_goal_pos",
+            default_value=_bool_default(get_default("publish_goal_pos", False)),
+        ),
+        DeclareLaunchArgument(
+            "publish_goal_pose",
+            default_value=_bool_default(get_default("publish_goal_pose", True)),
+        ),
+        DeclareLaunchArgument(
             "invert_y_axis",
             default_value=_bool_default(get_default("invert_y_axis", False)),
         ),
         DeclareLaunchArgument(
             "y_axis_max_cm", default_value=str(int(get_default("y_axis_max_cm", 1500)))
+        ),
+        DeclareLaunchArgument(
+            "goal_pos_uint16_encode_enabled",
+            default_value=_bool_default(get_default("goal_pos_uint16_encode_enabled", False)),
+        ),
+        DeclareLaunchArgument(
+            "goal_pos_uint16_encode_x_scale",
+            default_value=str(float(get_default("goal_pos_uint16_encode_x_scale", 1.0))),
+        ),
+        DeclareLaunchArgument(
+            "goal_pos_uint16_encode_y_scale",
+            default_value=str(float(get_default("goal_pos_uint16_encode_y_scale", 1.0))),
+        ),
+        DeclareLaunchArgument(
+            "goal_pos_uint16_encode_x_offset_cm",
+            default_value=str(float(get_default("goal_pos_uint16_encode_x_offset_cm", 0.0))),
+        ),
+        DeclareLaunchArgument(
+            "goal_pos_uint16_encode_y_offset_cm",
+            default_value=str(float(get_default("goal_pos_uint16_encode_y_offset_cm", 0.0))),
         ),
         DeclareLaunchArgument(
             "preferred_distance_cm",
@@ -184,6 +216,7 @@ def generate_launch_description():
                         "input_topic": LaunchConfiguration("input_topic"),
                         "input_goal_pos_raw_topic": LaunchConfiguration("input_goal_pos_raw_topic"),
                         "output_goal_pos_topic": LaunchConfiguration("output_goal_pos_topic"),
+                        "output_goal_pose_topic": LaunchConfiguration("output_goal_pose_topic"),
                         "output_target_map_topic": LaunchConfiguration("output_target_map_topic"),
                         "map_frame": LaunchConfiguration("map_frame"),
                         "base_frame": LaunchConfiguration("base_frame"),
@@ -197,11 +230,36 @@ def generate_launch_description():
                         "publish_target_map": ParameterValue(
                             LaunchConfiguration("publish_target_map"), value_type=bool
                         ),
+                        "publish_goal_pos": ParameterValue(
+                            LaunchConfiguration("publish_goal_pos"), value_type=bool
+                        ),
+                        "publish_goal_pose": ParameterValue(
+                            LaunchConfiguration("publish_goal_pose"), value_type=bool
+                        ),
                         "invert_y_axis": ParameterValue(
                             LaunchConfiguration("invert_y_axis"), value_type=bool
                         ),
                         "y_axis_max_cm": ParameterValue(
                             LaunchConfiguration("y_axis_max_cm"), value_type=int
+                        ),
+                        "goal_pos_uint16_encode_enabled": ParameterValue(
+                            LaunchConfiguration("goal_pos_uint16_encode_enabled"), value_type=bool
+                        ),
+                        "goal_pos_uint16_encode_x_scale": ParameterValue(
+                            LaunchConfiguration("goal_pos_uint16_encode_x_scale"),
+                            value_type=float,
+                        ),
+                        "goal_pos_uint16_encode_y_scale": ParameterValue(
+                            LaunchConfiguration("goal_pos_uint16_encode_y_scale"),
+                            value_type=float,
+                        ),
+                        "goal_pos_uint16_encode_x_offset_cm": ParameterValue(
+                            LaunchConfiguration("goal_pos_uint16_encode_x_offset_cm"),
+                            value_type=float,
+                        ),
+                        "goal_pos_uint16_encode_y_offset_cm": ParameterValue(
+                            LaunchConfiguration("goal_pos_uint16_encode_y_offset_cm"),
+                            value_type=float,
                         ),
                         "preferred_distance_cm": ParameterValue(
                             LaunchConfiguration("preferred_distance_cm"), value_type=int

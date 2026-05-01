@@ -279,7 +279,9 @@ void TreeTick() {
 | `/ly/bt/target` | 當前打擊目標類型（→ `detector` 和 `predictor`） |
 | `/ly/navi/target_rel` | 追擊相對目標點（x/y/z，供導航側閉環） |
 | `/ly/navi/goal` | 導航目標點位 |
-| `/ly/navi/goal_pos` | 導航目標座標 |
+| `/ly/navi/goal_pos_raw` | TF bridge 靜態點位輸入 |
+| `/goal_pose` | TF bridge 最終導航目標座標（geometry_msgs/PoseStamped） |
+| `/ly/navi/goal_pos` | legacy/direct-XY 兼容座標 |
 | `/ly/navi/speed_level` | 底盤速度等級 |
 
 ### 比賽 Profile 切換

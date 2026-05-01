@@ -22,6 +22,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         import rclpy
+        from geometry_msgs.msg import PoseStamped
         from rclpy.node import Node
         from std_msgs.msg import Bool, UInt8, UInt16, UInt16MultiArray
     except ImportError as exc:
@@ -36,6 +37,7 @@ def main(argv: list[str] | None = None) -> int:
         def __init__(self) -> None:
             super().__init__("decision_viz_ros_topic_monitor")
             self.values: dict[str, dict[str, Any]] = {}
+            self.create_subscription(PoseStamped, "/goal_pose", self.on_goal_pose, 10)
             self.create_subscription(UInt16MultiArray, "/ly/navi/goal_pos", self.on_goal_pos, 10)
             self.create_subscription(UInt16MultiArray, "/ly/navi/goal_pos_raw", self.on_goal_pos_raw, 10)
             self.create_subscription(UInt8, "/ly/navi/goal", self.on_goal, 10)
@@ -50,6 +52,15 @@ def main(argv: list[str] | None = None) -> int:
                 "value": value,
                 "wall_time": time.time(),
             }
+
+        def on_goal_pose(self, msg: Any) -> None:
+            self.put(
+                "/goal_pose",
+                [
+                    float(msg.pose.position.x) * 100.0,
+                    float(msg.pose.position.y) * 100.0,
+                ],
+            )
 
         def on_goal_pos(self, msg: Any) -> None:
             self.put("/ly/navi/goal_pos", [int(item) for item in msg.data[:2]])

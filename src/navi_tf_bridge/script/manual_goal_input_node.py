@@ -4,12 +4,14 @@
 # This file belongs to the ROS2 sentry workspace codebase.
 # Keep behavior and interface changes synchronized with related modules.
 
+from copy import deepcopy
 import re
 import threading
 import time
 from typing import Optional
 
 import rclpy
+from geometry_msgs.msg import PoseStamped
 from rclpy.node import Node
 from std_msgs.msg import UInt16MultiArray
 
@@ -23,9 +25,9 @@ class ManualGoalInputNode(Node):
         )
 
         self.raw_topic = str(self.get_param_compat("raw_topic", "/ly/navi/goal_pos_raw"))
-        self.goal_topic = str(self.get_param_compat("goal_topic", "/ly/navi/goal_pos"))
+        self.goal_topic = str(self.get_param_compat("goal_topic", "/goal_pose"))
         self.confirmed_goal_topic = str(
-            self.get_param_compat("confirmed_goal_topic", "/ly/navi/goal_pos")
+            self.get_param_compat("confirmed_goal_topic", "/goal_pose")
         )
         self.confirm_before_publish = bool(
             self.get_param_compat("confirm_before_publish", False)
@@ -44,14 +46,14 @@ class ManualGoalInputNode(Node):
 
         self.pub_raw = self.create_publisher(UInt16MultiArray, self.raw_topic, 10)
         self.pub_confirmed = (
-            self.create_publisher(UInt16MultiArray, self.confirmed_goal_topic, 10)
+            self.create_publisher(PoseStamped, self.confirmed_goal_topic, 10)
             if self.confirm_before_publish
             else None
         )
         self.sub_goal = self.create_subscription(
-            UInt16MultiArray,
+            PoseStamped,
             self.goal_topic,
-            self.on_goal_pos,
+            self.on_goal_pose,
             10,
         )
 
@@ -59,20 +61,20 @@ class ManualGoalInputNode(Node):
         self.seq = 0
         self.goal_condition = threading.Condition()
         self.goal_seq = 0
-        self.last_goal: list[int] | None = None
+        self.last_goal_pose: PoseStamped | None = None
 
         self.get_logger().info(
             f"manual goal input ready: raw_topic={self.raw_topic} "
-            f"goal_topic={self.goal_topic} input_unit={self.input_unit} "
+            f"goal_pose_topic={self.goal_topic} input_unit={self.input_unit} "
             f"confirm_before_publish={self.confirm_before_publish} "
-            f"confirmed_goal_topic={self.confirmed_goal_topic}"
+            f"confirmed_goal_pose_topic={self.confirmed_goal_topic}"
         )
         self.get_logger().info(
             "Input format: x y. Example: '1200 650' (cm) or '12.0 6.5' (m). Type 'q' to quit."
         )
         if self.confirm_before_publish and self.goal_topic == self.confirmed_goal_topic:
             self.get_logger().warn(
-                "goal_topic equals confirmed_goal_topic; converted points may already be on the final topic."
+                "goal_topic equals confirmed_goal_topic; converted poses may already be on the final topic."
             )
 
         self.input_thread = threading.Thread(target=self.input_loop, daemon=True)
@@ -92,23 +94,26 @@ class ManualGoalInputNode(Node):
             number *= 100.0
         return int(round(number))
 
-    def on_goal_pos(self, msg: UInt16MultiArray) -> None:
-        if len(msg.data) < 2:
-            return
-        goal = [int(msg.data[0]), int(msg.data[1])]
+    @staticmethod
+    def pose_xy_text(pose: PoseStamped) -> str:
+        x_m = float(pose.pose.position.x)
+        y_m = float(pose.pose.position.y)
+        return f"x={x_m:.3f} m y={y_m:.3f} m ({x_m * 100.0:.0f}, {y_m * 100.0:.0f} cm)"
+
+    def on_goal_pose(self, msg: PoseStamped) -> None:
         if self.confirm_before_publish:
             with self.goal_condition:
-                self.last_goal = goal
+                self.last_goal_pose = deepcopy(msg)
                 self.goal_seq += 1
                 self.goal_condition.notify_all()
             return
         if not self.echo_goal:
             return
         self.get_logger().info(
-            f"goal_pos <= x={goal[0]} cm y={goal[1]} cm"
+            f"goal_pose <= {self.pose_xy_text(msg)} frame={msg.header.frame_id or '<empty>'}"
         )
 
-    def wait_for_converted_goal(self, start_seq: int) -> list[int] | None:
+    def wait_for_converted_goal(self, start_seq: int) -> PoseStamped | None:
         deadline = time.monotonic() + self.conversion_timeout_sec
         with self.goal_condition:
             while rclpy.ok() and self.goal_seq <= start_seq:
@@ -116,11 +121,12 @@ class ManualGoalInputNode(Node):
                 if remaining <= 0.0:
                     return None
                 self.goal_condition.wait(timeout=remaining)
-            return list(self.last_goal) if self.last_goal is not None else None
+            return deepcopy(self.last_goal_pose) if self.last_goal_pose is not None else None
 
-    def ask_confirm_publish(self, goal: list[int]) -> bool:
+    def ask_confirm_publish(self, goal_pose: PoseStamped) -> bool:
         prompt = (
-            f"converted goal_pos x={goal[0]} cm y={goal[1]} cm. "
+            f"converted goal_pose {self.pose_xy_text(goal_pose)} "
+            f"frame={goal_pose.header.frame_id or '<empty>'}. "
             f"Publish to {self.confirmed_goal_topic}? [y/N] > "
         )
         while rclpy.ok() and not self.stop_event.is_set():
@@ -139,15 +145,15 @@ class ManualGoalInputNode(Node):
             print("Input y or n.")
         return False
 
-    def publish_confirmed_goal(self, goal: list[int]) -> None:
+    def publish_confirmed_goal(self, goal_pose: PoseStamped) -> None:
         if self.pub_confirmed is None:
             return
-        msg = UInt16MultiArray()
-        msg.data = [int(goal[0]), int(goal[1])]
-        self.pub_confirmed.publish(msg)
+        out = deepcopy(goal_pose)
+        out.header.stamp = self.get_clock().now().to_msg()
+        self.pub_confirmed.publish(out)
         self.get_logger().info(
-            f"confirmed goal_pos => x={goal[0]} cm y={goal[1]} cm "
-            f"topic={self.confirmed_goal_topic}"
+            f"confirmed goal_pose => {self.pose_xy_text(out)} "
+            f"frame={out.header.frame_id or '<empty>'} topic={self.confirmed_goal_topic}"
         )
 
     def input_loop(self) -> None:
@@ -194,16 +200,16 @@ class ManualGoalInputNode(Node):
                 f"topic={self.raw_topic}"
             )
             if self.confirm_before_publish:
-                goal = self.wait_for_converted_goal(start_goal_seq)
-                if goal is None:
+                goal_pose = self.wait_for_converted_goal(start_goal_seq)
+                if goal_pose is None:
                     self.get_logger().warn(
-                        f"Timed out waiting for converted goal on {self.goal_topic}."
+                        f"Timed out waiting for converted goal_pose on {self.goal_topic}."
                     )
                     continue
-                if self.ask_confirm_publish(goal):
-                    self.publish_confirmed_goal(goal)
+                if self.ask_confirm_publish(goal_pose):
+                    self.publish_confirmed_goal(goal_pose)
                 else:
-                    self.get_logger().info("skip confirmed goal_pos publish.")
+                    self.get_logger().info("skip confirmed goal_pose publish.")
 
         self.stop_event.set()
         if rclpy.ok():

@@ -3,6 +3,7 @@ target_rel_to_goal_pos_node:
     input_topic: /ly/navi/target_rel
     input_goal_pos_raw_topic: /ly/navi/goal_pos_raw
     output_goal_pos_topic: /ly/navi/goal_pos
+    output_goal_pose_topic: /goal_pose
     output_target_map_topic: /ly/navi/target_map
 
     # TF frame settings
@@ -15,8 +16,23 @@ target_rel_to_goal_pos_node:
     use_msg_frame_id: true
 
     publish_target_map: true
+    # Legacy UInt16 output is disabled by default; /goal_pose is the final navigation target.
+    publish_goal_pos: false
+    # Publish geometry_msgs/PoseStamped directly to navigation after map-frame conversion.
+    publish_goal_pose: true
     invert_y_axis: false
     y_axis_max_cm: 1500
+    # Optional UInt16 encoding on output_goal_pos_topic when publish_goal_pos=true:
+    #   u = sx * x_cm + ox
+    #   v = sy * y_cm + oy
+    # Navigation side decode:
+    #   x_cm = (u - ox) / sx
+    #   y_cm = (v - oy) / sy
+    goal_pos_uint16_encode_enabled: false
+    goal_pos_uint16_encode_x_scale: 1.0
+    goal_pos_uint16_encode_y_scale: 1.0
+    goal_pos_uint16_encode_x_offset_cm: 0.0
+    goal_pos_uint16_encode_y_offset_cm: 0.0
 
     preferred_distance_cm: 100
     distance_deadband_cm: 50
@@ -28,20 +44,25 @@ target_rel_to_goal_pos_node:
     # Raw goal static calibration (official-map points -> output map frame)
     # When enabled:
     #   /ly/navi/goal_pos_raw is treated as points in raw_goal_source_frame
-    #   and converted by the fitted 2D transform before publishing /ly/navi/goal_pos.
+    #   and converted by the configured matrix before publishing /goal_pose.
     # Model:
-    #   rigid  : rotation + translation
-    #   affine : 2x2 linear + translation (supports mirror/scale/shear)
+    #   matrix : use raw_goal_transform_matrix directly (row-major 4x4)
+    #   rigid  : solve rotation + translation from point pairs
+    #   affine : solve 2x2 linear + translation from point pairs
     #   auto   : solve both rigid/affine and choose lower RMSE (tie -> rigid)
     use_raw_goal_static_calibration: true
-    raw_goal_calibration_model: auto
+    raw_goal_calibration_model: matrix
     raw_goal_calibration_unit: cm
     raw_goal_source_frame: official_map
     raw_goal_target_frame: map
-    # Flattened point list: [x1, y1, x2, y2, x3, y3, ...]
-    # Supports N>=3 pairs (no hard upper limit). Keep source/target lengths equal.
-    raw_goal_source_points: [574.0, 1206.0, 1043.0, 329.0, 924.0, 834.0, 1879.0, 664.0, 367.0, 10.0]
-    raw_goal_target_points: [8.8154, -4.2515, -0.041879, -9.656739, 5.72997, -7.84072, 2.79, -17.5239, -3.33, -2.522]
+    # Row-major 4x4 matrix. Values use raw_goal_calibration_unit.
+    # Applied to [x, y, 0, 1]^T, then converted to meters for /goal_pose.
+    raw_goal_transform_matrix: [
+      6.75229012e-02, 9.97717725e-01, 0.0, -8.40221830e+02,
+      -9.97717725e-01, 6.75229012e-02, 0.0, 7.84496675e+02,
+      0.0, 0.0, 1.0, 0.0,
+      0.0, 0.0, 0.0, 1.0
+    ]
 
     # Debug export (for comparing Area.hpp map points with TF-converted points)
     debug_export_point_pairs: true

@@ -149,7 +149,10 @@ def normalize_output(raw: dict[str, Any], navi: dict[str, Any], team: str, goal_
 
     final_topic = str(output.get("final_goal_pos_topic", ""))
     if not final_topic and uses_goal_pos:
-        final_topic = "/ly/navi/goal_pos"
+        if kind.endswith("bridge") or topic in {"/ly/navi/target_rel", "/ly/navi/goal_pos_raw"}:
+            final_topic = "/goal_pose"
+        else:
+            final_topic = "/ly/navi/goal_pos"
 
     return DecisionOutput(
         kind=kind,

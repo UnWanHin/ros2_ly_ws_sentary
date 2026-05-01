@@ -200,7 +200,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "publish_navi_goal",
             default_value="true",
-            description="Whether behavior_tree publishes /ly/navi/goal and /ly/navi/goal_pos.",
+            description="Whether behavior_tree publishes navigation goal inputs; tf bridge outputs /goal_pose when enabled.",
         ),
         DeclareLaunchArgument(
             "wait_for_game_start_timeout_sec",

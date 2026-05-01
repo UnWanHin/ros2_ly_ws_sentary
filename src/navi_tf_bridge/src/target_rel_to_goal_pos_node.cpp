@@ -14,6 +14,7 @@
 
 #include "auto_aim_common/msg/relative_target.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/u_int16_multi_array.hpp"
@@ -37,6 +38,8 @@ public:
       this->declare_parameter<std::string>("input_goal_pos_raw_topic", "/ly/navi/goal_pos_raw");
     output_goal_pos_topic_ =
       this->declare_parameter<std::string>("output_goal_pos_topic", "/ly/navi/goal_pos");
+    output_goal_pose_topic_ =
+      this->declare_parameter<std::string>("output_goal_pose_topic", "/goal_pose");
     output_target_map_topic_ =
       this->declare_parameter<std::string>("output_target_map_topic", "/ly/navi/target_map");
 
@@ -49,8 +52,20 @@ public:
       this->declare_parameter<std::string>("target_rel_default_frame", "gimbal_world");
 
     publish_target_map_ = this->declare_parameter<bool>("publish_target_map", true);
+    publish_goal_pos_ = this->declare_parameter<bool>("publish_goal_pos", false);
+    publish_goal_pose_ = this->declare_parameter<bool>("publish_goal_pose", true);
     invert_y_axis_ = this->declare_parameter<bool>("invert_y_axis", false);
     y_axis_max_cm_ = this->declare_parameter<int>("y_axis_max_cm", 1500);
+    goal_pos_uint16_encode_enabled_ =
+      this->declare_parameter<bool>("goal_pos_uint16_encode_enabled", false);
+    goal_pos_uint16_encode_x_scale_ =
+      this->declare_parameter<double>("goal_pos_uint16_encode_x_scale", 1.0);
+    goal_pos_uint16_encode_y_scale_ =
+      this->declare_parameter<double>("goal_pos_uint16_encode_y_scale", 1.0);
+    goal_pos_uint16_encode_x_offset_cm_ =
+      this->declare_parameter<double>("goal_pos_uint16_encode_x_offset_cm", 0.0);
+    goal_pos_uint16_encode_y_offset_cm_ =
+      this->declare_parameter<double>("goal_pos_uint16_encode_y_offset_cm", 0.0);
     preferred_distance_cm_ = this->declare_parameter<int>("preferred_distance_cm", 100);
     distance_deadband_cm_ = this->declare_parameter<int>("distance_deadband_cm", 50);
     stop_when_no_target_ = this->declare_parameter<bool>("stop_when_no_target", true);
@@ -80,6 +95,9 @@ public:
     raw_goal_target_points_ =
       this->declare_parameter<std::vector<double>>(
       "raw_goal_target_points", std::vector<double>{});
+    raw_goal_transform_matrix_ =
+      this->declare_parameter<std::vector<double>>(
+      "raw_goal_transform_matrix", std::vector<double>{});
 
     initializeRawGoalStaticCalibration();
 
@@ -92,22 +110,50 @@ public:
       rclcpp::QoS(10),
       std::bind(&TargetRelToGoalPosNode::goalPosRawCallback, this, std::placeholders::_1));
 
-    pub_goal_pos_ =
-      this->create_publisher<std_msgs::msg::UInt16MultiArray>(output_goal_pos_topic_, 10);
+    if (publish_goal_pos_) {
+      pub_goal_pos_ =
+        this->create_publisher<std_msgs::msg::UInt16MultiArray>(output_goal_pos_topic_, 10);
+    }
+    if (publish_goal_pose_) {
+      pub_goal_pose_ =
+        this->create_publisher<geometry_msgs::msg::PoseStamped>(output_goal_pose_topic_, 10);
+    }
 
     if (publish_target_map_) {
       pub_target_map_ =
         this->create_publisher<geometry_msgs::msg::PointStamped>(output_target_map_topic_, 10);
     }
 
+    if (std::abs(goal_pos_uint16_encode_x_scale_) <= 1e-9) {
+      RCLCPP_WARN(
+        this->get_logger(),
+        "goal_pos_uint16_encode_x_scale is near zero, fallback to 1.0");
+      goal_pos_uint16_encode_x_scale_ = 1.0;
+    }
+    if (std::abs(goal_pos_uint16_encode_y_scale_) <= 1e-9) {
+      RCLCPP_WARN(
+        this->get_logger(),
+        "goal_pos_uint16_encode_y_scale is near zero, fallback to 1.0");
+      goal_pos_uint16_encode_y_scale_ = 1.0;
+    }
+
+    const double inv_x_scale = 1.0 / goal_pos_uint16_encode_x_scale_;
+    const double inv_y_scale = 1.0 / goal_pos_uint16_encode_y_scale_;
+    const double inv_x_offset = -goal_pos_uint16_encode_x_offset_cm_ / goal_pos_uint16_encode_x_scale_;
+    const double inv_y_offset = -goal_pos_uint16_encode_y_offset_cm_ / goal_pos_uint16_encode_y_scale_;
+
     RCLCPP_INFO(
       this->get_logger(),
-      "Started target_rel -> goal_pos bridge. in=%s out=%s map_frame=%s base_frame=%s "
+      "Started target_rel -> goal bridge. in=%s goal_pos_out=%s publish_goal_pos=%s goal_pose_out=%s publish_goal_pose=%s map_frame=%s base_frame=%s "
       "fallback_base_frame=%s target_rel_default_frame=%s raw_goal_in=%s raw_goal_frame=%s invert_y_axis=%s y_axis_max_cm=%d preferred_distance_cm=%d "
+      "goal_u16_encode=%s enc=[[%.6f,0,%.3f],[0,%.6f,%.3f]] dec=[[%.6f,0,%.3f],[0,%.6f,%.3f]] "
       "distance_deadband_cm=%d stop_when_no_target=%s allow_reverse_goal=%s "
       "use_raw_goal_static_calibration=%s model=%s source_frame=%s target_frame=%s",
       input_topic_.c_str(),
       output_goal_pos_topic_.c_str(),
+      publish_goal_pos_ ? "true" : "false",
+      output_goal_pose_topic_.c_str(),
+      publish_goal_pose_ ? "true" : "false",
       map_frame_.c_str(),
       base_frame_.c_str(),
       fallback_base_frame_.c_str(),
@@ -117,6 +163,15 @@ public:
       invert_y_axis_ ? "true" : "false",
       y_axis_max_cm_,
       preferred_distance_cm_,
+      goal_pos_uint16_encode_enabled_ ? "true" : "false",
+      goal_pos_uint16_encode_x_scale_,
+      goal_pos_uint16_encode_x_offset_cm_,
+      goal_pos_uint16_encode_y_scale_,
+      goal_pos_uint16_encode_y_offset_cm_,
+      inv_x_scale,
+      inv_x_offset,
+      inv_y_scale,
+      inv_y_offset,
       distance_deadband_cm_,
       stop_when_no_target_ ? "true" : "false",
       allow_reverse_goal_ ? "true" : "false",
@@ -446,6 +501,74 @@ private:
     rmse_m = std::sqrt(sum_sq / static_cast<double>(pairs.size()));
   }
 
+
+  bool initializeRawGoalMatrixCalibration()
+  {
+    double unit_scale = 0.01;
+    const std::string unit = raw_goal_calibration_unit_;
+    if (unit == "cm" || unit == "CM") {
+      unit_scale = 0.01;
+    } else if (unit == "m" || unit == "M") {
+      unit_scale = 1.0;
+    } else {
+      RCLCPP_WARN(
+        this->get_logger(),
+        "Raw-goal matrix calibration unit '%s' is invalid. Use 'cm' or 'm'.",
+        raw_goal_calibration_unit_.c_str());
+      return false;
+    }
+
+    if (raw_goal_transform_matrix_.size() != 16) {
+      RCLCPP_WARN(
+        this->get_logger(),
+        "Raw-goal matrix calibration needs 16 row-major values, got %zu.",
+        raw_goal_transform_matrix_.size());
+      return false;
+    }
+
+    // Matrix is configured in raw_goal_calibration_unit, while runtime points are meters.
+    raw_goal_calib_m00_ = raw_goal_transform_matrix_[0];
+    raw_goal_calib_m01_ = raw_goal_transform_matrix_[1];
+    raw_goal_calib_m10_ = raw_goal_transform_matrix_[4];
+    raw_goal_calib_m11_ = raw_goal_transform_matrix_[5];
+    raw_goal_calib_tx_m_ = raw_goal_transform_matrix_[3] * unit_scale;
+    raw_goal_calib_ty_m_ = raw_goal_transform_matrix_[7] * unit_scale;
+    raw_goal_static_calibration_ready_ = true;
+
+    RCLCPP_INFO(
+      this->get_logger(),
+      "Raw-goal static calibration ready. model=matrix unit=%s source_frame=%s target_frame=%s "
+      "matrix4x4=[[%.9f, %.9f, %.9f, %.9f],[%.9f, %.9f, %.9f, %.9f],"
+      "[%.9f, %.9f, %.9f, %.9f],[%.9f, %.9f, %.9f, %.9f]] "
+      "effective_m=[[%.9f, %.9f, %.9f],[%.9f, %.9f, %.9f]]",
+      raw_goal_calibration_unit_.c_str(),
+      raw_goal_source_frame_.c_str(),
+      raw_goal_target_frame_.c_str(),
+      raw_goal_transform_matrix_[0],
+      raw_goal_transform_matrix_[1],
+      raw_goal_transform_matrix_[2],
+      raw_goal_transform_matrix_[3],
+      raw_goal_transform_matrix_[4],
+      raw_goal_transform_matrix_[5],
+      raw_goal_transform_matrix_[6],
+      raw_goal_transform_matrix_[7],
+      raw_goal_transform_matrix_[8],
+      raw_goal_transform_matrix_[9],
+      raw_goal_transform_matrix_[10],
+      raw_goal_transform_matrix_[11],
+      raw_goal_transform_matrix_[12],
+      raw_goal_transform_matrix_[13],
+      raw_goal_transform_matrix_[14],
+      raw_goal_transform_matrix_[15],
+      raw_goal_calib_m00_,
+      raw_goal_calib_m01_,
+      raw_goal_calib_tx_m_,
+      raw_goal_calib_m10_,
+      raw_goal_calib_m11_,
+      raw_goal_calib_ty_m_);
+    return true;
+  }
+
   void initializeRawGoalStaticCalibration()
   {
     raw_goal_static_calibration_ready_ = false;
@@ -462,6 +585,18 @@ private:
         map_frame_.c_str());
     }
 
+    const std::string model = raw_goal_calibration_model_;
+    const bool wants_matrix =
+      (model == "matrix" || model == "MATRIX" || model == "matrix_4x4");
+    if (wants_matrix) {
+      if (!initializeRawGoalMatrixCalibration()) {
+        RCLCPP_WARN(
+          this->get_logger(),
+          "Raw-goal static calibration matrix setup failed.");
+      }
+      return;
+    }
+
     std::vector<RawGoalPair> pairs;
     double unit_scale = 0.01;
     if (!parseRawGoalPairs(pairs, unit_scale)) {
@@ -470,7 +605,6 @@ private:
 
     bool ok = false;
     std::string solved_model = "rigid";
-    const std::string model = raw_goal_calibration_model_;
     const bool wants_affine = (model == "affine" || model == "AFFINE" || model == "affine_2d");
     const bool wants_rigid = (model == "rigid" || model == "RIGID" || model == "rigid_2d");
     const bool wants_auto = (model == "auto" || model == "AUTO");
@@ -918,8 +1052,14 @@ private:
 
   void publishMapPointAsGoal(
     const geometry_msgs::msg::Point & point_map,
-    const std::string & resolved_source_frame)
+    const std::string & resolved_source_frame,
+    const rclcpp::Time & stamp = rclcpp::Time(0, 0, RCL_ROS_TIME))
   {
+    publishMapPointAsGoalPose(point_map, stamp);
+    if (!publish_goal_pos_ || !pub_goal_pos_) {
+      return;
+    }
+
     long x_cm = std::lround(point_map.x * 100.0);
     long y_cm = std::lround(point_map.y * 100.0);
 
@@ -927,28 +1067,60 @@ private:
       y_cm = static_cast<long>(y_axis_max_cm_) - y_cm;
     }
 
+    long encoded_x_cm = x_cm;
+    long encoded_y_cm = y_cm;
+    if (goal_pos_uint16_encode_enabled_) {
+      encoded_x_cm = std::lround(
+        goal_pos_uint16_encode_x_scale_ * static_cast<double>(x_cm) +
+        goal_pos_uint16_encode_x_offset_cm_);
+      encoded_y_cm = std::lround(
+        goal_pos_uint16_encode_y_scale_ * static_cast<double>(y_cm) +
+        goal_pos_uint16_encode_y_offset_cm_);
+    }
+
     const long kU16Min = 0L;
     const long kU16Max = static_cast<long>(std::numeric_limits<std::uint16_t>::max());
-    if (x_cm < kU16Min || x_cm > kU16Max || y_cm < kU16Min || y_cm > kU16Max) {
+    if (
+      encoded_x_cm < kU16Min || encoded_x_cm > kU16Max || encoded_y_cm < kU16Min ||
+      encoded_y_cm > kU16Max)
+    {
       RCLCPP_WARN_THROTTLE(
         this->get_logger(),
         *this->get_clock(),
         2000,
-        "Drop transformed point (frame %s): map_xy=(%.3f, %.3f)m -> cm=(%ld, %ld) out of "
-        "UInt16 range",
+        "Drop transformed point (frame %s): map_xy=(%.3f, %.3f)m raw_cm=(%ld, %ld) "
+        "encoded_cm=(%ld, %ld) out of UInt16 range",
         resolved_source_frame.c_str(),
         point_map.x,
         point_map.y,
         x_cm,
-        y_cm);
+        y_cm,
+        encoded_x_cm,
+        encoded_y_cm);
       return;
     }
 
     std_msgs::msg::UInt16MultiArray out;
     out.data = {
-      static_cast<std::uint16_t>(x_cm),
-      static_cast<std::uint16_t>(y_cm)};
+      static_cast<std::uint16_t>(encoded_x_cm),
+      static_cast<std::uint16_t>(encoded_y_cm)};
     pub_goal_pos_->publish(out);
+  }
+
+  void publishMapPointAsGoalPose(
+    const geometry_msgs::msg::Point & point_map,
+    const rclcpp::Time & stamp)
+  {
+    if (!publish_goal_pose_ || !pub_goal_pose_) {
+      return;
+    }
+
+    geometry_msgs::msg::PoseStamped out;
+    out.header.frame_id = map_frame_;
+    out.header.stamp = (stamp.nanoseconds() == 0) ? this->now() : stamp;
+    out.pose.position = point_map;
+    out.pose.orientation.w = 1.0;
+    pub_goal_pose_->publish(out);
   }
 
   void goalPosRawCallback(const std_msgs::msg::UInt16MultiArray::SharedPtr msg)
@@ -984,7 +1156,7 @@ private:
       point_map.y =
         raw_goal_calib_m10_ * raw_x_m + raw_goal_calib_m11_ * raw_y_m + raw_goal_calib_ty_m_;
       point_map.z = 0.0;
-      publishMapPointAsGoal(point_map, "raw_goal_static_calibration");
+      publishMapPointAsGoal(point_map, "raw_goal_static_calibration", this->now());
       return;
     }
 
@@ -1029,7 +1201,7 @@ private:
       }
     }
 
-    publishMapPointAsGoal(point_map.point, goal_pos_raw_frame_);
+    publishMapPointAsGoal(point_map.point, goal_pos_raw_frame_, point_map.header.stamp);
   }
 
   void targetRelCallback(const auto_aim_common::msg::RelativeTarget::SharedPtr msg)
@@ -1075,12 +1247,13 @@ private:
     if (publish_target_map_ && pub_target_map_) {
       pub_target_map_->publish(point_map);
     }
-    publishMapPointAsGoal(point_map.point, resolved_source_frame);
+    publishMapPointAsGoal(point_map.point, resolved_source_frame, point_map.header.stamp);
   }
 
   std::string input_topic_;
   std::string input_goal_pos_raw_topic_;
   std::string output_goal_pos_topic_;
+  std::string output_goal_pose_topic_;
   std::string output_target_map_topic_;
 
   std::string map_frame_;
@@ -1090,8 +1263,15 @@ private:
   std::string target_rel_default_frame_{"gimbal_world"};
 
   bool publish_target_map_{true};
+  bool publish_goal_pos_{false};
+  bool publish_goal_pose_{true};
   bool invert_y_axis_{false};
   int y_axis_max_cm_{1500};
+  bool goal_pos_uint16_encode_enabled_{false};
+  double goal_pos_uint16_encode_x_scale_{1.0};
+  double goal_pos_uint16_encode_y_scale_{1.0};
+  double goal_pos_uint16_encode_x_offset_cm_{0.0};
+  double goal_pos_uint16_encode_y_offset_cm_{0.0};
   int preferred_distance_cm_{100};
   int distance_deadband_cm_{50};
   bool stop_when_no_target_{true};
@@ -1105,6 +1285,7 @@ private:
   std::string raw_goal_target_frame_{"map"};
   std::vector<double> raw_goal_source_points_{};
   std::vector<double> raw_goal_target_points_{};
+  std::vector<double> raw_goal_transform_matrix_{};
   bool raw_goal_static_calibration_ready_{false};
   double raw_goal_calib_m00_{1.0};
   double raw_goal_calib_m01_{0.0};
@@ -1129,6 +1310,7 @@ private:
   rclcpp::Subscription<auto_aim_common::msg::RelativeTarget>::SharedPtr sub_target_rel_;
   rclcpp::Subscription<std_msgs::msg::UInt16MultiArray>::SharedPtr sub_goal_pos_raw_;
   rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr pub_goal_pos_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_goal_pose_;
   rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr pub_target_map_;
 };
 }  // namespace navi_tf_bridge

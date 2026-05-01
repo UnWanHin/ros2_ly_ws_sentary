@@ -6,9 +6,9 @@ Updated: 2026-04-27
 
 `decision_viz` is the maintained offline viewer for sentry decision behavior.
 It replays JSONL rows written by `behavior_tree` and draws the current decision on a 2D field map.
-The viewer shows whether the current navigation output is `UseXY` (`/ly/navi/goal_pos`) or goal-ID (`/ly/navi/goal`) mode.
-The right panel shows live ROS topic values from `/ly/navi/goal_pos`, `/ly/navi/goal_pos_raw`, `/ly/navi/goal`, and `/ly/navi/speed_level` when started through the offline live wrapper.
-In live mode, the current-goal marker and recent path prefer live `/ly/navi/goal_pos`; if that topic is absent, the viewer falls back to trace records and labels the marker as `TRACE`.
+The viewer shows whether the current navigation output is bridge `/goal_pose`, direct `UseXY` (`/ly/navi/goal_pos`), or goal-ID (`/ly/navi/goal`) mode.
+The right panel shows live ROS topic values from `/goal_pose`, `/ly/navi/goal_pos_raw`, `/ly/navi/goal`, and `/ly/navi/speed_level` when started through the offline live wrapper.
+In live mode, the current-goal marker and recent path prefer live `/goal_pose`; if that topic is absent, the viewer falls back to legacy `/ly/navi/goal_pos`, trace records, and labels the marker as `TRACE`.
 
 This is for decision review and offline decision simulation. The viewer itself does not publish ROS topics.
 In offline mode, it can send file-based control commands to `decision_viz.mock_inputs` for match clock control.

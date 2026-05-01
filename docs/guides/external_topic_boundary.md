@@ -16,14 +16,16 @@
 
 - BT 发布：
   - `/ly/navi/goal`
-  - `/ly/navi/goal_pos`
+  - `/ly/navi/goal_pos_raw`（UseTfGoalBridge=true 时的静态点位输入）
+  - `/ly/navi/goal_pos`（legacy/direct-XY 兼容输出，默认不作为 bridge final）
+  - `/goal_pose`（geometry_msgs/PoseStamped，bridge 最终导航目标）
   - `/ly/navi/speed_level`
   - `/ly/navi/target_rel`（追击相对目标点，x/y/z）
 - BT 订阅：
   - `/ly/navi/vel`
   - `/ly/navi/lower_head`
 
-说明：本仓库内未包含完整导航执行节点，以上通常由外部导航系统或其他上位机负责。
+说明：本仓库内未包含完整导航执行节点；当前 TF bridge 链路的最终导航目标统一为 `/goal_pose`。
 
 ### 下位机串口接口（由 gimbal_driver 对接）
 

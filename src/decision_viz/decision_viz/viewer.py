@@ -824,7 +824,11 @@ class Viewer:
     def draw_current_goal(self, image_rect: Any) -> None:
         pg = self.pg
         record = self.records[self.current_index]
-        live_pos = self.live_goal_position("/ly/navi/goal_pos")
+        live_topic = "/goal_pose"
+        live_pos = self.live_goal_position(live_topic)
+        if live_pos is None:
+            live_topic = "/ly/navi/goal_pos"
+            live_pos = self.live_goal_position(live_topic)
         pos = live_pos if live_pos is not None else record_position(record, self.goals)
         if pos is None:
             return
@@ -835,7 +839,7 @@ class Viewer:
         pg.draw.circle(self.screen, side_color, (sx, sy), 12 + pulse)
         pg.draw.circle(self.screen, self.palette["white"], (sx, sy), 5)
         if live_pos is not None:
-            label = f"LIVE /ly/navi/goal_pos {pos[0]:.0f},{pos[1]:.0f}"
+            label = f"LIVE {live_topic} {pos[0]:.0f},{pos[1]:.0f}"
         else:
             label = f"TRACE {record.output.goal_name} id={record.output.goal_id}"
         self.draw_label(label, sx + 14, sy - 30, image_rect)
@@ -1042,7 +1046,8 @@ class Viewer:
         live_time = self.live_ros_value_text("/ly/game/time_left")
         rows: list[tuple[str, str]] = [
             ("Live source", self.live_ros_status_text()),
-            ("Live goal_pos", self.live_ros_value_text("/ly/navi/goal_pos", "cm")),
+            ("Live goal_pose", self.live_ros_value_text("/goal_pose", "cm")),
+            ("Live legacy goal_pos", self.live_ros_value_text("/ly/navi/goal_pos", "cm")),
             ("Live raw", self.live_ros_value_text("/ly/navi/goal_pos_raw", "cm")),
             ("Live goal_id", self.live_ros_value_text("/ly/navi/goal")),
             ("Live speed", self.live_ros_value_text("/ly/navi/speed_level")),
@@ -1080,7 +1085,9 @@ class Viewer:
         return pos
 
     def update_live_goal_history(self) -> None:
-        pos = self.live_goal_position("/ly/navi/goal_pos")
+        pos = self.live_goal_position("/goal_pose")
+        if pos is None:
+            pos = self.live_goal_position("/ly/navi/goal_pos")
         if pos is None:
             return
         if self.live_goal_history:

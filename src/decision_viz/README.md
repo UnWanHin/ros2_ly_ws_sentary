@@ -9,9 +9,9 @@ Updated: 2026-04-27
 - Runs offline from JSONL traces produced by `behavior_tree`.
 - Normalizes trace rows into `DecisionOutput` records so future decision internals can change while the viewer stays centered on the final goal output.
 - Draws a 2D map, navigation goals, recent goal path, friendly/enemy units, HP bars, strategy, aim mode, posture, target, ammo, terrain overlays, and recent decision changes.
-- Shows whether the current decision output is `UseXY` (`/ly/navi/goal_pos`) or goal-ID (`/ly/navi/goal`) mode.
-- Shows live ROS topic values from `/ly/navi/goal_pos`, `/ly/navi/goal_pos_raw`, `/ly/navi/goal`, and `/ly/navi/speed_level` when started through the offline live wrapper.
-- In live mode, the current-goal marker and recent path prefer live `/ly/navi/goal_pos`; if that topic is absent, the viewer falls back to trace records and labels the marker as `TRACE`.
+- Shows whether the current decision output is bridge `/goal_pose`, direct `UseXY` (`/ly/navi/goal_pos`), or goal-ID (`/ly/navi/goal`) mode.
+- Shows live ROS topic values from `/goal_pose`, `/ly/navi/goal_pos_raw`, `/ly/navi/goal`, and `/ly/navi/speed_level` when started through the offline live wrapper.
+- In live mode, the current-goal marker and recent path prefer live `/goal_pose`; if that topic is absent, the viewer falls back to legacy `/ly/navi/goal_pos`, trace records, and labels the marker as `TRACE`.
 - Draws rule-aware structure overlays (walls, energy mechanism, outposts) on top of the 2D map.
 - Supports a YAML-configured scripted path overlay with configurable waypoint list and movement speed.
 - Adds offline match-time control for super confrontation regional tests: start, pause, rewind, forward, reset.
@@ -260,7 +260,7 @@ scripted_path:
   goal_ids: [0, 6, 10, 14, 17, 10, 6]
 ```
 
-`scripted_path` is a visual-only simulated route overlay, not a behavior_tree output and not `/ly/navi/goal_pos`.
+`scripted_path` is a visual-only simulated route overlay, not a behavior_tree output and not `/goal_pose`.
 When enabled, the marker moves by `speed_cmps` and match elapsed time. By default, only the visited route plus the current target segment is drawn; set `show_future: true` to draw the full planned route.
 In follow offline mode, elapsed time comes from match clock (`Start/Pause/Rewind/Forward/Reset`).
 
