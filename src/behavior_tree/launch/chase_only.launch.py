@@ -54,6 +54,8 @@ def generate_launch_description():
         DeclareLaunchArgument("use_outpost", default_value="false"),
         DeclareLaunchArgument("use_buff", default_value="false"),
         DeclareLaunchArgument("use_behavior_tree", default_value="true"),
+        DeclareLaunchArgument("use_tf_tree", default_value="true"),
+        DeclareLaunchArgument("tf_tree_params_file", default_value=""),
     ]
 
     include = IncludeLaunchDescription(
@@ -84,6 +86,8 @@ def generate_launch_description():
             "use_outpost": LaunchConfiguration("use_outpost"),
             "use_buff": LaunchConfiguration("use_buff"),
             "use_behavior_tree": LaunchConfiguration("use_behavior_tree"),
+            "use_tf_tree": LaunchConfiguration("use_tf_tree"),
+            "tf_tree_params_file": LaunchConfiguration("tf_tree_params_file"),
         }.items(),
     )
 

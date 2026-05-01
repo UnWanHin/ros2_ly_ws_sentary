@@ -17,8 +17,9 @@
 import os
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, GroupAction, LogInfo, OpaqueFunction, SetLaunchConfiguration, Shutdown
+from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, LogInfo, OpaqueFunction, SetLaunchConfiguration, Shutdown
 from launch.conditions import IfCondition, LaunchConfigurationEquals, LaunchConfigurationNotEquals
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -64,6 +65,15 @@ def generate_launch_description():
             SetLaunchConfiguration("resolved_bt_config_file", resolved_bt_config),
         ]
 
+    def resolve_tf_tree_defaults(context):
+        tf_tree_params_file_raw = LaunchConfiguration("tf_tree_params_file").perform(context).strip()
+        resolved_tf_tree_params_file = (
+            tf_tree_params_file_raw if tf_tree_params_file_raw else default_tf_tree_params_file
+        )
+        return [
+            SetLaunchConfiguration("resolved_tf_tree_params_file", resolved_tf_tree_params_file),
+        ]
+
     # 分层配置默认入口：
     #   base + module + optional global override(config_file)
     behavior_tree_share = get_package_share_directory("behavior_tree")
@@ -71,7 +81,10 @@ def generate_launch_description():
     predictor_share = get_package_share_directory("predictor")
     outpost_share = get_package_share_directory("outpost_hitter")
     buff_share = get_package_share_directory("buff_hitter")
+    tf_tree_share = get_package_share_directory("tf_tree")
     behavior_tree_config_root = os.path.join(behavior_tree_share, "config")
+    tf_tree_launch_file = os.path.join(tf_tree_share, "launch", "tf_tree.launch.py")
+    default_tf_tree_params_file = os.path.join(tf_tree_share, "config", "tf_tree.yaml")
     default_base_config_file = os.path.join(behavior_tree_config_root, "base_config.yaml")
     default_override_config_file = os.path.join(behavior_tree_config_root, "override_config.yaml")
     default_detector_config_file = os.path.join(detector_share, "config", "detector_config.yaml")
@@ -110,6 +123,9 @@ def generate_launch_description():
     use_outpost = LaunchConfiguration("use_outpost")
     use_buff = LaunchConfiguration("use_buff")
     use_behavior_tree = LaunchConfiguration("use_behavior_tree")
+    use_tf_tree = LaunchConfiguration("use_tf_tree")
+    tf_tree_params_file = LaunchConfiguration("tf_tree_params_file")
+    resolved_tf_tree_params_file = LaunchConfiguration("resolved_tf_tree_params_file")
     offline = LaunchConfiguration("offline")
     resolved_mode_kind = LaunchConfiguration("resolved_mode_kind")
     resolved_competition_profile = LaunchConfiguration("resolved_competition_profile")
@@ -239,6 +255,16 @@ def generate_launch_description():
         DeclareLaunchArgument("use_buff", default_value="true"),
         DeclareLaunchArgument("use_behavior_tree", default_value="true"),
         DeclareLaunchArgument(
+            "use_tf_tree",
+            default_value="true",
+            description="Whether to launch tf_tree TF broadcaster chain.",
+        ),
+        DeclareLaunchArgument(
+            "tf_tree_params_file",
+            default_value="",
+            description="Optional tf_tree params YAML path. Empty uses package default.",
+        ),
+        DeclareLaunchArgument(
             "offline",
             default_value="false",
             description="Offline profile: force virtual IO and video replay without editing YAML.",
@@ -246,7 +272,9 @@ def generate_launch_description():
         DeclareLaunchArgument("resolved_mode_kind", default_value=""),
         DeclareLaunchArgument("resolved_competition_profile", default_value=""),
         DeclareLaunchArgument("resolved_bt_config_file", default_value=""),
+        DeclareLaunchArgument("resolved_tf_tree_params_file", default_value=""),
         OpaqueFunction(function=resolve_mode_defaults),
+        OpaqueFunction(function=resolve_tf_tree_defaults),
     ]
 
     info_logs = [
@@ -277,9 +305,19 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] decision_trace_enabled: ", decision_trace_enabled]),
         LogInfo(msg=["[sentry_all] decision_trace_file: ", decision_trace_file]),
         LogInfo(msg=["[sentry_all] decision_trace_every_n_ticks: ", decision_trace_every_n_ticks]),
+        LogInfo(msg=["[sentry_all] use_tf_tree: ", use_tf_tree]),
+        LogInfo(msg=["[sentry_all] tf_tree_params_file: ", tf_tree_params_file]),
+        LogInfo(msg=["[sentry_all] resolved_tf_tree_params_file: ", resolved_tf_tree_params_file]),
     ]
 
     nodes = [
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(tf_tree_launch_file),
+            condition=IfCondition(use_tf_tree),
+            launch_arguments={
+                "params_file": resolved_tf_tree_params_file,
+            }.items(),
+        ),
         # gimbal_driver: offline=true 时强制 use_virtual_device
         GroupAction(
             actions=[

@@ -1,0 +1,42 @@
+# tf_tree：由 /ly/gimbal/angles 广播 TF 链
+#   base_link --> gimbal_big_yaw --(big_yaw inverse)--> gimbal_small_yaw
+#   gimbal_small_yaw --(yaw inverse)--> gimbal_world
+#   gimbal_small_yaw --static(+Z)--> gimbal_barrel_joint --(pitch)--> gimbal_barrel
+#   /ly/gimbal/big_yaw_angles 为 std_msgs/Float32，单位度
+# 角约定：yaw 左负右正；pitch 上正下负
+tf_tree_node:
+  ros__parameters:
+    gimbal_topic: "/ly/gimbal/angles"
+    gimbal_big_yaw_topic: "/ly/gimbal/big_yaw_angles"
+    world_frame: "gimbal_world"
+    yaw_frame: "gimbal_small_yaw"
+    big_yaw_frame: "gimbal_big_yaw"
+    barrel_joint_frame: "gimbal_barrel_joint"
+    barrel_frame: "gimbal_barrel"
+    # 俯仰轴（barrel_joint）相对 yaw 轴交点沿 +Z 的抬升量（米），由静态 TF 发布
+    barrel_offset_z: 0.0
+    # 大 yaw：真实用于 TF 的角 = 话题 yaw（度）+ 偏置（度）
+    big_yaw_offset_deg: 0.0
+
+# gimbal_barrel -> gx_camera 静态 TF（相机标定结果）
+# 平移 (x, y, z)：0.1168, 0.0746, 0.1146 m
+# 旋转 (yaw, pitch, roll)：-1.3746, -0.0738, -1.5913 rad
+barrel_to_camera:
+  x: 0.1168
+  y: 0.0746
+  z: 0.1146
+  yaw: -1.5746
+  pitch: -0.0738
+  roll: -1.5913
+  parent_frame: "gimbal_barrel"
+  child_frame: "gx_camera"
+
+big_yaw_to_usb_camera:
+  x: -0.2
+  y: 0.0
+  z: 0.0
+  yaw: 1.58
+  pitch: 0.0173
+  roll: -1.4974
+  parent_frame: "gimbal_big_yaw"
+  child_frame: "usb_camera"

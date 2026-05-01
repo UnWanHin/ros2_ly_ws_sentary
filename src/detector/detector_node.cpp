@@ -328,7 +328,14 @@ void LoadSolverExtrinsicsParam() {
         TryReadParam<double>({"barrel_to_camera.roll", "barrel_to_camera/roll"}, roll);
 
     if (has_barrel_to_camera) {
-        TryReadParam<double>({"sentry_tf_node.barrel_offset_z", "sentry_tf_node/barrel_offset_z"}, barrel_offset_z);
+        TryReadParam<double>(
+            {
+                "tf_tree_node.barrel_offset_z",
+                "tf_tree_node/barrel_offset_z",
+                "sentry_tf_node.barrel_offset_z",
+                "sentry_tf_node/barrel_offset_z",
+            },
+            barrel_offset_z);
         overlay_camera_offset = Eigen::Vector3d(barrel_x, barrel_y, barrel_z + barrel_offset_z);
         const Eigen::Matrix3d barrel_from_cv =
             Eigen::AngleAxisd(yaw, Eigen::Vector3d::UnitZ()).toRotationMatrix() *
