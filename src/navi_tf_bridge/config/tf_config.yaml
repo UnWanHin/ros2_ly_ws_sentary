@@ -39,8 +39,8 @@ target_rel_to_goal_pos_node:
     raw_goal_target_frame: map
     # Flattened point list: [x1, y1, x2, y2, x3, y3, ...]
     # Keep these two lines commented until you fill real pairs.
-    # raw_goal_source_points: [393, 810, 2408, 683, 980, 1124]
-    # raw_goal_target_points: [402, 796, 2397, 701, 995, 1136]
+    raw_goal_source_points: [574.0, 1206.0, 1043.0, 329.0, 924.0, 834.0, 1879.0, 664.0, 367.0, 10.0]
+    raw_goal_target_points: [8.8154, -4.2515, -0.041879, -9.656739, 5.72997, -7.84072, 2.79, -17.5239, -3.33, -2.522]
 
     # Debug export (for comparing Area.hpp map points with TF-converted points)
     debug_export_point_pairs: true
