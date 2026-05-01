@@ -80,7 +80,7 @@
     "Chase": {
         "Enable": false,
         "FollowAimTarget": true,
-        "UseRelativeTargetTopic": false,
+        "UseRelativeTargetTopic": true,
         "EnableInAutoAim": true,
         "EnableInRotateScan": true,
         "EnableInOutpostMode": false,

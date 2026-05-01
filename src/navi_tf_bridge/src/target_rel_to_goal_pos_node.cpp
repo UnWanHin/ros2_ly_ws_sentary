@@ -45,6 +45,8 @@ public:
     fallback_base_frame_ =
       this->declare_parameter<std::string>("fallback_base_frame", "baselink");
     use_msg_frame_id_ = this->declare_parameter<bool>("use_msg_frame_id", true);
+    target_rel_default_frame_ =
+      this->declare_parameter<std::string>("target_rel_default_frame", "gimbal_world");
 
     publish_target_map_ = this->declare_parameter<bool>("publish_target_map", true);
     invert_y_axis_ = this->declare_parameter<bool>("invert_y_axis", false);
@@ -101,7 +103,7 @@ public:
     RCLCPP_INFO(
       this->get_logger(),
       "Started target_rel -> goal_pos bridge. in=%s out=%s map_frame=%s base_frame=%s "
-      "fallback_base_frame=%s raw_goal_in=%s raw_goal_frame=%s invert_y_axis=%s y_axis_max_cm=%d preferred_distance_cm=%d "
+      "fallback_base_frame=%s target_rel_default_frame=%s raw_goal_in=%s raw_goal_frame=%s invert_y_axis=%s y_axis_max_cm=%d preferred_distance_cm=%d "
       "distance_deadband_cm=%d stop_when_no_target=%s allow_reverse_goal=%s "
       "use_raw_goal_static_calibration=%s model=%s source_frame=%s target_frame=%s",
       input_topic_.c_str(),
@@ -109,6 +111,7 @@ public:
       map_frame_.c_str(),
       base_frame_.c_str(),
       fallback_base_frame_.c_str(),
+      target_rel_default_frame_.c_str(),
       input_goal_pos_raw_topic_.c_str(),
       goal_pos_raw_frame_.c_str(),
       invert_y_axis_ ? "true" : "false",
@@ -136,21 +139,40 @@ public:
   }
 
 private:
+  static void appendUniqueFrame(std::vector<std::string> & frames, const std::string & frame)
+  {
+    if (frame.empty()) {
+      return;
+    }
+    if (std::find(frames.begin(), frames.end(), frame) == frames.end()) {
+      frames.push_back(frame);
+    }
+  }
+
   std::vector<std::string> buildSourceCandidates(const std::string & msg_frame_id) const
   {
-    const bool explicit_source_frame = use_msg_frame_id_ && !msg_frame_id.empty();
-    const std::string requested_source_frame =
-      explicit_source_frame ? msg_frame_id : base_frame_;
-
+    const bool has_explicit_source_frame = use_msg_frame_id_ && !msg_frame_id.empty();
     std::vector<std::string> source_candidates;
-    source_candidates.reserve(2);
-    source_candidates.push_back(requested_source_frame);
-    if (!explicit_source_frame && !fallback_base_frame_.empty() &&
-      fallback_base_frame_ != requested_source_frame)
-    {
-      source_candidates.push_back(fallback_base_frame_);
+    source_candidates.reserve(3);
+
+    if (has_explicit_source_frame) {
+      appendUniqueFrame(source_candidates, msg_frame_id);
+      return source_candidates;
     }
+
+    appendUniqueFrame(source_candidates, target_rel_default_frame_);
+    appendUniqueFrame(source_candidates, base_frame_);
+    appendUniqueFrame(source_candidates, fallback_base_frame_);
     return source_candidates;
+  }
+
+  std::vector<std::string> buildBaseCandidates() const
+  {
+    std::vector<std::string> base_candidates;
+    base_candidates.reserve(2);
+    appendUniqueFrame(base_candidates, base_frame_);
+    appendUniqueFrame(base_candidates, fallback_base_frame_);
+    return base_candidates;
   }
 
   struct NamedPointCm
@@ -793,29 +815,58 @@ private:
   bool transformRelativePointToMap(
     const geometry_msgs::msg::Point & point_rel,
     const std::vector<std::string> & source_candidates,
+    const std::vector<std::string> & base_candidates,
     const rclcpp::Time & transform_time,
     geometry_msgs::msg::PointStamped & point_map,
     std::string & resolved_source_frame,
+    std::string & resolved_base_frame,
     std::string & last_tf_error)
   {
-    geometry_msgs::msg::PointStamped point_in;
-    point_in.header.stamp = transform_time;
-    point_in.point = point_rel;
+    geometry_msgs::msg::PointStamped point_source;
+    point_source.header.stamp = transform_time;
+    point_source.point = point_rel;
 
     for (const auto & source_frame : source_candidates) {
-      point_in.header.frame_id = source_frame;
-      try {
-        const geometry_msgs::msg::TransformStamped tf_map_source =
-          tf_buffer_.lookupTransform(
-          map_frame_,
-          source_frame,
-          transform_time,
-          rclcpp::Duration::from_seconds(0.05));
-        tf2::doTransform(point_in, point_map, tf_map_source);
-        resolved_source_frame = source_frame;
-        return true;
-      } catch (const tf2::TransformException & ex) {
-        last_tf_error = ex.what();
+      point_source.header.frame_id = source_frame;
+      for (const auto & base_frame_candidate : base_candidates) {
+        geometry_msgs::msg::PointStamped point_base;
+        try {
+          if (source_frame == base_frame_candidate) {
+            point_base = point_source;
+          } else {
+            const geometry_msgs::msg::TransformStamped tf_base_source =
+              tf_buffer_.lookupTransform(
+              base_frame_candidate,
+              source_frame,
+              transform_time,
+              rclcpp::Duration::from_seconds(0.05));
+            tf2::doTransform(point_source, point_base, tf_base_source);
+          }
+        } catch (const tf2::TransformException & ex) {
+          last_tf_error =
+            "lookup " + base_frame_candidate + " <- " + source_frame + " failed: " + ex.what();
+          continue;
+        }
+
+        try {
+          if (base_frame_candidate == map_frame_) {
+            point_map = point_base;
+          } else {
+            const geometry_msgs::msg::TransformStamped tf_map_base =
+              tf_buffer_.lookupTransform(
+              map_frame_,
+              base_frame_candidate,
+              transform_time,
+              rclcpp::Duration::from_seconds(0.05));
+            tf2::doTransform(point_base, point_map, tf_map_base);
+          }
+          resolved_source_frame = source_frame;
+          resolved_base_frame = base_frame_candidate;
+          return true;
+        } catch (const tf2::TransformException & ex) {
+          last_tf_error =
+            "lookup " + map_frame_ + " <- " + base_frame_candidate + " failed: " + ex.what();
+        }
       }
     }
 
@@ -946,30 +997,39 @@ private:
     }
 
     const auto source_candidates = buildSourceCandidates(msg->header.frame_id);
+    const auto base_candidates = buildBaseCandidates();
     const rclcpp::Time transform_time(msg->header.stamp);
 
     geometry_msgs::msg::PointStamped point_map;
     std::string last_tf_error;
     std::string resolved_source_frame;
+    std::string resolved_base_frame;
     if (!transformRelativePointToMap(
         relative_goal_point,
         source_candidates,
+        base_candidates,
         transform_time,
         point_map,
         resolved_source_frame,
+        resolved_base_frame,
         last_tf_error))
     {
-      std::ostringstream oss;
+      std::ostringstream source_oss;
       for (const auto & frame : source_candidates) {
-        oss << frame << " ";
+        source_oss << frame << " ";
+      }
+      std::ostringstream base_oss;
+      for (const auto & frame : base_candidates) {
+        base_oss << frame << " ";
       }
       RCLCPP_WARN_THROTTLE(
         this->get_logger(),
         *this->get_clock(),
         2000,
-        "TF transform failed (%s <- [%s]). Last error: %s",
+        "TF transform failed (source=[%s], base=[%s], map=%s). Last error: %s",
+        source_oss.str().c_str(),
+        base_oss.str().c_str(),
         map_frame_.c_str(),
-        oss.str().c_str(),
         last_tf_error.c_str());
       return;
     }
@@ -981,7 +1041,9 @@ private:
     if (publish_target_map_ && pub_target_map_) {
       pub_target_map_->publish(point_map);
     }
-    publishMapPointAsGoal(point_map.point, resolved_source_frame);
+    publishMapPointAsGoal(
+      point_map.point,
+      resolved_source_frame + "->" + resolved_base_frame);
   }
 
   std::string input_topic_;
@@ -993,6 +1055,7 @@ private:
   std::string base_frame_;
   std::string fallback_base_frame_;
   bool use_msg_frame_id_{true};
+  std::string target_rel_default_frame_{"gimbal_world"};
 
   bool publish_target_map_{true};
   bool invert_y_axis_{false};

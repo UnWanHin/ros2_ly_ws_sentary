@@ -84,6 +84,10 @@ def generate_launch_description():
             default_value=str(get_default("fallback_base_frame", "baselink")),
         ),
         DeclareLaunchArgument(
+            "target_rel_default_frame",
+            default_value=str(get_default("target_rel_default_frame", "gimbal_world")),
+        ),
+        DeclareLaunchArgument(
             "use_msg_frame_id",
             default_value=_bool_default(get_default("use_msg_frame_id", True)),
         ),
@@ -164,6 +168,9 @@ def generate_launch_description():
                         "map_frame": LaunchConfiguration("map_frame"),
                         "base_frame": LaunchConfiguration("base_frame"),
                         "fallback_base_frame": LaunchConfiguration("fallback_base_frame"),
+                        "target_rel_default_frame": LaunchConfiguration(
+                            "target_rel_default_frame"
+                        ),
                         "use_msg_frame_id": ParameterValue(
                             LaunchConfiguration("use_msg_frame_id"), value_type=bool
                         ),

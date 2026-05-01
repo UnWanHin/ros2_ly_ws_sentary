@@ -45,6 +45,27 @@
 
 - `src/behavior_tree/launch/sentry_all.launch.py`
 
+### 3) 追击 TF 变换链修正（source -> base -> map）
+
+`navi_tf_bridge` 的追击点转换原逻辑是直接查 `map <- source`。  
+为避免追击输入默认被当成 `base_link`，并与“追击坐标来源在云台”场景对齐，现改为显式两段：
+
+1. `target_rel_source -> base_frame`
+2. `base_frame -> map_frame`
+
+新增参数：
+
+- `target_rel_default_frame`（默认 `gimbal_world`）
+  - 当 `RelativeTarget.header.frame_id` 为空时，使用该 frame 作为追击点来源。
+  - 若 `use_msg_frame_id=true` 且消息携带 `frame_id`，优先使用消息内 frame。
+
+涉及文件：
+
+- `src/navi_tf_bridge/src/target_rel_to_goal_pos_node.cpp`
+- `src/navi_tf_bridge/config/tf_config.yaml`
+- `src/navi_tf_bridge/launch/target_rel_to_goal_pos.launch.py`
+- `src/navi_tf_bridge/launch/decision_chase.launch.py`
+
 ## 关键参数/阈值
 
 1. `use_tf_tree`
@@ -60,6 +81,11 @@
 3. `tf_tree_node.big_yaw_offset_deg` / `barrel_offset_z`
    - 文件：`src/tf_tree/config/tf_tree.yaml`
    - 作用：TF 姿态微调入口
+
+4. `target_rel_default_frame`
+   - 文件：`src/navi_tf_bridge/config/tf_config.yaml`
+   - 默认：`gimbal_world`
+   - 作用：追击 `target_rel` 缺失 `frame_id` 时的默认来源坐标系（随后会显式变换到 `base_frame` 再到 `map_frame`）
 
 ## 微调建议
 
