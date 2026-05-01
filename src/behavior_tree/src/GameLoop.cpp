@@ -4,6 +4,7 @@
 
 #include "../include/Application.hpp"
 
+#include <array>
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -176,6 +177,154 @@ namespace BehaviorTree {
             case LangYa::OccupyArea.ID: return BehaviorTree::Area::OccupyArea(goal_team);
             default: return BehaviorTree::Area::Home(goal_team);
         }
+    }
+
+    struct ResolvedMainArea {
+        Area::MainAreaKind Kind{Area::MainAreaKind::Base};
+        bool UsedNearestFallback{false};
+    };
+
+    constexpr std::array<Area::MainAreaKind, 4> kAllMainAreas{
+        Area::MainAreaKind::Base,
+        Area::MainAreaKind::Highland,
+        Area::MainAreaKind::Roadland,
+        Area::MainAreaKind::Central
+    };
+
+    bool IsReservedNonCombatGoalId(const std::uint8_t base_goal_id) {
+        return base_goal_id == LangYa::Home.ID ||
+               base_goal_id == LangYa::Base.ID ||
+               base_goal_id == LangYa::Recovery.ID;
+    }
+
+    Area::Point<double> MainAreaCentroid(const UnitTeam team, const Area::MainAreaKind kind) {
+        const auto& boundary = Area::MainAreaBoundary(team, kind);
+        double sum_x = 0.0;
+        double sum_y = 0.0;
+        for (const auto& point : boundary) {
+            sum_x += static_cast<double>(point.x);
+            sum_y += static_cast<double>(point.y);
+        }
+        const double count = boundary.empty() ? 1.0 : static_cast<double>(boundary.size());
+        return Area::Point<double>{sum_x / count, sum_y / count};
+    }
+
+    std::optional<ResolvedMainArea> ResolveGoalMainArea(
+        const std::uint8_t base_goal_id,
+        const UnitTeam goal_team) {
+        if (!IsValidBaseGoalId(base_goal_id)) {
+            return std::nullopt;
+        }
+        if (goal_team != UnitTeam::Red && goal_team != UnitTeam::Blue) {
+            return std::nullopt;
+        }
+
+        const auto goal_point = GoalPointByBaseId(base_goal_id, goal_team);
+        const int goal_x = static_cast<int>(goal_point.x);
+        const int goal_y = static_cast<int>(goal_point.y);
+
+        for (const auto area_kind : kAllMainAreas) {
+            if (Area::IsPointInsideMainArea(goal_team, area_kind, goal_x, goal_y)) {
+                return ResolvedMainArea{.Kind = area_kind, .UsedNearestFallback = false};
+            }
+        }
+
+        Area::MainAreaKind nearest_kind = Area::MainAreaKind::Base;
+        double nearest_dist_sq = std::numeric_limits<double>::infinity();
+        for (const auto area_kind : kAllMainAreas) {
+            const auto centroid = MainAreaCentroid(goal_team, area_kind);
+            const double dx = static_cast<double>(goal_x) - centroid.x;
+            const double dy = static_cast<double>(goal_y) - centroid.y;
+            const double dist_sq = dx * dx + dy * dy;
+            if (dist_sq < nearest_dist_sq) {
+                nearest_dist_sq = dist_sq;
+                nearest_kind = area_kind;
+            }
+        }
+        return ResolvedMainArea{.Kind = nearest_kind, .UsedNearestFallback = true};
+    }
+
+    std::vector<NaviGoalOption> BuildBuiltinNaviGoalOptions(
+        const StrategyMode strategy_mode,
+        const UnitTeam my_team,
+        const UnitTeam enemy_team) {
+        std::vector<NaviGoalOption> options;
+
+        // 兼容旧行为：先保留既有内建候选。
+        if (strategy_mode == StrategyMode::HitHero || strategy_mode == StrategyMode::HitSentry) {
+            options = {
+                NaviGoalOption{LangYa::MidShoot.ID, "my", 0.0, true},
+                NaviGoalOption{LangYa::BuffAround1.ID, "my", 0.0, true},
+                NaviGoalOption{LangYa::BuffAround2.ID, "my", 0.0, true},
+                NaviGoalOption{LangYa::RightShoot.ID, "my", 0.0, true},
+                NaviGoalOption{LangYa::MidShoot.ID, "enemy", 0.0, true},
+                NaviGoalOption{LangYa::BuffAround1.ID, "enemy", 0.0, true},
+                NaviGoalOption{LangYa::BuffAround2.ID, "enemy", 0.0, true},
+                NaviGoalOption{LangYa::RightShoot.ID, "enemy", 0.0, true},
+                NaviGoalOption{LangYa::LeftShoot.ID, "enemy", 0.0, true}
+            };
+        } else if (strategy_mode == StrategyMode::Protected) {
+            options = {
+                NaviGoalOption{LangYa::CastleLeft.ID, "my", 0.0, true},
+                NaviGoalOption{LangYa::CastleRight1.ID, "my", 0.0, true},
+                NaviGoalOption{LangYa::CastleRight2.ID, "my", 0.0, true},
+                NaviGoalOption{LangYa::BuffShoot.ID, "my", 0.2, true}
+            };
+        }
+
+        auto contains_option = [](const std::vector<NaviGoalOption>& existing,
+                                  const std::uint8_t goal_id,
+                                  const char* team_token) {
+            return std::find_if(existing.begin(), existing.end(),
+                [&](const NaviGoalOption& option) {
+                    return option.GoalId == goal_id &&
+                           NormalizeDecisionModule(option.Team) == team_token;
+                }) != existing.end();
+        };
+
+        auto should_auto_include = [&](const std::uint8_t goal_id,
+                                       const UnitTeam candidate_team) {
+            if (IsReservedNonCombatGoalId(goal_id)) {
+                return false;
+            }
+
+            const auto resolved_area = ResolveGoalMainArea(goal_id, candidate_team);
+            if (!resolved_area.has_value()) {
+                return false;
+            }
+
+            if (strategy_mode == StrategyMode::Protected) {
+                return candidate_team == my_team;
+            }
+
+            // 进攻策略默认不把 Base 主区作为自动补候选，避免过度偏向后场。
+            return resolved_area->Kind != Area::MainAreaKind::Base;
+        };
+
+        auto try_append = [&](const std::uint8_t goal_id,
+                              const char* team_token,
+                              const UnitTeam candidate_team) {
+            if (contains_option(options, goal_id, team_token)) {
+                return;
+            }
+            if (!should_auto_include(goal_id, candidate_team)) {
+                return;
+            }
+            options.push_back(NaviGoalOption{goal_id, team_token, 0.0, true});
+        };
+
+        for (std::uint8_t goal_id = 0; goal_id <= kMaxBaseGoalId; ++goal_id) {
+            if (strategy_mode == StrategyMode::Protected) {
+                try_append(goal_id, "my", my_team);
+                continue;
+            }
+            if (strategy_mode == StrategyMode::HitHero || strategy_mode == StrategyMode::HitSentry) {
+                try_append(goal_id, "my", my_team);
+                try_append(goal_id, "enemy", enemy_team);
+            }
+        }
+
+        return options;
     }
 
     struct RuntimeNaviGoalCandidate {
@@ -1412,19 +1561,27 @@ namespace BehaviorTree {
             return false;
         }
 
-        const auto goal_point = GoalPointByBaseId(base_goal_id, goal_team);
+        const auto resolved_area = ResolveGoalMainArea(base_goal_id, goal_team);
+        if (!resolved_area.has_value()) {
+            return false;
+        }
+
         for (const auto& area_token : *allowed_areas) {
             const auto area_kind = MainAreaKindFromToken(area_token);
             if (!area_kind.has_value()) {
                 continue;
             }
-            if (Area::IsPointInsideMainArea(
-                    goal_team,
-                    *area_kind,
-                    static_cast<int>(goal_point.x),
-                    static_cast<int>(goal_point.y))) {
+            if (*area_kind == resolved_area->Kind) {
                 return true;
             }
+        }
+
+        if (resolved_area->UsedNearestFallback && LoggerPtr) {
+            LoggerPtr->Debug(
+                "DecisionAutonomy[navi_goal_area]: goal={} team={} mapped to nearest area='{}'.",
+                static_cast<int>(base_goal_id),
+                goal_team == my_team ? "my" : "enemy",
+                Area::MainAreaKindName(resolved_area->Kind));
         }
         return false;
     }
@@ -2089,26 +2246,7 @@ namespace BehaviorTree {
             }
         }
         if (options.empty()) {
-            if (strategy_mode == StrategyMode::HitHero || strategy_mode == StrategyMode::HitSentry) {
-                options = {
-                    NaviGoalOption{LangYa::MidShoot.ID, "my", 0.0, true},
-                    NaviGoalOption{LangYa::BuffAround1.ID, "my", 0.0, true},
-                    NaviGoalOption{LangYa::BuffAround2.ID, "my", 0.0, true},
-                    NaviGoalOption{LangYa::RightShoot.ID, "my", 0.0, true},
-                    NaviGoalOption{LangYa::MidShoot.ID, "enemy", 0.0, true},
-                    NaviGoalOption{LangYa::BuffAround1.ID, "enemy", 0.0, true},
-                    NaviGoalOption{LangYa::BuffAround2.ID, "enemy", 0.0, true},
-                    NaviGoalOption{LangYa::RightShoot.ID, "enemy", 0.0, true},
-                    NaviGoalOption{LangYa::LeftShoot.ID, "enemy", 0.0, true}
-                };
-            } else if (strategy_mode == StrategyMode::Protected) {
-                options = {
-                    NaviGoalOption{LangYa::CastleLeft.ID, "my", 0.0, true},
-                    NaviGoalOption{LangYa::CastleRight1.ID, "my", 0.0, true},
-                    NaviGoalOption{LangYa::CastleRight2.ID, "my", 0.0, true},
-                    NaviGoalOption{LangYa::BuffShoot.ID, "my", 0.2, true}
-                };
-            }
+            options = BuildBuiltinNaviGoalOptions(strategy_mode, my_team, enemy_team);
         }
         if (options.empty()) {
             return false;
