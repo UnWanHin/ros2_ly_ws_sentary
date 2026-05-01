@@ -28,7 +28,7 @@ Entries:
   posture-test          /ly/control/posture cycle test and /ly/gimbal/posture watch.
   chase-only            No-gate pure chase test (lower-machine online by default).
   outpost-target-test   Publish /ly/outpost/target yaw sequence 45/60/75 for bridge test.
-  goal-pos-test         Static /ly/navi/goal_pos_raw -> /ly/navi/goal_pos test with y/n confirm.
+  goal-pos-test         Static calibration-only /ly/navi/goal_pos test with y/n confirm.
 
 Examples:
   ./scripts/debug.sh

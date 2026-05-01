@@ -30,6 +30,7 @@ Usage:
 
 Purpose:
   Manual static /ly/navi/goal_pos conversion test, not chase.
+  - Static calibration only: official/raw x y -> converted static goal_pos
   - Start the raw goal conversion bridge in background
   - Ask for x y continuously in terminal
   - Publish raw input to /ly/navi/goal_pos_raw
@@ -37,6 +38,7 @@ Purpose:
   - Ask y/n before publishing confirmed output to /ly/navi/goal_pos
   - Final navigation command topic is /ly/navi/goal_pos
   - Static calibration points are read from navi_tf_bridge/config/tf_config.yaml
+  - Chase is a separate flow: it listens to /ly/navi/target_rel and also ends at /ly/navi/goal_pos
 
 Options:
   --raw-topic <topic>               (default: /ly/navi/goal_pos_raw)
