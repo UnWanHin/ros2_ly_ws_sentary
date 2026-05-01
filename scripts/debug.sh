@@ -28,6 +28,7 @@ Entries:
   posture-test          /ly/control/posture cycle test and /ly/gimbal/posture watch.
   chase-only            No-gate pure chase test (lower-machine online by default).
   outpost-target-test   Publish /ly/outpost/target yaw sequence 45/60/75 for bridge test.
+  goal-pos-test         Static /ly/navi/goal_pos_raw -> /ly/navi/goal_pos test with y/n confirm.
 
 Examples:
   ./scripts/debug.sh
@@ -82,6 +83,9 @@ run_entry() {
     14|outpost-target-test|outpost_target_test|outpost-target|outpost_target)
       exec "${ROOT_DIR}/debug/outpost_target_test.sh" "$@"
       ;;
+    15|goal-pos-test|goal_pos_test|goal-pos|goal_pos)
+      exec "${ROOT_DIR}/debug/goal_pos_test.sh" "$@"
+      ;;
     ""|menu)
       ;;
     *)
@@ -116,6 +120,7 @@ echo " 11) move_rotate"
 echo " 12) posture-test"
 echo " 13) chase-only"
 echo " 14) outpost-target-test"
-read -r -p "Input 1-14 [default: 1]: " choice
+echo " 15) goal-pos-test"
+read -r -p "Input 1-15 [default: 1]: " choice
 choice="${choice:-1}"
 run_entry "${choice}"

@@ -192,6 +192,8 @@ python3 ./scripts/python/start.py --keep-tf-goal-bridge
 | `scripts/debug/move_rotate.sh` | 小陀螺 + 正弦平移联动测试 | `scripts/feature_test/standalone/modes/chassis_spin_sine_translate_mode.sh` |
 | `scripts/debug/posture_test.sh` | 姿态切换循环与回读测试 | 脚本内置发布/回读逻辑 |
 | `scripts/debug/chase_only.sh` | 纯追击联调（无门控，默认连下位机） | `scripts/launch/start_sentry_chase_only.sh` |
+| `scripts/debug/outpost_target_test.sh` | 发 `/ly/outpost/target` yaw 序列，验证前哨桥接 | 脚本内置发布逻辑 |
+| `scripts/debug/goal_pos_test.sh` | 静态点位 `/ly/navi/goal_pos_raw` 转换测试，预览后确认才发 `/ly/navi/goal_pos` | `scripts/launch/goal_pos_test.sh` |
 
 ### Selfcheck
 
@@ -236,6 +238,8 @@ python3 ./scripts/python/start.py --keep-tf-goal-bridge
 11. `move_rotate`
 12. `posture-test`
 13. `chase-only`
+14. `outpost-target-test`
+15. `goal-pos-test`
 
 ### `./scripts/selfcheck.sh`
 
@@ -280,6 +284,9 @@ python3 ./scripts/python/start.py --keep-tf-goal-bridge
 
 # 纯追击联调（默认无门控，连下位机）
 ./scripts/debug.sh chase-only
+
+# 静态点位转换测试：输入官方/原始 x y，确认后才发布 /ly/navi/goal_pos
+./scripts/debug.sh goal-pos-test
 
 # 离车自检
 ./scripts/selfcheck.sh pc

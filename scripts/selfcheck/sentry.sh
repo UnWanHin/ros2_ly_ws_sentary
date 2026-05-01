@@ -676,8 +676,10 @@ if (( RUNTIME_ONLY == 0 )); then
   check_file_exists "${ROOT_DIR}/scripts/debug/standalone.sh"
   check_file_exists "${ROOT_DIR}/scripts/debug/navi_goal.sh"
   check_file_exists "${ROOT_DIR}/scripts/debug/navi_goal_cli.sh"
+  check_file_exists "${ROOT_DIR}/scripts/debug/goal_pos_test.sh"
   check_file_exists "${ROOT_DIR}/scripts/feature_test/standalone/run_standalone_menu.sh"
   check_file_exists "${ROOT_DIR}/scripts/feature_test/standalone/modes/navi_patrol_mode.sh"
+  check_file_exists "${ROOT_DIR}/scripts/launch/goal_pos_test.sh"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/include/BTNodes.hpp"
 
   check_executable_file "${ROOT_DIR}/scripts/start.sh"
@@ -693,8 +695,10 @@ if (( RUNTIME_ONLY == 0 )); then
   check_executable_file "${ROOT_DIR}/scripts/debug/standalone.sh"
   check_executable_file "${ROOT_DIR}/scripts/debug/navi_goal.sh"
   check_executable_file "${ROOT_DIR}/scripts/debug/navi_goal_cli.sh"
+  check_executable_file "${ROOT_DIR}/scripts/debug/goal_pos_test.sh"
   check_executable_file "${ROOT_DIR}/scripts/feature_test/standalone/run_standalone_menu.sh"
   check_executable_file "${ROOT_DIR}/scripts/feature_test/standalone/modes/navi_patrol_mode.sh"
+  check_executable_file "${ROOT_DIR}/scripts/launch/goal_pos_test.sh"
 
   check_bash_syntax "${ROOT_DIR}/scripts/start.sh"
   check_bash_syntax "${ROOT_DIR}/scripts/debug.sh"
@@ -709,8 +713,10 @@ if (( RUNTIME_ONLY == 0 )); then
   check_bash_syntax "${ROOT_DIR}/scripts/debug/standalone.sh"
   check_bash_syntax "${ROOT_DIR}/scripts/debug/navi_goal.sh"
   check_bash_syntax "${ROOT_DIR}/scripts/debug/navi_goal_cli.sh"
+  check_bash_syntax "${ROOT_DIR}/scripts/debug/goal_pos_test.sh"
   check_bash_syntax "${ROOT_DIR}/scripts/feature_test/standalone/run_standalone_menu.sh"
   check_bash_syntax "${ROOT_DIR}/scripts/feature_test/standalone/modes/navi_patrol_mode.sh"
+  check_bash_syntax "${ROOT_DIR}/scripts/launch/goal_pos_test.sh"
 
   check_camera_sn_config "${ROOT_DIR}/config/base_config.yaml"
   check_legacy_hardcoded_camera_sn
