@@ -167,6 +167,9 @@ fi
 if ! has_launch_arg_key "goal_pos_raw_frame"; then
   LAUNCH_ARGS=("goal_pos_raw_frame:=${RAW_FRAME}" "${LAUNCH_ARGS[@]}")
 fi
+if ! has_launch_arg_key "use_raw_goal_static_calibration"; then
+  LAUNCH_ARGS=("use_raw_goal_static_calibration:=true" "${LAUNCH_ARGS[@]}")
+fi
 if [[ -n "${MAP_FRAME}" ]] && ! has_launch_arg_key "map_frame"; then
   LAUNCH_ARGS=("map_frame:=${MAP_FRAME}" "${LAUNCH_ARGS[@]}")
 fi

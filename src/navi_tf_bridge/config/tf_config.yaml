@@ -32,13 +32,14 @@ target_rel_to_goal_pos_node:
     # Model:
     #   rigid  : rotation + translation
     #   affine : 2x2 linear + translation (supports mirror/scale/shear)
+    #   auto   : solve both rigid/affine and choose lower RMSE (tie -> rigid)
     use_raw_goal_static_calibration: false
-    raw_goal_calibration_model: affine
+    raw_goal_calibration_model: auto
     raw_goal_calibration_unit: cm
     raw_goal_source_frame: official_map
     raw_goal_target_frame: map
     # Flattened point list: [x1, y1, x2, y2, x3, y3, ...]
-    # Keep these two lines commented until you fill real pairs.
+    # Supports N>=3 pairs (no hard upper limit). Keep source/target lengths equal.
     raw_goal_source_points: [574.0, 1206.0, 1043.0, 329.0, 924.0, 834.0, 1879.0, 664.0, 367.0, 10.0]
     raw_goal_target_points: [8.8154, -4.2515, -0.041879, -9.656739, 5.72997, -7.84072, 2.79, -17.5239, -3.33, -2.522]
 

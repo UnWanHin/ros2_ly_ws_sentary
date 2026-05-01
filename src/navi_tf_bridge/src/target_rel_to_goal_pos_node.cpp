@@ -469,8 +469,13 @@ private:
     }
 
     bool ok = false;
+    std::string solved_model = "rigid";
     const std::string model = raw_goal_calibration_model_;
-    if (model == "affine" || model == "AFFINE" || model == "affine_2d") {
+    const bool wants_affine = (model == "affine" || model == "AFFINE" || model == "affine_2d");
+    const bool wants_rigid = (model == "rigid" || model == "RIGID" || model == "rigid_2d");
+    const bool wants_auto = (model == "auto" || model == "AUTO");
+    if (wants_affine) {
+      solved_model = "affine";
       ok = solveAffine2D(
         pairs,
         raw_goal_calib_m00_,
@@ -479,7 +484,8 @@ private:
         raw_goal_calib_m11_,
         raw_goal_calib_tx_m_,
         raw_goal_calib_ty_m_);
-    } else {
+    } else if (wants_rigid) {
+      solved_model = "rigid";
       ok = solveRigid2D(
         pairs,
         raw_goal_calib_m00_,
@@ -488,7 +494,80 @@ private:
         raw_goal_calib_m11_,
         raw_goal_calib_tx_m_,
         raw_goal_calib_ty_m_);
-      if (!ok && !(model == "rigid" || model == "RIGID" || model == "rigid_2d")) {
+    } else if (wants_auto) {
+      double aff_m00 = 0.0;
+      double aff_m01 = 0.0;
+      double aff_m10 = 0.0;
+      double aff_m11 = 0.0;
+      double aff_tx = 0.0;
+      double aff_ty = 0.0;
+      const bool ok_affine = solveAffine2D(
+        pairs, aff_m00, aff_m01, aff_m10, aff_m11, aff_tx, aff_ty);
+
+      double rig_m00 = 0.0;
+      double rig_m01 = 0.0;
+      double rig_m10 = 0.0;
+      double rig_m11 = 0.0;
+      double rig_tx = 0.0;
+      double rig_ty = 0.0;
+      const bool ok_rigid = solveRigid2D(
+        pairs, rig_m00, rig_m01, rig_m10, rig_m11, rig_tx, rig_ty);
+
+      if (ok_affine && !ok_rigid) {
+        solved_model = "affine";
+        ok = true;
+        raw_goal_calib_m00_ = aff_m00;
+        raw_goal_calib_m01_ = aff_m01;
+        raw_goal_calib_m10_ = aff_m10;
+        raw_goal_calib_m11_ = aff_m11;
+        raw_goal_calib_tx_m_ = aff_tx;
+        raw_goal_calib_ty_m_ = aff_ty;
+      } else if (!ok_affine && ok_rigid) {
+        solved_model = "rigid";
+        ok = true;
+        raw_goal_calib_m00_ = rig_m00;
+        raw_goal_calib_m01_ = rig_m01;
+        raw_goal_calib_m10_ = rig_m10;
+        raw_goal_calib_m11_ = rig_m11;
+        raw_goal_calib_tx_m_ = rig_tx;
+        raw_goal_calib_ty_m_ = rig_ty;
+      } else if (ok_affine && ok_rigid) {
+        double aff_rmse_m = 0.0;
+        double aff_max_m = 0.0;
+        computeResidual(
+          pairs, aff_m00, aff_m01, aff_m10, aff_m11, aff_tx, aff_ty, aff_rmse_m, aff_max_m);
+        double rig_rmse_m = 0.0;
+        double rig_max_m = 0.0;
+        computeResidual(
+          pairs, rig_m00, rig_m01, rig_m10, rig_m11, rig_tx, rig_ty, rig_rmse_m, rig_max_m);
+
+        const bool choose_affine = (aff_rmse_m + 1e-9) < rig_rmse_m;
+        solved_model = choose_affine ? "affine" : "rigid";
+        ok = true;
+        raw_goal_calib_m00_ = choose_affine ? aff_m00 : rig_m00;
+        raw_goal_calib_m01_ = choose_affine ? aff_m01 : rig_m01;
+        raw_goal_calib_m10_ = choose_affine ? aff_m10 : rig_m10;
+        raw_goal_calib_m11_ = choose_affine ? aff_m11 : rig_m11;
+        raw_goal_calib_tx_m_ = choose_affine ? aff_tx : rig_tx;
+        raw_goal_calib_ty_m_ = choose_affine ? aff_ty : rig_ty;
+        RCLCPP_INFO(
+          this->get_logger(),
+          "Raw-goal auto model pick: affine_rmse=%.4fm rigid_rmse=%.4fm choose=%s",
+          aff_rmse_m,
+          rig_rmse_m,
+          solved_model.c_str());
+      }
+    } else {
+      solved_model = "rigid";
+      ok = solveRigid2D(
+        pairs,
+        raw_goal_calib_m00_,
+        raw_goal_calib_m01_,
+        raw_goal_calib_m10_,
+        raw_goal_calib_m11_,
+        raw_goal_calib_tx_m_,
+        raw_goal_calib_ty_m_);
+      if (!ok) {
         RCLCPP_WARN(
           this->get_logger(),
           "Unknown raw_goal_calibration_model='%s', fallback to rigid failed.",
@@ -520,8 +599,9 @@ private:
     raw_goal_static_calibration_ready_ = true;
     RCLCPP_INFO(
       this->get_logger(),
-      "Raw-goal static calibration ready. model=%s points=%zu unit=%s source_frame=%s "
+      "Raw-goal static calibration ready. model=%s (request=%s) points=%zu unit=%s source_frame=%s "
       "target_frame=%s matrix=[[%.6f, %.6f, %.6f],[%.6f, %.6f, %.6f]] rmse=%.4fm max=%.4fm",
+      solved_model.c_str(),
       raw_goal_calibration_model_.c_str(),
       pairs.size(),
       raw_goal_calibration_unit_.c_str(),

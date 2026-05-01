@@ -21,6 +21,7 @@ def generate_launch_description():
         DeclareLaunchArgument("base_frame", default_value="base_link"),
         DeclareLaunchArgument("fallback_base_frame", default_value="baselink"),
         DeclareLaunchArgument("enable_goal_pos_raw_bridge", default_value="true"),
+        DeclareLaunchArgument("use_raw_goal_static_calibration", default_value="false"),
         DeclareLaunchArgument("debug_export_point_pairs", default_value="false"),
     ]
 
@@ -34,6 +35,9 @@ def generate_launch_description():
             "base_frame": LaunchConfiguration("base_frame"),
             "fallback_base_frame": LaunchConfiguration("fallback_base_frame"),
             "enable_goal_pos_raw_bridge": LaunchConfiguration("enable_goal_pos_raw_bridge"),
+            "use_raw_goal_static_calibration": LaunchConfiguration(
+                "use_raw_goal_static_calibration"
+            ),
             "publish_target_map": "false",
             "debug_export_point_pairs": LaunchConfiguration("debug_export_point_pairs"),
         }.items(),

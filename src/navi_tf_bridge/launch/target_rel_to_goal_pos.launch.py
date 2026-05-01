@@ -127,6 +127,26 @@ def generate_launch_description():
             default_value=str(get_default("goal_pos_raw_frame", "map")),
         ),
         DeclareLaunchArgument(
+            "use_raw_goal_static_calibration",
+            default_value=_bool_default(get_default("use_raw_goal_static_calibration", False)),
+        ),
+        DeclareLaunchArgument(
+            "raw_goal_calibration_model",
+            default_value=str(get_default("raw_goal_calibration_model", "rigid")),
+        ),
+        DeclareLaunchArgument(
+            "raw_goal_calibration_unit",
+            default_value=str(get_default("raw_goal_calibration_unit", "cm")),
+        ),
+        DeclareLaunchArgument(
+            "raw_goal_source_frame",
+            default_value=str(get_default("raw_goal_source_frame", "official_map")),
+        ),
+        DeclareLaunchArgument(
+            "raw_goal_target_frame",
+            default_value=str(get_default("raw_goal_target_frame", "map")),
+        ),
+        DeclareLaunchArgument(
             "debug_export_point_pairs",
             default_value=_bool_default(get_default("debug_export_point_pairs", True)),
         ),
@@ -199,6 +219,18 @@ def generate_launch_description():
                             LaunchConfiguration("enable_goal_pos_raw_bridge"), value_type=bool
                         ),
                         "goal_pos_raw_frame": LaunchConfiguration("goal_pos_raw_frame"),
+                        "use_raw_goal_static_calibration": ParameterValue(
+                            LaunchConfiguration("use_raw_goal_static_calibration"),
+                            value_type=bool,
+                        ),
+                        "raw_goal_calibration_model": LaunchConfiguration(
+                            "raw_goal_calibration_model"
+                        ),
+                        "raw_goal_calibration_unit": LaunchConfiguration(
+                            "raw_goal_calibration_unit"
+                        ),
+                        "raw_goal_source_frame": LaunchConfiguration("raw_goal_source_frame"),
+                        "raw_goal_target_frame": LaunchConfiguration("raw_goal_target_frame"),
                         "debug_export_point_pairs": ParameterValue(
                             LaunchConfiguration("debug_export_point_pairs"), value_type=bool
                         ),
