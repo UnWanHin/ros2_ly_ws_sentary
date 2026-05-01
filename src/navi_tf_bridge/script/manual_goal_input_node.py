@@ -36,6 +36,10 @@ class ManualGoalInputNode(Node):
             0.1,
             float(self.get_param_compat("conversion_timeout_sec", 2.0)),
         )
+        self.match_wait_timeout_sec = max(
+            0.0,
+            float(self.get_param_compat("match_wait_timeout_sec", 8.0)),
+        )
         self.input_unit = str(self.get_param_compat("input_unit", "cm")).strip().lower()
         if self.input_unit not in {"cm", "m"}:
             self.get_logger().warn(
@@ -84,6 +88,39 @@ class ManualGoalInputNode(Node):
         if not self.has_parameter(name):
             self.declare_parameter(name, default)
         return self.get_parameter(name).value
+
+    def wait_for_bridge_matches(self) -> None:
+        deadline = time.monotonic() + self.match_wait_timeout_sec
+        last_log_time = 0.0
+        while rclpy.ok() and not self.stop_event.is_set():
+            raw_subscribers = self.count_subscribers(self.raw_topic)
+            goal_publishers = self.count_publishers(self.goal_topic)
+            raw_ready = raw_subscribers > 0
+            goal_ready = (not self.confirm_before_publish) or goal_publishers > 0
+            if raw_ready and goal_ready:
+                self.get_logger().info(
+                    f"bridge topics matched: raw_subscribers={raw_subscribers} "
+                    f"goal_pose_publishers={goal_publishers}"
+                )
+                return
+
+            now = time.monotonic()
+            if now >= deadline:
+                self.get_logger().warn(
+                    f"Timed out waiting for bridge topic matches: "
+                    f"{self.raw_topic} subscribers={raw_subscribers}, "
+                    f"{self.goal_topic} publishers={goal_publishers}. "
+                    "First raw goal may be dropped if ROS discovery is still pending."
+                )
+                return
+            if now - last_log_time >= 1.0:
+                self.get_logger().info(
+                    f"waiting for bridge topic matches: "
+                    f"{self.raw_topic} subscribers={raw_subscribers}, "
+                    f"{self.goal_topic} publishers={goal_publishers}"
+                )
+                last_log_time = now
+            time.sleep(0.1)
 
     def to_cm(self, value_text: str) -> Optional[int]:
         try:
@@ -157,6 +194,7 @@ class ManualGoalInputNode(Node):
         )
 
     def input_loop(self) -> None:
+        self.wait_for_bridge_matches()
         prompt = "[manual_goal_input] x y > "
         while rclpy.ok() and not self.stop_event.is_set():
             try:

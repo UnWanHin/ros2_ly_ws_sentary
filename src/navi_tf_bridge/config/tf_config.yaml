@@ -52,14 +52,14 @@ target_rel_to_goal_pos_node:
     #   auto   : solve both rigid/affine and choose lower RMSE (tie -> rigid)
     use_raw_goal_static_calibration: true
     raw_goal_calibration_model: matrix
-    raw_goal_calibration_unit: cm
+    raw_goal_calibration_unit: m
     raw_goal_source_frame: official_map
     raw_goal_target_frame: map
-    # Row-major 4x4 matrix. Values use raw_goal_calibration_unit.
-    # Applied to [x, y, 0, 1]^T, then converted to meters for /goal_pose.
+    # Row-major 4x4 matrix. /ly/navi/goal_pos_raw is UInt16 cm, decoded to meters
+    # before this meter-frame matrix is applied. /goal_pose is published in meters.
     raw_goal_transform_matrix: [
-      6.75229012e-02, 9.97717725e-01, 0.0, -8.40221830e+02,
-      -9.97717725e-01, 6.75229012e-02, 0.0, 7.84496675e+02,
+      -0.01932426, 0.99981327, 0.0, -3.03475549,
+      -0.99981327, -0.01932426, 0.0, 1.37623284,
       0.0, 0.0, 1.0, 0.0,
       0.0, 0.0, 0.0, 1.0
     ]
