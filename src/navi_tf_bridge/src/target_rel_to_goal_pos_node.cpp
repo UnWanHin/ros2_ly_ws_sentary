@@ -153,7 +153,7 @@ private:
   {
     const bool has_explicit_source_frame = use_msg_frame_id_ && !msg_frame_id.empty();
     std::vector<std::string> source_candidates;
-    source_candidates.reserve(3);
+    source_candidates.reserve(2);
 
     if (has_explicit_source_frame) {
       appendUniqueFrame(source_candidates, msg_frame_id);
@@ -161,18 +161,10 @@ private:
     }
 
     appendUniqueFrame(source_candidates, target_rel_default_frame_);
+    // Compatibility fallback: if no explicit frame and default frame is missing, treat target_rel
+    // as already in base frame.
     appendUniqueFrame(source_candidates, base_frame_);
-    appendUniqueFrame(source_candidates, fallback_base_frame_);
     return source_candidates;
-  }
-
-  std::vector<std::string> buildBaseCandidates() const
-  {
-    std::vector<std::string> base_candidates;
-    base_candidates.reserve(2);
-    appendUniqueFrame(base_candidates, base_frame_);
-    appendUniqueFrame(base_candidates, fallback_base_frame_);
-    return base_candidates;
   }
 
   struct NamedPointCm
@@ -815,11 +807,9 @@ private:
   bool transformRelativePointToMap(
     const geometry_msgs::msg::Point & point_rel,
     const std::vector<std::string> & source_candidates,
-    const std::vector<std::string> & base_candidates,
     const rclcpp::Time & transform_time,
     geometry_msgs::msg::PointStamped & point_map,
     std::string & resolved_source_frame,
-    std::string & resolved_base_frame,
     std::string & last_tf_error)
   {
     geometry_msgs::msg::PointStamped point_source;
@@ -828,45 +818,18 @@ private:
 
     for (const auto & source_frame : source_candidates) {
       point_source.header.frame_id = source_frame;
-      for (const auto & base_frame_candidate : base_candidates) {
-        geometry_msgs::msg::PointStamped point_base;
-        try {
-          if (source_frame == base_frame_candidate) {
-            point_base = point_source;
-          } else {
-            const geometry_msgs::msg::TransformStamped tf_base_source =
-              tf_buffer_.lookupTransform(
-              base_frame_candidate,
-              source_frame,
-              transform_time,
-              rclcpp::Duration::from_seconds(0.05));
-            tf2::doTransform(point_source, point_base, tf_base_source);
-          }
-        } catch (const tf2::TransformException & ex) {
-          last_tf_error =
-            "lookup " + base_frame_candidate + " <- " + source_frame + " failed: " + ex.what();
-          continue;
-        }
-
-        try {
-          if (base_frame_candidate == map_frame_) {
-            point_map = point_base;
-          } else {
-            const geometry_msgs::msg::TransformStamped tf_map_base =
-              tf_buffer_.lookupTransform(
-              map_frame_,
-              base_frame_candidate,
-              transform_time,
-              rclcpp::Duration::from_seconds(0.05));
-            tf2::doTransform(point_base, point_map, tf_map_base);
-          }
-          resolved_source_frame = source_frame;
-          resolved_base_frame = base_frame_candidate;
-          return true;
-        } catch (const tf2::TransformException & ex) {
-          last_tf_error =
-            "lookup " + map_frame_ + " <- " + base_frame_candidate + " failed: " + ex.what();
-        }
+      try {
+        const geometry_msgs::msg::TransformStamped tf_map_source =
+          tf_buffer_.lookupTransform(
+          map_frame_,
+          source_frame,
+          transform_time,
+          rclcpp::Duration::from_seconds(0.05));
+        tf2::doTransform(point_source, point_map, tf_map_source);
+        resolved_source_frame = source_frame;
+        return true;
+      } catch (const tf2::TransformException & ex) {
+        last_tf_error = "lookup " + map_frame_ + " <- " + source_frame + " failed: " + ex.what();
       }
     }
 
@@ -997,38 +960,29 @@ private:
     }
 
     const auto source_candidates = buildSourceCandidates(msg->header.frame_id);
-    const auto base_candidates = buildBaseCandidates();
     const rclcpp::Time transform_time(msg->header.stamp);
 
     geometry_msgs::msg::PointStamped point_map;
     std::string last_tf_error;
     std::string resolved_source_frame;
-    std::string resolved_base_frame;
     if (!transformRelativePointToMap(
         relative_goal_point,
         source_candidates,
-        base_candidates,
         transform_time,
         point_map,
         resolved_source_frame,
-        resolved_base_frame,
         last_tf_error))
     {
       std::ostringstream source_oss;
       for (const auto & frame : source_candidates) {
         source_oss << frame << " ";
       }
-      std::ostringstream base_oss;
-      for (const auto & frame : base_candidates) {
-        base_oss << frame << " ";
-      }
       RCLCPP_WARN_THROTTLE(
         this->get_logger(),
         *this->get_clock(),
         2000,
-        "TF transform failed (source=[%s], base=[%s], map=%s). Last error: %s",
+        "TF transform failed (source=[%s], map=%s). Last error: %s",
         source_oss.str().c_str(),
-        base_oss.str().c_str(),
         map_frame_.c_str(),
         last_tf_error.c_str());
       return;
@@ -1041,9 +995,7 @@ private:
     if (publish_target_map_ && pub_target_map_) {
       pub_target_map_->publish(point_map);
     }
-    publishMapPointAsGoal(
-      point_map.point,
-      resolved_source_frame + "->" + resolved_base_frame);
+    publishMapPointAsGoal(point_map.point, resolved_source_frame);
   }
 
   std::string input_topic_;

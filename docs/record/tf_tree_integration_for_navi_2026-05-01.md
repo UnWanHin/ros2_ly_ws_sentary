@@ -45,13 +45,10 @@
 
 - `src/behavior_tree/launch/sentry_all.launch.py`
 
-### 3) 追击 TF 变换链修正（source -> base -> map）
+### 3) 追击 TF 变换链修正（source -> map）
 
-`navi_tf_bridge` 的追击点转换原逻辑是直接查 `map <- source`。  
-为避免追击输入默认被当成 `base_link`，并与“追击坐标来源在云台”场景对齐，现改为显式两段：
-
-1. `target_rel_source -> base_frame`
-2. `base_frame -> map_frame`
+追击点转换使用 `RelativeTarget.header.frame_id`（若为空则用 `target_rel_default_frame`）作为来源，  
+直接做单段 TF 查询 `map <- source_frame` 后发布 `/ly/navi/goal_pos`。
 
 新增参数：
 
@@ -85,7 +82,7 @@
 4. `target_rel_default_frame`
    - 文件：`src/navi_tf_bridge/config/tf_config.yaml`
    - 默认：`gimbal_world`
-   - 作用：追击 `target_rel` 缺失 `frame_id` 时的默认来源坐标系（随后会显式变换到 `base_frame` 再到 `map_frame`）
+   - 作用：追击 `target_rel` 缺失 `frame_id` 时的默认来源坐标系（直接用于 `map <- source_frame` 查询）
 
 ## 微调建议
 
