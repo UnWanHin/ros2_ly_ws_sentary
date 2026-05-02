@@ -13,10 +13,12 @@ from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
+    bridge_share = get_package_share_directory("navi_tf_bridge")
     behavior_tree_share = get_package_share_directory("behavior_tree")
     gimbal_driver_share = get_package_share_directory("gimbal_driver")
     tf_tree_share = get_package_share_directory("tf_tree")
 
+    default_bridge_config = os.path.join(bridge_share, "config", "tf_config.yaml")
     default_gimbal_config = os.path.join(behavior_tree_share, "config", "base_config.yaml")
     default_tf_tree_params = os.path.join(tf_tree_share, "config", "tf_tree.yaml")
     gimbal_launch = os.path.join(gimbal_driver_share, "launch", "gimbal_driver.launch.py")
@@ -37,6 +39,8 @@ def generate_launch_description():
         DeclareLaunchArgument("aim_frame", default_value="gimbal_barrel_joint"),
         DeclareLaunchArgument("gimbal_angles_topic", default_value="/ly/gimbal/angles"),
         DeclareLaunchArgument("control_angles_topic", default_value="/ly/control/angles"),
+        DeclareLaunchArgument("bridge_config_file", default_value=default_bridge_config),
+        DeclareLaunchArgument("use_raw_goal_static_calibration", default_value="true"),
         DeclareLaunchArgument("publish_hz", default_value="30.0"),
         DeclareLaunchArgument("tf_timeout_sec", default_value="0.05"),
         DeclareLaunchArgument("min_distance_m", default_value="0.10"),
@@ -95,6 +99,10 @@ def generate_launch_description():
                     LaunchConfiguration("gimbal_angles_topic"), value_type=str),
                 "control_angles_topic": ParameterValue(
                     LaunchConfiguration("control_angles_topic"), value_type=str),
+                "bridge_config_file": ParameterValue(
+                    LaunchConfiguration("bridge_config_file"), value_type=str),
+                "use_raw_goal_static_calibration": ParameterValue(
+                    LaunchConfiguration("use_raw_goal_static_calibration"), value_type=bool),
                 "publish_hz": ParameterValue(LaunchConfiguration("publish_hz"), value_type=float),
                 "tf_timeout_sec": ParameterValue(
                     LaunchConfiguration("tf_timeout_sec"), value_type=float),

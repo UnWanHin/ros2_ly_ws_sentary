@@ -11,6 +11,11 @@ from rclpy.node import Node
 from rclpy.time import Time
 import tf2_ros
 
+try:
+    import yaml
+except Exception:
+    yaml = None
+
 
 class MapAimPointNode(Node):
     def __init__(self) -> None:
@@ -23,6 +28,8 @@ class MapAimPointNode(Node):
         self.declare_parameter("aim_frame", "gimbal_barrel_joint")
         self.declare_parameter("gimbal_angles_topic", "/ly/gimbal/angles")
         self.declare_parameter("control_angles_topic", "/ly/control/angles")
+        self.declare_parameter("bridge_config_file", "")
+        self.declare_parameter("use_raw_goal_static_calibration", False)
         self.declare_parameter("publish_hz", 30.0)
         self.declare_parameter("tf_timeout_sec", 0.05)
         self.declare_parameter("min_distance_m", 0.10)
@@ -40,6 +47,8 @@ class MapAimPointNode(Node):
         self.aim_frame = str(self.get_parameter("aim_frame").value)
         gimbal_topic = str(self.get_parameter("gimbal_angles_topic").value)
         control_topic = str(self.get_parameter("control_angles_topic").value)
+        bridge_config_file = str(self.get_parameter("bridge_config_file").value)
+        use_static_calibration = bool(self.get_parameter("use_raw_goal_static_calibration").value)
         publish_hz = max(1.0, float(self.get_parameter("publish_hz").value))
         self.tf_timeout = Duration(seconds=max(0.01, float(self.get_parameter("tf_timeout_sec").value)))
         self.min_distance_m = max(0.01, float(self.get_parameter("min_distance_m").value))
@@ -49,6 +58,9 @@ class MapAimPointNode(Node):
         self.pitch_bias_deg = float(self.get_parameter("pitch_bias_deg").value)
         self.max_yaw_step_deg = max(0.0, float(self.get_parameter("max_yaw_step_deg").value))
         self.max_pitch_step_deg = max(0.0, float(self.get_parameter("max_pitch_step_deg").value))
+        self.active_target_frame = self.target_frame
+        self.active_target_point = (self.target_x_m, self.target_y_m, self.target_z_m)
+        self.static_calibration_ready = False
 
         self.current_angles: Optional[GimbalAngles] = None
         self.last_warn_ns = 0
@@ -60,14 +72,95 @@ class MapAimPointNode(Node):
         self.sub_angles = self.create_subscription(GimbalAngles, gimbal_topic, self._on_gimbal_angles, 20)
         self.timer = self.create_timer(1.0 / publish_hz, self._on_timer)
 
+        if use_static_calibration:
+            self._load_raw_goal_static_calibration(bridge_config_file)
+
         self.get_logger().info(
             "map aim point started: "
-            f"target=({self.target_x_m:.3f}, {self.target_y_m:.3f}, {self.target_z_m:.3f})m@{self.target_frame} "
+            f"raw_target=({self.target_x_m:.3f}, {self.target_y_m:.3f}, {self.target_z_m:.3f})m@{self.target_frame} "
+            f"active_target=({self.active_target_point[0]:.3f}, {self.active_target_point[1]:.3f}, "
+            f"{self.active_target_point[2]:.3f})m@{self.active_target_frame} "
             f"aim_frame={self.aim_frame} -> {control_topic}, gimbal={gimbal_topic}"
         )
 
     def _on_gimbal_angles(self, msg: GimbalAngles) -> None:
         self.current_angles = msg
+
+    def _load_raw_goal_static_calibration(self, bridge_config_file: str) -> None:
+        if yaml is None:
+            self.get_logger().warn("PyYAML is unavailable; raw-goal static calibration disabled")
+            return
+        if not bridge_config_file:
+            self.get_logger().warn("bridge_config_file is empty; raw-goal static calibration disabled")
+            return
+        try:
+            with open(bridge_config_file, encoding="utf-8") as fh:
+                root = yaml.safe_load(fh) or {}
+        except Exception as exc:
+            self.get_logger().warn(
+                f"failed to load bridge_config_file '{bridge_config_file}': {exc}; "
+                "raw-goal static calibration disabled"
+            )
+            return
+
+        params = root.get("target_rel_to_goal_pos_node", {}).get("ros__parameters", {})
+        if not isinstance(params, dict):
+            self.get_logger().warn(
+                f"missing target_rel_to_goal_pos_node.ros__parameters in '{bridge_config_file}'; "
+                "raw-goal static calibration disabled"
+            )
+            return
+
+        model = str(params.get("raw_goal_calibration_model", "matrix"))
+        if model not in ("matrix", "MATRIX", "matrix_4x4"):
+            self.get_logger().warn(
+                f"map aim point only supports raw_goal_calibration_model=matrix, got '{model}'; "
+                "raw-goal static calibration disabled"
+            )
+            return
+
+        matrix = params.get("raw_goal_transform_matrix", [])
+        if not isinstance(matrix, list) or len(matrix) != 16:
+            self.get_logger().warn(
+                f"raw_goal_transform_matrix in '{bridge_config_file}' must contain 16 values; "
+                "raw-goal static calibration disabled"
+            )
+            return
+
+        unit = str(params.get("raw_goal_calibration_unit", "m"))
+        if unit in ("m", "M"):
+            unit_scale = 1.0
+        elif unit in ("cm", "CM"):
+            unit_scale = 0.01
+        else:
+            self.get_logger().warn(
+                f"raw_goal_calibration_unit '{unit}' is invalid; raw-goal static calibration disabled"
+            )
+            return
+
+        try:
+            m = [float(v) for v in matrix]
+        except (TypeError, ValueError):
+            self.get_logger().warn(
+                f"raw_goal_transform_matrix in '{bridge_config_file}' contains non-numeric values; "
+                "raw-goal static calibration disabled"
+            )
+            return
+
+        x, y, z = self.target_x_m, self.target_y_m, self.target_z_m
+        self.active_target_point = (
+            m[0] * x + m[1] * y + m[2] * z + m[3] * unit_scale,
+            m[4] * x + m[5] * y + m[6] * z + m[7] * unit_scale,
+            m[8] * x + m[9] * y + m[10] * z + m[11] * unit_scale,
+        )
+        self.active_target_frame = str(params.get("raw_goal_target_frame", "map"))
+        self.static_calibration_ready = True
+        self.get_logger().info(
+            "raw-goal static calibration loaded for map aim point: "
+            f"{self.target_frame} -> {self.active_target_frame}, "
+            f"target=({self.active_target_point[0]:.3f}, {self.active_target_point[1]:.3f}, "
+            f"{self.active_target_point[2]:.3f})m"
+        )
 
     @staticmethod
     def _rotate_vector(qx: float, qy: float, qz: float, qw: float, vector: tuple[float, float, float]) -> tuple[float, float, float]:
@@ -113,17 +206,17 @@ class MapAimPointNode(Node):
         try:
             tf_msg = self.tf_buffer.lookup_transform(
                 self.aim_frame,
-                self.target_frame,
+                self.active_target_frame,
                 Time(),
                 timeout=self.tf_timeout,
             )
         except Exception as exc:
-            self._warn_throttled(f"TF not ready: {self.aim_frame} <- {self.target_frame}: {exc}")
+            self._warn_throttled(f"TF not ready: {self.aim_frame} <- {self.active_target_frame}: {exc}")
             return
 
         x, y, z = self._transform_point(
             tf_msg,
-            (self.target_x_m, self.target_y_m, self.target_z_m),
+            self.active_target_point,
         )
         horizontal = math.hypot(x, y)
         distance = math.hypot(horizontal, z)

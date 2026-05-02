@@ -8,11 +8,13 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT_NAME="$(basename "$0")"
 
-# 坐标写这里：单位 cm。target_frame=official_map 时需要已有 official_map -> map 静态 TF。
+# 坐标写这里：单位 cm。默认通过 navi_tf_bridge/config/tf_config.yaml 的 4x4
+# 把官方坐标转成 map，不需要 TF 里存在 official_map。
 TARGET_X_CM="${TARGET_X_CM:-1093}"
 TARGET_Y_CM="${TARGET_Y_CM:-366}"
 TARGET_Z_CM="${TARGET_Z_CM:-100}"
 TARGET_FRAME="${TARGET_FRAME:-official_map}"
+USE_RAW_GOAL_STATIC_CALIBRATION="${USE_RAW_GOAL_STATIC_CALIBRATION:-true}"
 
 # gimbal_barrel_joint 是“当前 yaw 后、pitch 前”的云台坐标系；节点会算 yaw 误差和绝对 pitch。
 AIM_FRAME="${AIM_FRAME:-gimbal_barrel_joint}"
@@ -44,11 +46,12 @@ Edit these variables near the top of this script:
   TARGET_Y_CM=${TARGET_Y_CM}
   TARGET_Z_CM=${TARGET_Z_CM}
   TARGET_FRAME=${TARGET_FRAME}
+  USE_RAW_GOAL_STATIC_CALIBRATION=${USE_RAW_GOAL_STATIC_CALIBRATION}
 
 Examples:
   ./${SCRIPT_NAME}
   TARGET_X_CM=1400 TARGET_Y_CM=750 TARGET_Z_CM=100 ./${SCRIPT_NAME}
-  ./${SCRIPT_NAME} -- target_frame:=map yaw_sign:=-1.0 pitch_bias_deg:=2.0
+  ./${SCRIPT_NAME} -- use_raw_goal_static_calibration:=false target_frame:=map yaw_sign:=-1.0 pitch_bias_deg:=2.0
 EOF
 }
 
@@ -90,7 +93,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 source_ros_workspace "${ROOT_DIR}"
-cleanup_existing_stack "1" "/(map_aim_point_node)([[:space:]]|$)" "ros2 launch navi_tf_bridge map_aim_point\\.launch\\.py"
+cleanup_existing_stack \
+  "1" \
+  "/(map_aim_point_node|gimbal_driver_node|tf_node|static_transform_publisher)([[:space:]]|$)" \
+  "ros2 launch navi_tf_bridge map_aim_point\\.launch\\.py"
 
 if ! has_launch_arg_key "target_x_cm"; then
   LAUNCH_ARGS=("target_x_cm:=${TARGET_X_CM}" "${LAUNCH_ARGS[@]}")
@@ -103,6 +109,9 @@ if ! has_launch_arg_key "target_z_cm"; then
 fi
 if ! has_launch_arg_key "target_frame"; then
   LAUNCH_ARGS=("target_frame:=${TARGET_FRAME}" "${LAUNCH_ARGS[@]}")
+fi
+if ! has_launch_arg_key "use_raw_goal_static_calibration"; then
+  LAUNCH_ARGS=("use_raw_goal_static_calibration:=${USE_RAW_GOAL_STATIC_CALIBRATION}" "${LAUNCH_ARGS[@]}")
 fi
 if ! has_launch_arg_key "aim_frame"; then
   LAUNCH_ARGS=("aim_frame:=${AIM_FRAME}" "${LAUNCH_ARGS[@]}")
