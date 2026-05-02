@@ -206,6 +206,13 @@ namespace BehaviorTree{
             if (in_range(FriendCarId)) {
                 app.friendRobots[FriendCarId].position_.X = msg->friendx;
                 app.friendRobots[FriendCarId].position_.Y = 1500 - msg->friendy;
+                app.lastFriendPositionRxTime_[static_cast<std::size_t>(FriendCarId)] =
+                    std::chrono::steady_clock::now();
+                if (FriendCarId == static_cast<int>(UnitType::Sentry)) {
+                    app.hasReceivedSentryPosition_ = true;
+                    app.lastSentryPositionRxTime_ =
+                        app.lastFriendPositionRxTime_[static_cast<std::size_t>(FriendCarId)];
+                }
             } else {
                 maybe_warn_invalid_id("friend", FriendCarId);
             }
@@ -214,6 +221,8 @@ namespace BehaviorTree{
             if (in_range(EnemyCarId)) {
                 app.enemyRobots[EnemyCarId].position_.X = msg->enemyx;
                 app.enemyRobots[EnemyCarId].position_.Y = 1500 - msg->enemyy;
+                app.lastEnemyPositionRxTime_[static_cast<std::size_t>(EnemyCarId)] =
+                    std::chrono::steady_clock::now();
             } else {
                 maybe_warn_invalid_id("enemy", EnemyCarId);
             }

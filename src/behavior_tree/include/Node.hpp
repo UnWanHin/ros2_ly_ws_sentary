@@ -967,6 +967,7 @@ namespace BT {
         if (str == "MidShoot") return LangYa::MidShoot;
         if (str == "LeftShoot") return LangYa::LeftShoot;
         if (str == "OccupyArea") return LangYa::OccupyArea;
+        if (str == "Highland") return LangYa::Highland;
         return LangYa::Home; // 默認返回 Home
     }
 

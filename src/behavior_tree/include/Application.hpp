@@ -22,6 +22,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <deque>
+#include <array>
 #include <fstream>
 #include <string>
 #include <string_view>
@@ -226,6 +227,8 @@ private:
     bool leaguePatrolGoalInitialized_{false};
     std::size_t showcasePatrolGoalIndex_{0};
     bool showcasePatrolGoalInitialized_{false};
+    std::size_t regionalIdlePatrolGoalIndex_{0};
+    bool regionalIdlePatrolGoalInitialized_{false};
     std::size_t naviDebugGoalIndex_{0};
     bool naviDebugGoalInitialized_{false};
     bool leagueRouteCompatAfterGatePending_{false};
@@ -234,8 +237,32 @@ private:
     bool leagueRouteCompatHasPendingGoal_{false};
     std::uint8_t leagueRouteCompatPendingBaseGoal_{LangYa::Home.ID};
     int leagueRouteCompatPendingHoldSec_{1};
+    bool highlandCompatActive_{false};
+    bool highlandCompatHasPendingGoal_{false};
+    std::uint8_t highlandCompatPendingBaseGoal_{LangYa::Home.ID};
+    UnitTeam highlandCompatPendingGoalTeam_{UnitTeam::Unknown};
+    bool highlandCompatPendingApplyTeamOffset_{true};
+    std::chrono::steady_clock::time_point highlandCompatStartTime_{};
     std::chrono::steady_clock::time_point lastLeagueRecoveryGuardLogTime_{};
     std::chrono::steady_clock::time_point lastPositionDataGuardLogTime_{};
+    bool hasReceivedSentryPosition_{false};
+    std::chrono::steady_clock::time_point lastSentryPositionRxTime_{};
+    std::array<std::chrono::steady_clock::time_point, 10> lastEnemyPositionRxTime_{};
+    std::array<std::chrono::steady_clock::time_point, 10> lastFriendPositionRxTime_{};
+    std::chrono::steady_clock::time_point regionalDefenseSuppressSpecialAimUntil_{};
+    bool naviProgressWatchdogActive_{false};
+    std::uint8_t naviProgressWatchdogGoalId_{0};
+    std::uint8_t naviProgressWatchdogBaseGoal_{LangYa::Home.ID};
+    UnitTeam naviProgressWatchdogGoalTeam_{UnitTeam::Unknown};
+    bool naviProgressWatchdogApplyTeamOffset_{true};
+    Area::Point<std::uint16_t> naviProgressWatchdogGoalPosition_{};
+    int naviProgressWatchdogLastX_{0};
+    int naviProgressWatchdogLastY_{0};
+    std::chrono::steady_clock::time_point naviProgressWatchdogGoalStartTime_{};
+    std::chrono::steady_clock::time_point naviProgressWatchdogLastMoveTime_{};
+    std::chrono::steady_clock::time_point naviProgressWatchdogFallbackCooldownUntil_{};
+    std::uint8_t naviProgressWatchdogCooldownBaseGoal_{LangYa::Home.ID};
+    UnitTeam naviProgressWatchdogCooldownTeam_{UnitTeam::Unknown};
 
     // ==========================================
     // Runtime Guard (L1/L2)
@@ -424,6 +451,24 @@ public:
         UnitTeam goal_team,
         UnitTeam my_team,
         UnitTeam enemy_team) const;
+    bool IsHighlandCompatEnabled() const noexcept;
+    bool IsHighlandCompatTarget(std::uint8_t base_goal_id, UnitTeam goal_team) const;
+    bool IsHighlandCompatArrived(UnitTeam goal_team) const;
+    bool TickHighlandCompat();
+    bool TryStartHighlandCompat(
+        std::uint8_t base_goal_id,
+        UnitTeam goal_team,
+        bool apply_team_offset,
+        const char* reason);
+    bool IsRegionalDefenseAimSuppressActive() const noexcept;
+    bool IsEnemyPositionFresh(UnitType unit_type, int fresh_ms) const;
+    bool TrySetRegionalDefenseGoal(UnitTeam my_team, UnitTeam enemy_team);
+    bool TickNaviProgressWatchdog(UnitTeam my_team, UnitTeam enemy_team);
+    bool TrySetRegionalIdlePatrolGoal(UnitTeam my_team, UnitTeam enemy_team);
+    void UpdateNaviProgressWatchdogGoal(
+        std::uint8_t base_goal_id,
+        UnitTeam goal_team,
+        bool apply_team_offset);
     bool TrySetScopedPositionByBaseGoal(
         std::uint8_t base_goal_id,
         UnitTeam goal_team,

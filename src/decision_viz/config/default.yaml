@@ -209,3 +209,4 @@ goals:
   - {id: 16, name: RightShoot, red: [1240, 559], blue: [1549, 923]}
   - {id: 17, name: HoleRoad, red: [1074, 1249], blue: [1677, 204]}
   - {id: 18, name: OccupyArea, red: [1075, 898], blue: [1702, 609]}
+  - {id: 19, name: Highland, red: [744, 1263], blue: [2056, 237]}

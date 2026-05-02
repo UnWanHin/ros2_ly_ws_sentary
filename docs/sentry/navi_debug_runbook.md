@@ -49,7 +49,7 @@
 - `Plans.<name>.Mode`：`random` 或 `sequence`
 - `Plans.<name>.GoalHoldSec`：每个点停留秒数
 - `Plans.<name>.SpeedLevel`：同步发布到 `/ly/navi/speed_level`
-- `Plans.<name>.DisableTeamOffset`：`true` 时直接发基础 ID `0..18`
+- `Plans.<name>.DisableTeamOffset`：`true` 时直接发基础 ID `0..19`
 - `Plans.<name>.IgnoreRecovery`：`true` 时忽略 BT 的回血/补弹回补逻辑
 - `Plans.<name>.Goals`：基础点位 ID 列表
 

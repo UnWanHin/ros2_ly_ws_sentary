@@ -281,6 +281,7 @@ namespace LangYa
     static constexpr TeamedLocation RightShoot{ 16 };
     static constexpr TeamedLocation HoleRoad{ 17 };
     static constexpr TeamedLocation OccupyArea{ 18 };
+    static constexpr TeamedLocation Highland{ 19 };
 
     /// @brief 团队类型
     enum class NaviTeam : std::uint8_t
@@ -537,6 +538,10 @@ namespace LangYa
         bool UseAreaScope{false};
         std::vector<std::string> MyArea{};
         std::vector<std::string> EnemyArea{};
+        bool HighlandCompatEnable{false};
+        bool HighlandCompatDisableRotate{false};
+        int HighlandCompatArriveDistanceCm{120};
+        int HighlandCompatTimeoutSec{6};
         double DistanceWeight{1.0};
         double EnemyTeamBonus{0.25};
         double HeroProximityWeight{0.35};
@@ -545,6 +550,38 @@ namespace LangYa
         double LowEnergyEnemyPenalty{1.0};
         double LowOutpostOwnSideBonus{0.4};
         double GoalBiasWeight{1.0};
+    };
+
+    struct RegionalDefenseSetting {
+        bool Enable{true};
+        bool EnableSoftEnemySideThreat{true};
+        int EnemyPositionFreshMs{2500};
+        int HardHoldSec{5};
+        int SoftHoldSec{8};
+        std::uint16_t StrongHealthMin{250};
+        std::uint16_t StrongAmmoMin{40};
+        int MultiEnemyBaseCount{2};
+    };
+
+    struct NaviProgressWatchdogSetting {
+        bool Enable{false};
+        int ArriveDistanceCm{140};
+        int MoveProgressCm{80};
+        int NoMoveTimeoutSec{14};
+        int FallbackHoldSec{5};
+        int FallbackCooldownSec{12};
+    };
+
+    struct RegionalIdlePatrolSetting {
+        bool Enable{false};
+        int GoalHoldSec{8};
+        std::vector<std::uint8_t> Goals{
+            LangYa::HoleRoad.ID,
+            LangYa::Castle.ID,
+            LangYa::CastleRight2.ID,
+            LangYa::CastleRight1.ID,
+            LangYa::CastleLeft.ID
+        };
     };
 
     struct AimTargetAutonomySetting {
@@ -576,6 +613,9 @@ namespace LangYa
         LeagueStrategySetting LeagueStrategySettings{};
         ShowcasePatrolSetting ShowcasePatrolSettings{};
         NaviDebugSetting NaviDebugSettings{};
+        RegionalDefenseSetting RegionalDefenseSettings{};
+        NaviProgressWatchdogSetting NaviProgressWatchdogSettings{};
+        RegionalIdlePatrolSetting RegionalIdlePatrolSettings{};
         std::vector<int> AimTargetPriority{
             static_cast<int>(ArmorType::Hero),
             static_cast<int>(ArmorType::Infantry1),

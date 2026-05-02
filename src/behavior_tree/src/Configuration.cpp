@@ -53,7 +53,7 @@ BehaviorTree::CompetitionProfile ParseCompetitionProfile(const std::string& valu
 }
 
 bool IsValidBaseGoal(const std::uint8_t goal_id) {
-    return goal_id <= LangYa::OccupyArea.ID;
+    return goal_id <= LangYa::Highland.ID;
 }
 
 std::string ResolveBehaviorTreeConfigPath(const std::string& configured_path) {
@@ -370,6 +370,18 @@ namespace LangYa {
         if (j.contains("EnemyArea")) {
             na.EnemyArea = ParseAreaScopeList(j.at("EnemyArea"));
         }
+        if (j.contains("HighlandCompat") && j.at("HighlandCompat").is_object()) {
+            const auto& compat = j.at("HighlandCompat");
+            na.HighlandCompatEnable = compat.value("Enable", na.HighlandCompatEnable);
+            na.HighlandCompatDisableRotate = compat.value("DisableRotate", na.HighlandCompatDisableRotate);
+            na.HighlandCompatArriveDistanceCm = compat.value("ArriveDistanceCm", na.HighlandCompatArriveDistanceCm);
+            na.HighlandCompatTimeoutSec = compat.value("TimeoutSec", na.HighlandCompatTimeoutSec);
+        }
+        na.HighlandCompatEnable = j.value("HighlandCompatEnable", na.HighlandCompatEnable);
+        na.HighlandCompatDisableRotate = j.value("HighlandCompatDisableRotate", na.HighlandCompatDisableRotate);
+        na.HighlandCompatArriveDistanceCm =
+            j.value("HighlandCompatArriveDistanceCm", na.HighlandCompatArriveDistanceCm);
+        na.HighlandCompatTimeoutSec = j.value("HighlandCompatTimeoutSec", na.HighlandCompatTimeoutSec);
         na.DistanceWeight = j.value("DistanceWeight", na.DistanceWeight);
         na.EnemyTeamBonus = j.value("EnemyTeamBonus", na.EnemyTeamBonus);
         na.HeroProximityWeight = j.value("HeroProximityWeight", na.HeroProximityWeight);
@@ -387,6 +399,34 @@ namespace LangYa {
         aa.CurrentTargetBonus = j.value("CurrentTargetBonus", aa.CurrentTargetBonus);
         aa.HeroBonus = j.value("HeroBonus", aa.HeroBonus);
         aa.SentryBonus = j.value("SentryBonus", aa.SentryBonus);
+    }
+
+    void from_json(const json& j, RegionalDefenseSetting& rd) {
+        rd.Enable = j.value("Enable", rd.Enable);
+        rd.EnableSoftEnemySideThreat = j.value("EnableSoftEnemySideThreat", rd.EnableSoftEnemySideThreat);
+        rd.EnemyPositionFreshMs = j.value("EnemyPositionFreshMs", rd.EnemyPositionFreshMs);
+        rd.HardHoldSec = j.value("HardHoldSec", rd.HardHoldSec);
+        rd.SoftHoldSec = j.value("SoftHoldSec", rd.SoftHoldSec);
+        rd.StrongHealthMin = j.value("StrongHealthMin", rd.StrongHealthMin);
+        rd.StrongAmmoMin = j.value("StrongAmmoMin", rd.StrongAmmoMin);
+        rd.MultiEnemyBaseCount = j.value("MultiEnemyBaseCount", rd.MultiEnemyBaseCount);
+    }
+
+    void from_json(const json& j, NaviProgressWatchdogSetting& np) {
+        np.Enable = j.value("Enable", np.Enable);
+        np.ArriveDistanceCm = j.value("ArriveDistanceCm", np.ArriveDistanceCm);
+        np.MoveProgressCm = j.value("MoveProgressCm", np.MoveProgressCm);
+        np.NoMoveTimeoutSec = j.value("NoMoveTimeoutSec", np.NoMoveTimeoutSec);
+        np.FallbackHoldSec = j.value("FallbackHoldSec", np.FallbackHoldSec);
+        np.FallbackCooldownSec = j.value("FallbackCooldownSec", np.FallbackCooldownSec);
+    }
+
+    void from_json(const json& j, RegionalIdlePatrolSetting& rp) {
+        rp.Enable = j.value("Enable", rp.Enable);
+        rp.GoalHoldSec = j.value("GoalHoldSec", rp.GoalHoldSec);
+        if (j.contains("Goals")) {
+            j.at("Goals").get_to(rp.Goals);
+        }
     }
 
     void from_json(const json& j, DecisionAutonomySetting& da) {
@@ -436,6 +476,15 @@ namespace LangYa {
         }
         if (j.contains("NaviDebug")) {
             j.at("NaviDebug").get_to(c.NaviDebugSettings);
+        }
+        if (j.contains("RegionalDefense")) {
+            j.at("RegionalDefense").get_to(c.RegionalDefenseSettings);
+        }
+        if (j.contains("NaviProgressWatchdog")) {
+            j.at("NaviProgressWatchdog").get_to(c.NaviProgressWatchdogSettings);
+        }
+        if (j.contains("RegionalIdlePatrol")) {
+            j.at("RegionalIdlePatrol").get_to(c.RegionalIdlePatrolSettings);
         }
         if (j.contains("AimTargetPriority")) {
             j.at("AimTargetPriority").get_to(c.AimTargetPriority);
@@ -527,6 +576,28 @@ namespace BehaviorTree {
         LoggerPtr->Debug("Enable: {}", config.NaviDebugSettings.Enable);
         LoggerPtr->Debug("PlanFile: {}", config.NaviDebugSettings.PlanFile);
         LoggerPtr->Debug("ActivePlan: {}", config.NaviDebugSettings.ActivePlan);
+        LoggerPtr->Debug("------ RegionalDefense ------");
+        LoggerPtr->Debug("Enable: {}", config.RegionalDefenseSettings.Enable);
+        LoggerPtr->Debug("EnableSoftEnemySideThreat: {}", config.RegionalDefenseSettings.EnableSoftEnemySideThreat);
+        LoggerPtr->Debug("EnemyPositionFreshMs: {}", config.RegionalDefenseSettings.EnemyPositionFreshMs);
+        LoggerPtr->Debug("HardHoldSec: {}", config.RegionalDefenseSettings.HardHoldSec);
+        LoggerPtr->Debug("SoftHoldSec: {}", config.RegionalDefenseSettings.SoftHoldSec);
+        LoggerPtr->Debug("StrongHealthMin: {}", config.RegionalDefenseSettings.StrongHealthMin);
+        LoggerPtr->Debug("StrongAmmoMin: {}", config.RegionalDefenseSettings.StrongAmmoMin);
+        LoggerPtr->Debug("MultiEnemyBaseCount: {}", config.RegionalDefenseSettings.MultiEnemyBaseCount);
+        LoggerPtr->Debug("------ NaviProgressWatchdog ------");
+        LoggerPtr->Debug("Enable: {}", config.NaviProgressWatchdogSettings.Enable);
+        LoggerPtr->Debug("ArriveDistanceCm: {}", config.NaviProgressWatchdogSettings.ArriveDistanceCm);
+        LoggerPtr->Debug("MoveProgressCm: {}", config.NaviProgressWatchdogSettings.MoveProgressCm);
+        LoggerPtr->Debug("NoMoveTimeoutSec: {}", config.NaviProgressWatchdogSettings.NoMoveTimeoutSec);
+        LoggerPtr->Debug("FallbackHoldSec: {}", config.NaviProgressWatchdogSettings.FallbackHoldSec);
+        LoggerPtr->Debug("FallbackCooldownSec: {}", config.NaviProgressWatchdogSettings.FallbackCooldownSec);
+        LoggerPtr->Debug("------ RegionalIdlePatrol ------");
+        LoggerPtr->Debug("Enable: {}", config.RegionalIdlePatrolSettings.Enable);
+        LoggerPtr->Debug("GoalHoldSec: {}", config.RegionalIdlePatrolSettings.GoalHoldSec);
+        for (const auto goal_id : config.RegionalIdlePatrolSettings.Goals) {
+            LoggerPtr->Debug("Goal: {}", static_cast<int>(goal_id));
+        }
         LoggerPtr->Debug("------ AimTargetPriority ------");
         for (const auto armor_id : config.AimTargetPriority) {
             LoggerPtr->Debug("ArmorTypeId: {}", armor_id);
@@ -565,6 +636,12 @@ namespace BehaviorTree {
         for (const auto& area : config.DecisionAutonomySettings.NaviGoal.EnemyArea) {
             LoggerPtr->Debug("  {}", area);
         }
+        LoggerPtr->Debug(
+            "NaviGoal.HighlandCompat(enable/disable_rotate/arrive_cm/timeout_s): {}/{}/{}/{}",
+            config.DecisionAutonomySettings.NaviGoal.HighlandCompatEnable,
+            config.DecisionAutonomySettings.NaviGoal.HighlandCompatDisableRotate,
+            config.DecisionAutonomySettings.NaviGoal.HighlandCompatArriveDistanceCm,
+            config.DecisionAutonomySettings.NaviGoal.HighlandCompatTimeoutSec);
         LoggerPtr->Debug(
             "AimTargetWeights(priority/distance/low_health/current_target): {}/{}/{}/{}",
             config.DecisionAutonomySettings.AimTarget.PriorityWeight,
@@ -750,6 +827,77 @@ namespace BehaviorTree {
         if (config.NaviDebugSettings.Enable && config.NaviDebugSettings.Goals.empty()) {
             LoggerPtr->Warning("NaviDebug enabled but no valid goals found, fallback to OccupyArea.");
             config.NaviDebugSettings.Goals.push_back(LangYa::OccupyArea.ID);
+        }
+
+        if (config.RegionalDefenseSettings.EnemyPositionFreshMs <= 0) {
+            LoggerPtr->Warning("Invalid RegionalDefense.EnemyPositionFreshMs={}, fallback to 2500.",
+                               config.RegionalDefenseSettings.EnemyPositionFreshMs);
+            config.RegionalDefenseSettings.EnemyPositionFreshMs = 2500;
+        }
+        if (config.RegionalDefenseSettings.HardHoldSec <= 0) {
+            LoggerPtr->Warning("Invalid RegionalDefense.HardHoldSec={}, fallback to 5.",
+                               config.RegionalDefenseSettings.HardHoldSec);
+            config.RegionalDefenseSettings.HardHoldSec = 5;
+        }
+        if (config.RegionalDefenseSettings.SoftHoldSec <= 0) {
+            LoggerPtr->Warning("Invalid RegionalDefense.SoftHoldSec={}, fallback to 8.",
+                               config.RegionalDefenseSettings.SoftHoldSec);
+            config.RegionalDefenseSettings.SoftHoldSec = 8;
+        }
+        if (config.RegionalDefenseSettings.MultiEnemyBaseCount <= 0) {
+            LoggerPtr->Warning("Invalid RegionalDefense.MultiEnemyBaseCount={}, fallback to 2.",
+                               config.RegionalDefenseSettings.MultiEnemyBaseCount);
+            config.RegionalDefenseSettings.MultiEnemyBaseCount = 2;
+        }
+        if (config.NaviProgressWatchdogSettings.ArriveDistanceCm <= 0) {
+            LoggerPtr->Warning("Invalid NaviProgressWatchdog.ArriveDistanceCm={}, fallback to 140.",
+                               config.NaviProgressWatchdogSettings.ArriveDistanceCm);
+            config.NaviProgressWatchdogSettings.ArriveDistanceCm = 140;
+        }
+        if (config.NaviProgressWatchdogSettings.MoveProgressCm <= 0) {
+            LoggerPtr->Warning("Invalid NaviProgressWatchdog.MoveProgressCm={}, fallback to 80.",
+                               config.NaviProgressWatchdogSettings.MoveProgressCm);
+            config.NaviProgressWatchdogSettings.MoveProgressCm = 80;
+        }
+        if (config.NaviProgressWatchdogSettings.NoMoveTimeoutSec <= 0) {
+            LoggerPtr->Warning("Invalid NaviProgressWatchdog.NoMoveTimeoutSec={}, fallback to 14.",
+                               config.NaviProgressWatchdogSettings.NoMoveTimeoutSec);
+            config.NaviProgressWatchdogSettings.NoMoveTimeoutSec = 14;
+        }
+        if (config.NaviProgressWatchdogSettings.FallbackHoldSec <= 0) {
+            LoggerPtr->Warning("Invalid NaviProgressWatchdog.FallbackHoldSec={}, fallback to 5.",
+                               config.NaviProgressWatchdogSettings.FallbackHoldSec);
+            config.NaviProgressWatchdogSettings.FallbackHoldSec = 5;
+        }
+        if (config.NaviProgressWatchdogSettings.FallbackCooldownSec < 0) {
+            LoggerPtr->Warning("Invalid NaviProgressWatchdog.FallbackCooldownSec={}, fallback to 0.",
+                               config.NaviProgressWatchdogSettings.FallbackCooldownSec);
+            config.NaviProgressWatchdogSettings.FallbackCooldownSec = 0;
+        }
+        if (config.RegionalIdlePatrolSettings.GoalHoldSec <= 0) {
+            LoggerPtr->Warning("Invalid RegionalIdlePatrol.GoalHoldSec={}, fallback to 8.",
+                               config.RegionalIdlePatrolSettings.GoalHoldSec);
+            config.RegionalIdlePatrolSettings.GoalHoldSec = 8;
+        }
+        std::vector<std::uint8_t> sanitized_regional_idle_goals;
+        sanitized_regional_idle_goals.reserve(config.RegionalIdlePatrolSettings.Goals.size());
+        for (const auto goal_id : config.RegionalIdlePatrolSettings.Goals) {
+            if (!IsValidBaseGoal(goal_id)) {
+                LoggerPtr->Warning("Ignore invalid RegionalIdlePatrol.Goals item={}.", static_cast<int>(goal_id));
+                continue;
+            }
+            sanitized_regional_idle_goals.push_back(goal_id);
+        }
+        config.RegionalIdlePatrolSettings.Goals = std::move(sanitized_regional_idle_goals);
+        if (config.RegionalIdlePatrolSettings.Enable && config.RegionalIdlePatrolSettings.Goals.empty()) {
+            LoggerPtr->Warning("RegionalIdlePatrol enabled but no valid goals found, fallback to default patrol route.");
+            config.RegionalIdlePatrolSettings.Goals = {
+                LangYa::HoleRoad.ID,
+                LangYa::Castle.ID,
+                LangYa::CastleRight2.ID,
+                LangYa::CastleRight1.ID,
+                LangYa::CastleLeft.ID
+            };
         }
 
         if (config.PatrolScanSettings.Mode != 1 && config.PatrolScanSettings.Mode != 2) {
@@ -970,6 +1118,16 @@ namespace BehaviorTree {
         clamp_non_negative(autonomy.NaviGoal.LowEnergyEnemyPenalty, "DecisionAutonomy.NaviGoal.LowEnergyEnemyPenalty");
         clamp_non_negative(autonomy.NaviGoal.LowOutpostOwnSideBonus, "DecisionAutonomy.NaviGoal.LowOutpostOwnSideBonus");
         clamp_non_negative(autonomy.NaviGoal.GoalBiasWeight, "DecisionAutonomy.NaviGoal.GoalBiasWeight");
+        if (autonomy.NaviGoal.HighlandCompatArriveDistanceCm <= 0) {
+            LoggerPtr->Warning("Invalid DecisionAutonomy.NaviGoal.HighlandCompat.ArriveDistanceCm={}, fallback to 120.",
+                               autonomy.NaviGoal.HighlandCompatArriveDistanceCm);
+            autonomy.NaviGoal.HighlandCompatArriveDistanceCm = 120;
+        }
+        if (autonomy.NaviGoal.HighlandCompatTimeoutSec <= 0) {
+            LoggerPtr->Warning("Invalid DecisionAutonomy.NaviGoal.HighlandCompat.TimeoutSec={}, fallback to 6.",
+                               autonomy.NaviGoal.HighlandCompatTimeoutSec);
+            autonomy.NaviGoal.HighlandCompatTimeoutSec = 6;
+        }
         clamp_non_negative(autonomy.AimTarget.PriorityWeight, "DecisionAutonomy.AimTarget.PriorityWeight");
         clamp_non_negative(autonomy.AimTarget.DistanceWeight, "DecisionAutonomy.AimTarget.DistanceWeight");
         clamp_non_negative(autonomy.AimTarget.LowHealthWeight, "DecisionAutonomy.AimTarget.LowHealthWeight");

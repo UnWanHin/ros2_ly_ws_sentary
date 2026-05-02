@@ -411,6 +411,7 @@ namespace Area {
     // 联盟赛推荐走 /ly/navi/goal=OccupyArea，由导航侧解释为“占点区域”。
     // 这里保留一个兼容坐标，占位到中场附近，避免旧链路在 UseXY=true 时无定义。
     static const Location<std::uint16_t> OccupyArea{ {1075, 898}, {1702, 609} };
+    static const Location<std::uint16_t> Highland{ {744, 1263}, {2056, 237} };
 
 
 

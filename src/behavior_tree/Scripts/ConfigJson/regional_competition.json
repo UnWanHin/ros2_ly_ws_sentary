@@ -33,6 +33,29 @@
         "UseXY": true,
         "UseTfGoalBridge": true
     },
+    "RegionalDefense": {
+        "Enable": true,
+        "EnableSoftEnemySideThreat": true,
+        "EnemyPositionFreshMs": 2500,
+        "HardHoldSec": 5,
+        "SoftHoldSec": 8,
+        "StrongHealthMin": 250,
+        "StrongAmmoMin": 40,
+        "MultiEnemyBaseCount": 2
+    },
+    "NaviProgressWatchdog": {
+        "Enable": true,
+        "ArriveDistanceCm": 140,
+        "MoveProgressCm": 80,
+        "NoMoveTimeoutSec": 14,
+        "FallbackHoldSec": 5,
+        "FallbackCooldownSec": 12
+    },
+    "RegionalIdlePatrol": {
+        "Enable": true,
+        "GoalHoldSec": 8,
+        "Goals": [17, 6, 8, 7, 5]
+    },
     "AimTargetPriority": [1, 3, 4, 6, 2],
     "AimTargetIgnore": [],
     "DecisionAutonomy": {
@@ -57,14 +80,20 @@
             "MyArea": {
                 "Base": true,
                 "Highland": true,
-                "Roadland": true,
-                "Central": true
+                "Roadland": false,
+                "Central": false
             },
             "EnemyArea": {
                 "Base": true,
                 "Highland": true,
-                "Roadland": true,
-                "Central": true
+                "Roadland": false,
+                "Central": false
+            },
+            "HighlandCompat": {
+                "Enable": true,
+                "DisableRotate": true,
+                "ArriveDistanceCm": 120,
+                "TimeoutSec": 6
             },
             "DistanceWeight": 1.0,
             "EnemyTeamBonus": 0.25,

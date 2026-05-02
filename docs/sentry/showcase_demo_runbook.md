@@ -176,7 +176,7 @@
 - `UseXY = false`
 - 发布 `/ly/navi/goal`
 - 不发布 `/ly/navi/goal_pos`
-- `DisableTeamOffset = true` 时，展示模式下发的是基础点位 ID（`0..18`）
+- `DisableTeamOffset = true` 时，展示模式下发的是基础点位 ID（`0..19`）
 - `IgnoreRecovery = true` 时，展示模式不会因为缺少血量/弹药回传而先切去 `Recovery`
 
 当前展示入口能力：
@@ -210,6 +210,7 @@
 - `16 RightShoot`
 - `17 HoleRoad`
 - `18 OccupyArea`
+- `19 Highland`
 
 补充：
 

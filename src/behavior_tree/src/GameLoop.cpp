@@ -28,7 +28,7 @@ namespace BehaviorTree {
     }
 
     namespace {
-    constexpr std::uint8_t kMaxBaseGoalId = LangYa::OccupyArea.ID;
+    constexpr std::uint8_t kMaxBaseGoalId = LangYa::Highland.ID;
     constexpr std::uint8_t kLeagueRouteCompatViaGoalBaseId = LangYa::LeftHighLand.ID;  // base goal id=4
     constexpr int kLeagueRouteCompatViaHoldSec = 5;
     // 丢 1~2 帧时保留锁角，避免抖动；时间过长会让云台“粘住旧目标”。
@@ -175,6 +175,7 @@ namespace BehaviorTree {
             case LangYa::RightShoot.ID: return BehaviorTree::Area::RightShoot(goal_team);
             case LangYa::HoleRoad.ID: return BehaviorTree::Area::HoleRoad(goal_team);
             case LangYa::OccupyArea.ID: return BehaviorTree::Area::OccupyArea(goal_team);
+            case LangYa::Highland.ID: return BehaviorTree::Area::Highland(goal_team);
             default: return BehaviorTree::Area::Home(goal_team);
         }
     }
@@ -190,6 +191,12 @@ namespace BehaviorTree {
         Area::MainAreaKind::Roadland,
         Area::MainAreaKind::Central
     };
+
+    double DistanceSq(const int ax, const int ay, const int bx, const int by) {
+        const double dx = static_cast<double>(ax - bx);
+        const double dy = static_cast<double>(ay - by);
+        return dx * dx + dy * dy;
+    }
 
     bool IsReservedNonCombatGoalId(const std::uint8_t base_goal_id) {
         return base_goal_id == LangYa::Home.ID ||
@@ -207,6 +214,21 @@ namespace BehaviorTree {
         }
         const double count = boundary.empty() ? 1.0 : static_cast<double>(boundary.size());
         return Area::Point<double>{sum_x / count, sum_y / count};
+    }
+
+    std::optional<Area::MainAreaKind> ResolvePointMainAreaExact(
+        const UnitTeam area_team,
+        const int x,
+        const int y) {
+        if (area_team != UnitTeam::Red && area_team != UnitTeam::Blue) {
+            return std::nullopt;
+        }
+        for (const auto area_kind : kAllMainAreas) {
+            if (Area::IsPointInsideMainArea(area_team, area_kind, x, y)) {
+                return area_kind;
+            }
+        }
+        return std::nullopt;
     }
 
     std::optional<ResolvedMainArea> ResolveGoalMainArea(
@@ -496,6 +518,10 @@ namespace BehaviorTree {
         gimbalControlData.FireCode.Rotate = rotate_gear;
         if (config.AimDebugSettings.StopRotate) {
             // StopRotate=true means disable chassis spin output.
+            gimbalControlData.FireCode.Rotate = 0;
+        }
+        if (highlandCompatActive_ &&
+            config.DecisionAutonomySettings.NaviGoal.HighlandCompatDisableRotate) {
             gimbalControlData.FireCode.Rotate = 0;
         }
 
@@ -1126,6 +1152,11 @@ namespace BehaviorTree {
         // int now_time = 420 - timeLeft;
         int now_time = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - gameStartTime).count();
         LoggerPtr->Info("SetAimMode - now_time: {}", now_time);
+        if (IsRegionalDefenseAimSuppressActive()) {
+            aimMode = AimMode::RotateScan;
+            LoggerPtr->Info("Regional defense active: suppress Buff/Outpost aim mode.");
+            return;
+        }
         if(config.GameStrategySettings.HitBuff) { // 打符
             if(now_time < 25 && buff_shoot_count <= 15){
                 if(now_time > 7) {
@@ -1585,6 +1616,504 @@ namespace BehaviorTree {
         return false;
     }
 
+    bool Application::IsHighlandCompatEnabled() const noexcept {
+        return config.DecisionAutonomySettings.NaviGoal.HighlandCompatEnable;
+    }
+
+    bool Application::IsHighlandCompatTarget(
+        const std::uint8_t base_goal_id,
+        const UnitTeam goal_team) const {
+        if (!IsHighlandCompatEnabled() ||
+            base_goal_id == LangYa::Highland.ID ||
+            !IsValidBaseGoalId(base_goal_id)) {
+            return false;
+        }
+        const auto resolved_area = ResolveGoalMainArea(base_goal_id, goal_team);
+        return resolved_area.has_value() &&
+            !resolved_area->UsedNearestFallback &&
+            resolved_area->Kind == Area::MainAreaKind::Highland;
+    }
+
+    bool Application::IsHighlandCompatArrived(const UnitTeam goal_team) const {
+        if (!hasReceivedSentryPosition_) {
+            return false;
+        }
+        if (lastSentryPositionRxTime_.time_since_epoch().count() == 0 ||
+            std::chrono::steady_clock::now() - lastSentryPositionRxTime_ > std::chrono::seconds(2)) {
+            return false;
+        }
+        const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
+        const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
+        if (self_x <= 0 || self_y <= 0) {
+            return false;
+        }
+        const auto arrive_distance = static_cast<std::uint16_t>(
+            std::max(1, config.DecisionAutonomySettings.NaviGoal.HighlandCompatArriveDistanceCm));
+        return BehaviorTree::Area::Highland.near(
+            static_cast<std::uint16_t>(self_x),
+            static_cast<std::uint16_t>(self_y),
+            arrive_distance,
+            goal_team);
+    }
+
+    bool Application::TickHighlandCompat() {
+        if (!IsHighlandCompatEnabled() || !highlandCompatActive_) {
+            return false;
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        const auto timeout = std::chrono::seconds(
+            std::max(1, config.DecisionAutonomySettings.NaviGoal.HighlandCompatTimeoutSec));
+        const bool arrived = IsHighlandCompatArrived(highlandCompatPendingGoalTeam_);
+        const bool timed_out =
+            highlandCompatStartTime_.time_since_epoch().count() != 0 &&
+            now - highlandCompatStartTime_ >= timeout;
+
+        if (!arrived && !timed_out) {
+            SetPositionByBaseGoal(
+                LangYa::Highland.ID,
+                highlandCompatPendingGoalTeam_,
+                highlandCompatPendingApplyTeamOffset_);
+            return true;
+        }
+
+        const auto pending_base_goal = highlandCompatPendingBaseGoal_;
+        const auto pending_goal_team = highlandCompatPendingGoalTeam_;
+        const bool pending_apply_team_offset = highlandCompatPendingApplyTeamOffset_;
+        const bool has_pending_goal = highlandCompatHasPendingGoal_;
+
+        highlandCompatActive_ = false;
+        highlandCompatHasPendingGoal_ = false;
+        highlandCompatPendingBaseGoal_ = LangYa::Home.ID;
+        highlandCompatPendingGoalTeam_ = UnitTeam::Unknown;
+        highlandCompatPendingApplyTeamOffset_ = true;
+        highlandCompatStartTime_ = std::chrono::steady_clock::time_point{};
+
+        if (!has_pending_goal) {
+            return false;
+        }
+
+        SetPositionByBaseGoal(pending_base_goal, pending_goal_team, pending_apply_team_offset);
+        if (LoggerPtr) {
+            LoggerPtr->Info(
+                "Highland compat {}: continue goal={}.",
+                arrived ? "arrived" : "timeout",
+                static_cast<int>(naviCommandGoal));
+        }
+        return true;
+    }
+
+    bool Application::TryStartHighlandCompat(
+        const std::uint8_t base_goal_id,
+        const UnitTeam goal_team,
+        const bool apply_team_offset,
+        const char* reason) {
+        if (highlandCompatActive_ ||
+            !IsHighlandCompatTarget(base_goal_id, goal_team) ||
+            naviCommandGoal == ResolveGoalId(base_goal_id, goal_team, apply_team_offset) ||
+            IsHighlandCompatArrived(goal_team)) {
+            return false;
+        }
+
+        highlandCompatActive_ = true;
+        highlandCompatHasPendingGoal_ = true;
+        highlandCompatPendingBaseGoal_ = base_goal_id;
+        highlandCompatPendingGoalTeam_ = goal_team;
+        highlandCompatPendingApplyTeamOffset_ = apply_team_offset;
+        highlandCompatStartTime_ = std::chrono::steady_clock::now();
+
+        SetPositionByBaseGoal(LangYa::Highland.ID, goal_team, apply_team_offset);
+        if (LoggerPtr) {
+            LoggerPtr->Info(
+                "Highland compat {}: via goal={} then goal={}.",
+                reason ? reason : "start",
+                static_cast<int>(naviCommandGoal),
+                static_cast<int>(ResolveGoalId(base_goal_id, goal_team, apply_team_offset)));
+        }
+        return true;
+    }
+
+    bool Application::IsRegionalDefenseAimSuppressActive() const noexcept {
+        return regionalDefenseSuppressSpecialAimUntil_.time_since_epoch().count() != 0 &&
+            std::chrono::steady_clock::now() < regionalDefenseSuppressSpecialAimUntil_;
+    }
+
+    bool Application::IsEnemyPositionFresh(
+        const UnitType unit_type,
+        const int fresh_ms) const {
+        const auto index = static_cast<std::size_t>(unit_type);
+        if (index >= lastEnemyPositionRxTime_.size()) {
+            return false;
+        }
+        const auto& last_rx = lastEnemyPositionRxTime_[index];
+        if (last_rx.time_since_epoch().count() == 0) {
+            return false;
+        }
+        return std::chrono::steady_clock::now() - last_rx <=
+            std::chrono::milliseconds(std::max(1, fresh_ms));
+    }
+
+    bool Application::TrySetRegionalDefenseGoal(
+        const UnitTeam my_team,
+        const UnitTeam enemy_team) {
+        const auto& defense = config.RegionalDefenseSettings;
+        if (!defense.Enable || IsLeagueProfile() || IsShowcasePatrolEnabled()) {
+            return false;
+        }
+
+        int own_base_count = 0;
+        int own_highland_count = 0;
+        int own_roadland_count = 0;
+        int enemy_highland_count = 0;
+        int enemy_roadland_count = 0;
+
+        for (const auto unit_type : RobotLists) {
+            if (!IsEnemyPositionFresh(unit_type, defense.EnemyPositionFreshMs)) {
+                continue;
+            }
+            const int enemy_x = static_cast<int>(enemyRobots[unit_type].position_.X);
+            const int enemy_y = static_cast<int>(enemyRobots[unit_type].position_.Y);
+            if (enemy_x <= 0 || enemy_y <= 0) {
+                continue;
+            }
+
+            const auto own_area = ResolvePointMainAreaExact(my_team, enemy_x, enemy_y);
+            if (own_area.has_value()) {
+                switch (*own_area) {
+                    case Area::MainAreaKind::Base:
+                        ++own_base_count;
+                        break;
+                    case Area::MainAreaKind::Highland:
+                        ++own_highland_count;
+                        break;
+                    case Area::MainAreaKind::Roadland:
+                        ++own_roadland_count;
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            const auto enemy_area = ResolvePointMainAreaExact(enemy_team, enemy_x, enemy_y);
+            if (enemy_area.has_value()) {
+                if (*enemy_area == Area::MainAreaKind::Highland) {
+                    ++enemy_highland_count;
+                } else if (*enemy_area == Area::MainAreaKind::Roadland) {
+                    ++enemy_roadland_count;
+                }
+            }
+        }
+
+        const bool hard_threat =
+            own_base_count > 0 || own_highland_count > 0 || own_roadland_count > 0;
+        const bool soft_enemy_side_threat =
+            defense.EnableSoftEnemySideThreat &&
+            !hard_threat &&
+            (enemy_highland_count > 0 || enemy_roadland_count > 0);
+
+        if (!hard_threat && !soft_enemy_side_threat) {
+            return false;
+        }
+
+        if (!hard_threat) {
+            if (aimMode == AimMode::Buff || aimMode == AimMode::Outpost ||
+                !naviCommandIntervalClock.trigger()) {
+                return false;
+            }
+        }
+
+        auto try_defense_candidates =
+            [&](const std::vector<std::uint8_t>& candidates,
+                const char* reason,
+                const int hold_sec) {
+                for (const auto goal_id : candidates) {
+                    if (!IsValidBaseGoalId(goal_id)) {
+                        continue;
+                    }
+                    if (TrySetScopedPositionByBaseGoal(
+                            goal_id,
+                            my_team,
+                            my_team,
+                            enemy_team,
+                            true,
+                            reason)) {
+                        naviCommandIntervalClock.reset(Seconds{std::max(1, hold_sec)});
+                        speedLevel = 1;
+                        if (LoggerPtr) {
+                            LoggerPtr->Info(
+                                "Regional defense {}: goal={} own_base={} own_highland={} own_roadland={} enemy_highland={} enemy_roadland={}",
+                                reason,
+                                static_cast<int>(naviCommandGoal),
+                                own_base_count,
+                                own_highland_count,
+                                own_roadland_count,
+                                enemy_highland_count,
+                                enemy_roadland_count);
+                        }
+                        return true;
+                    }
+                }
+                return false;
+            };
+
+        if (hard_threat) {
+            regionalDefenseSuppressSpecialAimUntil_ =
+                std::chrono::steady_clock::now() + std::chrono::seconds(std::max(1, defense.HardHoldSec));
+            aimMode = AimMode::RotateScan;
+
+            const bool strong_resource =
+                myselfHealth >= defense.StrongHealthMin &&
+                ammoLeft >= defense.StrongAmmoMin;
+            if (own_base_count >= defense.MultiEnemyBaseCount && strong_resource) {
+                return try_defense_candidates(
+                    {LangYa::Castle.ID, LangYa::CastleLeft.ID, LangYa::CastleRight1.ID, LangYa::CastleRight2.ID},
+                    "own_base_multi",
+                    defense.HardHoldSec);
+            }
+            if (own_base_count > 0) {
+                return try_defense_candidates(
+                    {LangYa::Castle.ID, LangYa::CastleLeft.ID, LangYa::CastleRight1.ID, LangYa::CastleRight2.ID},
+                    strong_resource ? "own_base_chase" : "own_base_guard",
+                    defense.HardHoldSec);
+            }
+            return try_defense_candidates(
+                {LangYa::BuffShoot.ID, LangYa::HoleRoad.ID, LangYa::Highland.ID},
+                own_highland_count > 0 ? "own_highland" : "own_roadland",
+                defense.HardHoldSec);
+        }
+
+        return try_defense_candidates(
+            {LangYa::BuffShoot.ID, LangYa::HoleRoad.ID, LangYa::Highland.ID},
+            enemy_roadland_count > 0 ? "enemy_roadland_soft" : "enemy_highland_soft",
+            defense.SoftHoldSec);
+    }
+
+    void Application::UpdateNaviProgressWatchdogGoal(
+        const std::uint8_t base_goal_id,
+        const UnitTeam goal_team,
+        const bool apply_team_offset) {
+        const std::uint8_t goal_id = ResolveGoalId(base_goal_id, goal_team, apply_team_offset);
+        const bool same_goal =
+            naviProgressWatchdogActive_ &&
+            naviProgressWatchdogGoalId_ == goal_id &&
+            naviProgressWatchdogGoalPosition_.x == naviGoalPosition.x &&
+            naviProgressWatchdogGoalPosition_.y == naviGoalPosition.y;
+        if (same_goal) {
+            return;
+        }
+
+        naviProgressWatchdogActive_ = true;
+        naviProgressWatchdogGoalId_ = goal_id;
+        naviProgressWatchdogBaseGoal_ = base_goal_id;
+        naviProgressWatchdogGoalTeam_ = goal_team;
+        naviProgressWatchdogApplyTeamOffset_ = apply_team_offset;
+        naviProgressWatchdogGoalPosition_ = naviGoalPosition;
+        naviProgressWatchdogGoalStartTime_ = std::chrono::steady_clock::now();
+        naviProgressWatchdogLastMoveTime_ = naviProgressWatchdogGoalStartTime_;
+
+        const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
+        const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
+        naviProgressWatchdogLastX_ = self_x;
+        naviProgressWatchdogLastY_ = self_y;
+    }
+
+    bool Application::TickNaviProgressWatchdog(
+        const UnitTeam my_team,
+        const UnitTeam enemy_team) {
+        const auto& watchdog = config.NaviProgressWatchdogSettings;
+        if (!watchdog.Enable || !naviProgressWatchdogActive_ || highlandCompatActive_) {
+            return false;
+        }
+        if (naviProgressWatchdogBaseGoal_ == LangYa::Home.ID ||
+            naviProgressWatchdogBaseGoal_ == LangYa::Recovery.ID) {
+            return false;
+        }
+        if (!hasReceivedSentryPosition_ ||
+            lastSentryPositionRxTime_.time_since_epoch().count() == 0 ||
+            std::chrono::steady_clock::now() - lastSentryPositionRxTime_ > std::chrono::seconds(2)) {
+            return false;
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
+        const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
+        if (self_x <= 0 || self_y <= 0) {
+            return false;
+        }
+
+        const int arrive_cm = std::max(1, watchdog.ArriveDistanceCm);
+        const double distance_to_goal_sq = DistanceSq(
+            self_x,
+            self_y,
+            static_cast<int>(naviProgressWatchdogGoalPosition_.x),
+            static_cast<int>(naviProgressWatchdogGoalPosition_.y));
+        if (distance_to_goal_sq <= static_cast<double>(arrive_cm * arrive_cm)) {
+            naviProgressWatchdogLastMoveTime_ = now;
+            naviProgressWatchdogLastX_ = self_x;
+            naviProgressWatchdogLastY_ = self_y;
+            return false;
+        }
+
+        const int move_progress_cm = std::max(1, watchdog.MoveProgressCm);
+        if (DistanceSq(self_x, self_y, naviProgressWatchdogLastX_, naviProgressWatchdogLastY_) >=
+            static_cast<double>(move_progress_cm * move_progress_cm)) {
+            naviProgressWatchdogLastMoveTime_ = now;
+            naviProgressWatchdogLastX_ = self_x;
+            naviProgressWatchdogLastY_ = self_y;
+            return false;
+        }
+
+        const auto no_move_timeout = std::chrono::seconds(std::max(1, watchdog.NoMoveTimeoutSec));
+        if (now - naviProgressWatchdogGoalStartTime_ < no_move_timeout ||
+            now - naviProgressWatchdogLastMoveTime_ < no_move_timeout) {
+            return false;
+        }
+        if (naviProgressWatchdogFallbackCooldownUntil_.time_since_epoch().count() != 0 &&
+            now < naviProgressWatchdogFallbackCooldownUntil_ &&
+            naviProgressWatchdogCooldownBaseGoal_ == naviProgressWatchdogBaseGoal_ &&
+            naviProgressWatchdogCooldownTeam_ == naviProgressWatchdogGoalTeam_) {
+            return false;
+        }
+
+        const auto resolved_area =
+            ResolveGoalMainArea(naviProgressWatchdogBaseGoal_, naviProgressWatchdogGoalTeam_);
+        if (!resolved_area.has_value()) {
+            naviProgressWatchdogLastMoveTime_ = now;
+            return false;
+        }
+        const std::uint8_t original_base_goal = naviProgressWatchdogBaseGoal_;
+        const UnitTeam original_goal_team = naviProgressWatchdogGoalTeam_;
+        const std::uint8_t original_goal_id = naviProgressWatchdogGoalId_;
+        const bool original_apply_team_offset = naviProgressWatchdogApplyTeamOffset_;
+
+        std::vector<std::uint8_t> fallback_candidates;
+        switch (resolved_area->Kind) {
+            case Area::MainAreaKind::Base:
+                fallback_candidates = {
+                    LangYa::Castle.ID,
+                    LangYa::CastleLeft.ID,
+                    LangYa::CastleRight1.ID,
+                    LangYa::CastleRight2.ID
+                };
+                break;
+            case Area::MainAreaKind::Highland:
+                fallback_candidates = {LangYa::Highland.ID, LangYa::BuffShoot.ID, LangYa::HoleRoad.ID};
+                break;
+            case Area::MainAreaKind::Roadland:
+                fallback_candidates = {LangYa::Highland.ID, LangYa::HoleRoad.ID, LangYa::FlyRoad.ID};
+                break;
+            case Area::MainAreaKind::Central:
+                fallback_candidates = {
+                    LangYa::MidShoot.ID,
+                    LangYa::BuffAround1.ID,
+                    LangYa::BuffAround2.ID,
+                    LangYa::RightShoot.ID
+                };
+                break;
+            default:
+                break;
+        }
+
+        for (const auto fallback_goal : fallback_candidates) {
+            if (fallback_goal == original_base_goal) {
+                continue;
+            }
+            if (TrySetScopedPositionByBaseGoal(
+                    fallback_goal,
+                    original_goal_team,
+                    my_team,
+                    enemy_team,
+                    original_apply_team_offset,
+                    "navi_progress_watchdog")) {
+                naviCommandIntervalClock.reset(Seconds{std::max(1, watchdog.FallbackHoldSec)});
+                speedLevel = 1;
+                naviProgressWatchdogCooldownBaseGoal_ = original_base_goal;
+                naviProgressWatchdogCooldownTeam_ = original_goal_team;
+                naviProgressWatchdogFallbackCooldownUntil_ =
+                    now + std::chrono::seconds(std::max(0, watchdog.FallbackCooldownSec));
+                if (LoggerPtr) {
+                    LoggerPtr->Warning(
+                        "Navi progress watchdog: goal={} no movement for {}s, fallback goal={}.",
+                        static_cast<int>(original_goal_id),
+                        watchdog.NoMoveTimeoutSec,
+                        static_cast<int>(naviCommandGoal));
+                }
+                return true;
+            }
+        }
+
+        naviProgressWatchdogLastMoveTime_ = now;
+        naviProgressWatchdogLastX_ = self_x;
+        naviProgressWatchdogLastY_ = self_y;
+        return false;
+    }
+
+    bool Application::TrySetRegionalIdlePatrolGoal(
+        const UnitTeam my_team,
+        const UnitTeam enemy_team) {
+        const auto& patrol = config.RegionalIdlePatrolSettings;
+        if (!patrol.Enable || IsLeagueProfile() || IsShowcasePatrolEnabled()) {
+            return false;
+        }
+        if (aimMode == AimMode::Buff || aimMode == AimMode::Outpost) {
+            return false;
+        }
+        if (patrol.Goals.empty()) {
+            return false;
+        }
+
+        constexpr bool apply_team_offset = true;
+        const int hold_sec = std::max(1, patrol.GoalHoldSec);
+        const auto current_it = std::find_if(
+            patrol.Goals.begin(),
+            patrol.Goals.end(),
+            [&](const std::uint8_t goal_id) {
+                return naviCommandGoal == ResolveGoalId(goal_id, my_team, apply_team_offset);
+            });
+
+        std::size_t next_index = 0U;
+        if (regionalIdlePatrolGoalInitialized_ && current_it != patrol.Goals.end()) {
+            regionalIdlePatrolGoalIndex_ =
+                static_cast<std::size_t>(std::distance(patrol.Goals.begin(), current_it));
+            next_index = (regionalIdlePatrolGoalIndex_ + 1U) % patrol.Goals.size();
+        }
+
+        for (std::size_t attempt = 0; attempt < patrol.Goals.size(); ++attempt) {
+            const std::size_t candidate_index = (next_index + attempt) % patrol.Goals.size();
+            const auto base_goal_id = patrol.Goals[candidate_index];
+            if (!IsValidBaseGoalId(base_goal_id)) {
+                continue;
+            }
+            if (TrySetScopedPositionByBaseGoal(
+                    base_goal_id,
+                    my_team,
+                    my_team,
+                    enemy_team,
+                    apply_team_offset,
+                    "regional_idle_patrol")) {
+                regionalIdlePatrolGoalIndex_ = candidate_index;
+                regionalIdlePatrolGoalInitialized_ = true;
+                naviCommandIntervalClock.reset(Seconds{hold_sec});
+                speedLevel = 1;
+                if (LoggerPtr) {
+                    LoggerPtr->Info(
+                        "Regional idle patrol: base_goal={} goal={} hold={}s.",
+                        static_cast<int>(base_goal_id),
+                        static_cast<int>(naviCommandGoal),
+                        hold_sec);
+                }
+                return true;
+            }
+        }
+
+        regionalIdlePatrolGoalInitialized_ = false;
+        naviCommandIntervalClock.reset(Seconds{hold_sec});
+        if (LoggerPtr) {
+            LoggerPtr->Warning("Regional idle patrol: all configured goals blocked by area scope.");
+        }
+        return true;
+    }
+
     bool Application::TrySetScopedPositionByBaseGoal(
         const std::uint8_t base_goal_id,
         const UnitTeam goal_team,
@@ -1602,6 +2131,10 @@ namespace BehaviorTree {
                     reason ? reason : "area_scope");
             }
             return false;
+        }
+
+        if (TryStartHighlandCompat(base_goal_id, goal_team, apply_team_offset, reason)) {
+            return true;
         }
 
         SetPositionByBaseGoal(base_goal_id, goal_team, apply_team_offset);
@@ -1656,6 +2189,7 @@ namespace BehaviorTree {
             naviGoalPosition = area_location(goal_team);
             naviGoalPublishAllowed_ = true;
         };
+        std::uint8_t effective_base_goal_id = base_goal_id;
 
         switch (base_goal_id) {
             case LangYa::Home.ID: assign_position(LangYa::Home, BehaviorTree::Area::Home); break;
@@ -1677,11 +2211,14 @@ namespace BehaviorTree {
             case LangYa::RightShoot.ID: assign_position(LangYa::RightShoot, BehaviorTree::Area::RightShoot); break;
             case LangYa::HoleRoad.ID: assign_position(LangYa::HoleRoad, BehaviorTree::Area::HoleRoad); break;
             case LangYa::OccupyArea.ID: assign_position(LangYa::OccupyArea, BehaviorTree::Area::OccupyArea); break;
+            case LangYa::Highland.ID: assign_position(LangYa::Highland, BehaviorTree::Area::Highland); break;
             default:
                 LoggerPtr->Warning("Unknown base goal id={}, fallback to Home.", static_cast<int>(base_goal_id));
+                effective_base_goal_id = LangYa::Home.ID;
                 assign_position(LangYa::Home, BehaviorTree::Area::Home);
                 break;
         }
+        UpdateNaviProgressWatchdogGoal(effective_base_goal_id, goal_team, apply_team_offset);
     }
 
     void Application::SetPositionRepeat() {
@@ -2381,6 +2918,15 @@ namespace BehaviorTree {
             LoggerPtr->Info("> Go Recovery");
             return;
         }
+        if (TickHighlandCompat()) {
+            return;
+        }
+        if (TrySetRegionalDefenseGoal(MyTeam, EnemyTeam)) {
+            return;
+        }
+        if (TickNaviProgressWatchdog(MyTeam, EnemyTeam)) {
+            return;
+        }
 
         // 防止高速切换指令
         if(!naviCommandIntervalClock.trigger()) {
@@ -2440,6 +2986,15 @@ namespace BehaviorTree {
             LoggerPtr->Info("> Go Recovery");
             return;
         }
+        if (TickHighlandCompat()) {
+            return;
+        }
+        if (TrySetRegionalDefenseGoal(MyTeam, EnemyTeam)) {
+            return;
+        }
+        if (TickNaviProgressWatchdog(MyTeam, EnemyTeam)) {
+            return;
+        }
         // 防止高速切换指令
         if(!naviCommandIntervalClock.trigger()) {
             return;
@@ -2475,6 +3030,15 @@ namespace BehaviorTree {
             // else speedLevel = 2;
             LoggerPtr->Info("Health: {}, AmmoLeft: {}", myselfHealth, ammoLeft);
             LoggerPtr->Info("> Go Recovery");
+            return;
+        }
+        if (TickHighlandCompat()) {
+            return;
+        }
+        if (TrySetRegionalDefenseGoal(MyTeam, EnemyTeam)) {
+            return;
+        }
+        if (TickNaviProgressWatchdog(MyTeam, EnemyTeam)) {
             return;
         }
         // 防止高速切换指令
@@ -2576,6 +3140,15 @@ namespace BehaviorTree {
             LoggerPtr->Info("> Go Recovery");
             return;
         }
+        if (TickHighlandCompat()) {
+            return;
+        }
+        if (TrySetRegionalDefenseGoal(MyTeam, EnemyTeam)) {
+            return;
+        }
+        if (TickNaviProgressWatchdog(MyTeam, EnemyTeam)) {
+            return;
+        }
         // 防止高速切换指令
         if(!naviCommandIntervalClock.trigger()) {
             return;
@@ -2593,7 +3166,7 @@ namespace BehaviorTree {
         }else { //普通模式
             const bool selected_by_autonomy =
                 TrySetNaviGoalByAutonomy(StrategyMode::HitHero, MyTeam, EnemyTeam);
-            if (!selected_by_autonomy) {
+            if (!selected_by_autonomy && !TrySetRegionalIdlePatrolGoal(MyTeam, EnemyTeam)) {
                 // 判断英雄是否处于高地
                 bool hero_in_central = false;
                 std::int16_t hero_x = enemyRobots[UnitType::Hero].position_.X, hero_y = enemyRobots[UnitType::Hero].position_.Y;

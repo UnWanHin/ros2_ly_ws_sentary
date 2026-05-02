@@ -89,6 +89,7 @@ const char* GoalName(const int base_goal_id) noexcept {
         case LangYa::RightShoot.ID: return "RightShoot";
         case LangYa::HoleRoad.ID: return "HoleRoad";
         case LangYa::OccupyArea.ID: return "OccupyArea";
+        case LangYa::Highland.ID: return "Highland";
         default: return "Unknown";
     }
 }

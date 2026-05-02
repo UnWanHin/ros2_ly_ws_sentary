@@ -1,6 +1,6 @@
 # Decision Visualization Trace And Viewer
 
-Updated: 2026-04-27
+Updated: 2026-05-02
 
 ## Purpose
 
@@ -223,6 +223,8 @@ The viewer uses coordinates in this order:
 3. Optional `--points-json` map plugin coordinates when non-zero.
 
 Terrain height is configured, not inferred. `config/default.yaml` contains an approximate 2D elevation overlay based on the visible map artwork. Treat it as a debug layer only until verified against official CAD/rule metadata.
+
+Navigation goal ID `19` is `Highland`, a regional Highland compatibility/via point at red `(744, 1263)` and blue `(2056, 237)`.
 
 ## Maintenance Rules
 
