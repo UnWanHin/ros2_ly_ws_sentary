@@ -169,6 +169,31 @@ bool LoadNaviDebugPlanFile(LangYa::NaviDebugSetting& nd, const std::shared_ptr<L
     return true;
 }
 
+std::vector<std::string> ParseAreaScopeList(const nlohmann::json& value) {
+    std::vector<std::string> areas;
+    if (value.is_array()) {
+        value.get_to(areas);
+        return areas;
+    }
+    if (!value.is_object()) {
+        return areas;
+    }
+
+    areas.reserve(value.size());
+    for (const auto& [area_name, enabled_value] : value.items()) {
+        bool enabled = false;
+        if (enabled_value.is_boolean()) {
+            enabled = enabled_value.get<bool>();
+        } else if (enabled_value.is_number_integer()) {
+            enabled = enabled_value.get<int>() != 0;
+        }
+        if (enabled) {
+            areas.push_back(area_name);
+        }
+    }
+    return areas;
+}
+
 }  // namespace
 
 
@@ -340,10 +365,10 @@ namespace LangYa {
         }
         na.UseAreaScope = j.value("UseAreaScope", na.UseAreaScope);
         if (j.contains("MyArea")) {
-            j.at("MyArea").get_to(na.MyArea);
+            na.MyArea = ParseAreaScopeList(j.at("MyArea"));
         }
         if (j.contains("EnemyArea")) {
-            j.at("EnemyArea").get_to(na.EnemyArea);
+            na.EnemyArea = ParseAreaScopeList(j.at("EnemyArea"));
         }
         na.DistanceWeight = j.value("DistanceWeight", na.DistanceWeight);
         na.EnemyTeamBonus = j.value("EnemyTeamBonus", na.EnemyTeamBonus);

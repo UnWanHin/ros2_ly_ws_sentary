@@ -1530,8 +1530,7 @@ namespace BehaviorTree {
     }
 
     bool Application::IsNaviGoalAreaScopeEnabled() const noexcept {
-        return config.DecisionAutonomySettings.Enable &&
-               config.DecisionAutonomySettings.NaviGoal.UseAreaScope;
+        return config.DecisionAutonomySettings.NaviGoal.UseAreaScope;
     }
 
     bool Application::IsNaviGoalAllowedByAreaScope(
