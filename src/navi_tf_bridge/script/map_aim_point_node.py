@@ -25,7 +25,7 @@ class MapAimPointNode(Node):
         self.declare_parameter("target_y_cm", 750.0)
         self.declare_parameter("target_z_cm", 100.0)
         self.declare_parameter("target_frame", "official_map")
-        self.declare_parameter("aim_frame", "gimbal_barrel_joint")
+        self.declare_parameter("aim_frame", "gimbal_world")
         self.declare_parameter("gimbal_angles_topic", "/ly/gimbal/angles")
         self.declare_parameter("control_angles_topic", "/ly/control/angles")
         self.declare_parameter("bridge_config_file", "")

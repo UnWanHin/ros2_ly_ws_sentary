@@ -18,8 +18,8 @@ TARGET_Z_CM="${TARGET_Z_CM:-100}"
 TARGET_FRAME="${TARGET_FRAME:-official_map}"
 USE_RAW_GOAL_STATIC_CALIBRATION="${USE_RAW_GOAL_STATIC_CALIBRATION:-true}"
 
-# gimbal_barrel_joint 是“当前 yaw 后、pitch 前”的云台坐标系；节点会算 yaw 误差和绝对 pitch。
-AIM_FRAME="${AIM_FRAME:-gimbal_barrel_joint}"
+# gimbal_world 是 navi_tf_bridge 追击链默认使用的云台相对坐标系；节点会算 yaw 误差和绝对 pitch。
+AIM_FRAME="${AIM_FRAME:-gimbal_world}"
 USE_GIMBAL="${USE_GIMBAL:-true}"
 USE_TF_TREE="${USE_TF_TREE:-true}"
 USE_VIRTUAL_DEVICE="${USE_VIRTUAL_DEVICE:-false}"

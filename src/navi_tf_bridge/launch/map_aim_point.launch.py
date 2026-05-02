@@ -36,7 +36,7 @@ def generate_launch_description():
         DeclareLaunchArgument("target_y_cm", default_value="750.0"),
         DeclareLaunchArgument("target_z_cm", default_value="100.0"),
         DeclareLaunchArgument("target_frame", default_value="official_map"),
-        DeclareLaunchArgument("aim_frame", default_value="gimbal_barrel_joint"),
+        DeclareLaunchArgument("aim_frame", default_value="gimbal_world"),
         DeclareLaunchArgument("gimbal_angles_topic", default_value="/ly/gimbal/angles"),
         DeclareLaunchArgument("control_angles_topic", default_value="/ly/control/angles"),
         DeclareLaunchArgument("bridge_config_file", default_value=default_bridge_config),
