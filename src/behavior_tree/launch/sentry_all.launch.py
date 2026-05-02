@@ -14,16 +14,28 @@
 注意：
 - behavior_tree 会接管 /ly/control/*，调试外部控制脚本时不要并行启动。
 """
+import json
 import os
+from pathlib import Path
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, LogInfo, OpaqueFunction, SetLaunchConfiguration, Shutdown
 from launch.conditions import IfCondition, LaunchConfigurationEquals, LaunchConfigurationNotEquals
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
+from launch_ros.substitutions import FindPackageShare
 from ament_index_python.packages import get_package_share_directory
+
+
+def _normalize_bool(raw: str) -> str:
+    value = (raw or "").strip().lower()
+    if value in ("1", "true", "yes", "on"):
+        return "true"
+    if value in ("0", "false", "no", "off"):
+        return "false"
+    return ""
 
 
 def generate_launch_description():
@@ -80,6 +92,39 @@ def generate_launch_description():
             SetLaunchConfiguration("resolved_tf_tree_params_file", resolved_tf_tree_params_file),
         ]
 
+    def resolve_navi_tf_bridge_defaults(context):
+        use_navi_tf_bridge_override = _normalize_bool(
+            LaunchConfiguration("use_navi_tf_bridge").perform(context)
+        )
+        if use_navi_tf_bridge_override:
+            return [
+                SetLaunchConfiguration("resolved_use_navi_tf_bridge", use_navi_tf_bridge_override),
+            ]
+
+        resolved_use_navi_tf_bridge = "true"
+        bt_config_file_raw = LaunchConfiguration("resolved_bt_config_file").perform(context).strip()
+        bt_config_path = Path(bt_config_file_raw)
+        if bt_config_file_raw and not bt_config_path.is_absolute():
+            bt_config_path = Path(behavior_tree_share) / bt_config_path
+        if bt_config_file_raw and bt_config_path.exists():
+            try:
+                with open(bt_config_path, encoding="utf-8") as fh:
+                    root = json.load(fh)
+                navi_cfg = root.get("NaviSetting", {})
+                if isinstance(navi_cfg, dict):
+                    resolved_use_navi_tf_bridge = (
+                        "true" if bool(navi_cfg.get("UseTfGoalBridge", True)) else "false"
+                    )
+            except Exception as ex:
+                print(
+                    f"[sentry_all] failed to parse bt_config_file '{bt_config_path}': {ex}. "
+                    "navi_tf_bridge falls back to enabled."
+                )
+
+        return [
+            SetLaunchConfiguration("resolved_use_navi_tf_bridge", resolved_use_navi_tf_bridge),
+        ]
+
     # 分层配置默认入口：
     #   base + module + optional global override(config_file)
     behavior_tree_share = get_package_share_directory("behavior_tree")
@@ -90,6 +135,11 @@ def generate_launch_description():
     tf_tree_share = get_package_share_directory("tf_tree")
     behavior_tree_config_root = os.path.join(behavior_tree_share, "config")
     tf_tree_launch_file = os.path.join(tf_tree_share, "launch", "tf_tree.launch.py")
+    navi_tf_bridge_launch_file = PathJoinSubstitution([
+        FindPackageShare("navi_tf_bridge"),
+        "launch",
+        "target_rel_to_goal_pos.launch.py",
+    ])
     default_tf_tree_params_file = os.path.join(tf_tree_share, "config", "tf_tree.yaml")
     default_base_config_file = os.path.join(behavior_tree_config_root, "base_config.yaml")
     default_override_config_file = os.path.join(behavior_tree_config_root, "override_config.yaml")
@@ -130,6 +180,8 @@ def generate_launch_description():
     use_buff = LaunchConfiguration("use_buff")
     use_behavior_tree = LaunchConfiguration("use_behavior_tree")
     use_tf_tree = LaunchConfiguration("use_tf_tree")
+    use_navi_tf_bridge = LaunchConfiguration("use_navi_tf_bridge")
+    resolved_use_navi_tf_bridge = LaunchConfiguration("resolved_use_navi_tf_bridge")
     tf_tree_params_file = LaunchConfiguration("tf_tree_params_file")
     resolved_tf_tree_params_file = LaunchConfiguration("resolved_tf_tree_params_file")
     offline = LaunchConfiguration("offline")
@@ -266,6 +318,11 @@ def generate_launch_description():
             description="Whether to launch tf_tree TF broadcaster chain.",
         ),
         DeclareLaunchArgument(
+            "use_navi_tf_bridge",
+            default_value="",
+            description="Optional override. Empty means load NaviSetting.UseTfGoalBridge from bt_config_file.",
+        ),
+        DeclareLaunchArgument(
             "tf_tree_params_file",
             default_value="",
             description="Optional tf_tree params YAML path. Empty uses package default.",
@@ -279,8 +336,10 @@ def generate_launch_description():
         DeclareLaunchArgument("resolved_competition_profile", default_value=""),
         DeclareLaunchArgument("resolved_bt_config_file", default_value=""),
         DeclareLaunchArgument("resolved_tf_tree_params_file", default_value=""),
+        DeclareLaunchArgument("resolved_use_navi_tf_bridge", default_value="true"),
         OpaqueFunction(function=resolve_mode_defaults),
         OpaqueFunction(function=resolve_tf_tree_defaults),
+        OpaqueFunction(function=resolve_navi_tf_bridge_defaults),
     ]
 
     info_logs = [
@@ -312,6 +371,8 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] decision_trace_file: ", decision_trace_file]),
         LogInfo(msg=["[sentry_all] decision_trace_every_n_ticks: ", decision_trace_every_n_ticks]),
         LogInfo(msg=["[sentry_all] use_tf_tree: ", use_tf_tree]),
+        LogInfo(msg=["[sentry_all] use_navi_tf_bridge: ", use_navi_tf_bridge]),
+        LogInfo(msg=["[sentry_all] resolved_use_navi_tf_bridge: ", resolved_use_navi_tf_bridge]),
         LogInfo(msg=["[sentry_all] tf_tree_params_file: ", tf_tree_params_file]),
         LogInfo(msg=["[sentry_all] resolved_tf_tree_params_file: ", resolved_tf_tree_params_file]),
     ]
@@ -322,6 +383,19 @@ def generate_launch_description():
             condition=IfCondition(use_tf_tree),
             launch_arguments={
                 "params_file": resolved_tf_tree_params_file,
+            }.items(),
+        ),
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(navi_tf_bridge_launch_file),
+            condition=IfCondition(resolved_use_navi_tf_bridge),
+            launch_arguments={
+                "input_topic": "/ly/navi/target_rel",
+                "input_goal_pos_raw_topic": "/ly/navi/goal_pos_raw",
+                "output_goal_pose_topic": "/goal_pose",
+                "publish_goal_pose": "true",
+                "publish_goal_pos": "false",
+                "enable_goal_pos_raw_bridge": "true",
+                "goal_pos_raw_frame": "map",
             }.items(),
         ),
         # gimbal_driver: offline=true 时强制 use_virtual_device
