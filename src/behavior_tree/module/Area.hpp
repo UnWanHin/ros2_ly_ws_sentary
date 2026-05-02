@@ -416,7 +416,7 @@ namespace Area {
     static const Location<std::uint16_t> Home{ {393, 810}, {2408, 683} };
     static const Location<std::uint16_t> Base{ {401, 691}, {2400, 811} };
     static const Location<std::uint16_t> Recovery{ {183, 245}, {2619, 1249} };
-    static const Location<std::uint16_t> BuffShoot{ {924, 1388}, {1872, 115} };
+    static const Location<std::uint16_t> BuffShoot{ {854, 1382}, {1946, 118} };
     static const Location<std::uint16_t> LeftHighLand{ {406, 1332}, {2392, 187} };
     static const Location<std::uint16_t> CastleLeft{ {657, 952}, {2136, 542} };
     static const Location<std::uint16_t> Castle{ {666, 749}, {2132, 749} };

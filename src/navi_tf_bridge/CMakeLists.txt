@@ -50,6 +50,12 @@ install(PROGRAMS
   RENAME fit_static_tf_kabsch
 )
 
+install(PROGRAMS
+  script/map_aim_point_node.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME map_aim_point_node
+)
+
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
 )
