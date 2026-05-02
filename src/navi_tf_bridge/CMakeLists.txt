@@ -56,6 +56,12 @@ install(PROGRAMS
   RENAME map_aim_point_node
 )
 
+install(PROGRAMS
+  script/mock_gimbal_state_node.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME mock_gimbal_state_node
+)
+
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
 )

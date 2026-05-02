@@ -151,3 +151,76 @@ cleanup_existing_launch_tree() {
     kill -KILL "${alive_pids[@]}" 2>/dev/null || true
   fi
 }
+
+print_raw_goal_map_preview() {
+  local config_file="$1"
+  local target_x_cm="$2"
+  local target_y_cm="$3"
+  local target_z_cm="$4"
+  local use_static_calibration="$5"
+  local raw_goal_target_frame="$6"
+
+  python3 - "${config_file}" "${target_x_cm}" "${target_y_cm}" "${target_z_cm}" \
+    "${use_static_calibration}" "${raw_goal_target_frame}" <<'PY'
+import sys
+
+try:
+    import yaml
+except Exception as exc:
+    print(f"[WARN] Cannot preview official_map -> map: PyYAML unavailable: {exc}", file=sys.stderr)
+    raise SystemExit(0)
+
+config_file, x_cm, y_cm, z_cm, use_cal, frame_override = sys.argv[1:7]
+
+try:
+    x = float(x_cm) * 0.01
+    y = float(y_cm) * 0.01
+    z = float(z_cm) * 0.01
+except ValueError as exc:
+    print(f"[WARN] Cannot preview official_map -> map: invalid target cm value: {exc}", file=sys.stderr)
+    raise SystemExit(0)
+
+print(f"[INFO] map aim raw target: official_map=({x:.3f}, {y:.3f}, {z:.3f})m")
+if use_cal.lower() not in ("true", "1", "yes", "on"):
+    print("[INFO] map aim active target: raw calibration disabled, target frame unchanged")
+    raise SystemExit(0)
+
+try:
+    with open(config_file, encoding="utf-8") as fh:
+        root = yaml.safe_load(fh) or {}
+except Exception as exc:
+    print(f"[WARN] Cannot preview official_map -> map: failed to read {config_file}: {exc}", file=sys.stderr)
+    raise SystemExit(0)
+
+params = root.get("target_rel_to_goal_pos_node", {}).get("ros__parameters", {})
+matrix = params.get("raw_goal_transform_matrix", [])
+if not isinstance(matrix, list) or len(matrix) != 16:
+    print(f"[WARN] Cannot preview official_map -> map: raw_goal_transform_matrix invalid in {config_file}", file=sys.stderr)
+    raise SystemExit(0)
+
+unit = str(params.get("raw_goal_calibration_unit", "m"))
+if unit in ("m", "M"):
+    unit_scale = 1.0
+elif unit in ("cm", "CM"):
+    unit_scale = 0.01
+else:
+    print(f"[WARN] Cannot preview official_map -> map: invalid raw_goal_calibration_unit={unit}", file=sys.stderr)
+    raise SystemExit(0)
+
+try:
+    m = [float(v) for v in matrix]
+except (TypeError, ValueError) as exc:
+    print(f"[WARN] Cannot preview official_map -> map: matrix has non-numeric value: {exc}", file=sys.stderr)
+    raise SystemExit(0)
+
+out_x = m[0] * x + m[1] * y + m[3] * unit_scale
+out_y = m[4] * x + m[5] * y + m[7] * unit_scale
+target_frame = frame_override or str(params.get("raw_goal_target_frame", "map"))
+print(
+    "[INFO] map aim 4x4 XY preview: "
+    f"x'={m[0]:.8f}*{x:.3f}+{m[1]:.8f}*{y:.3f}+{m[3] * unit_scale:.3f}, "
+    f"y'={m[4]:.8f}*{x:.3f}+{m[5]:.8f}*{y:.3f}+{m[7] * unit_scale:.3f}"
+)
+print(f"[INFO] map aim active target: {target_frame}=({out_x:.3f}, {out_y:.3f}, {z:.3f})m")
+PY
+}
