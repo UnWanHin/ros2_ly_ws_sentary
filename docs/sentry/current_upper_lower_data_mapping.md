@@ -93,6 +93,8 @@ struct GimbalControlData
 | 5 | `AimMode` | 瞄准模式 |
 | 6~7 | `Rotate` | 小陀螺档位 |
 
+`behavior_tree` 发布 `FollowMode=1` 时，会同时把 `Rotate` 压到 `0`、关闭 `AimMode`、停止新的 `FireStatus` 翻转，并保持当前云台角度，不再进入巡逻扫描。
+
 ### 3.1.4 `Posture` 当前规则
 
 当前代码行为：

@@ -80,6 +80,47 @@ inline const char* StrategyModeToString(const StrategyMode mode) {
     }
 }
 
+enum class NaviAreaTransitionKind : std::uint8_t {
+    None = 0,
+    EnterMyHighland = 1,
+    ViaHighland = 2,
+    LeaveMyHighland = 3,
+    LeaveMyHighlandViaCastleLeft = 4
+};
+
+inline const char* NaviAreaTransitionKindToString(const NaviAreaTransitionKind kind) {
+    switch (kind) {
+        case NaviAreaTransitionKind::None: return "None";
+        case NaviAreaTransitionKind::EnterMyHighland: return "EnterMyHighland";
+        case NaviAreaTransitionKind::ViaHighland: return "ViaHighland";
+        case NaviAreaTransitionKind::LeaveMyHighland: return "LeaveMyHighland";
+        case NaviAreaTransitionKind::LeaveMyHighlandViaCastleLeft: return "LeaveMyHighlandViaCastleLeft";
+        default: return "Unknown";
+    }
+}
+
+struct NaviAreaTransitionRuntime {
+    NaviAreaTransitionKind Kind{NaviAreaTransitionKind::None};
+    bool Active{false};
+    bool HasPendingGoal{false};
+    std::uint8_t ViaBaseGoal{LangYa::Highland.ID};
+    std::uint8_t PendingBaseGoal{LangYa::Home.ID};
+    UnitTeam GoalTeam{UnitTeam::Unknown};
+    bool ApplyTeamOffset{true};
+    std::chrono::steady_clock::time_point StartTime{};
+
+    void Clear() noexcept {
+        Kind = NaviAreaTransitionKind::None;
+        Active = false;
+        HasPendingGoal = false;
+        ViaBaseGoal = LangYa::Highland.ID;
+        PendingBaseGoal = LangYa::Home.ID;
+        GoalTeam = UnitTeam::Unknown;
+        ApplyTeamOffset = true;
+        StartTime = std::chrono::steady_clock::time_point{};
+    }
+};
+
 enum class CompetitionProfile : std::uint8_t {
     Regional = 0,
     League = 1
@@ -237,12 +278,7 @@ private:
     bool leagueRouteCompatHasPendingGoal_{false};
     std::uint8_t leagueRouteCompatPendingBaseGoal_{LangYa::Home.ID};
     int leagueRouteCompatPendingHoldSec_{1};
-    bool highlandCompatActive_{false};
-    bool highlandCompatHasPendingGoal_{false};
-    std::uint8_t highlandCompatPendingBaseGoal_{LangYa::Home.ID};
-    UnitTeam highlandCompatPendingGoalTeam_{UnitTeam::Unknown};
-    bool highlandCompatPendingApplyTeamOffset_{true};
-    std::chrono::steady_clock::time_point highlandCompatStartTime_{};
+    NaviAreaTransitionRuntime naviAreaTransition_{};
     std::chrono::steady_clock::time_point lastLeagueRecoveryGuardLogTime_{};
     std::chrono::steady_clock::time_point lastPositionDataGuardLogTime_{};
     bool hasReceivedSentryPosition_{false};
@@ -453,11 +489,14 @@ public:
         UnitTeam enemy_team) const;
     bool IsHighlandCompatEnabled() const noexcept;
     bool IsHighlandCompatTarget(std::uint8_t base_goal_id, UnitTeam goal_team) const;
+    bool IsSelfInMainArea(UnitTeam area_team, Area::MainAreaKind kind) const;
+    bool IsBaseGoalArrived(std::uint8_t base_goal_id, UnitTeam goal_team) const;
     bool IsHighlandCompatArrived(UnitTeam goal_team) const;
-    bool TickHighlandCompat();
-    bool TryStartHighlandCompat(
+    bool TickNaviAreaTransition();
+    bool TryStartNaviAreaTransition(
         std::uint8_t base_goal_id,
         UnitTeam goal_team,
+        UnitTeam my_team,
         bool apply_team_offset,
         const char* reason);
     bool IsRegionalDefenseAimSuppressActive() const noexcept;

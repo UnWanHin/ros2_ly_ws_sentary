@@ -57,6 +57,8 @@
 - `aim_mode`：bit5
 - `rotate`：bit6-7
 
+当前 `behavior_tree` 约定：`follow_mode=true` 时仍按 bit4 下发，同时强制 `rotate=0`、`aim_mode=false`，停止新的 `fire_status` 翻转，并保持当前云台角度以停用巡逻扫描。
+
 `field_mask` 用于 partial update：
 
 - `field_mask=0` 或 `FIELD_ALL`：视为完整快照，所有字段都写入

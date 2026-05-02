@@ -70,6 +70,8 @@
 4. bit5: `AimMode`
 5. bit6-7: `Rotate`
 
+上位机 `behavior_tree` 当前约定：`FollowMode=1` 时仍下发 bit4，同时强制 `Rotate=0`、`AimMode=0`，不再翻转 `FireStatus`，并保持当前云台角度以停用巡逻扫描。
+
 下位机建议：
 - 不要把 `FireStatus==1` 当作“持续开火”，按翻转沿触发。
 

@@ -458,6 +458,7 @@ namespace BehaviorTree {
         static constexpr auto kTwoPi = 6.2831853071795864769f;
         static constexpr int kDamageScanBoostWindowMs = 1300;
         static constexpr int kDamageScanYawPhaseMs = 160;
+        const bool follow_mode_active = gimbalControlData.FireCode.FollowMode != 0;
 
         
         // 小陀螺策略（老设计）：
@@ -520,8 +521,11 @@ namespace BehaviorTree {
             // StopRotate=true means disable chassis spin output.
             gimbalControlData.FireCode.Rotate = 0;
         }
-        if (highlandCompatActive_ &&
+        if (naviAreaTransition_.Active &&
             config.DecisionAutonomySettings.NaviGoal.HighlandCompatDisableRotate) {
+            gimbalControlData.FireCode.Rotate = 0;
+        }
+        if (follow_mode_active) {
             gimbalControlData.FireCode.Rotate = 0;
         }
 
@@ -595,7 +599,20 @@ namespace BehaviorTree {
             patrolScanCenterInitialized_ = false;
             patrolScanActiveMode_ = 0;
         };
-        if (has_target_for_angles) {
+        if (follow_mode_active) {
+            reset_patrol_scan_state();
+            gimbalControlData.FireCode.AimMode = 0;
+            gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
+            buffAimData.FireStatus = false;
+            nextAngles = gimbalAngles;
+
+            static auto last_follow_mode_log = std::chrono::steady_clock::time_point{};
+            if (now - last_follow_mode_log > std::chrono::seconds(2)) {
+                LoggerPtr->Debug(
+                    "FollowMode active: stop rotate, stop patrol scan, hold gimbal angles, suppress fire");
+                last_follow_mode_log = now;
+            }
+        } else if (has_target_for_angles) {
             reset_patrol_scan_state();
             LoggerPtr->Debug(
                 "Aim target active, AimMode={}, fresh={}, held={}",
@@ -753,7 +770,7 @@ namespace BehaviorTree {
             gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
         }
 
-        if (chase_mode_enabled) {
+        if (!follow_mode_active && chase_mode_enabled) {
             const bool use_relative_target_topic = config.ChaseSettings.UseRelativeTargetTopic;
             const bool use_tf_goal_bridge =
                 config.NaviSettings.UseXY && config.NaviSettings.UseTfGoalBridge;
@@ -859,7 +876,7 @@ namespace BehaviorTree {
         }
 
         // lower_head 只在未锁目标时生效，并且整对角一起切换，避免混用旧 yaw/new pitch。
-        if(naviLowerHead && !has_target_for_angles) {
+        if(!follow_mode_active && naviLowerHead && !has_target_for_angles) {
             nextAngles = GimbalAnglesType{gimbalAngles.Yaw, -15.0f}; //-22.5 - 26.0
         }
         gimbalControlData.GimbalAngles = nextAngles;
@@ -1634,7 +1651,33 @@ namespace BehaviorTree {
             resolved_area->Kind == Area::MainAreaKind::Highland;
     }
 
-    bool Application::IsHighlandCompatArrived(const UnitTeam goal_team) const {
+    bool Application::IsSelfInMainArea(
+        const UnitTeam area_team,
+        const Area::MainAreaKind kind) const {
+        if (area_team != UnitTeam::Red && area_team != UnitTeam::Blue) {
+            return false;
+        }
+        if (!hasReceivedSentryPosition_) {
+            return false;
+        }
+        if (lastSentryPositionRxTime_.time_since_epoch().count() == 0 ||
+            std::chrono::steady_clock::now() - lastSentryPositionRxTime_ > std::chrono::seconds(2)) {
+            return false;
+        }
+        const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
+        const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
+        if (self_x <= 0 || self_y <= 0) {
+            return false;
+        }
+        return Area::IsPointInsideMainArea(area_team, kind, self_x, self_y);
+    }
+
+    bool Application::IsBaseGoalArrived(
+        const std::uint8_t base_goal_id,
+        const UnitTeam goal_team) const {
+        if (!IsValidBaseGoalId(base_goal_id)) {
+            return false;
+        }
         if (!hasReceivedSentryPosition_) {
             return false;
         }
@@ -1649,86 +1692,152 @@ namespace BehaviorTree {
         }
         const auto arrive_distance = static_cast<std::uint16_t>(
             std::max(1, config.DecisionAutonomySettings.NaviGoal.HighlandCompatArriveDistanceCm));
-        return BehaviorTree::Area::Highland.near(
-            static_cast<std::uint16_t>(self_x),
-            static_cast<std::uint16_t>(self_y),
-            arrive_distance,
-            goal_team);
+        const auto goal_point = GoalPointByBaseId(base_goal_id, goal_team);
+        return DistanceSq(
+            self_x,
+            self_y,
+            static_cast<int>(goal_point.x),
+            static_cast<int>(goal_point.y)) <=
+            static_cast<double>(arrive_distance) * static_cast<double>(arrive_distance);
     }
 
-    bool Application::TickHighlandCompat() {
-        if (!IsHighlandCompatEnabled() || !highlandCompatActive_) {
+    bool Application::IsHighlandCompatArrived(const UnitTeam goal_team) const {
+        return IsBaseGoalArrived(LangYa::Highland.ID, goal_team);
+    }
+
+    bool Application::TickNaviAreaTransition() {
+        if (!IsHighlandCompatEnabled() || !naviAreaTransition_.Active) {
             return false;
         }
 
         const auto now = std::chrono::steady_clock::now();
         const auto timeout = std::chrono::seconds(
             std::max(1, config.DecisionAutonomySettings.NaviGoal.HighlandCompatTimeoutSec));
-        const bool arrived = IsHighlandCompatArrived(highlandCompatPendingGoalTeam_);
+        const auto via_base_goal = IsValidBaseGoalId(naviAreaTransition_.ViaBaseGoal)
+            ? naviAreaTransition_.ViaBaseGoal
+            : LangYa::Highland.ID;
+        gimbalControlData.FireCode.FollowMode = 1;
+        const bool arrived = IsBaseGoalArrived(via_base_goal, naviAreaTransition_.GoalTeam);
         const bool timed_out =
-            highlandCompatStartTime_.time_since_epoch().count() != 0 &&
-            now - highlandCompatStartTime_ >= timeout;
+            naviAreaTransition_.StartTime.time_since_epoch().count() != 0 &&
+            now - naviAreaTransition_.StartTime >= timeout;
 
         if (!arrived && !timed_out) {
             SetPositionByBaseGoal(
-                LangYa::Highland.ID,
-                highlandCompatPendingGoalTeam_,
-                highlandCompatPendingApplyTeamOffset_);
+                via_base_goal,
+                naviAreaTransition_.GoalTeam,
+                naviAreaTransition_.ApplyTeamOffset);
             return true;
         }
 
-        const auto pending_base_goal = highlandCompatPendingBaseGoal_;
-        const auto pending_goal_team = highlandCompatPendingGoalTeam_;
-        const bool pending_apply_team_offset = highlandCompatPendingApplyTeamOffset_;
-        const bool has_pending_goal = highlandCompatHasPendingGoal_;
+        const auto pending_base_goal = naviAreaTransition_.PendingBaseGoal;
+        const auto pending_goal_team = naviAreaTransition_.GoalTeam;
+        const bool pending_apply_team_offset = naviAreaTransition_.ApplyTeamOffset;
+        const bool has_pending_goal = naviAreaTransition_.HasPendingGoal;
+        const auto transition_kind = naviAreaTransition_.Kind;
 
-        highlandCompatActive_ = false;
-        highlandCompatHasPendingGoal_ = false;
-        highlandCompatPendingBaseGoal_ = LangYa::Home.ID;
-        highlandCompatPendingGoalTeam_ = UnitTeam::Unknown;
-        highlandCompatPendingApplyTeamOffset_ = true;
-        highlandCompatStartTime_ = std::chrono::steady_clock::time_point{};
+        naviAreaTransition_.Clear();
+        gimbalControlData.FireCode.FollowMode = 0;
 
         if (!has_pending_goal) {
+            if (LoggerPtr) {
+                LoggerPtr->Info(
+                    "Area transition {} {}: via goal={} done, follow_mode off.",
+                    NaviAreaTransitionKindToString(transition_kind),
+                    arrived ? "arrived" : "timeout",
+                    static_cast<int>(via_base_goal));
+            }
             return false;
         }
 
         SetPositionByBaseGoal(pending_base_goal, pending_goal_team, pending_apply_team_offset);
         if (LoggerPtr) {
             LoggerPtr->Info(
-                "Highland compat {}: continue goal={}.",
+                "Area transition {} {}: via goal={} done, continue goal={}, follow_mode off.",
+                NaviAreaTransitionKindToString(transition_kind),
                 arrived ? "arrived" : "timeout",
+                static_cast<int>(via_base_goal),
                 static_cast<int>(naviCommandGoal));
         }
         return true;
     }
 
-    bool Application::TryStartHighlandCompat(
+    bool Application::TryStartNaviAreaTransition(
         const std::uint8_t base_goal_id,
         const UnitTeam goal_team,
+        const UnitTeam my_team,
         const bool apply_team_offset,
         const char* reason) {
-        if (highlandCompatActive_ ||
-            !IsHighlandCompatTarget(base_goal_id, goal_team) ||
-            naviCommandGoal == ResolveGoalId(base_goal_id, goal_team, apply_team_offset) ||
-            IsHighlandCompatArrived(goal_team)) {
+        if (naviAreaTransition_.Active ||
+            !IsHighlandCompatEnabled() ||
+            !IsValidBaseGoalId(base_goal_id) ||
+            goal_team == UnitTeam::Unknown ||
+            my_team == UnitTeam::Unknown) {
             return false;
         }
 
-        highlandCompatActive_ = true;
-        highlandCompatHasPendingGoal_ = true;
-        highlandCompatPendingBaseGoal_ = base_goal_id;
-        highlandCompatPendingGoalTeam_ = goal_team;
-        highlandCompatPendingApplyTeamOffset_ = apply_team_offset;
-        highlandCompatStartTime_ = std::chrono::steady_clock::now();
+        std::uint8_t via_base_goal = LangYa::Highland.ID;
+        bool has_pending_goal = true;
+        std::uint8_t pending_base_goal = base_goal_id;
+        NaviAreaTransitionKind transition_kind = NaviAreaTransitionKind::ViaHighland;
 
-        SetPositionByBaseGoal(LangYa::Highland.ID, goal_team, apply_team_offset);
+        const bool target_is_my_highland =
+            goal_team == my_team &&
+            base_goal_id == LangYa::Highland.ID &&
+            !IsHighlandCompatArrived(goal_team);
+
+        if (target_is_my_highland) {
+            has_pending_goal = false;
+            pending_base_goal = LangYa::Home.ID;
+            transition_kind = NaviAreaTransitionKind::EnterMyHighland;
+        } else if (IsHighlandCompatTarget(base_goal_id, goal_team) &&
+                   naviCommandGoal != ResolveGoalId(base_goal_id, goal_team, apply_team_offset) &&
+                   !IsHighlandCompatArrived(goal_team)) {
+            via_base_goal = LangYa::Highland.ID;
+            has_pending_goal = true;
+            pending_base_goal = base_goal_id;
+            transition_kind = NaviAreaTransitionKind::ViaHighland;
+        } else if (goal_team == my_team &&
+                   base_goal_id != LangYa::Highland.ID &&
+                   IsSelfInMainArea(my_team, Area::MainAreaKind::Highland)) {
+            const auto resolved_target_area = ResolveGoalMainArea(base_goal_id, goal_team);
+            const bool target_is_base_area =
+                resolved_target_area.has_value() &&
+                !resolved_target_area->UsedNearestFallback &&
+                resolved_target_area->Kind == Area::MainAreaKind::Base;
+            via_base_goal = target_is_base_area ? LangYa::CastleLeft.ID : base_goal_id;
+            has_pending_goal = via_base_goal != base_goal_id;
+            pending_base_goal = has_pending_goal ? base_goal_id : LangYa::Home.ID;
+            transition_kind = target_is_base_area
+                ? NaviAreaTransitionKind::LeaveMyHighlandViaCastleLeft
+                : NaviAreaTransitionKind::LeaveMyHighland;
+            if (IsBaseGoalArrived(via_base_goal, goal_team)) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+
+        naviAreaTransition_.Active = true;
+        naviAreaTransition_.Kind = transition_kind;
+        naviAreaTransition_.HasPendingGoal = has_pending_goal;
+        naviAreaTransition_.ViaBaseGoal = via_base_goal;
+        naviAreaTransition_.PendingBaseGoal = pending_base_goal;
+        naviAreaTransition_.GoalTeam = goal_team;
+        naviAreaTransition_.ApplyTeamOffset = apply_team_offset;
+        naviAreaTransition_.StartTime = std::chrono::steady_clock::now();
+        gimbalControlData.FireCode.FollowMode = 1;
+
+        SetPositionByBaseGoal(via_base_goal, goal_team, apply_team_offset);
         if (LoggerPtr) {
             LoggerPtr->Info(
-                "Highland compat {}: via goal={} then goal={}.",
+                "Area transition {} {}: via goal={} then goal={} follow_mode on.",
+                NaviAreaTransitionKindToString(transition_kind),
                 reason ? reason : "start",
                 static_cast<int>(naviCommandGoal),
-                static_cast<int>(ResolveGoalId(base_goal_id, goal_team, apply_team_offset)));
+                has_pending_goal
+                    ? static_cast<int>(ResolveGoalId(pending_base_goal, goal_team, apply_team_offset))
+                    : -1);
         }
         return true;
     }
@@ -1921,7 +2030,7 @@ namespace BehaviorTree {
         const UnitTeam my_team,
         const UnitTeam enemy_team) {
         const auto& watchdog = config.NaviProgressWatchdogSettings;
-        if (!watchdog.Enable || !naviProgressWatchdogActive_ || highlandCompatActive_) {
+        if (!watchdog.Enable || !naviProgressWatchdogActive_ || naviAreaTransition_.Active) {
             return false;
         }
         if (naviProgressWatchdogBaseGoal_ == LangYa::Home.ID ||
@@ -2137,7 +2246,7 @@ namespace BehaviorTree {
             return false;
         }
 
-        if (TryStartHighlandCompat(base_goal_id, goal_team, apply_team_offset, reason)) {
+        if (TryStartNaviAreaTransition(base_goal_id, goal_team, my_team, apply_team_offset, reason)) {
             return true;
         }
 
@@ -2922,7 +3031,7 @@ namespace BehaviorTree {
             LoggerPtr->Info("> Go Recovery");
             return;
         }
-        if (TickHighlandCompat()) {
+        if (TickNaviAreaTransition()) {
             return;
         }
         if (TrySetRegionalDefenseGoal(MyTeam, EnemyTeam)) {
@@ -2990,7 +3099,7 @@ namespace BehaviorTree {
             LoggerPtr->Info("> Go Recovery");
             return;
         }
-        if (TickHighlandCompat()) {
+        if (TickNaviAreaTransition()) {
             return;
         }
         if (TrySetRegionalDefenseGoal(MyTeam, EnemyTeam)) {
@@ -3036,7 +3145,7 @@ namespace BehaviorTree {
             LoggerPtr->Info("> Go Recovery");
             return;
         }
-        if (TickHighlandCompat()) {
+        if (TickNaviAreaTransition()) {
             return;
         }
         if (TrySetRegionalDefenseGoal(MyTeam, EnemyTeam)) {
@@ -3144,7 +3253,7 @@ namespace BehaviorTree {
             LoggerPtr->Info("> Go Recovery");
             return;
         }
-        if (TickHighlandCompat()) {
+        if (TickNaviAreaTransition()) {
             return;
         }
         if (TrySetRegionalDefenseGoal(MyTeam, EnemyTeam)) {
