@@ -28,6 +28,7 @@ def generate_launch_description():
     target_y_cm = LaunchConfiguration("target_y_cm")
     target_z_cm = LaunchConfiguration("target_z_cm")
     target_frame = LaunchConfiguration("target_frame")
+    raw_goal_target_frame = LaunchConfiguration("raw_goal_target_frame")
     aim_frame = LaunchConfiguration("aim_frame")
     output = LaunchConfiguration("output")
 
@@ -41,6 +42,7 @@ def generate_launch_description():
         DeclareLaunchArgument("control_angles_topic", default_value="/ly/control/angles"),
         DeclareLaunchArgument("bridge_config_file", default_value=default_bridge_config),
         DeclareLaunchArgument("use_raw_goal_static_calibration", default_value="true"),
+        DeclareLaunchArgument("raw_goal_target_frame", default_value="odom"),
         DeclareLaunchArgument("publish_hz", default_value="30.0"),
         DeclareLaunchArgument("tf_timeout_sec", default_value="0.05"),
         DeclareLaunchArgument("min_distance_m", default_value="0.10"),
@@ -65,6 +67,8 @@ def generate_launch_description():
             target_z_cm,
             ")cm@",
             target_frame,
+            " raw_goal_target_frame=",
+            raw_goal_target_frame,
             " aim_frame=",
             aim_frame,
         ]),
@@ -103,6 +107,8 @@ def generate_launch_description():
                     LaunchConfiguration("bridge_config_file"), value_type=str),
                 "use_raw_goal_static_calibration": ParameterValue(
                     LaunchConfiguration("use_raw_goal_static_calibration"), value_type=bool),
+                "raw_goal_target_frame": ParameterValue(
+                    LaunchConfiguration("raw_goal_target_frame"), value_type=str),
                 "publish_hz": ParameterValue(LaunchConfiguration("publish_hz"), value_type=float),
                 "tf_timeout_sec": ParameterValue(
                     LaunchConfiguration("tf_timeout_sec"), value_type=float),

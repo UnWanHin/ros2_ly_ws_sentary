@@ -10,13 +10,14 @@ SCRIPT_NAME="$(basename "$0")"
 
 # 坐标写这里：单位 cm。
 # X/Y 是官方二维地图坐标，会按 navi_tf_bridge/config/tf_config.yaml 的 4x4
-# 走和 /ly/navi/goal_pos_raw -> /goal_pose 一样的平面转换到 map。
-# Z 直接当 map 系瞄准高度，不参与官方二维地图转换。
+# 走和 /ly/navi/goal_pos_raw -> /goal_pose 一样的平面转换，默认把结果当 odom 点使用。
+# Z 直接当目标 frame 的瞄准高度，不参与官方二维地图转换。
 TARGET_X_CM="${TARGET_X_CM:-1093}"
 TARGET_Y_CM="${TARGET_Y_CM:-366}"
 TARGET_Z_CM="${TARGET_Z_CM:-100}"
 TARGET_FRAME="${TARGET_FRAME:-official_map}"
 USE_RAW_GOAL_STATIC_CALIBRATION="${USE_RAW_GOAL_STATIC_CALIBRATION:-true}"
+RAW_GOAL_TARGET_FRAME="${RAW_GOAL_TARGET_FRAME:-odom}"
 
 # gimbal_world 是 navi_tf_bridge 追击链默认使用的云台相对坐标系；节点会算 yaw 误差和绝对 pitch。
 AIM_FRAME="${AIM_FRAME:-gimbal_world}"
@@ -49,11 +50,12 @@ Edit these variables near the top of this script:
   TARGET_Z_CM=${TARGET_Z_CM}
   TARGET_FRAME=${TARGET_FRAME}
   USE_RAW_GOAL_STATIC_CALIBRATION=${USE_RAW_GOAL_STATIC_CALIBRATION}
+  RAW_GOAL_TARGET_FRAME=${RAW_GOAL_TARGET_FRAME}
 
 Examples:
   ./${SCRIPT_NAME}
   TARGET_X_CM=1400 TARGET_Y_CM=750 TARGET_Z_CM=100 ./${SCRIPT_NAME}
-  ./${SCRIPT_NAME} -- use_raw_goal_static_calibration:=false target_frame:=map yaw_sign:=-1.0 pitch_bias_deg:=2.0
+  ./${SCRIPT_NAME} -- raw_goal_target_frame:=map yaw_sign:=-1.0 pitch_bias_deg:=2.0
 EOF
 }
 
@@ -114,6 +116,9 @@ if ! has_launch_arg_key "target_frame"; then
 fi
 if ! has_launch_arg_key "use_raw_goal_static_calibration"; then
   LAUNCH_ARGS=("use_raw_goal_static_calibration:=${USE_RAW_GOAL_STATIC_CALIBRATION}" "${LAUNCH_ARGS[@]}")
+fi
+if ! has_launch_arg_key "raw_goal_target_frame"; then
+  LAUNCH_ARGS=("raw_goal_target_frame:=${RAW_GOAL_TARGET_FRAME}" "${LAUNCH_ARGS[@]}")
 fi
 if ! has_launch_arg_key "aim_frame"; then
   LAUNCH_ARGS=("aim_frame:=${AIM_FRAME}" "${LAUNCH_ARGS[@]}")

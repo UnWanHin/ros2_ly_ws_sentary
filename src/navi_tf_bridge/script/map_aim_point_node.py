@@ -30,6 +30,7 @@ class MapAimPointNode(Node):
         self.declare_parameter("control_angles_topic", "/ly/control/angles")
         self.declare_parameter("bridge_config_file", "")
         self.declare_parameter("use_raw_goal_static_calibration", False)
+        self.declare_parameter("raw_goal_target_frame", "")
         self.declare_parameter("publish_hz", 30.0)
         self.declare_parameter("tf_timeout_sec", 0.05)
         self.declare_parameter("min_distance_m", 0.10)
@@ -49,6 +50,7 @@ class MapAimPointNode(Node):
         control_topic = str(self.get_parameter("control_angles_topic").value)
         bridge_config_file = str(self.get_parameter("bridge_config_file").value)
         use_static_calibration = bool(self.get_parameter("use_raw_goal_static_calibration").value)
+        self.raw_goal_target_frame_override = str(self.get_parameter("raw_goal_target_frame").value).strip()
         publish_hz = max(1.0, float(self.get_parameter("publish_hz").value))
         self.tf_timeout = Duration(seconds=max(0.01, float(self.get_parameter("tf_timeout_sec").value)))
         self.min_distance_m = max(0.01, float(self.get_parameter("min_distance_m").value))
@@ -148,14 +150,15 @@ class MapAimPointNode(Node):
             return
 
         x, y = self.target_x_m, self.target_y_m
-        # Match target_rel_to_goal_pos_node raw-goal bridge for map x/y.
+        # Match target_rel_to_goal_pos_node raw-goal bridge for converted x/y.
         # Keep the configured target z as aim height, not as part of the 2D map calibration.
         self.active_target_point = (
             m[0] * x + m[1] * y + m[3] * unit_scale,
             m[4] * x + m[5] * y + m[7] * unit_scale,
             self.target_z_m,
         )
-        self.active_target_frame = str(params.get("raw_goal_target_frame", "map"))
+        configured_target_frame = str(params.get("raw_goal_target_frame", "map"))
+        self.active_target_frame = self.raw_goal_target_frame_override or configured_target_frame
         self.static_calibration_ready = True
         self.get_logger().info(
             "raw-goal static calibration loaded for map aim point: "
