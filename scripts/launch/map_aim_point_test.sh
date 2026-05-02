@@ -22,7 +22,7 @@ RAW_GOAL_TARGET_FRAME="${RAW_GOAL_TARGET_FRAME:-odom}"
 # gimbal_world 是 navi_tf_bridge 追击链默认使用的云台相对坐标系；节点会算 yaw 误差和绝对 pitch。
 AIM_FRAME="${AIM_FRAME:-gimbal_world}"
 USE_GIMBAL="${USE_GIMBAL:-true}"
-USE_TF_TREE="${USE_TF_TREE:-true}"
+USE_TF_TREE="${USE_TF_TREE:-false}"
 USE_VIRTUAL_DEVICE="${USE_VIRTUAL_DEVICE:-false}"
 YAW_SIGN="${YAW_SIGN:-1.0}"
 PITCH_SIGN="${PITCH_SIGN:-1.0}"
@@ -38,11 +38,11 @@ source "${ROOT_DIR}/scripts/lib/ros_launch_common.sh"
 usage() {
   cat <<EOF
 Usage:
-  ${SCRIPT_NAME} [--no-gimbal] [--no-tf-tree] [-- <launch_args...>]
+  ${SCRIPT_NAME} [--no-gimbal] [--with-tf-tree] [-- <launch_args...>]
 
 Purpose:
   Keep gimbal facing one fixed map/official-map point.
-  Only publishes /ly/control/angles; it does not publish chassis velocity or firecode.
+  Only publishes /ly/control/angles; it does not publish chassis velocity, firecode, or TF.
 
 Edit these variables near the top of this script:
   TARGET_X_CM=${TARGET_X_CM}
@@ -80,6 +80,10 @@ while [[ $# -gt 0 ]]; do
       USE_TF_TREE="false"
       shift
       ;;
+    --with-tf-tree)
+      USE_TF_TREE="true"
+      shift
+      ;;
     --help|-h)
       usage
       exit 0
@@ -99,7 +103,7 @@ done
 source_ros_workspace "${ROOT_DIR}"
 cleanup_existing_stack \
   "1" \
-  "/(map_aim_point_node|gimbal_driver_node|tf_node|static_transform_publisher)([[:space:]]|$)" \
+  "/(map_aim_point_node|gimbal_driver_node)([[:space:]]|$)" \
   "ros2 launch navi_tf_bridge map_aim_point\\.launch\\.py"
 
 if ! has_launch_arg_key "target_x_cm"; then

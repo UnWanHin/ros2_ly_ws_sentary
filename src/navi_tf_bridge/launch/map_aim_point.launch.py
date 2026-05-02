@@ -53,7 +53,7 @@ def generate_launch_description():
         DeclareLaunchArgument("max_yaw_step_deg", default_value="0.0"),
         DeclareLaunchArgument("max_pitch_step_deg", default_value="0.0"),
         DeclareLaunchArgument("use_gimbal", default_value="true"),
-        DeclareLaunchArgument("use_tf_tree", default_value="true"),
+        DeclareLaunchArgument("use_tf_tree", default_value="false"),
         DeclareLaunchArgument("gimbal_config_file", default_value=default_gimbal_config),
         DeclareLaunchArgument("use_virtual_device", default_value="false"),
         DeclareLaunchArgument("tf_tree_params_file", default_value=default_tf_tree_params),
