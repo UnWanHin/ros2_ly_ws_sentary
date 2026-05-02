@@ -5,6 +5,7 @@ Active presets in this directory are used by launch files, start scripts, or sel
 ## Competition / runtime
 
 - `regional_competition.json`: default regional competition config used by `sentry_all.launch.py`.
+- `regional_simple_competition.json`: simplified regional patrol/chase config used by `mode:=regional_simple`.
 - `league_competition.json`: league competition config used by `mode:=league`.
 - `showcase_competition.json`: showcase/demo config used by showcase launch wrappers.
 

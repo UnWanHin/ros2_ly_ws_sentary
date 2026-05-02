@@ -367,13 +367,14 @@ ros2 launch behavior_tree sentry_all.launch.py \
 
 本次對齊檢查結論：
 - `scripts/start.sh gated` / `scripts/start.sh nogate` -> `sentry_all.launch.py` -> `behavior_tree` 的參數鏈路已對齊
-  - `--mode`：可選 `1/2/3` 或顯式傳入 `league/regional/showcase`
+  - `--mode`：可選 `1/2/3` 或顯式傳入 `league/regional/regional_simple/showcase`
   - `competition_profile`：由啟動模式自動對齊；其中 `mode 3` 仍映射到 `regional`
-  - `bt_config_file`：按啟動模式自動對齊（`league/regional/showcase`）
+  - `bt_config_file`：按啟動模式自動對齊（`league/regional/regional_simple/showcase`）
   - `config_file`：默認沿用 launch 默認 YAML，僅在顯式傳入時覆蓋
 - BT 層策略鏈路已對齊
   - `league`：固定走 `LeagueSimple`
   - `regional`：保持原分區賽策略切換
+  - `regional_simple`：簡化巡邏模式，保留回補/追擊/姿態/兼容點，導航判斷最小化
   - `showcase`：沿用 `regional` 主流程，但使用展示專用姿態參數
 - 導航發布鏈路已對齊
   - `UseXY=false` -> 發 `/ly/navi/goal`

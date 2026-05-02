@@ -31,6 +31,8 @@ def generate_launch_description():
         normalized = (raw or "").strip().lower()
         if normalized in ("1", "league"):
             return "league"
+        if normalized in ("regional_simple", "regional-simple", "simple"):
+            return "regional_simple"
         if normalized in ("3", "showcase", "demo"):
             return "showcase"
         return "regional"
@@ -42,6 +44,8 @@ def generate_launch_description():
 
         if mode_raw.strip():
             mode_kind = normalize_mode(mode_raw)
+        elif bt_config_file_raw.endswith("regional_simple_competition.json"):
+            mode_kind = "regional_simple"
         elif bt_config_file_raw.endswith("showcase_competition.json"):
             mode_kind = "showcase"
         elif competition_profile_raw.strip().lower() == "league":
@@ -54,6 +58,8 @@ def generate_launch_description():
             resolved_bt_config = bt_config_file_raw
         elif mode_kind == "league":
             resolved_bt_config = "Scripts/ConfigJson/league_competition.json"
+        elif mode_kind == "regional_simple":
+            resolved_bt_config = "Scripts/ConfigJson/regional_simple_competition.json"
         elif mode_kind == "showcase":
             resolved_bt_config = "Scripts/ConfigJson/showcase_competition.json"
         else:
@@ -135,7 +141,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "mode",
             default_value="",
-            description="Startup mode: league/regional/showcase. Empty falls back to regional unless overridden.",
+            description="Startup mode: league/regional/regional_simple/showcase. Empty falls back to regional unless overridden.",
         ),
         DeclareLaunchArgument(
             "config_file",

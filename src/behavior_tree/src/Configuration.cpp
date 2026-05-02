@@ -44,6 +44,32 @@ std::string NormalizeMainAreaToken(std::string value) {
     return {};
 }
 
+bool AppendRegionalPatrolGoalByName(
+    const std::string& goal_name,
+    std::vector<std::uint8_t>& goals) {
+    const auto token = NormalizeAutonomyToken(goal_name);
+    std::uint8_t goal_id = LangYa::Home.ID;
+    if (token == "highland" || token == "high_land") {
+        goal_id = LangYa::Highland.ID;
+    } else if (token == "buffshoot" || token == "buff_shoot") {
+        goal_id = LangYa::BuffShoot.ID;
+    } else if (token == "holeroad" || token == "hole_road") {
+        goal_id = LangYa::HoleRoad.ID;
+    } else if (token == "castleleft" || token == "castle_left") {
+        goal_id = LangYa::CastleLeft.ID;
+    } else if (token == "castleright2" || token == "castle_right2" || token == "castle_right_2") {
+        goal_id = LangYa::CastleRight2.ID;
+    } else if (token == "castleright1" || token == "castle_right1" || token == "castle_right_1") {
+        goal_id = LangYa::CastleRight1.ID;
+    } else if (token == "castle") {
+        goal_id = LangYa::Castle.ID;
+    } else {
+        return false;
+    }
+    goals.push_back(goal_id);
+    return true;
+}
+
 BehaviorTree::CompetitionProfile ParseCompetitionProfile(const std::string& value) {
     const auto normalized = NormalizeProfile(value);
     if (normalized == "league") {
@@ -426,6 +452,40 @@ namespace LangYa {
         rp.GoalHoldSec = j.value("GoalHoldSec", rp.GoalHoldSec);
         if (j.contains("Goals")) {
             j.at("Goals").get_to(rp.Goals);
+        }
+        if (j.contains("GoalEnable") && j.at("GoalEnable").is_object()) {
+            rp.GoalEnableProvided = true;
+            rp.Goals.clear();
+            const auto& goal_enable = j.at("GoalEnable");
+            const std::vector<std::string> ordered_goal_names{
+                "Highland",
+                "BuffShoot",
+                "HoleRoad",
+                "CastleLeft",
+                "CastleRight2",
+                "CastleRight1",
+                "Castle"
+            };
+            for (const auto& goal_name : ordered_goal_names) {
+                if (!goal_enable.contains(goal_name) ||
+                    !goal_enable.at(goal_name).is_boolean() ||
+                    !goal_enable.at(goal_name).get<bool>()) {
+                    continue;
+                }
+                AppendRegionalPatrolGoalByName(goal_name, rp.Goals);
+            }
+            for (auto it = goal_enable.begin(); it != goal_enable.end(); ++it) {
+                const auto goal_name = it.key();
+                const bool known_goal = std::find(
+                    ordered_goal_names.begin(),
+                    ordered_goal_names.end(),
+                    goal_name) != ordered_goal_names.end();
+                const bool enabled = it.value().is_boolean() ? it.value().get<bool>() : false;
+                if (known_goal || !enabled) {
+                    continue;
+                }
+                AppendRegionalPatrolGoalByName(goal_name, rp.Goals);
+            }
         }
     }
 
@@ -886,10 +946,15 @@ namespace BehaviorTree {
                 LoggerPtr->Warning("Ignore invalid RegionalIdlePatrol.Goals item={}.", static_cast<int>(goal_id));
                 continue;
             }
-            sanitized_regional_idle_goals.push_back(goal_id);
+            if (std::find(sanitized_regional_idle_goals.begin(), sanitized_regional_idle_goals.end(), goal_id) ==
+                sanitized_regional_idle_goals.end()) {
+                sanitized_regional_idle_goals.push_back(goal_id);
+            }
         }
         config.RegionalIdlePatrolSettings.Goals = std::move(sanitized_regional_idle_goals);
-        if (config.RegionalIdlePatrolSettings.Enable && config.RegionalIdlePatrolSettings.Goals.empty()) {
+        if (config.RegionalIdlePatrolSettings.Enable &&
+            config.RegionalIdlePatrolSettings.Goals.empty() &&
+            !config.RegionalIdlePatrolSettings.GoalEnableProvided) {
             LoggerPtr->Warning("RegionalIdlePatrol enabled but no valid goals found, fallback to default patrol route.");
             config.RegionalIdlePatrolSettings.Goals = {
                 LangYa::HoleRoad.ID,
@@ -898,6 +963,9 @@ namespace BehaviorTree {
                 LangYa::CastleRight1.ID,
                 LangYa::CastleLeft.ID
             };
+        } else if (config.RegionalIdlePatrolSettings.Enable &&
+                   config.RegionalIdlePatrolSettings.Goals.empty()) {
+            LoggerPtr->Warning("RegionalIdlePatrol enabled but all GoalEnable entries are false or invalid.");
         }
 
         if (config.PatrolScanSettings.Mode != 1 && config.PatrolScanSettings.Mode != 2) {

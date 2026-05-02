@@ -2059,7 +2059,11 @@ namespace BehaviorTree {
             return false;
         }
         if (patrol.Goals.empty()) {
-            return false;
+            naviCommandIntervalClock.reset(Seconds{std::max(1, patrol.GoalHoldSec)});
+            if (LoggerPtr) {
+                LoggerPtr->Warning("Regional idle patrol enabled but no goals are enabled.");
+            }
+            return true;
         }
 
         constexpr bool apply_team_offset = true;
@@ -3166,7 +3170,9 @@ namespace BehaviorTree {
         }else { //普通模式
             const bool selected_by_autonomy =
                 TrySetNaviGoalByAutonomy(StrategyMode::HitHero, MyTeam, EnemyTeam);
-            if (!selected_by_autonomy && !TrySetRegionalIdlePatrolGoal(MyTeam, EnemyTeam)) {
+            const bool selected_by_idle_patrol =
+                !selected_by_autonomy && TrySetRegionalIdlePatrolGoal(MyTeam, EnemyTeam);
+            if (!selected_by_autonomy && !selected_by_idle_patrol) {
                 // 判断英雄是否处于高地
                 bool hero_in_central = false;
                 std::int16_t hero_x = enemyRobots[UnitType::Hero].position_.X, hero_y = enemyRobots[UnitType::Hero].position_.Y;
@@ -3238,7 +3244,8 @@ namespace BehaviorTree {
             }
             
             // 底盘能量低于5%
-            if(teamBuff.RemainingEnergy == 0b10000 || teamBuff.RemainingEnergy == 0b00000) {
+            if(!selected_by_idle_patrol &&
+               (teamBuff.RemainingEnergy == 0b10000 || teamBuff.RemainingEnergy == 0b00000)) {
                 LoggerPtr->Info("!!! Low Energy !!!");
                 TrySetRandomScopedPositionByBaseGoal(
                     {

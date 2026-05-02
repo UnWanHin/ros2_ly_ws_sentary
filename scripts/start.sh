@@ -21,6 +21,7 @@ Examples:
   ./scripts/start.sh
   ./scripts/start.sh gated --mode league
   ./scripts/start.sh nogate --mode regional
+  ./scripts/start.sh nogate --mode regional_simple
 
 Extra direct entry:
   ./scripts/start.sh showcase
@@ -30,7 +31,7 @@ EOF
 has_mode_arg() {
   local arg
   for arg in "$@"; do
-    if [[ "${arg}" == "--mode" ]] || [[ "${arg}" == competition_profile:=* ]] || [[ "${arg}" == --competition_profile:=* ]]; then
+    if [[ "${arg}" == "--mode" ]] || [[ "${arg}" == --mode=* ]] || [[ "${arg}" == competition_profile:=* ]] || [[ "${arg}" == --competition_profile:=* ]]; then
       return 0
     fi
   done
@@ -63,7 +64,8 @@ ensure_match_mode() {
     echo "Select competition framework:"
     echo "  1) league"
     echo "  2) regional"
-    read -r -p "Input 1-2 [default: 2]: " mode
+    echo "  3) regional_simple"
+    read -r -p "Input 1-3 [default: 2]: " mode
     mode="${mode:-2}"
     case "${mode,,}" in
       1|league)
@@ -71,6 +73,9 @@ ensure_match_mode() {
         ;;
       2|regional)
         mode="regional"
+        ;;
+      3|regional_simple|regional-simple|simple)
+        mode="regional_simple"
         ;;
       *)
         echo "[ERROR] Invalid mode selection: ${mode}" >&2

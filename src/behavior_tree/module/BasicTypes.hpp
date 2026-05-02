@@ -575,6 +575,7 @@ namespace LangYa
     struct RegionalIdlePatrolSetting {
         bool Enable{false};
         int GoalHoldSec{8};
+        bool GoalEnableProvided{false};
         std::vector<std::uint8_t> Goals{
             LangYa::HoleRoad.ID,
             LangYa::Castle.ID,

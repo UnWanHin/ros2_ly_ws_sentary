@@ -28,7 +28,7 @@ source "${ROOT_DIR}/scripts/lib/ros_launch_common.sh"
 usage() {
   cat <<EOF2
 Usage:
-  ${SCRIPT_NAME} [--cleanup-existing|--no-cleanup-existing] [--offline] [--mode 1|2|3|league|regional|showcase] [-- <launch_args...>]
+  ${SCRIPT_NAME} [--cleanup-existing|--no-cleanup-existing] [--offline] [--mode 1|2|3|league|regional|regional_simple|showcase] [-- <launch_args...>]
 
 Examples:
   ./${SCRIPT_NAME}
@@ -36,6 +36,7 @@ Examples:
   ./${SCRIPT_NAME} --offline
   ./${SCRIPT_NAME} --mode 1
   ./${SCRIPT_NAME} --mode regional --no-prompt
+  ./${SCRIPT_NAME} --mode regional_simple --no-prompt
   ./${SCRIPT_NAME} --mode 3 --no-prompt
   ./${SCRIPT_NAME} -- use_buff:=false use_outpost:=false
 EOF2
@@ -153,7 +154,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --mode)
       if [[ $# -lt 2 ]]; then
-        echo "[ERROR] --mode requires a value: 1|2|3|league|regional|showcase" >&2
+        echo "[ERROR] --mode requires a value: 1|2|3|league|regional|regional_simple|showcase" >&2
         exit 2
       fi
       MODE_ARG="$2"
