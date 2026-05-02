@@ -59,7 +59,7 @@ class ScanGimbalNode(Node):
         fire_msg.field_mask = FireCode.FIELD_ALL
         fire_msg.fire_status = self.safe_firecode & 0x03
         fire_msg.cap_state = (self.safe_firecode >> 2) & 0x03
-        fire_msg.hole_mode = ((self.safe_firecode >> 4) & 0x01) != 0
+        fire_msg.follow_mode = ((self.safe_firecode >> 4) & 0x01) != 0
         fire_msg.aim_mode = ((self.safe_firecode >> 5) & 0x01) != 0
         fire_msg.rotate = (self.safe_firecode >> 6) & 0x03
         fire_msg.raw = self.safe_firecode

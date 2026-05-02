@@ -106,7 +106,7 @@ void Application::PublishSafeControl(const char* reason, const bool from_guard_t
             fire_msg.field_mask = gimbal_driver::msg::FireCode::FIELD_ALL;
             fire_msg.fire_status = gimbalControlData.FireCode.FireStatus;
             fire_msg.cap_state = gimbalControlData.FireCode.CapState;
-            fire_msg.hole_mode = gimbalControlData.FireCode.HoleMode != 0;
+            fire_msg.follow_mode = gimbalControlData.FireCode.FollowMode != 0;
             fire_msg.aim_mode = gimbalControlData.FireCode.AimMode != 0;
             fire_msg.rotate = gimbalControlData.FireCode.Rotate;
             fire_msg.raw = *reinterpret_cast<std::uint8_t*>(&gimbalControlData.FireCode);

@@ -13,7 +13,7 @@ namespace {
         msg.field_mask = gimbal_driver::msg::FireCode::FIELD_ALL;
         msg.fire_status = firecode.FireStatus;
         msg.cap_state = firecode.CapState;
-        msg.hole_mode = firecode.HoleMode != 0;
+        msg.follow_mode = firecode.FollowMode != 0;
         msg.aim_mode = firecode.AimMode != 0;
         msg.rotate = firecode.Rotate;
         msg.raw = *reinterpret_cast<const std::uint8_t*>(&firecode);

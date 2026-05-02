@@ -64,7 +64,7 @@ namespace BehaviorTree{
         GenSub<ly_gimbal_firecode>([](Application& app, auto msg) {
             app.RecFireCode.FireStatus = msg->fire_status & 0b11;
             app.RecFireCode.CapState = msg->cap_state & 0b11;
-            app.RecFireCode.HoleMode = msg->hole_mode ? 1 : 0;
+            app.RecFireCode.FollowMode = msg->follow_mode ? 1 : 0;
             app.RecFireCode.AimMode = msg->aim_mode ? 1 : 0;
             app.RecFireCode.Rotate = msg->rotate & 0b11;
         });

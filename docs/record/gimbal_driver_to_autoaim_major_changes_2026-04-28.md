@@ -43,7 +43,7 @@
 
 - `fire_status`: bit0-1
 - `cap_state`: bit2-3
-- `hole_mode`: bit4
+- `follow_mode`: bit4
 - `aim_mode`: bit5
 - `rotate`: bit6-7
 

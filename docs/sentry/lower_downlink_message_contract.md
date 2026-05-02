@@ -53,7 +53,7 @@
   - `x_mps/y_mps` 按 `velocity_raw_to_mps` 编码到 `Velocity.X/Y`
   - `use_raw=true` 时 `raw_x/raw_y` 直接写入 `Velocity.X/Y`
 - `/ly/control/firecode` (`gimbal_driver/msg/FireCode`)
-  - `fire_status/cap_state/hole_mode/aim_mode/rotate` -> `FireCode` 各 bit
+  - `fire_status/cap_state/follow_mode/aim_mode/rotate` -> `FireCode` 各 bit
   - `field_mask` 非 0 时只更新指定字段；未更新字段 100ms 后退回 0
 - `/ly/control/posture` (`std_msgs/msg/UInt8`)
   - `1` 进攻
@@ -66,7 +66,7 @@
 从低位到高位：
 1. bit0-1: `FireStatus`（开火位，翻转触发，`0b00 <-> 0b11`）
 2. bit2-3: `CapState`
-3. bit4: `HoleMode`
+3. bit4: `FollowMode`
 4. bit5: `AimMode`
 5. bit6-7: `Rotate`
 

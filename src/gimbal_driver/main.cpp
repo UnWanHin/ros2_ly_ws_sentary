@@ -120,7 +120,7 @@ namespace
         enum FireCodeFieldIndex : std::size_t {
             kFireStatusField = 0,
             kCapStateField,
-            kHoleModeField,
+            kFollowModeField,
             kAimModeField,
             kRotateField,
         };
@@ -225,7 +225,7 @@ namespace
             msg.field_mask = gimbal_driver::msg::FireCode::FIELD_ALL;
             msg.fire_status = firecode.FireStatus;
             msg.cap_state = firecode.CapState;
-            msg.hole_mode = firecode.HoleMode != 0;
+            msg.follow_mode = firecode.FollowMode != 0;
             msg.aim_mode = firecode.AimMode != 0;
             msg.rotate = firecode.Rotate;
             msg.raw = FireCodeRaw(firecode);
@@ -317,7 +317,7 @@ namespace
 
             if (stale(kFireStatusField)) firecode.FireStatus = 0;
             if (stale(kCapStateField)) firecode.CapState = 0;
-            if (stale(kHoleModeField)) firecode.HoleMode = 0;
+            if (stale(kFollowModeField)) firecode.FollowMode = 0;
             if (stale(kAimModeField)) firecode.AimMode = 0;
             if (stale(kRotateField)) firecode.Rotate = 0;
         }
@@ -339,9 +339,9 @@ namespace
                 g.FireCode.CapState = ClampU2(m.cap_state);
                 mark(kCapStateField);
             }
-            if (full_snapshot || (m.field_mask & gimbal_driver::msg::FireCode::FIELD_HOLE_MODE)) {
-                g.FireCode.HoleMode = m.hole_mode ? 1 : 0;
-                mark(kHoleModeField);
+            if (full_snapshot || (m.field_mask & gimbal_driver::msg::FireCode::FIELD_FOLLOW_MODE)) {
+                g.FireCode.FollowMode = m.follow_mode ? 1 : 0;
+                mark(kFollowModeField);
             }
             if (full_snapshot || (m.field_mask & gimbal_driver::msg::FireCode::FIELD_AIM_MODE)) {
                 g.FireCode.AimMode = m.aim_mode ? 1 : 0;

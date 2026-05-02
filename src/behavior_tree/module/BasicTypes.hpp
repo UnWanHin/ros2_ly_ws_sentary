@@ -119,8 +119,8 @@ namespace LangYa
         /// @brief 电容状态， 00:不用 01:轻度使用 10:重度使用
         std::uint8_t CapState : 2 = 0;
 
-        /// @brief 钻洞模式和辐瞄模式, 1表示启用，0表示禁用
-        std::uint8_t HoleMode : 1 = 0;
+        /// @brief 跟随模式和辐瞄模式, 1表示启用，0表示禁用
+        std::uint8_t FollowMode : 1 = 0;
         std::uint8_t AimMode : 1 = 0;
 
         /// @brief 小陀螺状态，共四档，0 表示无速，1 表示低速， 2 表示中速， 3 表示高速

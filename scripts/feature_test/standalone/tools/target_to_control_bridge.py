@@ -83,7 +83,7 @@ class TargetToControlBridge(Node):
         msg.field_mask = FireCode.FIELD_ALL
         msg.fire_status = raw & 0x03
         msg.cap_state = (raw >> 2) & 0x03
-        msg.hole_mode = ((raw >> 4) & 0x01) != 0
+        msg.follow_mode = ((raw >> 4) & 0x01) != 0
         msg.aim_mode = ((raw >> 5) & 0x01) != 0
         msg.rotate = (raw >> 6) & 0x03
         msg.raw = raw

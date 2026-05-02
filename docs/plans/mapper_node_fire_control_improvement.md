@@ -57,7 +57,7 @@ void sendFireControlCommand() {
 struct FireCodeType {
     std::uint8_t FireStatus : 2 = 0;  // 开火状态：0b00 <-> 0b11
     std::uint8_t CapState : 2 = 0;    // 电容状态
-    std::uint8_t HoleMode : 1 = 0;    // 钻洞模式
+    std::uint8_t FollowMode : 1 = 0;    // 跟随模式
     std::uint8_t AimMode : 1 = 0;     // 瞄准模式
     std::uint8_t Rotate : 2 = 0;      // 小陀螺状态
     

@@ -433,7 +433,7 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         {"fire_code", {
             {"fire_status", static_cast<int>(RecFireCode.FireStatus)},
             {"cap_state", static_cast<int>(RecFireCode.CapState)},
-            {"hole_mode", static_cast<int>(RecFireCode.HoleMode)},
+            {"follow_mode", static_cast<int>(RecFireCode.FollowMode)},
             {"aim_mode", static_cast<int>(RecFireCode.AimMode)},
             {"rotate", static_cast<int>(RecFireCode.Rotate)},
         }},

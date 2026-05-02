@@ -78,7 +78,7 @@ struct GimbalControlData
 | `/ly/control/angles` | `pitch` | `GimbalAngles.Pitch` | 云台目标 pitch |
 | `/ly/control/vel` | `x_mps/raw_x/use_raw` | `Velocity.X` | 语义速度或原始 int8 |
 | `/ly/control/vel` | `y_mps/raw_y/use_raw` | `Velocity.Y` | 语义速度或原始 int8 |
-| `/ly/control/firecode` | `fire_status/cap_state/hole_mode/aim_mode/rotate/field_mask` | `FireCode` | 分字段组包 |
+| `/ly/control/firecode` | `fire_status/cap_state/follow_mode/aim_mode/rotate/field_mask` | `FireCode` | 分字段组包 |
 | `/ly/control/posture` | `data` | `Posture` | `0=保留, 1=进攻, 2=防御, 3=移动` |
 
 ### 3.1.3 `FireCode` 位定义
@@ -89,7 +89,7 @@ struct GimbalControlData
 |---|---|---|
 | 0~1 | `FireStatus` | 开火位，代码注释约定为翻转触发 |
 | 2~3 | `CapState` | 电容状态 |
-| 4 | `HoleMode` | 钻洞模式 |
+| 4 | `FollowMode` | 跟随模式 |
 | 5 | `AimMode` | 瞄准模式 |
 | 6~7 | `Rotate` | 小陀螺档位 |
 
@@ -169,7 +169,7 @@ struct GimbalData
 | `GimbalAngles.Pitch` | 直接读 `float` | `/ly/gimbal/angles` | `pitch` |
 | `Velocity.X` | 直接读 `int8` | `/ly/gimbal/vel` | `x` |
 | `Velocity.Y` | 直接读 `int8` | `/ly/gimbal/vel` | `y` |
-| `FireCode` | 位字段拆解并保留 `raw` | `/ly/gimbal/firecode` | `fire_status/cap_state/hole_mode/aim_mode/rotate/raw` |
+| `FireCode` | 位字段拆解并保留 `raw` | `/ly/gimbal/firecode` | `fire_status/cap_state/follow_mode/aim_mode/rotate/raw` |
 | `CapV` | 直接读 `uint8` | `/ly/gimbal/capV` | `data` |
 
 ---
