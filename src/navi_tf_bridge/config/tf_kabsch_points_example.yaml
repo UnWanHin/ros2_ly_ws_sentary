@@ -1,0 +1,15 @@
+source_frame: official_map
+target_frame: map
+source_unit: cm
+target_unit: m
+output_unit: m
+points:
+  - name: p1
+    source: [574.0, 1206.0, 0.0]
+    target: [8.8154, -4.2515, 0.0]
+  - name: p2
+    source: [1043.0, 329.0, 0.0]
+    target: [-0.041879, -9.656739, 0.0]
+  - name: p3
+    source: [924.0, 834.0, 0.0]
+    target: [5.72997, -7.84072, 0.0]

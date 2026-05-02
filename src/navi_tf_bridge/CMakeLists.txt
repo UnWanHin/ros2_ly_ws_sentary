@@ -44,6 +44,12 @@ install(PROGRAMS
   RENAME solve_static_tf_from_points
 )
 
+install(PROGRAMS
+  script/fit_static_tf_kabsch.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME fit_static_tf_kabsch
+)
+
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
 )
