@@ -42,14 +42,15 @@ namespace BehaviorTree {
             if (!naviGoalPublishAllowed_) {
                 return;
             }
-            const bool use_tf_goal_bridge =
+            const bool chase_bridge_active =
                 config.NaviSettings.UseXY &&
                 config.NaviSettings.UseTfGoalBridge &&
-                enable_relative_target_topic;
+                enable_relative_target_topic &&
+                naviRelativeTargetValid;
             // 导航目标按模式二选一：
-            // UseXY=true 且不走 bridge 时直发 /ly/navi/goal_pos；否则走 /ly/navi/goal。
-            // 追击+relative_topic+tf bridge 场景下，由 bridge 输出 /goal_pose。
-            if(config.NaviSettings.UseXY && !use_tf_goal_bridge) PubNaviGoalPos();
+            // - UseXY=true 时固定点位发布坐标；UseTfGoalBridge=true 则走 /ly/navi/goal_pos_raw -> /goal_pose。
+            // - 有有效追击目标时，/ly/navi/target_rel 交给 bridge 输出 /goal_pose，避免固定点位覆盖追击。
+            if(config.NaviSettings.UseXY && !chase_bridge_active) PubNaviGoalPos();
             else PubNaviGoal();
         }
     }
