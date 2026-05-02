@@ -8,8 +8,10 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT_NAME="$(basename "$0")"
 
-# 坐标写这里：单位 cm。默认通过 navi_tf_bridge/config/tf_config.yaml 的 4x4
-# 把官方坐标转成 map，不需要 TF 里存在 official_map。
+# 坐标写这里：单位 cm。
+# X/Y 是官方二维地图坐标，会按 navi_tf_bridge/config/tf_config.yaml 的 4x4
+# 走和 /ly/navi/goal_pos_raw -> /goal_pose 一样的平面转换到 map。
+# Z 直接当 map 系瞄准高度，不参与官方二维地图转换。
 TARGET_X_CM="${TARGET_X_CM:-1093}"
 TARGET_Y_CM="${TARGET_Y_CM:-366}"
 TARGET_Z_CM="${TARGET_Z_CM:-100}"

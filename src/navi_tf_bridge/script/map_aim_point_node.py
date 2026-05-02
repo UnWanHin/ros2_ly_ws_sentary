@@ -147,11 +147,13 @@ class MapAimPointNode(Node):
             )
             return
 
-        x, y, z = self.target_x_m, self.target_y_m, self.target_z_m
+        x, y = self.target_x_m, self.target_y_m
+        # Match target_rel_to_goal_pos_node raw-goal bridge for map x/y.
+        # Keep the configured target z as aim height, not as part of the 2D map calibration.
         self.active_target_point = (
-            m[0] * x + m[1] * y + m[2] * z + m[3] * unit_scale,
-            m[4] * x + m[5] * y + m[6] * z + m[7] * unit_scale,
-            m[8] * x + m[9] * y + m[10] * z + m[11] * unit_scale,
+            m[0] * x + m[1] * y + m[3] * unit_scale,
+            m[4] * x + m[5] * y + m[7] * unit_scale,
+            self.target_z_m,
         )
         self.active_target_frame = str(params.get("raw_goal_target_frame", "map"))
         self.static_calibration_ready = True
