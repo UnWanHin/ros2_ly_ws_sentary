@@ -27,6 +27,7 @@
 #include <string>
 #include <string_view>
 #include <atomic>
+#include <optional>
 #include <thread>
 #include <mutex>
 #include <utility>
@@ -236,6 +237,16 @@ private:
     std::uint8_t lastNaviComnamdGoal{0}; // 上一次导航目标
     VelocityType naviVelocityInput{0, 0}; /// 外部导航输入速度（/ly/navi/vel）
     VelocityType naviVelocity{0, 0}; /// 定义回调，接收导航的速度控制数据
+    bool naviReach{false}; // /ly/navi/reached: 当前导航目标是否已到达
+    bool naviReachable{true}; // /ly/navi/reachable: 当前导航目标是否有有效路径
+    bool hasReceivedNaviReach_{false};
+    bool hasReceivedNaviReachable_{false};
+    bool naviExternalStatusGoalInitialized_{false};
+    std::chrono::steady_clock::time_point lastNaviReachRxTime_{};
+    std::chrono::steady_clock::time_point lastNaviReachableRxTime_{};
+    std::chrono::steady_clock::time_point naviExternalStatusGoalStartTime_{};
+    std::uint8_t naviExternalStatusGoalId_{0};
+    Area::Point<std::uint16_t> naviExternalStatusGoalPosition_{};
     bool naviRelativeTargetValid{false};
     float naviRelativeTargetX{0.0F};
     float naviRelativeTargetY{0.0F};
@@ -324,6 +335,7 @@ private:
     static constexpr int kRuntimeRecoveryLimit = 3;
     static constexpr int kRuntimeRecoveryMinIntervalMs = 1500;
     static constexpr int kRuntimeSafePublishMinIntervalMs = 200;
+    static constexpr int kNaviExternalStatusTimeoutMs = 2000;
 
     BT::Blackboard::Ptr GlobalBlackboard_ = BT::Blackboard::create(); // 跨 tick 持久黑板
     BT::Blackboard::Ptr TickBlackboard_ = BT::Blackboard::create();   // 每次 tick 中间黑板
@@ -490,7 +502,23 @@ public:
     bool IsHighlandCompatEnabled() const noexcept;
     bool IsHighlandCompatTarget(std::uint8_t base_goal_id, UnitTeam goal_team) const;
     bool IsSelfInMainArea(UnitTeam area_team, Area::MainAreaKind kind) const;
-    bool IsBaseGoalArrived(std::uint8_t base_goal_id, UnitTeam goal_team) const;
+    bool IsNaviExternalStatusFreshForGoal(
+        std::chrono::steady_clock::time_point last_rx,
+        std::uint8_t goal_id,
+        Area::Point<std::uint16_t> goal_position) const;
+    std::optional<bool> GetExternalNaviReachForGoal(
+        std::uint8_t goal_id,
+        Area::Point<std::uint16_t> goal_position) const;
+    std::optional<bool> GetExternalNaviReachableForGoal(
+        std::uint8_t goal_id,
+        Area::Point<std::uint16_t> goal_position) const;
+    void UpdateNaviExternalStatusGoal(
+        std::uint8_t goal_id,
+        Area::Point<std::uint16_t> goal_position);
+    bool IsBaseGoalArrived(
+        std::uint8_t base_goal_id,
+        UnitTeam goal_team,
+        bool apply_team_offset = true) const;
     bool IsHighlandCompatArrived(UnitTeam goal_team) const;
     bool TickNaviAreaTransition();
     bool TryStartNaviAreaTransition(

@@ -1187,9 +1187,9 @@ namespace BehaviorTree {
         clamp_non_negative(autonomy.NaviGoal.LowOutpostOwnSideBonus, "DecisionAutonomy.NaviGoal.LowOutpostOwnSideBonus");
         clamp_non_negative(autonomy.NaviGoal.GoalBiasWeight, "DecisionAutonomy.NaviGoal.GoalBiasWeight");
         if (autonomy.NaviGoal.HighlandCompatArriveDistanceCm <= 0) {
-            LoggerPtr->Warning("Invalid DecisionAutonomy.NaviGoal.HighlandCompat.ArriveDistanceCm={}, fallback to 120.",
+            LoggerPtr->Warning("Invalid DecisionAutonomy.NaviGoal.HighlandCompat.ArriveDistanceCm={}, fallback to 20.",
                                autonomy.NaviGoal.HighlandCompatArriveDistanceCm);
-            autonomy.NaviGoal.HighlandCompatArriveDistanceCm = 120;
+            autonomy.NaviGoal.HighlandCompatArriveDistanceCm = 20;
         }
         if (autonomy.NaviGoal.HighlandCompatTimeoutSec <= 0) {
             LoggerPtr->Warning("Invalid DecisionAutonomy.NaviGoal.HighlandCompat.TimeoutSec={}, fallback to 6.",

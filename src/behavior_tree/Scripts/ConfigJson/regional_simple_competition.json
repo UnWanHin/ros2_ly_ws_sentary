@@ -87,7 +87,7 @@
             "HighlandCompat": {
                 "Enable": true,
                 "DisableRotate": true,
-                "ArriveDistanceCm": 120,
+                "ArriveDistanceCm": 20,
                 "TimeoutSec": 6
             }
         }

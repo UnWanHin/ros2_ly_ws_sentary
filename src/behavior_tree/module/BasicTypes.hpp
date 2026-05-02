@@ -540,7 +540,7 @@ namespace LangYa
         std::vector<std::string> EnemyArea{};
         bool HighlandCompatEnable{false};
         bool HighlandCompatDisableRotate{false};
-        int HighlandCompatArriveDistanceCm{120};
+        int HighlandCompatArriveDistanceCm{20};
         int HighlandCompatTimeoutSec{6};
         double DistanceWeight{1.0};
         double EnemyTeamBonus{0.25};

@@ -160,6 +160,7 @@ namespace BehaviorTree {
             msg.data = naviCommandGoal;
             // 语义：导航目标点 ID（不是坐标）
             pub_navi_goal_->publish(msg);
+            UpdateNaviExternalStatusGoal(naviCommandGoal, naviGoalPosition);
         }
         {
             std_msgs::msg::UInt8 msg;
@@ -178,8 +179,10 @@ namespace BehaviorTree {
         if (config.NaviSettings.UseTfGoalBridge && pub_navi_goal_pos_raw_) {
             // 统一由 navi_tf_bridge 输出 /goal_pose，BT 仅发布 raw 点位输入。
             pub_navi_goal_pos_raw_->publish(msg);
+            UpdateNaviExternalStatusGoal(naviCommandGoal, naviGoalPosition);
             return;
         }
         pub_navi_goal_pos_->publish(msg);
+        UpdateNaviExternalStatusGoal(naviCommandGoal, naviGoalPosition);
     }
 }

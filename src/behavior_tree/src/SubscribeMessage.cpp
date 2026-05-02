@@ -175,6 +175,20 @@ namespace BehaviorTree{
             app.naviLowerHead = msg->data;
         });
 
+        // ly_navi_reached
+        GenSub<ly_navi_reached>([](Application& app, auto msg) {
+            app.naviReach = msg->data;
+            app.hasReceivedNaviReach_ = true;
+            app.lastNaviReachRxTime_ = std::chrono::steady_clock::now();
+        });
+
+        // ly_navi_reachable
+        GenSub<ly_navi_reachable>([](Application& app, auto msg) {
+            app.naviReachable = msg->data;
+            app.hasReceivedNaviReachable_ = true;
+            app.lastNaviReachableRxTime_ = std::chrono::steady_clock::now();
+        });
+
         // ly_team_buff
         GenSub<ly_team_buff>([](Application& app, auto msg) {
             app.teamBuff.RecoveryBuff = msg->recoverybuff;

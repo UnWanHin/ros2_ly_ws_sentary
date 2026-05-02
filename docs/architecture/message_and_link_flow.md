@@ -217,6 +217,8 @@ if(control_result.valid){
 - `/ly/predictor/target` - 預測目標 (自瞄模式)
 - `/ly/outpost/target` - 前哨目標 (前哨模式)
 - `/ly/buff/target` - 能量機關目標 (buff 模式)
+- `/ly/navi/reached` - 導航當前目標是否已到達，`true` 表示到達
+- `/ly/navi/reachable` - 導航當前目標是否可達，`false` 表示無有效路徑
 
 **behavior_tree 發布**:
 - `/ly/control/angles`
