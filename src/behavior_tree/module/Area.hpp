@@ -31,6 +31,13 @@ namespace Area {
     };
 
     template<Arithmetic T>
+    struct Point3 {
+        T x;
+        T y;
+        T z;
+    };
+
+    template<Arithmetic T>
     class Location {
     public:
         Location() = default;
@@ -53,6 +60,22 @@ namespace Area {
     private:
         Point<T> pointRed_;
         Point<T> pointBlue_;
+    };
+
+    template<Arithmetic T>
+    class Location3 {
+    public:
+        Location3() = default;
+        explicit Location3(const Point3<T>& pointRed, const Point3<T>& pointBlue)
+            : pointRed_(pointRed), pointBlue_(pointBlue) {}
+
+        Point3<T> operator()(const UnitTeam team) const {
+            return team == UnitTeam::Red ? pointRed_ : pointBlue_;
+        }
+
+    private:
+        Point3<T> pointRed_;
+        Point3<T> pointBlue_;
     };
 
     template<Arithmetic T>
@@ -412,6 +435,10 @@ namespace Area {
     // 这里保留一个兼容坐标，占位到中场附近，避免旧链路在 UseXY=true 时无定义。
     static const Location<std::uint16_t> OccupyArea{ {1075, 898}, {1702, 609} };
     static const Location<std::uint16_t> Highland{ {744, 1263}, {2056, 237} };
+
+    // 地图静态瞄准点，单位为 cm；z 是目标中心相对地图平面的高度。
+    static const Location3<double> OutpostAimTarget{ {1093.0, 366.0, 100.0}, {1707.0, 1134.0, 100.0} };
+    static const Location3<double> BuffAimTarget{ {1400.0, 750.0, 100.0}, {1400.0, 750.0, 100.0} };
 
 
 

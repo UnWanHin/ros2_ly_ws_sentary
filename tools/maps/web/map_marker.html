@@ -89,7 +89,7 @@
       </div>
       <div class="small">C++ 匯入支援 <span class="mono">Location&lt;...&gt; Name{{red},{blue}}</span> 點位，以及 <span class="mono">std::vector&lt;Point&lt;...&gt;&gt; NameRedPoints = {{...}}</span> 區塊線。</div>
       <div class="small">自定義點：輸入 X/Y 會即時預覽；X 或 Y 完成編輯(change)後會新增一個點，舊點不清除。地圖區右鍵也可直接新增自定義點。</div>
-      <div class="small" id="pointStats">已標記 0/38，完整點位 0/19</div>
+      <div class="small" id="pointStats">已標記 0/40，完整點位 0/20</div>
       <div class="small" id="regionStats">區塊 0</div>
       <div class="small" id="customStats">自定義點 0</div>
       <div class="small" id="statusText">狀態：待操作</div>
@@ -153,17 +153,19 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
   </div>
 
   <script>
-    const DEFAULT_POINTS = [
+    const FALLBACK_POINTS = [
       [0, "Home"], [1, "Base"], [2, "Recovery"], [3, "BuffShoot"], [4, "LeftHighLand"],
       [5, "CastleLeft"], [6, "Castle"], [7, "CastleRight1"], [8, "CastleRight2"], [9, "FlyRoad"],
       [10, "OutpostArea"], [11, "MidShoot"], [12, "LeftShoot"], [13, "OutpostShoot"], [14, "BuffAround1"],
-      [15, "BuffAround2"], [16, "RightShoot"], [17, "HoleRoad"], [18, "OccupyArea"]
+      [15, "BuffAround2"], [16, "RightShoot"], [17, "HoleRoad"], [18, "OccupyArea"], [19, "Highland"]
     ];
     const DEFAULT_IMAGE_URI = "../basemaps/RMUC2026_V1.2.0_topview_cad_field.png";
     const DEFAULT_AREA_URI = "../../../src/behavior_tree/module/Area.hpp";
+    const DEFAULT_BASIC_TYPES_URI = "../../../src/behavior_tree/module/BasicTypes.hpp";
 
     const state = {
-      points: DEFAULT_POINTS.map(([id, name]) => ({ id, name, red: null, blue: null })),
+      points: FALLBACK_POINTS.map(([id, name]) => ({ id, name, red: null, blue: null })),
+      pointIdsByName: new Map(FALLBACK_POINTS.map(([id, name]) => [name, id])),
       history: [],
       regions: [],
       customPoints: [],
@@ -217,14 +219,30 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
       return `${point.id} - ${point.name}`;
     }
 
-    function fillPointSelect() {
+    function sortPoints() {
+      state.points.sort((a, b) => (a.id - b.id) || a.name.localeCompare(b.name));
+    }
+
+    function fillPointSelect(preferredId = Number(pointSelect.value)) {
       pointSelect.innerHTML = "";
+      sortPoints();
       for (const point of state.points) {
         const opt = document.createElement("option");
         opt.value = String(point.id);
         opt.textContent = pointOptionLabel(point);
+        if (Number.isFinite(preferredId) && point.id === preferredId) {
+          opt.selected = true;
+        }
         pointSelect.appendChild(opt);
       }
+      if (pointSelect.selectedIndex < 0 && pointSelect.options.length > 0) {
+        pointSelect.selectedIndex = 0;
+      }
+    }
+
+    function refreshPointCatalogUi(preferredId = Number(pointSelect.value)) {
+      fillPointSelect(preferredId);
+      renderTable();
     }
 
     function mapSize() {
@@ -377,23 +395,97 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
       return result;
     }
 
-    function importCppLocations(text) {
-      let imported = 0;
-      const locationRegex = /(?:static\s+const\s+)?(?:auto|Location\s*<[^>]+>)\s+(\w+)\s*\{\s*\{\s*(\d+)\s*,\s*(\d+)\s*\}\s*,\s*\{\s*(\d+)\s*,\s*(\d+)\s*\}\s*\}\s*;?/g;
+    function parseTeamedLocationIds(text) {
+      const result = new Map();
+      const idRegex = /static\s+constexpr\s+TeamedLocation\s+([A-Za-z_]\w*)\s*\{\s*(\d+)\s*\}\s*;/g;
+      let match;
+      while ((match = idRegex.exec(text)) !== null) {
+        result.set(match[1], Number(match[2]));
+      }
+      return result;
+    }
+
+    function parseCppLocationEntries(text) {
+      const result = [];
+      const locationRegex = /(?:static\s+const\s+)?(?:auto|Location\s*<[^>]+>)\s+([A-Za-z_]\w*)\s*\{\s*\{\s*(-?\d+)\s*,\s*(-?\d+)\s*\}\s*,\s*\{\s*(-?\d+)\s*,\s*(-?\d+)\s*\}\s*\}\s*;?/g;
       let match;
       while ((match = locationRegex.exec(text)) !== null) {
-        const name = match[1];
-        const point = state.points.find(item => item.name === name);
-        if (!point) continue;
-        const red = [Number(match[2]), Number(match[3])];
-        const blue = [Number(match[4]), Number(match[5])];
+        result.push({
+          name: match[1],
+          red: [Number(match[2]), Number(match[3])],
+          blue: [Number(match[4]), Number(match[5])]
+        });
+      }
+      return result;
+    }
+
+    function findPointByName(name) {
+      return state.points.find(item => item.name === name);
+    }
+
+    function nextAvailablePointId() {
+      const usedIds = new Set(state.points.map(item => item.id));
+      let id = state.points.reduce((maxId, item) => Math.max(maxId, item.id), -1) + 1;
+      while (usedIds.has(id)) id += 1;
+      return id;
+    }
+
+    function ensurePoint(id, name) {
+      const cleanName = (String(name || "").trim() || `Point${Number.isFinite(id) ? id : nextAvailablePointId()}`);
+      let point = Number.isFinite(id) ? findPointById(id) : null;
+      if (!point) {
+        point = findPointByName(cleanName);
+      }
+      if (point) {
+        if (Number.isFinite(id) && point.id !== id && !findPointById(id)) {
+          point.id = id;
+        }
+        point.name = cleanName;
+        state.pointIdsByName.set(cleanName, point.id);
+        return { point, created: false };
+      }
+
+      const idValue = Number.isFinite(id) ? id : nextAvailablePointId();
+      point = { id: idValue, name: cleanName, red: null, blue: null };
+      state.points.push(point);
+      state.pointIdsByName.set(cleanName, idValue);
+      return { point, created: true };
+    }
+
+    function syncPointIdsFromBasicTypes(text) {
+      const idsByName = parseTeamedLocationIds(text);
+      let added = 0;
+      for (const [name, id] of idsByName.entries()) {
+        state.pointIdsByName.set(name, id);
+        if (ensurePoint(id, name).created) added += 1;
+      }
+      if (idsByName.size > 0) {
+        refreshPointCatalogUi();
+      }
+      return { discovered: idsByName.size, added };
+    }
+
+    function importCppLocations(text, options = {}) {
+      const importCoordinates = options.importCoordinates !== false;
+      const fillNewPoints = options.fillNewPoints !== false;
+      let imported = 0;
+      let added = 0;
+      for (const entry of parseCppLocationEntries(text)) {
+        const knownId = state.pointIdsByName.has(entry.name) ? state.pointIdsByName.get(entry.name) : NaN;
+        const result = ensurePoint(knownId, entry.name);
+        const point = result.point;
+        if (result.created) added += 1;
+        if (!importCoordinates && !(result.created && fillNewPoints)) {
+          continue;
+        }
         state.history.push({ kind: "preset", id: point.id, team: "red", prev: point.red ? [...point.red] : null });
         state.history.push({ kind: "preset", id: point.id, team: "blue", prev: point.blue ? [...point.blue] : null });
-        point.red = red;
-        point.blue = blue;
+        point.red = entry.red;
+        point.blue = entry.blue;
         imported += 1;
       }
-      return imported;
+      refreshPointCatalogUi();
+      return { imported, added };
     }
 
     function importCppRegions(text) {
@@ -420,11 +512,11 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
         setStatus("C++ 文字框是空的");
         return;
       }
-      const locationCount = importCppLocations(text);
+      const locationResult = importCppLocations(text, { importCoordinates: true });
       state.regions = [];
       const regionCount = importCppRegions(text);
       drawAll();
-      setStatus(`C++ 匯入完成：點位 ${locationCount}，區塊 ${regionCount}`);
+      setStatus(`C++ 匯入完成：點位 ${locationResult.imported}，新增留位 ${locationResult.added}，區塊 ${regionCount}`);
     }
 
     function clearCppRegions() {
@@ -441,6 +533,12 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
 
     async function loadDefaultArea() {
       try {
+        try {
+          const idText = await loadTextFromUri(DEFAULT_BASIC_TYPES_URI);
+          syncPointIdsFromBasicTypes(idText);
+        } catch (error) {
+          // Area.hpp alone can still add slots; BasicTypes.hpp only supplies stable IDs.
+        }
         const text = await loadTextFromUri(DEFAULT_AREA_URI);
         cppText.value = text;
         importCppText();
@@ -449,6 +547,34 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
       } catch (error) {
         setStatus("預設 Area.hpp 載入失敗；若瀏覽器限制 file://，請用檔案選擇載入");
         return false;
+      }
+    }
+
+    async function syncDefaultCatalogForMissingPoints() {
+      let added = 0;
+      try {
+        const idText = await loadTextFromUri(DEFAULT_BASIC_TYPES_URI);
+        added += syncPointIdsFromBasicTypes(idText).added;
+      } catch (error) {
+        // Keep old JSON usable when file:// blocks fetch; manual Area.hpp import still works.
+      }
+      try {
+        const areaText = await loadTextFromUri(DEFAULT_AREA_URI);
+        const locationResult = importCppLocations(areaText, {
+          importCoordinates: false,
+          fillNewPoints: true
+        });
+        added += locationResult.added;
+        if (state.regions.length === 0) {
+          state.regions = [];
+          importCppRegions(areaText);
+        }
+        drawAll();
+      } catch (error) {
+        // Optional sync only; do not block JSON loading.
+      }
+      if (added > 0) {
+        setStatus(`已從 Area.hpp/BasicTypes.hpp 自動新增點位留位 ${added}`);
       }
     }
 
@@ -784,6 +910,16 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
         if (payload.map_size_cm.width) mapWidth.value = String(payload.map_size_cm.width);
         if (payload.map_size_cm.height) mapHeight.value = String(payload.map_size_cm.height);
       }
+      if (Array.isArray(payload.points)) {
+        for (const item of payload.points) {
+          const id = Number(item.id);
+          if (!Number.isFinite(id)) continue;
+          const existing = findPointById(id);
+          const name = String(item.name || existing?.name || `Point${id}`);
+          ensurePoint(id, name);
+        }
+        refreshPointCatalogUi();
+      }
       for (const point of state.points) {
         point.red = null;
         point.blue = null;
@@ -830,6 +966,7 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
         const payload = JSON.parse(text);
         importFromPayload(payload);
         setStatus("已從 URL 自動載入點位(JSON)");
+        syncDefaultCatalogForMissingPoints();
         return true;
       } catch (error) {
         setStatus("URL 內嵌 JSON 載入失敗");
@@ -848,6 +985,7 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
         const payload = JSON.parse(text);
         importFromPayload(payload);
         setStatus("已從 URL 檔案載入點位(JSON)");
+        syncDefaultCatalogForMissingPoints();
         return true;
       } catch (error) {
         setStatus("URL 檔案載入失敗，請手動選 JSON");
@@ -864,6 +1002,7 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
         return false;
       }
       importFromPayload(payload);
+      syncDefaultCatalogForMissingPoints();
       return true;
     }
 
@@ -1068,6 +1207,7 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
           const payload = JSON.parse(text);
           importFromPayload(payload);
           setStatus(`已從檔案載入 JSON：${file.name}`);
+          syncDefaultCatalogForMissingPoints();
         } catch (error) {
           alert("載入 JSON 檔失敗");
           setStatus("JSON 檔載入失敗");

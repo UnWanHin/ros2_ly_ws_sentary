@@ -160,7 +160,7 @@ def generate_launch_description():
         workspace_root, "src", "behavior_tree", "module", "Area.hpp"
     )
     default_debug_pair_file = os.path.join(
-        workspace_root, "src", "navi_tf_bridge", "config", "tf_point_pairs.yaml"
+        workspace_root, "log", "navi_tf_bridge", "tf_point_pairs.yaml"
     )
     bridge_defaults = _load_bridge_defaults(default_bridge_param_file)
     get_bridge_default = lambda key, fallback: bridge_defaults.get(key, fallback)

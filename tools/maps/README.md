@@ -14,7 +14,7 @@
 - `step2png.py`：一鍵把 STEP 轉俯視 PNG（獨立腳本）
 - `mappointer.py`：一鍵互動入口（選 STEP、選既有/新建 map、打開標點頁）
 - `scripts/step_inspect.py`：讀 STEP 基本資訊（單位、bbox）
-- `scripts/map_plugin_cli.py`：管理點位插件 JSON（初始化/驗證/輸出 Area.hpp 片段）
+- `scripts/map_plugin_cli.py`：管理點位插件 JSON（初始化/驗證/輸出 Area.hpp 片段；點位清單會從 `BasicTypes.hpp`/`Area.hpp` 讀取）
 - `scripts/solve_affine.py`：用對照點解 2D 仿射映射（解決「上位機點位 ≠ 導航實際」）
 - `web/map_marker.html`：標點工具（載入底圖、紅藍點位點選、匯出 JSON）
 
@@ -65,4 +65,4 @@ python3 tools/maps/mappointer.py --image-file tools/maps/basemaps/RMUC2026_V1.2.
 ## 你最常會用的兩個檔
 
 - BT 點位座標定義（紅藍雙座標）：`src/behavior_tree/module/Area.hpp`
-- 點位 ID 定義（0..18）：`src/behavior_tree/module/BasicTypes.hpp`
+- 點位 ID 定義：`src/behavior_tree/module/BasicTypes.hpp`（工具會自動讀取 `TeamedLocation`）
