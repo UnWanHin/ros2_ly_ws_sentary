@@ -28,15 +28,10 @@ namespace BehaviorTree {
     }
 
     namespace {
-    constexpr std::uint8_t kMaxBaseGoalId = LangYa::Highland.ID;
     constexpr std::uint8_t kLeagueRouteCompatViaGoalBaseId = LangYa::LeftHighLand.ID;  // base goal id=4
     constexpr int kLeagueRouteCompatViaHoldSec = 5;
     // 丢 1~2 帧时保留锁角，避免抖动；时间过长会让云台“粘住旧目标”。
     constexpr auto kLostTargetHold = std::chrono::milliseconds(200);
-
-    bool IsValidBaseGoalId(const std::uint8_t goal_id) {
-        return goal_id <= kMaxBaseGoalId;
-    }
 
     std::optional<ArmorType> ArmorTypeFromPriorityId(const int armor_type_id) {
         switch (static_cast<ArmorType>(armor_type_id)) {
@@ -136,136 +131,6 @@ namespace BehaviorTree {
         return std::nullopt;
     }
 
-    std::optional<Area::MainAreaKind> MainAreaKindFromToken(std::string_view token) {
-        const auto normalized = NormalizeDecisionModule(token);
-        if (normalized == "base") {
-            return Area::MainAreaKind::Base;
-        }
-        if (normalized == "highland" || normalized == "high_land" || normalized == "high") {
-            return Area::MainAreaKind::Highland;
-        }
-        if (normalized == "roadland" || normalized == "road_land" || normalized == "road") {
-            return Area::MainAreaKind::Roadland;
-        }
-        if (normalized == "central" || normalized == "center" ||
-            normalized == "centre" || normalized == "middle") {
-            return Area::MainAreaKind::Central;
-        }
-        return std::nullopt;
-    }
-
-    Area::Point<std::uint16_t> GoalPointByBaseId(const std::uint8_t base_goal_id, const UnitTeam goal_team) {
-        switch (base_goal_id) {
-            case LangYa::Home.ID: return BehaviorTree::Area::Home(goal_team);
-            case LangYa::Base.ID: return BehaviorTree::Area::Base(goal_team);
-            case LangYa::Recovery.ID: return BehaviorTree::Area::Recovery(goal_team);
-            case LangYa::BuffShoot.ID: return BehaviorTree::Area::BuffShoot(goal_team);
-            case LangYa::LeftHighLand.ID: return BehaviorTree::Area::LeftHighLand(goal_team);
-            case LangYa::CastleLeft.ID: return BehaviorTree::Area::CastleLeft(goal_team);
-            case LangYa::Castle.ID: return BehaviorTree::Area::Castle(goal_team);
-            case LangYa::CastleRight1.ID: return BehaviorTree::Area::CastleRight1(goal_team);
-            case LangYa::CastleRight2.ID: return BehaviorTree::Area::CastleRight2(goal_team);
-            case LangYa::FlyRoad.ID: return BehaviorTree::Area::FlyRoad(goal_team);
-            case LangYa::OutpostArea.ID: return BehaviorTree::Area::OutpostArea(goal_team);
-            case LangYa::MidShoot.ID: return BehaviorTree::Area::MidShoot(goal_team);
-            case LangYa::LeftShoot.ID: return BehaviorTree::Area::LeftShoot(goal_team);
-            case LangYa::OutpostShoot.ID: return BehaviorTree::Area::OutpostShoot(goal_team);
-            case LangYa::BuffAround1.ID: return BehaviorTree::Area::BuffAround1(goal_team);
-            case LangYa::BuffAround2.ID: return BehaviorTree::Area::BuffAround2(goal_team);
-            case LangYa::RightShoot.ID: return BehaviorTree::Area::RightShoot(goal_team);
-            case LangYa::HoleRoad.ID: return BehaviorTree::Area::HoleRoad(goal_team);
-            case LangYa::OccupyArea.ID: return BehaviorTree::Area::OccupyArea(goal_team);
-            case LangYa::Highland.ID: return BehaviorTree::Area::Highland(goal_team);
-            default: return BehaviorTree::Area::Home(goal_team);
-        }
-    }
-
-    struct ResolvedMainArea {
-        Area::MainAreaKind Kind{Area::MainAreaKind::Base};
-        bool UsedNearestFallback{false};
-    };
-
-    constexpr std::array<Area::MainAreaKind, 4> kAllMainAreas{
-        Area::MainAreaKind::Base,
-        Area::MainAreaKind::Highland,
-        Area::MainAreaKind::Roadland,
-        Area::MainAreaKind::Central
-    };
-
-    double DistanceSq(const int ax, const int ay, const int bx, const int by) {
-        const double dx = static_cast<double>(ax - bx);
-        const double dy = static_cast<double>(ay - by);
-        return dx * dx + dy * dy;
-    }
-
-    bool IsReservedNonCombatGoalId(const std::uint8_t base_goal_id) {
-        return base_goal_id == LangYa::Home.ID ||
-               base_goal_id == LangYa::Base.ID ||
-               base_goal_id == LangYa::Recovery.ID;
-    }
-
-    Area::Point<double> MainAreaCentroid(const UnitTeam team, const Area::MainAreaKind kind) {
-        const auto& boundary = Area::MainAreaBoundary(team, kind);
-        double sum_x = 0.0;
-        double sum_y = 0.0;
-        for (const auto& point : boundary) {
-            sum_x += static_cast<double>(point.x);
-            sum_y += static_cast<double>(point.y);
-        }
-        const double count = boundary.empty() ? 1.0 : static_cast<double>(boundary.size());
-        return Area::Point<double>{sum_x / count, sum_y / count};
-    }
-
-    std::optional<Area::MainAreaKind> ResolvePointMainAreaExact(
-        const UnitTeam area_team,
-        const int x,
-        const int y) {
-        if (area_team != UnitTeam::Red && area_team != UnitTeam::Blue) {
-            return std::nullopt;
-        }
-        for (const auto area_kind : kAllMainAreas) {
-            if (Area::IsPointInsideMainArea(area_team, area_kind, x, y)) {
-                return area_kind;
-            }
-        }
-        return std::nullopt;
-    }
-
-    std::optional<ResolvedMainArea> ResolveGoalMainArea(
-        const std::uint8_t base_goal_id,
-        const UnitTeam goal_team) {
-        if (!IsValidBaseGoalId(base_goal_id)) {
-            return std::nullopt;
-        }
-        if (goal_team != UnitTeam::Red && goal_team != UnitTeam::Blue) {
-            return std::nullopt;
-        }
-
-        const auto goal_point = GoalPointByBaseId(base_goal_id, goal_team);
-        const int goal_x = static_cast<int>(goal_point.x);
-        const int goal_y = static_cast<int>(goal_point.y);
-
-        for (const auto area_kind : kAllMainAreas) {
-            if (Area::IsPointInsideMainArea(goal_team, area_kind, goal_x, goal_y)) {
-                return ResolvedMainArea{.Kind = area_kind, .UsedNearestFallback = false};
-            }
-        }
-
-        Area::MainAreaKind nearest_kind = Area::MainAreaKind::Base;
-        double nearest_dist_sq = std::numeric_limits<double>::infinity();
-        for (const auto area_kind : kAllMainAreas) {
-            const auto centroid = MainAreaCentroid(goal_team, area_kind);
-            const double dx = static_cast<double>(goal_x) - centroid.x;
-            const double dy = static_cast<double>(goal_y) - centroid.y;
-            const double dist_sq = dx * dx + dy * dy;
-            if (dist_sq < nearest_dist_sq) {
-                nearest_dist_sq = dist_sq;
-                nearest_kind = area_kind;
-            }
-        }
-        return ResolvedMainArea{.Kind = nearest_kind, .UsedNearestFallback = true};
-    }
-
     std::vector<NaviGoalOption> BuildBuiltinNaviGoalOptions(
         const StrategyMode strategy_mode,
         const UnitTeam my_team,
@@ -306,11 +171,11 @@ namespace BehaviorTree {
 
         auto should_auto_include = [&](const std::uint8_t goal_id,
                                        const UnitTeam candidate_team) {
-            if (IsReservedNonCombatGoalId(goal_id)) {
+            if (AreaManager::IsReservedNonCombatGoalId(goal_id)) {
                 return false;
             }
 
-            const auto resolved_area = ResolveGoalMainArea(goal_id, candidate_team);
+            const auto resolved_area = AreaManager::ResolveGoalMainArea(goal_id, candidate_team);
             if (!resolved_area.has_value()) {
                 return false;
             }
@@ -335,7 +200,7 @@ namespace BehaviorTree {
             options.push_back(NaviGoalOption{goal_id, team_token, 0.0, true});
         };
 
-        for (std::uint8_t goal_id = 0; goal_id <= kMaxBaseGoalId; ++goal_id) {
+        for (std::uint8_t goal_id = 0; goal_id <= AreaManager::MaxBaseGoalId(); ++goal_id) {
             if (strategy_mode == StrategyMode::Protected) {
                 try_append(goal_id, "my", my_team);
                 continue;
@@ -370,6 +235,19 @@ namespace BehaviorTree {
         const bool has_buff_target = buffAimData.Fresh && buffAimData.Valid && buffAimData.BuffFollow;
         const bool has_outpost_target = outpostAimData.Fresh && outpostAimData.Valid;
         const bool IsFindTarget = has_auto_target || has_buff_target || has_outpost_target;
+        const auto now = std::chrono::steady_clock::now();
+        const auto enemy_team = team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
+        const bool self_position_fresh =
+            hasReceivedSentryPosition_ &&
+            lastSentryPositionRxTime_.time_since_epoch().count() != 0 &&
+            now - lastSentryPositionRxTime_ <= std::chrono::seconds(2);
+        areaManager_.TickSelfArea(
+            now,
+            self_position_fresh,
+            static_cast<int>(friendRobots[UnitType::Sentry].position_.X),
+            static_cast<int>(friendRobots[UnitType::Sentry].position_.Y),
+            team,
+            enemy_team);
 
         if (!GlobalBlackboard_) {
             GlobalBlackboard_ = BT::Blackboard::create();
@@ -405,7 +283,6 @@ namespace BehaviorTree {
         GlobalBlackboard_->set<std::int16_t>("GimbalYawAngleRaw", gimbalYawAngleRaw);
         GlobalBlackboard_->set<float>("GimbalYawAngleDeg", gimbalYawAngleDeg);
 
-        const auto now = std::chrono::steady_clock::now();
         if (now - lastUpdateBlackboardLogTime_ > std::chrono::seconds(2)) {
             LoggerPtr->Debug("Blackboard updated: TimeLeft={}, SelfHealth={}, AmmoLeft={}, EnemyOutpostHealth={}, SelfOutpostHealth={}",
                 timeLeft, SelfHealth, ammoLeft, enemyOutpostHealth, selfOutpostHealth);
@@ -521,7 +398,7 @@ namespace BehaviorTree {
             // StopRotate=true means disable chassis spin output.
             gimbalControlData.FireCode.Rotate = 0;
         }
-        if (naviAreaTransition_.Active &&
+        if (areaManager_.HighlandTransitionActive() &&
             config.DecisionAutonomySettings.NaviGoal.HighlandCompatDisableRotate) {
             gimbalControlData.FireCode.Rotate = 0;
         }
@@ -1569,16 +1446,11 @@ namespace BehaviorTree {
         const std::uint8_t base_goal_id,
         const UnitTeam team,
         const bool apply_team_offset) const noexcept {
-        if (!apply_team_offset) {
-            return base_goal_id;
-        }
-        return team == UnitTeam::Blue
-            ? static_cast<std::uint8_t>(base_goal_id + LangYa::TeamedLocation::LocationCount)
-            : base_goal_id;
+        return AreaManager::ResolveGoalId(base_goal_id, team, apply_team_offset);
     }
 
     bool Application::IsNaviGoalAreaScopeEnabled() const noexcept {
-        return config.DecisionAutonomySettings.NaviGoal.UseAreaScope;
+        return areaManager_.IsGoalAreaScopeEnabled();
     }
 
     bool Application::IsNaviGoalAllowedByAreaScope(
@@ -1586,69 +1458,34 @@ namespace BehaviorTree {
         const UnitTeam goal_team,
         const UnitTeam my_team,
         const UnitTeam enemy_team) const {
-        if (!IsNaviGoalAreaScopeEnabled()) {
+        const auto result = areaManager_.CheckGoalAreaScope(
+            base_goal_id,
+            goal_team,
+            my_team,
+            enemy_team);
+        if (result.Allowed) {
             return true;
         }
-        if (!IsValidBaseGoalId(base_goal_id)) {
-            return false;
-        }
-        if (goal_team != UnitTeam::Red && goal_team != UnitTeam::Blue) {
-            return false;
-        }
-
-        const std::vector<std::string>* allowed_areas = nullptr;
-        if (goal_team == my_team) {
-            allowed_areas = &config.DecisionAutonomySettings.NaviGoal.MyArea;
-        } else if (goal_team == enemy_team) {
-            allowed_areas = &config.DecisionAutonomySettings.NaviGoal.EnemyArea;
-        } else {
-            return false;
-        }
-        if (allowed_areas == nullptr || allowed_areas->empty()) {
-            return false;
-        }
-
-        const auto resolved_area = ResolveGoalMainArea(base_goal_id, goal_team);
-        if (!resolved_area.has_value()) {
-            return false;
-        }
-
-        for (const auto& area_token : *allowed_areas) {
-            const auto area_kind = MainAreaKindFromToken(area_token);
-            if (!area_kind.has_value()) {
-                continue;
-            }
-            if (*area_kind == resolved_area->Kind) {
-                return true;
-            }
-        }
-
-        if (resolved_area->UsedNearestFallback && LoggerPtr) {
+        if (result.ResolvedArea.has_value() &&
+            result.ResolvedArea->UsedNearestFallback &&
+            LoggerPtr) {
             LoggerPtr->Debug(
                 "DecisionAutonomy[navi_goal_area]: goal={} team={} mapped to nearest area='{}'.",
                 static_cast<int>(base_goal_id),
-                goal_team == my_team ? "my" : "enemy",
-                Area::MainAreaKindName(resolved_area->Kind));
+                result.ScopeName,
+                Area::MainAreaKindName(result.ResolvedArea->Kind));
         }
         return false;
     }
 
     bool Application::IsHighlandCompatEnabled() const noexcept {
-        return config.DecisionAutonomySettings.NaviGoal.HighlandCompatEnable;
+        return areaManager_.IsHighlandCompatEnabled();
     }
 
     bool Application::IsHighlandCompatTarget(
         const std::uint8_t base_goal_id,
         const UnitTeam goal_team) const {
-        if (!IsHighlandCompatEnabled() ||
-            base_goal_id == LangYa::Highland.ID ||
-            !IsValidBaseGoalId(base_goal_id)) {
-            return false;
-        }
-        const auto resolved_area = ResolveGoalMainArea(base_goal_id, goal_team);
-        return resolved_area.has_value() &&
-            !resolved_area->UsedNearestFallback &&
-            resolved_area->Kind == Area::MainAreaKind::Highland;
+        return areaManager_.IsHighlandCompatTarget(base_goal_id, goal_team);
     }
 
     bool Application::IsSelfInMainArea(
@@ -1669,7 +1506,7 @@ namespace BehaviorTree {
         if (self_x <= 0 || self_y <= 0) {
             return false;
         }
-        return Area::IsPointInsideMainArea(area_team, kind, self_x, self_y);
+        return AreaManager::IsPositionInMainArea(area_team, kind, self_x, self_y);
     }
 
     bool Application::IsNaviExternalStatusFreshForGoal(
@@ -1730,11 +1567,11 @@ namespace BehaviorTree {
         const std::uint8_t base_goal_id,
         const UnitTeam goal_team,
         const bool apply_team_offset) const {
-        if (!IsValidBaseGoalId(base_goal_id)) {
+        if (!AreaManager::IsValidBaseGoalId(base_goal_id)) {
             return false;
         }
         const auto goal_id = ResolveGoalId(base_goal_id, goal_team, apply_team_offset);
-        const auto goal_point = GoalPointByBaseId(base_goal_id, goal_team);
+        const auto goal_point = AreaManager::GoalPointByBaseId(base_goal_id, goal_team);
         const auto external_reachable = GetExternalNaviReachableForGoal(goal_id, goal_point);
         if (external_reachable.has_value() && !*external_reachable) {
             return false;
@@ -1757,7 +1594,7 @@ namespace BehaviorTree {
         }
         const auto arrive_distance = static_cast<std::uint16_t>(
             std::max(1, config.DecisionAutonomySettings.NaviGoal.HighlandCompatArriveDistanceCm));
-        return DistanceSq(
+        return AreaManager::DistanceSq(
             self_x,
             self_y,
             static_cast<int>(goal_point.x),
@@ -1770,72 +1607,63 @@ namespace BehaviorTree {
     }
 
     bool Application::TickNaviAreaTransition() {
-        if (!IsHighlandCompatEnabled() || !naviAreaTransition_.Active) {
+        if (!areaManager_.HighlandTransitionActive()) {
             return false;
         }
 
         const auto now = std::chrono::steady_clock::now();
-        const auto timeout = std::chrono::seconds(
-            std::max(1, config.DecisionAutonomySettings.NaviGoal.HighlandCompatTimeoutSec));
-        const auto via_base_goal = IsValidBaseGoalId(naviAreaTransition_.ViaBaseGoal)
-            ? naviAreaTransition_.ViaBaseGoal
+        const auto& runtime = areaManager_.TransitionRuntime();
+        const auto via_base_goal = AreaManager::IsValidBaseGoalId(runtime.ViaBaseGoal)
+            ? runtime.ViaBaseGoal
             : LangYa::Highland.ID;
         const auto via_goal_id = ResolveGoalId(
             via_base_goal,
-            naviAreaTransition_.GoalTeam,
-            naviAreaTransition_.ApplyTeamOffset);
-        const auto via_goal_position = GoalPointByBaseId(via_base_goal, naviAreaTransition_.GoalTeam);
+            runtime.GoalTeam,
+            runtime.ApplyTeamOffset);
+        const auto via_goal_position = AreaManager::GoalPointByBaseId(via_base_goal, runtime.GoalTeam);
         const auto external_reachable =
             GetExternalNaviReachableForGoal(via_goal_id, via_goal_position);
         const bool route_unreachable = external_reachable.has_value() && !*external_reachable;
-        gimbalControlData.FireCode.FollowMode = 1;
         const bool arrived = !route_unreachable &&
             IsBaseGoalArrived(
                 via_base_goal,
-                naviAreaTransition_.GoalTeam,
-                naviAreaTransition_.ApplyTeamOffset);
-        const bool timed_out =
-            naviAreaTransition_.StartTime.time_since_epoch().count() != 0 &&
-            now - naviAreaTransition_.StartTime >= timeout;
+                runtime.GoalTeam,
+                runtime.ApplyTeamOffset);
+        const auto tick = areaManager_.TickHighlandTransition(now, route_unreachable, arrived);
+        gimbalControlData.FireCode.FollowMode = tick.FollowMode ? 1 : 0;
 
-        if (!arrived && !timed_out && !route_unreachable) {
+        if (tick.Action == NaviAreaTransitionTickAction::ContinueVia) {
             SetPositionByBaseGoal(
-                via_base_goal,
-                naviAreaTransition_.GoalTeam,
-                naviAreaTransition_.ApplyTeamOffset);
+                tick.ViaBaseGoal,
+                tick.GoalTeam,
+                tick.ApplyTeamOffset);
             return true;
         }
 
-        const auto pending_base_goal = naviAreaTransition_.PendingBaseGoal;
-        const auto pending_goal_team = naviAreaTransition_.GoalTeam;
-        const bool pending_apply_team_offset = naviAreaTransition_.ApplyTeamOffset;
-        const bool has_pending_goal = naviAreaTransition_.HasPendingGoal;
-        const auto transition_kind = naviAreaTransition_.Kind;
-
-        naviAreaTransition_.Clear();
-        gimbalControlData.FireCode.FollowMode = 0;
-
-        if (!has_pending_goal) {
+        if (tick.Action == NaviAreaTransitionTickAction::FinishNoPending) {
             if (LoggerPtr) {
                 LoggerPtr->Info(
                     "Area transition {} {}: via goal={} done, follow_mode off.",
-                    NaviAreaTransitionKindToString(transition_kind),
-                    route_unreachable ? "unreachable" : (arrived ? "arrived" : "timeout"),
-                    static_cast<int>(via_base_goal));
+                    NaviAreaTransitionKindToString(tick.Kind),
+                    tick.CompletionReason,
+                    static_cast<int>(tick.ViaBaseGoal));
             }
             return false;
         }
 
-        SetPositionByBaseGoal(pending_base_goal, pending_goal_team, pending_apply_team_offset);
-        if (LoggerPtr) {
-            LoggerPtr->Info(
-                "Area transition {} {}: via goal={} done, continue goal={}, follow_mode off.",
-                NaviAreaTransitionKindToString(transition_kind),
-                route_unreachable ? "unreachable" : (arrived ? "arrived" : "timeout"),
-                static_cast<int>(via_base_goal),
-                static_cast<int>(naviCommandGoal));
+        if (tick.Action == NaviAreaTransitionTickAction::FinishWithPending) {
+            SetPositionByBaseGoal(tick.PendingBaseGoal, tick.GoalTeam, tick.ApplyTeamOffset);
+            if (LoggerPtr) {
+                LoggerPtr->Info(
+                    "Area transition {} {}: via goal={} done, continue goal={}, follow_mode off.",
+                    NaviAreaTransitionKindToString(tick.Kind),
+                    tick.CompletionReason,
+                    static_cast<int>(tick.ViaBaseGoal),
+                    static_cast<int>(naviCommandGoal));
+            }
+            return true;
         }
-        return true;
+        return false;
     }
 
     bool Application::TryStartNaviAreaTransition(
@@ -1844,83 +1672,48 @@ namespace BehaviorTree {
         const UnitTeam my_team,
         const bool apply_team_offset,
         const char* reason) {
-        if (naviAreaTransition_.Active ||
-            !IsHighlandCompatEnabled() ||
-            !IsValidBaseGoalId(base_goal_id) ||
+        if (areaManager_.HighlandTransitionActive() ||
+            !areaManager_.IsHighlandCompatEnabled() ||
+            !AreaManager::IsValidBaseGoalId(base_goal_id) ||
             goal_team == UnitTeam::Unknown ||
             my_team == UnitTeam::Unknown) {
             return false;
         }
-
-        std::uint8_t via_base_goal = LangYa::Highland.ID;
-        bool has_pending_goal = true;
-        std::uint8_t pending_base_goal = base_goal_id;
-        NaviAreaTransitionKind transition_kind = NaviAreaTransitionKind::ViaHighland;
-
-        const bool target_is_my_highland =
-            goal_team == my_team &&
-            base_goal_id == LangYa::Highland.ID &&
-            !IsHighlandCompatArrived(goal_team);
-
-        if (target_is_my_highland) {
-            has_pending_goal = false;
-            pending_base_goal = LangYa::Home.ID;
-            transition_kind = NaviAreaTransitionKind::EnterMyHighland;
-        } else if (IsHighlandCompatTarget(base_goal_id, goal_team) &&
-                   naviCommandGoal != ResolveGoalId(base_goal_id, goal_team, apply_team_offset) &&
-                   !IsHighlandCompatArrived(goal_team)) {
-            via_base_goal = LangYa::Highland.ID;
-            has_pending_goal = true;
-            pending_base_goal = base_goal_id;
-            transition_kind = NaviAreaTransitionKind::ViaHighland;
-        } else if (goal_team == my_team &&
-                   base_goal_id != LangYa::Highland.ID &&
-                   IsSelfInMainArea(my_team, Area::MainAreaKind::Highland)) {
-            const auto resolved_target_area = ResolveGoalMainArea(base_goal_id, goal_team);
-            const bool target_is_base_area =
-                resolved_target_area.has_value() &&
-                !resolved_target_area->UsedNearestFallback &&
-                resolved_target_area->Kind == Area::MainAreaKind::Base;
-            via_base_goal = target_is_base_area ? LangYa::CastleLeft.ID : base_goal_id;
-            has_pending_goal = via_base_goal != base_goal_id;
-            pending_base_goal = has_pending_goal ? base_goal_id : LangYa::Home.ID;
-            transition_kind = target_is_base_area
-                ? NaviAreaTransitionKind::LeaveMyHighlandViaCastleLeft
-                : NaviAreaTransitionKind::LeaveMyHighland;
-            if (IsBaseGoalArrived(via_base_goal, goal_team, apply_team_offset)) {
-                return false;
-            }
-        } else {
+        const auto plan = areaManager_.PlanHighlandTransition(
+            base_goal_id,
+            goal_team,
+            my_team,
+            apply_team_offset,
+            naviCommandGoal,
+            IsHighlandCompatArrived(goal_team),
+            IsSelfInMainArea(my_team, Area::MainAreaKind::Highland));
+        if (!plan.has_value()) {
+            return false;
+        }
+        if (plan->CheckViaAlreadyArrived &&
+            IsBaseGoalArrived(plan->ViaBaseGoal, plan->GoalTeam, plan->ApplyTeamOffset)) {
             return false;
         }
 
-        naviAreaTransition_.Active = true;
-        naviAreaTransition_.Kind = transition_kind;
-        naviAreaTransition_.HasPendingGoal = has_pending_goal;
-        naviAreaTransition_.ViaBaseGoal = via_base_goal;
-        naviAreaTransition_.PendingBaseGoal = pending_base_goal;
-        naviAreaTransition_.GoalTeam = goal_team;
-        naviAreaTransition_.ApplyTeamOffset = apply_team_offset;
-        naviAreaTransition_.StartTime = std::chrono::steady_clock::now();
+        areaManager_.StartHighlandTransition(*plan, std::chrono::steady_clock::now());
         gimbalControlData.FireCode.FollowMode = 1;
 
-        SetPositionByBaseGoal(via_base_goal, goal_team, apply_team_offset);
+        SetPositionByBaseGoal(plan->ViaBaseGoal, plan->GoalTeam, plan->ApplyTeamOffset);
         if (LoggerPtr) {
             LoggerPtr->Info(
                 "Area transition {} {}: via goal={} then goal={} follow_mode on.",
-                NaviAreaTransitionKindToString(transition_kind),
+                NaviAreaTransitionKindToString(plan->Kind),
                 reason ? reason : "start",
                 static_cast<int>(naviCommandGoal),
-                has_pending_goal
-                    ? static_cast<int>(ResolveGoalId(pending_base_goal, goal_team, apply_team_offset))
+                plan->HasPendingGoal
+                    ? static_cast<int>(ResolveGoalId(plan->PendingBaseGoal, plan->GoalTeam, plan->ApplyTeamOffset))
                     : -1);
         }
         return true;
     }
 
     bool Application::IsRegionalDefenseAimSuppressActive() const noexcept {
-        return regionalDefenseSuppressSpecialAimUntil_.time_since_epoch().count() != 0 &&
-            std::chrono::steady_clock::now() < regionalDefenseSuppressSpecialAimUntil_;
+        return areaManager_.IsRegionalDefenseAimSuppressActive(std::chrono::steady_clock::now());
     }
 
     bool Application::IsEnemyPositionFresh(
@@ -1946,12 +1739,7 @@ namespace BehaviorTree {
             return false;
         }
 
-        int own_base_count = 0;
-        int own_highland_count = 0;
-        int own_roadland_count = 0;
-        int enemy_highland_count = 0;
-        int enemy_roadland_count = 0;
-
+        std::vector<RegionalDefenseEnemyPosition> fresh_enemies;
         for (const auto unit_type : RobotLists) {
             if (!IsEnemyPositionFresh(unit_type, defense.EnemyPositionFreshMs)) {
                 continue;
@@ -1961,46 +1749,20 @@ namespace BehaviorTree {
             if (enemy_x <= 0 || enemy_y <= 0) {
                 continue;
             }
-
-            const auto own_area = ResolvePointMainAreaExact(my_team, enemy_x, enemy_y);
-            if (own_area.has_value()) {
-                switch (*own_area) {
-                    case Area::MainAreaKind::Base:
-                        ++own_base_count;
-                        break;
-                    case Area::MainAreaKind::Highland:
-                        ++own_highland_count;
-                        break;
-                    case Area::MainAreaKind::Roadland:
-                        ++own_roadland_count;
-                        break;
-                    default:
-                        break;
-                }
-            }
-
-            const auto enemy_area = ResolvePointMainAreaExact(enemy_team, enemy_x, enemy_y);
-            if (enemy_area.has_value()) {
-                if (*enemy_area == Area::MainAreaKind::Highland) {
-                    ++enemy_highland_count;
-                } else if (*enemy_area == Area::MainAreaKind::Roadland) {
-                    ++enemy_roadland_count;
-                }
-            }
+            fresh_enemies.push_back(RegionalDefenseEnemyPosition{.X = enemy_x, .Y = enemy_y});
         }
 
-        const bool hard_threat =
-            own_base_count > 0 || own_highland_count > 0 || own_roadland_count > 0;
-        const bool soft_enemy_side_threat =
-            defense.EnableSoftEnemySideThreat &&
-            !hard_threat &&
-            (enemy_highland_count > 0 || enemy_roadland_count > 0);
+        const auto threat = areaManager_.AnalyzeRegionalDefenseThreat(
+            my_team,
+            enemy_team,
+            defense.EnableSoftEnemySideThreat,
+            fresh_enemies);
 
-        if (!hard_threat && !soft_enemy_side_threat) {
+        if (!threat.HardThreat && !threat.SoftEnemySideThreat) {
             return false;
         }
 
-        if (!hard_threat) {
+        if (!threat.HardThreat) {
             if (aimMode == AimMode::Buff || aimMode == AimMode::Outpost ||
                 !naviCommandIntervalClock.trigger()) {
                 return false;
@@ -2012,7 +1774,7 @@ namespace BehaviorTree {
                 const char* reason,
                 const int hold_sec) {
                 for (const auto goal_id : candidates) {
-                    if (!IsValidBaseGoalId(goal_id)) {
+                    if (!AreaManager::IsValidBaseGoalId(goal_id)) {
                         continue;
                     }
                     if (TrySetScopedPositionByBaseGoal(
@@ -2029,11 +1791,11 @@ namespace BehaviorTree {
                                 "Regional defense {}: goal={} own_base={} own_highland={} own_roadland={} enemy_highland={} enemy_roadland={}",
                                 reason,
                                 static_cast<int>(naviCommandGoal),
-                                own_base_count,
-                                own_highland_count,
-                                own_roadland_count,
-                                enemy_highland_count,
-                                enemy_roadland_count);
+                                threat.OwnBaseCount,
+                                threat.OwnHighlandCount,
+                                threat.OwnRoadlandCount,
+                                threat.EnemyHighlandCount,
+                                threat.EnemyRoadlandCount);
                         }
                         return true;
                     }
@@ -2041,21 +1803,22 @@ namespace BehaviorTree {
                 return false;
             };
 
-        if (hard_threat) {
-            regionalDefenseSuppressSpecialAimUntil_ =
-                std::chrono::steady_clock::now() + std::chrono::seconds(std::max(1, defense.HardHoldSec));
+        if (threat.HardThreat) {
+            areaManager_.StartRegionalDefenseSuppress(
+                std::chrono::steady_clock::now(),
+                defense.HardHoldSec);
             aimMode = AimMode::RotateScan;
 
             const bool strong_resource =
                 myselfHealth >= defense.StrongHealthMin &&
                 ammoLeft >= defense.StrongAmmoMin;
-            if (own_base_count >= defense.MultiEnemyBaseCount && strong_resource) {
+            if (threat.OwnBaseCount >= defense.MultiEnemyBaseCount && strong_resource) {
                 return try_defense_candidates(
                     {LangYa::Castle.ID, LangYa::CastleLeft.ID, LangYa::CastleRight1.ID, LangYa::CastleRight2.ID},
                     "own_base_multi",
                     defense.HardHoldSec);
             }
-            if (own_base_count > 0) {
+            if (threat.OwnBaseCount > 0) {
                 return try_defense_candidates(
                     {LangYa::Castle.ID, LangYa::CastleLeft.ID, LangYa::CastleRight1.ID, LangYa::CastleRight2.ID},
                     strong_resource ? "own_base_chase" : "own_base_guard",
@@ -2063,13 +1826,13 @@ namespace BehaviorTree {
             }
             return try_defense_candidates(
                 {LangYa::BuffShoot.ID, LangYa::HoleRoad.ID, LangYa::Highland.ID},
-                own_highland_count > 0 ? "own_highland" : "own_roadland",
+                threat.OwnHighlandCount > 0 ? "own_highland" : "own_roadland",
                 defense.HardHoldSec);
         }
 
         return try_defense_candidates(
             {LangYa::BuffShoot.ID, LangYa::HoleRoad.ID, LangYa::Highland.ID},
-            enemy_roadland_count > 0 ? "enemy_roadland_soft" : "enemy_highland_soft",
+            threat.EnemyRoadlandCount > 0 ? "enemy_roadland_soft" : "enemy_highland_soft",
             defense.SoftHoldSec);
     }
 
@@ -2078,178 +1841,80 @@ namespace BehaviorTree {
         const UnitTeam goal_team,
         const bool apply_team_offset) {
         const std::uint8_t goal_id = ResolveGoalId(base_goal_id, goal_team, apply_team_offset);
-        const bool same_goal =
-            naviProgressWatchdogActive_ &&
-            naviProgressWatchdogGoalId_ == goal_id &&
-            naviProgressWatchdogGoalPosition_.x == naviGoalPosition.x &&
-            naviProgressWatchdogGoalPosition_.y == naviGoalPosition.y;
-        if (same_goal) {
-            return;
-        }
-
-        naviProgressWatchdogActive_ = true;
-        naviProgressWatchdogGoalId_ = goal_id;
-        naviProgressWatchdogBaseGoal_ = base_goal_id;
-        naviProgressWatchdogGoalTeam_ = goal_team;
-        naviProgressWatchdogApplyTeamOffset_ = apply_team_offset;
-        naviProgressWatchdogGoalPosition_ = naviGoalPosition;
-        naviProgressWatchdogGoalStartTime_ = std::chrono::steady_clock::now();
-        naviProgressWatchdogLastMoveTime_ = naviProgressWatchdogGoalStartTime_;
-
         const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
         const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
-        naviProgressWatchdogLastX_ = self_x;
-        naviProgressWatchdogLastY_ = self_y;
+        areaManager_.UpdateProgressWatchdogGoal(
+            goal_id,
+            base_goal_id,
+            goal_team,
+            apply_team_offset,
+            naviGoalPosition,
+            self_x,
+            self_y,
+            std::chrono::steady_clock::now());
     }
 
     bool Application::TickNaviProgressWatchdog(
         const UnitTeam my_team,
         const UnitTeam enemy_team) {
         const auto& watchdog = config.NaviProgressWatchdogSettings;
-        if (!watchdog.Enable || !naviProgressWatchdogActive_ || naviAreaTransition_.Active) {
-            return false;
-        }
-        if (naviProgressWatchdogBaseGoal_ == LangYa::Home.ID ||
-            naviProgressWatchdogBaseGoal_ == LangYa::Recovery.ID) {
-            return false;
-        }
         const auto now = std::chrono::steady_clock::now();
+        const auto& runtime = areaManager_.ProgressWatchdogRuntime();
+        const bool self_position_fresh =
+            hasReceivedSentryPosition_ &&
+            lastSentryPositionRxTime_.time_since_epoch().count() != 0 &&
+            now - lastSentryPositionRxTime_ <= std::chrono::seconds(2);
+        const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
+        const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
+        const bool has_self_position = self_position_fresh && self_x > 0 && self_y > 0;
         const auto external_reach =
-            GetExternalNaviReachForGoal(naviProgressWatchdogGoalId_, naviProgressWatchdogGoalPosition_);
-        if (external_reach.has_value() && *external_reach) {
-            naviProgressWatchdogLastMoveTime_ = now;
-            return false;
-        }
+            GetExternalNaviReachForGoal(runtime.GoalId, runtime.GoalPosition);
         const auto external_reachable =
-            GetExternalNaviReachableForGoal(naviProgressWatchdogGoalId_, naviProgressWatchdogGoalPosition_);
-        const bool external_unreachable = external_reachable.has_value() && !*external_reachable;
+            GetExternalNaviReachableForGoal(runtime.GoalId, runtime.GoalPosition);
 
-        if (!external_unreachable) {
-            if (!hasReceivedSentryPosition_ ||
-                lastSentryPositionRxTime_.time_since_epoch().count() == 0 ||
-                now - lastSentryPositionRxTime_ > std::chrono::seconds(2)) {
-                return false;
-            }
-
-            const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
-            const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
-            if (self_x <= 0 || self_y <= 0) {
-                return false;
-            }
-
-            const int arrive_cm = std::max(1, watchdog.ArriveDistanceCm);
-            const double distance_to_goal_sq = DistanceSq(
-                self_x,
-                self_y,
-                static_cast<int>(naviProgressWatchdogGoalPosition_.x),
-                static_cast<int>(naviProgressWatchdogGoalPosition_.y));
-            if (distance_to_goal_sq <= static_cast<double>(arrive_cm * arrive_cm)) {
-                naviProgressWatchdogLastMoveTime_ = now;
-                naviProgressWatchdogLastX_ = self_x;
-                naviProgressWatchdogLastY_ = self_y;
-                return false;
-            }
-
-            const int move_progress_cm = std::max(1, watchdog.MoveProgressCm);
-            if (DistanceSq(self_x, self_y, naviProgressWatchdogLastX_, naviProgressWatchdogLastY_) >=
-                static_cast<double>(move_progress_cm * move_progress_cm)) {
-                naviProgressWatchdogLastMoveTime_ = now;
-                naviProgressWatchdogLastX_ = self_x;
-                naviProgressWatchdogLastY_ = self_y;
-                return false;
-            }
-
-            const auto no_move_timeout = std::chrono::seconds(std::max(1, watchdog.NoMoveTimeoutSec));
-            if (now - naviProgressWatchdogGoalStartTime_ < no_move_timeout ||
-                now - naviProgressWatchdogLastMoveTime_ < no_move_timeout) {
-                return false;
-            }
-        }
-        if (naviProgressWatchdogFallbackCooldownUntil_.time_since_epoch().count() != 0 &&
-            now < naviProgressWatchdogFallbackCooldownUntil_ &&
-            naviProgressWatchdogCooldownBaseGoal_ == naviProgressWatchdogBaseGoal_ &&
-            naviProgressWatchdogCooldownTeam_ == naviProgressWatchdogGoalTeam_) {
+        const auto decision = areaManager_.TickProgressWatchdog(
+            NaviProgressWatchdogInput{
+                .Enabled = watchdog.Enable,
+                .BlockedByAreaTransition = areaManager_.HighlandTransitionActive(),
+                .HasSelfPosition = has_self_position,
+                .SelfX = self_x,
+                .SelfY = self_y,
+                .ExternalReach = external_reach,
+                .ExternalReachable = external_reachable,
+                .Setting = watchdog,
+                .Now = now
+            });
+        if (!decision.NeedFallback) {
             return false;
         }
 
-        const auto resolved_area =
-            ResolveGoalMainArea(naviProgressWatchdogBaseGoal_, naviProgressWatchdogGoalTeam_);
-        if (!resolved_area.has_value()) {
-            naviProgressWatchdogLastMoveTime_ = now;
-            return false;
-        }
-        const std::uint8_t original_base_goal = naviProgressWatchdogBaseGoal_;
-        const UnitTeam original_goal_team = naviProgressWatchdogGoalTeam_;
-        const std::uint8_t original_goal_id = naviProgressWatchdogGoalId_;
-        const bool original_apply_team_offset = naviProgressWatchdogApplyTeamOffset_;
-
-        std::vector<std::uint8_t> fallback_candidates;
-        switch (resolved_area->Kind) {
-            case Area::MainAreaKind::Base:
-                fallback_candidates = {
-                    LangYa::Castle.ID,
-                    LangYa::CastleLeft.ID,
-                    LangYa::CastleRight1.ID,
-                    LangYa::CastleRight2.ID
-                };
-                break;
-            case Area::MainAreaKind::Highland:
-                fallback_candidates = {LangYa::Highland.ID, LangYa::BuffShoot.ID, LangYa::HoleRoad.ID};
-                break;
-            case Area::MainAreaKind::Roadland:
-                fallback_candidates = {LangYa::Highland.ID, LangYa::HoleRoad.ID, LangYa::FlyRoad.ID};
-                break;
-            case Area::MainAreaKind::Central:
-                fallback_candidates = {
-                    LangYa::MidShoot.ID,
-                    LangYa::BuffAround1.ID,
-                    LangYa::BuffAround2.ID,
-                    LangYa::RightShoot.ID
-                };
-                break;
-            default:
-                break;
-        }
-
-        for (const auto fallback_goal : fallback_candidates) {
-            if (fallback_goal == original_base_goal) {
-                continue;
-            }
+        for (const auto fallback_goal : decision.FallbackCandidates) {
             if (TrySetScopedPositionByBaseGoal(
                     fallback_goal,
-                    original_goal_team,
+                    decision.OriginalGoalTeam,
                     my_team,
                     enemy_team,
-                    original_apply_team_offset,
+                    decision.OriginalApplyTeamOffset,
                     "navi_progress_watchdog")) {
                 naviCommandIntervalClock.reset(Seconds{std::max(1, watchdog.FallbackHoldSec)});
                 speedLevel = 1;
-                naviProgressWatchdogCooldownBaseGoal_ = original_base_goal;
-                naviProgressWatchdogCooldownTeam_ = original_goal_team;
-                naviProgressWatchdogFallbackCooldownUntil_ =
-                    now + std::chrono::seconds(std::max(0, watchdog.FallbackCooldownSec));
+                areaManager_.CommitProgressWatchdogFallback(
+                    now,
+                    watchdog.FallbackCooldownSec,
+                    decision.OriginalBaseGoal,
+                    decision.OriginalGoalTeam);
                 if (LoggerPtr) {
                     LoggerPtr->Warning(
                         "Navi progress watchdog: goal={} {}, fallback goal={}.",
-                        static_cast<int>(original_goal_id),
-                        external_unreachable ? "unreachable" : "no movement",
+                        static_cast<int>(decision.OriginalGoalId),
+                        decision.ExternalUnreachable ? "unreachable" : "no movement",
                         static_cast<int>(naviCommandGoal));
                 }
                 return true;
             }
         }
 
-        naviProgressWatchdogLastMoveTime_ = now;
-        if (hasReceivedSentryPosition_ &&
-            lastSentryPositionRxTime_.time_since_epoch().count() != 0 &&
-            now - lastSentryPositionRxTime_ <= std::chrono::seconds(2)) {
-            const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
-            const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
-            if (self_x > 0 && self_y > 0) {
-                naviProgressWatchdogLastX_ = self_x;
-                naviProgressWatchdogLastY_ = self_y;
-            }
-        }
+        areaManager_.MarkProgressWatchdogFallbackFailed(now, has_self_position, self_x, self_y);
         return false;
     }
 
@@ -2273,24 +1938,13 @@ namespace BehaviorTree {
 
         constexpr bool apply_team_offset = true;
         const int hold_sec = std::max(1, patrol.GoalHoldSec);
-        const auto current_it = std::find_if(
-            patrol.Goals.begin(),
-            patrol.Goals.end(),
-            [&](const std::uint8_t goal_id) {
-                return naviCommandGoal == ResolveGoalId(goal_id, my_team, apply_team_offset);
-            });
-
-        std::size_t next_index = 0U;
-        if (regionalIdlePatrolGoalInitialized_ && current_it != patrol.Goals.end()) {
-            regionalIdlePatrolGoalIndex_ =
-                static_cast<std::size_t>(std::distance(patrol.Goals.begin(), current_it));
-            next_index = (regionalIdlePatrolGoalIndex_ + 1U) % patrol.Goals.size();
-        }
-
-        for (std::size_t attempt = 0; attempt < patrol.Goals.size(); ++attempt) {
-            const std::size_t candidate_index = (next_index + attempt) % patrol.Goals.size();
-            const auto base_goal_id = patrol.Goals[candidate_index];
-            if (!IsValidBaseGoalId(base_goal_id)) {
+        const auto candidates = areaManager_.BuildRegionalIdlePatrolCandidates(
+            patrol.Goals,
+            naviCommandGoal,
+            my_team);
+        for (const auto& candidate : candidates) {
+            const auto base_goal_id = candidate.BaseGoalId;
+            if (!AreaManager::IsValidBaseGoalId(base_goal_id)) {
                 continue;
             }
             if (TrySetScopedPositionByBaseGoal(
@@ -2300,8 +1954,7 @@ namespace BehaviorTree {
                     enemy_team,
                     apply_team_offset,
                     "regional_idle_patrol")) {
-                regionalIdlePatrolGoalIndex_ = candidate_index;
-                regionalIdlePatrolGoalInitialized_ = true;
+                areaManager_.CommitRegionalIdlePatrolCandidate(candidate.Index);
                 naviCommandIntervalClock.reset(Seconds{hold_sec});
                 speedLevel = 1;
                 if (LoggerPtr) {
@@ -2315,7 +1968,7 @@ namespace BehaviorTree {
             }
         }
 
-        regionalIdlePatrolGoalInitialized_ = false;
+        areaManager_.ResetRegionalIdlePatrol();
         naviCommandIntervalClock.reset(Seconds{hold_sec});
         if (LoggerPtr) {
             LoggerPtr->Warning("Regional idle patrol: all configured goals blocked by area scope.");
@@ -2358,7 +2011,7 @@ namespace BehaviorTree {
         std::vector<std::pair<std::uint8_t, UnitTeam>> allowed_goals;
         allowed_goals.reserve(goals.size());
         for (const auto& goal : goals) {
-            if (!IsValidBaseGoalId(goal.first)) {
+            if (!AreaManager::IsValidBaseGoalId(goal.first)) {
                 continue;
             }
             if (IsNaviGoalAllowedByAreaScope(goal.first, goal.second, my_team, enemy_team)) {
@@ -2478,7 +2131,7 @@ namespace BehaviorTree {
         // 计划路径由 MainGoal + PatrolGoals 去重组成。
         // 这里保证非法点位不会进入运行态。
         auto append_goal = [&](const std::uint8_t goal_id) {
-            if (!IsValidBaseGoalId(goal_id)) {
+            if (!AreaManager::IsValidBaseGoalId(goal_id)) {
                 LoggerPtr->Warning("Skip invalid league goal id={}.", static_cast<int>(goal_id));
                 return;
             }
@@ -3004,7 +2657,7 @@ namespace BehaviorTree {
             if (!option.Enable) {
                 continue;
             }
-            if (!IsValidBaseGoalId(option.GoalId)) {
+            if (!AreaManager::IsValidBaseGoalId(option.GoalId)) {
                 continue;
             }
             const UnitTeam candidate_team =
@@ -3043,7 +2696,7 @@ namespace BehaviorTree {
         double best_score = -std::numeric_limits<double>::infinity();
         std::optional<RuntimeNaviGoalCandidate> best_candidate;
         for (const auto& candidate : candidates) {
-            const auto goal_point = GoalPointByBaseId(candidate.BaseGoalId, candidate.Team);
+            const auto goal_point = AreaManager::GoalPointByBaseId(candidate.BaseGoalId, candidate.Team);
             double score = navi_autonomy.GoalBiasWeight * candidate.Bias;
             if (self_pos_valid) {
                 const double dx = static_cast<double>(goal_point.x) - static_cast<double>(self_x);

@@ -22,14 +22,27 @@ JSON 配置入口：
   "Enable": true,
   "NaviGoal": {
     "UseAreaScope": true,
-    "MyArea": ["Base", "Highland", "Roadland"],
-    "EnemyArea": ["Base", "Highland", "Roadland"]
+    "MyArea": {
+      "Base": true,
+      "Highland": true,
+      "Roadland": false
+    },
+    "EnemyArea": {
+      "Base": true,
+      "Highland": true,
+      "Roadland": false
+    },
+    "CommonArea": {
+      "Central": false
+    }
   }
 }
 ```
 
 - `MyArea` 表示我方活動區塊；`EnemyArea` 表示敵方活動區塊。
+- `CommonArea` 表示不分敵我的公共區塊；目前只支持 `Central`。
 - 程式會根據已識別隊伍自動映射：若本車是紅方，`MyArea` 使用 Red MainArea，`EnemyArea` 使用 Blue MainArea；若本車是藍方則相反。
+- `Central` 不再放進 `MyArea` / `EnemyArea`，而是由 `CommonArea.Central` 統一控制。
 - `UseAreaScope=false` 時保持舊導航決策行為。
 - `UseAreaScope=true` 時，Utility 自評估候選點和正式策略 fallback 都會先檢查是否落在允許區塊內；不允許的點不參與評分，也不會發布對應 `goal_pos`。
 - Recovery 保命回補、NaviTest 調試路線、League/Showcase 專用路線仍按原硬規則執行，不受這個作戰區域調參限制。

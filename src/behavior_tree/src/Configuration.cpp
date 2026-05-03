@@ -410,6 +410,9 @@ namespace LangYa {
         if (j.contains("EnemyArea")) {
             na.EnemyArea = ParseAreaScopeList(j.at("EnemyArea"));
         }
+        if (j.contains("CommonArea")) {
+            na.CommonArea = ParseAreaScopeList(j.at("CommonArea"));
+        }
         if (j.contains("HighlandCompat") && j.at("HighlandCompat").is_object()) {
             const auto& compat = j.at("HighlandCompat");
             na.HighlandCompatEnable = compat.value("Enable", na.HighlandCompatEnable);
@@ -715,6 +718,10 @@ namespace BehaviorTree {
         }
         LoggerPtr->Debug("NaviGoal.EnemyArea:");
         for (const auto& area : config.DecisionAutonomySettings.NaviGoal.EnemyArea) {
+            LoggerPtr->Debug("  {}", area);
+        }
+        LoggerPtr->Debug("NaviGoal.CommonArea:");
+        for (const auto& area : config.DecisionAutonomySettings.NaviGoal.CommonArea) {
             LoggerPtr->Debug("  {}", area);
         }
         LoggerPtr->Debug(
@@ -1161,13 +1168,24 @@ namespace BehaviorTree {
         }
 
         auto sanitize_area_list = [this](const std::vector<std::string>& areas,
-                                         const char* option_name) {
+                                         const char* option_name,
+                                         const bool common_area) {
             std::vector<std::string> sanitized_areas;
             sanitized_areas.reserve(areas.size());
             for (const auto& area : areas) {
                 const auto normalized = NormalizeMainAreaToken(area);
                 if (normalized.empty()) {
                     LoggerPtr->Warning("Ignore invalid DecisionAutonomy.{} area '{}'.",
+                                       option_name, area);
+                    continue;
+                }
+                if (common_area && normalized != "central") {
+                    LoggerPtr->Warning("Ignore DecisionAutonomy.{} area '{}': CommonArea only supports Central.",
+                                       option_name, area);
+                    continue;
+                }
+                if (!common_area && normalized == "central") {
+                    LoggerPtr->Warning("Ignore DecisionAutonomy.{} area '{}': Central belongs to CommonArea.",
                                        option_name, area);
                     continue;
                 }
@@ -1181,9 +1199,11 @@ namespace BehaviorTree {
             return sanitized_areas;
         };
         autonomy.NaviGoal.MyArea =
-            sanitize_area_list(autonomy.NaviGoal.MyArea, "NaviGoal.MyArea");
+            sanitize_area_list(autonomy.NaviGoal.MyArea, "NaviGoal.MyArea", false);
         autonomy.NaviGoal.EnemyArea =
-            sanitize_area_list(autonomy.NaviGoal.EnemyArea, "NaviGoal.EnemyArea");
+            sanitize_area_list(autonomy.NaviGoal.EnemyArea, "NaviGoal.EnemyArea", false);
+        autonomy.NaviGoal.CommonArea =
+            sanitize_area_list(autonomy.NaviGoal.CommonArea, "NaviGoal.CommonArea", true);
         if (autonomy.NaviGoal.UseAreaScope) {
             if (autonomy.NaviGoal.MyArea.empty()) {
                 LoggerPtr->Warning("DecisionAutonomy.NaviGoal.UseAreaScope=true but MyArea is empty; my-side navigation goals will be blocked.");
@@ -1317,8 +1337,11 @@ namespace BehaviorTree {
         }
         LoggerPtr->Info("Initial StrategyMode: {}", StrategyModeToString(strategyMode_));
 
+        const auto now = std::chrono::steady_clock::now();
+        areaManager_.Configure(config.DecisionAutonomySettings.NaviGoal);
+        areaManager_.Reset(now);
         postureManager_.Configure(config.PostureSettings);
-        postureManager_.Reset(std::chrono::steady_clock::now(), SentryPosture::Move);
+        postureManager_.Reset(now, SentryPosture::Move);
         leaguePatrolGoalIndex_ = 0;
         leaguePatrolGoalInitialized_ = false;
         showcasePatrolGoalIndex_ = 0;

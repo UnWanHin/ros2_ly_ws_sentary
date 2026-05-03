@@ -327,6 +327,21 @@ namespace Area {
         { 1235, 1240 }
     };
 
+    static const std::vector<Point<int>> CommonMainAreaCentralPoints = {
+        { 1187, 269 },
+        { 1182, 471 },
+        { 1047, 469 },
+        { 1029, 533 },
+        { 1022, 953 },
+        { 1235, 1247 },
+        { 1613, 1231 },
+        { 1618, 1029 },
+        { 1753, 1031 },
+        { 1771, 967 },
+        { 1778, 547 },
+        { 1565, 253 }
+    };
+
     inline const char* MainAreaKindName(const MainAreaKind kind) {
         switch (kind) {
             case MainAreaKind::Base: return "base";
@@ -349,7 +364,7 @@ namespace Area {
             case MainAreaKind::Roadland:
                 return is_blue ? BlueMainAreaRoadlandPoints : RedMainAreaRoadlandPoints;
             case MainAreaKind::Central:
-                return is_blue ? BlueMainAreaCentralPoints : RedMainAreaCentralPoints;
+                return CommonMainAreaCentralPoints;
             default:
                 return is_blue ? BlueMainAreaBasePoints : RedMainAreaBasePoints;
         }

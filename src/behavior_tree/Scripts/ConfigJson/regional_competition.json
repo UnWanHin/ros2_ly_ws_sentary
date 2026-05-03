@@ -80,13 +80,14 @@
             "MyArea": {
                 "Base": true,
                 "Highland": true,
-                "Roadland": false,
-                "Central": false
+                "Roadland": false
             },
             "EnemyArea": {
-                "Base": true,
-                "Highland": true,
-                "Roadland": false,
+                "Base": false,
+                "Highland": false,
+                "Roadland": false
+            },
+            "CommonArea": {
                 "Central": false
             },
             "HighlandCompat": {

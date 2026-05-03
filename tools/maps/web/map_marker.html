@@ -203,8 +203,9 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
     const customTeam = document.getElementById("customTeam");
     const eraserBtn = document.getElementById("eraserBtn");
     const TEAM_STYLE = {
-      red: { color: "#ff3b30", prefix: "R" },
-      blue: { color: "#007aff", prefix: "B" }
+      red: { color: "#ff3b30", prefix: "R", label: "紅方" },
+      blue: { color: "#007aff", prefix: "B", label: "藍方" },
+      common: { color: "#f5c400", prefix: "Common", label: "公共" }
     };
 
     function setStatus(message) {
@@ -274,7 +275,13 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
     }
 
     function normalizeTeam(team) {
-      return team === "blue" ? "blue" : "red";
+      if (team === "blue") return "blue";
+      if (team === "common") return "common";
+      return "red";
+    }
+
+    function teamLabel(team) {
+      return TEAM_STYLE[normalizeTeam(team)].label;
     }
 
     function oppositeTeam(team) {
@@ -377,6 +384,7 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
 
     function teamFromName(name) {
       const lowered = name.toLowerCase();
+      if (lowered.includes("common")) return "common";
       if (lowered.includes("blue")) return "blue";
       return "red";
     }
@@ -727,7 +735,7 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
       }
       for (const point of state.customPoints) {
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td>C${point.customId}</td><td>${point.label}</td><td>${point.team === "blue" ? "藍" : "紅"}</td><td>${point.x}</td><td>${point.y}</td>`;
+        tr.innerHTML = `<td>C${point.customId}</td><td>${point.label}</td><td>${teamLabel(point.team)}</td><td>${point.x}</td><td>${point.y}</td>`;
         customPointsTableBody.appendChild(tr);
       }
     }
@@ -1039,7 +1047,7 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
       hoverText.style.left = `${x + 10}px`;
       hoverText.style.top = `${Math.max(0, y - 24)}px`;
       hoverText.textContent = region
-        ? `${region.name} ${region.team === "blue" ? "藍方" : "紅方"} / ${cmX}, ${cmY}`
+        ? `${region.name} ${teamLabel(region.team)} / ${cmX}, ${cmY}`
         : `${cmX}, ${cmY}`;
     });
 

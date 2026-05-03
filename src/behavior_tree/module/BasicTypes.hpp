@@ -546,6 +546,7 @@ namespace LangYa
         bool UseAreaScope{false};
         std::vector<std::string> MyArea{};
         std::vector<std::string> EnemyArea{};
+        std::vector<std::string> CommonArea{};
         bool HighlandCompatEnable{false};
         bool HighlandCompatDisableRotate{false};
         int HighlandCompatArriveDistanceCm{20};

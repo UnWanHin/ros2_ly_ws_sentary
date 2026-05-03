@@ -45,6 +45,7 @@
 #include "Node.hpp"
 #include "Topic.hpp"
 #include "Robot.hpp"
+#include "AreaManager.hpp"
 #include "PostureManager.hpp"
 
 using namespace BT;
@@ -80,47 +81,6 @@ inline const char* StrategyModeToString(const StrategyMode mode) {
         default: return "Unknown";
     }
 }
-
-enum class NaviAreaTransitionKind : std::uint8_t {
-    None = 0,
-    EnterMyHighland = 1,
-    ViaHighland = 2,
-    LeaveMyHighland = 3,
-    LeaveMyHighlandViaCastleLeft = 4
-};
-
-inline const char* NaviAreaTransitionKindToString(const NaviAreaTransitionKind kind) {
-    switch (kind) {
-        case NaviAreaTransitionKind::None: return "None";
-        case NaviAreaTransitionKind::EnterMyHighland: return "EnterMyHighland";
-        case NaviAreaTransitionKind::ViaHighland: return "ViaHighland";
-        case NaviAreaTransitionKind::LeaveMyHighland: return "LeaveMyHighland";
-        case NaviAreaTransitionKind::LeaveMyHighlandViaCastleLeft: return "LeaveMyHighlandViaCastleLeft";
-        default: return "Unknown";
-    }
-}
-
-struct NaviAreaTransitionRuntime {
-    NaviAreaTransitionKind Kind{NaviAreaTransitionKind::None};
-    bool Active{false};
-    bool HasPendingGoal{false};
-    std::uint8_t ViaBaseGoal{LangYa::Highland.ID};
-    std::uint8_t PendingBaseGoal{LangYa::Home.ID};
-    UnitTeam GoalTeam{UnitTeam::Unknown};
-    bool ApplyTeamOffset{true};
-    std::chrono::steady_clock::time_point StartTime{};
-
-    void Clear() noexcept {
-        Kind = NaviAreaTransitionKind::None;
-        Active = false;
-        HasPendingGoal = false;
-        ViaBaseGoal = LangYa::Highland.ID;
-        PendingBaseGoal = LangYa::Home.ID;
-        GoalTeam = UnitTeam::Unknown;
-        ApplyTeamOffset = true;
-        StartTime = std::chrono::steady_clock::time_point{};
-    }
-};
 
 enum class CompetitionProfile : std::uint8_t {
     Regional = 0,
@@ -280,8 +240,6 @@ private:
     bool leaguePatrolGoalInitialized_{false};
     std::size_t showcasePatrolGoalIndex_{0};
     bool showcasePatrolGoalInitialized_{false};
-    std::size_t regionalIdlePatrolGoalIndex_{0};
-    bool regionalIdlePatrolGoalInitialized_{false};
     std::size_t naviDebugGoalIndex_{0};
     bool naviDebugGoalInitialized_{false};
     bool leagueRouteCompatAfterGatePending_{false};
@@ -290,27 +248,12 @@ private:
     bool leagueRouteCompatHasPendingGoal_{false};
     std::uint8_t leagueRouteCompatPendingBaseGoal_{LangYa::Home.ID};
     int leagueRouteCompatPendingHoldSec_{1};
-    NaviAreaTransitionRuntime naviAreaTransition_{};
     std::chrono::steady_clock::time_point lastLeagueRecoveryGuardLogTime_{};
     std::chrono::steady_clock::time_point lastPositionDataGuardLogTime_{};
     bool hasReceivedSentryPosition_{false};
     std::chrono::steady_clock::time_point lastSentryPositionRxTime_{};
     std::array<std::chrono::steady_clock::time_point, 10> lastEnemyPositionRxTime_{};
     std::array<std::chrono::steady_clock::time_point, 10> lastFriendPositionRxTime_{};
-    std::chrono::steady_clock::time_point regionalDefenseSuppressSpecialAimUntil_{};
-    bool naviProgressWatchdogActive_{false};
-    std::uint8_t naviProgressWatchdogGoalId_{0};
-    std::uint8_t naviProgressWatchdogBaseGoal_{LangYa::Home.ID};
-    UnitTeam naviProgressWatchdogGoalTeam_{UnitTeam::Unknown};
-    bool naviProgressWatchdogApplyTeamOffset_{true};
-    Area::Point<std::uint16_t> naviProgressWatchdogGoalPosition_{};
-    int naviProgressWatchdogLastX_{0};
-    int naviProgressWatchdogLastY_{0};
-    std::chrono::steady_clock::time_point naviProgressWatchdogGoalStartTime_{};
-    std::chrono::steady_clock::time_point naviProgressWatchdogLastMoveTime_{};
-    std::chrono::steady_clock::time_point naviProgressWatchdogFallbackCooldownUntil_{};
-    std::uint8_t naviProgressWatchdogCooldownBaseGoal_{LangYa::Home.ID};
-    UnitTeam naviProgressWatchdogCooldownTeam_{UnitTeam::Unknown};
 
     // ==========================================
     // Runtime Guard (L1/L2)
@@ -351,6 +294,7 @@ private:
     std::shared_ptr<Logger> LoggerPtr; // 日志
 
     Config config{}; // 配置文件
+    AreaManager areaManager_{};
     PostureManager postureManager_{};
     std::chrono::steady_clock::time_point lastUpdateBlackboardLogTime_{};
     std::chrono::steady_clock::time_point lastTreeTickLogTime_{};

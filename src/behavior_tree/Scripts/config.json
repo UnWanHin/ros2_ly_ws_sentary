@@ -49,8 +49,19 @@
         "NaviGoal": {
             "UseCustomCandidates": false,
             "UseAreaScope": false,
-            "MyArea": ["Base", "Highland", "Roadland", "Central"],
-            "EnemyArea": ["Base", "Highland", "Roadland", "Central"],
+            "MyArea": {
+                "Base": true,
+                "Highland": true,
+                "Roadland": true
+            },
+            "EnemyArea": {
+                "Base": true,
+                "Highland": true,
+                "Roadland": true
+            },
+            "CommonArea": {
+                "Central": true
+            },
             "DistanceWeight": 1.0,
             "EnemyTeamBonus": 0.25,
             "HeroProximityWeight": 0.35,

@@ -17,10 +17,12 @@
 
 1. 新增主区解析封装 `ResolveGoalMainArea(...)`
    - 先按 `Base/Highland/Roadland/Central` 判断是否落区。
+   - `Central` 是公共区，不再按 `MyArea` / `EnemyArea` 分敌我，而是由 `CommonArea.Central` 统一控制。
    - 若不落区，按点到各主区边界质心的距离，归入最近主区（nearest fallback）。
 
 2. 更新 `IsNaviGoalAllowedByAreaScope(...)`
    - 由“点在 allowed 区域内”改为“点所属主区在 allowed 区域内”。
+   - `Base/Highland/Roadland` 仍按 `MyArea` / `EnemyArea` 过滤；`Central` 按 `CommonArea` 过滤。
    - 当触发最近主区回退时，输出 debug 日志，便于联调确认。
 
 3. 内建候选生成改为封装函数 `BuildBuiltinNaviGoalOptions(...)`

@@ -16,7 +16,7 @@
 - `scripts/step_inspect.py`：讀 STEP 基本資訊（單位、bbox）
 - `scripts/map_plugin_cli.py`：管理點位插件 JSON（初始化/驗證/輸出 Area.hpp 片段；點位清單會從 `BasicTypes.hpp`/`Area.hpp` 讀取）
 - `scripts/solve_affine.py`：用對照點解 2D 仿射映射（解決「上位機點位 ≠ 導航實際」）
-- `web/map_marker.html`：標點工具（載入底圖、紅藍點位點選、匯出 JSON）
+- `web/map_marker.html`：標點工具（載入底圖、紅藍點位點選、匯出 JSON；C++ 區塊線中 `Common*Points` 會用黃色顯示）
 
 ## STEP 轉底圖（獨立）
 
