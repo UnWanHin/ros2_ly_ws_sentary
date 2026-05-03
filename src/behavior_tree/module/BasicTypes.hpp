@@ -415,9 +415,9 @@ namespace LangYa
     struct NaviSetting {
         bool UseXY{true};
         // UseXY=true 时：
-        // true  -> 使用 /ly/navi/target_rel 或 /ly/navi/goal_pos_raw + navi_tf_bridge 转 map 后发布 /goal_pose
+        // true  -> 交给导航链路：/ly/navi/target_rel 或 /ly/navi/goal_pos_raw 经 navi_tf_bridge 输出 /goal_pose
         // false -> behavior_tree 直接发布地图绝对坐标到 /ly/navi/goal_pos（不走 tf bridge）
-        bool UseTfGoalBridge{true};
+        bool ToNavi{true};
     };
 
     struct FaceModeSetting {
@@ -469,7 +469,7 @@ namespace LangYa
     struct ChaseSetting {
         bool Enable{false};
         bool FollowAimTarget{true};
-        bool UseRelativeTargetTopic{false}; // true: publish /ly/navi/target_rel and let navi own speed control
+        bool ToNavi{false}; // true: publish /ly/navi/target_rel and let navi own speed control
         bool EnableInAutoAim{true};
         bool EnableInRotateScan{true};
         bool EnableInOutpostMode{false};

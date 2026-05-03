@@ -31,10 +31,10 @@ namespace BehaviorTree {
         PubPostureControlData();
         PubAimTargetData();
         PubNaviControlData();
-        const bool enable_relative_target_topic =
+        const bool enable_chase_to_navi =
             config.ChaseSettings.Enable &&
-            config.ChaseSettings.UseRelativeTargetTopic;
-        if (enable_relative_target_topic) {
+            config.ChaseSettings.ToNavi;
+        if (enable_chase_to_navi) {
             PubNaviRelativeTarget();
         }
         if(publishNaviGoal_ && naviCommandRateClock.trigger()) {
@@ -44,11 +44,11 @@ namespace BehaviorTree {
             }
             const bool chase_bridge_active =
                 config.NaviSettings.UseXY &&
-                config.NaviSettings.UseTfGoalBridge &&
-                enable_relative_target_topic &&
+                config.NaviSettings.ToNavi &&
+                enable_chase_to_navi &&
                 naviRelativeTargetValid;
             // 导航目标按模式二选一：
-            // - UseXY=true 时固定点位发布坐标；UseTfGoalBridge=true 则走 /ly/navi/goal_pos_raw -> /goal_pose。
+            // - UseXY=true 时固定点位发布坐标；ToNavi=true 则走 /ly/navi/goal_pos_raw -> /goal_pose。
             // - 有有效追击目标时，/ly/navi/target_rel 交给 bridge 输出 /goal_pose，避免固定点位覆盖追击。
             if(config.NaviSettings.UseXY && !chase_bridge_active) PubNaviGoalPos();
             else PubNaviGoal();
@@ -176,7 +176,7 @@ namespace BehaviorTree {
             static_cast<uint16_t>(naviGoalPosition.y)
         };
         msg.data = data;
-        if (config.NaviSettings.UseTfGoalBridge && pub_navi_goal_pos_raw_) {
+        if (config.NaviSettings.ToNavi && pub_navi_goal_pos_raw_) {
             // 统一由 navi_tf_bridge 输出 /goal_pose，BT 仅发布 raw 点位输入。
             pub_navi_goal_pos_raw_->publish(msg);
             UpdateNaviExternalStatusGoal(naviCommandGoal, naviGoalPosition);

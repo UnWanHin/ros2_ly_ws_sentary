@@ -252,17 +252,17 @@ void Application::WriteDecisionTrace(const std::string_view event) {
 
     const int goal_base_id = GoalBaseId(naviCommandGoal);
     const auto posture_runtime = postureManager_.Runtime();
-    const bool enable_relative_target_topic =
-        config.ChaseSettings.Enable && config.ChaseSettings.UseRelativeTargetTopic;
-    const bool use_tf_goal_bridge =
-        config.NaviSettings.UseXY && config.NaviSettings.UseTfGoalBridge && enable_relative_target_topic;
-    const bool uses_goal_pos = config.NaviSettings.UseXY && !use_tf_goal_bridge;
-    const bool uses_goal_pos_bridge = uses_goal_pos && config.NaviSettings.UseTfGoalBridge;
-    const bool uses_any_tf_goal_bridge = use_tf_goal_bridge || uses_goal_pos_bridge;
+    const bool enable_chase_to_navi =
+        config.ChaseSettings.Enable && config.ChaseSettings.ToNavi;
+    const bool uses_chase_to_navi =
+        config.NaviSettings.UseXY && config.NaviSettings.ToNavi && enable_chase_to_navi;
+    const bool uses_goal_pos = config.NaviSettings.UseXY && !uses_chase_to_navi;
+    const bool uses_goal_pos_bridge = uses_goal_pos && config.NaviSettings.ToNavi;
+    const bool uses_any_to_navi = uses_chase_to_navi || uses_goal_pos_bridge;
     const char* output_kind = "goal_id";
     const char* output_topic = ly_navi_goal::Name;
     const char* final_goal_pos_topic = "";
-    if (use_tf_goal_bridge) {
+    if (uses_chase_to_navi) {
         output_kind = "relative_target_bridge";
         output_topic = ly_navi_target_rel::Name;
         final_goal_pos_topic = "/goal_pose";
@@ -323,7 +323,7 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         {"publish_allowed", naviGoalPublishAllowed_},
         {"publish_enabled", publishNaviGoal_},
         {"uses_goal_pos", uses_goal_pos},
-        {"uses_tf_goal_bridge", uses_any_tf_goal_bridge},
+        {"uses_to_navi", uses_any_to_navi},
         {"relative_target_valid", naviRelativeTargetValid},
         {"output_topic", output_topic},
         {"output_frame", "map"},

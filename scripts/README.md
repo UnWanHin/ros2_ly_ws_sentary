@@ -131,7 +131,7 @@ python3 ./scripts/python/start.py --web-port 9010
 python3 ./scripts/python/start.py --match-duration-sec 420
 python3 ./scripts/python/start.py --control-file /tmp/decision_viz_match_control.jsonl
 python3 ./scripts/python/start.py --bypass-is-start
-python3 ./scripts/python/start.py --keep-tf-goal-bridge
+python3 ./scripts/python/start.py --keep-to-navi
 ```
 
 ### 3. `showcase` 是什么

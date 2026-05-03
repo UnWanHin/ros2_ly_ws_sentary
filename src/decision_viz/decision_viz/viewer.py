@@ -1252,7 +1252,7 @@ class Viewer:
         if output.kind == "relative_target_bridge":
             return "true relative bridge"
         if output.uses_goal_pos:
-            return "true bridge" if output.uses_tf_goal_bridge else "true direct"
+            return "true bridge" if output.uses_to_navi else "true direct"
         return "false goal_id"
 
     @staticmethod

@@ -112,8 +112,9 @@ def generate_launch_description():
                     root = json.load(fh)
                 navi_cfg = root.get("NaviSetting", {})
                 if isinstance(navi_cfg, dict):
+                    to_navi = navi_cfg.get("ToNavi", navi_cfg.get("UseTfGoalBridge", True))
                     resolved_use_navi_tf_bridge = (
-                        "true" if bool(navi_cfg.get("UseTfGoalBridge", True)) else "false"
+                        "true" if bool(to_navi) else "false"
                     )
             except Exception as ex:
                 print(
@@ -320,7 +321,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "use_navi_tf_bridge",
             default_value="",
-            description="Optional override. Empty means load NaviSetting.UseTfGoalBridge from bt_config_file.",
+            description="Optional override. Empty means load NaviSetting.ToNavi from bt_config_file.",
         ),
         DeclareLaunchArgument(
             "tf_tree_params_file",

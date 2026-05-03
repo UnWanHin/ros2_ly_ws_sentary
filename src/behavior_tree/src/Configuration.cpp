@@ -262,7 +262,11 @@ namespace LangYa {
 
     void from_json(const json& j, NaviSetting& ns) {
         ns.UseXY = j.value("UseXY", ns.UseXY);
-        ns.UseTfGoalBridge = j.value("UseTfGoalBridge", ns.UseTfGoalBridge);
+        if (j.contains("ToNavi")) {
+            ns.ToNavi = j.value("ToNavi", ns.ToNavi);
+        } else {
+            ns.ToNavi = j.value("UseTfGoalBridge", ns.ToNavi);
+        }
     }
 
     void from_json(const json& j, FaceModeSetting& fs) {
@@ -320,7 +324,11 @@ namespace LangYa {
     void from_json(const json& j, ChaseSetting& cs) {
         cs.Enable = j.value("Enable", cs.Enable);
         cs.FollowAimTarget = j.value("FollowAimTarget", cs.FollowAimTarget);
-        cs.UseRelativeTargetTopic = j.value("UseRelativeTargetTopic", cs.UseRelativeTargetTopic);
+        if (j.contains("ToNavi")) {
+            cs.ToNavi = j.value("ToNavi", cs.ToNavi);
+        } else {
+            cs.ToNavi = j.value("UseRelativeTargetTopic", cs.ToNavi);
+        }
         cs.EnableInAutoAim = j.value("EnableInAutoAim", cs.EnableInAutoAim);
         cs.EnableInRotateScan = j.value("EnableInRotateScan", cs.EnableInRotateScan);
         cs.EnableInOutpostMode = j.value("EnableInOutpostMode", cs.EnableInOutpostMode);
@@ -619,7 +627,7 @@ namespace BehaviorTree {
         LoggerPtr->Debug("HealthDropThreshold: {}", config.DamageOpenGateSettings.HealthDropThreshold);
         LoggerPtr->Debug("------ NaviSetting ------");
         LoggerPtr->Debug("UseXY: {}", config.NaviSettings.UseXY);
-        LoggerPtr->Debug("UseTfGoalBridge: {}", config.NaviSettings.UseTfGoalBridge);
+        LoggerPtr->Debug("Navi.ToNavi: {}", config.NaviSettings.ToNavi);
         LoggerPtr->Debug("------ FaceMode ------");
         LoggerPtr->Debug("Enable: {}", config.FaceModeSettings.Enable);
         LoggerPtr->Debug("LostTargetHoldMs: {}", config.FaceModeSettings.LostTargetHoldMs);
@@ -724,7 +732,7 @@ namespace BehaviorTree {
         LoggerPtr->Debug("------ Chase ------");
         LoggerPtr->Debug("Enable: {}", config.ChaseSettings.Enable);
         LoggerPtr->Debug("FollowAimTarget: {}", config.ChaseSettings.FollowAimTarget);
-        LoggerPtr->Debug("UseRelativeTargetTopic: {}", config.ChaseSettings.UseRelativeTargetTopic);
+        LoggerPtr->Debug("Chase.ToNavi: {}", config.ChaseSettings.ToNavi);
         LoggerPtr->Debug("EnableInAutoAim: {}", config.ChaseSettings.EnableInAutoAim);
         LoggerPtr->Debug("EnableInRotateScan: {}", config.ChaseSettings.EnableInRotateScan);
         LoggerPtr->Debug("EnableInOutpostMode: {}", config.ChaseSettings.EnableInOutpostMode);

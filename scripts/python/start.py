@@ -64,9 +64,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Debug only: bypass /ly/game/is_start gate in offline mode.",
     )
     parser.add_argument(
+        "--keep-to-navi",
         "--keep-tf-goal-bridge",
+        dest="keep_to_navi",
         action="store_true",
-        help="Keep transformed goal-pos bridge in offline mode (default is official map coords only).",
+        help="Keep NaviSetting.ToNavi in offline mode (default is official map coords only).",
     )
     parser.add_argument(
         "--dry-run",
@@ -260,8 +262,8 @@ def main(argv: list[str] | None = None) -> int:
         decision_cmd.extend(["--control-file", str(Path(args.control_file).expanduser().resolve())])
     if args.bypass_is_start:
         decision_cmd.append("--bypass-is-start")
-    if args.keep_tf_goal_bridge:
-        decision_cmd.append("--keep-tf-goal-bridge")
+    if args.keep_to_navi:
+        decision_cmd.append("--keep-to-navi")
     if args.trace:
         decision_cmd.append("--trace-on")
     if args.dry_run:

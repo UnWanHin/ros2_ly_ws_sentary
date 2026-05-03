@@ -356,7 +356,7 @@ void TreeTick() {
   - 默認：`[1, 3, 4, 6, 2]`（Hero > Infantry1 > Infantry2 > Sentry > Engineer）
 - `Chase`：底盤追擊配置
   - `Enable`：總開關
-  - `UseRelativeTargetTopic`：改由 BT 發布 `/ly/navi/target_rel`（x/y/z 相對目標點），導航側負責速度閉環
+  - `ToNavi`：改由 BT 發布 `/ly/navi/target_rel`（x/y/z 相對目標點），導航側負責速度閉環
   - `PreferredDistanceCm`：與目標保持的最適距離（cm）
   - `DistanceDeadbandCm`：距離死區（cm）
   - `DistanceKp` / `MaxForwardSpeed` / `MaxBackwardSpeed`：前後追擊控制

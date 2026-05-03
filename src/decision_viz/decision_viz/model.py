@@ -22,7 +22,7 @@ class DecisionOutput:
     output_frame: str
     final_goal_pos_topic: str
     uses_goal_pos: bool
-    uses_tf_goal_bridge: bool
+    uses_to_navi: bool
     relative_target_valid: bool
     source: str
 

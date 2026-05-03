@@ -168,7 +168,7 @@ def normalize_output(raw: dict[str, Any], navi: dict[str, Any], team: str, goal_
         output_frame=str(output.get("output_frame", output.get("goal_pos_frame", "map"))),
         final_goal_pos_topic=final_topic,
         uses_goal_pos=uses_goal_pos,
-        uses_tf_goal_bridge=bool(output.get("uses_tf_goal_bridge", False)),
+        uses_to_navi=bool(output.get("uses_to_navi", output.get("uses_tf_goal_bridge", False))),
         relative_target_valid=bool(output.get("relative_target_valid", False)),
         source=str(output.get("source", "navi_goal")),
     )

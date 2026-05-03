@@ -198,11 +198,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Debug only: bypass /ly/game/is_start gate in offline mode.",
     )
     parser.add_argument(
+        "--keep-to-navi",
         "--keep-tf-goal-bridge",
+        dest="keep_to_navi",
         action="store_true",
         help=(
-            "Offline mode only: keep NaviSetting.UseTfGoalBridge from source config. "
-            "Default is to force official map coordinates (UseTfGoalBridge=false)."
+            "Offline mode only: keep NaviSetting.ToNavi from source config. "
+            "Default is to force official map coordinates (ToNavi=false)."
         ),
     )
     parser.add_argument(
@@ -555,7 +557,8 @@ def build_offline_bt_config(root: Path, source_config: Path) -> Path:
     if not isinstance(navi, dict):
         navi = {}
         data["NaviSetting"] = navi
-    navi["UseTfGoalBridge"] = False
+    navi["ToNavi"] = False
+    navi.pop("UseTfGoalBridge", None)
 
     out_dir = (root / "log" / "decision_viz").resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -627,7 +630,7 @@ def main(argv: list[str] | None = None) -> int:
         print(str(exc), file=sys.stderr)
         return 2
 
-    if args.offline_decision and not args.keep_tf_goal_bridge:
+    if args.offline_decision and not args.keep_to_navi:
         try:
             offline_config = build_offline_bt_config(root, config_file)
         except (OSError, ValueError, json.JSONDecodeError) as exc:

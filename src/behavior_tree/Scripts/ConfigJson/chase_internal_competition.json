@@ -28,7 +28,7 @@
     },
     "NaviSetting": {
         "UseXY": false,
-        "UseTfGoalBridge": false
+        "ToNavi": false
     },
     "AimTargetPriority": [1, 3, 4, 6, 2],
     "AimTargetIgnore": [],
@@ -74,7 +74,7 @@
     "Chase": {
         "Enable": true,
         "FollowAimTarget": true,
-        "UseRelativeTargetTopic": false,
+        "ToNavi": false,
         "EnableInAutoAim": true,
         "EnableInRotateScan": true,
         "EnableInOutpostMode": false,

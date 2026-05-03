@@ -125,9 +125,9 @@ Use the viewer/web `Start` control to publish game-start and begin countdown.
 Offline mode also enables `runtime_rearm_start_gate:=true` by default:
 `Reset` closes the gate again, holds safe-control, publishes Home navigation goal, and waits for next `Start`.
 
-By default, offline mode also writes a temporary BT config with `NaviSetting.UseTfGoalBridge=false`,
+By default, offline mode also writes a temporary BT config with `NaviSetting.ToNavi=false`,
 so goal position publish uses official map coordinates (no transformed bridge output).
-Use `--keep-tf-goal-bridge` if you explicitly need transformed output.
+Use `--keep-to-navi` if you explicitly need transformed output.
 
 By default, `--offline-decision` keeps trace off. Add `--trace-on` if you want JSONL output at the same time:
 

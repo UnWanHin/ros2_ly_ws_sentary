@@ -31,7 +31,7 @@
     },
     "NaviSetting": {
         "UseXY": true,
-        "UseTfGoalBridge": true
+        "ToNavi": true
     },
     "RegionalDefense": {
         "Enable": false,
@@ -95,7 +95,7 @@
     "Chase": {
         "Enable": true,
         "FollowAimTarget": true,
-        "UseRelativeTargetTopic": true,
+        "ToNavi": true,
         "EnableInAutoAim": true,
         "EnableInRotateScan": true,
         "EnableInOutpostMode": false,

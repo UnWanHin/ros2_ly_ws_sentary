@@ -16,7 +16,7 @@
 
 - BT 发布：
   - `/ly/navi/goal`
-  - `/ly/navi/goal_pos_raw`（UseTfGoalBridge=true 时的静态点位输入）
+  - `/ly/navi/goal_pos_raw`（ToNavi=true 时的静态点位输入）
   - `/ly/navi/goal_pos`（legacy/direct-XY 兼容输出，默认不作为 bridge final）
   - `/goal_pose`（geometry_msgs/PoseStamped，bridge 最终导航目标）
   - `/ly/navi/speed_level`
@@ -51,9 +51,9 @@ FaceMode 的独立测试节点会直接发布 `/ly/control/angles`，可选发�
 
 - `behavior_tree` 已恢复速度桥接：`/ly/navi/vel -> /ly/control/vel`。  
   即：导航回传速度先进入 BT，再由 BT 转发给 gimbal_driver。
-- 当 `Chase.UseRelativeTargetTopic=true` 时，BT 会发布 `/ly/navi/target_rel`，由导航侧决定速度分配；  
+- 当 `Chase.ToNavi=true` 时，BT 会发布 `/ly/navi/target_rel`，由导航侧决定速度分配；
   BT 不再执行本地追击速度闭环。
-- 当 `NaviSetting.UseTfGoalBridge=true` 时，BT 发布的是 `/ly/navi/goal_pos_raw`，再由 `navi_tf_bridge` 转 `/goal_pose`；`false` 时不会走这条 4x4 静态转换链。
+- 当 `NaviSetting.ToNavi=true` 时，BT 发布的是 `/ly/navi/goal_pos_raw`，再由 `navi_tf_bridge` 转 `/goal_pose`；`false` 时不会走这条 4x4 静态转换链。
 - 姿态 topic `/ly/control/posture` 已并入主控制幀字段 `GimbalControlData.Posture`（单通道下发）。
 - 下发全量规格见：`docs/sentry/lower_downlink_message_contract.md`。
 

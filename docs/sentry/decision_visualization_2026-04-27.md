@@ -82,8 +82,8 @@ python3 scripts/python/start.py
 Offline mode keeps `/ly/game/is_start` gate enabled by default; press `Start` in viewer/web to publish game-start and enter match phase.
 Offline mode enables `runtime_rearm_start_gate:=true` by default. After `Reset`, behavior_tree re-enters start gate,
 holds safe-control, publishes Home navigation goal, and waits for next `Start`.
-Offline mode also forces `NaviSetting.UseTfGoalBridge=false` via a generated temp config, so `/ly/navi/goal_pos` remains official map coordinates.
-Use `--keep-tf-goal-bridge` only when you need transformed bridge output.
+Offline mode also forces `NaviSetting.ToNavi=false` via a generated temp config, so `/ly/navi/goal_pos` remains official map coordinates.
+Use `--keep-to-navi` only when you need transformed bridge output.
 
 Live view now also serves the same pygame frame to HTTP by default (port from YAML `web_stream.port`, default `9000`):
 

@@ -70,7 +70,7 @@ def _resolve_bridge_chase_params(context, behavior_tree_share: str):
     resolved_preferred_distance_cm = "100"
     resolved_distance_deadband_cm = "50"
     resolved_stop_when_no_target = "true"
-    resolved_enable_tf_goal_bridge = "true"
+    resolved_to_navi = "true"
 
     bt_config_file_value = LaunchConfiguration("bt_config_file").perform(context).strip()
     bt_config_path = _resolve_bt_config_path(behavior_tree_share, bt_config_file_value)
@@ -91,9 +91,8 @@ def _resolve_bridge_chase_params(context, behavior_tree_share: str):
                 )
             navi_cfg = config_root.get("NaviSetting", {})
             if isinstance(navi_cfg, dict):
-                resolved_enable_tf_goal_bridge = (
-                    "true" if bool(navi_cfg.get("UseTfGoalBridge", True)) else "false"
-                )
+                to_navi = navi_cfg.get("ToNavi", navi_cfg.get("UseTfGoalBridge", True))
+                resolved_to_navi = "true" if bool(to_navi) else "false"
         except Exception as ex:
             print(
                 f"[decision_chase] failed to parse bt_config_file '{bt_config_path}': {ex}. "
@@ -112,9 +111,15 @@ def _resolve_bridge_chase_params(context, behavior_tree_share: str):
     if stop_override:
         resolved_stop_when_no_target = stop_override
 
-    tf_bridge_override = _normalize_bool(LaunchConfiguration("enable_tf_goal_bridge").perform(context))
-    if tf_bridge_override:
-        resolved_enable_tf_goal_bridge = tf_bridge_override
+    to_navi_override = _normalize_bool(LaunchConfiguration("to_navi").perform(context))
+    if to_navi_override:
+        resolved_to_navi = to_navi_override
+    else:
+        legacy_tf_bridge_override = _normalize_bool(
+            LaunchConfiguration("enable_tf_goal_bridge").perform(context)
+        )
+        if legacy_tf_bridge_override:
+            resolved_to_navi = legacy_tf_bridge_override
 
     allow_reverse_goal = _normalize_bool(LaunchConfiguration("allow_reverse_goal").perform(context))
     if not allow_reverse_goal:
@@ -130,7 +135,7 @@ def _resolve_bridge_chase_params(context, behavior_tree_share: str):
         SetLaunchConfiguration(
             "resolved_bridge_stop_when_no_target", resolved_stop_when_no_target
         ),
-        SetLaunchConfiguration("resolved_enable_tf_goal_bridge", resolved_enable_tf_goal_bridge),
+        SetLaunchConfiguration("resolved_to_navi", resolved_to_navi),
         SetLaunchConfiguration("resolved_bridge_allow_reverse_goal", allow_reverse_goal),
     ]
 
@@ -283,9 +288,14 @@ def generate_launch_description():
             description="Optional bridge override. Empty means load Chase.StopWhenNoTarget from bt_config_file.",
         ),
         DeclareLaunchArgument(
+            "to_navi",
+            default_value="",
+            description="Optional override. Empty means load NaviSetting.ToNavi from bt_config_file.",
+        ),
+        DeclareLaunchArgument(
             "enable_tf_goal_bridge",
             default_value="",
-            description="Optional override. Empty means load NaviSetting.UseTfGoalBridge from bt_config_file.",
+            description="Legacy alias for to_navi.",
         ),
         DeclareLaunchArgument(
             "allow_reverse_goal",
@@ -325,7 +335,7 @@ def generate_launch_description():
         DeclareLaunchArgument("resolved_bridge_preferred_distance_cm", default_value="100"),
         DeclareLaunchArgument("resolved_bridge_distance_deadband_cm", default_value="50"),
         DeclareLaunchArgument("resolved_bridge_stop_when_no_target", default_value="true"),
-        DeclareLaunchArgument("resolved_enable_tf_goal_bridge", default_value="true"),
+        DeclareLaunchArgument("resolved_to_navi", default_value="true"),
         DeclareLaunchArgument("resolved_bridge_allow_reverse_goal", default_value="false"),
         OpaqueFunction(function=_resolve_bridge_chase_params, args=[behavior_tree_share]),
         LogInfo(msg=["[decision_chase] bridge param file: ", default_bridge_param_file]),
@@ -355,8 +365,8 @@ def generate_launch_description():
         ),
         LogInfo(
             msg=[
-                "[decision_chase] enable_tf_goal_bridge: ",
-                LaunchConfiguration("resolved_enable_tf_goal_bridge"),
+                "[decision_chase] ToNavi: ",
+                LaunchConfiguration("resolved_to_navi"),
             ]
         ),
         LogInfo(
@@ -416,7 +426,7 @@ def generate_launch_description():
         executable="target_rel_to_goal_pos_node",
         name="target_rel_to_goal_pos_node",
         output=LaunchConfiguration("output"),
-        condition=IfCondition(LaunchConfiguration("resolved_enable_tf_goal_bridge")),
+        condition=IfCondition(LaunchConfiguration("resolved_to_navi")),
         parameters=[
             default_bridge_param_file,
             {

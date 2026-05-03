@@ -378,8 +378,8 @@ ros2 launch behavior_tree sentry_all.launch.py \
   - `showcase`：沿用 `regional` 主流程，但使用展示專用姿態參數
 - 導航發布鏈路已對齊
   - `UseXY=false` -> 發 `/ly/navi/goal`
-  - `UseXY=true` + `UseTfGoalBridge=true` -> BT 發 `/ly/navi/goal_pos_raw`，bridge 最終發 `/goal_pose`
-  - `UseXY=true` + `UseTfGoalBridge=false` -> legacy 直發 `/ly/navi/goal_pos`
+  - `UseXY=true` + `ToNavi=true` -> BT 發 `/ly/navi/goal_pos_raw`，bridge 最終發 `/goal_pose`
+  - `UseXY=true` + `ToNavi=false` -> legacy 直發 `/ly/navi/goal_pos`
 
 驗證記錄：
 - `./scripts/selfcheck.sh sentry --static-only`：通過（PASS 36 / WARN 0 / FAIL 0）

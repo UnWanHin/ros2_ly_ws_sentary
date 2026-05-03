@@ -771,9 +771,9 @@ namespace BehaviorTree {
         }
 
         if (!follow_mode_active && chase_mode_enabled) {
-            const bool use_relative_target_topic = config.ChaseSettings.UseRelativeTargetTopic;
-            const bool use_tf_goal_bridge =
-                config.NaviSettings.UseXY && config.NaviSettings.UseTfGoalBridge;
+            const bool chase_to_navi = config.ChaseSettings.ToNavi;
+            const bool navi_to_navi =
+                config.NaviSettings.UseXY && config.NaviSettings.ToNavi;
             bool has_chase_target = has_target_for_angles;
             if (!has_chase_target &&
                 config.ChaseSettings.LostTargetHoldMs > 0 &&
@@ -814,9 +814,9 @@ namespace BehaviorTree {
                 naviRelativeTargetPitchErrorDeg = static_cast<float>(pitch_error_deg);
                 naviRelativeTargetArmorType = static_cast<std::uint8_t>(targetArmor.Type);
 
-                if (use_relative_target_topic) {
+                if (chase_to_navi) {
                     // 直发地图坐标模式：UseXY=true 且关闭 tf bridge。
-                    if (config.NaviSettings.UseXY && !use_tf_goal_bridge) {
+                    if (config.NaviSettings.UseXY && !navi_to_navi) {
                         const auto maybe_target_unit = UnitTypeFromArmorType(targetArmor.Type);
                         if (maybe_target_unit.has_value()) {
                             const int enemy_x = static_cast<int>(enemyRobots[*maybe_target_unit].position_.X);
@@ -859,12 +859,12 @@ namespace BehaviorTree {
                     nextVelocity.X = static_cast<std::int8_t>(ClampToInt8(chase_vx));
                     nextVelocity.Y = static_cast<std::int8_t>(ClampToInt8(chase_vy));
                 }
-            } else if (!use_relative_target_topic &&
+            } else if (!chase_to_navi &&
                        config.ChaseSettings.StopWhenNoTarget) {
                 nextVelocity = VelocityType{0, 0};
-            } else if (use_relative_target_topic &&
+            } else if (chase_to_navi &&
                        config.NaviSettings.UseXY &&
-                       !use_tf_goal_bridge &&
+                       !navi_to_navi &&
                        config.ChaseSettings.StopWhenNoTarget) {
                 const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
                 const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
@@ -949,12 +949,12 @@ namespace BehaviorTree {
                 SET_POSITION(Home, team);
                 if (publishNaviGoal_ && naviCommandRateClock.trigger()) {
                     naviCommandRateClock.tick();
-                    const bool use_tf_goal_bridge =
+                    const bool navi_to_navi =
                         config.NaviSettings.UseXY &&
-                        config.NaviSettings.UseTfGoalBridge &&
+                        config.NaviSettings.ToNavi &&
                         config.ChaseSettings.Enable &&
-                        config.ChaseSettings.UseRelativeTargetTopic;
-                    if (config.NaviSettings.UseXY && !use_tf_goal_bridge) {
+                        config.ChaseSettings.ToNavi;
+                    if (config.NaviSettings.UseXY && !navi_to_navi) {
                         PubNaviGoalPos();
                     } else {
                         PubNaviGoal();
