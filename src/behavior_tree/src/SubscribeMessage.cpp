@@ -317,6 +317,24 @@ namespace BehaviorTree{
             obj.lastTargetSeenTime = now;
         });
 
+        // ly_face_mode_angles
+        GenSub<ly_face_mode_angles>([](Application& app, auto msg) {
+            auto &obj = app;
+            const bool angles_valid = std::isfinite(msg->yaw) && std::isfinite(msg->pitch);
+            obj.faceModeData.Angles = GimbalAnglesType{
+                static_cast<AngleType>(msg->yaw),
+                static_cast<AngleType>(msg->pitch)
+            };
+            obj.faceModeData.FireStatus = false;
+            obj.faceModeData.BuffFollow = false;
+            obj.faceModeData.Valid = angles_valid;
+            obj.faceModeData.Fresh = angles_valid;
+            if (angles_valid) {
+                obj.faceModeData.HasLatchedAngles = true;
+                obj.faceModeData.LastValidTime = std::chrono::steady_clock::now();
+            }
+        });
+
         // ly_enemy_hp
         GenSub<ly_enemy_hp>([](Application& app, auto msg) {
             app.enemyRobots[UnitType::Hero].setCurrentHealth(static_cast<std::uint16_t>(msg->hero));

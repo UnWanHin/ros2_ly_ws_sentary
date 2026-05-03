@@ -119,8 +119,9 @@ namespace LangYa
         /// @brief 电容状态， 00:不用 01:轻度使用 10:重度使用
         std::uint8_t CapState : 2 = 0;
 
-        /// @brief 跟随模式和辐瞄模式, 1表示启用，0表示禁用
+        /// @brief 跟随模式，1 表示启用，0 表示禁用
         std::uint8_t FollowMode : 1 = 0;
+        /// @brief 辅瞄模式，1 表示启用，0 表示禁用
         std::uint8_t AimMode : 1 = 0;
 
         /// @brief 小陀螺状态，共四档，0 表示无速，1 表示低速， 2 表示中速， 3 表示高速
@@ -366,7 +367,8 @@ namespace LangYa
         AutoAim = 1,
         RotateScan = 2,
         Buff = 3,
-        Outpost = 4
+        Outpost = 4,
+        FaceMode = 5
     };
 #pragma endregion Aim
 
@@ -416,6 +418,12 @@ namespace LangYa
         // true  -> 使用 /ly/navi/target_rel 或 /ly/navi/goal_pos_raw + navi_tf_bridge 转 map 后发布 /goal_pose
         // false -> behavior_tree 直接发布地图绝对坐标到 /ly/navi/goal_pos（不走 tf bridge）
         bool UseTfGoalBridge{true};
+    };
+
+    struct FaceModeSetting {
+        bool Enable{false};
+        int LostTargetHoldMs{300};
+        bool SuppressFire{true};
     };
 
     struct LeagueStrategySetting {
@@ -611,6 +619,7 @@ namespace LangYa
         GameStrategy GameStrategySettings{};
         DamageOpenGateSetting DamageOpenGateSettings{};
         NaviSetting NaviSettings{};
+        FaceModeSetting FaceModeSettings{};
         LeagueStrategySetting LeagueStrategySettings{};
         ShowcasePatrolSetting ShowcasePatrolSettings{};
         NaviDebugSetting NaviDebugSettings{};

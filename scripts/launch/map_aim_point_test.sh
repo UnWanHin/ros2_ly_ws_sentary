@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # AUTO-COMMENT: file overview
-# Map-point gimbal aim test. Edit TARGET_* below for the point to face.
+# FaceMode gimbal aim test. Edit OFFICIAL_MAP_X/OFFICIAL_MAP_Y/MAP_Z below for the point to face.
 # Real map aiming needs navigation/localization to publish map -> base_link.
 
 set -euo pipefail
@@ -9,13 +9,13 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT_NAME="$(basename "$0")"
 
-# 坐标写这里：单位 cm。
+# FaceMode 坐标写这里：单位 cm。
 # X/Y 是官方二维地图坐标，会按 navi_tf_bridge/config/tf_config.yaml 的 4x4
 # 走和 /ly/navi/goal_pos_raw -> /goal_pose 一样的平面转换，默认把结果当 map 点使用。
 # Z 已经是 map 系高度，只作为瞄准高度，不参与官方二维地图 X/Y 转换。
-TARGET_X_CM="${TARGET_X_CM:-1093}"
-TARGET_Y_CM="${TARGET_Y_CM:-366}"
-TARGET_Z_CM="${TARGET_Z_CM:-100}"
+OFFICIAL_MAP_X="${OFFICIAL_MAP_X:-}"
+OFFICIAL_MAP_Y="${OFFICIAL_MAP_Y:-}"
+MAP_Z="${MAP_Z:-}"
 TARGET_FRAME="${TARGET_FRAME:-official_map}"
 USE_RAW_GOAL_STATIC_CALIBRATION="${USE_RAW_GOAL_STATIC_CALIBRATION:-true}"
 RAW_GOAL_TARGET_FRAME="${RAW_GOAL_TARGET_FRAME:-map}"
@@ -42,7 +42,7 @@ MOCK_GIMBAL_BIG_YAW_DEG="${MOCK_GIMBAL_BIG_YAW_DEG:-0.0}"
 MOCK_GIMBAL_PUBLISH_BIG_YAW="${MOCK_GIMBAL_PUBLISH_BIG_YAW:-true}"
 PUBLISH_FIRECODE="${PUBLISH_FIRECODE:-true}"
 AIM_MODE="${AIM_MODE:-true}"
-YAW_SIGN="${YAW_SIGN:-1.0}"
+YAW_SIGN="${YAW_SIGN:--1.0}"
 PITCH_SIGN="${PITCH_SIGN:-1.0}"
 YAW_BIAS_DEG="${YAW_BIAS_DEG:-0.0}"
 PITCH_BIAS_DEG="${PITCH_BIAS_DEG:-0.0}"
@@ -65,17 +65,21 @@ Usage:
   ${SCRIPT_NAME} [--bench] [--no-gimbal] [--with-tf-tree] [--mock-map-origin] [--mock-gimbal-state] [--no-firecode] [-- <launch_args...>]
 
 Purpose:
-  Keep gimbal facing one fixed map/official-map point.
+  FaceMode: keep gimbal facing one fixed map/official-map point.
   Publishes /ly/control/angles and, by default, /ly/control/firecode aim_mode=true.
   It does not publish chassis velocity or fire commands.
   A real map run requires an external navigation/localization TF chain that provides map -> base_link.
   For a bench-only map origin pose, use --mock-map-origin or use_mock_map_to_base:=true.
   For a no-hardware closed-loop smoke test, use --bench.
 
-Edit these variables near the top of this script:
-  TARGET_X_CM=${TARGET_X_CM}
-  TARGET_Y_CM=${TARGET_Y_CM}
-  TARGET_Z_CM=${TARGET_Z_CM}
+Required point parameters, unit cm:
+  OFFICIAL_MAP_X=${OFFICIAL_MAP_X}
+  OFFICIAL_MAP_Y=${OFFICIAL_MAP_Y}
+  MAP_Z=${MAP_Z}
+
+Edit those variables near the top of this script or pass them as launch args/env vars.
+
+Other defaults:
   TARGET_FRAME=${TARGET_FRAME}
   USE_RAW_GOAL_STATIC_CALIBRATION=${USE_RAW_GOAL_STATIC_CALIBRATION}
   RAW_GOAL_TARGET_FRAME=${RAW_GOAL_TARGET_FRAME}
@@ -99,13 +103,13 @@ Edit these variables near the top of this script:
   MAX_PITCH_STEP_DEG=${MAX_PITCH_STEP_DEG}
 
 Examples:
-  ./${SCRIPT_NAME}
-  ./${SCRIPT_NAME} --bench
-  ./${SCRIPT_NAME} --mock-map-origin --with-tf-tree
-  TARGET_X_CM=1400 TARGET_Y_CM=750 TARGET_Z_CM=100 ./${SCRIPT_NAME}
-  USE_MOCK_MAP_TO_BASE=true MOCK_MAP_TO_BASE_X=1.2 MOCK_MAP_TO_BASE_Y=-0.4 ./${SCRIPT_NAME}
-  COMMAND_FILTER_ALPHA=0.25 MAX_YAW_STEP_DEG=3.0 MAX_PITCH_STEP_DEG=1.5 ./${SCRIPT_NAME}
-  ./${SCRIPT_NAME} -- raw_goal_target_frame:=map yaw_sign:=-1.0 pitch_bias_deg:=2.0
+  OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME} --with-tf-tree
+  OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME} --bench
+  OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME} --mock-map-origin --with-tf-tree
+  ./${SCRIPT_NAME} -- official_map_x:=1093 official_map_y:=366 map_z:=100
+  OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 USE_MOCK_MAP_TO_BASE=true MOCK_MAP_TO_BASE_X=1.2 MOCK_MAP_TO_BASE_Y=-0.4 ./${SCRIPT_NAME}
+  OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 COMMAND_FILTER_ALPHA=0.25 MAX_YAW_STEP_DEG=3.0 MAX_PITCH_STEP_DEG=1.5 ./${SCRIPT_NAME}
+  ./${SCRIPT_NAME} -- official_map_x:=1093 official_map_y:=366 map_z:=100 raw_goal_target_frame:=map yaw_sign:=-1.0 pitch_bias_deg:=2.0
 EOF
 }
 
@@ -131,6 +135,25 @@ launch_arg_value() {
     fi
   done
   printf '%s\n' "${default_value}"
+}
+
+require_face_mode_point_args() {
+  local -a missing=()
+  if ! has_launch_arg_key "official_map_x" && [[ -z "${OFFICIAL_MAP_X}" ]]; then
+    missing+=("official_map_x/OFFICIAL_MAP_X")
+  fi
+  if ! has_launch_arg_key "official_map_y" && [[ -z "${OFFICIAL_MAP_Y}" ]]; then
+    missing+=("official_map_y/OFFICIAL_MAP_Y")
+  fi
+  if ! has_launch_arg_key "map_z" && [[ -z "${MAP_Z}" ]]; then
+    missing+=("map_z/MAP_Z")
+  fi
+  if (( ${#missing[@]} > 0 )); then
+    echo "[ERROR] FaceMode requires point parameters in cm: ${missing[*]}" >&2
+    echo "        Example: OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME} --with-tf-tree" >&2
+    echo "        Or: ./${SCRIPT_NAME} -- official_map_x:=1093 official_map_y:=366 map_z:=100" >&2
+    exit 2
+  fi
 }
 
 while [[ $# -gt 0 ]]; do
@@ -183,6 +206,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+require_face_mode_point_args
 source_ros_workspace "${ROOT_DIR}"
 cleanup_existing_launch_tree \
   "1" \
@@ -206,14 +230,14 @@ cleanup_existing_stack \
   "${CLEANUP_NODE_REGEX}" \
   "ros2 launch navi_tf_bridge map_aim_point\\.launch\\.py"
 
-if ! has_launch_arg_key "target_x_cm"; then
-  LAUNCH_ARGS=("target_x_cm:=${TARGET_X_CM}" "${LAUNCH_ARGS[@]}")
+if ! has_launch_arg_key "official_map_x"; then
+  LAUNCH_ARGS=("official_map_x:=${OFFICIAL_MAP_X}" "${LAUNCH_ARGS[@]}")
 fi
-if ! has_launch_arg_key "target_y_cm"; then
-  LAUNCH_ARGS=("target_y_cm:=${TARGET_Y_CM}" "${LAUNCH_ARGS[@]}")
+if ! has_launch_arg_key "official_map_y"; then
+  LAUNCH_ARGS=("official_map_y:=${OFFICIAL_MAP_Y}" "${LAUNCH_ARGS[@]}")
 fi
-if ! has_launch_arg_key "target_z_cm"; then
-  LAUNCH_ARGS=("target_z_cm:=${TARGET_Z_CM}" "${LAUNCH_ARGS[@]}")
+if ! has_launch_arg_key "map_z"; then
+  LAUNCH_ARGS=("map_z:=${MAP_Z}" "${LAUNCH_ARGS[@]}")
 fi
 if ! has_launch_arg_key "target_frame"; then
   LAUNCH_ARGS=("target_frame:=${TARGET_FRAME}" "${LAUNCH_ARGS[@]}")
@@ -329,16 +353,16 @@ if [[ ! -f "${DEFAULT_BRIDGE_CONFIG_FILE}" ]]; then
   DEFAULT_BRIDGE_CONFIG_FILE="${ROOT_DIR}/src/navi_tf_bridge/config/tf_config.yaml"
 fi
 PREVIEW_BRIDGE_CONFIG_FILE="$(launch_arg_value "bridge_config_file" "${DEFAULT_BRIDGE_CONFIG_FILE}")"
-PREVIEW_TARGET_X_CM="$(launch_arg_value "target_x_cm" "${TARGET_X_CM}")"
-PREVIEW_TARGET_Y_CM="$(launch_arg_value "target_y_cm" "${TARGET_Y_CM}")"
-PREVIEW_TARGET_Z_CM="$(launch_arg_value "target_z_cm" "${TARGET_Z_CM}")"
+PREVIEW_OFFICIAL_MAP_X="$(launch_arg_value "official_map_x" "${OFFICIAL_MAP_X}")"
+PREVIEW_OFFICIAL_MAP_Y="$(launch_arg_value "official_map_y" "${OFFICIAL_MAP_Y}")"
+PREVIEW_MAP_Z="$(launch_arg_value "map_z" "${MAP_Z}")"
 PREVIEW_USE_RAW_GOAL_STATIC_CALIBRATION="$(launch_arg_value "use_raw_goal_static_calibration" "${USE_RAW_GOAL_STATIC_CALIBRATION}")"
 PREVIEW_RAW_GOAL_TARGET_FRAME="$(launch_arg_value "raw_goal_target_frame" "${RAW_GOAL_TARGET_FRAME}")"
 print_raw_goal_map_preview \
   "${PREVIEW_BRIDGE_CONFIG_FILE}" \
-  "${PREVIEW_TARGET_X_CM}" \
-  "${PREVIEW_TARGET_Y_CM}" \
-  "${PREVIEW_TARGET_Z_CM}" \
+  "${PREVIEW_OFFICIAL_MAP_X}" \
+  "${PREVIEW_OFFICIAL_MAP_Y}" \
+  "${PREVIEW_MAP_Z}" \
   "${PREVIEW_USE_RAW_GOAL_STATIC_CALIBRATION}" \
   "${PREVIEW_RAW_GOAL_TARGET_FRAME}"
 

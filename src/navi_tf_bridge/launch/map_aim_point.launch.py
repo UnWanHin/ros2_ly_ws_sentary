@@ -24,9 +24,9 @@ def generate_launch_description():
     gimbal_launch = os.path.join(gimbal_driver_share, "launch", "gimbal_driver.launch.py")
     tf_tree_launch = os.path.join(tf_tree_share, "launch", "tf_tree.launch.py")
 
-    target_x_cm = LaunchConfiguration("target_x_cm")
-    target_y_cm = LaunchConfiguration("target_y_cm")
-    target_z_cm = LaunchConfiguration("target_z_cm")
+    official_map_x = LaunchConfiguration("official_map_x")
+    official_map_y = LaunchConfiguration("official_map_y")
+    map_z = LaunchConfiguration("map_z")
     target_frame = LaunchConfiguration("target_frame")
     raw_goal_target_frame = LaunchConfiguration("raw_goal_target_frame")
     aim_frame = LaunchConfiguration("aim_frame")
@@ -38,9 +38,9 @@ def generate_launch_description():
     use_mock_gimbal_state = LaunchConfiguration("use_mock_gimbal_state")
 
     return LaunchDescription([
-        DeclareLaunchArgument("target_x_cm", default_value="1400.0"),
-        DeclareLaunchArgument("target_y_cm", default_value="750.0"),
-        DeclareLaunchArgument("target_z_cm", default_value="100.0"),
+        DeclareLaunchArgument("official_map_x"),
+        DeclareLaunchArgument("official_map_y"),
+        DeclareLaunchArgument("map_z"),
         DeclareLaunchArgument("target_frame", default_value="official_map"),
         DeclareLaunchArgument("aim_frame", default_value="gimbal_world"),
         DeclareLaunchArgument("camera_frame", default_value="gx_camera"),
@@ -62,7 +62,7 @@ def generate_launch_description():
         DeclareLaunchArgument("min_distance_m", default_value="0.10"),
         DeclareLaunchArgument("max_target_distance_m", default_value="100.0"),
         DeclareLaunchArgument("command_filter_alpha", default_value="1.0"),
-        DeclareLaunchArgument("yaw_sign", default_value="1.0"),
+        DeclareLaunchArgument("yaw_sign", default_value="-1.0"),
         DeclareLaunchArgument("pitch_sign", default_value="1.0"),
         DeclareLaunchArgument("yaw_bias_deg", default_value="0.0"),
         DeclareLaunchArgument("pitch_bias_deg", default_value="0.0"),
@@ -90,12 +90,12 @@ def generate_launch_description():
         DeclareLaunchArgument("mock_gimbal_publish_hz", default_value="30.0"),
         DeclareLaunchArgument("output", default_value="screen"),
         LogInfo(msg=[
-            "[map_aim_point] target=(",
-            target_x_cm,
+            "[FaceMode] target=(",
+            official_map_x,
             ", ",
-            target_y_cm,
+            official_map_y,
             ", ",
-            target_z_cm,
+            map_z,
             ")cm@",
             target_frame,
             " raw_goal_target_frame=",
@@ -181,9 +181,9 @@ def generate_launch_description():
             name="map_aim_point_node",
             output=output,
             parameters=[{
-                "target_x_cm": ParameterValue(target_x_cm, value_type=float),
-                "target_y_cm": ParameterValue(target_y_cm, value_type=float),
-                "target_z_cm": ParameterValue(target_z_cm, value_type=float),
+                "official_map_x": ParameterValue(official_map_x, value_type=float),
+                "official_map_y": ParameterValue(official_map_y, value_type=float),
+                "map_z": ParameterValue(map_z, value_type=float),
                 "target_frame": ParameterValue(target_frame, value_type=str),
                 "aim_frame": ParameterValue(aim_frame, value_type=str),
                 "camera_frame": ParameterValue(camera_frame, value_type=str),

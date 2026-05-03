@@ -107,6 +107,7 @@ namespace BehaviorTree {
 
     LY_DEF_ROS_TOPIC(ly_buff_target, "/ly/buff/target", auto_aim_common::msg::Target); // 打符云台数据
     LY_DEF_ROS_TOPIC(ly_outpost_target, "/ly/outpost/target", auto_aim_common::msg::Target); // 打前哨站云台数据
+    LY_DEF_ROS_TOPIC(ly_face_mode_angles, "/ly/face_mode/angles", gimbal_driver::msg::GimbalAngles);
     
     LY_DEF_ROS_TOPIC(ly_navi_vel, "/ly/navi/vel", gimbal_driver::msg::Vel);
     LY_DEF_ROS_TOPIC(ly_navi_target_rel, "/ly/navi/target_rel", auto_aim_common::msg::RelativeTarget);

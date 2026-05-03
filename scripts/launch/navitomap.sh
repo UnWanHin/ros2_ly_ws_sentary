@@ -29,7 +29,7 @@ Usage:
   ${SCRIPT_NAME} [options] [-- <extra launch args...>]
 
 Purpose:
-  Manual static goal_pose conversion test, not chase.
+  Navi-to-map static goal_pose conversion test, not chase.
   - Static calibration only: official/raw x y -> converted geometry_msgs/PoseStamped goal
   - Start the raw goal conversion bridge in background
   - Ask for x y continuously in terminal
@@ -148,7 +148,7 @@ if (( CONFIRM_PUBLISH == 1 )) && has_launch_arg_key "output_goal_pose_topic"; th
 fi
 
 source_ros_workspace "${ROOT_DIR}"
-cleanup_existing_stack "1" "/(target_rel_to_goal_pos_node|manual_goal_input_node)([[:space:]]|$)" "ros2 launch navi_tf_bridge (manual_goal_tf_bridge|target_rel_to_goal_pos)\\.launch.py"
+cleanup_existing_stack "1" "/(target_rel_to_goal_pos_node|navitomap_input_node)([[:space:]]|$)" "ros2 launch navi_tf_bridge (navitomap|target_rel_to_goal_pos)\\.launch.py"
 
 if ! has_launch_arg_key "input_goal_pos_raw_topic"; then
   LAUNCH_ARGS=("input_goal_pos_raw_topic:=${RAW_TOPIC}" "${LAUNCH_ARGS[@]}")
@@ -191,7 +191,7 @@ if ! has_launch_arg_key "debug_export_point_pairs"; then
 fi
 
 echo "[INFO] Launch goal_pose conversion bridge with args: ${LAUNCH_ARGS[*]}"
-ros2 launch navi_tf_bridge manual_goal_tf_bridge.launch.py "${LAUNCH_ARGS[@]}" &
+ros2 launch navi_tf_bridge navitomap.launch.py "${LAUNCH_ARGS[@]}" &
 LAUNCH_PID=$!
 
 cleanup() {
@@ -207,8 +207,8 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 sleep 1
-echo "[INFO] Start manual input node. Type q to quit."
-ros2 run navi_tf_bridge manual_goal_input_node --ros-args \
+echo "[INFO] Start navitomap input node. Type q to quit."
+ros2 run navi_tf_bridge navitomap_input_node --ros-args \
   -p raw_topic:="${RAW_TOPIC}" \
   -p goal_topic:="${BRIDGE_GOAL_POSE_TOPIC}" \
   -p confirmed_goal_topic:="${GOAL_POSE_TOPIC}" \

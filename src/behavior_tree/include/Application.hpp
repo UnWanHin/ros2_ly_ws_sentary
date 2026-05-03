@@ -215,6 +215,7 @@ private:
     AimData autoAimData{}; // 定义回调，接收的辅瞄云台角度数据
     AimData buffAimData{}; // 定义回调，接收的打符云台角度数据
     AimData outpostAimData{}; // 定义回调，接收的打哨站云台角度数据
+    AimData faceModeData{}; // 接收 FaceMode 解算出来的固定点朝向角
     GimbalControlData gimbalControlData{}; /// 发送给云台的角度控制数据，火控数据等
     std::uint8_t postureCommand{0}; // 姿态控制指令: 0=不下发, 1=进攻, 2=防御, 3=移动
     std::atomic<bool> isFindTargetAtomic{false}; // 在回调函数中，每接收一次消息就会被置为true，然后在发送完控制数据之后置为false
@@ -354,6 +355,7 @@ private:
     std::chrono::steady_clock::time_point lastUpdateBlackboardLogTime_{};
     std::chrono::steady_clock::time_point lastTreeTickLogTime_{};
     std::chrono::steady_clock::time_point lastTransportLogTime_{};
+    std::chrono::steady_clock::time_point lastFaceModeLogTime_{};
     std::ofstream decisionTraceStream_{};
     std::string decisionTraceFile_{};
     bool decisionTraceRequested_{false};

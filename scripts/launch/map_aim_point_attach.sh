@@ -8,10 +8,10 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT_NAME="$(basename "$0")"
 
-# Official map coordinates, unit: cm. X/Y can be converted by tf_config.yaml.
-TARGET_X_CM="${TARGET_X_CM:-1093}"
-TARGET_Y_CM="${TARGET_Y_CM:-366}"
-TARGET_Z_CM="${TARGET_Z_CM:-100}"
+# FaceMode point, unit: cm. X/Y can be converted by tf_config.yaml.
+OFFICIAL_MAP_X="${OFFICIAL_MAP_X:-}"
+OFFICIAL_MAP_Y="${OFFICIAL_MAP_Y:-}"
+MAP_Z="${MAP_Z:-}"
 TARGET_FRAME="${TARGET_FRAME:-official_map}"
 USE_RAW_GOAL_STATIC_CALIBRATION="${USE_RAW_GOAL_STATIC_CALIBRATION:-true}"
 RAW_GOAL_TARGET_FRAME="${RAW_GOAL_TARGET_FRAME:-map}"
@@ -36,7 +36,7 @@ MAX_TARGET_DISTANCE_M="${MAX_TARGET_DISTANCE_M:-100.0}"
 COMMAND_FILTER_ALPHA="${COMMAND_FILTER_ALPHA:-1.0}"
 MAX_YAW_STEP_DEG="${MAX_YAW_STEP_DEG:-0.0}"
 MAX_PITCH_STEP_DEG="${MAX_PITCH_STEP_DEG:-0.0}"
-YAW_SIGN="${YAW_SIGN:-1.0}"
+YAW_SIGN="${YAW_SIGN:--1.0}"
 PITCH_SIGN="${PITCH_SIGN:-1.0}"
 YAW_BIAS_DEG="${YAW_BIAS_DEG:-0.0}"
 PITCH_BIAS_DEG="${PITCH_BIAS_DEG:-0.0}"
@@ -54,20 +54,20 @@ Usage:
   ${SCRIPT_NAME} [--echo] [--smooth] [--strict-time] [--allow-duplicate] [-- <param:=value>...]
 
 Purpose:
-  Attach to an already-running stack and start only map_aim_point_node.
+  Attach to an already-running stack and start only FaceMode/map_aim_point_node.
   This does not launch or clean up gimbal_driver, tf_tree, map_server, camera, or localization.
 
 Common:
-  ./${SCRIPT_NAME}
-  ./${SCRIPT_NAME} --echo
-  ./${SCRIPT_NAME} --smooth --echo
-  ./${SCRIPT_NAME} --strict-time --echo
-  ./${SCRIPT_NAME} --allow-duplicate --echo
-  ./${SCRIPT_NAME} -- command_filter_alpha:=0.2 max_yaw_step_deg:=2.0 max_pitch_step_deg:=1.0
-  TARGET_X_CM=1093 TARGET_Y_CM=366 TARGET_Z_CM=100 ./${SCRIPT_NAME} --echo
+  OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME}
+  OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME} --echo
+  OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME} --smooth --echo
+  OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME} --strict-time --echo
+  OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME} --allow-duplicate --echo
+  OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME} -- command_filter_alpha:=0.2 max_yaw_step_deg:=2.0 max_pitch_step_deg:=1.0
+  ./${SCRIPT_NAME} -- official_map_x:=1093 official_map_y:=366 map_z:=100
 
 Current defaults:
-  TARGET=(${TARGET_X_CM}, ${TARGET_Y_CM}, ${TARGET_Z_CM})cm@${TARGET_FRAME}
+  FACE_POINT=(${OFFICIAL_MAP_X}, ${OFFICIAL_MAP_Y}, ${MAP_Z})cm@${TARGET_FRAME}
   RAW_GOAL_TARGET_FRAME=${RAW_GOAL_TARGET_FRAME}
   AIM_FRAME=${AIM_FRAME}
   CAMERA_FRAME=${CAMERA_FRAME}
@@ -104,7 +104,7 @@ normalize_override() {
   local value="${param#*:=}"
 
   case "${key}" in
-    target_x_cm|target_y_cm|target_z_cm|publish_hz|tf_timeout_sec|\
+    official_map_x|official_map_y|map_z|publish_hz|tf_timeout_sec|\
     max_gimbal_stamp_age_sec|max_target_distance_m|command_filter_alpha|max_yaw_step_deg|\
     max_pitch_step_deg|yaw_sign|pitch_sign|yaw_bias_deg|pitch_bias_deg)
       printf '%s:=%s\n' "${key}" "$(as_double "${value}")"
@@ -113,6 +113,11 @@ normalize_override() {
       printf '%s\n' "${param}"
       ;;
   esac
+}
+
+is_face_mode_point_param() {
+  local key="$1"
+  [[ "${key}" == "official_map_x" || "${key}" == "official_map_y" || "${key}" == "map_z" ]]
 }
 
 override_value() {
@@ -126,6 +131,22 @@ override_value() {
     fi
   done
   printf '%s\n' "${default_value}"
+}
+
+require_face_mode_point_args() {
+  local x="$1"
+  local y="$2"
+  local z="$3"
+  local -a missing=()
+  [[ -n "${x}" ]] || missing+=("official_map_x/OFFICIAL_MAP_X")
+  [[ -n "${y}" ]] || missing+=("official_map_y/OFFICIAL_MAP_Y")
+  [[ -n "${z}" ]] || missing+=("map_z/MAP_Z")
+  if (( ${#missing[@]} > 0 )); then
+    echo "[ERROR] FaceMode requires point parameters in cm: ${missing[*]}" >&2
+    echo "        Example: OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME} --echo" >&2
+    echo "        Or: ./${SCRIPT_NAME} -- official_map_x:=1093 official_map_y:=366 map_z:=100" >&2
+    exit 2
+  fi
 }
 
 while [[ $# -gt 0 ]]; do
@@ -164,6 +185,14 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+PREVIEW_BRIDGE_CONFIG_FILE="$(override_value "bridge_config_file" "${BRIDGE_CONFIG_FILE}")"
+PREVIEW_OFFICIAL_MAP_X="$(override_value "official_map_x" "${OFFICIAL_MAP_X}")"
+PREVIEW_OFFICIAL_MAP_Y="$(override_value "official_map_y" "${OFFICIAL_MAP_Y}")"
+PREVIEW_MAP_Z="$(override_value "map_z" "${MAP_Z}")"
+PREVIEW_USE_RAW_GOAL_STATIC_CALIBRATION="$(override_value "use_raw_goal_static_calibration" "${USE_RAW_GOAL_STATIC_CALIBRATION}")"
+PREVIEW_RAW_GOAL_TARGET_FRAME="$(override_value "raw_goal_target_frame" "${RAW_GOAL_TARGET_FRAME}")"
+require_face_mode_point_args "${PREVIEW_OFFICIAL_MAP_X}" "${PREVIEW_OFFICIAL_MAP_Y}" "${PREVIEW_MAP_Z}"
+
 source_ros_workspace "${ROOT_DIR}"
 
 if [[ "${ALLOW_DUPLICATE}" != "true" ]]; then
@@ -175,25 +204,19 @@ if [[ "${ALLOW_DUPLICATE}" != "true" ]]; then
   fi
 fi
 
-PREVIEW_BRIDGE_CONFIG_FILE="$(override_value "bridge_config_file" "${BRIDGE_CONFIG_FILE}")"
-PREVIEW_TARGET_X_CM="$(override_value "target_x_cm" "${TARGET_X_CM}")"
-PREVIEW_TARGET_Y_CM="$(override_value "target_y_cm" "${TARGET_Y_CM}")"
-PREVIEW_TARGET_Z_CM="$(override_value "target_z_cm" "${TARGET_Z_CM}")"
-PREVIEW_USE_RAW_GOAL_STATIC_CALIBRATION="$(override_value "use_raw_goal_static_calibration" "${USE_RAW_GOAL_STATIC_CALIBRATION}")"
-PREVIEW_RAW_GOAL_TARGET_FRAME="$(override_value "raw_goal_target_frame" "${RAW_GOAL_TARGET_FRAME}")"
 print_raw_goal_map_preview \
   "${PREVIEW_BRIDGE_CONFIG_FILE}" \
-  "${PREVIEW_TARGET_X_CM}" \
-  "${PREVIEW_TARGET_Y_CM}" \
-  "${PREVIEW_TARGET_Z_CM}" \
+  "${PREVIEW_OFFICIAL_MAP_X}" \
+  "${PREVIEW_OFFICIAL_MAP_Y}" \
+  "${PREVIEW_MAP_Z}" \
   "${PREVIEW_USE_RAW_GOAL_STATIC_CALIBRATION}" \
   "${PREVIEW_RAW_GOAL_TARGET_FRAME}"
 
 ROS_ARGS=(
   --ros-args
-  -p "target_x_cm:=$(as_double "${TARGET_X_CM}")"
-  -p "target_y_cm:=$(as_double "${TARGET_Y_CM}")"
-  -p "target_z_cm:=$(as_double "${TARGET_Z_CM}")"
+  -p "official_map_x:=$(as_double "${PREVIEW_OFFICIAL_MAP_X}")"
+  -p "official_map_y:=$(as_double "${PREVIEW_OFFICIAL_MAP_Y}")"
+  -p "map_z:=$(as_double "${PREVIEW_MAP_Z}")"
   -p "target_frame:=${TARGET_FRAME}"
   -p "aim_frame:=${AIM_FRAME}"
   -p "camera_frame:=${CAMERA_FRAME}"
@@ -229,6 +252,10 @@ for param in "${EXTRA_PARAMS[@]}"; do
   if [[ "${param}" != *":="* ]]; then
     echo "[ERROR] Invalid override '${param}'. Expected key:=value." >&2
     exit 2
+  fi
+  param_key="${param%%:=*}"
+  if is_face_mode_point_param "${param_key}"; then
+    continue
   fi
   ROS_ARGS+=(-p "$(normalize_override "${param}")")
 done

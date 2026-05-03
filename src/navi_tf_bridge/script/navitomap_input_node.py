@@ -16,10 +16,10 @@ from rclpy.node import Node
 from std_msgs.msg import UInt16MultiArray
 
 
-class ManualGoalInputNode(Node):
+class NaviToMapInputNode(Node):
     def __init__(self) -> None:
         super().__init__(
-            "manual_goal_input_node",
+            "navitomap_input_node",
             allow_undeclared_parameters=True,
             automatically_declare_parameters_from_overrides=True,
         )
@@ -68,7 +68,7 @@ class ManualGoalInputNode(Node):
         self.last_goal_pose: PoseStamped | None = None
 
         self.get_logger().info(
-            f"manual goal input ready: raw_topic={self.raw_topic} "
+            f"navitomap input ready: raw_topic={self.raw_topic} "
             f"goal_pose_topic={self.goal_topic} input_unit={self.input_unit} "
             f"confirm_before_publish={self.confirm_before_publish} "
             f"confirmed_goal_pose_topic={self.confirmed_goal_topic}"
@@ -195,7 +195,7 @@ class ManualGoalInputNode(Node):
 
     def input_loop(self) -> None:
         self.wait_for_bridge_matches()
-        prompt = "[manual_goal_input] x y > "
+        prompt = "[navitomap] x y > "
         while rclpy.ok() and not self.stop_event.is_set():
             try:
                 line = input(prompt)
@@ -256,7 +256,7 @@ class ManualGoalInputNode(Node):
 
 def main(args=None) -> None:
     rclpy.init(args=args)
-    node = ManualGoalInputNode()
+    node = NaviToMapInputNode()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

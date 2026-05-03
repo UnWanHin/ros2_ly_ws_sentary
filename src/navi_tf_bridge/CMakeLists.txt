@@ -10,12 +10,31 @@ find_package(rclpy REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(auto_aim_common REQUIRED)
+find_package(gimbal_driver REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 
 add_executable(target_rel_to_goal_pos_node
+  src/chase_pointer.cpp
+  src/goal_output.cpp
+  src/map_pointer.cpp
+  src/pointer_debug.cpp
+  src/pointer_solver.cpp
   src/target_rel_to_goal_pos_node.cpp
+)
+
+target_include_directories(target_rel_to_goal_pos_node PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+add_executable(map_aim_point_node
+  src/pointer_solver.cpp
+  src/pointer_solver_node.cpp
+)
+
+target_include_directories(map_aim_point_node PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 ament_target_dependencies(target_rel_to_goal_pos_node
@@ -28,32 +47,37 @@ ament_target_dependencies(target_rel_to_goal_pos_node
   tf2_geometry_msgs
 )
 
-install(TARGETS target_rel_to_goal_pos_node
+ament_target_dependencies(map_aim_point_node
+  rclcpp
+  geometry_msgs
+  gimbal_driver
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+)
+
+install(TARGETS
+  target_rel_to_goal_pos_node
+  map_aim_point_node
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
 install(PROGRAMS
-  script/manual_goal_input_node.py
+  script/navitomap_input_node.py
   DESTINATION lib/${PROJECT_NAME}
-  RENAME manual_goal_input_node
+  RENAME navitomap_input_node
 )
 
 install(PROGRAMS
-  script/solve_static_tf_from_points.py
+  script/tf_matrix.py
   DESTINATION lib/${PROJECT_NAME}
-  RENAME solve_static_tf_from_points
+  RENAME tf_matrix
 )
 
 install(PROGRAMS
-  script/fit_static_tf_kabsch.py
+  script/navi_calib.py
   DESTINATION lib/${PROJECT_NAME}
-  RENAME fit_static_tf_kabsch
-)
-
-install(PROGRAMS
-  script/map_aim_point_node.py
-  DESTINATION lib/${PROJECT_NAME}
-  RENAME map_aim_point_node
+  RENAME navi_calib
 )
 
 install(PROGRAMS

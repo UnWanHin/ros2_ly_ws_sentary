@@ -265,6 +265,12 @@ namespace LangYa {
         ns.UseTfGoalBridge = j.value("UseTfGoalBridge", ns.UseTfGoalBridge);
     }
 
+    void from_json(const json& j, FaceModeSetting& fs) {
+        fs.Enable = j.value("Enable", fs.Enable);
+        fs.LostTargetHoldMs = j.value("LostTargetHoldMs", fs.LostTargetHoldMs);
+        fs.SuppressFire = j.value("SuppressFire", fs.SuppressFire);
+    }
+
     void from_json(const json& j, LeagueStrategySetting& ls) {
         ls.EnableRouteCompat = j.value("EnableRouteCompat", ls.EnableRouteCompat);
         ls.UseHealthRecovery = j.value("UseHealthRecovery", ls.UseHealthRecovery);
@@ -528,6 +534,9 @@ namespace LangYa {
         if (j.contains("NaviSetting")) {
             j.at("NaviSetting").get_to(c.NaviSettings);
         }
+        if (j.contains("FaceMode")) {
+            j.at("FaceMode").get_to(c.FaceModeSettings);
+        }
         if (j.contains("LeagueStrategy")) {
             j.at("LeagueStrategy").get_to(c.LeagueStrategySettings);
         }
@@ -611,6 +620,10 @@ namespace BehaviorTree {
         LoggerPtr->Debug("------ NaviSetting ------");
         LoggerPtr->Debug("UseXY: {}", config.NaviSettings.UseXY);
         LoggerPtr->Debug("UseTfGoalBridge: {}", config.NaviSettings.UseTfGoalBridge);
+        LoggerPtr->Debug("------ FaceMode ------");
+        LoggerPtr->Debug("Enable: {}", config.FaceModeSettings.Enable);
+        LoggerPtr->Debug("LostTargetHoldMs: {}", config.FaceModeSettings.LostTargetHoldMs);
+        LoggerPtr->Debug("SuppressFire: {}", config.FaceModeSettings.SuppressFire);
         LoggerPtr->Debug("------ LeagueStrategy ------");
         LoggerPtr->Debug("EnableRouteCompat: {}", config.LeagueStrategySettings.EnableRouteCompat);
         LoggerPtr->Debug("UseHealthRecovery: {}", config.LeagueStrategySettings.UseHealthRecovery);
@@ -815,6 +828,12 @@ namespace BehaviorTree {
                 "Invalid DamageOpenGate.HealthDropThreshold={}, clamp to 400.",
                 config.DamageOpenGateSettings.HealthDropThreshold);
             config.DamageOpenGateSettings.HealthDropThreshold = 400;
+        }
+        if (config.FaceModeSettings.LostTargetHoldMs < 0) {
+            LoggerPtr->Warning(
+                "Invalid FaceMode.LostTargetHoldMs={}, fallback to 300.",
+                config.FaceModeSettings.LostTargetHoldMs);
+            config.FaceModeSettings.LostTargetHoldMs = 300;
         }
         if (!IsValidBaseGoal(config.LeagueStrategySettings.MainGoal)) {
             LoggerPtr->Warning(
