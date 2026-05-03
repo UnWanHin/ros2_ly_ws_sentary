@@ -2,7 +2,7 @@
 
 本文档只追一条链路：`/ly/control/angles` 是怎么从“辅瞄锁敌”一路形成并最终下发到下位机的。
 
-适用代码状态：当前仓库主线实现（2026-03-17）。
+适用代码状态：当前仓库主线实现（2026-05-03）。
 
 ## 1. 当前在线主链路
 
@@ -28,6 +28,7 @@
 - `predictor` 不直接发 `/ly/control/angles`
 - 当前比赛链路由 `behavior_tree` 统一收口后再发 `/ly/control/angles`
 - `mapper_node.py` 属于独立测试桥，不是默认比赛控制链路
+- FaceMode 固定点朝向测试是另一条独立调试链路：`navi_tf_bridge/map_aim_point_node -> /ly/control/angles`，运行时不要和 `behavior_tree` 同时抢控制源。
 
 ## 2. 一图看懂
 
@@ -286,6 +287,17 @@ predictor -> mapper_node.py -> /ly/control/angles -> gimbal_driver
 
 这条只用于快速联调或独立测试，不是默认比赛控制链。
 
+### 5.3 FaceMode 固定点朝向链路
+
+```text
+[official_map_x, official_map_y, map_z]
+  -> navi_tf_bridge/map_aim_point_node
+  -> /ly/control/angles
+  -> gimbal_driver
+```
+
+这条用于看不到目标时按已知地图点大致朝向目标。X/Y 会按 `tf_config.yaml` 的 raw-goal 4x4 矩阵转换，Z 直接按 map 高度使用；脚本入口是 `scripts/navi/facemode.sh`、`scripts/navi/map_aim_point_test.sh` 或 `scripts/navi/map_aim_point_attach.sh`。它只控制云台，不发布底盘速度，默认 `yaw_sign=-1.0`。如果目标暂时在 `gx_camera` 后方，节点会用几何 yaw/pitch fallback 先让云台转向正面。
+
 如果你看到旧文档写“`predictor` 直接到 `gimbal_driver`”或“`mapper_node` 转发为默认链路”，要以当前代码为准。
 
 ## 6. 出问题时该看哪一跳
@@ -360,17 +372,20 @@ ros2 topic info /ly/control/angles -v
 
 ## 8. 对应代码入口速查
 
-- `gimbal_driver` 上行角度发布  
+- `gimbal_driver` 上行角度发布
   [`src/gimbal_driver/main.cpp`](../../src/gimbal_driver/main.cpp)
-- `detector` 读取云台角并发布 `Armors.msg`  
+- `detector` 读取云台角并发布 `Armors.msg`
   [`src/detector/detector_node.cpp`](../../src/detector/detector_node.cpp)
-- `tracker_solver` 生成 `Trackers.msg`  
+- `tracker_solver` 生成 `Trackers.msg`
   [`src/tracker_solver/car_tracker_solver_node.cpp`](../../src/tracker_solver/car_tracker_solver_node.cpp)
-- `predictor` 生成 `Target.msg`  
+- `predictor` 生成 `Target.msg`
   [`src/predictor/predictor_node.cpp`](../../src/predictor/predictor_node.cpp)
-- `controller` 计算期望 yaw/pitch  
+- `controller` 计算期望 yaw/pitch
   [`src/predictor/src/controller.cpp`](../../src/predictor/src/controller.cpp)
-- `behavior_tree` 接收 `Target.msg` 并发布 `/ly/control/angles`  
-  [`src/behavior_tree/src/SubscribeMessage.cpp`](../../src/behavior_tree/src/SubscribeMessage.cpp)  
-  [`src/behavior_tree/src/GameLoop.cpp`](../../src/behavior_tree/src/GameLoop.cpp)  
+- `behavior_tree` 接收 `Target.msg` 并发布 `/ly/control/angles`
+  [`src/behavior_tree/src/SubscribeMessage.cpp`](../../src/behavior_tree/src/SubscribeMessage.cpp)
+  [`src/behavior_tree/src/GameLoop.cpp`](../../src/behavior_tree/src/GameLoop.cpp)
   [`src/behavior_tree/src/PublishMessage.cpp`](../../src/behavior_tree/src/PublishMessage.cpp)
+- `navi_tf_bridge` FaceMode 固定点朝向
+  [`src/navi_tf_bridge/src/pointer_solver_node.cpp`](../../src/navi_tf_bridge/src/pointer_solver_node.cpp)
+  [`src/navi_tf_bridge/launch/map_aim_point.launch.py`](../../src/navi_tf_bridge/launch/map_aim_point.launch.py)

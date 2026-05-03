@@ -15,6 +15,11 @@
 2. **前哨模式 (Outpost)** - 前哨站打擊
 3. **能量機關模式 (Buff)** - 能量機關打擊
 
+另有两个辅助/调试链路：
+
+- **导航 TF bridge**：`/ly/navi/goal_pos_raw` 或 `/ly/navi/target_rel` 经 `navi_tf_bridge` 转 `/goal_pose`。
+- **FaceMode 固定点朝向**：`map_aim_point_node` 根据 `[official_map_x, official_map_y, map_z]` 解算 yaw/pitch，直接发布 `/ly/control/angles`，可选发布 `/ly/control/firecode`，不发布底盘速度。
+
 ---
 
 ## 🔄 模式 1: 自瞄模式 (Auto-Aim)
@@ -62,7 +67,7 @@
 - `/ly/gimbal/angles` - 雲台當前角度
   - 類型: [`gimbal_driver::msg::GimbalAngles`](../../src/gimbal_driver/msg/GimbalAngles.msg)
   - 內容: `yaw`, `pitch`
-  
+
 - `/ly/me/is_team_red` - 我方隊伍顏色
   - 類型: `std_msgs::msg::Bool`
   - 內容: `true` = 紅方, `false` = 藍方
@@ -153,8 +158,8 @@ if(aa_enable){
 **關鍵代碼位置**:
 ```cpp
 // 訂閱檢測結果 (第 67-69 行)
-node.GenSubscriber<ly_detector_armors>([this](const auto_aim_common::msg::Armors::ConstSharedPtr msg) { 
-    detection_callback(msg); 
+node.GenSubscriber<ly_detector_armors>([this](const auto_aim_common::msg::Armors::ConstSharedPtr msg) {
+    detection_callback(msg);
 });
 
 // 發布追蹤結果 (第 173 行)
@@ -194,8 +199,8 @@ node.Publisher<ly_tracker_results>()->publish(trackers_msg);
 **關鍵代碼位置**:
 ```cpp
 // 訂閱追蹤結果 (第 59-61 行)
-node.GenSubscriber<ly_tracker_results>([this](const auto_aim_common::msg::Trackers::ConstSharedPtr msg) { 
-    predictor_callback(msg); 
+node.GenSubscriber<ly_tracker_results>([this](const auto_aim_common::msg::Trackers::ConstSharedPtr msg) {
+    predictor_callback(msg);
 });
 
 // 發布預測目標 (第 153-154 行)
@@ -219,12 +224,14 @@ if(control_result.valid){
 - `/ly/buff/target` - 能量機關目標 (buff 模式)
 - `/ly/navi/reached` - 導航當前目標是否已到達，`true` 表示到達
 - `/ly/navi/reachable` - 導航當前目標是否可達，`false` 表示無有效路徑
+- `/ly/face_mode/angles` - FaceMode 角度預留輸入，主決策尚未把它作為完整模式自動選用
 
 **behavior_tree 發布**:
 - `/ly/control/angles`
 - `/ly/control/firecode`
 - `/ly/control/vel`
 - `/ly/control/posture`
+- `/ly/navi/goal`, `/ly/navi/goal_pos_raw`, `/ly/navi/target_rel`, `/ly/navi/speed_level`
 
 **gimbal_driver 訂閱**:
 - `/ly/control/*`
@@ -450,6 +457,29 @@ float32 pitch
 - 檢測器模型路徑
 - 是否使用視頻 (`use_video`)
 
+### 导航 TF bridge 配置
+
+**文件**: [`src/navi_tf_bridge/config/tf_config.yaml`](../../src/navi_tf_bridge/config/tf_config.yaml)
+
+关键约定：
+
+- `raw_goal_transform_matrix`：官方地图二维点到 map-frame 的 4x4 矩阵。
+- `target_rel_default_frame: gimbal_world`：追击相对目标没带 frame 时的来源坐标系。
+- `/goal_pose` 是当前 TF bridge 的最终导航目标。
+
+### 火控语义
+
+`/ly/control/firecode` 当前使用 [`gimbal_driver/msg/FireCode`](../../src/gimbal_driver/msg/FireCode.msg) 的语义字段：
+
+- `fire_status`
+- `cap_state`
+- `follow_mode`
+- `aim_mode`
+- `rotate`
+- `raw`
+
+`FollowMode=1` 时，`behavior_tree` 会停小陀螺、停巡逻扫描、停止新的开火翻转，并保持当前云台角。
+
 ---
 
 ## 🎮 模式切換機制
@@ -559,7 +589,7 @@ ros2 topic hz /ly/predictor/target
 
 ---
 
-## 📝 決策模塊接口 (預留)
+## 📝 決策模塊接口
 
 ### 決策模塊需要訂閱的 Topic
 
@@ -574,6 +604,9 @@ ros2 topic hz /ly/predictor/target
 2. **檢測結果**:
    - `/ly/detector/armors` - 裝甲板檢測
    - `/ly/tracker/results` - 追蹤結果
+3. **導航状态**:
+   - `/ly/navi/reached` - 当前目标是否到达
+   - `/ly/navi/reachable` - 当前目标是否可达
 
 ### 決策模塊需要發布的 Topic
 
@@ -585,6 +618,11 @@ ros2 topic hz /ly/predictor/target
    - `/ly/aa/enable` - 控制自瞄使能
    - `/ly/ra/enable` - 控制能量機關使能
    - `/ly/outpost/enable` - 控制前哨使能
+
+3. **导航输出**:
+   - `/ly/navi/goal` - 点位 ID
+   - `/ly/navi/goal_pos_raw` - 官方地图点输入，由 `navi_tf_bridge` 转 `/goal_pose`
+   - `/ly/navi/target_rel` - 追击相对目标点
 
 ---
 
@@ -607,6 +645,6 @@ ros2 topic hz /ly/predictor/target
 
 ---
 
-**文檔版本**: 1.0  
-**最後更新**: 2026-02-03  
+**文檔版本**: 1.0
+**最後更新**: 2026-05-03
 **維護者**: ROS2 哨兵機器人團隊

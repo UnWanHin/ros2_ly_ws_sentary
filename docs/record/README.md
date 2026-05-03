@@ -107,6 +107,12 @@
 - 变更落地记录放 `docs/record/`
 - 长期方案放 `docs/plans/`
 
+## 近期导航/决策相关记录
+
+- [tf_tree 合并与导航链路接入记录](tf_tree_integration_for_navi_2026-05-01.md)
+- [navi_tf_bridge / FaceMode / scripts 入口整理记录](navi_tf_bridge_facemode_and_script_layout_2026-05-03.md)
+- [FollowMode / 区域过渡 / 导航状态对接记录](follow_mode_navi_transition_and_external_status_2026-05-03.md)
+
 ## 提交要求
 
 凡是满足以下任一条件，代码提交时应同步更新本目录：

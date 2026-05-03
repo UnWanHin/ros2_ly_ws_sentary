@@ -24,8 +24,19 @@
 - BT 订阅：
   - `/ly/navi/vel`
   - `/ly/navi/lower_head`
+  - `/ly/navi/reached`（`std_msgs/msg/Bool`，当前目标是否已到达）
+  - `/ly/navi/reachable`（`std_msgs/msg/Bool`，当前目标是否有有效路径）
 
-说明：本仓库内未包含完整导航执行节点；当前 TF bridge 链路的最终导航目标统一为 `/goal_pose`。
+说明：本仓库内未包含完整导航执行节点；当前 TF bridge 链路的最终导航目标统一为 `/goal_pose`。外部导航状态 topic 只订阅不发布，且代码里的到达 topic 是 `/ly/navi/reached`，不是 `/ly/navi/reach`。
+
+### 固定点位 / TF bridge 工具
+
+- `scripts/navi/navitomap.sh`：手动把官方地图二维点 `/ly/navi/goal_pos_raw` 经 `navi_tf_bridge` 的 4x4 矩阵转成 `/goal_pose`。
+- `scripts/navi/facemode.sh`：FaceMode 简短入口；位置参数为 `official_map_x official_map_y map_z`，单位 cm。
+- `scripts/navi/map_aim_point_test.sh`：FaceMode 固定点朝向测试；给 `[official_map_x, official_map_y, map_z]`，X/Y 走 `tf_config.yaml` 的 raw-goal 矩阵，Z 直接按 map 高度使用。
+- `scripts/navi/map_aim_point_attach.sh`：在已有 stack 上只附加 FaceMode/map_aim_point_node。
+
+FaceMode 的独立测试节点会直接发布 `/ly/control/angles`，可选发布 `/ly/control/firecode`，不发布底盘速度，默认 `yaw_sign=-1.0`。BT 侧目前有 `/ly/face_mode/angles` 订阅和 `AimMode::FaceMode` 预留，但主决策尚未把它作为完整模式自动选择。
 
 ### 下位机串口接口（由 gimbal_driver 对接）
 
@@ -42,6 +53,7 @@
   即：导航回传速度先进入 BT，再由 BT 转发给 gimbal_driver。
 - 当 `Chase.UseRelativeTargetTopic=true` 时，BT 会发布 `/ly/navi/target_rel`，由导航侧决定速度分配；  
   BT 不再执行本地追击速度闭环。
+- 当 `NaviSetting.UseTfGoalBridge=true` 时，BT 发布的是 `/ly/navi/goal_pos_raw`，再由 `navi_tf_bridge` 转 `/goal_pose`；`false` 时不会走这条 4x4 静态转换链。
 - 姿态 topic `/ly/control/posture` 已并入主控制幀字段 `GimbalControlData.Posture`（单通道下发）。
 - 下发全量规格见：`docs/sentry/lower_downlink_message_contract.md`。
 

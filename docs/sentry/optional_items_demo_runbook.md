@@ -251,7 +251,7 @@ colcon build --packages-select behavior_tree
 如果导航侧已经在线，只想发临时巡逻点：
 
 ```bash
-./scripts/debug.sh navi-patrol --plan test_site_sequence
+./scripts/debug.sh navi_goal --plan test_site_sequence
 ```
 
 如果你想用 `behavior_tree` 这条链保持发点：
@@ -366,7 +366,7 @@ colcon build --packages-select behavior_tree
 项目三，单独导航巡逻：
 
 ```bash
-./scripts/debug.sh navi-patrol --plan test_site_sequence
+./scripts/debug.sh navi_goal --plan test_site_sequence
 ```
 
 项目三，BT 导航调试模式：

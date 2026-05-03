@@ -109,11 +109,12 @@ rclcpp::shutdown();
 **決策輸出數據**：
 | 變量 | 說明 |
 |------|------|
-| `aimMode` | 當前瞄準模式（AutoAim/Buff/Outpost/RotateScan） |
+| `aimMode` | 當前瞄準模式（AutoAim/Buff/Outpost/RotateScan/FaceMode） |
 | `targetArmor` | 要打的裝甲板類型 + 距離 |
 | `autoAimData` | 普通瞄準的角度數據（來自 predictor） |
 | `buffAimData` | 打符的角度數據（來自 buff_hitter） |
 | `outpostAimData` | 前哨站角度數據（來自 outpost_hitter） |
+| `faceModeData` | FaceMode 固定點朝向角輸入（預留 BT 內部接入口，主決策尚未直接選用） |
 | `gimbalControlData` | 最終發出的雲台控制數據（角度+火控） |
 | `naviCommandGoal` | 導航目標點位（uint8，對應 Area 枚舉） |
 | `speedLevel` | 底盤速度等級（0=停、1=正常、2=快） |
@@ -223,15 +224,16 @@ void TreeTick() {
 這個函數決定最終發出什麼角度和火控碼：
 
 1. **小陀螺控制**：根據血量下降速度（`healthDecreaseDetector`）和底盤速度（`naviVelocity`），動態設置 `FireCode.Rotate`（0=停止、1-3=不同速度）
-2. **本輪收到目標回調時**：
+2. **FollowMode 優先級**：`FireCode.FollowMode=1` 時停止 rotate、停止巡邏掃描、保持當前雲台角，並停止新的 `FireStatus` 翻轉。
+3. **本輪收到目標回調時**：
    - 按 `aimMode` 從對應的 `Aim*Data` 取角度
    - `autoaim/outpost` 不再依賴 `Target.status` 來決定是否翻火控
    - 非 `buff` 模式按 `fireRateClock` 控制翻轉开火
-3. **本輪未收到目標回調但距離上次鎖敵未超過 2 秒時**：
+4. **本輪未收到目標回調但距離上次鎖敵未超過 2 秒時**：
    - 沿用最近一次 latched 目標角
-4. **超過2秒仍未收到目標時**：
+5. **超過2秒仍未收到目標時**：
    - 切換到掃描模式，Yaw+3° 偏移，Pitch 用 `SineWave` 做俯仰波動
-5. 調用 `PublishMessageAll()` 發出最終指令
+6. 調用 `PublishMessageAll()` 發出最終指令
 
 ---
 
@@ -257,6 +259,9 @@ void TreeTick() {
 | `/ly/predictor/target` | `autoAimData`, `isFindTargetAtomic` | 普通瞄準角度；当前已恢复为老链路语义：消息一到就锁，`autoaim` 侧直接视为可跟随且可开火 |
 | `/ly/outpost/target` | `outpostAimData`, `isFindTargetAtomic` | 前哨瞄準角度；当前同样按老链路语义视为可开火 |
 | `/ly/buff/target` | `buffAimData`, `isFindTargetAtomic` | 打符瞄準角度 |
+| `/ly/face_mode/angles` | `faceModeData` | FaceMode 角度預留輸入；獨立 `map_aim_point_node` 默認直接發 `/ly/control/angles` |
+| `/ly/navi/reached` | `naviReach` | 導航當前目標是否已到達；外部狀態新鮮且匹配當前目標時優先使用 |
+| `/ly/navi/reachable` | `naviReachable` | 導航當前目標是否有有效路徑；超時/未收到/不匹配當前目標時退回內部距離判斷 |
 | `/ly/gimbal/capV` | `capV` | 電容電壓 |
 
 安全降級（兼容默認行為）：
@@ -270,7 +275,7 @@ void TreeTick() {
 | 發布 Topic | 說明 |
 |-----------|------|
 | `/ly/control/angles` | 目標雲台角（`gimbalControlData.GimbalAngles`） |
-| `/ly/control/firecode` | 火控碼（開火狀態、旋轉速度、瞄準模式） |
+| `/ly/control/firecode` | 火控碼（開火狀態、電容、FollowMode、瞄準模式、旋轉速度） |
 | `/ly/control/vel` | 底盤速度指令（導航） |
 | `/ly/control/posture` | 姿態指令（0不下發/1進攻/2防禦/3移動） |
 | `/ly/aa/enable` | 普通瞄準開關 |
@@ -333,7 +338,7 @@ void TreeTick() {
 - 導航輸出：優先用 `/ly/navi/goal`
 - 默認目標 ID：`OccupyArea = 3`
 - 決策規則只有兩段：
-  - 血量低 / 彈藥低：切 `Recovery`  
+  - 血量低 / 彈藥低：切 `Recovery`
   - 否則：切 `OccupyArea`
 
 補充：
@@ -371,13 +376,13 @@ void TreeTick() {
 
 | 類型 | 說明 |
 |------|------|
-| `AimMode` | 枚舉：AutoAim/Buff/Outpost/RotateScan |
+| `AimMode` | 枚舉：AutoAim/Buff/Outpost/RotateScan/FaceMode；FaceMode 目前是預留枚舉，固定點朝向主要由 `navi_tf_bridge/map_aim_point_node` 獨立發角 |
 | `ArmorType` | 枚舉：Hero=1, Engineer=2, Infantry1=3, Infantry2=4, Sentry=5, Outpost=7 |
 | `UnitType` | 同上，但用於 Robot 對象索引 |
 | `UnitTeam` | Red/Blue |
 | `GimbalAnglesType` | {Yaw, Pitch}（float） |
 | `GimbalControlData` | {GimbalAngles, FireCode, Velocity} |
-| `FireCodeType` | 位域：FireStatus, Rotate(2bit), AimMode |
+| `FireCodeType` | 位域：FireStatus, CapState, FollowMode, AimMode, Rotate(2bit) |
 | `AimData` | {Angles(YawPitch), FireStatus, BuffFollow, Valid, Fresh, HasLatchedAngles, LastValidTime} |
 | `RateClock` | 固定頻率時鐘（用毫秒計時） |
 | `TimerClock` | 計時器（用於判斷是否到達某時刻） |
@@ -393,25 +398,28 @@ SET_POSITION(BuffShoot, MyTeam);  // 設置導航目標為打符點位
 
 `Area::BuffShoot.near(x, y, 100, MyTeam)` 判斷當前位置是否在某點位附近100cm內。
 
+当前区域过渡状态机会用 `Highland` 兼容点处理进入/离开我方高地：进入、经由、离开时开启 `FollowMode`；从我方高地回我方基地侧目标会优先经 `CastleLeft`，到达后关闭 `FollowMode` 再继续原目标。高地兼容到达半径当前为 `DecisionAutonomy.NaviGoal.HighlandCompat.ArriveDistanceCm=20` cm。
+
 ---
 
 ## 訂閱/發布 Topic 完整匯總
 
 ### 訂閱（共15+個）
-來自 `gimbal_driver`（遊戲狀態、血量、雲台角、子彈速度等）  
-來自 `predictor`（`/ly/predictor/target`）  
-來自 `outpost_hitter`（`/ly/outpost/target`）  
+來自 `gimbal_driver`（遊戲狀態、血量、雲台角、子彈速度等）
+來自 `predictor`（`/ly/predictor/target`）
+來自 `outpost_hitter`（`/ly/outpost/target`）
 來自 `buff_hitter`（`/ly/buff/target`）
+來自外部導航狀態（`/ly/navi/reached`、`/ly/navi/reachable`）
 
 ### 發布（共10+個）
-控制類：`/ly/control/angles`, `/ly/control/firecode`, `/ly/control/vel`, `/ly/control/posture`  
-模式切換：`/ly/aa/enable`, `/ly/ra/enable`, `/ly/outpost/enable`  
-目標廣播：`/ly/bt/target`（→ `detector`, `predictor`）  
+控制類：`/ly/control/angles`, `/ly/control/firecode`, `/ly/control/vel`, `/ly/control/posture`
+模式切換：`/ly/aa/enable`, `/ly/ra/enable`, `/ly/outpost/enable`
+目標廣播：`/ly/bt/target`（→ `detector`, `predictor`）
 導航：`/ly/navi/*`
 
 ---
 
 ## 黑板与后续方向
 
-当前实现已使用 BT v4 主树执行，且在运行期维护全局黑板与 tick 黑板。  
+当前实现已使用 BT v4 主树执行，且在运行期维护全局黑板与 tick 黑板。
 后续若继续拆分，可沿「感知黑板 / 决策黑板」分层，以降低 `Application` 聚合状态复杂度。

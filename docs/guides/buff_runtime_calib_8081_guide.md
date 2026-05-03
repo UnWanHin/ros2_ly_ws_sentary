@@ -117,13 +117,13 @@ http://127.0.0.1:8081/stream
 ## 5.1 采样节点启动
 
 ```bash
-./scripts/launch/buff_shooting_table_calib.sh
+./scripts/tools/buff_shooting_table_calib.sh
 ```
 
 常用参数：
 
 ```bash
-./scripts/launch/buff_shooting_table_calib.sh \
+./scripts/tools/buff_shooting_table_calib.sh \
   --calib-mode static \
   --csv-strategy new \
   --record-dir ~/workspace/record
@@ -142,23 +142,23 @@ http://127.0.0.1:8081/stream
 静态补偿拟合（最新一份）：
 
 ```bash
-./scripts/launch/buff_shooting_table_calib.sh --fit-static-latest
+./scripts/tools/buff_shooting_table_calib.sh --fit-static-latest
 ```
 
 周期补偿拟合（最新一份）：
 
 ```bash
-./scripts/launch/buff_shooting_table_calib.sh --fit-periodic-latest
+./scripts/tools/buff_shooting_table_calib.sh --fit-periodic-latest
 ```
 
 拟合写回 `buff_config.yaml`（会自动备份）：
 
 ```bash
-./scripts/launch/buff_shooting_table_calib.sh \
+./scripts/tools/buff_shooting_table_calib.sh \
   --fit-static-latest \
   --write-config src/buff_hitter/config/buff_config.yaml
 
-./scripts/launch/buff_shooting_table_calib.sh \
+./scripts/tools/buff_shooting_table_calib.sh \
   --fit-periodic-latest \
   --write-config src/buff_hitter/config/buff_config.yaml
 ```

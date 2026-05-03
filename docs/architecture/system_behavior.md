@@ -95,10 +95,16 @@ void Application::PubGimbalControlData() {
     msg.Pitch = gimbalControlData.GimbalAngles.Pitch;
     node.Publisher<topic>().publish(msg);
     
-    // 發布射擊指令
+    // 發布射擊指令（语义字段 + raw 快照）
     using topic = ly_control_firecode;
     topic::Msg msg;
-    msg.data = *reinterpret_cast<std::uint8_t *>(&gimbalControlData.FireCode);
+    msg.field_mask = gimbal_driver::msg::FireCode::FIELD_ALL;
+    msg.fire_status = gimbalControlData.FireCode.FireStatus;
+    msg.cap_state = gimbalControlData.FireCode.CapState;
+    msg.follow_mode = gimbalControlData.FireCode.FollowMode != 0;
+    msg.aim_mode = gimbalControlData.FireCode.AimMode != 0;
+    msg.rotate = gimbalControlData.FireCode.Rotate;
+    msg.raw = *reinterpret_cast<const std::uint8_t*>(&gimbalControlData.FireCode);
     node.Publisher<topic>().publish(msg);
 }
 ```

@@ -7,7 +7,7 @@
 - 如何变成 `/ly/control/firecode`
 - 最终如何写进下位机主控制帧
 
-适用代码状态：当前仓库主线实现（2026-03-18）。
+适用代码状态：当前仓库主线实现（2026-05-03）。
 
 ## 1. 当前主链路
 
@@ -27,6 +27,7 @@
 - `gimbal_driver` 不自己判“该不该打”，它只转发火控字节
 - 当前 `autoaim/outpost` 这条链已经恢复为老逻辑：一旦 `predictor/outpost` 回调到达，`behavior_tree` 本轮就按节拍翻 firecode
 - `predictor/controller` 仍决定“要不要向 BT 发有效 target”
+- `FollowMode=1` 时，`behavior_tree` 会停止 rotate、停止巡逻扫描、停止新的 `FireStatus` 翻转，并保持当前云台角。
 
 ## 2. predictor：谁决定 `status`
 
@@ -130,10 +131,16 @@
   - `/ly/control/angles`
   - `/ly/control/firecode`
 
-其中 `/ly/control/firecode` 是：
+其中 `/ly/control/firecode` 使用 `gimbal_driver/msg/FireCode` 的语义字段发布完整快照：
 
 ```cpp
-msg.data = *reinterpret_cast<std::uint8_t *>(&gimbalControlData.FireCode);
+msg.field_mask = gimbal_driver::msg::FireCode::FIELD_ALL;
+msg.fire_status = firecode.FireStatus;
+msg.cap_state = firecode.CapState;
+msg.follow_mode = firecode.FollowMode != 0;
+msg.aim_mode = firecode.AimMode != 0;
+msg.rotate = firecode.Rotate;
+msg.raw = *reinterpret_cast<const std::uint8_t*>(&firecode);
 ```
 
 ### 4.2 gimbal_driver 订阅并写入主控制帧
@@ -141,13 +148,14 @@ msg.data = *reinterpret_cast<std::uint8_t *>(&gimbalControlData.FireCode);
 在 [gimbal_driver/main.cpp](/home/unwanhin/ros2_ly_ws_sentary/src/gimbal_driver/main.cpp)：
 
 - 订阅 `/ly/control/firecode`
-- 直接把 `UInt8.data` 写进 `GimbalControlData.FireCode`
+- 按 `field_mask` 更新 `FireStatus/CapState/FollowMode/AimMode/Rotate`
+- `field_mask=FIELD_ALL` 或 `0` 表示完整快照；部分字段更新会受 `firecode_partial_hold_ms` 过期保护
 - 然后通过统一的 `CallbackGenerator -> Device.Write(...)` 写串口
 
 所以：
 
 - `gimbal_driver` 不做二次 fire 判定
-- 它只是把上位机的 firecode 原样塞进下位机主控制帧
+- 它只是把上位机的 firecode 语义字段同步到下位机主控制帧
 
 ## 5. 当前代码上的判断
 

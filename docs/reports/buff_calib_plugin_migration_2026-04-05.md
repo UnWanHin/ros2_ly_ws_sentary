@@ -89,7 +89,7 @@ Write-back policy:
 ### 4) Scripts integration
 
 Added:
-- launch entry: `scripts/launch/buff_shooting_table_calib.sh`
+- launch entry: `scripts/tools/buff_shooting_table_calib.sh`
 - debug entry: `scripts/debug/buff_shooting_table_calib.sh`
 - menu entry in `scripts/debug.sh`
 
@@ -109,13 +109,13 @@ Collect calibration samples:
 Fit static compensation from latest CSV:
 
 ```bash
-./scripts/launch/buff_shooting_table_calib.sh --fit-static-latest
+./scripts/tools/buff_shooting_table_calib.sh --fit-static-latest
 ```
 
 Fit periodic compensation from latest CSV:
 
 ```bash
-./scripts/launch/buff_shooting_table_calib.sh --fit-periodic-latest
+./scripts/tools/buff_shooting_table_calib.sh --fit-periodic-latest
 ```
 
 ## Notes

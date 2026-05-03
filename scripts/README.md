@@ -35,7 +35,9 @@ scripts/
 ├── start/                   # 启动类分类脚本
 ├── debug/                   # 调试类分类脚本
 ├── selfcheck/               # 自检类分类脚本
-├── launch/                  # 真实启动实现
+├── launch/                  # 完整/决策 stack 启动实现
+├── aim/                     # 辅瞄/识别测试 wrapper
+├── navi/                    # 导航/TF/固定朝向工具 wrapper
 ├── feature_test/            # 单项功能测试框架
 ├── tools/                   # 工具脚本
 └── config/                  # 根层配置（base + override）
@@ -44,7 +46,8 @@ scripts/
 原则：
 
 - `scripts/start/`、`scripts/debug/`、`scripts/selfcheck/` 是你平时真正需要打开的分类入口。
-- `scripts/launch/` 是实现层，不是给人记命令用的。
+- `scripts/debug/` 是有意暴露出来的稳定调试接口；即使里面有 wrapper，也保留给人直接找命令用。
+- `scripts/launch/` 只保留完整/决策 stack；辅瞄、导航、标定分别在 `scripts/aim/`、`scripts/navi/`、`scripts/tools/`。
 - 根层 `config/` 只放 `base_config.yaml` 和 `override_config.yaml`。
 - 功能测试配置放在 `scripts/feature_test/config/`。
 - 旧的根目录壳脚本已经删掉，避免同一件事出现两三个名字。
@@ -79,7 +82,7 @@ scripts/
 对应脚本：
 
 - `scripts/debug/armor_test.sh`
-- 实际实现：`scripts/launch/armor_test.sh`
+- 实际实现：`scripts/aim/armor_test.sh`
 
 它不是“正式比赛完全等价入口”，而是“比赛风格辅瞄预设”。
 
@@ -179,21 +182,30 @@ python3 ./scripts/python/start.py --keep-tf-goal-bridge
 
 | 分类脚本 | 用途 | 实际实现 |
 | --- | --- | --- |
-| `scripts/debug/armor_test.sh` | 比赛风格辅瞄预设 | `scripts/launch/armor_test.sh` |
+| `scripts/debug/armor_test.sh` | 比赛风格辅瞄预设 | `scripts/aim/armor_test.sh` |
 | `scripts/debug/navi_debug.sh` | behavior_tree-only 导航调试 | `scripts/launch/start_sentry_navi_debug.sh` |
 | `scripts/debug/standalone.sh` | 单项功能测试菜单 | `scripts/feature_test/standalone/run_standalone_menu.sh` |
 | `scripts/debug/navi_goal.sh` | JSON 巡逻点发 `/ly/navi/goal` | `scripts/feature_test/standalone/modes/navi_patrol_mode.sh` |
 | `scripts/debug/navi_goal_cli.sh` | 手动发导航目标 | `scripts/feature_test/standalone/tools/navi_goal_cli_pub.py` |
 | `scripts/debug/ballistic_error_log.sh` | 过滤弹道/锁敌日志 | `scripts/tools/monitor_ballistic_errors.sh` |
-| `scripts/debug/shooting_table_calib.sh` | 射表标定 | `scripts/launch/shooting_table_calib.sh` |
-| `scripts/debug/buff_shooting_table_calib.sh` | 打符射表标定 | `scripts/launch/buff_shooting_table_calib.sh` |
+| `scripts/debug/shooting_table_calib.sh` | 射表标定 | `scripts/tools/shooting_table_calib.sh` |
+| `scripts/debug/buff_shooting_table_calib.sh` | 打符射表标定 | `scripts/tools/buff_shooting_table_calib.sh` |
 | `scripts/debug/control_angles_test.sh` | 直接发 `/ly/control/angles` 角度命令 | 脚本内置发布逻辑 |
 | `scripts/debug/rotate_level.sh` | Rotate 档位循环与回读测试 | 脚本内置发布/回读逻辑 |
 | `scripts/debug/move_rotate.sh` | 小陀螺 + 正弦平移联动测试 | `scripts/feature_test/standalone/modes/chassis_spin_sine_translate_mode.sh` |
 | `scripts/debug/posture_test.sh` | 姿态切换循环与回读测试 | 脚本内置发布/回读逻辑 |
 | `scripts/debug/chase_only.sh` | 纯追击联调（无门控，默认连下位机） | `scripts/launch/start_sentry_chase_only.sh` |
 | `scripts/debug/outpost_target_test.sh` | 发 `/ly/outpost/target` yaw 序列，验证前哨桥接 | 脚本内置发布逻辑 |
-| `scripts/debug/goal_pos_test.sh` | 仅用于静态点位 `/ly/navi/goal_pos_raw` 转换测试，预览后确认才发 `geometry_msgs/PoseStamped /goal_pose`；不是追击测试 | `scripts/launch/goal_pos_test.sh` |
+| `scripts/debug/goal_pos_test.sh` | 仅用于静态点位 `/ly/navi/goal_pos_raw` 转换测试，预览后确认才发 `geometry_msgs/PoseStamped /goal_pose`；不是追击测试 | `scripts/navi/navitomap.sh` |
+
+### Navi / Aim-Point
+
+| 脚本 | 用途 |
+| --- | --- |
+| `scripts/navi/navitomap.sh` | 手动官方地图点转 `/goal_pose` |
+| `scripts/navi/facemode.sh` | FaceMode 简短入口：`facemode.sh official_map_x official_map_y map_z`，单位 cm |
+| `scripts/navi/map_aim_point_test.sh` | FaceMode 完整测试入口，可拉 `gimbal_driver` / `tf_tree` |
+| `scripts/navi/map_aim_point_attach.sh` | 已有 stack 上只附加 FaceMode 节点 |
 
 ### Selfcheck
 
@@ -297,5 +309,5 @@ python3 ./scripts/python/start.py --keep-tf-goal-bridge
 
 ## 备注
 
-- 这次重构只收敛了 `scripts/` 的入口层，`scripts/launch/`、`feature_test/`、`tools/` 仍保留实现。
+- 这次重构只收敛了 `scripts/` 的入口层，`scripts/launch/`、`scripts/aim/`、`scripts/navi/`、`feature_test/`、`tools/` 仍保留实现。
 - 仓库里其他文档如果还出现旧命令，按上面的新入口映射替换理解即可。

@@ -1,6 +1,6 @@
 # Decision Visualization Trace And Viewer
 
-Updated: 2026-05-02
+Updated: 2026-05-03
 
 ## Purpose
 
@@ -211,8 +211,10 @@ Each line is one JSON object. Important top-level fields:
 - `aim_mode`, `target_armor`, `target_state`
 - `decision_output`: stable viewer-facing output model; includes final output kind, topic, goal ID, `goal_pos_cm`, publish flags, and bridge hints
 - `navi_goal`: ID, base ID, side, speed, publish flags, and `position_cm`
+- `navi_relative_target`: chase/bridge relative target, including x/y/z, distance, yaw/pitch error, armor type, and aim mode
 - `posture`: command, state, runtime desired/current/pending, reason
 - `referee`: HP, ammo, time, outpost/base HP, RFID/buff state
+- `gimbal.fire_code.follow_mode`: semantic firecode bit4; old `hole_mode` naming should no longer be used in new traces/docs
 - `units`: friend/enemy unit records with type, HP, distance, and `position_cm`
 - `runtime_guard`: current fault and recovery state
 
@@ -224,7 +226,7 @@ The viewer uses coordinates in this order:
 
 Terrain height is configured, not inferred. `config/default.yaml` contains an approximate 2D elevation overlay based on the visible map artwork. Treat it as a debug layer only until verified against official CAD/rule metadata.
 
-Navigation goal ID `19` is `Highland`, a regional Highland compatibility/via point at red `(744, 1263)` and blue `(2056, 237)`.
+Navigation goal ID `19` is `Highland`, a regional Highland compatibility/via point at red `(744, 1263)` and blue `(2056, 237)`. Current regional Highland compatibility arrival radius is 20 cm; during enter/via/leave transitions, behavior_tree may set `follow_mode` while routing through Highland or `CastleLeft`.
 
 ## Maintenance Rules
 

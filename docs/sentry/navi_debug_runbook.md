@@ -60,19 +60,19 @@
 ### 3.1 最轻量：不走 BT，直接自动发点
 
 ```bash
-./scripts/debug.sh navi-patrol
+./scripts/debug.sh navi_goal
 ```
 
 指定计划名：
 
 ```bash
-./scripts/debug.sh navi-patrol --plan test_site_sequence
+./scripts/debug.sh navi_goal --plan test_site_sequence
 ```
 
 蓝方映射：
 
 ```bash
-./scripts/debug.sh navi-patrol --team blue
+./scripts/debug.sh navi_goal --team blue
 ```
 
 ### 3.2 走 BT 的导航调试模式
@@ -107,11 +107,35 @@
 - 这条调试模式默认没有普通辅瞄
 - 这条调试模式默认没有独立小陀螺测试
 
+## 5. 官方地图点位转 `/goal_pose`
+
+只想测官方地图二维点到导航 `/goal_pose` 的 4x4 静态转换时，用：
+
+```bash
+./scripts/debug.sh goal-pos-test
+```
+
+实际入口是 `scripts/navi/navitomap.sh`。它会启动 `navi_tf_bridge/navitomap.launch.py`，预览 `/ly/navi/goal_pos_raw -> /goal_pose` 的转换结果，确认后再发目标。
+
+固定地图点朝向测试不属于导航发点，用：
+
+```bash
+./scripts/navi/facemode.sh 1093 366 100 --with-tf-tree
+```
+
+等价完整写法：
+
+```bash
+OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./scripts/navi/map_aim_point_test.sh --with-tf-tree
+```
+
+这个脚本只控制云台 `/ly/control/angles`，不发布底盘速度。
+
 ---
 
-## 5. 注意
+## 6. 注意
 
 - 这套方案只改“发哪些点位 ID”，不改导航侧坐标定义。
 - 如果你现场要的是全新 XY 临时坐标，那还得让导航侧支持新的坐标表，或改回 `/ly/navi/goal_pos`。
-- `./scripts/debug.sh navi-patrol` 直接读取 `src/behavior_tree/Scripts/ConfigJson/navi_debug_points.json`。
+- `./scripts/debug.sh navi_goal` 直接读取 `src/behavior_tree/Scripts/ConfigJson/navi_debug_points.json`。
 - `./scripts/debug.sh navi-debug` 里的 `behavior_tree` 运行时读取的是 `install/behavior_tree/share/behavior_tree/Scripts/ConfigJson/*.json`，所以改完源文件后要先 `colcon build --packages-select behavior_tree`。

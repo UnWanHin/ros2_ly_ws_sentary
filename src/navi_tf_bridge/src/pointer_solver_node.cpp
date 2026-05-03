@@ -430,11 +430,12 @@ private:
         std::to_string(distance) + "m); skip map aim command. Check odom/localization TF.");
       return std::nullopt;
     }
-    if (cz <= 0.0) {
+    const bool target_behind_camera = cz <= 0.0;
+    if (target_behind_camera) {
       warnThrottled(
         "target is behind " + camera_frame_ + ": (" + std::to_string(cx) + ", " +
-        std::to_string(cy) + ", " + std::to_string(cz) + ")m");
-      return std::nullopt;
+        std::to_string(cy) + ", " + std::to_string(cz) +
+        ")m; use geometric yaw/pitch fallback to turn it into camera front");
     }
 
     const double yaw_error_deg = yaw_sign_ * std::atan2(cx, cz) * 180.0 / M_PI + yaw_bias_deg_;
@@ -457,6 +458,9 @@ private:
            << "," << target_solve->z << ")m target_in_" << camera_frame_ << "=(" << cx << ","
            << cy << "," << cz << ")m err_yaw=" << yaw_error_deg
            << " err_pitch=" << pitch_error_deg;
+    if (target_behind_camera) {
+      detail << " behind_fallback=geometric";
+    }
     return SolvedCommand{yaw_cmd_deg, pitch_cmd_deg, *target_camera, detail.str()};
   }
 

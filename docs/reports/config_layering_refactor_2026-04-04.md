@@ -58,9 +58,9 @@ Updated scripts now default-inject layered configs from:
 - `scripts/launch/start_sentry_showcase.sh`
 - `scripts/launch/start_sentry_chase_only.sh`
 - `scripts/launch/start_sentry_navi_debug.sh`
-- `scripts/launch/armor_test.sh`
+- `scripts/aim/armor_test.sh`
 - `scripts/launch/start_autoaim_debug.sh`
-- `scripts/launch/shooting_table_calib.sh`
+- `scripts/tools/shooting_table_calib.sh`
 
 ## 5. Reader/Runtime Config Code Changes
 

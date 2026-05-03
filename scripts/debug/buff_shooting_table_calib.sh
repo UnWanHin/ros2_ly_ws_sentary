@@ -7,4 +7,4 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-exec "${ROOT_DIR}/scripts/launch/buff_shooting_table_calib.sh" "$@"
+exec "${ROOT_DIR}/scripts/tools/buff_shooting_table_calib.sh" "$@"

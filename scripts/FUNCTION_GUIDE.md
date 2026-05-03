@@ -57,11 +57,15 @@ scripts/
 ├── start/ debug/ selfcheck/
 │   └── 分类入口，名字稳定，适合记命令
 ├── launch/
-│   └── 真正起 ros2 launch / ros2 run 的实现层
+│   └── 完整/决策 stack 的 ros2 launch 实现层
+├── aim/
+│   └── 辅瞄/识别测试 wrapper
+├── navi/
+│   └── 导航/TF/固定点朝向 wrapper
 ├── feature_test/
 │   └── 单项功能测试、standalone 模式
 ├── tools/
-│   └── 拟合、日志过滤等工具
+│   └── 标定、拟合、日志过滤等工具
 └── config/
     └── 常用 YAML 配置
 ```
@@ -69,7 +73,9 @@ scripts/
 判断原则：
 
 - 想“记命令”：看 `start/`、`debug/`、`selfcheck/`
-- 想“改启动参数默认值”：看 `launch/`
+- 想“改完整决策 stack 启动参数默认值”：看 `launch/`
+- 想“改辅瞄测试入口”：看 `aim/`
+- 想“改导航/TF/FaceMode 工具入口”：看 `navi/`
 - 想“做单项功能测试”：看 `feature_test/`
 - 想“改比赛配置”：看 `config/`
 
@@ -230,6 +236,46 @@ scripts/
 对应计划文件：
 
 - `src/behavior_tree/Scripts/ConfigJson/navi_debug_points.json`
+
+### 6.1 官方地图点转 `/goal_pose`
+
+```bash
+./scripts/debug.sh goal-pos-test
+```
+
+实际入口：
+
+- `scripts/navi/navitomap.sh`
+
+适合：
+
+- 手动输入官方地图点
+- 预览 `tf_config.yaml` 的 4x4 转换结果
+- 确认 `/ly/navi/goal_pos_raw -> /goal_pose` 链路
+
+### 6.2 FaceMode 固定点朝向
+
+```bash
+OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./scripts/navi/map_aim_point_test.sh --with-tf-tree
+```
+
+简短入口：
+
+```bash
+./scripts/navi/facemode.sh 1093 366 100 --with-tf-tree
+```
+
+附加到已有 stack：
+
+```bash
+OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./scripts/navi/map_aim_point_attach.sh
+```
+
+适合：
+
+- 给定 `[official_map_x, official_map_y, map_z]` 后一直朝向该地图点
+- 只控云台 `/ly/control/angles`，不发底盘速度
+- 默认 `yaw_sign=-1.0`
 
 ### 7. 直接发 `/ly/control/angles`
 
@@ -417,8 +463,8 @@ scripts/
 常用离线拟合：
 
 ```bash
-./scripts/launch/buff_shooting_table_calib.sh --fit-static-latest
-./scripts/launch/buff_shooting_table_calib.sh --fit-periodic-latest
+./scripts/tools/buff_shooting_table_calib.sh --fit-static-latest
+./scripts/tools/buff_shooting_table_calib.sh --fit-periodic-latest
 ```
 
 ---
