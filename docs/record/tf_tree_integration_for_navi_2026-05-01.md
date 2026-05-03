@@ -4,7 +4,7 @@
 
 ## 背景
 
-当前追击/静态目标转换由 `navi_tf_bridge` 负责。追击点默认把 `/ly/navi/target_rel` 当作 `gimbal_world` 下的目标，查询 `map <- source_frame` 后输出 `/goal_pose`；固定官方地图点则先经 `tf_config.yaml` 的 raw-goal 4x4 矩阵转换。
+当前追击/静态目标转换由 `navi_tf_bridge` 负责。追击点默认把 `/ly/navi/target_rel` 当作 `gx_camera` 下的目标，查询 `map <- source_frame` 后输出 `/goal_pose`；固定官方地图点则先经 `tf_config.yaml` 的 raw-goal 4x4 矩阵转换。
 项目里已有 `navi_tf_bridge`，但 `base_link` 到云台/相机的 TF 广播逻辑原先在外部仓库 `~/sentry.common`，主工作区启动链路默认不会拉起这部分 TF 节点。
 
 ## 根因/判断
@@ -48,11 +48,11 @@
 ### 3) 追击 TF 变换链修正（source -> map）
 
 追击点转换使用 `RelativeTarget.header.frame_id`（若为空则用 `target_rel_default_frame`）作为来源，
-直接做单段 TF 查询 `map <- source_frame` 后发布 `geometry_msgs/PoseStamped /goal_pose`。当前默认 `target_rel_default_frame=gimbal_world`。
+直接做单段 TF 查询 `map <- source_frame` 后发布 `geometry_msgs/PoseStamped /goal_pose`。当前默认 `target_rel_default_frame=gx_camera`。
 
 新增参数：
 
-- `target_rel_default_frame`（默认 `gimbal_world`）
+- `target_rel_default_frame`（默认 `gx_camera`）
   - 当 `RelativeTarget.header.frame_id` 为空时，使用该 frame 作为追击点来源。
   - 若 `use_msg_frame_id=true` 且消息携带 `frame_id`，优先使用消息内 frame。
 
@@ -106,7 +106,7 @@ FaceMode 输入参数为 `[official_map_x, official_map_y, map_z]`，X/Y 先按 
 
 4. `target_rel_default_frame`
    - 文件：`src/navi_tf_bridge/config/tf_config.yaml`
-   - 默认：`gimbal_world`
+   - 默认：`gx_camera`
    - 作用：追击 `target_rel` 缺失 `frame_id` 时的默认来源坐标系（直接用于 `map <- source_frame` 查询）
 
 5. `raw_goal_transform_matrix`
@@ -132,7 +132,7 @@ FaceMode 输入参数为 `[official_map_x, official_map_y, map_z]`，X/Y 先按 
    - `ros2 node list | rg tf_tree_node`
    - `ros2 topic echo /tf --once`
 4. 导航联调重点检查：
-   - 追击来源 frame（默认 `gimbal_world`）到 `map` 是否可查
+   - 追击来源 frame（默认 `gx_camera`）到 `map` 是否可查
    - 导航/定位侧提供的 `map -> base_link` 或 `map -> odom -> base_link` 是否存在、时间戳是否连续
 
 ## 当前约束

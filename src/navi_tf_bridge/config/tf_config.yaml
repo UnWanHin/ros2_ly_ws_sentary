@@ -11,8 +11,9 @@ target_rel_to_goal_pos_node:
     base_frame: base_link
     fallback_base_frame: baselink
     # 追击 target_rel 在未携带 header.frame_id 时使用的默认来源坐标系。
+    # target_rel 的 x/y/z 是相机/局部坐标系下的相对点：x-forward, y-left, z-up。
     # 实际转换路径为：source_frame -> map_frame（单段 TF 查询）。
-    target_rel_default_frame: gimbal_world
+    target_rel_default_frame: gx_camera
     use_msg_frame_id: true
 
     publish_target_map: true

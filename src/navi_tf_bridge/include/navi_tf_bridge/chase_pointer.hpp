@@ -21,7 +21,7 @@ public:
     std::string base_frame{"base_link"};
     std::string fallback_base_frame{"baselink"};
     bool use_msg_frame_id{true};
-    std::string default_frame{"gimbal_world"};
+    std::string default_frame{"gx_camera"};
     int preferred_distance_cm{100};
     int distance_deadband_cm{50};
     bool stop_when_no_target{true};

@@ -89,7 +89,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             "target_rel_default_frame",
-            default_value=str(get_default("target_rel_default_frame", "gimbal_world")),
+            default_value=str(get_default("target_rel_default_frame", "gx_camera")),
         ),
         DeclareLaunchArgument(
             "use_msg_frame_id",

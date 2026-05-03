@@ -7,7 +7,8 @@ std_msgs/Header header
 # Whether this relative target is currently valid.
 bool valid
 
-# Relative target point in robot/chassis frame (meters).
+# Relative target point in the message frame (meters).
+# Chase defaults to gx_camera when header.frame_id is empty.
 # Convention: x-forward, y-left, z-up.
 float32 x
 float32 y

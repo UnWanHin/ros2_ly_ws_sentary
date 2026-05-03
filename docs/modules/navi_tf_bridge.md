@@ -31,7 +31,7 @@
 
 | 方向 | Topic | 说明 |
 |---|---|---|
-| 订阅 | `/ly/navi/target_rel` | 追击相对目标，默认 frame 为 `gimbal_world` |
+| 订阅 | `/ly/navi/target_rel` | 追击相对目标，默认 frame 为 `gx_camera` |
 | 订阅 | `/ly/navi/goal_pos_raw` | 官方地图二维点，单位 cm |
 | 发布 | `/goal_pose` | 导航最终目标，`geometry_msgs/PoseStamped` |
 | 发布 | `/ly/navi/goal_pos` | legacy/direct-XY 兼容输出，默认关闭 |
@@ -47,7 +47,7 @@
 
 重点参数：
 
-- `target_rel_default_frame: gimbal_world`
+- `target_rel_default_frame: gx_camera`
   - `/ly/navi/target_rel` 没带 `header.frame_id` 时使用。
 - `map_frame: map`
   - 输出导航目标所在 frame。
