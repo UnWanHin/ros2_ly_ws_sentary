@@ -32,3 +32,34 @@ behavior_tree:
           CommandHoldSec: 1
           HealthyHpMin: 300
           HealthyAmmoMin: 50
+      DefaultPolicy:
+        Enable: true
+        Health:
+          MyAreaHpMin: 250
+          CommonCentralHpMin: 300
+          EnemyAreaHpMin: 350
+          LowResourceFallbackHp: 250
+        Ammo:
+          MyAreaAmmoMin: 30
+          CommonCentralAmmoMin: 50
+          EnemyAreaAmmoMin: 80
+          LowResourceFallbackAmmo: 30
+        Score:
+          WeightMyBase: 10.0
+          WeightMyHighland: 8.0
+          WeightMyRoadland: 7.0
+          WeightCommonCentral: 6.0
+          WeightEnemyBase: 4.0
+          WeightEnemyHighland: 4.0
+          WeightEnemyRoadland: 4.0
+          DistancePenaltyPerMeter: 0.4
+          CurrentAreaPenalty: 2.0
+          LastAreaPenalty: 1.0
+          AfterHighlandMyBaseBonus: 5.0
+          AfterHighlandMyRoadlandBonus: 3.0
+          LowResourceMyBaseBonus: 4.0
+        Retry:
+          CompleteCooldownSec: 2
+          FailureCooldownSec: 8
+          UnreachableCooldownSec: 12
+          MaxRetry: 2

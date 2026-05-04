@@ -1732,6 +1732,7 @@ namespace BehaviorTree {
         }
 
         const auto active_task_type = areaManager_.RegionalAreaTask().Type;
+        const auto now = std::chrono::steady_clock::now();
         const bool active_low_priority_task =
             active_task_type == RegionalAreaTaskType::MyBase ||
             active_task_type == RegionalAreaTaskType::MyRoadland ||
@@ -1746,6 +1747,11 @@ namespace BehaviorTree {
                 RequestRoadlandSafeReturn("aim mode has higher priority");
             } else {
                 areaManager_.ClearRegionalAreaTask();
+                defaultStrategyManager_.RecordRegionalAreaResult(
+                    active_task_type,
+                    "canceled",
+                    now,
+                    config.RegionalAreaTaskSettings.DefaultPolicy);
                 ResetRegionalAreaControlOverride();
                 gimbalControlData.FireCode.FollowMode = 0;
                 if (LoggerPtr) {
@@ -1768,6 +1774,11 @@ namespace BehaviorTree {
                 }
             } else if (TrySetRegionalDefenseGoal(my_team, enemy_team)) {
                 areaManager_.ClearRegionalAreaTask();
+                defaultStrategyManager_.RecordRegionalAreaResult(
+                    active_task_type,
+                    "canceled",
+                    now,
+                    config.RegionalAreaTaskSettings.DefaultPolicy);
                 ResetRegionalAreaControlOverride();
                 gimbalControlData.FireCode.FollowMode = 0;
                 if (LoggerPtr) {
@@ -1780,7 +1791,6 @@ namespace BehaviorTree {
         const bool apply_team_offset = areaManager_.RegionalAreaTask().ApplyTeamOffset;
         const auto goal_team = areaManager_.RegionalAreaTask().GoalTeam;
         const auto current_base_goal = areaManager_.RegionalAreaTask().CurrentBaseGoal;
-        const auto now = std::chrono::steady_clock::now();
         auto referee_value_fresh = [&](const bool received, const std::chrono::steady_clock::time_point last_rx) {
             return received &&
                 last_rx.time_since_epoch().count() != 0 &&
@@ -1829,6 +1839,11 @@ namespace BehaviorTree {
 
         if (result.Completed) {
             ApplyRegionalAreaTaskControl(result);
+            defaultStrategyManager_.RecordRegionalAreaResult(
+                result.Type,
+                result.Reason.empty() ? std::string_view{"done"} : std::string_view{result.Reason},
+                now,
+                config.RegionalAreaTaskSettings.DefaultPolicy);
             if (LoggerPtr) {
                 LoggerPtr->Info(
                     "RegionalAreaTask completed type={} phase={} reason={}, follow_mode off.",
@@ -1893,23 +1908,25 @@ namespace BehaviorTree {
         if (!plan.has_value()) {
             return false;
         }
-        if (plan->Type == RegionalAreaTaskType::CommonCentral) {
+        if (plan->Type == RegionalAreaTaskType::MyRoadland ||
+            plan->Type == RegionalAreaTaskType::CommonCentral) {
             auto referee_value_fresh = [&](const bool received, const std::chrono::steady_clock::time_point last_rx) {
                 return received &&
                     last_rx.time_since_epoch().count() != 0 &&
                     now - last_rx <= std::chrono::seconds(2);
             };
-            const auto& central_setting = config.RegionalAreaTaskSettings.CommonCentral;
-            const bool central_health_known =
-                referee_value_fresh(hasReceivedMyselfHealth_, lastMyselfHealthRxTime);
-            const bool central_ammo_known =
-                referee_value_fresh(hasReceivedAmmoLeft_, lastAmmoLeftRxTime);
-            const bool central_data_healthy =
-                central_health_known &&
-                central_ammo_known &&
-                myselfHealth >= static_cast<std::uint16_t>(std::max(0, central_setting.HealthyHpMin)) &&
-                ammoLeft >= static_cast<std::uint16_t>(std::max(0, central_setting.HealthyAmmoMin));
-            if (!central_data_healthy) {
+            const int healthy_hp_min = plan->Type == RegionalAreaTaskType::MyRoadland
+                ? config.RegionalAreaTaskSettings.MyRoadland.HealthyHpMin
+                : config.RegionalAreaTaskSettings.CommonCentral.HealthyHpMin;
+            const int healthy_ammo_min = plan->Type == RegionalAreaTaskType::MyRoadland
+                ? config.RegionalAreaTaskSettings.MyRoadland.HealthyAmmoMin
+                : config.RegionalAreaTaskSettings.CommonCentral.HealthyAmmoMin;
+            const bool data_healthy =
+                referee_value_fresh(hasReceivedMyselfHealth_, lastMyselfHealthRxTime) &&
+                referee_value_fresh(hasReceivedAmmoLeft_, lastAmmoLeftRxTime) &&
+                myselfHealth >= static_cast<std::uint16_t>(std::max(0, healthy_hp_min)) &&
+                ammoLeft >= static_cast<std::uint16_t>(std::max(0, healthy_ammo_min));
+            if (!data_healthy) {
                 return false;
             }
         }
@@ -2362,32 +2379,60 @@ namespace BehaviorTree {
             return false;
         }
 
+        const auto now = std::chrono::steady_clock::now();
+        auto referee_value_fresh = [&](const bool received, const std::chrono::steady_clock::time_point last_rx) {
+            return received &&
+                last_rx.time_since_epoch().count() != 0 &&
+                now - last_rx <= std::chrono::seconds(2);
+        };
+        const bool self_position_fresh =
+            hasReceivedSentryPosition_ &&
+            lastSentryPositionRxTime_.time_since_epoch().count() != 0 &&
+            now - lastSentryPositionRxTime_ <= std::chrono::seconds(2);
         const auto candidates =
-            defaultStrategyManager_.BuildRegionalAreaCandidates(config, my_team);
+            defaultStrategyManager_.BuildRegionalAreaCandidates(
+                DefaultRegionalPolicyInput{
+                    .Config = &config,
+                    .MyTeam = my_team,
+                    .EnemyTeam = enemy_team,
+                    .HealthFresh = referee_value_fresh(hasReceivedMyselfHealth_, lastMyselfHealthRxTime),
+                    .AmmoFresh = referee_value_fresh(hasReceivedAmmoLeft_, lastAmmoLeftRxTime),
+                    .Health = myselfHealth,
+                    .Ammo = ammoLeft,
+                    .HasSelfPosition = self_position_fresh,
+                    .SelfX = self_position_fresh
+                        ? static_cast<int>(friendRobots[UnitType::Sentry].position_.X)
+                        : 0,
+                    .SelfY = self_position_fresh
+                        ? static_cast<int>(friendRobots[UnitType::Sentry].position_.Y)
+                        : 0,
+                    .SelfArea = areaManager_.SelfAreaRuntime(),
+                    .Now = now
+                });
         if (candidates.empty()) {
-            defaultStrategyManager_.ResetRegionalAreaRotation();
+            defaultStrategyManager_.ResetRegionalPolicy();
             return false;
         }
 
-        for (const auto index : defaultStrategyManager_.BuildAttemptOrder(candidates.size())) {
-            const auto& candidate = candidates[index];
+        for (const auto& candidate : candidates) {
             if (!TrySetScopedPositionByBaseGoal(
                     candidate.BaseGoalId,
                     candidate.GoalTeam,
                     my_team,
                     enemy_team,
                     true,
-                    "default_area_rotation")) {
+                    "default_area_policy")) {
                 continue;
             }
 
-            defaultStrategyManager_.CommitRegionalAreaSelection(index);
+            defaultStrategyManager_.CommitRegionalAreaSelection(candidate, now);
             naviCommandIntervalClock.reset(Seconds{1});
             speedLevel = 1;
             if (LoggerPtr) {
                 LoggerPtr->Info(
-                    "Default regional area rotation: area={} base_goal={} goal={}.",
+                    "Default regional policy: area={} score={:.2f} base_goal={} goal={}.",
                     candidate.Name,
+                    candidate.Score,
                     static_cast<int>(candidate.BaseGoalId),
                     static_cast<int>(naviCommandGoal));
             }
@@ -2856,7 +2901,13 @@ namespace BehaviorTree {
                     RequestRoadlandSafeReturn("recovery has higher priority");
                     return TickRegionalAreaTask(MyTeam, EnemyTeam);
                 }
+                const auto canceled_task_type = areaManager_.RegionalAreaTask().Type;
                 areaManager_.ClearRegionalAreaTask();
+                defaultStrategyManager_.RecordRegionalAreaResult(
+                    canceled_task_type,
+                    "canceled",
+                    std::chrono::steady_clock::now(),
+                    config.RegionalAreaTaskSettings.DefaultPolicy);
                 ResetRegionalAreaControlOverride();
                 gimbalControlData.FireCode.FollowMode = 0;
                 if (LoggerPtr) {

@@ -38,7 +38,7 @@ Hard -> Default -> Task -> Tactical -> Finalizer
 各層的責任是：
 
 - `Hard`：最高優先級保護，處理 recovery/補血補彈和 Roadland 強綁定穿越段。Roadland 強綁定段在這層 hard lock，避免被戰術層中途搶走。
-- `Default`：無特別事件時的底層決策，現在先按啟用的大區域輪換啟動 AreaManager 任務；沒有可用區域時才 fallback 到 `DecisionAutonomy.NaviGoal(HitHero)`。舊 HitHero fallback 點表不在 Default 裡，`RegionalIdlePatrol` 點表不再是正式 regional 的 Default 入口。
+- `Default`：無特別事件時的底層決策，現在按 `AreaManager.DefaultPolicy` 對已啟用的大區域做資源門檻、距離、目前區域、上次任務結果、冷卻和重試評分，再啟動 AreaManager 任務；沒有可用區域時才 fallback 到 `DecisionAutonomy.NaviGoal(HitHero)`。舊 HitHero fallback 點表不在 Default 裡，`RegionalIdlePatrol` 點表不再是正式 regional 的 Default 入口。
 - `Task`：已啟動的 AreaManager 任務繼續 tick，包含 Highland/Base/Roadland/Central 任務、Highland 兼容過渡和導航 watchdog。
 - `Tactical`：戰術疊加層，繼續使用原本的 `SetPositionLeagueSimple/HitSentry/HitHero/Protect/NaviTest/ShowcasePatrol` 鏈路。
 - `Finalizer`：保證本 tick 有一個策略層完成，並把策略層狀態同步到黑板。
@@ -112,18 +112,32 @@ AreaManager:
       Enable: true
 ```
 
-根層 `AreaManager.yaml` 不再默認寫 `Area.MyArea/EnemyArea/CommonArea` 的區域開關，避免它把不同 `bt_config_file` 裡的區域選擇全部覆蓋成同一套。正式 regional 和單區域 areatest 的「哪些區域可選」仍由對應 `ConfigJson` 裡的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 控制；Default 會在這些已啟用區域中按 `MyHighland -> MyBase -> MyRoadland -> CommonCentral` 輪換啟動任務。`AreaManager.yaml` 只保留 `Switch_Point` 和區域狀態機任務的時序、門檻、啟停參數。
+根層 `AreaManager.yaml` 不再默認寫 `Area.MyArea/EnemyArea/CommonArea` 的區域開關，避免它把不同 `bt_config_file` 裡的區域選擇全部覆蓋成同一套。正式 regional 和單區域 areatest 的「哪些區域可選」仍由對應 `ConfigJson` 裡的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 控制；DefaultPolicy 只會在這些已啟用區域內挑候選，JSON 裡為 `false` 的區域不會因為血量健康或權重高而被選中。`AreaManager.yaml` 只保留 `Switch_Point`、區域狀態機任務時序，以及 DefaultPolicy 的門檻、權重、冷卻和重試參數。
 
 `Switch_Point=true` 時只交換 `Area.hpp` 裡紅/藍官方點位和區域邊界查找結果，不交換 `team`、敵我語義或導航 goal ID。這是給導航零點/物理場地方向反了時使用的點位查找開關。
 
 重要健康門檻：
 
+- `DefaultPolicy.Health.MyAreaHpMin`：我方 Highland/Roadland 的底層選區 HP 門檻，默認 250。
+- `DefaultPolicy.Health.CommonCentralHpMin`：Central 底層選區 HP 門檻，默認 300。
+- `DefaultPolicy.Health.EnemyAreaHpMin`：敵方區域預留 HP 門檻，默認 350；目前敵方區域狀態機尚未接入 Default 候選。
+- `DefaultPolicy.Ammo.*`：與 HP 對應的彈量門檻。
 - `MyRoadland.HealthyHpMin`
 - `MyRoadland.HealthyAmmoMin`
 - `CommonCentral.HealthyHpMin`
 - `CommonCentral.HealthyAmmoMin`
 
 Roadland 用這些門檻決定是否離開駐守點並安全返回。Central 則要求啟動時血量/彈量數據新鮮且健康；任務中如果新鮮數據變成不健康，就完成並釋放控制。
+
+DefaultPolicy 的當前選區規則：
+
+- Area scope 是硬門檻：`MyArea / EnemyArea / CommonArea` 關掉的區域永遠不進候選。
+- `MyBase` 是保守 fallback：血量/彈量缺失或低資源時仍可選，且會得到 `LowResourceMyBaseBonus`。
+- `MyHighland` 需要新鮮血量/彈量並達到我方區域門檻。
+- `MyRoadland` 需要同時滿足 DefaultPolicy 我方門檻和 `MyRoadland.Healthy*` 門檻。
+- `CommonCentral` 需要同時滿足 DefaultPolicy Central 門檻和 `CommonCentral.Healthy*` 門檻。
+- 候選分數會扣除距離、目前所在同區域、上次已選區域；Highland 任務正常完成後會臨時提高 MyBase/MyRoadland 分數。
+- `unreachable / timeout / unhealthy / canceled` 會進入 failure/unreachable cooldown，連續失敗數達到 `MaxRetry` 時使用更長的 unreachable cooldown。
 
 ## 各區域任務
 

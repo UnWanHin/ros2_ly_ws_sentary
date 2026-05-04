@@ -634,6 +634,51 @@ namespace LangYa
         int HealthyAmmoMin{50};
     };
 
+    struct DefaultPolicyHealthSetting {
+        int MyAreaHpMin{250};
+        int CommonCentralHpMin{300};
+        int EnemyAreaHpMin{350};
+        int LowResourceFallbackHp{250};
+    };
+
+    struct DefaultPolicyAmmoSetting {
+        int MyAreaAmmoMin{30};
+        int CommonCentralAmmoMin{50};
+        int EnemyAreaAmmoMin{80};
+        int LowResourceFallbackAmmo{30};
+    };
+
+    struct DefaultPolicyScoreSetting {
+        double WeightMyBase{10.0};
+        double WeightMyHighland{8.0};
+        double WeightMyRoadland{7.0};
+        double WeightCommonCentral{6.0};
+        double WeightEnemyBase{4.0};
+        double WeightEnemyHighland{4.0};
+        double WeightEnemyRoadland{4.0};
+        double DistancePenaltyPerMeter{0.4};
+        double CurrentAreaPenalty{2.0};
+        double LastAreaPenalty{1.0};
+        double AfterHighlandMyBaseBonus{5.0};
+        double AfterHighlandMyRoadlandBonus{3.0};
+        double LowResourceMyBaseBonus{4.0};
+    };
+
+    struct DefaultPolicyRetrySetting {
+        int CompleteCooldownSec{2};
+        int FailureCooldownSec{8};
+        int UnreachableCooldownSec{12};
+        int MaxRetry{2};
+    };
+
+    struct DefaultPolicySetting {
+        bool Enable{true};
+        DefaultPolicyHealthSetting Health{};
+        DefaultPolicyAmmoSetting Ammo{};
+        DefaultPolicyScoreSetting Score{};
+        DefaultPolicyRetrySetting Retry{};
+    };
+
     struct RegionalAreaTaskSetting {
         bool Enable{false};
         bool IgnoreRecovery{false};
@@ -641,6 +686,7 @@ namespace LangYa
         MyBaseAreaTaskSetting MyBase{};
         MyRoadlandAreaTaskSetting MyRoadland{};
         CommonCentralAreaTaskSetting CommonCentral{};
+        DefaultPolicySetting DefaultPolicy{};
     };
 
     struct AimTargetAutonomySetting {

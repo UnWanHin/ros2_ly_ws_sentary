@@ -159,6 +159,76 @@ bool ReadOptionalIntParam(
     return false;
 }
 
+bool ReadOptionalIntParam(
+    const std::shared_ptr<rclcpp::Node>& node,
+    const std::vector<std::string>& names,
+    int& value) {
+    if (!node) {
+        return false;
+    }
+    for (const auto& name : names) {
+        if (!node->has_parameter(name)) {
+            continue;
+        }
+        rclcpp::Parameter param;
+        if (!node->get_parameter(name, param)) {
+            continue;
+        }
+        if (param.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
+            value = static_cast<int>(param.as_int());
+            return true;
+        }
+        if (param.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE) {
+            value = static_cast<int>(param.as_double());
+            return true;
+        }
+        if (param.get_type() == rclcpp::ParameterType::PARAMETER_STRING) {
+            try {
+                value = std::stoi(param.as_string());
+                return true;
+            } catch (...) {
+                continue;
+            }
+        }
+    }
+    return false;
+}
+
+bool ReadOptionalDoubleParam(
+    const std::shared_ptr<rclcpp::Node>& node,
+    const std::vector<std::string>& names,
+    double& value) {
+    if (!node) {
+        return false;
+    }
+    for (const auto& name : names) {
+        if (!node->has_parameter(name)) {
+            continue;
+        }
+        rclcpp::Parameter param;
+        if (!node->get_parameter(name, param)) {
+            continue;
+        }
+        if (param.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE) {
+            value = param.as_double();
+            return true;
+        }
+        if (param.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
+            value = static_cast<double>(param.as_int());
+            return true;
+        }
+        if (param.get_type() == rclcpp::ParameterType::PARAMETER_STRING) {
+            try {
+                value = std::stod(param.as_string());
+                return true;
+            } catch (...) {
+                continue;
+            }
+        }
+    }
+    return false;
+}
+
 bool ReadOptionalBoolParam(
     const std::shared_ptr<rclcpp::Node>& node,
     const std::vector<std::string>& names,
@@ -658,6 +728,59 @@ namespace LangYa {
         cs.HealthyAmmoMin = j.value("HealthyAmmoMin", cs.HealthyAmmoMin);
     }
 
+    void from_json(const json& j, DefaultPolicyHealthSetting& hs) {
+        hs.MyAreaHpMin = j.value("MyAreaHpMin", hs.MyAreaHpMin);
+        hs.CommonCentralHpMin = j.value("CommonCentralHpMin", hs.CommonCentralHpMin);
+        hs.EnemyAreaHpMin = j.value("EnemyAreaHpMin", hs.EnemyAreaHpMin);
+        hs.LowResourceFallbackHp = j.value("LowResourceFallbackHp", hs.LowResourceFallbackHp);
+    }
+
+    void from_json(const json& j, DefaultPolicyAmmoSetting& as) {
+        as.MyAreaAmmoMin = j.value("MyAreaAmmoMin", as.MyAreaAmmoMin);
+        as.CommonCentralAmmoMin = j.value("CommonCentralAmmoMin", as.CommonCentralAmmoMin);
+        as.EnemyAreaAmmoMin = j.value("EnemyAreaAmmoMin", as.EnemyAreaAmmoMin);
+        as.LowResourceFallbackAmmo = j.value("LowResourceFallbackAmmo", as.LowResourceFallbackAmmo);
+    }
+
+    void from_json(const json& j, DefaultPolicyScoreSetting& ss) {
+        ss.WeightMyBase = j.value("WeightMyBase", ss.WeightMyBase);
+        ss.WeightMyHighland = j.value("WeightMyHighland", ss.WeightMyHighland);
+        ss.WeightMyRoadland = j.value("WeightMyRoadland", ss.WeightMyRoadland);
+        ss.WeightCommonCentral = j.value("WeightCommonCentral", ss.WeightCommonCentral);
+        ss.WeightEnemyBase = j.value("WeightEnemyBase", ss.WeightEnemyBase);
+        ss.WeightEnemyHighland = j.value("WeightEnemyHighland", ss.WeightEnemyHighland);
+        ss.WeightEnemyRoadland = j.value("WeightEnemyRoadland", ss.WeightEnemyRoadland);
+        ss.DistancePenaltyPerMeter = j.value("DistancePenaltyPerMeter", ss.DistancePenaltyPerMeter);
+        ss.CurrentAreaPenalty = j.value("CurrentAreaPenalty", ss.CurrentAreaPenalty);
+        ss.LastAreaPenalty = j.value("LastAreaPenalty", ss.LastAreaPenalty);
+        ss.AfterHighlandMyBaseBonus = j.value("AfterHighlandMyBaseBonus", ss.AfterHighlandMyBaseBonus);
+        ss.AfterHighlandMyRoadlandBonus = j.value("AfterHighlandMyRoadlandBonus", ss.AfterHighlandMyRoadlandBonus);
+        ss.LowResourceMyBaseBonus = j.value("LowResourceMyBaseBonus", ss.LowResourceMyBaseBonus);
+    }
+
+    void from_json(const json& j, DefaultPolicyRetrySetting& rs) {
+        rs.CompleteCooldownSec = j.value("CompleteCooldownSec", rs.CompleteCooldownSec);
+        rs.FailureCooldownSec = j.value("FailureCooldownSec", rs.FailureCooldownSec);
+        rs.UnreachableCooldownSec = j.value("UnreachableCooldownSec", rs.UnreachableCooldownSec);
+        rs.MaxRetry = j.value("MaxRetry", rs.MaxRetry);
+    }
+
+    void from_json(const json& j, DefaultPolicySetting& ds) {
+        ds.Enable = j.value("Enable", ds.Enable);
+        if (j.contains("Health") && j.at("Health").is_object()) {
+            j.at("Health").get_to(ds.Health);
+        }
+        if (j.contains("Ammo") && j.at("Ammo").is_object()) {
+            j.at("Ammo").get_to(ds.Ammo);
+        }
+        if (j.contains("Score") && j.at("Score").is_object()) {
+            j.at("Score").get_to(ds.Score);
+        }
+        if (j.contains("Retry") && j.at("Retry").is_object()) {
+            j.at("Retry").get_to(ds.Retry);
+        }
+    }
+
     void from_json(const json& j, RegionalAreaTaskSetting& rt) {
         rt.Enable = j.value("Enable", rt.Enable);
         rt.IgnoreRecovery = j.value("IgnoreRecovery", rt.IgnoreRecovery);
@@ -672,6 +795,9 @@ namespace LangYa {
         }
         if (j.contains("CommonCentral") && j.at("CommonCentral").is_object()) {
             j.at("CommonCentral").get_to(rt.CommonCentral);
+        }
+        if (j.contains("DefaultPolicy") && j.at("DefaultPolicy").is_object()) {
+            j.at("DefaultPolicy").get_to(rt.DefaultPolicy);
         }
     }
 
@@ -770,6 +896,7 @@ namespace BehaviorTree {
         auto& base = task.MyBase;
         auto& roadland = task.MyRoadland;
         auto& central = task.CommonCentral;
+        auto& policy = task.DefaultPolicy;
 
         ReadOptionalBoolParam(
             node_,
@@ -1135,6 +1262,53 @@ namespace BehaviorTree {
                 "AreaManager/RegionalAreaTask/CommonCentral/HealthyAmmoMin"
             },
             central.HealthyAmmoMin);
+
+        auto policy_names = [](const std::string& section, const std::string& key) {
+            return std::vector<std::string>{
+                "AreaManager.DefaultPolicy." + section + "." + key,
+                "AreaManager/DefaultPolicy/" + section + "/" + key,
+                "AreaManager.RegionalAreaTask.DefaultPolicy." + section + "." + key,
+                "AreaManager/RegionalAreaTask/DefaultPolicy/" + section + "/" + key,
+                "AreaManager.Task.DefaultPolicy." + section + "." + key,
+                "AreaManager/Task/DefaultPolicy/" + section + "/" + key
+            };
+        };
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "AreaManager.DefaultPolicy.Enable",
+                "AreaManager/DefaultPolicy/Enable",
+                "AreaManager.RegionalAreaTask.DefaultPolicy.Enable",
+                "AreaManager/RegionalAreaTask/DefaultPolicy/Enable",
+                "AreaManager.Task.DefaultPolicy.Enable",
+                "AreaManager/Task/DefaultPolicy/Enable"
+            },
+            policy.Enable);
+        ReadOptionalIntParam(node_, policy_names("Health", "MyAreaHpMin"), policy.Health.MyAreaHpMin);
+        ReadOptionalIntParam(node_, policy_names("Health", "CommonCentralHpMin"), policy.Health.CommonCentralHpMin);
+        ReadOptionalIntParam(node_, policy_names("Health", "EnemyAreaHpMin"), policy.Health.EnemyAreaHpMin);
+        ReadOptionalIntParam(node_, policy_names("Health", "LowResourceFallbackHp"), policy.Health.LowResourceFallbackHp);
+        ReadOptionalIntParam(node_, policy_names("Ammo", "MyAreaAmmoMin"), policy.Ammo.MyAreaAmmoMin);
+        ReadOptionalIntParam(node_, policy_names("Ammo", "CommonCentralAmmoMin"), policy.Ammo.CommonCentralAmmoMin);
+        ReadOptionalIntParam(node_, policy_names("Ammo", "EnemyAreaAmmoMin"), policy.Ammo.EnemyAreaAmmoMin);
+        ReadOptionalIntParam(node_, policy_names("Ammo", "LowResourceFallbackAmmo"), policy.Ammo.LowResourceFallbackAmmo);
+        ReadOptionalDoubleParam(node_, policy_names("Score", "WeightMyBase"), policy.Score.WeightMyBase);
+        ReadOptionalDoubleParam(node_, policy_names("Score", "WeightMyHighland"), policy.Score.WeightMyHighland);
+        ReadOptionalDoubleParam(node_, policy_names("Score", "WeightMyRoadland"), policy.Score.WeightMyRoadland);
+        ReadOptionalDoubleParam(node_, policy_names("Score", "WeightCommonCentral"), policy.Score.WeightCommonCentral);
+        ReadOptionalDoubleParam(node_, policy_names("Score", "WeightEnemyBase"), policy.Score.WeightEnemyBase);
+        ReadOptionalDoubleParam(node_, policy_names("Score", "WeightEnemyHighland"), policy.Score.WeightEnemyHighland);
+        ReadOptionalDoubleParam(node_, policy_names("Score", "WeightEnemyRoadland"), policy.Score.WeightEnemyRoadland);
+        ReadOptionalDoubleParam(node_, policy_names("Score", "DistancePenaltyPerMeter"), policy.Score.DistancePenaltyPerMeter);
+        ReadOptionalDoubleParam(node_, policy_names("Score", "CurrentAreaPenalty"), policy.Score.CurrentAreaPenalty);
+        ReadOptionalDoubleParam(node_, policy_names("Score", "LastAreaPenalty"), policy.Score.LastAreaPenalty);
+        ReadOptionalDoubleParam(node_, policy_names("Score", "AfterHighlandMyBaseBonus"), policy.Score.AfterHighlandMyBaseBonus);
+        ReadOptionalDoubleParam(node_, policy_names("Score", "AfterHighlandMyRoadlandBonus"), policy.Score.AfterHighlandMyRoadlandBonus);
+        ReadOptionalDoubleParam(node_, policy_names("Score", "LowResourceMyBaseBonus"), policy.Score.LowResourceMyBaseBonus);
+        ReadOptionalIntParam(node_, policy_names("Retry", "CompleteCooldownSec"), policy.Retry.CompleteCooldownSec);
+        ReadOptionalIntParam(node_, policy_names("Retry", "FailureCooldownSec"), policy.Retry.FailureCooldownSec);
+        ReadOptionalIntParam(node_, policy_names("Retry", "UnreachableCooldownSec"), policy.Retry.UnreachableCooldownSec);
+        ReadOptionalIntParam(node_, policy_names("Retry", "MaxRetry"), policy.Retry.MaxRetry);
         if (highland.Enable || base.Enable || roadland.Enable || central.Enable) {
             task.Enable = true;
         }
@@ -1262,6 +1436,17 @@ namespace BehaviorTree {
         LoggerPtr->Debug("CommonCentral.CommandHoldSec: {}", config.RegionalAreaTaskSettings.CommonCentral.CommandHoldSec);
         LoggerPtr->Debug("CommonCentral.HealthyHpMin: {}", config.RegionalAreaTaskSettings.CommonCentral.HealthyHpMin);
         LoggerPtr->Debug("CommonCentral.HealthyAmmoMin: {}", config.RegionalAreaTaskSettings.CommonCentral.HealthyAmmoMin);
+        LoggerPtr->Debug("DefaultPolicy.Enable: {}", config.RegionalAreaTaskSettings.DefaultPolicy.Enable);
+        LoggerPtr->Debug("DefaultPolicy.Health: my={} common={} enemy={} fallback={}",
+            config.RegionalAreaTaskSettings.DefaultPolicy.Health.MyAreaHpMin,
+            config.RegionalAreaTaskSettings.DefaultPolicy.Health.CommonCentralHpMin,
+            config.RegionalAreaTaskSettings.DefaultPolicy.Health.EnemyAreaHpMin,
+            config.RegionalAreaTaskSettings.DefaultPolicy.Health.LowResourceFallbackHp);
+        LoggerPtr->Debug("DefaultPolicy.Ammo: my={} common={} enemy={} fallback={}",
+            config.RegionalAreaTaskSettings.DefaultPolicy.Ammo.MyAreaAmmoMin,
+            config.RegionalAreaTaskSettings.DefaultPolicy.Ammo.CommonCentralAmmoMin,
+            config.RegionalAreaTaskSettings.DefaultPolicy.Ammo.EnemyAreaAmmoMin,
+            config.RegionalAreaTaskSettings.DefaultPolicy.Ammo.LowResourceFallbackAmmo);
         LoggerPtr->Debug("------ AimTargetPriority ------");
         for (const auto armor_id : config.AimTargetPriority) {
             LoggerPtr->Debug("ArmorTypeId: {}", armor_id);
@@ -1694,6 +1879,72 @@ namespace BehaviorTree {
                 "Invalid RegionalAreaTask.CommonCentral.HealthyAmmoMin={}, fallback to 50.",
                 central_task.HealthyAmmoMin);
             central_task.HealthyAmmoMin = 50;
+        }
+        auto& default_policy = config.RegionalAreaTaskSettings.DefaultPolicy;
+        if (default_policy.Health.MyAreaHpMin < 0) {
+            LoggerPtr->Warning("Invalid DefaultPolicy.Health.MyAreaHpMin={}, fallback to 250.",
+                default_policy.Health.MyAreaHpMin);
+            default_policy.Health.MyAreaHpMin = 250;
+        }
+        if (default_policy.Health.CommonCentralHpMin < 0) {
+            LoggerPtr->Warning("Invalid DefaultPolicy.Health.CommonCentralHpMin={}, fallback to 300.",
+                default_policy.Health.CommonCentralHpMin);
+            default_policy.Health.CommonCentralHpMin = 300;
+        }
+        if (default_policy.Health.EnemyAreaHpMin < 0) {
+            LoggerPtr->Warning("Invalid DefaultPolicy.Health.EnemyAreaHpMin={}, fallback to 350.",
+                default_policy.Health.EnemyAreaHpMin);
+            default_policy.Health.EnemyAreaHpMin = 350;
+        }
+        if (default_policy.Health.LowResourceFallbackHp < 0) {
+            LoggerPtr->Warning("Invalid DefaultPolicy.Health.LowResourceFallbackHp={}, fallback to 250.",
+                default_policy.Health.LowResourceFallbackHp);
+            default_policy.Health.LowResourceFallbackHp = 250;
+        }
+        if (default_policy.Ammo.MyAreaAmmoMin < 0) {
+            LoggerPtr->Warning("Invalid DefaultPolicy.Ammo.MyAreaAmmoMin={}, fallback to 30.",
+                default_policy.Ammo.MyAreaAmmoMin);
+            default_policy.Ammo.MyAreaAmmoMin = 30;
+        }
+        if (default_policy.Ammo.CommonCentralAmmoMin < 0) {
+            LoggerPtr->Warning("Invalid DefaultPolicy.Ammo.CommonCentralAmmoMin={}, fallback to 50.",
+                default_policy.Ammo.CommonCentralAmmoMin);
+            default_policy.Ammo.CommonCentralAmmoMin = 50;
+        }
+        if (default_policy.Ammo.EnemyAreaAmmoMin < 0) {
+            LoggerPtr->Warning("Invalid DefaultPolicy.Ammo.EnemyAreaAmmoMin={}, fallback to 80.",
+                default_policy.Ammo.EnemyAreaAmmoMin);
+            default_policy.Ammo.EnemyAreaAmmoMin = 80;
+        }
+        if (default_policy.Ammo.LowResourceFallbackAmmo < 0) {
+            LoggerPtr->Warning("Invalid DefaultPolicy.Ammo.LowResourceFallbackAmmo={}, fallback to 30.",
+                default_policy.Ammo.LowResourceFallbackAmmo);
+            default_policy.Ammo.LowResourceFallbackAmmo = 30;
+        }
+        if (default_policy.Score.DistancePenaltyPerMeter < 0.0) {
+            LoggerPtr->Warning("Invalid DefaultPolicy.Score.DistancePenaltyPerMeter={}, fallback to 0.4.",
+                default_policy.Score.DistancePenaltyPerMeter);
+            default_policy.Score.DistancePenaltyPerMeter = 0.4;
+        }
+        if (default_policy.Retry.CompleteCooldownSec < 0) {
+            LoggerPtr->Warning("Invalid DefaultPolicy.Retry.CompleteCooldownSec={}, fallback to 2.",
+                default_policy.Retry.CompleteCooldownSec);
+            default_policy.Retry.CompleteCooldownSec = 2;
+        }
+        if (default_policy.Retry.FailureCooldownSec < 0) {
+            LoggerPtr->Warning("Invalid DefaultPolicy.Retry.FailureCooldownSec={}, fallback to 8.",
+                default_policy.Retry.FailureCooldownSec);
+            default_policy.Retry.FailureCooldownSec = 8;
+        }
+        if (default_policy.Retry.UnreachableCooldownSec < 0) {
+            LoggerPtr->Warning("Invalid DefaultPolicy.Retry.UnreachableCooldownSec={}, fallback to 12.",
+                default_policy.Retry.UnreachableCooldownSec);
+            default_policy.Retry.UnreachableCooldownSec = 12;
+        }
+        if (default_policy.Retry.MaxRetry < 0) {
+            LoggerPtr->Warning("Invalid DefaultPolicy.Retry.MaxRetry={}, fallback to 2.",
+                default_policy.Retry.MaxRetry);
+            default_policy.Retry.MaxRetry = 2;
         }
 
         if (config.PatrolScanSettings.Mode != 1 && config.PatrolScanSettings.Mode != 2) {

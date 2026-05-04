@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -15,30 +16,62 @@
 
 namespace BehaviorTree {
 
+struct DefaultRegionalPolicyInput {
+    const LangYa::Config* Config{nullptr};
+    LangYa::UnitTeam MyTeam{LangYa::UnitTeam::Unknown};
+    LangYa::UnitTeam EnemyTeam{LangYa::UnitTeam::Unknown};
+    bool HealthFresh{false};
+    bool AmmoFresh{false};
+    std::uint16_t Health{0};
+    std::uint16_t Ammo{0};
+    bool HasSelfPosition{false};
+    int SelfX{0};
+    int SelfY{0};
+    AreaRuntime SelfArea{};
+    AreaTimePoint Now{};
+};
+
 struct DefaultRegionalAreaCandidate {
     const char* Name{""};
+    RegionalAreaTaskType TaskType{RegionalAreaTaskType::None};
+    AreaSide Side{AreaSide::Unknown};
+    Area::MainAreaKind Kind{Area::MainAreaKind::Base};
     std::uint8_t BaseGoalId{LangYa::Home.ID};
     LangYa::UnitTeam GoalTeam{LangYa::UnitTeam::Unknown};
+    double Score{0.0};
 };
 
 class DefaultStrategyManager {
 public:
     std::vector<DefaultRegionalAreaCandidate> BuildRegionalAreaCandidates(
-        const LangYa::Config& config,
-        LangYa::UnitTeam my_team) const;
+        const DefaultRegionalPolicyInput& input) const;
 
-    std::vector<std::size_t> BuildAttemptOrder(std::size_t candidate_count) const;
-    void CommitRegionalAreaSelection(std::size_t index) noexcept;
-    void ResetRegionalAreaRotation() noexcept;
+    void CommitRegionalAreaSelection(
+        const DefaultRegionalAreaCandidate& candidate,
+        AreaTimePoint now) noexcept;
+    void RecordRegionalAreaResult(
+        RegionalAreaTaskType type,
+        std::string_view reason,
+        AreaTimePoint now,
+        const LangYa::DefaultPolicySetting& setting) noexcept;
+    void ResetRegionalPolicy() noexcept;
 
 private:
+    struct TaskRuntime {
+        AreaTimePoint CooldownUntil{};
+        int ConsecutiveFailures{0};
+    };
+
     static bool AreaScopeAllows(
         const LangYa::NaviGoalAutonomySetting& navi_goal,
         const std::vector<std::string>& scope,
         Area::MainAreaKind kind);
+    static std::size_t TaskIndex(RegionalAreaTaskType type) noexcept;
+    static bool IsResultFailure(std::string_view reason) noexcept;
 
-    std::size_t regional_area_index_{0};
-    bool regional_area_initialized_{false};
+    std::array<TaskRuntime, 5> task_runtime_{};
+    RegionalAreaTaskType last_selected_task_{RegionalAreaTaskType::None};
+    RegionalAreaTaskType last_completed_task_{RegionalAreaTaskType::None};
 };
 
 }  // namespace BehaviorTree
