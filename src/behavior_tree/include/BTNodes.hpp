@@ -96,6 +96,71 @@ public:
     }
 };
 
+class HardLayerNode : public AppSyncActionNode {
+public:
+    HardLayerNode(const std::string& name, const BT::NodeConfig& config, Application* app)
+        : AppSyncActionNode(name, config, app) {}
+
+    static BT::PortsList providedPorts() { return {}; }
+
+    BT::NodeStatus tick() override {
+        app_->RunStrategyLayerHard();
+        return BT::NodeStatus::SUCCESS;
+    }
+};
+
+class DefaultLayerNode : public AppSyncActionNode {
+public:
+    DefaultLayerNode(const std::string& name, const BT::NodeConfig& config, Application* app)
+        : AppSyncActionNode(name, config, app) {}
+
+    static BT::PortsList providedPorts() { return {}; }
+
+    BT::NodeStatus tick() override {
+        app_->RunStrategyLayerDefault();
+        return BT::NodeStatus::SUCCESS;
+    }
+};
+
+class TaskLayerNode : public AppSyncActionNode {
+public:
+    TaskLayerNode(const std::string& name, const BT::NodeConfig& config, Application* app)
+        : AppSyncActionNode(name, config, app) {}
+
+    static BT::PortsList providedPorts() { return {}; }
+
+    BT::NodeStatus tick() override {
+        app_->RunStrategyLayerTask();
+        return BT::NodeStatus::SUCCESS;
+    }
+};
+
+class TacticalLayerNode : public AppSyncActionNode {
+public:
+    TacticalLayerNode(const std::string& name, const BT::NodeConfig& config, Application* app)
+        : AppSyncActionNode(name, config, app) {}
+
+    static BT::PortsList providedPorts() { return {}; }
+
+    BT::NodeStatus tick() override {
+        app_->RunStrategyLayerTactical();
+        return BT::NodeStatus::SUCCESS;
+    }
+};
+
+class FinalizerLayerNode : public AppSyncActionNode {
+public:
+    FinalizerLayerNode(const std::string& name, const BT::NodeConfig& config, Application* app)
+        : AppSyncActionNode(name, config, app) {}
+
+    static BT::PortsList providedPorts() { return {}; }
+
+    BT::NodeStatus tick() override {
+        app_->RunStrategyLayerFinalizer();
+        return BT::NodeStatus::SUCCESS;
+    }
+};
+
 class IsAimModeBuffNode : public AppConditionNode {
 public:
     IsAimModeBuffNode(const std::string& name, const BT::NodeConfig& config, Application* app)

@@ -47,6 +47,7 @@
 #include "Robot.hpp"
 #include "AreaManager.hpp"
 #include "PostureManager.hpp"
+#include "StrategyManager.hpp"
 
 using namespace BT;
 using namespace LangYa;
@@ -104,6 +105,7 @@ inline const char* CompetitionProfileToString(const CompetitionProfile profile) 
 
 
 class Application {
+    friend class StrategyManager;
 public:
     inline static constexpr const char nodeName[] = "behavior_tree";
     
@@ -296,6 +298,7 @@ private:
     Config config{}; // 配置文件
     AreaManager areaManager_{};
     PostureManager postureManager_{};
+    StrategyManager strategyManager_{};
     struct RegionalAreaControlOverride {
         bool Active{false};
         bool UseFaceMode{false};
@@ -425,6 +428,12 @@ public:
     void ProcessData();
     bool CheckPositionRecovery();
     void SetPositionRepeat();
+    bool StrategyLayerHandled() const noexcept { return strategyManager_.Handled(); }
+    bool RunStrategyLayerHard();
+    bool RunStrategyLayerDefault();
+    bool RunStrategyLayerTask();
+    bool RunStrategyLayerTactical();
+    bool RunStrategyLayerFinalizer();
     bool TrySetNaviGoalByAutonomy(StrategyMode strategy_mode, UnitTeam my_team, UnitTeam enemy_team);
     void SetPositionProtect();
     void SetPositionNaviTest();

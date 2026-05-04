@@ -5,11 +5,21 @@
       <UpdateGlobalData/>
       <SelectAimMode/>
       <SelectStrategyMode/>
-      <SubTree ID="StrategyDispatch"/>
+      <SubTree ID="StrategyStack"/>
       <PreprocessData/>
       <SelectAimTarget/>
       <SelectPosture/>
       <PublishAll/>
+    </Sequence>
+  </BehaviorTree>
+
+  <BehaviorTree ID="StrategyStack">
+    <Sequence name="StrategyLayerStack">
+      <Hard/>
+      <Default/>
+      <Task/>
+      <Tactical/>
+      <Finalizer/>
     </Sequence>
   </BehaviorTree>
 
@@ -63,6 +73,11 @@
     <Action ID="UpdateGlobalData"/>
     <Action ID="SelectAimMode"/>
     <Action ID="SelectStrategyMode"/>
+    <Action ID="Hard"/>
+    <Action ID="Default"/>
+    <Action ID="Task"/>
+    <Action ID="Tactical"/>
+    <Action ID="Finalizer"/>
     <Action ID="ExecuteHitSentryStrategy"/>
     <Action ID="ExecuteHitHeroStrategy"/>
     <Action ID="ExecuteProtectedStrategy"/>

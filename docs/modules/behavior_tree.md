@@ -29,6 +29,8 @@ behavior_tree/
 │       └── regional/           # regional 調試/展示/單區域 preset
 ├── include/
 │   ├── Application.hpp         # 核心類：所有狀態變量 + 所有函數聲明
+│   ├── AreaManager.hpp         # regional 大區域任務與導航區域狀態機
+│   ├── StrategyManager.hpp     # Hard/Default/Task/Tactical/Finalizer 分層策略調度
 │   ├── Node.hpp                # BT節點定義（BT v4 動作節點/條件節點等）
 │   ├── Topic.hpp               # ROS Topic 定義（LY_DEF_ROS_TOPIC宏）
 │   └── Robot.hpp               # Robot類/UnitType/UnitTeam 等遊戲數據類型
@@ -38,6 +40,8 @@ behavior_tree/
 │   ├── GameLoop.cpp            # 主循環邏輯（UpdateBlackBoard/TreeTick/PublishTogether）
 │   ├── BehaviorTree.cpp        # BT初始化（RegisterTreeNodes, LoadBehaviorTree）
 │   ├── Configuration.cpp       # 讀取 config.json
+│   ├── AreaManager.cpp         # regional 大區域任務狀態機實作
+│   ├── StrategyManager.cpp     # 分層策略調度實作
 │   ├── Logger.cpp              # 日誌初始化
 │   ├── PublishMessage.cpp      # 所有發布函數（PubGimbalControlData等）
 │   ├── SetPosition.cpp         # 導航位置決策

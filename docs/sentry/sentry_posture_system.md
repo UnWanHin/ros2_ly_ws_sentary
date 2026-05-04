@@ -19,7 +19,7 @@
 ## 2. 运行链路（上位机）
 
 1. `UpdateGlobalData` 更新黑板（含 `IsFindTarget` 等）
-2. `SelectAimMode / SelectStrategyMode / StrategyDispatch`
+2. `SelectAimMode / SelectStrategyMode / StrategyStack`
 3. `PreprocessData / SelectAimTarget`
 4. `SelectPosture`（新节点）
 5. `PublishAll` 发布控制：

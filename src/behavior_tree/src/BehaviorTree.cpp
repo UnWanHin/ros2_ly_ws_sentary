@@ -122,6 +122,11 @@ bool Application::RegisterTreeNodes() {
         REGISTER_APP_NODE(SelectAimModeNode, "SelectAimMode");
         REGISTER_APP_NODE(SelectStrategyModeNode, "SelectStrategyMode");
         REGISTER_APP_NODE(CheckNeedRecoveryNode, "CheckNeedRecovery");
+        REGISTER_APP_NODE(HardLayerNode, "Hard");
+        REGISTER_APP_NODE(DefaultLayerNode, "Default");
+        REGISTER_APP_NODE(TaskLayerNode, "Task");
+        REGISTER_APP_NODE(TacticalLayerNode, "Tactical");
+        REGISTER_APP_NODE(FinalizerLayerNode, "Finalizer");
         REGISTER_APP_NODE(IsAimModeBuffNode, "IsAimModeBuff");
         REGISTER_APP_NODE(IsAimModeOutpostNode, "IsAimModeOutpost");
         REGISTER_APP_NODE(IsStrategyHitSentryNode, "IsStrategyHitSentry");

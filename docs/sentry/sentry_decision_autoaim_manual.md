@@ -34,7 +34,7 @@
 1. `UpdateGlobalData`
 2. `SelectAimMode`
 3. `SelectStrategyMode`
-4. `SubTree: StrategyDispatch`
+4. `SubTree: StrategyStack`
 5. `PreprocessData`
 6. `SelectAimTarget`
 7. `SelectPosture`
@@ -44,7 +44,7 @@
 - `UpdateGlobalData`：重置 Tick 黑板 + 把 Application 狀態寫入 Global 黑板
 - `SelectAimMode`：沿用原 `SetAimMode()` + `CheckDebug()`
 - `SelectStrategyMode`：根據比賽狀態做策略模式動態切換
-- `StrategyDispatch`：五個策略子樹分開執行（HitSentry / HitHero / LeagueSimple / Protected / NaviTest）
+- `StrategyStack`：按 `Hard -> Default -> Task -> Tactical -> Finalizer` 分層執行策略；底層戰術仍覆蓋 HitSentry / HitHero / LeagueSimple / Protected / NaviTest
 - `PreprocessData`：沿用 `ProcessData()`
 - `SelectAimTarget`：沿用 `SetAimTarget()`
 - `SelectPosture`：根據策略/目標/資源狀態選姿態
@@ -64,12 +64,11 @@
   - `EnemyOutpostHealth > 0 && SelfOutpostHealth > 100 && now_time < 55`
 - 否則：切 `HitHero`
 
-策略子樹執行時，最終仍調用既有函數：
-- `ExecuteHitSentryStrategy` -> `SetPositionHitSentry()`
-- `ExecuteHitHeroStrategy` -> `SetPositionHitHero()`
-- `ExecuteLeagueSimpleStrategy` -> `SetPositionLeagueSimple()`
-- `ExecuteProtectedStrategy` -> `SetPositionProtect()`
-- `ExecuteNaviTestStrategy` -> `SetPositionNaviTest()`
+策略執行時，`StrategyManager` 會把舊戰術入口完整轉到新分層裡：
+- `Hard`：`CheckPositionRecovery()` 和 Roadland 強綁定穿越保護。
+- `Task`：已啟動的 AreaManager 任務、Highland 過渡和導航 watchdog。
+- `Tactical`：按當前 `StrategyMode` 調用 `SetPositionHitSentry()`、`SetPositionHitHero()`、`SetPositionLeagueSimple()`、`SetPositionProtect()`、`SetPositionNaviTest()`。
+- `Finalizer`：保證本 tick 有策略層完成，並同步策略層監控黑板字段。
 
 ### 2.3 聯盟賽現在怎麼決策
 
