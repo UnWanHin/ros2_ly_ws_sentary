@@ -30,7 +30,7 @@
     },
     "NaviDebug": {
         "Enable": true,
-        "PlanFile": "Scripts/ConfigJson/navi_debug_points.json",
+        "PlanFile": "Scripts/ConfigJson/regional/debug/navi_debug_points.json",
         "ActivePlan": "test_site_random",
         "IgnoreRecovery": true,
         "DisableTeamOffset": true,

@@ -235,7 +235,7 @@ scripts/
 
 对应计划文件：
 
-- `src/behavior_tree/Scripts/ConfigJson/navi_debug_points.json`
+- `src/behavior_tree/Scripts/ConfigJson/regional/debug/navi_debug_points.json`
 
 ### 6.1 官方地图点转 `/goal_pose`
 

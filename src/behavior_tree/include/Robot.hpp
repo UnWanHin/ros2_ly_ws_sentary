@@ -71,36 +71,32 @@ namespace BehaviorTree {
         // 判断是否位于特殊区域
         // 這些調用依賴 Area.hpp，請確保該文件存在且正確
         bool inCastleMyself() {
-            if (team_ == UnitTeam::Red) return BehaviorTree::Area::CastleRed.isPointInside(position_.X, position_.Y);
-            return BehaviorTree::Area::CastleBlue.isPointInside(position_.X, position_.Y);
+            return BehaviorTree::Area::CastleAreaForTeam(team_).isPointInside(position_.X, position_.Y);
         } 
         bool inCastleEnemy() {
-            if (team_ == UnitTeam::Red) return BehaviorTree::Area::CastleBlue.isPointInside(position_.X, position_.Y);
-            return BehaviorTree::Area::CastleRed.isPointInside(position_.X, position_.Y);
+            return BehaviorTree::Area::CastleAreaForTeam(
+                BehaviorTree::Area::OppositeUnitTeam(team_)).isPointInside(position_.X, position_.Y);
         } 
         bool inCentralHighLandRedMysself() {
-            if (team_ == UnitTeam::Red) return BehaviorTree::Area::CentralHighLandRed.isPointInside(position_.X, position_.Y);
-            return BehaviorTree::Area::CentralHighLandBlue.isPointInside(position_.X, position_.Y);
+            return BehaviorTree::Area::CentralHighLandAreaForTeam(team_).isPointInside(position_.X, position_.Y);
         } 
         bool inCentralHighLandEnemy() {
-            if (team_ == UnitTeam::Red) return BehaviorTree::Area::CentralHighLandBlue.isPointInside(position_.X, position_.Y);
-            return BehaviorTree::Area::CentralHighLandRed.isPointInside(position_.X, position_.Y);
+            return BehaviorTree::Area::CentralHighLandAreaForTeam(
+                BehaviorTree::Area::OppositeUnitTeam(team_)).isPointInside(position_.X, position_.Y);
         } 
         bool inRoadLandMyself() { 
-            if (team_ == UnitTeam::Red) return BehaviorTree::Area::RoadLandRed.isPointInside(position_.X, position_.Y);
-            return BehaviorTree::Area::RoadLandBlue.isPointInside(position_.X, position_.Y);
+            return BehaviorTree::Area::RoadLandAreaForTeam(team_).isPointInside(position_.X, position_.Y);
         } 
         bool inRoadLandEnemy() { 
-            if (team_ == UnitTeam::Red) return BehaviorTree::Area::RoadLandBlue.isPointInside(position_.X, position_.Y);
-            return BehaviorTree::Area::RoadLandRed.isPointInside(position_.X, position_.Y);
+            return BehaviorTree::Area::RoadLandAreaForTeam(
+                BehaviorTree::Area::OppositeUnitTeam(team_)).isPointInside(position_.X, position_.Y);
         } 
         bool inFlyLandMyself() { 
-            if (team_ == UnitTeam::Red) return BehaviorTree::Area::FlyLandRed.isPointInside(position_.X, position_.Y);
-            return BehaviorTree::Area::FlyLandBlue.isPointInside(position_.X, position_.Y);
+            return BehaviorTree::Area::FlyLandAreaForTeam(team_).isPointInside(position_.X, position_.Y);
         } 
         bool inFlyLandEnemy() { 
-            if (team_ == UnitTeam::Red) return BehaviorTree::Area::FlyLandBlue.isPointInside(position_.X, position_.Y);
-            return BehaviorTree::Area::FlyLandRed.isPointInside(position_.X, position_.Y);
+            return BehaviorTree::Area::FlyLandAreaForTeam(
+                BehaviorTree::Area::OppositeUnitTeam(team_)).isPointInside(position_.X, position_.Y);
         }
 
 

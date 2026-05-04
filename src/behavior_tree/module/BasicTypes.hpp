@@ -626,11 +626,21 @@ namespace LangYa
         int HealthyAmmoMin{50};
     };
 
+    struct CommonCentralAreaTaskSetting {
+        bool Enable{false};
+        int TravelTimeoutSec{12};
+        int CommandHoldSec{1};
+        int HealthyHpMin{300};
+        int HealthyAmmoMin{50};
+    };
+
     struct RegionalAreaTaskSetting {
         bool Enable{false};
+        bool IgnoreRecovery{false};
         MyHighlandAreaTaskSetting MyHighland{};
         MyBaseAreaTaskSetting MyBase{};
         MyRoadlandAreaTaskSetting MyRoadland{};
+        CommonCentralAreaTaskSetting CommonCentral{};
     };
 
     struct AimTargetAutonomySetting {
@@ -656,6 +666,7 @@ namespace LangYa
         AimDebug AimDebugSettings{};
         PatrolScanSetting PatrolScanSettings{};
         Rate RateSettings{};
+        bool SwitchPoint{false};
         GameStrategy GameStrategySettings{};
         DamageOpenGateSetting DamageOpenGateSettings{};
         NaviSetting NaviSettings{};

@@ -216,7 +216,7 @@ std::string ResolveBehaviorTreeConfigPath(const std::string& configured_path) {
 }
 
 bool LoadNaviDebugPlanFile(LangYa::NaviDebugSetting& nd, const std::shared_ptr<Logger>& logger) {
-    const std::string default_plan_file = "Scripts/ConfigJson/navi_debug_points.json";
+    const std::string default_plan_file = "Scripts/ConfigJson/regional/debug/navi_debug_points.json";
     nd.PlanFile = ResolveBehaviorTreeConfigPath(nd.PlanFile.empty() ? default_plan_file : nd.PlanFile);
 
     std::ifstream ifs(nd.PlanFile);
@@ -650,8 +650,17 @@ namespace LangYa {
         rs.HealthyAmmoMin = j.value("HealthyAmmoMin", rs.HealthyAmmoMin);
     }
 
+    void from_json(const json& j, CommonCentralAreaTaskSetting& cs) {
+        cs.Enable = j.value("Enable", cs.Enable);
+        cs.TravelTimeoutSec = j.value("TravelTimeoutSec", cs.TravelTimeoutSec);
+        cs.CommandHoldSec = j.value("CommandHoldSec", cs.CommandHoldSec);
+        cs.HealthyHpMin = j.value("HealthyHpMin", cs.HealthyHpMin);
+        cs.HealthyAmmoMin = j.value("HealthyAmmoMin", cs.HealthyAmmoMin);
+    }
+
     void from_json(const json& j, RegionalAreaTaskSetting& rt) {
         rt.Enable = j.value("Enable", rt.Enable);
+        rt.IgnoreRecovery = j.value("IgnoreRecovery", rt.IgnoreRecovery);
         if (j.contains("MyHighland") && j.at("MyHighland").is_object()) {
             j.at("MyHighland").get_to(rt.MyHighland);
         }
@@ -660,6 +669,9 @@ namespace LangYa {
         }
         if (j.contains("MyRoadland") && j.at("MyRoadland").is_object()) {
             j.at("MyRoadland").get_to(rt.MyRoadland);
+        }
+        if (j.contains("CommonCentral") && j.at("CommonCentral").is_object()) {
+            j.at("CommonCentral").get_to(rt.CommonCentral);
         }
     }
 
@@ -692,6 +704,8 @@ namespace LangYa {
         if (j.contains("Rate")) {
             j.at("Rate").get_to(c.RateSettings);
         }
+        c.SwitchPoint = j.value("Switch_Point", c.SwitchPoint);
+        c.SwitchPoint = j.value("SwitchPoint", c.SwitchPoint);
         if (j.contains("GameStrategy")) {
             j.at("GameStrategy").get_to(c.GameStrategySettings);
         }
@@ -755,6 +769,20 @@ namespace BehaviorTree {
         auto& highland = task.MyHighland;
         auto& base = task.MyBase;
         auto& roadland = task.MyRoadland;
+        auto& central = task.CommonCentral;
+
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "AreaManager.Switch_Point",
+                "AreaManager/Switch_Point",
+                "AreaManager.SwitchPoint",
+                "AreaManager/SwitchPoint",
+                "Switch_Point",
+                "SwitchPoint"
+            },
+            config.SwitchPoint);
+        Area::SetSwitchPoint(config.SwitchPoint);
 
         auto read_area_group = [&](const std::string& group_name,
                                    std::vector<std::string>& area_list,
@@ -804,6 +832,16 @@ namespace BehaviorTree {
         ReadOptionalBoolParam(
             node_,
             {
+                "AreaManager.RegionalAreaTask.IgnoreRecovery",
+                "AreaManager/RegionalAreaTask/IgnoreRecovery",
+                "AreaManager.Task.IgnoreRecovery",
+                "AreaManager/Task/IgnoreRecovery"
+            },
+            task.IgnoreRecovery);
+
+        ReadOptionalBoolParam(
+            node_,
+            {
                 "AreaManager.Area.MyArea.Highland.Task.Enable",
                 "AreaManager/Area/MyArea/Highland/Task/Enable",
                 "AreaManager.Task.Enable",
@@ -826,6 +864,13 @@ namespace BehaviorTree {
                 "AreaManager/Area/MyArea/Roadland/Task/Enable"
             },
             roadland.Enable);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "AreaManager.Area.CommonArea.Central.Task.Enable",
+                "AreaManager/Area/CommonArea/Central/Task/Enable"
+            },
+            central.Enable);
         ReadOptionalBoolParam(
             node_,
             {
@@ -1035,7 +1080,62 @@ namespace BehaviorTree {
                 "AreaManager/RegionalAreaTask/MyRoadland/HealthyAmmoMin"
             },
             roadland.HealthyAmmoMin);
-        if (highland.Enable || base.Enable || roadland.Enable) {
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "AreaManager.Area.CommonArea.Central.Task.CommonCentral.Enable",
+                "AreaManager/Area/CommonArea/Central/Task/CommonCentral/Enable",
+                "AreaManager.Task.CommonCentral.Enable",
+                "AreaManager/Task/CommonCentral/Enable",
+                "AreaManager.RegionalAreaTask.CommonCentral.Enable",
+                "AreaManager/RegionalAreaTask/CommonCentral/Enable"
+            },
+            central.Enable);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "AreaManager.Area.CommonArea.Central.Task.CommonCentral.TravelTimeoutSec",
+                "AreaManager/Area/CommonArea/Central/Task/CommonCentral/TravelTimeoutSec",
+                "AreaManager.Task.CommonCentral.TravelTimeoutSec",
+                "AreaManager/Task/CommonCentral/TravelTimeoutSec",
+                "AreaManager.RegionalAreaTask.CommonCentral.TravelTimeoutSec",
+                "AreaManager/RegionalAreaTask/CommonCentral/TravelTimeoutSec"
+            },
+            central.TravelTimeoutSec);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "AreaManager.Area.CommonArea.Central.Task.CommonCentral.CommandHoldSec",
+                "AreaManager/Area/CommonArea/Central/Task/CommonCentral/CommandHoldSec",
+                "AreaManager.Task.CommonCentral.CommandHoldSec",
+                "AreaManager/Task/CommonCentral/CommandHoldSec",
+                "AreaManager.RegionalAreaTask.CommonCentral.CommandHoldSec",
+                "AreaManager/RegionalAreaTask/CommonCentral/CommandHoldSec"
+            },
+            central.CommandHoldSec);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "AreaManager.Area.CommonArea.Central.Task.CommonCentral.HealthyHpMin",
+                "AreaManager/Area/CommonArea/Central/Task/CommonCentral/HealthyHpMin",
+                "AreaManager.Task.CommonCentral.HealthyHpMin",
+                "AreaManager/Task/CommonCentral/HealthyHpMin",
+                "AreaManager.RegionalAreaTask.CommonCentral.HealthyHpMin",
+                "AreaManager/RegionalAreaTask/CommonCentral/HealthyHpMin"
+            },
+            central.HealthyHpMin);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "AreaManager.Area.CommonArea.Central.Task.CommonCentral.HealthyAmmoMin",
+                "AreaManager/Area/CommonArea/Central/Task/CommonCentral/HealthyAmmoMin",
+                "AreaManager.Task.CommonCentral.HealthyAmmoMin",
+                "AreaManager/Task/CommonCentral/HealthyAmmoMin",
+                "AreaManager.RegionalAreaTask.CommonCentral.HealthyAmmoMin",
+                "AreaManager/RegionalAreaTask/CommonCentral/HealthyAmmoMin"
+            },
+            central.HealthyAmmoMin);
+        if (highland.Enable || base.Enable || roadland.Enable || central.Enable) {
             task.Enable = true;
         }
     }
@@ -1054,6 +1154,7 @@ namespace BehaviorTree {
         // 一次性反序列化到 Config，后续再做范围校验与默认回退。
         config = j.get<Config>();
         ApplyAreaManagerParameterOverrides();
+        LoggerPtr->Debug("Switch_Point: {}", config.SwitchPoint);
         LoggerPtr->Debug("------ AimDebug ------");
         LoggerPtr->Debug("StopFire: {}", config.AimDebugSettings.StopFire);
         LoggerPtr->Debug("StopRotate: {}", config.AimDebugSettings.StopRotate);
@@ -1136,6 +1237,7 @@ namespace BehaviorTree {
         }
         LoggerPtr->Debug("------ RegionalAreaTask ------");
         LoggerPtr->Debug("Enable: {}", config.RegionalAreaTaskSettings.Enable);
+        LoggerPtr->Debug("IgnoreRecovery: {}", config.RegionalAreaTaskSettings.IgnoreRecovery);
         LoggerPtr->Debug("MyHighland.Enable: {}", config.RegionalAreaTaskSettings.MyHighland.Enable);
         LoggerPtr->Debug("MyHighland.UseFaceMode: {}", config.RegionalAreaTaskSettings.MyHighland.UseFaceMode);
         LoggerPtr->Debug("MyHighland.ApproachTimeoutSec: {}", config.RegionalAreaTaskSettings.MyHighland.ApproachTimeoutSec);
@@ -1155,6 +1257,11 @@ namespace BehaviorTree {
         LoggerPtr->Debug("MyRoadland.FaceTargetZCm: {}", config.RegionalAreaTaskSettings.MyRoadland.FaceTargetZCm);
         LoggerPtr->Debug("MyRoadland.HealthyHpMin: {}", config.RegionalAreaTaskSettings.MyRoadland.HealthyHpMin);
         LoggerPtr->Debug("MyRoadland.HealthyAmmoMin: {}", config.RegionalAreaTaskSettings.MyRoadland.HealthyAmmoMin);
+        LoggerPtr->Debug("CommonCentral.Enable: {}", config.RegionalAreaTaskSettings.CommonCentral.Enable);
+        LoggerPtr->Debug("CommonCentral.TravelTimeoutSec: {}", config.RegionalAreaTaskSettings.CommonCentral.TravelTimeoutSec);
+        LoggerPtr->Debug("CommonCentral.CommandHoldSec: {}", config.RegionalAreaTaskSettings.CommonCentral.CommandHoldSec);
+        LoggerPtr->Debug("CommonCentral.HealthyHpMin: {}", config.RegionalAreaTaskSettings.CommonCentral.HealthyHpMin);
+        LoggerPtr->Debug("CommonCentral.HealthyAmmoMin: {}", config.RegionalAreaTaskSettings.CommonCentral.HealthyAmmoMin);
         LoggerPtr->Debug("------ AimTargetPriority ------");
         for (const auto armor_id : config.AimTargetPriority) {
             LoggerPtr->Debug("ArmorTypeId: {}", armor_id);
@@ -1562,6 +1669,31 @@ namespace BehaviorTree {
                 "Invalid RegionalAreaTask.MyRoadland.HealthyAmmoMin={}, fallback to 50.",
                 roadland_task.HealthyAmmoMin);
             roadland_task.HealthyAmmoMin = 50;
+        }
+        auto& central_task = config.RegionalAreaTaskSettings.CommonCentral;
+        if (central_task.TravelTimeoutSec <= 0) {
+            LoggerPtr->Warning(
+                "Invalid RegionalAreaTask.CommonCentral.TravelTimeoutSec={}, fallback to 12.",
+                central_task.TravelTimeoutSec);
+            central_task.TravelTimeoutSec = 12;
+        }
+        if (central_task.CommandHoldSec <= 0) {
+            LoggerPtr->Warning(
+                "Invalid RegionalAreaTask.CommonCentral.CommandHoldSec={}, fallback to 1.",
+                central_task.CommandHoldSec);
+            central_task.CommandHoldSec = 1;
+        }
+        if (central_task.HealthyHpMin < 0) {
+            LoggerPtr->Warning(
+                "Invalid RegionalAreaTask.CommonCentral.HealthyHpMin={}, fallback to 300.",
+                central_task.HealthyHpMin);
+            central_task.HealthyHpMin = 300;
+        }
+        if (central_task.HealthyAmmoMin < 0) {
+            LoggerPtr->Warning(
+                "Invalid RegionalAreaTask.CommonCentral.HealthyAmmoMin={}, fallback to 50.",
+                central_task.HealthyAmmoMin);
+            central_task.HealthyAmmoMin = 50;
         }
 
         if (config.PatrolScanSettings.Mode != 1 && config.PatrolScanSettings.Mode != 2) {

@@ -19,10 +19,10 @@ import os
 from pathlib import Path
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, LogInfo, OpaqueFunction, SetLaunchConfiguration, Shutdown
-from launch.conditions import IfCondition, LaunchConfigurationEquals, LaunchConfigurationNotEquals
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, GroupAction, IncludeLaunchDescription, LogInfo, OpaqueFunction, SetLaunchConfiguration, Shutdown
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
@@ -73,7 +73,7 @@ def generate_launch_description():
         elif mode_kind == "regional_simple":
             resolved_bt_config = "Scripts/ConfigJson/regional_simple_competition.json"
         elif mode_kind == "showcase":
-            resolved_bt_config = "Scripts/ConfigJson/showcase_competition.json"
+            resolved_bt_config = "Scripts/ConfigJson/regional/debug/showcase_competition.json"
         else:
             resolved_bt_config = "Scripts/ConfigJson/regional_competition.json"
 
@@ -90,6 +90,13 @@ def generate_launch_description():
         )
         return [
             SetLaunchConfiguration("resolved_tf_tree_params_file", resolved_tf_tree_params_file),
+        ]
+
+    def resolve_rosbag_defaults(context):
+        rosbag_path_raw = LaunchConfiguration("rosbag_path").perform(context).strip()
+        resolved_rosbag_path = os.path.expanduser(rosbag_path_raw or "~/Log/rosbag")
+        return [
+            SetLaunchConfiguration("resolved_rosbag_path", resolved_rosbag_path),
         ]
 
     def resolve_navi_tf_bridge_defaults(context):
@@ -174,6 +181,9 @@ def generate_launch_description():
     decision_trace_enabled = LaunchConfiguration("decision_trace_enabled")
     decision_trace_file = LaunchConfiguration("decision_trace_file")
     decision_trace_every_n_ticks = LaunchConfiguration("decision_trace_every_n_ticks")
+    rosbag_play_enable = LaunchConfiguration("rosbag_play_enable")
+    rosbag_path = LaunchConfiguration("rosbag_path")
+    resolved_rosbag_path = LaunchConfiguration("resolved_rosbag_path")
 
     use_gimbal = LaunchConfiguration("use_gimbal")
     use_detector = LaunchConfiguration("use_detector")
@@ -299,6 +309,16 @@ def generate_launch_description():
             description="AimTimer diagnostics output directory.",
         ),
         DeclareLaunchArgument(
+            "rosbag_play_enable",
+            default_value="false",
+            description="When true, launch ros2 bag play and switch detector to rosbag input.",
+        ),
+        DeclareLaunchArgument(
+            "rosbag_path",
+            default_value="~/Log/rosbag",
+            description="Rosbag directory passed to `ros2 bag play` when rosbag_play_enable is true.",
+        ),
+        DeclareLaunchArgument(
             "decision_trace_enabled",
             default_value="false",
             description="Debug only: enable JSONL decision trace for offline pygame replay.",
@@ -344,11 +364,30 @@ def generate_launch_description():
         DeclareLaunchArgument("resolved_competition_profile", default_value=""),
         DeclareLaunchArgument("resolved_bt_config_file", default_value=""),
         DeclareLaunchArgument("resolved_tf_tree_params_file", default_value=""),
+        DeclareLaunchArgument("resolved_rosbag_path", default_value=""),
         DeclareLaunchArgument("resolved_use_navi_tf_bridge", default_value="true"),
         OpaqueFunction(function=resolve_mode_defaults),
         OpaqueFunction(function=resolve_tf_tree_defaults),
+        OpaqueFunction(function=resolve_rosbag_defaults),
         OpaqueFunction(function=resolve_navi_tf_bridge_defaults),
     ]
+
+    truthy_values = "['true', '1', 'yes', 'on']"
+    rosbag_enabled_expr = PythonExpression([
+        "'", rosbag_play_enable, "'.lower() in ", truthy_values
+    ])
+    hardware_io_expr = PythonExpression([
+        "'", offline, "'.lower() not in ", truthy_values,
+        " and '", rosbag_play_enable, "'.lower() not in ", truthy_values
+    ])
+    virtual_io_expr = PythonExpression([
+        "'", offline, "'.lower() in ", truthy_values,
+        " or '", rosbag_play_enable, "'.lower() in ", truthy_values
+    ])
+    offline_video_expr = PythonExpression([
+        "'", offline, "'.lower() in ", truthy_values,
+        " and '", rosbag_play_enable, "'.lower() not in ", truthy_values
+    ])
 
     info_logs = [
         LogInfo(msg=["[sentry_all] mode: ", mode]),
@@ -376,6 +415,9 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] velocity_raw_to_mps: ", velocity_raw_to_mps]),
         LogInfo(msg=["[sentry_all] aim_timer_log_enable: ", aim_timer_log_enable]),
         LogInfo(msg=["[sentry_all] aim_timer_log_dir: ", aim_timer_log_dir]),
+        LogInfo(msg=["[sentry_all] rosbag_play_enable: ", rosbag_play_enable]),
+        LogInfo(msg=["[sentry_all] rosbag_path: ", rosbag_path]),
+        LogInfo(msg=["[sentry_all] resolved_rosbag_path: ", resolved_rosbag_path]),
         LogInfo(msg=["[sentry_all] decision_trace_enabled: ", decision_trace_enabled]),
         LogInfo(msg=["[sentry_all] decision_trace_file: ", decision_trace_file]),
         LogInfo(msg=["[sentry_all] decision_trace_every_n_ticks: ", decision_trace_every_n_ticks]),
@@ -407,7 +449,13 @@ def generate_launch_description():
                 "goal_pos_raw_frame": "map",
             }.items(),
         ),
-        # gimbal_driver: offline=true 时强制 use_virtual_device
+        ExecuteProcess(
+            cmd=["ros2", "bag", "play", resolved_rosbag_path],
+            output=output,
+            on_exit=[Shutdown(reason="rosbag playback exited")],
+            condition=IfCondition(rosbag_enabled_expr),
+        ),
+        # gimbal_driver: offline=true or rosbag replay force use_virtual_device.
         GroupAction(
             actions=[
                 Node(
@@ -434,7 +482,7 @@ def generate_launch_description():
                         },
                     ],
                     on_exit=Shutdown(reason="gimbal_driver exited"),
-                    condition=LaunchConfigurationNotEquals("offline", "true"),
+                    condition=IfCondition(hardware_io_expr),
                 ),
                 Node(
                     package="gimbal_driver",
@@ -462,12 +510,12 @@ def generate_launch_description():
                         },
                     ],
                     on_exit=Shutdown(reason="gimbal_driver exited"),
-                    condition=LaunchConfigurationEquals("offline", "true"),
+                    condition=IfCondition(virtual_io_expr),
                 ),
             ],
             condition=IfCondition(use_gimbal),
         ),
-        # detector: offline=true 时强制 use_video
+        # detector: offline=true uses video replay; rosbag replay uses the compressed image topic.
         GroupAction(
             actions=[
                 Node(
@@ -477,7 +525,7 @@ def generate_launch_description():
                     output=output,
                     parameters=[base_config_file, detector_config_file, config_file],
                     on_exit=Shutdown(reason="detector exited"),
-                    condition=LaunchConfigurationNotEquals("offline", "true"),
+                    condition=IfCondition(hardware_io_expr),
                 ),
                 Node(
                     package="detector",
@@ -494,7 +542,26 @@ def generate_launch_description():
                         },
                     ],
                     on_exit=Shutdown(reason="detector exited"),
-                    condition=LaunchConfigurationEquals("offline", "true"),
+                    condition=IfCondition(offline_video_expr),
+                ),
+                Node(
+                    package="detector",
+                    executable="detector_node",
+                    name="detector",
+                    output=output,
+                    parameters=[
+                        base_config_file,
+                        detector_config_file,
+                        config_file,
+                        {
+                            "detector_config/use_video": False,
+                            "detector_config.use_video": False,
+                            "detector_config/use_ros_bag": True,
+                            "detector_config.use_ros_bag": True,
+                        },
+                    ],
+                    on_exit=Shutdown(reason="detector exited"),
+                    condition=IfCondition(rosbag_enabled_expr),
                 ),
             ],
             condition=IfCondition(use_detector),

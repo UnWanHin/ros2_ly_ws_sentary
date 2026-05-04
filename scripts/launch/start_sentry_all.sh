@@ -106,6 +106,32 @@ read_common_aim_timer_log_dir() {
   printf '%s\n' "${value}"
 }
 
+read_common_rosbag_play_enable() {
+  local config_file="$1"
+  [[ -f "${config_file}" ]] || return 1
+
+  local value=""
+  value="$(read_common_scalar "${config_file}" "rosbag_play_enable")" || return 1
+  read_common_bool_value "${value}"
+}
+
+read_common_rosbag_path() {
+  local config_file="$1"
+  [[ -f "${config_file}" ]] || return 1
+
+  local value=""
+  value="$(read_common_scalar "${config_file}" "rosbag_path")" || return 1
+  [[ -n "${value}" ]] || return 1
+
+  if [[ "${value}" == "~" ]]; then
+    value="${HOME}"
+  elif [[ "${value}" == "~/"* ]]; then
+    value="${HOME}/${value#"~/"}"
+  fi
+
+  printf '%s\n' "${value}"
+}
+
 read_common_bool_value() {
   local value="$1"
   value="$(printf '%s' "${value}" | tr '[:upper:]' '[:lower:]')"
@@ -231,6 +257,47 @@ if ! has_launch_arg_key "aim_timer_log_dir"; then
   fi
 else
   for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == aim_timer_log_dir:=* ]] && echo "[INFO] override aim_timer_log_dir=${arg#aim_timer_log_dir:=}"; done
+fi
+
+ROSBAG_PLAY_ENABLE_LAUNCH=""
+if ! has_launch_arg_key "rosbag_play_enable"; then
+  if ROSBAG_PLAY_ENABLE_FROM_COMMON="$(read_common_rosbag_play_enable "${DEFAULT_COMMON_CONFIG_FILE}")"; then
+    if [[ "${ROSBAG_PLAY_ENABLE_FROM_COMMON}" == "0" ]]; then
+      ROSBAG_PLAY_ENABLE_LAUNCH="false"
+    else
+      ROSBAG_PLAY_ENABLE_LAUNCH="true"
+    fi
+    LAUNCH_ARGS=("rosbag_play_enable:=${ROSBAG_PLAY_ENABLE_LAUNCH}" "${LAUNCH_ARGS[@]}")
+    echo "[INFO] default rosbag_play_enable=${ROSBAG_PLAY_ENABLE_LAUNCH} (from ${DEFAULT_COMMON_CONFIG_FILE})"
+  fi
+else
+  for arg in "${LAUNCH_ARGS[@]}"; do
+    if [[ "${arg}" == rosbag_play_enable:=* ]]; then
+      ROSBAG_PLAY_ENABLE_LAUNCH="${arg#rosbag_play_enable:=}"
+      if ROSBAG_PLAY_ENABLE_NORMALIZED="$(read_common_bool_value "${ROSBAG_PLAY_ENABLE_LAUNCH}")"; then
+        if [[ "${ROSBAG_PLAY_ENABLE_NORMALIZED}" == "0" ]]; then
+          ROSBAG_PLAY_ENABLE_LAUNCH="false"
+        else
+          ROSBAG_PLAY_ENABLE_LAUNCH="true"
+        fi
+      fi
+      echo "[INFO] override rosbag_play_enable=${ROSBAG_PLAY_ENABLE_LAUNCH}"
+    fi
+  done
+fi
+
+if ! has_launch_arg_key "rosbag_path"; then
+  if ROSBAG_PATH_FROM_COMMON="$(read_common_rosbag_path "${DEFAULT_COMMON_CONFIG_FILE}")"; then
+    LAUNCH_ARGS=("rosbag_path:=${ROSBAG_PATH_FROM_COMMON}" "${LAUNCH_ARGS[@]}")
+    echo "[INFO] default rosbag_path=${ROSBAG_PATH_FROM_COMMON} (from ${DEFAULT_COMMON_CONFIG_FILE})"
+  fi
+else
+  for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == rosbag_path:=* ]] && echo "[INFO] override rosbag_path=${arg#rosbag_path:=}"; done
+fi
+
+if [[ "${ROSBAG_PLAY_ENABLE_LAUNCH}" == "true" ]] && ! has_launch_arg_key "offline" && (( OFFLINE_MODE == 0 )); then
+  LAUNCH_ARGS=("offline:=true" "${LAUNCH_ARGS[@]}")
+  echo "[INFO] rosbag replay enabled: default offline=true to keep hardware IO virtual"
 fi
 
 if ! has_launch_arg_key "base_config_file"; then

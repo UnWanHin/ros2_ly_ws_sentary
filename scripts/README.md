@@ -38,6 +38,7 @@ scripts/
 ├── launch/                  # 完整/决策 stack 启动实现
 ├── aim/                     # 辅瞄/识别测试 wrapper
 ├── navi/                    # 导航/TF/固定朝向工具 wrapper
+├── areatest/                # regional 单区域 AreaManager 实链路测试 wrapper
 ├── feature_test/            # 单项功能测试框架
 ├── tools/                   # 工具脚本
 └── config/                  # 根层配置（base + override）
@@ -70,6 +71,8 @@ scripts/
 - `scripts/start/sentry_all.sh`
 - `scripts/start/sentry_all_nogate.sh`
 - 实际实现：`scripts/launch/start_sentry_all.sh`
+
+`scripts/launch/start_sentry_all.sh` 会读取 `config/common.yaml` 的现场共享开关。`rosbag_play_enable: true` 时会启动 `ros2 bag play`，默认路径是 `rosbag_path: ~/Log/rosbag`；同时 gimbal 走虚拟 IO，detector 切到 `use_ros_bag=true`。
 
 ### 2. `armor_test` 是什么
 
@@ -155,7 +158,7 @@ python3 ./scripts/python/start.py --keep-to-navi
 
 - 固定走 `mode 3`
 - 底层还是 `regional` 主流程
-- 自动换成 `showcase_competition.json`
+- 自动换成 `regional/debug/showcase_competition.json`
 - 用于姿态展示、展示巡逻、演示链路
 
 ### 4. `start_sentry_all_competition.sh` 还要不要
@@ -206,6 +209,33 @@ python3 ./scripts/python/start.py --keep-to-navi
 | `scripts/navi/facemode.sh` | FaceMode 简短入口：`facemode.sh official_map_x official_map_y map_z`，单位 cm |
 | `scripts/navi/map_aim_point_test.sh` | FaceMode 完整测试入口，可拉 `gimbal_driver` / `tf_tree` |
 | `scripts/navi/map_aim_point_attach.sh` | 已有 stack 上只附加 FaceMode 节点 |
+### Area Test
+
+| 脚本 | 用途 |
+| --- | --- |
+| `scripts/areatest/regional_base.sh` | 单测我方 Base 区域任务，走正式 `sentry_all --mode regional` 和 AreaManager |
+| `scripts/areatest/regional_highland.sh` | 单测我方 Highland 区域任务，走正式 regional 链路 |
+| `scripts/areatest/regional_roadland.sh` | 单测我方 Roadland 区域任务，走正式 regional 链路 |
+| `scripts/areatest/regional_central.sh` | 单测 Common Central 区域任务，走正式 regional 链路 |
+| `scripts/areatest/regional_area_test.sh` | 上面四个脚本的共用 runner，可手动传 `base/highland/roadland/central` |
+
+单区域 regional 脚本不是 `navi_debug`，也不是直接发 `/ly/navi/goal`。它们通过专用 `bt_config_file` 只保留一个导航候选点，再启动 `scripts/launch/start_sentry_all.sh --mode regional`，因此会进入 `TrySetScopedPositionByBaseGoal()`、AreaManager 和实际 `/ly/navi/goal_pos_raw -> /goal_pose` 链路。
+
+默认模式仍保留正式链路里可用的 autoaim/fire/posture 行为，便于测接近实战的单区域效果。只想测区域内无事件时的游走/驻守，用 `--pure`：
+
+```bash
+./scripts/areatest/regional_roadland.sh --pure
+```
+
+`--pure` 会切到 pure preset：停火、关闭 Chase、关闭 Posture、忽略 Recovery 回补，并默认不启动 detector/tracker/predictor/outpost/buff 节点；AreaManager 区域任务和导航桥仍走正式链路。
+
+如果在桌面/台架上没有真实裁判数据，低血量/低弹量默认值会触发 recovery，Central 也不会进入健康巡逻。可以临时加：
+
+```bash
+./scripts/areatest/regional_central.sh --pure --fake-referee
+```
+
+`--fake-referee` 只用于测试，会发布健康的 `/ly/game/all`、`/ly/me/ammo_left` 和开赛标志；上车连真实下位机时不要开这个选项。
 
 ### Selfcheck
 

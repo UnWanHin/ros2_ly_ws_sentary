@@ -22,9 +22,11 @@ behavior_tree/
 │   ├── main.xml                # BT v4 行為樹主文件
 │   ├── config.json             # 默認/兼容策略配置文件
 │   └── ConfigJson/             # 可切換比賽 profile 配置
-│       ├── regional_competition.json
 │       ├── league_competition.json
-│       └── showcase_competition.json
+│       ├── regional_competition.json
+│       ├── regional_simple_competition.json
+│       ├── league/             # league 相關測試 preset
+│       └── regional/           # regional 調試/展示/單區域 preset
 ├── include/
 │   ├── Application.hpp         # 核心類：所有狀態變量 + 所有函數聲明
 │   ├── Node.hpp                # BT節點定義（BT v4 動作節點/條件節點等）
@@ -301,12 +303,12 @@ void TreeTick() {
   - 聯盟賽會進入顯式策略 `LeagueSimple`，不再借用 `HitHero`
 - `competition_profile:=regional`
   - 保持分區賽/原有複雜策略
-  - 若未顯式指定 `bt_config_file`，默認回退到 `Scripts/config.json`
-- `bt_config_file:=Scripts/ConfigJson/showcase_competition.json`
+  - 若未顯式指定 `bt_config_file`，默認讀 `Scripts/ConfigJson/regional_competition.json`
+- `bt_config_file:=Scripts/ConfigJson/regional/debug/showcase_competition.json`
   - 展示模式配置：仍走 regional 主流程，但縮短姿態切換等待，並支持短時受擊切防守
   - 展示巡邏點位在 `ShowcasePatrol.Goals` 修改；`DisableTeamOffset=true` 時直接下發基礎點位 ID `0..18`
-- `bt_config_file:=Scripts/ConfigJson/navi_debug_competition.json`
-  - 導航調試配置：固定走 `NaviTest`，並從 `Scripts/ConfigJson/navi_debug_points.json` 讀臨時點位計劃
+- `bt_config_file:=Scripts/ConfigJson/regional/debug/navi_debug_competition.json`
+  - 導航調試配置：固定走 `NaviTest`，並從 `Scripts/ConfigJson/regional/debug/navi_debug_points.json` 讀臨時點位計劃
   - 支持命名 plan、隨機/順序巡邏、獨立速度等級、可選忽略回血回補
 - `bt_config_file:=Scripts/ConfigJson/regional_competition.json`
   - 顯式指定某份 BT JSON 配置
@@ -409,7 +411,9 @@ SET_POSITION(BuffShoot, MyTeam);  // 設置導航目標為打符點位
 
 `Area.MyArea.Roadland.Task.MyRoadland` 管我方 Roadland 的无特别事件区域任务：上游选中我方 Roadland 大区点时，先正常去 `CentralToBase`；到点、不可达或超时后进入强绑定穿越段，打开 `FollowMode + FaceMode`，FaceMode 目标为 `BaseToCentral`，直到到达 `BaseToCentral`、不可达或超时才恢复巡逻/开火/小陀螺。驻守 `BaseToCentral` 时保持普通巡逻和小陀螺；如果明确需要离开或健康/弹量数据低于阈值，则用 `FaceMode(CentralToBase)+FollowMode` 穿回 `CentralToBase`，完成或超时后结束。穿越段不会被受击、识别目标、Buff/Outpost 模式等高优先级逻辑直接取消。
 
-区域状态和区域任务参数集中在 `config/AreaManager.yaml`：`Area.MyArea/EnemyArea/CommonArea` 管 Base、Highland、Roadland、Central 的启用状态，`Area.MyArea.Highland.Task.MyHighland`、`Area.MyArea.Base.Task.MyBase` 和 `Area.MyArea.Roadland.Task.MyRoadland` 管各自区域任务时序。区域任务需要动态切换 FaceMode 目标时，BT 发布 `/ly/face_mode/target_raw`，格式为 `[official_map_x, official_map_y, map_z]` cm。
+`Area.CommonArea.Central.Task.CommonCentral` 管 Central 公共区域的健康巡逻任务：上游选中 Central 大区点且自身血量/弹量数据新鲜并达到阈值时，从当前坐标最近的巡逻点插入循环。循环顺序为 `my OutpostArea -> my RightShoot -> my BuffAround2 -> my LeftShoot -> my OutpostShoot -> enemy RightShoot -> enemy OccupyArea -> enemy OutpostShoot -> my OutpostArea`。拿不到自身坐标时从 `my OutpostArea` 开始；到达/不可达仍复用 `/ly/navi/reached`、`/ly/navi/reachable`。
+
+区域状态机参数集中在 `config/AreaManager.yaml`：`AreaManager.Switch_Point` 默认 `false`，设为 `true` 时只交换 `Area.hpp` 中红/蓝官方点位和区域边界查找结果，不交换 `team` 语义和导航 goal ID。默认 YAML 不写 `Area.MyArea/EnemyArea/CommonArea` 区域开关，避免覆盖不同 `bt_config_file` 的区域选择；正式 regional 和单区域 areatest 的可选区域仍由 `ConfigJson` 里的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 控制。`AreaManager.RegionalAreaTask.MyHighland/MyBase/MyRoadland/CommonCentral` 管各自区域任务时序。区域任务需要动态切换 FaceMode 目标时，BT 发布 `/ly/face_mode/target_raw`，格式为 `[official_map_x, official_map_y, map_z]` cm。
 
 ---
 

@@ -24,8 +24,8 @@ DEFAULT_PREDICTOR_CONFIG_FILE="${ROOT_DIR}/src/predictor/config/predictor_config
 DEFAULT_OUTPOST_CONFIG_FILE="${ROOT_DIR}/src/outpost_hitter/config/outpost_config.yaml"
 DEFAULT_BUFF_CONFIG_FILE="${ROOT_DIR}/src/buff_hitter/config/buff_config.yaml"
 DEFAULT_OVERRIDE_CONFIG_FILE="${ROOT_DIR}/config/override_config.yaml"
-DEFAULT_BT_CONFIG_TF="${ROOT_DIR}/src/behavior_tree/Scripts/ConfigJson/chase_tf_competition.json"
-DEFAULT_BT_CONFIG_INTERNAL="${ROOT_DIR}/src/behavior_tree/Scripts/ConfigJson/chase_internal_competition.json"
+DEFAULT_BT_CONFIG_TF="${ROOT_DIR}/src/behavior_tree/Scripts/ConfigJson/league/chase_tf_competition.json"
+DEFAULT_BT_CONFIG_INTERNAL="${ROOT_DIR}/src/behavior_tree/Scripts/ConfigJson/league/chase_internal_competition.json"
 
 # shellcheck disable=SC1091
 source "${ROOT_DIR}/scripts/lib/ros_launch_common.sh"

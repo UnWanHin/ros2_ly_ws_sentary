@@ -34,6 +34,22 @@ constexpr std::array<std::uint8_t, 4> kMyBasePatrolGoals{
     LangYa::CastleRight1.ID
 };
 
+struct CentralPatrolGoalSpec {
+    std::uint8_t BaseGoalId{LangYa::OutpostArea.ID};
+    bool EnemySide{false};
+};
+
+constexpr std::array<CentralPatrolGoalSpec, 8> kCommonCentralPatrolGoals{{
+    {LangYa::OutpostArea.ID, false},
+    {LangYa::RightShoot.ID, false},
+    {LangYa::BuffAround2.ID, false},
+    {LangYa::LeftShoot.ID, false},
+    {LangYa::OutpostShoot.ID, false},
+    {LangYa::RightShoot.ID, true},
+    {LangYa::OccupyArea.ID, true},
+    {LangYa::OutpostShoot.ID, true}
+}};
+
 std::string NormalizeAreaToken(std::string_view token) {
     std::string normalized(token);
     std::transform(normalized.begin(), normalized.end(), normalized.begin(),
@@ -86,6 +102,57 @@ std::vector<std::uint8_t> ProgressFallbackCandidatesForArea(const Area::MainArea
     }
 }
 
+LangYa::UnitTeam OppositeTeam(const LangYa::UnitTeam team) noexcept {
+    if (team == LangYa::UnitTeam::Red) {
+        return LangYa::UnitTeam::Blue;
+    }
+    if (team == LangYa::UnitTeam::Blue) {
+        return LangYa::UnitTeam::Red;
+    }
+    return LangYa::UnitTeam::Unknown;
+}
+
+LangYa::UnitTeam CommonCentralPatrolGoalTeam(
+    const LangYa::UnitTeam owner_team,
+    const CentralPatrolGoalSpec& spec) noexcept {
+    return spec.EnemySide ? OppositeTeam(owner_team) : owner_team;
+}
+
+std::size_t NextCommonCentralPatrolIndex(const std::size_t current_index) noexcept {
+    return (current_index + 1U) % kCommonCentralPatrolGoals.size();
+}
+
+std::size_t NearestCommonCentralPatrolIndex(
+    const LangYa::UnitTeam owner_team,
+    const bool has_self_position,
+    const int self_x,
+    const int self_y) {
+    if (!has_self_position || self_x <= 0 || self_y <= 0) {
+        return 0U;
+    }
+
+    std::size_t nearest_index = 0U;
+    double nearest_dist_sq = std::numeric_limits<double>::infinity();
+    for (std::size_t index = 0; index < kCommonCentralPatrolGoals.size(); ++index) {
+        const auto& spec = kCommonCentralPatrolGoals[index];
+        const auto goal_team = CommonCentralPatrolGoalTeam(owner_team, spec);
+        if (goal_team != LangYa::UnitTeam::Red && goal_team != LangYa::UnitTeam::Blue) {
+            continue;
+        }
+        const auto goal_point = AreaManager::GoalPointByBaseId(spec.BaseGoalId, goal_team);
+        const double dist_sq = AreaManager::DistanceSq(
+            self_x,
+            self_y,
+            static_cast<int>(goal_point.x),
+            static_cast<int>(goal_point.y));
+        if (dist_sq < nearest_dist_sq) {
+            nearest_dist_sq = dist_sq;
+            nearest_index = index;
+        }
+    }
+    return nearest_index;
+}
+
 std::uint8_t NextMyBasePatrolGoal(const std::uint8_t current_base_goal) {
     const auto it = std::find(kMyBasePatrolGoals.begin(), kMyBasePatrolGoals.end(), current_base_goal);
     if (it == kMyBasePatrolGoals.end()) {
@@ -134,6 +201,17 @@ const char* NaviAreaTransitionKindToString(const NaviAreaTransitionKind kind) {
     }
 }
 
+const char* RegionalAreaTaskTypeToString(const RegionalAreaTaskType type) {
+    switch (type) {
+        case RegionalAreaTaskType::None: return "None";
+        case RegionalAreaTaskType::MyHighland: return "MyHighland";
+        case RegionalAreaTaskType::MyBase: return "MyBase";
+        case RegionalAreaTaskType::MyRoadland: return "MyRoadland";
+        case RegionalAreaTaskType::CommonCentral: return "CommonCentral";
+        default: return "Unknown";
+    }
+}
+
 const char* RegionalAreaTaskPhaseToString(const RegionalAreaTaskPhase phase) {
     switch (phase) {
         case RegionalAreaTaskPhase::Idle: return "Idle";
@@ -148,6 +226,7 @@ const char* RegionalAreaTaskPhaseToString(const RegionalAreaTaskPhase phase) {
         case RegionalAreaTaskPhase::RoadlandHoldBaseToCentral: return "RoadlandHoldBaseToCentral";
         case RegionalAreaTaskPhase::RoadlandCrossToCentralToBase: return "RoadlandCrossToCentralToBase";
         case RegionalAreaTaskPhase::RoadlandReturnToCentralToBase: return "RoadlandReturnToCentralToBase";
+        case RegionalAreaTaskPhase::CentralPatrol: return "CentralPatrol";
         default: return "Unknown";
     }
 }
@@ -173,6 +252,8 @@ void RegionalAreaTaskRuntime::Clear() noexcept {
     CurrentBaseGoal = LangYa::Highland.ID;
     StartTime = AreaTimePoint{};
     PhaseStartTime = AreaTimePoint{};
+    OwnerTeam = LangYa::UnitTeam::Unknown;
+    PatrolIndex = 0U;
 }
 
 void NaviProgressWatchdogRuntime::Clear() noexcept {
@@ -691,15 +772,33 @@ std::optional<RegionalAreaTaskPlan> AreaManager::PlanRegionalAreaTaskForGoal(
     const bool self_in_my_highland) const {
     if (regional_area_task_.Active ||
         !IsValidBaseGoalId(base_goal_id) ||
-        goal_team == LangYa::UnitTeam::Unknown ||
-        my_team == LangYa::UnitTeam::Unknown ||
-        goal_team != my_team) {
+        (goal_team != LangYa::UnitTeam::Red && goal_team != LangYa::UnitTeam::Blue) ||
+        (my_team != LangYa::UnitTeam::Red && my_team != LangYa::UnitTeam::Blue)) {
         return std::nullopt;
     }
 
     const auto resolved_area = ResolveGoalMainArea(base_goal_id, goal_team);
     if (!resolved_area.has_value() ||
         resolved_area->UsedNearestFallback) {
+        return std::nullopt;
+    }
+
+    if (resolved_area->Kind == Area::MainAreaKind::Central) {
+        const auto patrol_index =
+            NearestCommonCentralPatrolIndex(my_team, has_self_position, self_x, self_y);
+        const auto& initial_goal = kCommonCentralPatrolGoals[patrol_index];
+        return RegionalAreaTaskPlan{
+            .Type = RegionalAreaTaskType::CommonCentral,
+            .GoalTeam = my_team,
+            .ApplyTeamOffset = apply_team_offset,
+            .TriggerBaseGoal = base_goal_id,
+            .InitialBaseGoal = initial_goal.BaseGoalId,
+            .InitialGoalTeam = CommonCentralPatrolGoalTeam(my_team, initial_goal),
+            .InitialPatrolIndex = patrol_index
+        };
+    }
+
+    if (goal_team != my_team) {
         return std::nullopt;
     }
 
@@ -745,14 +844,22 @@ void AreaManager::StartRegionalAreaTask(
         regional_area_task_.Phase = RegionalAreaTaskPhase::BasePatrol;
     } else if (plan.Type == RegionalAreaTaskType::MyRoadland) {
         regional_area_task_.Phase = RegionalAreaTaskPhase::RoadlandApproachCentralToBase;
+    } else if (plan.Type == RegionalAreaTaskType::CommonCentral) {
+        regional_area_task_.Phase = RegionalAreaTaskPhase::CentralPatrol;
     } else {
         regional_area_task_.Phase = RegionalAreaTaskPhase::ApproachHighland;
     }
-    regional_area_task_.GoalTeam = plan.GoalTeam;
+    regional_area_task_.GoalTeam = plan.InitialGoalTeam == LangYa::UnitTeam::Unknown
+        ? plan.GoalTeam
+        : plan.InitialGoalTeam;
     regional_area_task_.ApplyTeamOffset = plan.ApplyTeamOffset;
     regional_area_task_.TriggerBaseGoal = plan.TriggerBaseGoal;
+    regional_area_task_.OwnerTeam = plan.GoalTeam;
+    regional_area_task_.PatrolIndex = plan.InitialPatrolIndex;
     regional_area_task_.CurrentBaseGoal =
-        (plan.Type == RegionalAreaTaskType::MyBase || plan.Type == RegionalAreaTaskType::MyRoadland)
+        (plan.Type == RegionalAreaTaskType::MyBase ||
+         plan.Type == RegionalAreaTaskType::MyRoadland ||
+         plan.Type == RegionalAreaTaskType::CommonCentral)
             ? plan.InitialBaseGoal
             : LangYa::Highland.ID;
     regional_area_task_.StartTime = now;
@@ -954,6 +1061,68 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
             result.FaceTargetBaseGoalId = regional_area_task_.CurrentBaseGoal;
             result.FaceTargetZCm = roadland_setting.FaceTargetZCm;
         }
+        return result;
+    }
+
+    if (regional_area_task_.Type == RegionalAreaTaskType::CommonCentral) {
+        if (!input.Setting.CommonCentral.Enable) {
+            return result;
+        }
+
+        const auto& central_setting = input.Setting.CommonCentral;
+        auto phase_elapsed = [&]() {
+            if (regional_area_task_.PhaseStartTime.time_since_epoch().count() == 0) {
+                return std::chrono::seconds{0};
+            }
+            return std::chrono::duration_cast<std::chrono::seconds>(
+                input.Now - regional_area_task_.PhaseStartTime);
+        };
+        const bool travel_timed_out =
+            central_setting.TravelTimeoutSec > 0 &&
+            phase_elapsed() >= std::chrono::seconds(central_setting.TravelTimeoutSec);
+        auto set_patrol_goal = [&](std::size_t patrol_index) {
+            patrol_index %= kCommonCentralPatrolGoals.size();
+            const auto& spec = kCommonCentralPatrolGoals[patrol_index];
+            regional_area_task_.PatrolIndex = patrol_index;
+            regional_area_task_.Phase = RegionalAreaTaskPhase::CentralPatrol;
+            regional_area_task_.CurrentBaseGoal = spec.BaseGoalId;
+            regional_area_task_.GoalTeam =
+                CommonCentralPatrolGoalTeam(regional_area_task_.OwnerTeam, spec);
+            regional_area_task_.PhaseStartTime = input.Now;
+        };
+
+        if (input.CentralShouldLeave) {
+            result.Completed = true;
+            result.Type = regional_area_task_.Type;
+            result.Phase = regional_area_task_.Phase;
+            result.Reason = "unhealthy";
+            regional_area_task_.Clear();
+            return result;
+        }
+
+        if (regional_area_task_.OwnerTeam != LangYa::UnitTeam::Red &&
+            regional_area_task_.OwnerTeam != LangYa::UnitTeam::Blue) {
+            regional_area_task_.OwnerTeam = regional_area_task_.GoalTeam;
+        }
+
+        if (regional_area_task_.CurrentBaseGoal == LangYa::Home.ID ||
+            regional_area_task_.Phase != RegionalAreaTaskPhase::CentralPatrol) {
+            set_patrol_goal(regional_area_task_.PatrolIndex);
+        } else if (input.CurrentBaseGoalArrived ||
+                   input.CurrentBaseGoalUnreachable ||
+                   travel_timed_out) {
+            set_patrol_goal(NextCommonCentralPatrolIndex(regional_area_task_.PatrolIndex));
+        }
+
+        result.Active = true;
+        result.SetGoal = true;
+        result.BaseGoalId = regional_area_task_.CurrentBaseGoal;
+        result.GoalTeam = regional_area_task_.GoalTeam;
+        result.ApplyTeamOffset = regional_area_task_.ApplyTeamOffset;
+        result.Type = regional_area_task_.Type;
+        result.Phase = regional_area_task_.Phase;
+        result.ResetNaviHold = true;
+        result.NaviHoldSec = std::max(1, central_setting.CommandHoldSec);
         return result;
     }
 

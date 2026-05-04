@@ -39,7 +39,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--bt-config",
         default="regional_competition.json",
-        help="BT config preset name/path under behavior_tree/Scripts/ConfigJson (default: regional_competition.json).",
+        help="BT config preset name/path under behavior_tree/Scripts/ConfigJson, including subdirs (default: regional_competition.json).",
     )
     parser.add_argument(
         "--web-port",

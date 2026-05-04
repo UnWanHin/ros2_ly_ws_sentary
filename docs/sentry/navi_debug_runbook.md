@@ -11,7 +11,7 @@
 
 两边共用同一份临时点位计划文件：
 
-- `src/behavior_tree/Scripts/ConfigJson/navi_debug_points.json`
+- `src/behavior_tree/Scripts/ConfigJson/regional/debug/navi_debug_points.json`
 
 ---
 
@@ -19,11 +19,11 @@
 
 主配置：
 
-- `src/behavior_tree/Scripts/ConfigJson/navi_debug_competition.json`
+- `src/behavior_tree/Scripts/ConfigJson/regional/debug/navi_debug_competition.json`
 
 临时点位计划：
 
-- `src/behavior_tree/Scripts/ConfigJson/navi_debug_points.json`
+- `src/behavior_tree/Scripts/ConfigJson/regional/debug/navi_debug_points.json`
 
 点位计划文件格式：
 
@@ -137,5 +137,5 @@ OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./scripts/navi/map_aim_point_te
 
 - 这套方案只改“发哪些点位 ID”，不改导航侧坐标定义。
 - 如果你现场要的是全新 XY 临时坐标，那还得让导航侧支持新的坐标表，或改回 `/ly/navi/goal_pos`。
-- `./scripts/debug.sh navi_goal` 直接读取 `src/behavior_tree/Scripts/ConfigJson/navi_debug_points.json`。
+- `./scripts/debug.sh navi_goal` 直接读取 `src/behavior_tree/Scripts/ConfigJson/regional/debug/navi_debug_points.json`。
 - `./scripts/debug.sh navi-debug` 里的 `behavior_tree` 运行时读取的是 `install/behavior_tree/share/behavior_tree/Scripts/ConfigJson/*.json`，所以改完源文件后要先 `colcon build --packages-select behavior_tree`。

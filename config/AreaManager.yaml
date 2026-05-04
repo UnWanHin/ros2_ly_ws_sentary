@@ -1,50 +1,34 @@
 behavior_tree:
   ros__parameters:
     AreaManager:
-      Area:
-        UseAreaScope: true
-        MyArea:
-          Base:
-            Enable: true
-            Task:
-              Enable: true
-              MyBase:
-                Enable: true
-                TravelTimeoutSec: 12
-                CommandHoldSec: 1
-          Highland:
-            Enable: true
-            Task:
-              Enable: true
-              MyHighland:
-                Enable: true
-                UseFaceMode: true
-                ApproachTimeoutSec: 8
-                HighlandPatrolHoldSec: 2
-                BuffShootTravelTimeoutSec: 8
-                BuffShootHoldSec: 10
-                LeaveTimeoutSec: 8
-          Roadland:
-            Enable: true
-            Task:
-              Enable: true
-              MyRoadland:
-                Enable: true
-                UseFaceMode: true
-                TravelTimeoutSec: 12
-                CrossTimeoutSec: 8
-                CommandHoldSec: 1
-                GuardHoldSec: 2
-                FaceTargetZCm: 100
-                HealthyHpMin: 300
-                HealthyAmmoMin: 50
-        EnemyArea:
-          Base:
-            Enable: false
-          Highland:
-            Enable: false
-          Roadland:
-            Enable: false
-        CommonArea:
-          Central:
-            Enable: false
+      Switch_Point: false
+      RegionalAreaTask:
+        Enable: true
+        MyBase:
+          Enable: true
+          TravelTimeoutSec: 12
+          CommandHoldSec: 1
+        MyHighland:
+          Enable: true
+          UseFaceMode: true
+          ApproachTimeoutSec: 8
+          HighlandPatrolHoldSec: 2
+          BuffShootTravelTimeoutSec: 8
+          BuffShootHoldSec: 10
+          LeaveTimeoutSec: 8
+        MyRoadland:
+          Enable: true
+          UseFaceMode: true
+          TravelTimeoutSec: 12
+          CrossTimeoutSec: 8
+          CommandHoldSec: 1
+          GuardHoldSec: 2
+          FaceTargetZCm: 100
+          HealthyHpMin: 300
+          HealthyAmmoMin: 50
+        CommonCentral:
+          Enable: true
+          TravelTimeoutSec: 12
+          CommandHoldSec: 1
+          HealthyHpMin: 300
+          HealthyAmmoMin: 50

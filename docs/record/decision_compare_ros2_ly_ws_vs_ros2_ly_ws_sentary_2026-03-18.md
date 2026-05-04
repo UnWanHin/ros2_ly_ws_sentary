@@ -194,7 +194,7 @@
 | `ShowcasePatrol.DisableTeamOffset` | `true` | `showcase_competition.json` | 是否关闭蓝方点位偏移 |
 | `ShowcasePatrol.IgnoreRecovery` | `true` | `showcase_competition.json` | 展示模式忽略回血/补弹回补 |
 | `NaviDebug.Enable` | `true/false` | `navi_debug_competition.json` | 是否启用导航调试模式 |
-| `NaviDebug.PlanFile` | `Scripts/ConfigJson/navi_debug_points.json` | `navi_debug_competition.json` | 导航计划文件 |
+| `NaviDebug.PlanFile` | `Scripts/ConfigJson/regional/debug/navi_debug_points.json` | `navi_debug_competition.json` | 导航计划文件 |
 | `NaviDebug.ActivePlan` | `test_site_random` 等 | `navi_debug_competition.json` | 选中的计划名 |
 | `NaviDebug.IgnoreRecovery` | `true` | `navi_debug_competition.json` | 导航调试时是否忽略回补 |
 | `NaviDebug.DisableTeamOffset` | `true` | `navi_debug_competition.json` | 导航调试是否关偏移 |
@@ -256,9 +256,9 @@
 
 - `Scripts/ConfigJson/regional_competition.json`
 - `Scripts/ConfigJson/league_competition.json`
-- `Scripts/ConfigJson/showcase_competition.json`
-- `Scripts/ConfigJson/navi_debug_competition.json`
-- `Scripts/ConfigJson/navi_debug_points.json`
+- `Scripts/ConfigJson/regional/debug/showcase_competition.json`
+- `Scripts/ConfigJson/regional/debug/navi_debug_competition.json`
+- `Scripts/ConfigJson/regional/debug/navi_debug_points.json`
 
 这意味着新版从“几份散装配置”升级成了“比赛模式 + 专项模式 + 计划文件”的结构。
 

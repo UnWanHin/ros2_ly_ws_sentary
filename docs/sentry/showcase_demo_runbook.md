@@ -31,7 +31,7 @@
 
 - 固定 `--mode 3 --no-prompt`
 - 默认走 `showcase.launch.py`，并注入 `debug_bypass_is_start:=true`
-- 自动注入展示配置 `Scripts/ConfigJson/showcase_competition.json`
+- 自动注入展示配置 `Scripts/ConfigJson/regional/debug/showcase_competition.json`
 
 如果现场已经接裁判系统，想保留开赛门控：
 
@@ -142,7 +142,7 @@
 
 展示模式配置文件：
 
-- `src/behavior_tree/Scripts/ConfigJson/showcase_competition.json`
+- `src/behavior_tree/Scripts/ConfigJson/regional/debug/showcase_competition.json`
 
 展示巡逻点也在这份文件里改：
 

@@ -51,7 +51,7 @@ Optional indexed wrapper (reads `src/behavior_tree/Scripts/ConfigJson`):
 
 ```bash
 PYTHONPATH=src/decision_viz python3 -m decision_viz.start --list-configs
-PYTHONPATH=src/decision_viz python3 -m decision_viz.start --mode league --bt-config chase_only_competition.json --entry nogate
+PYTHONPATH=src/decision_viz python3 -m decision_viz.start --mode league --bt-config league/chase_only_competition.json --entry nogate
 ```
 
 Offline decision test (not replay, behavior_tree + mock topics only):

@@ -58,7 +58,7 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(sentry_all_launch),
         launch_arguments={
             "mode": "regional",
-            "bt_config_file": "Scripts/ConfigJson/navi_debug_competition.json",
+            "bt_config_file": "Scripts/ConfigJson/regional/debug/navi_debug_competition.json",
             "config_file": LaunchConfiguration("config_file"),
             "base_config_file": LaunchConfiguration("base_config_file"),
             "detector_config_file": LaunchConfiguration("detector_config_file"),

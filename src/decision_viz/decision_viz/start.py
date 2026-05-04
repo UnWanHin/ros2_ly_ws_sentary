@@ -17,7 +17,7 @@ from .config import repo_root
 DEFAULT_BT_CONFIG_BY_MODE = {
     "regional": "regional_competition.json",
     "league": "league_competition.json",
-    "showcase": "showcase_competition.json",
+    "showcase": "regional/debug/showcase_competition.json",
 }
 
 
@@ -120,7 +120,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="",
         help=(
             "Behavior-tree config preset name or path. Examples: league_competition.json, "
-            "Scripts/ConfigJson/chase_only_competition.json, /abs/path/custom.json"
+            "league/chase_only_competition.json, /abs/path/custom.json"
         ),
     )
     parser.add_argument(
@@ -226,7 +226,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--include-legacy",
         action="store_true",
-        help="Include src/behavior_tree/Scripts/ConfigJson/legacy presets in --list-configs.",
+        help="Include src/behavior_tree/Scripts/ConfigJson/regional/test/legacy presets in --list-configs.",
     )
     parser.add_argument(
         "--dry-run",
@@ -325,8 +325,11 @@ def normalize_extra_launch_args(raw: list[str]) -> list[str]:
 
 def iter_config_paths(config_root: Path, include_legacy: bool) -> list[Path]:
     paths = sorted(config_root.glob("*.json"))
+    paths.extend(sorted((config_root / "league").glob("*.json")))
+    paths.extend(sorted((config_root / "regional" / "debug").glob("*.json")))
+    paths.extend(sorted((config_root / "regional" / "test").glob("*.json")))
     if include_legacy:
-        paths.extend(sorted((config_root / "legacy").glob("*.json")))
+        paths.extend(sorted((config_root / "regional" / "test" / "legacy").glob("*.json")))
     return paths
 
 
@@ -357,10 +360,16 @@ def resolve_bt_config_path(root: Path, mode: str, configured: str) -> tuple[Path
             candidates.append((bt_root / raw).resolve())
             candidates.append((cfg_root / raw).resolve())
             candidates.append((cfg_root / raw.name).resolve())
+            candidates.append((cfg_root / "league" / raw.name).resolve())
+            candidates.append((cfg_root / "regional" / "debug" / raw.name).resolve())
+            candidates.append((cfg_root / "regional" / "test" / raw.name).resolve())
             if raw.suffix != ".json":
                 candidates.append((cfg_root / f"{raw.name}.json").resolve())
-                candidates.append((cfg_root / "legacy" / f"{raw.name}.json").resolve())
-            candidates.append((cfg_root / "legacy" / raw.name).resolve())
+                candidates.append((cfg_root / "league" / f"{raw.name}.json").resolve())
+                candidates.append((cfg_root / "regional" / "debug" / f"{raw.name}.json").resolve())
+                candidates.append((cfg_root / "regional" / "test" / f"{raw.name}.json").resolve())
+                candidates.append((cfg_root / "regional" / "test" / "legacy" / f"{raw.name}.json").resolve())
+            candidates.append((cfg_root / "regional" / "test" / "legacy" / raw.name).resolve())
 
     seen: set[Path] = set()
     existing: Path | None = None

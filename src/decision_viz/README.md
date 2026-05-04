@@ -37,7 +37,7 @@ At 100 Hz BT tick rate, `decision_trace_every_n_ticks:=5` records about 20 rows 
 
 - `bt_config_file := Scripts/ConfigJson/league_competition.json`
 
-`--mode regional` resolves to `regional_competition.json`, and `--mode showcase` resolves to `showcase_competition.json`.
+`--mode regional` resolves to `regional_competition.json`, and `--mode showcase` resolves to `regional/debug/showcase_competition.json`.
 
 If you pass `bt_config_file:=...`, that explicit file overrides the mode default.
 
@@ -52,7 +52,7 @@ PYTHONPATH=src/decision_viz python3 -m decision_viz.start --list-configs
 ```bash
 PYTHONPATH=src/decision_viz python3 -m decision_viz.start \
   --mode league \
-  --bt-config chase_only_competition.json \
+  --bt-config league/chase_only_competition.json \
   --entry nogate
 ```
 
@@ -90,7 +90,7 @@ Run behavior-tree decision offline with built-in mock topic publishers (no detec
 PYTHONPATH=src/decision_viz python3 -m decision_viz.start \
   --offline-decision \
   --mode league \
-  --bt-config chase_only_competition.json
+  --bt-config league/chase_only_competition.json
 ```
 
 Add pygame live view in offline mode:

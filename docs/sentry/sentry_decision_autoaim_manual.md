@@ -194,9 +194,9 @@ BT 節點實際調用的就是這些函數。
 - `src/behavior_tree/Scripts/config.json`
 - `src/behavior_tree/Scripts/ConfigJson/regional_competition.json`
 - `src/behavior_tree/Scripts/ConfigJson/league_competition.json`
-- `src/behavior_tree/Scripts/ConfigJson/showcase_competition.json`
-- `src/behavior_tree/Scripts/ConfigJson/navi_debug_competition.json`
-- `src/behavior_tree/Scripts/ConfigJson/navi_debug_points.json`
+- `src/behavior_tree/Scripts/ConfigJson/regional/debug/showcase_competition.json`
+- `src/behavior_tree/Scripts/ConfigJson/regional/debug/navi_debug_competition.json`
+- `src/behavior_tree/Scripts/ConfigJson/regional/debug/navi_debug_points.json`
 
 常改項：
 - `GameStrategy.HitSentry / TestNavi / Protected / HitBuff / HitOutpost`（初始策略）
@@ -217,14 +217,14 @@ BT 節點實際調用的就是這些函數。
 - `LeagueStrategy.PatrolGoals = []`
 
 當前展示模式補充：
-- `src/behavior_tree/Scripts/ConfigJson/showcase_competition.json`
+- `src/behavior_tree/Scripts/ConfigJson/regional/debug/showcase_competition.json`
 - `ShowcasePatrol.Goals = [6, 11, 14, 15]` 可直接改成你現場要演示的點位序列
 - `ShowcasePatrol.DisableTeamOffset = true` 時，`/ly/navi/goal` 直接發基礎 ID `0..19`，否則藍方點位使用 `base_id + 50`
 - `ShowcasePatrol.IgnoreRecovery = true` 時，展示模式可在無裁判輸入時直接巡邏
 
 當前導航調試模式補充：
-- `src/behavior_tree/Scripts/ConfigJson/navi_debug_competition.json`
-- `src/behavior_tree/Scripts/ConfigJson/navi_debug_points.json`
+- `src/behavior_tree/Scripts/ConfigJson/regional/debug/navi_debug_competition.json`
+- `src/behavior_tree/Scripts/ConfigJson/regional/debug/navi_debug_points.json`
 - `NaviDebug.ActivePlan` 或點位文件內的 `ActivePlan` 可切換臨時路線
 - `Plans.<name>.Mode = random|sequence`
 - `Plans.<name>.Goals = [...]` 只改序號列表，不改老點位定義

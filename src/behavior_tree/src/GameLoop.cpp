@@ -1706,6 +1706,23 @@ namespace BehaviorTree {
         }
     }
 
+    bool Application::RequestRoadlandSafeReturn(const char* reason) {
+        if (!areaManager_.RegionalAreaTaskActive() ||
+            areaManager_.RegionalAreaTask().Type != RegionalAreaTaskType::MyRoadland) {
+            return false;
+        }
+        const auto before_phase = areaManager_.RegionalAreaTask().Phase;
+        areaManager_.RequestRoadlandReturnToBase(std::chrono::steady_clock::now());
+        const auto after_phase = areaManager_.RegionalAreaTask().Phase;
+        const bool changed = before_phase != after_phase;
+        if (changed && LoggerPtr) {
+            LoggerPtr->Info(
+                "RegionalAreaTask[MyRoadland] safe return requested: {}.",
+                reason ? reason : "higher priority");
+        }
+        return changed;
+    }
+
     bool Application::TickRegionalAreaTask(
         const UnitTeam my_team,
         const UnitTeam enemy_team) {
@@ -1716,7 +1733,8 @@ namespace BehaviorTree {
         const auto active_task_type = areaManager_.RegionalAreaTask().Type;
         const bool active_low_priority_task =
             active_task_type == RegionalAreaTaskType::MyBase ||
-            active_task_type == RegionalAreaTaskType::MyRoadland;
+            active_task_type == RegionalAreaTaskType::MyRoadland ||
+            active_task_type == RegionalAreaTaskType::CommonCentral;
         const bool active_roadland_task = active_task_type == RegionalAreaTaskType::MyRoadland;
         const bool can_yield_to_higher_priority = areaManager_.RegionalAreaTaskCanYieldToHigherPriority();
         if (active_low_priority_task && (aimMode == AimMode::Buff || aimMode == AimMode::Outpost)) {
@@ -1724,10 +1742,7 @@ namespace BehaviorTree {
                 // Roadland crossing is a bound control segment; do not release FollowMode/FaceMode
                 // until the far endpoint or timeout protection completes it.
             } else if (active_roadland_task) {
-                areaManager_.RequestRoadlandReturnToBase(std::chrono::steady_clock::now());
-                if (LoggerPtr) {
-                    LoggerPtr->Info("RegionalAreaTask[MyRoadland] return requested: aim mode has higher priority.");
-                }
+                RequestRoadlandSafeReturn("aim mode has higher priority");
             } else {
                 areaManager_.ClearRegionalAreaTask();
                 ResetRegionalAreaControlOverride();
@@ -1738,14 +1753,27 @@ namespace BehaviorTree {
                 return false;
             }
         }
-        if (active_low_priority_task && !active_roadland_task && TrySetRegionalDefenseGoal(my_team, enemy_team)) {
-            areaManager_.ClearRegionalAreaTask();
-            ResetRegionalAreaControlOverride();
-            gimbalControlData.FireCode.FollowMode = 0;
-            if (LoggerPtr) {
-                LoggerPtr->Info("RegionalAreaTask canceled: regional defense has higher priority.");
+        if (active_low_priority_task) {
+            if (active_roadland_task) {
+                const auto threat = EvaluateRegionalDefenseThreat(my_team, enemy_team);
+                if (threat.has_value() && can_yield_to_higher_priority) {
+                    const bool soft_threat_blocked =
+                        !threat->HardThreat &&
+                        (aimMode == AimMode::Buff || aimMode == AimMode::Outpost ||
+                         !naviCommandIntervalClock.trigger());
+                    if (!soft_threat_blocked) {
+                        RequestRoadlandSafeReturn("regional defense has higher priority");
+                    }
+                }
+            } else if (TrySetRegionalDefenseGoal(my_team, enemy_team)) {
+                areaManager_.ClearRegionalAreaTask();
+                ResetRegionalAreaControlOverride();
+                gimbalControlData.FireCode.FollowMode = 0;
+                if (LoggerPtr) {
+                    LoggerPtr->Info("RegionalAreaTask canceled: regional defense has higher priority.");
+                }
+                return true;
             }
-            return true;
         }
 
         const bool apply_team_offset = areaManager_.RegionalAreaTask().ApplyTeamOffset;
@@ -1758,6 +1786,7 @@ namespace BehaviorTree {
                 now - last_rx <= std::chrono::seconds(2);
         };
         const auto& roadland_setting = config.RegionalAreaTaskSettings.MyRoadland;
+        const auto& central_setting = config.RegionalAreaTaskSettings.CommonCentral;
         const bool roadland_health_known =
             referee_value_fresh(hasReceivedMyselfHealth_, lastMyselfHealthRxTime);
         const bool roadland_ammo_known =
@@ -1767,6 +1796,15 @@ namespace BehaviorTree {
             roadland_ammo_known &&
             (myselfHealth < static_cast<std::uint16_t>(std::max(0, roadland_setting.HealthyHpMin)) ||
              ammoLeft < static_cast<std::uint16_t>(std::max(0, roadland_setting.HealthyAmmoMin)));
+        const bool central_health_known =
+            referee_value_fresh(hasReceivedMyselfHealth_, lastMyselfHealthRxTime);
+        const bool central_ammo_known =
+            referee_value_fresh(hasReceivedAmmoLeft_, lastAmmoLeftRxTime);
+        const bool central_data_unhealthy =
+            central_health_known &&
+            central_ammo_known &&
+            (myselfHealth < static_cast<std::uint16_t>(std::max(0, central_setting.HealthyHpMin)) ||
+             ammoLeft < static_cast<std::uint16_t>(std::max(0, central_setting.HealthyAmmoMin)));
         const auto result = areaManager_.TickRegionalAreaTask(
             RegionalAreaTaskTickInput{
                 .Setting = config.RegionalAreaTaskSettings,
@@ -1783,7 +1821,9 @@ namespace BehaviorTree {
                 .RoadlandCentralToBaseUnreachable = IsBaseGoalExternallyUnreachable(LangYa::CentralToBase.ID, goal_team, apply_team_offset),
                 .RoadlandBaseToCentralArrived = IsBaseGoalArrived(LangYa::BaseToCentral.ID, goal_team, apply_team_offset),
                 .RoadlandBaseToCentralUnreachable = IsBaseGoalExternallyUnreachable(LangYa::BaseToCentral.ID, goal_team, apply_team_offset),
-                .RoadlandShouldLeave = active_roadland_task && roadland_data_unhealthy
+                .RoadlandShouldLeave = active_roadland_task && roadland_data_unhealthy,
+                .CentralShouldLeave =
+                    active_task_type == RegionalAreaTaskType::CommonCentral && central_data_unhealthy
             });
 
         if (result.Completed) {
@@ -1791,9 +1831,7 @@ namespace BehaviorTree {
             if (LoggerPtr) {
                 LoggerPtr->Info(
                     "RegionalAreaTask completed type={} phase={} reason={}, follow_mode off.",
-                    result.Type == RegionalAreaTaskType::MyHighland
-                        ? "MyHighland"
-                        : (result.Type == RegionalAreaTaskType::MyRoadland ? "MyRoadland" : "MyBase"),
+                    RegionalAreaTaskTypeToString(result.Type),
                     RegionalAreaTaskPhaseToString(result.Phase),
                     result.Reason.empty() ? "done" : result.Reason.c_str());
             }
@@ -1824,7 +1862,8 @@ namespace BehaviorTree {
         if (!config.RegionalAreaTaskSettings.Enable ||
             (!config.RegionalAreaTaskSettings.MyHighland.Enable &&
              !config.RegionalAreaTaskSettings.MyBase.Enable &&
-             !config.RegionalAreaTaskSettings.MyRoadland.Enable) ||
+             !config.RegionalAreaTaskSettings.MyRoadland.Enable &&
+             !config.RegionalAreaTaskSettings.CommonCentral.Enable) ||
             areaManager_.HighlandTransitionActive() ||
             areaManager_.RegionalAreaTaskActive()) {
             return false;
@@ -1853,12 +1892,34 @@ namespace BehaviorTree {
         if (!plan.has_value()) {
             return false;
         }
+        if (plan->Type == RegionalAreaTaskType::CommonCentral) {
+            auto referee_value_fresh = [&](const bool received, const std::chrono::steady_clock::time_point last_rx) {
+                return received &&
+                    last_rx.time_since_epoch().count() != 0 &&
+                    now - last_rx <= std::chrono::seconds(2);
+            };
+            const auto& central_setting = config.RegionalAreaTaskSettings.CommonCentral;
+            const bool central_health_known =
+                referee_value_fresh(hasReceivedMyselfHealth_, lastMyselfHealthRxTime);
+            const bool central_ammo_known =
+                referee_value_fresh(hasReceivedAmmoLeft_, lastAmmoLeftRxTime);
+            const bool central_data_healthy =
+                central_health_known &&
+                central_ammo_known &&
+                myselfHealth >= static_cast<std::uint16_t>(std::max(0, central_setting.HealthyHpMin)) &&
+                ammoLeft >= static_cast<std::uint16_t>(std::max(0, central_setting.HealthyAmmoMin));
+            if (!central_data_healthy) {
+                return false;
+            }
+        }
         if ((plan->Type == RegionalAreaTaskType::MyHighland &&
              !config.RegionalAreaTaskSettings.MyHighland.Enable) ||
             (plan->Type == RegionalAreaTaskType::MyBase &&
              !config.RegionalAreaTaskSettings.MyBase.Enable) ||
             (plan->Type == RegionalAreaTaskType::MyRoadland &&
-             !config.RegionalAreaTaskSettings.MyRoadland.Enable)) {
+             !config.RegionalAreaTaskSettings.MyRoadland.Enable) ||
+            (plan->Type == RegionalAreaTaskType::CommonCentral &&
+             !config.RegionalAreaTaskSettings.CommonCentral.Enable)) {
             return false;
         }
 
@@ -1875,6 +1936,13 @@ namespace BehaviorTree {
                     "RegionalAreaTask[MyRoadland] start from goal={} reason={}: CentralToBase -> BaseToCentral guarded crossing.",
                     static_cast<int>(ResolveGoalId(base_goal_id, goal_team, apply_team_offset)),
                     reason ? reason : "area_task");
+            } else if (plan->Type == RegionalAreaTaskType::CommonCentral) {
+                LoggerPtr->Info(
+                    "RegionalAreaTask[CommonCentral] start from goal={} reason={}: start_base_goal={} team={} patrol=own OutpostArea->RightShoot->BuffAround2->LeftShoot->OutpostShoot->enemy RightShoot->OccupyArea->OutpostShoot.",
+                    static_cast<int>(ResolveGoalId(base_goal_id, goal_team, apply_team_offset)),
+                    reason ? reason : "area_task",
+                    static_cast<int>(ResolveGoalId(plan->InitialBaseGoal, plan->InitialGoalTeam, apply_team_offset)),
+                    plan->InitialGoalTeam == my_team ? "my" : "enemy");
             } else {
                 LoggerPtr->Info(
                     "RegionalAreaTask[MyHighland] start from goal={} reason={}: Highland -> BuffShoot hold={}s -> HoleRoad.",
@@ -2011,12 +2079,12 @@ namespace BehaviorTree {
             std::chrono::milliseconds(std::max(1, fresh_ms));
     }
 
-    bool Application::TrySetRegionalDefenseGoal(
+    std::optional<RegionalDefenseThreat> Application::EvaluateRegionalDefenseThreat(
         const UnitTeam my_team,
-        const UnitTeam enemy_team) {
+        const UnitTeam enemy_team) const {
         const auto& defense = config.RegionalDefenseSettings;
         if (!defense.Enable || IsLeagueProfile() || IsShowcasePatrolEnabled()) {
-            return false;
+            return std::nullopt;
         }
 
         std::vector<RegionalDefenseEnemyPosition> fresh_enemies;
@@ -2039,8 +2107,20 @@ namespace BehaviorTree {
             fresh_enemies);
 
         if (!threat.HardThreat && !threat.SoftEnemySideThreat) {
+            return std::nullopt;
+        }
+        return threat;
+    }
+
+    bool Application::TrySetRegionalDefenseGoal(
+        const UnitTeam my_team,
+        const UnitTeam enemy_team) {
+        const auto& defense = config.RegionalDefenseSettings;
+        const auto maybe_threat = EvaluateRegionalDefenseThreat(my_team, enemy_team);
+        if (!maybe_threat.has_value()) {
             return false;
         }
+        const auto threat = *maybe_threat;
 
         if (!threat.HardThreat) {
             if (aimMode == AimMode::Buff || aimMode == AimMode::Outpost ||
@@ -2689,15 +2769,16 @@ namespace BehaviorTree {
     }
 
     bool Application::CheckPositionRecovery() {
+        if (config.RegionalAreaTaskSettings.IgnoreRecovery) {
+            return false;
+        }
+
         UnitTeam MyTeam = team, EnemyTeam = team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
         int now_time = 420 - timeLeft;
         auto cancel_regional_area_task_for_recovery = [&]() -> bool {
             if (areaManager_.RegionalAreaTaskActive()) {
                 if (areaManager_.RegionalAreaTask().Type == RegionalAreaTaskType::MyRoadland) {
-                    areaManager_.RequestRoadlandReturnToBase(std::chrono::steady_clock::now());
-                    if (LoggerPtr) {
-                        LoggerPtr->Info("RegionalAreaTask[MyRoadland] return requested: recovery has higher priority.");
-                    }
+                    RequestRoadlandSafeReturn("recovery has higher priority");
                     return TickRegionalAreaTask(MyTeam, EnemyTeam);
                 }
                 areaManager_.ClearRegionalAreaTask();
@@ -3248,12 +3329,13 @@ namespace BehaviorTree {
                 //             low_health_enemy = true;
                 //         }
                 //     }
-                bool infantry1_in_central = 
-                    Area::CentralHighLandBlue.isPointInside(enemyRobots[UnitType::Infantry1].position_.X, enemyRobots[UnitType::Infantry1].position_.Y)
-                    || Area::CentralHighLandBlue.isPointInside(enemyRobots[UnitType::Infantry1].position_.X, enemyRobots[UnitType::Infantry1].position_.Y);
-                bool infantry2_in_central = 
-                    Area::CentralHighLandBlue.isPointInside(enemyRobots[UnitType::Infantry2].position_.X, enemyRobots[UnitType::Infantry2].position_.Y)
-                    || Area::CentralHighLandBlue.isPointInside(enemyRobots[UnitType::Infantry2].position_.X, enemyRobots[UnitType::Infantry2].position_.Y);
+                const auto& central_highland_blue = Area::CentralHighLandAreaForTeam(UnitTeam::Blue);
+                bool infantry1_in_central =
+                    central_highland_blue.isPointInside(enemyRobots[UnitType::Infantry1].position_.X, enemyRobots[UnitType::Infantry1].position_.Y)
+                    || central_highland_blue.isPointInside(enemyRobots[UnitType::Infantry1].position_.X, enemyRobots[UnitType::Infantry1].position_.Y);
+                bool infantry2_in_central =
+                    central_highland_blue.isPointInside(enemyRobots[UnitType::Infantry2].position_.X, enemyRobots[UnitType::Infantry2].position_.Y)
+                    || central_highland_blue.isPointInside(enemyRobots[UnitType::Infantry2].position_.X, enemyRobots[UnitType::Infantry2].position_.Y);
 
                 if(infantry1_in_central) {
                     LoggerPtr->Debug("Infantry1 in Highland");
@@ -3358,7 +3440,9 @@ namespace BehaviorTree {
                 // 判断英雄是否处于高地
                 bool hero_in_central = false;
                 std::int16_t hero_x = enemyRobots[UnitType::Hero].position_.X, hero_y = enemyRobots[UnitType::Hero].position_.Y;
-                hero_in_central = Area::CentralHighLandRed.isPointInside(hero_x, hero_y) || Area::CentralHighLandBlue.isPointInside(hero_x, hero_y);
+                hero_in_central =
+                    Area::CentralHighLandAreaForTeam(UnitTeam::Red).isPointInside(hero_x, hero_y)
+                    || Area::CentralHighLandAreaForTeam(UnitTeam::Blue).isPointInside(hero_x, hero_y);
 
                 if(hero_in_central) {
                     LoggerPtr->Debug("!!!Hero in highland!!!");

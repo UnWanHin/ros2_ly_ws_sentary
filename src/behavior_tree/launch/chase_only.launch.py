@@ -46,7 +46,7 @@ def generate_launch_description():
         DeclareLaunchArgument("decision_trace_file", default_value=""),
         DeclareLaunchArgument("decision_trace_every_n_ticks", default_value="5"),
         DeclareLaunchArgument("bt_tree_file", default_value=""),
-        DeclareLaunchArgument("bt_config_file", default_value="Scripts/ConfigJson/chase_only_competition.json"),
+        DeclareLaunchArgument("bt_config_file", default_value="Scripts/ConfigJson/league/chase_only_competition.json"),
         DeclareLaunchArgument("use_gimbal", default_value="true"),
         DeclareLaunchArgument("use_detector", default_value="true"),
         DeclareLaunchArgument("use_tracker", default_value="true"),

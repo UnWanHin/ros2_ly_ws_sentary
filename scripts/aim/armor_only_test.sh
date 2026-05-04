@@ -18,7 +18,7 @@ DEFAULT_BASE_CONFIG_FILE="${ROOT_DIR}/config/base_config.yaml"
 DEFAULT_DETECTOR_CONFIG_FILE="${ROOT_DIR}/src/detector/config/detector_config.yaml"
 DEFAULT_PREDICTOR_CONFIG_FILE="${ROOT_DIR}/src/predictor/config/predictor_config.yaml"
 DEFAULT_OVERRIDE_CONFIG_FILE="${ROOT_DIR}/config/override_config.yaml"
-DEFAULT_BT_CONFIG_FILE="Scripts/ConfigJson/armor_only_test.json"
+DEFAULT_BT_CONFIG_FILE="Scripts/ConfigJson/regional/debug/armor_only_test.json"
 
 # shellcheck disable=SC1091
 source "${ROOT_DIR}/scripts/lib/ros_launch_common.sh"
@@ -31,7 +31,7 @@ Usage:
 Purpose:
   BT chain armor-only debug wrapper.
   - keeps behavior_tree online (for /ly/control/angles chain debugging)
-  - disables patrol-style scan via bt_config_file=Scripts/ConfigJson/armor_only_test.json
+  - disables patrol-style scan via bt_config_file=Scripts/ConfigJson/regional/debug/armor_only_test.json
   - fire enabled (same as armor_test style)
   - detector visualization enabled by default (show/draw/web_show=true)
   - keeps outpost/buff nodes disabled by default

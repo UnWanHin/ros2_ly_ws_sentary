@@ -19,6 +19,30 @@ using namespace LangYa;
 namespace BehaviorTree {
 
 namespace Area {
+
+    inline bool SwitchPointEnabled{false};
+
+    inline void SetSwitchPoint(const bool enabled) noexcept {
+        SwitchPointEnabled = enabled;
+    }
+
+    inline bool IsSwitchPointEnabled() noexcept {
+        return SwitchPointEnabled;
+    }
+
+    inline UnitTeam OppositeUnitTeam(const UnitTeam team) noexcept {
+        if (team == UnitTeam::Red) {
+            return UnitTeam::Blue;
+        }
+        if (team == UnitTeam::Blue) {
+            return UnitTeam::Red;
+        }
+        return team;
+    }
+
+    inline UnitTeam PointLookupTeam(const UnitTeam team) noexcept {
+        return IsSwitchPointEnabled() ? OppositeUnitTeam(team) : team;
+    }
     
     // 定义 concept，限制 T 是基本算术类型（int、double、float 等）
     template<typename T>
@@ -44,13 +68,15 @@ namespace Area {
         explicit Location(const Point<T>& pointRed, const Point<T>& pointBlue)
             : pointRed_(pointRed), pointBlue_(pointBlue) {}
 
-        Point<T> operator()(const UnitTeam team) const { 
-            return team == UnitTeam::Red ? pointRed_ : pointBlue_;
+        Point<T> operator()(const UnitTeam team) const {
+            const auto lookup_team = PointLookupTeam(team);
+            return lookup_team == UnitTeam::Red ? pointRed_ : pointBlue_;
         }
 
         // 判断给定点 (x, y) 是否位于该点的区域内
         bool near(const T x, const T y, const T distance, UnitTeam team) const {
-            const auto& point = (team == UnitTeam::Red) ? pointRed_ : pointBlue_;
+            const auto lookup_team = PointLookupTeam(team);
+            const auto& point = (lookup_team == UnitTeam::Red) ? pointRed_ : pointBlue_;
             T dx = x - point.x;
             T dy = y - point.y;
             T distanceSquared =  dx * dx + dy * dy;
@@ -70,7 +96,8 @@ namespace Area {
             : pointRed_(pointRed), pointBlue_(pointBlue) {}
 
         Point3<T> operator()(const UnitTeam team) const {
-            return team == UnitTeam::Red ? pointRed_ : pointBlue_;
+            const auto lookup_team = PointLookupTeam(team);
+            return lookup_team == UnitTeam::Red ? pointRed_ : pointBlue_;
         }
 
     private:
@@ -209,6 +236,22 @@ namespace Area {
     static const Area<std::uint16_t> BaseBlue{baseBluePoints};
     static const Area<std::uint16_t> FlyLandRed{flyLandRedPoints};
     static const Area<std::uint16_t> FlyLandBlue{flyLandBluePoints};
+
+    inline const Area<std::uint16_t>& CastleAreaForTeam(const UnitTeam team) {
+        return PointLookupTeam(team) == UnitTeam::Blue ? CastleBlue : CastleRed;
+    }
+
+    inline const Area<std::uint16_t>& CentralHighLandAreaForTeam(const UnitTeam team) {
+        return PointLookupTeam(team) == UnitTeam::Blue ? CentralHighLandBlue : CentralHighLandRed;
+    }
+
+    inline const Area<std::uint16_t>& RoadLandAreaForTeam(const UnitTeam team) {
+        return PointLookupTeam(team) == UnitTeam::Blue ? RoadLandBlue : RoadLandRed;
+    }
+
+    inline const Area<std::uint16_t>& FlyLandAreaForTeam(const UnitTeam team) {
+        return PointLookupTeam(team) == UnitTeam::Blue ? FlyLandBlue : FlyLandRed;
+    }
 
     enum class MainAreaKind : std::uint8_t {
         Base = 0,
@@ -369,7 +412,7 @@ namespace Area {
     inline const std::vector<Point<int>>& MainAreaBoundary(
         const UnitTeam team,
         const MainAreaKind kind) {
-        const bool is_blue = team == UnitTeam::Blue;
+        const bool is_blue = PointLookupTeam(team) == UnitTeam::Blue;
         switch (kind) {
             case MainAreaKind::Base:
                 return is_blue ? BlueMainAreaBasePoints : RedMainAreaBasePoints;
@@ -442,7 +485,9 @@ namespace Area {
     }
 
     inline const std::vector<Point<int>>& RoadlandFollowModeBoundary(const UnitTeam team) {
-        return team == UnitTeam::Blue ? BlueRoadlandFollowModePoints : RedRoadlandFollowModePoints;
+        return PointLookupTeam(team) == UnitTeam::Blue
+            ? BlueRoadlandFollowModePoints
+            : RedRoadlandFollowModePoints;
     }
 
     inline bool IsPointInsideRoadlandFollowModeArea(

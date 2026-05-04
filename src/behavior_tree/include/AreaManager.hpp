@@ -181,8 +181,11 @@ enum class RegionalAreaTaskType : std::uint8_t {
     None = 0,
     MyHighland = 1,
     MyBase = 2,
-    MyRoadland = 3
+    MyRoadland = 3,
+    CommonCentral = 4
 };
+
+const char* RegionalAreaTaskTypeToString(RegionalAreaTaskType type);
 
 enum class RegionalAreaTaskPhase : std::uint8_t {
     Idle = 0,
@@ -196,7 +199,8 @@ enum class RegionalAreaTaskPhase : std::uint8_t {
     RoadlandCrossToBaseToCentral = 8,
     RoadlandHoldBaseToCentral = 9,
     RoadlandCrossToCentralToBase = 10,
-    RoadlandReturnToCentralToBase = 11
+    RoadlandReturnToCentralToBase = 11,
+    CentralPatrol = 12
 };
 
 const char* RegionalAreaTaskPhaseToString(RegionalAreaTaskPhase phase);
@@ -211,6 +215,8 @@ struct RegionalAreaTaskRuntime {
     std::uint8_t CurrentBaseGoal{LangYa::Highland.ID};
     AreaTimePoint StartTime{};
     AreaTimePoint PhaseStartTime{};
+    LangYa::UnitTeam OwnerTeam{LangYa::UnitTeam::Unknown};
+    std::size_t PatrolIndex{0};
 
     void Clear() noexcept;
 };
@@ -221,6 +227,8 @@ struct RegionalAreaTaskPlan {
     bool ApplyTeamOffset{true};
     std::uint8_t TriggerBaseGoal{LangYa::Highland.ID};
     std::uint8_t InitialBaseGoal{LangYa::Highland.ID};
+    LangYa::UnitTeam InitialGoalTeam{LangYa::UnitTeam::Unknown};
+    std::size_t InitialPatrolIndex{0};
 };
 
 struct RegionalAreaTaskTickInput {
@@ -239,6 +247,7 @@ struct RegionalAreaTaskTickInput {
     bool RoadlandBaseToCentralArrived{false};
     bool RoadlandBaseToCentralUnreachable{false};
     bool RoadlandShouldLeave{false};
+    bool CentralShouldLeave{false};
 };
 
 struct RegionalAreaTaskTickResult {

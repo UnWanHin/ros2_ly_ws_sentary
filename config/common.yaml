@@ -5,6 +5,12 @@ bt_log_dir: ~/Log/BT
 aim_timer_log_enable: false
 aim_timer_log_dir: ~/Log/AimTimer
 
+# Rosbag replay for sentry_all launch wrapper.
+# When enabled, sentry_all starts `ros2 bag play <rosbag_path>`, forces virtual gimbal IO,
+# and switches detector input to detector_config.use_ros_bag=true.
+rosbag_play_enable: false
+rosbag_path: ~/Log/rosbag
+
 # gimbal_driver semantic control tuning.
 # start_sentry_all.sh reads these and passes them as ROS parameters.
 firecode_partial_hold_ms: 100

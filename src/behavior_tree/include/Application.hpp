@@ -480,6 +480,7 @@ public:
     bool IsHighlandCompatArrived(UnitTeam goal_team) const;
     void ResetRegionalAreaControlOverride() noexcept;
     void ApplyRegionalAreaTaskControl(const RegionalAreaTaskTickResult& result);
+    bool RequestRoadlandSafeReturn(const char* reason);
     bool TickRegionalAreaTask(UnitTeam my_team, UnitTeam enemy_team);
     bool TryStartRegionalAreaTaskForGoal(
         std::uint8_t base_goal_id,
@@ -496,6 +497,9 @@ public:
         const char* reason);
     bool IsRegionalDefenseAimSuppressActive() const noexcept;
     bool IsEnemyPositionFresh(UnitType unit_type, int fresh_ms) const;
+    std::optional<RegionalDefenseThreat> EvaluateRegionalDefenseThreat(
+        UnitTeam my_team,
+        UnitTeam enemy_team) const;
     bool TrySetRegionalDefenseGoal(UnitTeam my_team, UnitTeam enemy_team);
     bool TickNaviProgressWatchdog(UnitTeam my_team, UnitTeam enemy_team);
     bool TrySetRegionalIdlePatrolGoal(UnitTeam my_team, UnitTeam enemy_team);

@@ -171,7 +171,7 @@ ros2 topic echo /ly/me/ammo_left
 
 当前 `showcase` 已经把姿态展示收进单独配置：
 
-- 配置文件：`src/behavior_tree/Scripts/ConfigJson/showcase_competition.json`
+- 配置文件：`src/behavior_tree/Scripts/ConfigJson/regional/debug/showcase_competition.json`
 - 默认巡逻：`ShowcasePatrol.Enable = true`
 - 默认姿态切换：
   - 无目标时优先 `Move`
@@ -200,7 +200,7 @@ ros2 topic echo /ly/gimbal/posture
 
 改这里：
 
-- `src/behavior_tree/Scripts/ConfigJson/showcase_competition.json`
+- `src/behavior_tree/Scripts/ConfigJson/regional/debug/showcase_competition.json`
 
 重点字段：
 
@@ -270,7 +270,7 @@ colcon build --packages-select behavior_tree
 
 改这里：
 
-- `src/behavior_tree/Scripts/ConfigJson/navi_debug_points.json`
+- `src/behavior_tree/Scripts/ConfigJson/regional/debug/navi_debug_points.json`
 
 当前格式示例：
 

@@ -1,0 +1,106 @@
+{
+    "CompetitionProfile": "regional",
+    "AimDebug": {
+        "StopFire": true,
+        "StopRotate": false,
+        "StopScan": false,
+        "HitBuff": false,
+        "HitOutpost": false,
+        "HitCar": false,
+        "FireRequireTargetStatus": true,
+        "LatchedTargetHoldMs": 100
+    },
+    "PatrolScan": {
+        "Mode": 2
+    },
+    "Rate": {
+        "FireRate": 20,
+        "TreeTickRate": 100,
+        "NaviCommandRate": 1
+    },
+    "GameStrategy": {
+        "HitBuff": false,
+        "HitOutpost": false,
+        "TestNavi": false,
+        "HitSentry": false,
+        "Protected": false
+    },
+    "DamageOpenGate": {
+        "Enable": false
+    },
+    "NaviSetting": {
+        "UseXY": true,
+        "ToNavi": true
+    },
+    "FaceMode": {
+        "Enable": true,
+        "LostTargetHoldMs": 300,
+        "SuppressFire": true
+    },
+    "RegionalDefense": {
+        "Enable": false
+    },
+    "NaviProgressWatchdog": {
+        "Enable": false
+    },
+    "RegionalIdlePatrol": {
+        "Enable": false,
+        "Goals": []
+    },
+    "RegionalAreaTask": {
+        "IgnoreRecovery": true
+    },
+    "DecisionAutonomy": {
+        "Enable": true,
+        "EnabledModules": ["strategy_mode", "navi_goal"],
+        "HardRuleModules": ["recovery", "aim_mode", "fire_safety"],
+        "Strategy": {
+            "Candidates": ["HitHero"],
+            "HitHeroBias": 10.0,
+            "HitSentryBias": 0.0,
+            "ProtectedBias": 0.0
+        },
+        "NaviGoal": {
+            "UseCustomCandidates": true,
+            "UseAreaScope": true,
+            "MyArea": {
+                "Base": false,
+                "Highland": false,
+                "Roadland": false
+            },
+            "EnemyArea": {
+                "Base": false,
+                "Highland": false,
+                "Roadland": false
+            },
+            "CommonArea": {
+                "Central": true
+            },
+            "HighlandCompat": {
+                "Enable": true,
+                "DisableRotate": true,
+                "ArriveDistanceCm": 20,
+                "TimeoutSec": 6
+            },
+            "GoalBiasWeight": 1.0,
+            "DistanceWeight": 1.0,
+            "HitHeroCandidates": [
+                {
+                    "GoalId": 10,
+                    "Team": "my",
+                    "Bias": 100.0,
+                    "Enable": true
+                }
+            ],
+            "HitSentryCandidates": [],
+            "ProtectCandidates": []
+        }
+    },
+    "Chase": {
+        "Enable": false
+    },
+    "Posture": {
+        "Enable": false
+    },
+    "ScanCounter": 1
+}

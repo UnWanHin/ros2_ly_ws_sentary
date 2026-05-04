@@ -8,7 +8,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 LOCK_FILE="/tmp/sentry_standalone_test.lock"
-DEFAULT_PLAN_FILE="${ROOT_DIR}/src/behavior_tree/Scripts/ConfigJson/navi_debug_points.json"
+DEFAULT_PLAN_FILE="${ROOT_DIR}/src/behavior_tree/Scripts/ConfigJson/regional/debug/navi_debug_points.json"
 
 # shellcheck disable=SC1091
 source "${ROOT_DIR}/scripts/feature_test/standalone/lib/common.sh"

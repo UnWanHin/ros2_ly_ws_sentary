@@ -26,7 +26,7 @@ Usage:
 
 Purpose:
   Armor-style patrol preset without firing.
-  - behavior_tree config: Scripts/ConfigJson/armor_patrol_test.json
+  - behavior_tree config: Scripts/ConfigJson/regional/debug/armor_patrol_test.json
   - fire disabled, rotate enabled, gimbal patrol enabled
   - default publish_navi_goal=false to keep this mode static-focused
 EOF
