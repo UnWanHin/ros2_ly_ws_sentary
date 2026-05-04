@@ -75,7 +75,7 @@ const char* GoalName(const int base_goal_id) noexcept {
         case LangYa::Recovery.ID: return "Recovery";
         case LangYa::BuffShoot.ID: return "BuffShoot";
         case LangYa::LeftHighLand.ID: return "LeftHighLand";
-        case LangYa::CastleLeft.ID: return "CastleLeft";
+        case LangYa::CastleLeft1.ID: return "CastleLeft1";
         case LangYa::Castle.ID: return "Castle";
         case LangYa::CastleRight1.ID: return "CastleRight1";
         case LangYa::CastleRight2.ID: return "CastleRight2";
@@ -90,6 +90,9 @@ const char* GoalName(const int base_goal_id) noexcept {
         case LangYa::HoleRoad.ID: return "HoleRoad";
         case LangYa::OccupyArea.ID: return "OccupyArea";
         case LangYa::Highland.ID: return "Highland";
+        case LangYa::CastleLeft2.ID: return "CastleLeft2";
+        case LangYa::BaseToCentral.ID: return "BaseToCentral";
+        case LangYa::CentralToBase.ID: return "CentralToBase";
         default: return "Unknown";
     }
 }

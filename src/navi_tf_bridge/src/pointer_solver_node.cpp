@@ -17,6 +17,7 @@
 #include "gimbal_driver/msg/gimbal_angles.hpp"
 #include "navi_tf_bridge/pointer_solver.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/u_int16_multi_array.hpp"
 #include "tf2/exceptions.h"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "tf2_ros/buffer.h"
@@ -100,6 +101,8 @@ public:
       this->declare_parameter<std::string>("control_angles_topic", "/ly/control/angles");
     const std::string firecode_topic =
       this->declare_parameter<std::string>("control_firecode_topic", "/ly/control/firecode");
+    const std::string face_target_topic =
+      this->declare_parameter<std::string>("face_target_topic", "/ly/face_mode/target_raw");
     publish_firecode_ = this->declare_parameter<bool>("publish_firecode", true);
     aim_mode_ = this->declare_parameter<bool>("aim_mode", true);
 
@@ -131,10 +134,7 @@ public:
     max_pitch_step_deg_ =
       std::max(0.0, this->declare_parameter<double>("max_pitch_step_deg", 0.0));
 
-    active_target_frame_ = target_frame_;
-    active_target_point_.x = official_map_x_m_;
-    active_target_point_.y = official_map_y_m_;
-    active_target_point_.z = map_z_m_;
+    refreshActiveTargetFromOfficial("initial");
     if (use_static_calibration) {
       loadRawGoalStaticCalibration(bridge_config_file);
     }
@@ -147,6 +147,10 @@ public:
       gimbal_topic,
       20,
       std::bind(&FaceModeNode::onGimbalAngles, this, std::placeholders::_1));
+    sub_face_target_raw_ = this->create_subscription<std_msgs::msg::UInt16MultiArray>(
+      face_target_topic,
+      10,
+      std::bind(&FaceModeNode::onFaceTargetRaw, this, std::placeholders::_1));
     timer_ = this->create_wall_timer(
       std::chrono::duration<double>(1.0 / publish_hz),
       std::bind(&FaceModeNode::onTimer, this));
@@ -228,7 +232,7 @@ private:
 
     const std::string configured_target_frame =
       readScalar(content, "raw_goal_target_frame", "map");
-    PointerSolver solver(PointerSolver::Config{
+    raw_goal_solver_.setConfig(PointerSolver::Config{
       .enabled = true,
       .model = model,
       .unit = readScalar(content, "raw_goal_calibration_unit", "m"),
@@ -236,17 +240,35 @@ private:
       .target_frame = configured_target_frame,
       .map_frame = configured_target_frame,
       .transform_matrix = matrix});
-    if (!solver.initialize(*this)) {
+    if (!raw_goal_solver_.initialize(*this)) {
       return;
     }
 
-    active_target_point_ = solver.applyMeters(official_map_x_m_, official_map_y_m_, map_z_m_);
-    active_target_frame_ =
-      raw_goal_target_frame_override_.empty() ? configured_target_frame : raw_goal_target_frame_override_;
+    raw_goal_static_calibration_ready_ = true;
+    raw_goal_configured_target_frame_ = configured_target_frame;
+    refreshActiveTargetFromOfficial("raw-goal static calibration loaded");
+  }
+
+  void refreshActiveTargetFromOfficial(const std::string & reason)
+  {
+    if (raw_goal_static_calibration_ready_ && raw_goal_solver_.ready()) {
+      active_target_point_ =
+        raw_goal_solver_.applyMeters(official_map_x_m_, official_map_y_m_, map_z_m_);
+      active_target_frame_ =
+        raw_goal_target_frame_override_.empty() ?
+        raw_goal_configured_target_frame_ : raw_goal_target_frame_override_;
+    } else {
+      active_target_frame_ = target_frame_;
+      active_target_point_.x = official_map_x_m_;
+      active_target_point_.y = official_map_y_m_;
+      active_target_point_.z = map_z_m_;
+    }
+    last_yaw_cmd_deg_.reset();
+    last_pitch_cmd_deg_.reset();
     RCLCPP_INFO(
       this->get_logger(),
-      "raw-goal static calibration loaded for FaceMode: official_xy=(%.3f, %.3f)m z_map=%.3fm -> %s, "
-      "target=(%.3f, %.3f, %.3f)m",
+      "FaceMode target updated (%s): official=(%.3f, %.3f, %.3f)m -> %s target=(%.3f, %.3f, %.3f)m",
+      reason.c_str(),
       official_map_x_m_,
       official_map_y_m_,
       map_z_m_,
@@ -259,6 +281,26 @@ private:
   void onGimbalAngles(const gimbal_driver::msg::GimbalAngles::SharedPtr msg)
   {
     current_angles_ = *msg;
+  }
+
+  void onFaceTargetRaw(const std_msgs::msg::UInt16MultiArray::SharedPtr msg)
+  {
+    if (!msg || msg->data.size() < 3) {
+      warnThrottled("drop invalid FaceMode raw target: need [official_map_x, official_map_y, map_z] cm");
+      return;
+    }
+    const double next_x_m = static_cast<double>(msg->data[0]) * 0.01;
+    const double next_y_m = static_cast<double>(msg->data[1]) * 0.01;
+    const double next_z_m = static_cast<double>(msg->data[2]) * 0.01;
+    if (std::abs(next_x_m - official_map_x_m_) < 1e-9 &&
+        std::abs(next_y_m - official_map_y_m_) < 1e-9 &&
+        std::abs(next_z_m - map_z_m_) < 1e-9) {
+      return;
+    }
+    official_map_x_m_ = next_x_m;
+    official_map_y_m_ = next_y_m;
+    map_z_m_ = next_z_m;
+    refreshActiveTargetFromOfficial("topic /ly/face_mode/target_raw");
   }
 
   bool stampIsZero(const gimbal_driver::msg::GimbalAngles & msg) const
@@ -553,6 +595,9 @@ private:
   std::string active_target_frame_;
   geometry_msgs::msg::Point active_target_point_;
   std::string raw_goal_target_frame_override_;
+  std::string raw_goal_configured_target_frame_{"map"};
+  PointerSolver raw_goal_solver_{};
+  bool raw_goal_static_calibration_ready_{false};
   std::string aim_frame_;
   std::string camera_frame_;
   std::string solve_mode_;
@@ -584,6 +629,7 @@ private:
   rclcpp::Publisher<gimbal_driver::msg::GimbalAngles>::SharedPtr pub_angles_;
   rclcpp::Publisher<gimbal_driver::msg::FireCode>::SharedPtr pub_firecode_;
   rclcpp::Subscription<gimbal_driver::msg::GimbalAngles>::SharedPtr sub_angles_;
+  rclcpp::Subscription<std_msgs::msg::UInt16MultiArray>::SharedPtr sub_face_target_raw_;
   rclcpp::TimerBase::SharedPtr timer_;
 };
 

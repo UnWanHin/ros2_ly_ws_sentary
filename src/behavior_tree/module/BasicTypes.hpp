@@ -268,7 +268,7 @@ namespace LangYa
     static constexpr TeamedLocation Recovery{ 2 };
     static constexpr TeamedLocation BuffShoot{ 3 };
     static constexpr TeamedLocation LeftHighLand{ 4 };
-    static constexpr TeamedLocation CastleLeft{ 5 };
+    static constexpr TeamedLocation CastleLeft1{ 5 };
     static constexpr TeamedLocation Castle{ 6 };
     static constexpr TeamedLocation CastleRight1{ 7 };
     static constexpr TeamedLocation CastleRight2{ 8 };
@@ -283,6 +283,9 @@ namespace LangYa
     static constexpr TeamedLocation HoleRoad{ 17 };
     static constexpr TeamedLocation OccupyArea{ 18 };
     static constexpr TeamedLocation Highland{ 19 };
+    static constexpr TeamedLocation CastleLeft2{ 20 };
+    static constexpr TeamedLocation BaseToCentral{ 21 };
+    static constexpr TeamedLocation CentralToBase{ 22 };
 
     /// @brief 团队类型
     enum class NaviTeam : std::uint8_t
@@ -590,8 +593,44 @@ namespace LangYa
             LangYa::Castle.ID,
             LangYa::CastleRight2.ID,
             LangYa::CastleRight1.ID,
-            LangYa::CastleLeft.ID
+            LangYa::CastleLeft1.ID,
+            LangYa::CastleLeft2.ID
         };
+    };
+
+    struct MyHighlandAreaTaskSetting {
+        bool Enable{false};
+        bool UseFaceMode{true};
+        int ApproachTimeoutSec{8};
+        int HighlandPatrolHoldSec{2};
+        int BuffShootTravelTimeoutSec{8};
+        int BuffShootHoldSec{10};
+        int LeaveTimeoutSec{8};
+    };
+
+    struct MyBaseAreaTaskSetting {
+        bool Enable{false};
+        int TravelTimeoutSec{12};
+        int CommandHoldSec{1};
+    };
+
+    struct MyRoadlandAreaTaskSetting {
+        bool Enable{false};
+        bool UseFaceMode{true};
+        int TravelTimeoutSec{12};
+        int CrossTimeoutSec{8};
+        int CommandHoldSec{1};
+        int GuardHoldSec{2};
+        int FaceTargetZCm{100};
+        int HealthyHpMin{300};
+        int HealthyAmmoMin{50};
+    };
+
+    struct RegionalAreaTaskSetting {
+        bool Enable{false};
+        MyHighlandAreaTaskSetting MyHighland{};
+        MyBaseAreaTaskSetting MyBase{};
+        MyRoadlandAreaTaskSetting MyRoadland{};
     };
 
     struct AimTargetAutonomySetting {
@@ -627,6 +666,7 @@ namespace LangYa
         RegionalDefenseSetting RegionalDefenseSettings{};
         NaviProgressWatchdogSetting NaviProgressWatchdogSettings{};
         RegionalIdlePatrolSetting RegionalIdlePatrolSettings{};
+        RegionalAreaTaskSetting RegionalAreaTaskSettings{};
         std::vector<int> AimTargetPriority{
             static_cast<int>(ArmorType::Hero),
             static_cast<int>(ArmorType::Infantry1),

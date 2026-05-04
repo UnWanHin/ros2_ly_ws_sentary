@@ -5,6 +5,7 @@ target_rel_to_goal_pos_node:
     output_goal_pos_topic: /ly/navi/goal_pos
     output_goal_pose_topic: /goal_pose
     output_target_map_topic: /ly/navi/target_map
+    output_navi_position_topic: /ly/navi/position
 
     # TF frame settings
     map_frame: map
@@ -17,6 +18,8 @@ target_rel_to_goal_pos_node:
     use_msg_frame_id: true
 
     publish_target_map: true
+    publish_navi_position: true
+    navi_position_publish_hz: 10.0
     # Legacy UInt16 output is disabled by default; /goal_pose is the final navigation target.
     publish_goal_pos: false
     # Publish geometry_msgs/PoseStamped directly to navigation after map-frame conversion.

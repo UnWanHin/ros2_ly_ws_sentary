@@ -1,5 +1,6 @@
 #include "navi_tf_bridge/map_pointer.hpp"
 
+#include <cmath>
 #include <utility>
 
 #include "geometry_msgs/msg/transform_stamped.hpp"
@@ -118,6 +119,34 @@ bool MapPointer::toMap(
     }
     return false;
   }
+}
+
+bool MapPointer::mapToRawCentimeters(
+  const geometry_msgs::msg::Point & point_map,
+  double & raw_x_cm,
+  double & raw_y_cm) const
+{
+  if (!config_.use_static_calibration || !solver_.ready()) {
+    return false;
+  }
+
+  const auto & t = solver_.transform();
+  const double det = t.m00 * t.m11 - t.m01 * t.m10;
+  if (std::abs(det) <= 1e-12) {
+    return false;
+  }
+
+  const double dx = point_map.x - t.tx_m;
+  const double dy = point_map.y - t.ty_m;
+  const double raw_x_m = (t.m11 * dx - t.m01 * dy) / det;
+  const double raw_y_m = (-t.m10 * dx + t.m00 * dy) / det;
+  if (!std::isfinite(raw_x_m) || !std::isfinite(raw_y_m)) {
+    return false;
+  }
+
+  raw_x_cm = raw_x_m * 100.0;
+  raw_y_cm = raw_y_m * 100.0;
+  return true;
 }
 
 }  // namespace navi_tf_bridge

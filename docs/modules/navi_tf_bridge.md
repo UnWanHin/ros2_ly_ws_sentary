@@ -33,9 +33,11 @@
 |---|---|---|
 | 订阅 | `/ly/navi/target_rel` | 追击相对目标，默认 frame 为 `gx_camera` |
 | 订阅 | `/ly/navi/goal_pos_raw` | 官方地图二维点，单位 cm |
+| 订阅 | `/ly/face_mode/target_raw` | FaceMode 动态目标，`[official_map_x, official_map_y, map_z]` cm |
 | 发布 | `/goal_pose` | 导航最终目标，`geometry_msgs/PoseStamped` |
 | 发布 | `/ly/navi/goal_pos` | legacy/direct-XY 兼容输出，默认关闭 |
 | 发布 | `/ly/navi/target_map` | debug target map，按配置可开关 |
+| 发布 | `/ly/navi/position` | `map_frame <- base_frame` 反解出的自身官方地图坐标，`[x_cm, y_cm]` |
 | 发布 | `/ly/control/angles` | FaceMode 固定点朝向输出 |
 | 发布 | `/ly/control/firecode` | FaceMode 可选 firecode 输出 |
 
@@ -76,7 +78,7 @@ FaceMode 默认：
 | 脚本 | 作用 |
 |---|---|
 | `scripts/navi/navitomap.sh` | 手动发官方地图点并预览转换结果 |
-| `scripts/navi/facemode.sh` | FaceMode 简短入口：位置参数为 `official_map_x official_map_y map_z`，单位 cm |
+| `scripts/navi/facemode.sh` | FaceMode 简短入口：位置参数为 `official_map_x official_map_y map_z`，单位 cm；`--bt-output` 输出到 `/ly/face_mode/angles` 给 BT 使用 |
 | `scripts/navi/map_aim_point_test.sh` | 拉起 FaceMode 测试栈，可选拉 `gimbal_driver` / `tf_tree` |
 | `scripts/navi/map_aim_point_attach.sh` | 已有 stack 上只附加 FaceMode 节点 |
 | `scripts/debug/goal_pos_test.sh` | 稳定 debug wrapper，实际转到 `scripts/navi/navitomap.sh` |
@@ -86,5 +88,8 @@ FaceMode 默认：
 - 旧的 `tf_point_pairs.yaml` 不再作为静态配置维护；点对导出是运行时 debug/export 行为。
 - `navitomap` 是官方地图点到 `/goal_pose` 的工具，不是追击测试。
 - FaceMode 直接控制云台，不发布底盘速度；和正式 `behavior_tree` 同时跑时要确认 `/ly/control/angles` 只有预期发布者。
+- 区域任务要使用 FaceMode 时，运行 `scripts/navi/facemode.sh --bt-output ...`，避免和 BT 同时抢 `/ly/control/angles`。
+- 区域任务需要切换固定朝向点时，由 BT 发布 `/ly/face_mode/target_raw`；`facemode.sh --bt-output official_map_x official_map_y map_z` 只负责提供启动初始目标。
+- `/ly/navi/position` 依赖 raw-goal static calibration；如果 `tf_config.yaml` 的 4x4 没准备好，节点不会发布这个补充位置。
 - FaceMode 默认 `yaw_sign=-1.0`；`camera_projection` 下目标在 `gx_camera` 后方时会用几何 yaw/pitch fallback 先转向正面，再继续投影微调。
 - 详细变更记录见 [navi_tf_bridge / FaceMode / scripts 入口整理记录](../record/navi_tf_bridge_facemode_and_script_layout_2026-05-03.md)。

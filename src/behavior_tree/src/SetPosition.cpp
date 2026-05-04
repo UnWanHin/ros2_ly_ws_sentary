@@ -64,7 +64,7 @@
 //             Random random;
             
 //                 int random_number = random.Get(0, 6);
-//                 if (random_number == 0) naviCommandGoal = CastleLeft(MyTeam);
+//                 if (random_number == 0) naviCommandGoal = CastleLeft1(MyTeam);
 //                 else if (random_number == 1) naviCommandGoal = CastleRight1(MyTeam);
 //                 else if (random_number == 2) naviCommandGoal = CastleRight2(MyTeam);
 //                 else naviCommandGoal = BuffShoot(MyTeam);
@@ -89,7 +89,7 @@
         
 //         if(now_time < 10) naviCommandGoal = BuffShoot(MyTeam);
 //         else if(now_time < 20) naviCommandGoal = LeftHighLand(MyTeam);
-//         else if(now_time < 30) naviCommandGoal = CastleLeft(MyTeam);
+//         else if(now_time < 30) naviCommandGoal = CastleLeft1(MyTeam);
 //         else if(now_time < 40) naviCommandGoal = CastleRight1(MyTeam);
 //         else if(now_time < 50) naviCommandGoal = CastleRight2(MyTeam);
 //         else if(now_time < 60) naviCommandGoal = FlyRoad(MyTeam);
@@ -100,7 +100,7 @@
 //         else if(now_time < 110) naviCommandGoal = FlyRoad(EnemyTeam);
 //         else if(now_time < 120) naviCommandGoal = CastleRight1(EnemyTeam);
 //         else if(now_time < 130) naviCommandGoal = CastleRight2(EnemyTeam);
-//         else if(now_time < 140) naviCommandGoal = CastleLeft(EnemyTeam);
+//         else if(now_time < 140) naviCommandGoal = CastleLeft1(EnemyTeam);
 //         else if(now_time < 150) naviCommandGoal = LeftHighLand(EnemyTeam);
 //         else if(now_time < 160) naviCommandGoal = BuffShoot(EnemyTeam);
 //         else if(now_time < 170) naviCommandGoal = OutpostArea(EnemyTeam);
@@ -162,7 +162,7 @@
 //                 }
 //             } else { // 6-7 分钟
 //                 int random_number = random.Get(0, 3);
-//                 if (random_number == 0) naviCommandGoal = CastleLeft(MyTeam);
+//                 if (random_number == 0) naviCommandGoal = CastleLeft1(MyTeam);
 //                 else if (random_number == 1) naviCommandGoal = CastleRight1(MyTeam);
 //                 else if (random_number == 2) naviCommandGoal = BuffShoot(MyTeam);
 //                 else naviCommandGoal = CastleRight2(MyTeam);

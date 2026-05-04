@@ -237,6 +237,20 @@ namespace Area {
         { 1774, 1235 }
     };
 
+    static const std::vector<Point<int>> RedRoadlandFollowModePoints = {
+        { 510, 192 },
+        { 987, 203 },
+        { 990, 29 },
+        { 510, 26 }
+    };
+
+    static const std::vector<Point<int>> BlueRoadlandFollowModePoints = {
+        { 2290, 1308 },
+        { 1813, 1297 },
+        { 1810, 1471 },
+        { 2290, 1474 }
+    };
+
     static const std::vector<Point<int>> RedMainAreaHighlandPoints = {
         { 313, 1065 },
         { 315, 1497 },
@@ -427,13 +441,28 @@ namespace Area {
         return IsPointInsideMainAreaBoundary(MainAreaBoundary(team, kind), x, y);
     }
 
+    inline const std::vector<Point<int>>& RoadlandFollowModeBoundary(const UnitTeam team) {
+        return team == UnitTeam::Blue ? BlueRoadlandFollowModePoints : RedRoadlandFollowModePoints;
+    }
+
+    inline bool IsPointInsideRoadlandFollowModeArea(
+        const UnitTeam team,
+        const int x,
+        const int y) {
+        if (team != UnitTeam::Red && team != UnitTeam::Blue) {
+            return false;
+        }
+        return IsPointInsideMainAreaBoundary(RoadlandFollowModeBoundary(team), x, y);
+    }
+
     // 特殊点 {Red, Blue}
     static const Location<std::uint16_t> Home{ {393, 810}, {2408, 683} };
     static const Location<std::uint16_t> Base{ {401, 691}, {2400, 811} };
     static const Location<std::uint16_t> Recovery{ {183, 245}, {2619, 1249} };
     static const Location<std::uint16_t> BuffShoot{ {854, 1382}, {1946, 118} };
     static const Location<std::uint16_t> LeftHighLand{ {406, 1332}, {2392, 187} };
-    static const Location<std::uint16_t> CastleLeft{ {657, 952}, {2136, 542} };
+    static const Location<std::uint16_t> CastleLeft1{ {510, 964}, {2290, 536} };
+    static const Location<std::uint16_t> CastleLeft2{ {831, 960}, {1969, 540} };
     static const Location<std::uint16_t> Castle{ {666, 749}, {2132, 749} };
     static const Location<std::uint16_t> CastleRight1{ {505, 497}, {2293, 1014} };
     static const Location<std::uint16_t> CastleRight2{ {831, 509}, {1971, 985} };
@@ -450,6 +479,8 @@ namespace Area {
     // 这里保留一个兼容坐标，占位到中场附近，避免旧链路在 UseXY=true 时无定义。
     static const Location<std::uint16_t> OccupyArea{ {1075, 898}, {1702, 609} };
     static const Location<std::uint16_t> Highland{ {744, 1263}, {2056, 237} };
+    static const Location<std::uint16_t> BaseToCentral{ {1125, 155}, {1675, 1345} };
+    static const Location<std::uint16_t> CentralToBase{ {451, 146}, {2349, 1354} };
 
     // 地图静态瞄准点，单位为 cm；z 是目标中心相对地图平面的高度。
     static const Location3<double> OutpostAimTarget{ {1093.0, 366.0, 100.0}, {1707.0, 1134.0, 100.0} };

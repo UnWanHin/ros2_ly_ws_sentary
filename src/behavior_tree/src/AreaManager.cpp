@@ -8,6 +8,7 @@
 #include <array>
 #include <cctype>
 #include <cmath>
+#include <iterator>
 #include <limits>
 
 namespace BehaviorTree {
@@ -24,6 +25,13 @@ constexpr std::array<Area::MainAreaKind, 3> kSideMainAreas{
     Area::MainAreaKind::Base,
     Area::MainAreaKind::Highland,
     Area::MainAreaKind::Roadland
+};
+
+constexpr std::array<std::uint8_t, 4> kMyBasePatrolGoals{
+    LangYa::CastleLeft1.ID,
+    LangYa::CastleLeft2.ID,
+    LangYa::CastleRight2.ID,
+    LangYa::CastleRight1.ID
 };
 
 std::string NormalizeAreaToken(std::string_view token) {
@@ -57,7 +65,8 @@ std::vector<std::uint8_t> ProgressFallbackCandidatesForArea(const Area::MainArea
         case Area::MainAreaKind::Base:
             return {
                 LangYa::Castle.ID,
-                LangYa::CastleLeft.ID,
+                LangYa::CastleLeft1.ID,
+                LangYa::CastleLeft2.ID,
                 LangYa::CastleRight1.ID,
                 LangYa::CastleRight2.ID
             };
@@ -77,6 +86,41 @@ std::vector<std::uint8_t> ProgressFallbackCandidatesForArea(const Area::MainArea
     }
 }
 
+std::uint8_t NextMyBasePatrolGoal(const std::uint8_t current_base_goal) {
+    const auto it = std::find(kMyBasePatrolGoals.begin(), kMyBasePatrolGoals.end(), current_base_goal);
+    if (it == kMyBasePatrolGoals.end()) {
+        return LangYa::CastleLeft2.ID;
+    }
+    const auto next = std::next(it);
+    return next == kMyBasePatrolGoals.end() ? kMyBasePatrolGoals.front() : *next;
+}
+
+std::uint8_t NearestMyBasePatrolGoal(
+    const LangYa::UnitTeam goal_team,
+    const bool has_self_position,
+    const int self_x,
+    const int self_y) {
+    if (!has_self_position || self_x <= 0 || self_y <= 0) {
+        return LangYa::CastleLeft2.ID;
+    }
+
+    std::uint8_t nearest_goal = LangYa::CastleLeft2.ID;
+    double nearest_dist_sq = std::numeric_limits<double>::infinity();
+    for (const auto base_goal_id : kMyBasePatrolGoals) {
+        const auto goal_point = AreaManager::GoalPointByBaseId(base_goal_id, goal_team);
+        const double dist_sq = AreaManager::DistanceSq(
+            self_x,
+            self_y,
+            static_cast<int>(goal_point.x),
+            static_cast<int>(goal_point.y));
+        if (dist_sq < nearest_dist_sq) {
+            nearest_dist_sq = dist_sq;
+            nearest_goal = base_goal_id;
+        }
+    }
+    return nearest_goal;
+}
+
 }  // namespace
 
 const char* NaviAreaTransitionKindToString(const NaviAreaTransitionKind kind) {
@@ -85,7 +129,25 @@ const char* NaviAreaTransitionKindToString(const NaviAreaTransitionKind kind) {
         case NaviAreaTransitionKind::EnterMyHighland: return "EnterMyHighland";
         case NaviAreaTransitionKind::ViaHighland: return "ViaHighland";
         case NaviAreaTransitionKind::LeaveMyHighland: return "LeaveMyHighland";
-        case NaviAreaTransitionKind::LeaveMyHighlandViaCastleLeft: return "LeaveMyHighlandViaCastleLeft";
+        case NaviAreaTransitionKind::LeaveMyHighlandViaCastleLeft1: return "LeaveMyHighlandViaCastleLeft1";
+        default: return "Unknown";
+    }
+}
+
+const char* RegionalAreaTaskPhaseToString(const RegionalAreaTaskPhase phase) {
+    switch (phase) {
+        case RegionalAreaTaskPhase::Idle: return "Idle";
+        case RegionalAreaTaskPhase::ApproachHighland: return "ApproachHighland";
+        case RegionalAreaTaskPhase::HighlandPatrol: return "HighlandPatrol";
+        case RegionalAreaTaskPhase::ToBuffShoot: return "ToBuffShoot";
+        case RegionalAreaTaskPhase::BuffShootHold: return "BuffShootHold";
+        case RegionalAreaTaskPhase::LeaveViaHoleRoad: return "LeaveViaHoleRoad";
+        case RegionalAreaTaskPhase::BasePatrol: return "BasePatrol";
+        case RegionalAreaTaskPhase::RoadlandApproachCentralToBase: return "RoadlandApproachCentralToBase";
+        case RegionalAreaTaskPhase::RoadlandCrossToBaseToCentral: return "RoadlandCrossToBaseToCentral";
+        case RegionalAreaTaskPhase::RoadlandHoldBaseToCentral: return "RoadlandHoldBaseToCentral";
+        case RegionalAreaTaskPhase::RoadlandCrossToCentralToBase: return "RoadlandCrossToCentralToBase";
+        case RegionalAreaTaskPhase::RoadlandReturnToCentralToBase: return "RoadlandReturnToCentralToBase";
         default: return "Unknown";
     }
 }
@@ -99,6 +161,18 @@ void NaviAreaTransitionRuntime::Clear() noexcept {
     GoalTeam = LangYa::UnitTeam::Unknown;
     ApplyTeamOffset = true;
     StartTime = AreaTimePoint{};
+}
+
+void RegionalAreaTaskRuntime::Clear() noexcept {
+    Active = false;
+    Type = RegionalAreaTaskType::None;
+    Phase = RegionalAreaTaskPhase::Idle;
+    GoalTeam = LangYa::UnitTeam::Unknown;
+    ApplyTeamOffset = true;
+    TriggerBaseGoal = LangYa::Highland.ID;
+    CurrentBaseGoal = LangYa::Highland.ID;
+    StartTime = AreaTimePoint{};
+    PhaseStartTime = AreaTimePoint{};
 }
 
 void NaviProgressWatchdogRuntime::Clear() noexcept {
@@ -128,6 +202,7 @@ void AreaManager::Reset(const AreaTimePoint now) {
     idle_patrol_ = {};
     progress_watchdog_.Clear();
     regional_defense_suppress_until_ = AreaTimePoint{};
+    regional_area_task_.Clear();
 }
 
 void AreaManager::TickSelfArea(
@@ -297,9 +372,9 @@ std::optional<NaviAreaTransitionPlan> AreaManager::PlanHighlandTransition(
             !resolved_target_area->UsedNearestFallback &&
             resolved_target_area->Kind == Area::MainAreaKind::Base;
         plan.Kind = target_is_base_area
-            ? NaviAreaTransitionKind::LeaveMyHighlandViaCastleLeft
+            ? NaviAreaTransitionKind::LeaveMyHighlandViaCastleLeft1
             : NaviAreaTransitionKind::LeaveMyHighland;
-        plan.ViaBaseGoal = target_is_base_area ? LangYa::CastleLeft.ID : base_goal_id;
+        plan.ViaBaseGoal = target_is_base_area ? LangYa::CastleLeft1.ID : base_goal_id;
         plan.HasPendingGoal = plan.ViaBaseGoal != base_goal_id;
         plan.PendingBaseGoal = plan.HasPendingGoal ? base_goal_id : LangYa::Home.ID;
         plan.CheckViaAlreadyArrived = true;
@@ -605,6 +680,400 @@ void AreaManager::MarkProgressWatchdogFallbackFailed(
     }
 }
 
+std::optional<RegionalAreaTaskPlan> AreaManager::PlanRegionalAreaTaskForGoal(
+    const std::uint8_t base_goal_id,
+    const LangYa::UnitTeam goal_team,
+    const LangYa::UnitTeam my_team,
+    const bool apply_team_offset,
+    const bool has_self_position,
+    const int self_x,
+    const int self_y,
+    const bool self_in_my_highland) const {
+    if (regional_area_task_.Active ||
+        !IsValidBaseGoalId(base_goal_id) ||
+        goal_team == LangYa::UnitTeam::Unknown ||
+        my_team == LangYa::UnitTeam::Unknown ||
+        goal_team != my_team) {
+        return std::nullopt;
+    }
+
+    const auto resolved_area = ResolveGoalMainArea(base_goal_id, goal_team);
+    if (!resolved_area.has_value() ||
+        resolved_area->UsedNearestFallback) {
+        return std::nullopt;
+    }
+
+    if (resolved_area->Kind == Area::MainAreaKind::Highland) {
+        return RegionalAreaTaskPlan{
+            .Type = RegionalAreaTaskType::MyHighland,
+            .GoalTeam = goal_team,
+            .ApplyTeamOffset = apply_team_offset,
+            .TriggerBaseGoal = base_goal_id,
+            .InitialBaseGoal = LangYa::Highland.ID
+        };
+    }
+
+    if (resolved_area->Kind == Area::MainAreaKind::Base && !self_in_my_highland) {
+        return RegionalAreaTaskPlan{
+            .Type = RegionalAreaTaskType::MyBase,
+            .GoalTeam = goal_team,
+            .ApplyTeamOffset = apply_team_offset,
+            .TriggerBaseGoal = base_goal_id,
+            .InitialBaseGoal = NearestMyBasePatrolGoal(goal_team, has_self_position, self_x, self_y)
+        };
+    }
+
+    if (resolved_area->Kind == Area::MainAreaKind::Roadland && !self_in_my_highland) {
+        return RegionalAreaTaskPlan{
+            .Type = RegionalAreaTaskType::MyRoadland,
+            .GoalTeam = goal_team,
+            .ApplyTeamOffset = apply_team_offset,
+            .TriggerBaseGoal = base_goal_id,
+            .InitialBaseGoal = LangYa::CentralToBase.ID
+        };
+    }
+
+    return std::nullopt;
+}
+
+void AreaManager::StartRegionalAreaTask(
+    const RegionalAreaTaskPlan& plan,
+    const AreaTimePoint now) {
+    regional_area_task_.Active = true;
+    regional_area_task_.Type = plan.Type;
+    if (plan.Type == RegionalAreaTaskType::MyBase) {
+        regional_area_task_.Phase = RegionalAreaTaskPhase::BasePatrol;
+    } else if (plan.Type == RegionalAreaTaskType::MyRoadland) {
+        regional_area_task_.Phase = RegionalAreaTaskPhase::RoadlandApproachCentralToBase;
+    } else {
+        regional_area_task_.Phase = RegionalAreaTaskPhase::ApproachHighland;
+    }
+    regional_area_task_.GoalTeam = plan.GoalTeam;
+    regional_area_task_.ApplyTeamOffset = plan.ApplyTeamOffset;
+    regional_area_task_.TriggerBaseGoal = plan.TriggerBaseGoal;
+    regional_area_task_.CurrentBaseGoal =
+        (plan.Type == RegionalAreaTaskType::MyBase || plan.Type == RegionalAreaTaskType::MyRoadland)
+            ? plan.InitialBaseGoal
+            : LangYa::Highland.ID;
+    regional_area_task_.StartTime = now;
+    regional_area_task_.PhaseStartTime = now;
+}
+
+bool AreaManager::RegionalAreaTaskCriticalControlActive() const noexcept {
+    if (!regional_area_task_.Active ||
+        regional_area_task_.Type != RegionalAreaTaskType::MyRoadland) {
+        return false;
+    }
+    return regional_area_task_.Phase == RegionalAreaTaskPhase::RoadlandCrossToBaseToCentral ||
+           regional_area_task_.Phase == RegionalAreaTaskPhase::RoadlandCrossToCentralToBase;
+}
+
+bool AreaManager::RegionalAreaTaskCanYieldToHigherPriority() const noexcept {
+    return !RegionalAreaTaskCriticalControlActive();
+}
+
+void AreaManager::RequestRoadlandReturnToBase(const AreaTimePoint now) noexcept {
+    if (!regional_area_task_.Active ||
+        regional_area_task_.Type != RegionalAreaTaskType::MyRoadland) {
+        return;
+    }
+    if (RegionalAreaTaskCriticalControlActive()) {
+        return;
+    }
+    if (regional_area_task_.Phase == RegionalAreaTaskPhase::RoadlandApproachCentralToBase) {
+        regional_area_task_.Phase = RegionalAreaTaskPhase::RoadlandReturnToCentralToBase;
+        regional_area_task_.CurrentBaseGoal = LangYa::CentralToBase.ID;
+        regional_area_task_.PhaseStartTime = now;
+        return;
+    }
+    if (regional_area_task_.Phase == RegionalAreaTaskPhase::RoadlandCrossToCentralToBase ||
+        regional_area_task_.Phase == RegionalAreaTaskPhase::RoadlandReturnToCentralToBase) {
+        return;
+    }
+    regional_area_task_.Phase = RegionalAreaTaskPhase::RoadlandCrossToCentralToBase;
+    regional_area_task_.CurrentBaseGoal = LangYa::CentralToBase.ID;
+    regional_area_task_.PhaseStartTime = now;
+}
+
+RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
+    const RegionalAreaTaskTickInput& input) {
+    RegionalAreaTaskTickResult result{};
+    if (!regional_area_task_.Active ||
+        !input.Setting.Enable) {
+        return result;
+    }
+
+    if (regional_area_task_.Type == RegionalAreaTaskType::MyBase) {
+        if (!input.Setting.MyBase.Enable) {
+            return result;
+        }
+
+        const auto& base_setting = input.Setting.MyBase;
+        auto phase_elapsed = [&]() {
+            if (regional_area_task_.PhaseStartTime.time_since_epoch().count() == 0) {
+                return std::chrono::seconds{0};
+            }
+            return std::chrono::duration_cast<std::chrono::seconds>(
+                input.Now - regional_area_task_.PhaseStartTime);
+        };
+        const bool travel_timed_out =
+            base_setting.TravelTimeoutSec > 0 &&
+            phase_elapsed() >= std::chrono::seconds(base_setting.TravelTimeoutSec);
+
+        if (regional_area_task_.CurrentBaseGoal == LangYa::Home.ID ||
+            regional_area_task_.Phase != RegionalAreaTaskPhase::BasePatrol) {
+            regional_area_task_.Phase = RegionalAreaTaskPhase::BasePatrol;
+            regional_area_task_.CurrentBaseGoal = LangYa::CastleLeft2.ID;
+            regional_area_task_.PhaseStartTime = input.Now;
+        } else if (input.CurrentBaseGoalArrived ||
+                   input.CurrentBaseGoalUnreachable ||
+                   travel_timed_out) {
+            regional_area_task_.CurrentBaseGoal =
+                NextMyBasePatrolGoal(regional_area_task_.CurrentBaseGoal);
+            regional_area_task_.PhaseStartTime = input.Now;
+        }
+
+        result.Active = true;
+        result.SetGoal = true;
+        result.BaseGoalId = regional_area_task_.CurrentBaseGoal;
+        result.GoalTeam = regional_area_task_.GoalTeam;
+        result.ApplyTeamOffset = regional_area_task_.ApplyTeamOffset;
+        result.Type = regional_area_task_.Type;
+        result.Phase = regional_area_task_.Phase;
+        result.ResetNaviHold = true;
+        result.NaviHoldSec = std::max(1, base_setting.CommandHoldSec);
+        return result;
+    }
+
+    if (regional_area_task_.Type == RegionalAreaTaskType::MyRoadland) {
+        if (!input.Setting.MyRoadland.Enable) {
+            return result;
+        }
+
+        const auto& roadland_setting = input.Setting.MyRoadland;
+        auto start_phase = [&](const RegionalAreaTaskPhase phase, const std::uint8_t goal) {
+            regional_area_task_.Phase = phase;
+            regional_area_task_.CurrentBaseGoal = goal;
+            regional_area_task_.PhaseStartTime = input.Now;
+        };
+        auto phase_elapsed = [&]() {
+            if (regional_area_task_.PhaseStartTime.time_since_epoch().count() == 0) {
+                return std::chrono::seconds{0};
+            }
+            return std::chrono::duration_cast<std::chrono::seconds>(
+                input.Now - regional_area_task_.PhaseStartTime);
+        };
+        auto phase_timed_out = [&](const int timeout_sec) {
+            return timeout_sec > 0 && phase_elapsed() >= std::chrono::seconds(timeout_sec);
+        };
+
+        while (regional_area_task_.Active) {
+            switch (regional_area_task_.Phase) {
+                case RegionalAreaTaskPhase::RoadlandApproachCentralToBase:
+                    if (input.RoadlandCentralToBaseArrived ||
+                        input.RoadlandCentralToBaseUnreachable ||
+                        phase_timed_out(roadland_setting.TravelTimeoutSec)) {
+                        start_phase(
+                            RegionalAreaTaskPhase::RoadlandCrossToBaseToCentral,
+                            LangYa::BaseToCentral.ID);
+                        continue;
+                    }
+                    break;
+                case RegionalAreaTaskPhase::RoadlandCrossToBaseToCentral:
+                    if (input.RoadlandBaseToCentralArrived ||
+                        input.RoadlandBaseToCentralUnreachable ||
+                        phase_timed_out(roadland_setting.CrossTimeoutSec)) {
+                        start_phase(
+                            RegionalAreaTaskPhase::RoadlandHoldBaseToCentral,
+                            LangYa::BaseToCentral.ID);
+                        continue;
+                    }
+                    break;
+                case RegionalAreaTaskPhase::RoadlandHoldBaseToCentral:
+                    if (input.RoadlandShouldLeave) {
+                        start_phase(
+                            RegionalAreaTaskPhase::RoadlandCrossToCentralToBase,
+                            LangYa::CentralToBase.ID);
+                        continue;
+                    }
+                    break;
+                case RegionalAreaTaskPhase::RoadlandCrossToCentralToBase:
+                    if (input.RoadlandCentralToBaseArrived ||
+                        input.RoadlandCentralToBaseUnreachable ||
+                        phase_timed_out(roadland_setting.CrossTimeoutSec)) {
+                        result.Completed = true;
+                        result.Type = regional_area_task_.Type;
+                        result.Phase = regional_area_task_.Phase;
+                        result.Reason = input.RoadlandCentralToBaseArrived
+                            ? "arrived"
+                            : (input.RoadlandCentralToBaseUnreachable ? "unreachable" : "timeout");
+                        regional_area_task_.Clear();
+                        return result;
+                    }
+                    break;
+                case RegionalAreaTaskPhase::RoadlandReturnToCentralToBase:
+                    if (input.RoadlandCentralToBaseArrived ||
+                        input.RoadlandCentralToBaseUnreachable ||
+                        phase_timed_out(roadland_setting.TravelTimeoutSec)) {
+                        result.Completed = true;
+                        result.Type = regional_area_task_.Type;
+                        result.Phase = regional_area_task_.Phase;
+                        result.Reason = input.RoadlandCentralToBaseArrived
+                            ? "arrived"
+                            : (input.RoadlandCentralToBaseUnreachable ? "unreachable" : "timeout");
+                        regional_area_task_.Clear();
+                        return result;
+                    }
+                    break;
+                default:
+                    start_phase(
+                        RegionalAreaTaskPhase::RoadlandApproachCentralToBase,
+                        LangYa::CentralToBase.ID);
+                    continue;
+            }
+            break;
+        }
+
+        result.Active = true;
+        result.SetGoal = true;
+        result.BaseGoalId = regional_area_task_.CurrentBaseGoal;
+        result.GoalTeam = regional_area_task_.GoalTeam;
+        result.ApplyTeamOffset = regional_area_task_.ApplyTeamOffset;
+        result.Type = regional_area_task_.Type;
+        result.Phase = regional_area_task_.Phase;
+        result.ResetNaviHold = true;
+        result.NaviHoldSec =
+            regional_area_task_.Phase == RegionalAreaTaskPhase::RoadlandHoldBaseToCentral
+                ? std::max(1, roadland_setting.GuardHoldSec)
+                : std::max(1, roadland_setting.CommandHoldSec);
+        if (RegionalAreaTaskCriticalControlActive()) {
+            result.FollowMode = true;
+            result.UseFaceMode = roadland_setting.UseFaceMode;
+            result.SuppressFire = true;
+            result.PublishFaceTarget = roadland_setting.UseFaceMode;
+            result.FaceTargetBaseGoalId = regional_area_task_.CurrentBaseGoal;
+            result.FaceTargetZCm = roadland_setting.FaceTargetZCm;
+        }
+        return result;
+    }
+
+    if (regional_area_task_.Type != RegionalAreaTaskType::MyHighland ||
+        !input.Setting.MyHighland.Enable) {
+        return result;
+    }
+
+    const auto& setting = input.Setting.MyHighland;
+    auto start_phase = [&](const RegionalAreaTaskPhase phase) {
+        regional_area_task_.Phase = phase;
+        regional_area_task_.PhaseStartTime = input.Now;
+    };
+    auto phase_elapsed = [&]() {
+        if (regional_area_task_.PhaseStartTime.time_since_epoch().count() == 0) {
+            return std::chrono::seconds{0};
+        }
+        return std::chrono::duration_cast<std::chrono::seconds>(
+            input.Now - regional_area_task_.PhaseStartTime);
+    };
+    auto phase_timed_out = [&](const int timeout_sec) {
+        return timeout_sec > 0 && phase_elapsed() >= std::chrono::seconds(timeout_sec);
+    };
+
+    while (regional_area_task_.Active) {
+        switch (regional_area_task_.Phase) {
+            case RegionalAreaTaskPhase::ApproachHighland:
+                if (input.HighlandArrived ||
+                    input.HighlandUnreachable ||
+                    phase_timed_out(setting.ApproachTimeoutSec)) {
+                    start_phase(RegionalAreaTaskPhase::HighlandPatrol);
+                    continue;
+                }
+                break;
+            case RegionalAreaTaskPhase::HighlandPatrol:
+                if (phase_elapsed() >= std::chrono::seconds(std::max(0, setting.HighlandPatrolHoldSec))) {
+                    start_phase(RegionalAreaTaskPhase::ToBuffShoot);
+                    continue;
+                }
+                break;
+            case RegionalAreaTaskPhase::ToBuffShoot:
+                if (input.BuffShootArrived ||
+                    input.BuffShootUnreachable ||
+                    phase_timed_out(setting.BuffShootTravelTimeoutSec)) {
+                    start_phase(RegionalAreaTaskPhase::BuffShootHold);
+                    continue;
+                }
+                break;
+            case RegionalAreaTaskPhase::BuffShootHold:
+                if (phase_elapsed() >= std::chrono::seconds(std::max(0, setting.BuffShootHoldSec))) {
+                    start_phase(RegionalAreaTaskPhase::LeaveViaHoleRoad);
+                    continue;
+                }
+                break;
+            case RegionalAreaTaskPhase::LeaveViaHoleRoad:
+                if (input.HoleRoadArrived ||
+                    input.HoleRoadUnreachable ||
+                    phase_timed_out(setting.LeaveTimeoutSec)) {
+                    result.Completed = true;
+                    result.Type = regional_area_task_.Type;
+                    result.Phase = regional_area_task_.Phase;
+                    result.Reason = input.HoleRoadArrived
+                        ? "arrived"
+                        : (input.HoleRoadUnreachable ? "unreachable" : "timeout");
+                    regional_area_task_.Clear();
+                    return result;
+                }
+                break;
+            default:
+                regional_area_task_.Clear();
+                return result;
+        }
+        break;
+    }
+
+    if (!regional_area_task_.Active) {
+        return result;
+    }
+
+    result.Active = true;
+    result.SetGoal = true;
+    result.GoalTeam = regional_area_task_.GoalTeam;
+    result.ApplyTeamOffset = regional_area_task_.ApplyTeamOffset;
+    result.Type = regional_area_task_.Type;
+    result.Phase = regional_area_task_.Phase;
+    result.ResetNaviHold = true;
+    result.NaviHoldSec = 1;
+
+    switch (regional_area_task_.Phase) {
+        case RegionalAreaTaskPhase::ApproachHighland:
+            result.BaseGoalId = LangYa::Highland.ID;
+            result.FollowMode = true;
+            result.UseFaceMode = setting.UseFaceMode;
+            result.SuppressFire = true;
+            break;
+        case RegionalAreaTaskPhase::HighlandPatrol:
+            result.BaseGoalId = LangYa::Highland.ID;
+            result.NaviHoldSec = std::max(1, setting.HighlandPatrolHoldSec);
+            break;
+        case RegionalAreaTaskPhase::ToBuffShoot:
+            result.BaseGoalId = LangYa::BuffShoot.ID;
+            break;
+        case RegionalAreaTaskPhase::BuffShootHold:
+            result.BaseGoalId = LangYa::BuffShoot.ID;
+            result.NaviHoldSec = std::max(1, setting.BuffShootHoldSec);
+            break;
+        case RegionalAreaTaskPhase::LeaveViaHoleRoad:
+            result.BaseGoalId = LangYa::HoleRoad.ID;
+            result.FollowMode = true;
+            result.UseFaceMode = setting.UseFaceMode;
+            result.SuppressFire = true;
+            break;
+        default:
+            result.Active = false;
+            result.SetGoal = false;
+            break;
+    }
+    return result;
+}
+
 bool AreaManager::IsValidBaseGoalId(const std::uint8_t base_goal_id) noexcept {
     return base_goal_id <= MaxBaseGoalId();
 }
@@ -636,7 +1105,8 @@ Area::Point<std::uint16_t> AreaManager::GoalPointByBaseId(
         case LangYa::Recovery.ID: return Area::Recovery(goal_team);
         case LangYa::BuffShoot.ID: return Area::BuffShoot(goal_team);
         case LangYa::LeftHighLand.ID: return Area::LeftHighLand(goal_team);
-        case LangYa::CastleLeft.ID: return Area::CastleLeft(goal_team);
+        case LangYa::CastleLeft1.ID: return Area::CastleLeft1(goal_team);
+        case LangYa::CastleLeft2.ID: return Area::CastleLeft2(goal_team);
         case LangYa::Castle.ID: return Area::Castle(goal_team);
         case LangYa::CastleRight1.ID: return Area::CastleRight1(goal_team);
         case LangYa::CastleRight2.ID: return Area::CastleRight2(goal_team);
@@ -651,6 +1121,8 @@ Area::Point<std::uint16_t> AreaManager::GoalPointByBaseId(
         case LangYa::HoleRoad.ID: return Area::HoleRoad(goal_team);
         case LangYa::OccupyArea.ID: return Area::OccupyArea(goal_team);
         case LangYa::Highland.ID: return Area::Highland(goal_team);
+        case LangYa::BaseToCentral.ID: return Area::BaseToCentral(goal_team);
+        case LangYa::CentralToBase.ID: return Area::CentralToBase(goal_team);
         default: return Area::Home(goal_team);
     }
 }
@@ -742,6 +1214,16 @@ bool AreaManager::IsPositionInMainArea(
         return false;
     }
     return Area::IsPointInsideMainArea(area_team, kind, x, y);
+}
+
+bool AreaManager::IsPositionInRoadlandFollowModeArea(
+    const LangYa::UnitTeam area_team,
+    const int x,
+    const int y) {
+    if (area_team != LangYa::UnitTeam::Red && area_team != LangYa::UnitTeam::Blue) {
+        return false;
+    }
+    return Area::IsPointInsideRoadlandFollowModeArea(area_team, x, y);
 }
 
 std::optional<AreaKey> AreaManager::ResolveAreaKeyForPoint(

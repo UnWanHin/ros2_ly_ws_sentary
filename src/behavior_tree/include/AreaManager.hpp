@@ -70,7 +70,7 @@ enum class NaviAreaTransitionKind : std::uint8_t {
     EnterMyHighland = 1,
     ViaHighland = 2,
     LeaveMyHighland = 3,
-    LeaveMyHighlandViaCastleLeft = 4
+    LeaveMyHighlandViaCastleLeft1 = 4
 };
 
 const char* NaviAreaTransitionKindToString(NaviAreaTransitionKind kind);
@@ -177,6 +177,90 @@ struct NaviProgressWatchdogDecision {
     std::vector<std::uint8_t> FallbackCandidates{};
 };
 
+enum class RegionalAreaTaskType : std::uint8_t {
+    None = 0,
+    MyHighland = 1,
+    MyBase = 2,
+    MyRoadland = 3
+};
+
+enum class RegionalAreaTaskPhase : std::uint8_t {
+    Idle = 0,
+    ApproachHighland = 1,
+    HighlandPatrol = 2,
+    ToBuffShoot = 3,
+    BuffShootHold = 4,
+    LeaveViaHoleRoad = 5,
+    BasePatrol = 6,
+    RoadlandApproachCentralToBase = 7,
+    RoadlandCrossToBaseToCentral = 8,
+    RoadlandHoldBaseToCentral = 9,
+    RoadlandCrossToCentralToBase = 10,
+    RoadlandReturnToCentralToBase = 11
+};
+
+const char* RegionalAreaTaskPhaseToString(RegionalAreaTaskPhase phase);
+
+struct RegionalAreaTaskRuntime {
+    bool Active{false};
+    RegionalAreaTaskType Type{RegionalAreaTaskType::None};
+    RegionalAreaTaskPhase Phase{RegionalAreaTaskPhase::Idle};
+    LangYa::UnitTeam GoalTeam{LangYa::UnitTeam::Unknown};
+    bool ApplyTeamOffset{true};
+    std::uint8_t TriggerBaseGoal{LangYa::Highland.ID};
+    std::uint8_t CurrentBaseGoal{LangYa::Highland.ID};
+    AreaTimePoint StartTime{};
+    AreaTimePoint PhaseStartTime{};
+
+    void Clear() noexcept;
+};
+
+struct RegionalAreaTaskPlan {
+    RegionalAreaTaskType Type{RegionalAreaTaskType::None};
+    LangYa::UnitTeam GoalTeam{LangYa::UnitTeam::Unknown};
+    bool ApplyTeamOffset{true};
+    std::uint8_t TriggerBaseGoal{LangYa::Highland.ID};
+    std::uint8_t InitialBaseGoal{LangYa::Highland.ID};
+};
+
+struct RegionalAreaTaskTickInput {
+    LangYa::RegionalAreaTaskSetting Setting{};
+    AreaTimePoint Now{};
+    bool HighlandArrived{false};
+    bool HighlandUnreachable{false};
+    bool BuffShootArrived{false};
+    bool BuffShootUnreachable{false};
+    bool HoleRoadArrived{false};
+    bool HoleRoadUnreachable{false};
+    bool CurrentBaseGoalArrived{false};
+    bool CurrentBaseGoalUnreachable{false};
+    bool RoadlandCentralToBaseArrived{false};
+    bool RoadlandCentralToBaseUnreachable{false};
+    bool RoadlandBaseToCentralArrived{false};
+    bool RoadlandBaseToCentralUnreachable{false};
+    bool RoadlandShouldLeave{false};
+};
+
+struct RegionalAreaTaskTickResult {
+    bool Active{false};
+    bool Completed{false};
+    bool SetGoal{false};
+    std::uint8_t BaseGoalId{LangYa::Highland.ID};
+    LangYa::UnitTeam GoalTeam{LangYa::UnitTeam::Unknown};
+    bool ApplyTeamOffset{true};
+    bool FollowMode{false};
+    bool UseFaceMode{false};
+    bool SuppressFire{false};
+    bool PublishFaceTarget{false};
+    std::uint8_t FaceTargetBaseGoalId{LangYa::Home.ID};
+    int FaceTargetZCm{100};
+    bool ResetNaviHold{false};
+    int NaviHoldSec{1};
+    RegionalAreaTaskType Type{RegionalAreaTaskType::None};
+    RegionalAreaTaskPhase Phase{RegionalAreaTaskPhase::Idle};
+    std::string Reason{};
+};
+
 class AreaManager {
 public:
     void Configure(const LangYa::NaviGoalAutonomySetting& navi_goal_setting);
@@ -252,7 +336,25 @@ public:
         LangYa::UnitTeam cooldown_team);
     void MarkProgressWatchdogFallbackFailed(AreaTimePoint now, bool has_self_position, int self_x, int self_y);
 
-    static constexpr std::uint8_t MaxBaseGoalId() noexcept { return LangYa::Highland.ID; }
+    bool RegionalAreaTaskActive() const noexcept { return regional_area_task_.Active; }
+    const RegionalAreaTaskRuntime& RegionalAreaTask() const noexcept { return regional_area_task_; }
+    std::optional<RegionalAreaTaskPlan> PlanRegionalAreaTaskForGoal(
+        std::uint8_t base_goal_id,
+        LangYa::UnitTeam goal_team,
+        LangYa::UnitTeam my_team,
+        bool apply_team_offset,
+        bool has_self_position,
+        int self_x,
+        int self_y,
+        bool self_in_my_highland) const;
+    void StartRegionalAreaTask(const RegionalAreaTaskPlan& plan, AreaTimePoint now);
+    RegionalAreaTaskTickResult TickRegionalAreaTask(const RegionalAreaTaskTickInput& input);
+    void ClearRegionalAreaTask() noexcept { regional_area_task_.Clear(); }
+    bool RegionalAreaTaskCriticalControlActive() const noexcept;
+    bool RegionalAreaTaskCanYieldToHigherPriority() const noexcept;
+    void RequestRoadlandReturnToBase(AreaTimePoint now) noexcept;
+
+    static constexpr std::uint8_t MaxBaseGoalId() noexcept { return LangYa::CentralToBase.ID; }
     static bool IsValidBaseGoalId(std::uint8_t base_goal_id) noexcept;
     static bool IsReservedNonCombatGoalId(std::uint8_t base_goal_id) noexcept;
     static std::uint8_t ResolveGoalId(
@@ -276,6 +378,10 @@ public:
         Area::MainAreaKind kind,
         int x,
         int y);
+    static bool IsPositionInRoadlandFollowModeArea(
+        LangYa::UnitTeam area_team,
+        int x,
+        int y);
     static std::optional<AreaKey> ResolveAreaKeyForPoint(
         LangYa::UnitTeam my_team,
         LangYa::UnitTeam enemy_team,
@@ -295,6 +401,7 @@ private:
 
     NaviProgressWatchdogRuntime progress_watchdog_{};
     AreaTimePoint regional_defense_suppress_until_{};
+    RegionalAreaTaskRuntime regional_area_task_{};
 };
 
 }  // namespace BehaviorTree

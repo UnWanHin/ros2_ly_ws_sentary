@@ -296,6 +296,12 @@ private:
     Config config{}; // 配置文件
     AreaManager areaManager_{};
     PostureManager postureManager_{};
+    struct RegionalAreaControlOverride {
+        bool Active{false};
+        bool UseFaceMode{false};
+        RegionalAreaTaskPhase Phase{RegionalAreaTaskPhase::Idle};
+    };
+    RegionalAreaControlOverride regionalAreaControl_{};
     std::chrono::steady_clock::time_point lastUpdateBlackboardLogTime_{};
     std::chrono::steady_clock::time_point lastTreeTickLogTime_{};
     std::chrono::steady_clock::time_point lastTransportLogTime_{};
@@ -366,6 +372,7 @@ private:
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_navi_goal_;
     rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr pub_navi_goal_pos_raw_;
     rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr pub_navi_goal_pos_;
+    rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr pub_face_mode_target_raw_;
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_navi_speed_level_;
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_navi_lower_head_;
     
@@ -448,6 +455,7 @@ public:
     bool IsHighlandCompatEnabled() const noexcept;
     bool IsHighlandCompatTarget(std::uint8_t base_goal_id, UnitTeam goal_team) const;
     bool IsSelfInMainArea(UnitTeam area_team, Area::MainAreaKind kind) const;
+    bool IsSelfInRoadlandFollowModeArea(UnitTeam area_team) const;
     bool IsNaviExternalStatusFreshForGoal(
         std::chrono::steady_clock::time_point last_rx,
         std::uint8_t goal_id,
@@ -465,7 +473,20 @@ public:
         std::uint8_t base_goal_id,
         UnitTeam goal_team,
         bool apply_team_offset = true) const;
+    bool IsBaseGoalExternallyUnreachable(
+        std::uint8_t base_goal_id,
+        UnitTeam goal_team,
+        bool apply_team_offset = true) const;
     bool IsHighlandCompatArrived(UnitTeam goal_team) const;
+    void ResetRegionalAreaControlOverride() noexcept;
+    void ApplyRegionalAreaTaskControl(const RegionalAreaTaskTickResult& result);
+    bool TickRegionalAreaTask(UnitTeam my_team, UnitTeam enemy_team);
+    bool TryStartRegionalAreaTaskForGoal(
+        std::uint8_t base_goal_id,
+        UnitTeam goal_team,
+        UnitTeam my_team,
+        bool apply_team_offset,
+        const char* reason);
     bool TickNaviAreaTransition();
     bool TryStartNaviAreaTransition(
         std::uint8_t base_goal_id,
@@ -521,6 +542,7 @@ public:
 
     // 获取配置文件
     bool ConfigurationInit();
+    void ApplyAreaManagerParameterOverrides();
     bool InitDecisionTrace();
     void WriteDecisionTrace(std::string_view event);
     void CloseDecisionTrace();

@@ -53,7 +53,7 @@
 1. 进入我方高地时，先开 `FollowMode`，目标为我方 `Highland`。
 2. 需要经高地兼容点时，先走 `Highland`，到达/超时/不可达后再继续原目标。
 3. 从我方高地离开时，开 `FollowMode`。
-4. 从我方高地去我方基地侧目标时，优先经 `CastleLeft`，到达后关闭 `FollowMode` 再继续原目标。
+4. 从我方高地去我方基地侧目标时，优先经 `CastleLeft1`，到达后关闭 `FollowMode` 再继续原目标。
 
 配置位置：
 

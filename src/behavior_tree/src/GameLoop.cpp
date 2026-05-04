@@ -152,7 +152,8 @@ namespace BehaviorTree {
             };
         } else if (strategy_mode == StrategyMode::Protected) {
             options = {
-                NaviGoalOption{LangYa::CastleLeft.ID, "my", 0.0, true},
+                NaviGoalOption{LangYa::CastleLeft1.ID, "my", 0.0, true},
+                NaviGoalOption{LangYa::CastleLeft2.ID, "my", 0.0, true},
                 NaviGoalOption{LangYa::CastleRight1.ID, "my", 0.0, true},
                 NaviGoalOption{LangYa::CastleRight2.ID, "my", 0.0, true},
                 NaviGoalOption{LangYa::BuffShoot.ID, "my", 0.2, true}
@@ -229,6 +230,7 @@ namespace BehaviorTree {
     void Application::UpdateBlackBoard() {
 
         std::uint16_t SelfHealth = myselfHealth;
+        ResetRegionalAreaControlOverride();
         // 三路目标源统一折叠成一个 IsFindTarget，供 BT 和姿态模块复用。
         // 注意这里是“本拍是否有新鲜目标”，不是长期跟踪状态。
         const bool has_auto_target = autoAimData.Fresh && autoAimData.Valid;
@@ -336,6 +338,10 @@ namespace BehaviorTree {
         static constexpr int kDamageScanBoostWindowMs = 1300;
         static constexpr int kDamageScanYawPhaseMs = 160;
         const bool follow_mode_active = gimbalControlData.FireCode.FollowMode != 0;
+        const bool face_mode_active =
+            regionalAreaControl_.Active &&
+            regionalAreaControl_.UseFaceMode &&
+            config.FaceModeSettings.Enable;
 
         
         // 小陀螺策略（老设计）：
@@ -476,7 +482,42 @@ namespace BehaviorTree {
             patrolScanCenterInitialized_ = false;
             patrolScanActiveMode_ = 0;
         };
-        if (follow_mode_active) {
+        auto face_mode_angles = [&]() -> std::optional<GimbalAnglesType> {
+            if (!regionalAreaControl_.Active ||
+                !regionalAreaControl_.UseFaceMode ||
+                !config.FaceModeSettings.Enable ||
+                !faceModeData.Valid ||
+                !faceModeData.HasLatchedAngles ||
+                faceModeData.LastValidTime.time_since_epoch().count() == 0) {
+                return std::nullopt;
+            }
+            const int hold_ms = std::max(0, config.FaceModeSettings.LostTargetHoldMs);
+            if (faceModeData.Fresh ||
+                (hold_ms > 0 && now - faceModeData.LastValidTime <= std::chrono::milliseconds(hold_ms))) {
+                return faceModeData.Angles;
+            }
+            return std::nullopt;
+        };
+        if (face_mode_active) {
+            reset_patrol_scan_state();
+            gimbalControlData.FireCode.AimMode = 0;
+            if (config.FaceModeSettings.SuppressFire) {
+                gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
+                buffAimData.FireStatus = false;
+            }
+            const auto face_angles = face_mode_angles();
+            nextAngles = face_angles.value_or(gimbalAngles);
+
+            static auto last_face_mode_log = std::chrono::steady_clock::time_point{};
+            if (now - last_face_mode_log > std::chrono::seconds(2)) {
+                LoggerPtr->Debug(
+                    "FaceMode active: {}, stop patrol scan, {} gimbal angles, suppress_fire={}",
+                    follow_mode_active ? "follow mode controls rotate" : "keep rotate",
+                    face_angles.has_value() ? "use FaceMode" : "hold current",
+                    config.FaceModeSettings.SuppressFire ? 1 : 0);
+                last_face_mode_log = now;
+            }
+        } else if (follow_mode_active) {
             reset_patrol_scan_state();
             gimbalControlData.FireCode.AimMode = 0;
             gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
@@ -486,7 +527,7 @@ namespace BehaviorTree {
             static auto last_follow_mode_log = std::chrono::steady_clock::time_point{};
             if (now - last_follow_mode_log > std::chrono::seconds(2)) {
                 LoggerPtr->Debug(
-                    "FollowMode active: stop rotate, stop patrol scan, hold gimbal angles, suppress fire");
+                    "FollowMode active: stop rotate, stop patrol scan, hold current gimbal angles, suppress fire");
                 last_follow_mode_log = now;
             }
         } else if (has_target_for_angles) {
@@ -763,6 +804,7 @@ namespace BehaviorTree {
         autoAimData.Fresh = false;
         buffAimData.Fresh = false;
         outpostAimData.Fresh = false;
+        faceModeData.Fresh = false;
         isFindTargetAtomic = false;
     }
 
@@ -1509,6 +1551,25 @@ namespace BehaviorTree {
         return AreaManager::IsPositionInMainArea(area_team, kind, self_x, self_y);
     }
 
+    bool Application::IsSelfInRoadlandFollowModeArea(const UnitTeam area_team) const {
+        if (area_team != UnitTeam::Red && area_team != UnitTeam::Blue) {
+            return false;
+        }
+        if (!hasReceivedSentryPosition_) {
+            return false;
+        }
+        if (lastSentryPositionRxTime_.time_since_epoch().count() == 0 ||
+            std::chrono::steady_clock::now() - lastSentryPositionRxTime_ > std::chrono::seconds(2)) {
+            return false;
+        }
+        const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
+        const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
+        if (self_x <= 0 || self_y <= 0) {
+            return false;
+        }
+        return AreaManager::IsPositionInRoadlandFollowModeArea(area_team, self_x, self_y);
+    }
+
     bool Application::IsNaviExternalStatusFreshForGoal(
         const std::chrono::steady_clock::time_point last_rx,
         const std::uint8_t goal_id,
@@ -1602,8 +1663,227 @@ namespace BehaviorTree {
             static_cast<double>(arrive_distance) * static_cast<double>(arrive_distance);
     }
 
+    bool Application::IsBaseGoalExternallyUnreachable(
+        const std::uint8_t base_goal_id,
+        const UnitTeam goal_team,
+        const bool apply_team_offset) const {
+        if (!AreaManager::IsValidBaseGoalId(base_goal_id)) {
+            return false;
+        }
+        const auto goal_id = ResolveGoalId(base_goal_id, goal_team, apply_team_offset);
+        const auto goal_point = AreaManager::GoalPointByBaseId(base_goal_id, goal_team);
+        const auto external_reachable = GetExternalNaviReachableForGoal(goal_id, goal_point);
+        return external_reachable.has_value() && !*external_reachable;
+    }
+
     bool Application::IsHighlandCompatArrived(const UnitTeam goal_team) const {
         return IsBaseGoalArrived(LangYa::Highland.ID, goal_team);
+    }
+
+    void Application::ResetRegionalAreaControlOverride() noexcept {
+        regionalAreaControl_ = {};
+    }
+
+    void Application::ApplyRegionalAreaTaskControl(const RegionalAreaTaskTickResult& result) {
+        regionalAreaControl_.Active = result.Active;
+        regionalAreaControl_.UseFaceMode = result.Active && result.UseFaceMode;
+        regionalAreaControl_.Phase = result.Phase;
+        gimbalControlData.FireCode.FollowMode = result.FollowMode ? 1 : 0;
+        if (result.Active && result.PublishFaceTarget && pub_face_mode_target_raw_) {
+            const auto face_target =
+                AreaManager::GoalPointByBaseId(result.FaceTargetBaseGoalId, result.GoalTeam);
+            std_msgs::msg::UInt16MultiArray msg;
+            msg.data = {
+                face_target.x,
+                face_target.y,
+                static_cast<std::uint16_t>(std::clamp(result.FaceTargetZCm, 0, 65535))
+            };
+            pub_face_mode_target_raw_->publish(msg);
+        }
+        if (result.SuppressFire) {
+            gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
+            buffAimData.FireStatus = false;
+        }
+    }
+
+    bool Application::TickRegionalAreaTask(
+        const UnitTeam my_team,
+        const UnitTeam enemy_team) {
+        if (!areaManager_.RegionalAreaTaskActive()) {
+            return false;
+        }
+
+        const auto active_task_type = areaManager_.RegionalAreaTask().Type;
+        const bool active_low_priority_task =
+            active_task_type == RegionalAreaTaskType::MyBase ||
+            active_task_type == RegionalAreaTaskType::MyRoadland;
+        const bool active_roadland_task = active_task_type == RegionalAreaTaskType::MyRoadland;
+        const bool can_yield_to_higher_priority = areaManager_.RegionalAreaTaskCanYieldToHigherPriority();
+        if (active_low_priority_task && (aimMode == AimMode::Buff || aimMode == AimMode::Outpost)) {
+            if (!can_yield_to_higher_priority) {
+                // Roadland crossing is a bound control segment; do not release FollowMode/FaceMode
+                // until the far endpoint or timeout protection completes it.
+            } else if (active_roadland_task) {
+                areaManager_.RequestRoadlandReturnToBase(std::chrono::steady_clock::now());
+                if (LoggerPtr) {
+                    LoggerPtr->Info("RegionalAreaTask[MyRoadland] return requested: aim mode has higher priority.");
+                }
+            } else {
+                areaManager_.ClearRegionalAreaTask();
+                ResetRegionalAreaControlOverride();
+                gimbalControlData.FireCode.FollowMode = 0;
+                if (LoggerPtr) {
+                    LoggerPtr->Info("RegionalAreaTask canceled: aim mode has higher priority.");
+                }
+                return false;
+            }
+        }
+        if (active_low_priority_task && !active_roadland_task && TrySetRegionalDefenseGoal(my_team, enemy_team)) {
+            areaManager_.ClearRegionalAreaTask();
+            ResetRegionalAreaControlOverride();
+            gimbalControlData.FireCode.FollowMode = 0;
+            if (LoggerPtr) {
+                LoggerPtr->Info("RegionalAreaTask canceled: regional defense has higher priority.");
+            }
+            return true;
+        }
+
+        const bool apply_team_offset = areaManager_.RegionalAreaTask().ApplyTeamOffset;
+        const auto goal_team = areaManager_.RegionalAreaTask().GoalTeam;
+        const auto current_base_goal = areaManager_.RegionalAreaTask().CurrentBaseGoal;
+        const auto now = std::chrono::steady_clock::now();
+        auto referee_value_fresh = [&](const bool received, const std::chrono::steady_clock::time_point last_rx) {
+            return received &&
+                last_rx.time_since_epoch().count() != 0 &&
+                now - last_rx <= std::chrono::seconds(2);
+        };
+        const auto& roadland_setting = config.RegionalAreaTaskSettings.MyRoadland;
+        const bool roadland_health_known =
+            referee_value_fresh(hasReceivedMyselfHealth_, lastMyselfHealthRxTime);
+        const bool roadland_ammo_known =
+            referee_value_fresh(hasReceivedAmmoLeft_, lastAmmoLeftRxTime);
+        const bool roadland_data_unhealthy =
+            roadland_health_known &&
+            roadland_ammo_known &&
+            (myselfHealth < static_cast<std::uint16_t>(std::max(0, roadland_setting.HealthyHpMin)) ||
+             ammoLeft < static_cast<std::uint16_t>(std::max(0, roadland_setting.HealthyAmmoMin)));
+        const auto result = areaManager_.TickRegionalAreaTask(
+            RegionalAreaTaskTickInput{
+                .Setting = config.RegionalAreaTaskSettings,
+                .Now = now,
+                .HighlandArrived = IsBaseGoalArrived(LangYa::Highland.ID, goal_team, apply_team_offset),
+                .HighlandUnreachable = IsBaseGoalExternallyUnreachable(LangYa::Highland.ID, goal_team, apply_team_offset),
+                .BuffShootArrived = IsBaseGoalArrived(LangYa::BuffShoot.ID, goal_team, apply_team_offset),
+                .BuffShootUnreachable = IsBaseGoalExternallyUnreachable(LangYa::BuffShoot.ID, goal_team, apply_team_offset),
+                .HoleRoadArrived = IsBaseGoalArrived(LangYa::HoleRoad.ID, goal_team, apply_team_offset),
+                .HoleRoadUnreachable = IsBaseGoalExternallyUnreachable(LangYa::HoleRoad.ID, goal_team, apply_team_offset),
+                .CurrentBaseGoalArrived = IsBaseGoalArrived(current_base_goal, goal_team, apply_team_offset),
+                .CurrentBaseGoalUnreachable = IsBaseGoalExternallyUnreachable(current_base_goal, goal_team, apply_team_offset),
+                .RoadlandCentralToBaseArrived = IsBaseGoalArrived(LangYa::CentralToBase.ID, goal_team, apply_team_offset),
+                .RoadlandCentralToBaseUnreachable = IsBaseGoalExternallyUnreachable(LangYa::CentralToBase.ID, goal_team, apply_team_offset),
+                .RoadlandBaseToCentralArrived = IsBaseGoalArrived(LangYa::BaseToCentral.ID, goal_team, apply_team_offset),
+                .RoadlandBaseToCentralUnreachable = IsBaseGoalExternallyUnreachable(LangYa::BaseToCentral.ID, goal_team, apply_team_offset),
+                .RoadlandShouldLeave = active_roadland_task && roadland_data_unhealthy
+            });
+
+        if (result.Completed) {
+            ApplyRegionalAreaTaskControl(result);
+            if (LoggerPtr) {
+                LoggerPtr->Info(
+                    "RegionalAreaTask completed type={} phase={} reason={}, follow_mode off.",
+                    result.Type == RegionalAreaTaskType::MyHighland
+                        ? "MyHighland"
+                        : (result.Type == RegionalAreaTaskType::MyRoadland ? "MyRoadland" : "MyBase"),
+                    RegionalAreaTaskPhaseToString(result.Phase),
+                    result.Reason.empty() ? "done" : result.Reason.c_str());
+            }
+            naviCommandIntervalClock.reset(Seconds{1});
+            speedLevel = 1;
+            return true;
+        }
+
+        if (!result.Active || !result.SetGoal) {
+            return false;
+        }
+
+        ApplyRegionalAreaTaskControl(result);
+        SetPositionByBaseGoal(result.BaseGoalId, result.GoalTeam, result.ApplyTeamOffset);
+        if (result.ResetNaviHold) {
+            naviCommandIntervalClock.reset(Seconds{std::max(1, result.NaviHoldSec)});
+        }
+        speedLevel = 1;
+        return true;
+    }
+
+    bool Application::TryStartRegionalAreaTaskForGoal(
+        const std::uint8_t base_goal_id,
+        const UnitTeam goal_team,
+        const UnitTeam my_team,
+        const bool apply_team_offset,
+        const char* reason) {
+        if (!config.RegionalAreaTaskSettings.Enable ||
+            (!config.RegionalAreaTaskSettings.MyHighland.Enable &&
+             !config.RegionalAreaTaskSettings.MyBase.Enable &&
+             !config.RegionalAreaTaskSettings.MyRoadland.Enable) ||
+            areaManager_.HighlandTransitionActive() ||
+            areaManager_.RegionalAreaTaskActive()) {
+            return false;
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        const bool self_position_fresh =
+            hasReceivedSentryPosition_ &&
+            lastSentryPositionRxTime_.time_since_epoch().count() != 0 &&
+            now - lastSentryPositionRxTime_ <= std::chrono::seconds(2);
+        const int self_x = self_position_fresh
+            ? static_cast<int>(friendRobots[UnitType::Sentry].position_.X)
+            : 0;
+        const int self_y = self_position_fresh
+            ? static_cast<int>(friendRobots[UnitType::Sentry].position_.Y)
+            : 0;
+        const auto plan = areaManager_.PlanRegionalAreaTaskForGoal(
+            base_goal_id,
+            goal_team,
+            my_team,
+            apply_team_offset,
+            self_position_fresh && self_x > 0 && self_y > 0,
+            self_x,
+            self_y,
+            IsSelfInMainArea(my_team, Area::MainAreaKind::Highland));
+        if (!plan.has_value()) {
+            return false;
+        }
+        if ((plan->Type == RegionalAreaTaskType::MyHighland &&
+             !config.RegionalAreaTaskSettings.MyHighland.Enable) ||
+            (plan->Type == RegionalAreaTaskType::MyBase &&
+             !config.RegionalAreaTaskSettings.MyBase.Enable) ||
+            (plan->Type == RegionalAreaTaskType::MyRoadland &&
+             !config.RegionalAreaTaskSettings.MyRoadland.Enable)) {
+            return false;
+        }
+
+        areaManager_.StartRegionalAreaTask(*plan, now);
+        if (LoggerPtr) {
+            if (plan->Type == RegionalAreaTaskType::MyBase) {
+                LoggerPtr->Info(
+                    "RegionalAreaTask[MyBase] start from goal={} reason={}: start_base_goal={} route=CastleLeft1->CastleLeft2->CastleRight2->CastleRight1.",
+                    static_cast<int>(ResolveGoalId(base_goal_id, goal_team, apply_team_offset)),
+                    reason ? reason : "area_task",
+                    static_cast<int>(plan->InitialBaseGoal));
+            } else if (plan->Type == RegionalAreaTaskType::MyRoadland) {
+                LoggerPtr->Info(
+                    "RegionalAreaTask[MyRoadland] start from goal={} reason={}: CentralToBase -> BaseToCentral guarded crossing.",
+                    static_cast<int>(ResolveGoalId(base_goal_id, goal_team, apply_team_offset)),
+                    reason ? reason : "area_task");
+            } else {
+                LoggerPtr->Info(
+                    "RegionalAreaTask[MyHighland] start from goal={} reason={}: Highland -> BuffShoot hold={}s -> HoleRoad.",
+                    static_cast<int>(ResolveGoalId(base_goal_id, goal_team, apply_team_offset)),
+                    reason ? reason : "area_task",
+                    config.RegionalAreaTaskSettings.MyHighland.BuffShootHoldSec);
+            }
+        }
+        return TickRegionalAreaTask(my_team, UnitTeam::Unknown);
     }
 
     bool Application::TickNaviAreaTransition() {
@@ -1814,13 +2094,13 @@ namespace BehaviorTree {
                 ammoLeft >= defense.StrongAmmoMin;
             if (threat.OwnBaseCount >= defense.MultiEnemyBaseCount && strong_resource) {
                 return try_defense_candidates(
-                    {LangYa::Castle.ID, LangYa::CastleLeft.ID, LangYa::CastleRight1.ID, LangYa::CastleRight2.ID},
+                    {LangYa::Castle.ID, LangYa::CastleLeft1.ID, LangYa::CastleLeft2.ID, LangYa::CastleRight1.ID, LangYa::CastleRight2.ID},
                     "own_base_multi",
                     defense.HardHoldSec);
             }
             if (threat.OwnBaseCount > 0) {
                 return try_defense_candidates(
-                    {LangYa::Castle.ID, LangYa::CastleLeft.ID, LangYa::CastleRight1.ID, LangYa::CastleRight2.ID},
+                    {LangYa::Castle.ID, LangYa::CastleLeft1.ID, LangYa::CastleLeft2.ID, LangYa::CastleRight1.ID, LangYa::CastleRight2.ID},
                     strong_resource ? "own_base_chase" : "own_base_guard",
                     defense.HardHoldSec);
             }
@@ -1995,6 +2275,10 @@ namespace BehaviorTree {
             return false;
         }
 
+        if (TryStartRegionalAreaTaskForGoal(base_goal_id, goal_team, my_team, apply_team_offset, reason)) {
+            return true;
+        }
+
         if (TryStartNaviAreaTransition(base_goal_id, goal_team, my_team, apply_team_offset, reason)) {
             return true;
         }
@@ -2059,7 +2343,8 @@ namespace BehaviorTree {
             case LangYa::Recovery.ID: assign_position(LangYa::Recovery, BehaviorTree::Area::Recovery); break;
             case LangYa::BuffShoot.ID: assign_position(LangYa::BuffShoot, BehaviorTree::Area::BuffShoot); break;
             case LangYa::LeftHighLand.ID: assign_position(LangYa::LeftHighLand, BehaviorTree::Area::LeftHighLand); break;
-            case LangYa::CastleLeft.ID: assign_position(LangYa::CastleLeft, BehaviorTree::Area::CastleLeft); break;
+            case LangYa::CastleLeft1.ID: assign_position(LangYa::CastleLeft1, BehaviorTree::Area::CastleLeft1); break;
+            case LangYa::CastleLeft2.ID: assign_position(LangYa::CastleLeft2, BehaviorTree::Area::CastleLeft2); break;
             case LangYa::Castle.ID: assign_position(LangYa::Castle, BehaviorTree::Area::Castle); break;
             case LangYa::CastleRight1.ID: assign_position(LangYa::CastleRight1, BehaviorTree::Area::CastleRight1); break;
             case LangYa::CastleRight2.ID: assign_position(LangYa::CastleRight2, BehaviorTree::Area::CastleRight2); break;
@@ -2074,6 +2359,8 @@ namespace BehaviorTree {
             case LangYa::HoleRoad.ID: assign_position(LangYa::HoleRoad, BehaviorTree::Area::HoleRoad); break;
             case LangYa::OccupyArea.ID: assign_position(LangYa::OccupyArea, BehaviorTree::Area::OccupyArea); break;
             case LangYa::Highland.ID: assign_position(LangYa::Highland, BehaviorTree::Area::Highland); break;
+            case LangYa::BaseToCentral.ID: assign_position(LangYa::BaseToCentral, BehaviorTree::Area::BaseToCentral); break;
+            case LangYa::CentralToBase.ID: assign_position(LangYa::CentralToBase, BehaviorTree::Area::CentralToBase); break;
             default:
                 LoggerPtr->Warning("Unknown base goal id={}, fallback to Home.", static_cast<int>(base_goal_id));
                 effective_base_goal_id = LangYa::Home.ID;
@@ -2404,6 +2691,24 @@ namespace BehaviorTree {
     bool Application::CheckPositionRecovery() {
         UnitTeam MyTeam = team, EnemyTeam = team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
         int now_time = 420 - timeLeft;
+        auto cancel_regional_area_task_for_recovery = [&]() -> bool {
+            if (areaManager_.RegionalAreaTaskActive()) {
+                if (areaManager_.RegionalAreaTask().Type == RegionalAreaTaskType::MyRoadland) {
+                    areaManager_.RequestRoadlandReturnToBase(std::chrono::steady_clock::now());
+                    if (LoggerPtr) {
+                        LoggerPtr->Info("RegionalAreaTask[MyRoadland] return requested: recovery has higher priority.");
+                    }
+                    return TickRegionalAreaTask(MyTeam, EnemyTeam);
+                }
+                areaManager_.ClearRegionalAreaTask();
+                ResetRegionalAreaControlOverride();
+                gimbalControlData.FireCode.FollowMode = 0;
+                if (LoggerPtr) {
+                    LoggerPtr->Info("RegionalAreaTask canceled: recovery has higher priority.");
+                }
+            }
+            return false;
+        };
         const bool disable_team_offset_for_debug =
             (config.ShowcasePatrolSettings.Enable && config.ShowcasePatrolSettings.DisableTeamOffset) ||
             (config.NaviDebugSettings.Enable && config.NaviDebugSettings.DisableTeamOffset);
@@ -2578,6 +2883,9 @@ namespace BehaviorTree {
         // 复活
         if(naviCommandGoal == recovery_goal_id) {
             if(myselfHealth < 380) {
+                if (cancel_regional_area_task_for_recovery()) {
+                    return true;
+                }
                 naviCommandIntervalClock.reset(Seconds{1});
                 return true;
             }
@@ -2585,6 +2893,9 @@ namespace BehaviorTree {
         // 回家
         // 条件为：血量低于150 或者 弹药为0且距离上一次回家已经过去90秒
         if(myselfHealth < 150 || (ammoLeft <= 30 && recoveryClock.trigger())) {
+            if (cancel_regional_area_task_for_recovery()) {
+                return true;
+            }
             SetPositionByBaseGoal(LangYa::Recovery.ID, MyTeam, apply_team_offset);
             recoveryClock.tick();
             naviCommandIntervalClock.reset(Seconds{1});
@@ -2780,6 +3091,9 @@ namespace BehaviorTree {
             LoggerPtr->Info("> Go Recovery");
             return;
         }
+        if (TickRegionalAreaTask(MyTeam, EnemyTeam)) {
+            return;
+        }
         if (TickNaviAreaTransition()) {
             return;
         }
@@ -2808,7 +3122,8 @@ namespace BehaviorTree {
             if (!TrySetNaviGoalByAutonomy(StrategyMode::Protected, MyTeam, EnemyTeam)) {
                 const bool selected = TrySetRandomScopedPositionByBaseGoal(
                     {
-                        {LangYa::CastleLeft.ID, MyTeam},
+                        {LangYa::CastleLeft1.ID, MyTeam},
+                        {LangYa::CastleLeft2.ID, MyTeam},
                         {LangYa::CastleRight1.ID, MyTeam},
                         {LangYa::CastleRight2.ID, MyTeam},
                         {LangYa::BuffShoot.ID, MyTeam}
@@ -2848,6 +3163,9 @@ namespace BehaviorTree {
             LoggerPtr->Info("> Go Recovery");
             return;
         }
+        if (TickRegionalAreaTask(MyTeam, EnemyTeam)) {
+            return;
+        }
         if (TickNaviAreaTransition()) {
             return;
         }
@@ -2864,7 +3182,7 @@ namespace BehaviorTree {
         
         if(now_time < 20) SET_POSITION(BuffShoot, MyTeam);
         else if(now_time < 40) SET_POSITION(LeftHighLand, MyTeam);
-        else if(now_time < 60) SET_POSITION(CastleLeft, MyTeam);
+        else if(now_time < 60) SET_POSITION(CastleLeft1, MyTeam);
         else if(now_time < 80) SET_POSITION(CastleRight1, MyTeam);
         else if(now_time < 100) SET_POSITION(CastleRight2, MyTeam);
         else if(now_time < 120) SET_POSITION(FlyRoad, MyTeam);
@@ -2875,7 +3193,7 @@ namespace BehaviorTree {
         else if(now_time < 220) SET_POSITION(FlyRoad, EnemyTeam);
         else if(now_time < 240) SET_POSITION(CastleRight1, EnemyTeam);
         else if(now_time < 260) SET_POSITION(CastleRight2, EnemyTeam);
-        else if(now_time < 280) SET_POSITION(CastleLeft, EnemyTeam);
+        else if(now_time < 280) SET_POSITION(CastleLeft1, EnemyTeam);
         else if(now_time < 300) SET_POSITION(LeftHighLand, EnemyTeam);
         else if(now_time < 320) SET_POSITION(BuffShoot, EnemyTeam);
         else if(now_time < 340) SET_POSITION(OutpostArea, EnemyTeam);
@@ -2892,6 +3210,9 @@ namespace BehaviorTree {
             // else speedLevel = 2;
             LoggerPtr->Info("Health: {}, AmmoLeft: {}", myselfHealth, ammoLeft);
             LoggerPtr->Info("> Go Recovery");
+            return;
+        }
+        if (TickRegionalAreaTask(MyTeam, EnemyTeam)) {
             return;
         }
         if (TickNaviAreaTransition()) {
@@ -3000,6 +3321,9 @@ namespace BehaviorTree {
             // else speedLevel = 2;
             LoggerPtr->Info("Health: {}, AmmoLeft: {}", myselfHealth, ammoLeft);
             LoggerPtr->Info("> Go Recovery");
+            return;
+        }
+        if (TickRegionalAreaTask(MyTeam, EnemyTeam)) {
             return;
         }
         if (TickNaviAreaTransition()) {

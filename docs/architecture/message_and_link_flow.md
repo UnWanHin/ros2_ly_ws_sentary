@@ -18,7 +18,7 @@
 另有两个辅助/调试链路：
 
 - **导航 TF bridge**：`/ly/navi/goal_pos_raw` 或 `/ly/navi/target_rel` 经 `navi_tf_bridge` 转 `/goal_pose`。
-- **FaceMode 固定点朝向**：`map_aim_point_node` 根据 `[official_map_x, official_map_y, map_z]` 解算 yaw/pitch，直接发布 `/ly/control/angles`，可选发布 `/ly/control/firecode`，不发布底盘速度。
+- **FaceMode 固定点朝向**：`map_aim_point_node` 根据 `[official_map_x, official_map_y, map_z]` 解算 yaw/pitch；独立测试默认直接发布 `/ly/control/angles`，给 BT 区域任务使用时输出 `/ly/face_mode/angles`，由 BT 统一发布控制。区域状态机需要切换目标时发布 `/ly/face_mode/target_raw`，格式为 `[official_map_x, official_map_y, map_z]` cm。FaceMode 只接管云台巡逻/角度/停火，不清零底盘小陀螺 `Rotate`；需要停小陀螺时由 `FollowMode` 控制。
 
 ---
 
@@ -224,7 +224,8 @@ if(control_result.valid){
 - `/ly/buff/target` - 能量機關目標 (buff 模式)
 - `/ly/navi/reached` - 導航當前目標是否已到達，`true` 表示到達
 - `/ly/navi/reachable` - 導航當前目標是否可達，`false` 表示無有效路徑
-- `/ly/face_mode/angles` - FaceMode 角度預留輸入，主決策尚未把它作為完整模式自動選用
+- `/ly/face_mode/angles` - FaceMode 角度输入；区域任务开启固定朝向时由 BT 消费
+- `/ly/navi/position` - 导航 TF 反解出的自身官方地图坐标，`UInt16MultiArray [x_cm, y_cm]`
 
 **behavior_tree 發布**:
 - `/ly/control/angles`
@@ -232,6 +233,7 @@ if(control_result.valid){
 - `/ly/control/vel`
 - `/ly/control/posture`
 - `/ly/navi/goal`, `/ly/navi/goal_pos_raw`, `/ly/navi/target_rel`, `/ly/navi/speed_level`
+- `/ly/face_mode/target_raw` - 区域任务动态更新 FaceMode 目标，`UInt16MultiArray [official_map_x, official_map_y, map_z]`
 
 **gimbal_driver 訂閱**:
 - `/ly/control/*`
@@ -478,7 +480,7 @@ float32 pitch
 - `rotate`
 - `raw`
 
-`FollowMode=1` 时，`behavior_tree` 会停小陀螺、停巡逻扫描、停止新的开火翻转，并保持当前云台角。
+`FollowMode=1` 时，`behavior_tree` 会停小陀螺、停巡逻扫描、停止新的开火翻转，并保持当前云台角。FaceMode 区域接管只停云台巡逻/开火并使用固定点角度，不会单独停小陀螺。
 
 ---
 

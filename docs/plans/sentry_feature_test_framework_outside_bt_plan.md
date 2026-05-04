@@ -120,7 +120,7 @@ chassis:
     use_xy: true
     goals: [[600, 600], [1200, 600], [1200, 1000], [600, 1000]]
   patrol:
-    route: ["CastleLeft", "CastleRight1", "BuffShoot", "MidShoot"]
+    route: ["CastleLeft1", "CastleRight1", "BuffShoot", "MidShoot"]
     dwell_sec: 5
 ```
 
@@ -213,4 +213,3 @@ chassis:
 - **Phase 3（完善）**
   - 小陀螺位测试与编码校验
   - 与 `self_check_sentry.sh` 集成测试 profile
-

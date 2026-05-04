@@ -32,11 +32,15 @@
 ### 固定点位 / TF bridge 工具
 
 - `scripts/navi/navitomap.sh`：手动把官方地图二维点 `/ly/navi/goal_pos_raw` 经 `navi_tf_bridge` 的 4x4 矩阵转成 `/goal_pose`。
-- `scripts/navi/facemode.sh`：FaceMode 简短入口；位置参数为 `official_map_x official_map_y map_z`，单位 cm。
+- `scripts/navi/facemode.sh`：FaceMode 简短入口；位置参数为 `official_map_x official_map_y map_z`，单位 cm；`--bt-output` 输出到 `/ly/face_mode/angles` 给 BT 区域任务使用。
 - `scripts/navi/map_aim_point_test.sh`：FaceMode 固定点朝向测试；给 `[official_map_x, official_map_y, map_z]`，X/Y 走 `tf_config.yaml` 的 raw-goal 矩阵，Z 直接按 map 高度使用。
 - `scripts/navi/map_aim_point_attach.sh`：在已有 stack 上只附加 FaceMode/map_aim_point_node。
 
-FaceMode 的独立测试节点会直接发布 `/ly/control/angles`，可选发布 `/ly/control/firecode`，不发布底盘速度，默认 `yaw_sign=-1.0`。BT 侧目前有 `/ly/face_mode/angles` 订阅和 `AimMode::FaceMode` 预留，但主决策尚未把它作为完整模式自动选择。
+FaceMode 的独立测试节点默认直接发布 `/ly/control/angles`，可选发布 `/ly/control/firecode`，不发布底盘速度，默认 `yaw_sign=-1.0`。给 BT 使用时必须走 `/ly/face_mode/angles`，由 BT 统一发布 `/ly/control/angles` 和 firecode。BT 需要运行时切换固定朝向目标时，会发布 `/ly/face_mode/target_raw`，格式为 `[official_map_x, official_map_y, map_z]`，单位 cm。
+
+`config/AreaManager.yaml` 放区域启用状态和区域任务参数；区域状态机内置的固定朝向目标通过 `/ly/face_mode/target_raw` 动态下发。`/ly/face_mode/angles` 本身仍然是角度 topic，不携带官方地图坐标。
+
+`navi_tf_bridge` 还会按 `map_frame <- base_frame` 查询 TF，并用同一套 raw-goal 4x4 矩阵反解成官方地图厘米坐标发布 `/ly/navi/position`。BT 会把它作为 `/ly/me` 官方坐标之外的补充自身位置来源。
 
 ### 下位机串口接口（由 gimbal_driver 对接）
 

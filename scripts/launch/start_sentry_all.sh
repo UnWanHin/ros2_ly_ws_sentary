@@ -18,6 +18,7 @@ DEFAULT_PREDICTOR_CONFIG_FILE="${ROOT_DIR}/src/predictor/config/predictor_config
 DEFAULT_OUTPOST_CONFIG_FILE="${ROOT_DIR}/src/outpost_hitter/config/outpost_config.yaml"
 DEFAULT_BUFF_CONFIG_FILE="${ROOT_DIR}/src/buff_hitter/config/buff_config.yaml"
 DEFAULT_OVERRIDE_CONFIG_FILE="${ROOT_DIR}/config/override_config.yaml"
+DEFAULT_AREA_MANAGER_CONFIG_FILE="${ROOT_DIR}/config/AreaManager.yaml"
 DEFAULT_COMMON_CONFIG_FILE="${ROOT_DIR}/config/common.yaml"
 
 STACK_LAUNCH_REGEX="ros2 launch behavior_tree sentry_all.launch.py"
@@ -237,6 +238,13 @@ if ! has_launch_arg_key "base_config_file"; then
   echo "[INFO] default base_config_file=${DEFAULT_BASE_CONFIG_FILE}"
 else
   for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == base_config_file:=* ]] && echo "[INFO] override base_config_file=${arg#base_config_file:=}"; done
+fi
+
+if ! has_launch_arg_key "area_manager_config_file"; then
+  LAUNCH_ARGS=("area_manager_config_file:=${DEFAULT_AREA_MANAGER_CONFIG_FILE}" "${LAUNCH_ARGS[@]}")
+  echo "[INFO] default area_manager_config_file=${DEFAULT_AREA_MANAGER_CONFIG_FILE}"
+else
+  for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == area_manager_config_file:=* ]] && echo "[INFO] override area_manager_config_file=${arg#area_manager_config_file:=}"; done
 fi
 
 if ! has_launch_arg_key "detector_config_file"; then

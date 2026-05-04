@@ -91,6 +91,12 @@
 ./scripts/navi/facemode.sh 1093 366 100 --with-tf-tree
 ```
 
+给 `behavior_tree` 区域任务使用时：
+
+```bash
+./scripts/navi/facemode.sh --bt-output 744 1263 100 --with-tf-tree
+```
+
 底层测试入口：
 
 ```bash
@@ -108,8 +114,10 @@ OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./scripts/navi/map_aim_point_at
 - `OFFICIAL_MAP_X/OFFICIAL_MAP_Y/MAP_Z` 都按 `cm` 传入。
 - X/Y 是官方二维地图坐标，会走 `tf_config.yaml` 的 `raw_goal_transform_matrix`。
 - Z 不参与官方二维 X/Y 转换，只作为目标在输出地图系里的高度使用。
+- `config/AreaManager.yaml` 记录区域启用状态和区域任务参数；区域状态机需要运行时切换固定朝向点时，由 BT 发布 `/ly/face_mode/target_raw`，FaceMode 脚本参数只提供启动初始目标。
 - `yaw_sign` 默认是 `-1.0`。
 - 默认 `solve_mode=camera_projection`：把目标点转换到 `gx_camera`，按相机投影误差给 `/ly/control/angles`。
+- `facemode.sh --bt-output` 会改为输出 `/ly/face_mode/angles` 并关闭 FaceMode 自己的 firecode，由 BT 统一发布 `/ly/control/angles` 和 `/ly/control/firecode`。
 - `solve_mode=base_link` 可走目标在 `solve_frame` 下的几何角度解算。
 - 节点只发云台角和可选 aim firecode，不发底盘速度。
 - 如果目标在 `gx_camera` 后方，当前不会再直接跳过；会先用同一个 camera-frame 向量做几何 yaw/pitch fallback，让云台先转到正面，随后继续用 camera projection 微调。
@@ -145,6 +153,6 @@ ros2 launch navi_tf_bridge map_aim_point.launch.py --show-args
 
 ## 当前约束
 
-- FaceMode 现在主要作为独立节点直接发 `/ly/control/angles` 使用。
-- `behavior_tree` 已预留 `/ly/face_mode/angles` 订阅和 `AimMode::FaceMode` 枚举，但主决策尚未把 FaceMode 接成一个完整 BT 模式。
+- FaceMode 默认仍可作为独立节点直接发 `/ly/control/angles` 使用。
+- `behavior_tree` 会在区域任务请求固定朝向时消费 `/ly/face_mode/angles`；这一路需要用 `facemode.sh --bt-output ...` 启动，避免和 BT 同时发布 `/ly/control/angles`。动态目标点通过 `/ly/face_mode/target_raw` 下发。
 - `tf_tree` 只提供车体到云台/相机链路；地图/里程计到车体的定位 TF 仍由导航/定位系统提供。

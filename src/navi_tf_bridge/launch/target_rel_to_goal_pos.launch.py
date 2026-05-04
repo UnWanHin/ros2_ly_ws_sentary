@@ -79,6 +79,10 @@ def generate_launch_description():
             "output_target_map_topic",
             default_value=str(get_default("output_target_map_topic", "/ly/navi/target_map")),
         ),
+        DeclareLaunchArgument(
+            "output_navi_position_topic",
+            default_value=str(get_default("output_navi_position_topic", "/ly/navi/position")),
+        ),
         DeclareLaunchArgument("map_frame", default_value=str(get_default("map_frame", "map"))),
         DeclareLaunchArgument(
             "base_frame", default_value=str(get_default("base_frame", "base_link"))
@@ -98,6 +102,14 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "publish_target_map",
             default_value=_bool_default(get_default("publish_target_map", True)),
+        ),
+        DeclareLaunchArgument(
+            "publish_navi_position",
+            default_value=_bool_default(get_default("publish_navi_position", True)),
+        ),
+        DeclareLaunchArgument(
+            "navi_position_publish_hz",
+            default_value=str(float(get_default("navi_position_publish_hz", 10.0))),
         ),
         DeclareLaunchArgument(
             "publish_goal_pos",
@@ -218,6 +230,7 @@ def generate_launch_description():
                         "output_goal_pos_topic": LaunchConfiguration("output_goal_pos_topic"),
                         "output_goal_pose_topic": LaunchConfiguration("output_goal_pose_topic"),
                         "output_target_map_topic": LaunchConfiguration("output_target_map_topic"),
+                        "output_navi_position_topic": LaunchConfiguration("output_navi_position_topic"),
                         "map_frame": LaunchConfiguration("map_frame"),
                         "base_frame": LaunchConfiguration("base_frame"),
                         "fallback_base_frame": LaunchConfiguration("fallback_base_frame"),
@@ -229,6 +242,12 @@ def generate_launch_description():
                         ),
                         "publish_target_map": ParameterValue(
                             LaunchConfiguration("publish_target_map"), value_type=bool
+                        ),
+                        "publish_navi_position": ParameterValue(
+                            LaunchConfiguration("publish_navi_position"), value_type=bool
+                        ),
+                        "navi_position_publish_hz": ParameterValue(
+                            LaunchConfiguration("navi_position_publish_hz"), value_type=float
                         ),
                         "publish_goal_pos": ParameterValue(
                             LaunchConfiguration("publish_goal_pos"), value_type=bool

@@ -14,7 +14,7 @@
 - `step2png.py`：一鍵把 STEP 轉俯視 PNG（獨立腳本）
 - `mappointer.py`：一鍵互動入口（選 STEP、選既有/新建 map、打開標點頁）
 - `scripts/step_inspect.py`：讀 STEP 基本資訊（單位、bbox）
-- `scripts/map_plugin_cli.py`：管理點位插件 JSON（初始化/驗證/輸出 Area.hpp 片段；點位清單會從 `BasicTypes.hpp`/`Area.hpp` 讀取）
+- `scripts/map_plugin_cli.py`：管理點位插件 JSON（初始化/同步/驗證/輸出 Area.hpp 片段；點位清單和座標會從 `BasicTypes.hpp`/`Area.hpp` 讀取）
 - `scripts/solve_affine.py`：用對照點解 2D 仿射映射（解決「上位機點位 ≠ 導航實際」）
 - `web/map_marker.html`：標點工具（載入底圖、紅藍點位點選、匯出 JSON；C++ 區塊線中 `Common*Points` 會用黃色顯示）
 
@@ -55,6 +55,7 @@ python3 tools/maps/mappointer.py --image-file tools/maps/basemaps/RMUC2026_V1.2.
    - 開 `tools/maps/web/map_marker.html`（瀏覽器）。
    - 上傳底圖 PNG，按點位 ID 填紅/藍座標，匯出 `map_plugin.json`。
 4. **驗證/產出 C++ 片段**
+   - `python3 tools/maps/scripts/map_plugin_cli.py sync --input tools/maps/map_plugin.json`
    - `python3 tools/maps/scripts/map_plugin_cli.py validate --input tools/maps/map_plugin.json`
    - `python3 tools/maps/scripts/map_plugin_cli.py emit-area --input tools/maps/map_plugin.json > /tmp/new_area_snippet.hpp`
 5. **若導航側有自己的座標系，先做映射**

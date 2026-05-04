@@ -36,6 +36,10 @@ public:
     rclcpp::Node & node,
     geometry_msgs::msg::PointStamped & point_map,
     std::string & source_name);
+  bool mapToRawCentimeters(
+    const geometry_msgs::msg::Point & point_map,
+    double & raw_x_cm,
+    double & raw_y_cm) const;
 
 private:
   Config config_{};

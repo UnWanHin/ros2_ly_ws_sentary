@@ -1,6 +1,6 @@
 # Decision Visualization Trace And Viewer
 
-Updated: 2026-05-03
+Updated: 2026-05-04
 
 ## Purpose
 
@@ -21,6 +21,7 @@ In offline mode, it can send file-based control commands to `decision_viz.mock_i
 - Viewer config: `src/decision_viz/config/default.yaml`
 - Default map: `tools/maps/basemaps/buff_map_field.png`
 - Rule-aware structure overlay source: `src/decision_viz/config/default.yaml` -> `structures`
+- The structure overlay includes `RoadlandFollow.Red` and `RoadlandFollow.Blue`, matching the AreaManager Roadland FollowMode sub-area.
 - Scripted route overlay source: `src/decision_viz/config/default.yaml` -> `scripted_path`
 
 ## Trace Recording
@@ -226,7 +227,7 @@ The viewer uses coordinates in this order:
 
 Terrain height is configured, not inferred. `config/default.yaml` contains an approximate 2D elevation overlay based on the visible map artwork. Treat it as a debug layer only until verified against official CAD/rule metadata.
 
-Navigation goal ID `19` is `Highland`, a regional Highland compatibility/via point at red `(744, 1263)` and blue `(2056, 237)`. Current regional Highland compatibility arrival radius is 20 cm; during enter/via/leave transitions, behavior_tree may set `follow_mode` while routing through Highland or `CastleLeft`.
+Navigation goal ID `19` is `Highland`, a regional Highland compatibility/via point at red `(744, 1263)` and blue `(2056, 237)`. Current regional Highland compatibility arrival radius is 20 cm; during enter/via/leave transitions, behavior_tree may set `follow_mode` while routing through Highland or `CastleLeft1`. `CastleLeft1` is ID `5` at red `(510, 964)` and blue `(2290, 536)`; `CastleLeft2` is ID `20` at red `(831, 960)` and blue `(1969, 540)`.
 
 ## Maintenance Rules
 

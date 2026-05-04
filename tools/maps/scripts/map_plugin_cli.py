@@ -20,7 +20,7 @@ FALLBACK_POINT_ID_NAME = {
     2: "Recovery",
     3: "BuffShoot",
     4: "LeftHighLand",
-    5: "CastleLeft",
+    5: "CastleLeft1",
     6: "Castle",
     7: "CastleRight1",
     8: "CastleRight2",
@@ -35,6 +35,9 @@ FALLBACK_POINT_ID_NAME = {
     17: "HoleRoad",
     18: "OccupyArea",
     19: "Highland",
+    20: "CastleLeft2",
+    21: "BaseToCentral",
+    22: "CentralToBase",
 }
 
 
@@ -73,6 +76,20 @@ def parse_area_location_names(text: str) -> list[str]:
     return [match.group(1) for match in pattern.finditer(text)]
 
 
+def parse_area_locations(text: str) -> dict[str, tuple[tuple[int, int], tuple[int, int]]]:
+    pattern = re.compile(
+        r"(?:static\s+const\s+)?(?:auto|Location\s*<[^>]+>)\s+([A-Za-z_]\w*)\s*"
+        r"\{\s*\{\s*(-?\d+)\s*,\s*(-?\d+)\s*\}\s*,\s*\{\s*(-?\d+)\s*,\s*(-?\d+)\s*\}\s*\}\s*;?"
+    )
+    locations: dict[str, tuple[tuple[int, int], tuple[int, int]]] = {}
+    for match in pattern.finditer(text):
+        locations[match.group(1)] = (
+            (int(match.group(2)), int(match.group(3))),
+            (int(match.group(4)), int(match.group(5))),
+        )
+    return locations
+
+
 def read_text_if_exists(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8")
@@ -99,6 +116,11 @@ def load_point_catalog(area_header: str | None = None, basic_types: str | None =
         used_names.add(name)
         next_id += 1
     return dict(sorted(point_id_name.items()))
+
+
+def load_area_locations(area_header: str | None = None) -> dict[str, tuple[tuple[int, int], tuple[int, int]]]:
+    area_header_path = Path(area_header).expanduser().resolve() if area_header else DEFAULT_AREA_HEADER
+    return parse_area_locations(read_text_if_exists(area_header_path))
 
 
 def normalize_point(raw: dict[str, Any], point_id_name: dict[int, str]) -> PointEntry:
@@ -163,6 +185,45 @@ def validate_plugin(data: dict[str, Any], point_id_name: dict[int, str]) -> tupl
     return entries, errors
 
 
+def sync_plugin_data(
+    data: dict[str, Any],
+    point_id_name: dict[int, str],
+    area_locations: dict[str, tuple[tuple[int, int], tuple[int, int]]],
+    update_coords: bool,
+) -> dict[str, Any]:
+    points_raw = data.get("points", [])
+    if not isinstance(points_raw, list):
+        points_raw = []
+
+    existing_by_id: dict[int, dict[str, Any]] = {}
+    for raw in points_raw:
+        if not isinstance(raw, dict) or "id" not in raw:
+            continue
+        try:
+            existing_by_id[int(raw["id"])] = raw
+        except Exception:
+            continue
+
+    synced = dict(data)
+    synced_points: list[dict[str, Any]] = []
+    for id_value, name in point_id_name.items():
+        existing = existing_by_id.get(id_value, {})
+        point = {
+            "id": id_value,
+            "name": name,
+            "red": list(existing.get("red", [0, 0])),
+            "blue": list(existing.get("blue", [0, 0])),
+        }
+        if update_coords and name in area_locations:
+            red, blue = area_locations[name]
+            point["red"] = [red[0], red[1]]
+            point["blue"] = [blue[0], blue[1]]
+        synced_points.append(point)
+
+    synced["points"] = synced_points
+    return synced
+
+
 def cmd_init(args: argparse.Namespace) -> None:
     output = Path(args.output).expanduser().resolve()
     point_id_name = load_point_catalog(args.area_header, args.basic_types)
@@ -195,6 +256,28 @@ def cmd_validate(args: argparse.Namespace) -> None:
             print(f"- {error}")
         raise SystemExit(2)
     print("validation ok")
+
+
+def cmd_sync(args: argparse.Namespace) -> None:
+    input_path = Path(args.input).expanduser().resolve()
+    output_path = Path(args.output).expanduser().resolve() if args.output else input_path
+    data = read_json(input_path)
+    point_id_name = load_point_catalog(args.area_header, args.basic_types)
+    area_locations = load_area_locations(args.area_header)
+    synced = sync_plugin_data(
+        data,
+        point_id_name,
+        area_locations,
+        update_coords=not args.preserve_existing_coords,
+    )
+    _, errors = validate_plugin(synced, point_id_name)
+    if errors:
+        print("sync produced invalid plugin:")
+        for error in errors:
+            print(f"- {error}")
+        raise SystemExit(2)
+    write_json(output_path, synced)
+    print(f"synced: {output_path}")
 
 
 def cmd_emit_area(args: argparse.Namespace) -> None:
@@ -243,6 +326,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser_validate.add_argument("--input", required=True, help="Plugin JSON path")
     add_catalog_args(parser_validate)
     parser_validate.set_defaults(func=cmd_validate)
+
+    parser_sync = subparsers.add_parser(
+        "sync",
+        help="Sync plugin JSON point fields from BasicTypes.hpp and Area.hpp",
+    )
+    parser_sync.add_argument("--input", required=True, help="Plugin JSON path")
+    parser_sync.add_argument("--output", default="", help="Output JSON path; defaults to overwriting input")
+    parser_sync.add_argument(
+        "--preserve-existing-coords",
+        action="store_true",
+        help="Only add/rename point fields; do not refresh coordinates from Area.hpp",
+    )
+    add_catalog_args(parser_sync)
+    parser_sync.set_defaults(func=cmd_sync)
 
     parser_emit = subparsers.add_parser("emit-area", help="Emit Area.hpp Location lines")
     parser_emit.add_argument("--input", required=True, help="Plugin JSON path")

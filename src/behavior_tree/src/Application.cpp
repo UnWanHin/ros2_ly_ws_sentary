@@ -215,6 +215,7 @@ std::string DefaultConfigPathForProfile(const std::string& pkg_path, const std::
         pub_navi_goal_       = node_->create_publisher<std_msgs::msg::UInt8>(ly_navi_goal::Name, 10);
         pub_navi_goal_pos_raw_= node_->create_publisher<std_msgs::msg::UInt16MultiArray>(ly_navi_goal_pos_raw::Name, 10);
         pub_navi_goal_pos_   = node_->create_publisher<std_msgs::msg::UInt16MultiArray>(ly_navi_goal_pos::Name, 10);
+        pub_face_mode_target_raw_ = node_->create_publisher<std_msgs::msg::UInt16MultiArray>(ly_face_mode_target_raw::Name, 10);
         pub_navi_speed_level_= node_->create_publisher<std_msgs::msg::UInt8>(ly_navi_speed_level::Name, 10);
         pub_navi_lower_head_ = node_->create_publisher<std_msgs::msg::UInt8>(ly_navi_lower_head::Name, 10);
         pub_bt_target_       = node_->create_publisher<std_msgs::msg::UInt8>(ly_bt_target::Name, 10);

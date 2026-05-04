@@ -33,6 +33,11 @@
         "UseXY": true,
         "ToNavi": true
     },
+    "FaceMode": {
+        "Enable": true,
+        "LostTargetHoldMs": 300,
+        "SuppressFire": true
+    },
     "RegionalDefense": {
         "Enable": false,
         "EnableSoftEnemySideThreat": false,
@@ -58,7 +63,8 @@
             "Highland": true,
             "BuffShoot": true,
             "HoleRoad": true,
-            "CastleLeft": true,
+            "CastleLeft1": true,
+            "CastleLeft2": true,
             "CastleRight2": true,
             "CastleRight1": true
         }

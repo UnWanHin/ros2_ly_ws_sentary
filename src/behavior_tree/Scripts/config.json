@@ -30,6 +30,11 @@
     "NaviSetting" : {
         "UseXY": true
     },
+    "FaceMode": {
+        "Enable": true,
+        "LostTargetHoldMs": 300,
+        "SuppressFire": true
+    },
     "DecisionAutonomy": {
         "Enable": false,
         "EnabledModules": ["strategy_mode", "navi_goal", "aim_target"],

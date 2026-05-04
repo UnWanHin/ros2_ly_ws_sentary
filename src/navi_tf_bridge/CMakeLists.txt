@@ -49,6 +49,7 @@ ament_target_dependencies(target_rel_to_goal_pos_node
 
 ament_target_dependencies(map_aim_point_node
   rclcpp
+  std_msgs
   geometry_msgs
   gimbal_driver
   tf2

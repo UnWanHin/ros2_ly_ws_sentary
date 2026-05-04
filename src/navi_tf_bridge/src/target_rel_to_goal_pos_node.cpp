@@ -1,4 +1,6 @@
 #include <chrono>
+#include <algorithm>
+#include <cmath>
 #include <functional>
 #include <memory>
 #include <sstream>
@@ -9,6 +11,7 @@
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
+#include "geometry_msgs/msg/transform_stamped.hpp"
 #include "navi_tf_bridge/chase_pointer.hpp"
 #include "navi_tf_bridge/goal_output.hpp"
 #include "navi_tf_bridge/map_pointer.hpp"
@@ -39,6 +42,8 @@ public:
       this->declare_parameter<std::string>("output_goal_pose_topic", "/goal_pose");
     output_target_map_topic_ =
       this->declare_parameter<std::string>("output_target_map_topic", "/ly/navi/target_map");
+    output_navi_position_topic_ =
+      this->declare_parameter<std::string>("output_navi_position_topic", "/ly/navi/position");
 
     const std::string map_frame = this->declare_parameter<std::string>("map_frame", "map");
     const std::string base_frame =
@@ -50,8 +55,12 @@ public:
       this->declare_parameter<std::string>("target_rel_default_frame", "gx_camera");
 
     const bool publish_target_map = this->declare_parameter<bool>("publish_target_map", true);
+    const bool publish_navi_position =
+      this->declare_parameter<bool>("publish_navi_position", true);
     const bool publish_goal_pos = this->declare_parameter<bool>("publish_goal_pos", false);
     const bool publish_goal_pose = this->declare_parameter<bool>("publish_goal_pose", true);
+    const double navi_position_publish_hz =
+      std::max(1.0, this->declare_parameter<double>("navi_position_publish_hz", 10.0));
     const bool invert_y_axis = this->declare_parameter<bool>("invert_y_axis", false);
     const int y_axis_max_cm = this->declare_parameter<int>("y_axis_max_cm", 1500);
     const bool goal_pos_uint16_encode_enabled =
@@ -180,6 +189,13 @@ public:
       pub_target_map_ =
         this->create_publisher<geometry_msgs::msg::PointStamped>(output_target_map_topic_, 10);
     }
+    if (publish_navi_position) {
+      pub_navi_position_ =
+        this->create_publisher<std_msgs::msg::UInt16MultiArray>(output_navi_position_topic_, 10);
+      navi_position_timer_ = this->create_wall_timer(
+        std::chrono::duration<double>(1.0 / navi_position_publish_hz),
+        std::bind(&TargetRelToGoalPosNode::onNaviPositionTimer, this));
+    }
 
     logStartup();
 
@@ -258,6 +274,69 @@ private:
     if (should_cancel && debug_export_timer_) {
       debug_export_timer_->cancel();
     }
+  }
+
+  void onNaviPositionTimer()
+  {
+    if (!pub_navi_position_) {
+      return;
+    }
+
+    geometry_msgs::msg::Point point_map;
+    std::string resolved_source_frame;
+    std::string last_tf_error;
+    for (const auto & source_frame :
+      {chase_pointer_.config().base_frame, chase_pointer_.config().fallback_base_frame})
+    {
+      if (source_frame.empty()) {
+        continue;
+      }
+      try {
+        const geometry_msgs::msg::TransformStamped tf_map_base =
+          tf_buffer_.lookupTransform(
+          chase_pointer_.config().map_frame,
+          source_frame,
+          rclcpp::Time(0, 0, this->get_clock()->get_clock_type()),
+          rclcpp::Duration::from_seconds(0.05));
+        point_map.x = tf_map_base.transform.translation.x;
+        point_map.y = tf_map_base.transform.translation.y;
+        point_map.z = tf_map_base.transform.translation.z;
+        resolved_source_frame = source_frame;
+        break;
+      } catch (const tf2::TransformException & ex) {
+        last_tf_error =
+          "lookup " + chase_pointer_.config().map_frame + " <- " + source_frame +
+          " failed: " + ex.what();
+      }
+    }
+
+    if (resolved_source_frame.empty()) {
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(),
+        *this->get_clock(),
+        2000,
+        "Cannot publish /ly/navi/position: %s",
+        last_tf_error.c_str());
+      return;
+    }
+
+    double raw_x_cm = 0.0;
+    double raw_y_cm = 0.0;
+    if (!map_pointer_.mapToRawCentimeters(point_map, raw_x_cm, raw_y_cm)) {
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(),
+        *this->get_clock(),
+        2000,
+        "Cannot publish /ly/navi/position: raw-goal static calibration is not ready.");
+      return;
+    }
+
+    std_msgs::msg::UInt16MultiArray msg;
+    msg.data = {
+      static_cast<std::uint16_t>(std::clamp(std::lround(raw_x_cm), 0L, 65535L)),
+      static_cast<std::uint16_t>(std::clamp(std::lround(raw_y_cm), 0L, 65535L))
+    };
+    pub_navi_position_->publish(msg);
   }
 
   void goalPosRawCallback(const std_msgs::msg::UInt16MultiArray::SharedPtr msg)
@@ -345,6 +424,7 @@ private:
   std::string output_goal_pos_topic_;
   std::string output_goal_pose_topic_;
   std::string output_target_map_topic_;
+  std::string output_navi_position_topic_;
 
   ChasePointer chase_pointer_;
   MapPointer map_pointer_;
@@ -358,7 +438,9 @@ private:
   rclcpp::Subscription<std_msgs::msg::UInt16MultiArray>::SharedPtr sub_goal_pos_raw_;
   GoalOutput::Publishers goal_publishers_;
   rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr pub_target_map_;
+  rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr pub_navi_position_;
   rclcpp::TimerBase::SharedPtr debug_export_timer_;
+  rclcpp::TimerBase::SharedPtr navi_position_timer_;
 };
 
 }  // namespace navi_tf_bridge

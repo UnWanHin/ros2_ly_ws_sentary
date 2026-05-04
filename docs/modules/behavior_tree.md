@@ -114,7 +114,7 @@ rclcpp::shutdown();
 | `autoAimData` | 普通瞄準的角度數據（來自 predictor） |
 | `buffAimData` | 打符的角度數據（來自 buff_hitter） |
 | `outpostAimData` | 前哨站角度數據（來自 outpost_hitter） |
-| `faceModeData` | FaceMode 固定點朝向角輸入（預留 BT 內部接入口，主決策尚未直接選用） |
+| `faceModeData` | FaceMode 固定點朝向角輸入；区域任务需要固定朝向时会读取这一路 |
 | `gimbalControlData` | 最終發出的雲台控制數據（角度+火控） |
 | `naviCommandGoal` | 導航目標點位（uint8，對應 Area 枚舉） |
 | `speedLevel` | 底盤速度等級（0=停、1=正常、2=快） |
@@ -224,8 +224,9 @@ void TreeTick() {
 這個函數決定最終發出什麼角度和火控碼：
 
 1. **小陀螺控制**：根據血量下降速度（`healthDecreaseDetector`）和底盤速度（`naviVelocity`），動態設置 `FireCode.Rotate`（0=停止、1-3=不同速度）
-2. **FollowMode 優先級**：`FireCode.FollowMode=1` 時停止 rotate、停止巡邏掃描、保持當前雲台角，並停止新的 `FireStatus` 翻轉。
-3. **本輪收到目標回調時**：
+2. **FaceMode 優先級**：区域任务启用 FaceMode 时接管云台角，停止云台巡逻扫描，并按 `FaceMode.SuppressFire` 停止新的开火翻转；FaceMode 本身不清零 `FireCode.Rotate`，底盘小陀螺继续由原策略输出。
+3. **FollowMode 優先級**：`FireCode.FollowMode=1` 時停止 rotate、停止巡邏掃描、保持當前雲台角，並停止新的 `FireStatus` 翻轉。
+4. **本輪收到目標回調時**：
    - 按 `aimMode` 從對應的 `Aim*Data` 取角度
    - `autoaim/outpost` 不再依賴 `Target.status` 來決定是否翻火控
    - 非 `buff` 模式按 `fireRateClock` 控制翻轉开火
@@ -259,7 +260,8 @@ void TreeTick() {
 | `/ly/predictor/target` | `autoAimData`, `isFindTargetAtomic` | 普通瞄準角度；当前已恢复为老链路语义：消息一到就锁，`autoaim` 侧直接视为可跟随且可开火 |
 | `/ly/outpost/target` | `outpostAimData`, `isFindTargetAtomic` | 前哨瞄準角度；当前同样按老链路语义视为可开火 |
 | `/ly/buff/target` | `buffAimData`, `isFindTargetAtomic` | 打符瞄準角度 |
-| `/ly/face_mode/angles` | `faceModeData` | FaceMode 角度預留輸入；獨立 `map_aim_point_node` 默認直接發 `/ly/control/angles` |
+| `/ly/face_mode/angles` | `faceModeData` | FaceMode 角度输入；给 BT 内部接管时让 `map_aim_point_node` 输出到这个 topic |
+| `/ly/navi/position` | `friendRobots[Sentry].position_` | 导航 TF 反解出的自身官方地图厘米坐标，作为 `/ly/position/data` 之外的补充位置来源 |
 | `/ly/navi/reached` | `naviReach` | 導航當前目標是否已到達；外部狀態新鮮且匹配當前目標時優先使用 |
 | `/ly/navi/reachable` | `naviReachable` | 導航當前目標是否有有效路徑；超時/未收到/不匹配當前目標時退回內部距離判斷 |
 | `/ly/gimbal/capV` | `capV` | 電容電壓 |
@@ -282,6 +284,7 @@ void TreeTick() {
 | `/ly/ra/enable` | 打符模式開關 |
 | `/ly/outpost/enable` | 前哨站瞄準開關 |
 | `/ly/bt/target` | 當前打擊目標類型（→ `detector` 和 `predictor`） |
+| `/ly/face_mode/target_raw` | FaceMode 动态目标，`[official_map_x, official_map_y, map_z]` cm |
 | `/ly/navi/target_rel` | 追擊相對目標點（x/y/z，供導航側閉環） |
 | `/ly/navi/goal` | 導航目標點位 |
 | `/ly/navi/goal_pos_raw` | TF bridge 靜態點位輸入 |
@@ -376,7 +379,7 @@ void TreeTick() {
 
 | 類型 | 說明 |
 |------|------|
-| `AimMode` | 枚舉：AutoAim/Buff/Outpost/RotateScan/FaceMode；FaceMode 目前是預留枚舉，固定點朝向主要由 `navi_tf_bridge/map_aim_point_node` 獨立發角 |
+| `AimMode` | 枚舉：AutoAim/Buff/Outpost/RotateScan/FaceMode；固定点朝向可由 `navi_tf_bridge/map_aim_point_node` 直接发角，也可输出到 `/ly/face_mode/angles` 给 BT 区域任务使用 |
 | `ArmorType` | 枚舉：Hero=1, Engineer=2, Infantry1=3, Infantry2=4, Sentry=5, Outpost=7 |
 | `UnitType` | 同上，但用於 Robot 對象索引 |
 | `UnitTeam` | Red/Blue |
@@ -390,7 +393,7 @@ void TreeTick() {
 
 ### `module/Area.hpp` — 地圖區域定義
 
-定義了比賽地圖上所有點位（`BuffShoot`、`OutpostShoot`、`MidShoot`、`CastleLeft` 等），用 `(x, y)` 座標表示，支持紅/藍兩隊鏡像：
+定義了比賽地圖上所有點位（`BuffShoot`、`OutpostShoot`、`MidShoot`、`CastleLeft1`/`CastleLeft2` 等），用 `(x, y)` 座標表示，支持紅/藍兩隊鏡像：
 
 ```cpp
 SET_POSITION(BuffShoot, MyTeam);  // 設置導航目標為打符點位
@@ -398,7 +401,15 @@ SET_POSITION(BuffShoot, MyTeam);  // 設置導航目標為打符點位
 
 `Area::BuffShoot.near(x, y, 100, MyTeam)` 判斷當前位置是否在某點位附近100cm內。
 
-当前区域过渡状态机会用 `Highland` 兼容点处理进入/离开我方高地：进入、经由、离开时开启 `FollowMode`；从我方高地回我方基地侧目标会优先经 `CastleLeft`，到达后关闭 `FollowMode` 再继续原目标。高地兼容到达半径当前为 `DecisionAutonomy.NaviGoal.HighlandCompat.ArriveDistanceCm=20` cm。
+当前区域过渡状态机会用 `Highland` 兼容点处理进入/离开我方高地：进入、经由、离开时开启 `FollowMode`；从我方高地回我方基地侧目标会优先经 `CastleLeft1`，到达后关闭 `FollowMode` 再继续原目标。高地兼容到达半径当前为 `DecisionAutonomy.NaviGoal.HighlandCompat.ArriveDistanceCm=20` cm。
+
+`Area.MyArea.Highland.Task.MyHighland` 是区域任务框架的第一条任务：上游选中我方 Highland 大区点时，任务会按 `Highland(FollowMode+FaceMode)` -> `Highland` 短暂停留并恢复巡逻/小陀螺 -> `BuffShoot` 到达后驻守 10 秒 -> `HoleRoad(FollowMode+FaceMode)` 离开。到达判断复用 `/ly/navi/reached`、`/ly/navi/reachable`，外部状态不可用时才回退到自身位置距离。
+
+`Area.MyArea.Base.Task.MyBase` 管我方 Base 的无特别事件巡游：上游选中我方 Base 大区点时，会从当前坐标最近的 `CastleLeft1`、`CastleLeft2`、`CastleRight2`、`CastleRight1` 中进入循环；拿不到自身坐标时从 `CastleLeft2` 开始。循环顺序固定为 `CastleLeft1 -> CastleLeft2 -> CastleRight2 -> CastleRight1 -> CastleLeft1`，到达判断同样优先使用 `/ly/navi/reached`、`/ly/navi/reachable`。
+
+`Area.MyArea.Roadland.Task.MyRoadland` 管我方 Roadland 的无特别事件区域任务：上游选中我方 Roadland 大区点时，先正常去 `CentralToBase`；到点、不可达或超时后进入强绑定穿越段，打开 `FollowMode + FaceMode`，FaceMode 目标为 `BaseToCentral`，直到到达 `BaseToCentral`、不可达或超时才恢复巡逻/开火/小陀螺。驻守 `BaseToCentral` 时保持普通巡逻和小陀螺；如果明确需要离开或健康/弹量数据低于阈值，则用 `FaceMode(CentralToBase)+FollowMode` 穿回 `CentralToBase`，完成或超时后结束。穿越段不会被受击、识别目标、Buff/Outpost 模式等高优先级逻辑直接取消。
+
+区域状态和区域任务参数集中在 `config/AreaManager.yaml`：`Area.MyArea/EnemyArea/CommonArea` 管 Base、Highland、Roadland、Central 的启用状态，`Area.MyArea.Highland.Task.MyHighland`、`Area.MyArea.Base.Task.MyBase` 和 `Area.MyArea.Roadland.Task.MyRoadland` 管各自区域任务时序。区域任务需要动态切换 FaceMode 目标时，BT 发布 `/ly/face_mode/target_raw`，格式为 `[official_map_x, official_map_y, map_z]` cm。
 
 ---
 

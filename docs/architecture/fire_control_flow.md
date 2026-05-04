@@ -28,6 +28,7 @@
 - 当前 `autoaim/outpost` 这条链已经恢复为老逻辑：一旦 `predictor/outpost` 回调到达，`behavior_tree` 本轮就按节拍翻 firecode
 - `predictor/controller` 仍决定“要不要向 BT 发有效 target”
 - `FollowMode=1` 时，`behavior_tree` 会停止 rotate、停止巡逻扫描、停止新的 `FireStatus` 翻转，并保持当前云台角。
+- 区域任务启用 FaceMode 时，`behavior_tree` 会停止云台巡逻扫描、使用 `/ly/face_mode/angles` 或保持当前云台角，并按 `FaceMode.SuppressFire` 停止新的 `FireStatus` 翻转；FaceMode 本身不清零 `Rotate`，底盘小陀螺是否停止由 `FollowMode` 决定。
 
 ## 2. predictor：谁决定 `status`
 

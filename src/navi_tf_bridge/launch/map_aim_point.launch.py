@@ -50,6 +50,7 @@ def generate_launch_description():
         DeclareLaunchArgument("gimbal_big_yaw_topic", default_value="/ly/gimbal/big_yaw_angles"),
         DeclareLaunchArgument("control_angles_topic", default_value="/ly/control/angles"),
         DeclareLaunchArgument("control_firecode_topic", default_value="/ly/control/firecode"),
+        DeclareLaunchArgument("face_target_topic", default_value="/ly/face_mode/target_raw"),
         DeclareLaunchArgument("publish_firecode", default_value="true"),
         DeclareLaunchArgument("aim_mode", default_value="true"),
         DeclareLaunchArgument("bridge_config_file", default_value=default_bridge_config),
@@ -195,6 +196,8 @@ def generate_launch_description():
                     LaunchConfiguration("control_angles_topic"), value_type=str),
                 "control_firecode_topic": ParameterValue(
                     LaunchConfiguration("control_firecode_topic"), value_type=str),
+                "face_target_topic": ParameterValue(
+                    LaunchConfiguration("face_target_topic"), value_type=str),
                 "publish_firecode": ParameterValue(
                     LaunchConfiguration("publish_firecode"), value_type=bool),
                 "aim_mode": ParameterValue(LaunchConfiguration("aim_mode"), value_type=bool),

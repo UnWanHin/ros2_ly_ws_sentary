@@ -196,7 +196,8 @@
 - `2 Recovery`
 - `3 BuffShoot`
 - `4 LeftHighLand`
-- `5 CastleLeft`
+- `5 CastleLeft1`
+- `20 CastleLeft2`
 - `6 Castle`
 - `7 CastleRight1`
 - `8 CastleRight2`

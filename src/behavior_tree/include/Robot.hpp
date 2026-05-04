@@ -17,7 +17,7 @@ using namespace LangYa;
 namespace BehaviorTree {
 
     enum class TeamedLocation {
-        Home, Recovery, Castle, CastleLeft, CastleRight, 
+        Home, Recovery, Castle, CastleLeft1, CastleLeft2, CastleRight,
         FlyDefense, OutpostArea, MidShoot, LeftShoot, 
         BuffShoot, CastleRight1
     };
@@ -28,7 +28,8 @@ namespace BehaviorTree {
     constexpr std::uint8_t Recovery(UnitTeam) { return 2; }
     constexpr std::uint8_t MidShoot(UnitTeam) { return 10; } // 假設 ID 是 10
     constexpr std::uint8_t Castle(UnitTeam) { return 30; }
-    constexpr std::uint8_t CastleLeft(UnitTeam) { return 31; }
+    constexpr std::uint8_t CastleLeft1(UnitTeam) { return LangYa::CastleLeft1.ID; }
+    constexpr std::uint8_t CastleLeft2(UnitTeam) { return LangYa::CastleLeft2.ID; }
     constexpr std::uint8_t CastleRight(UnitTeam) { return 32; }
     constexpr std::uint8_t CastleRight1(UnitTeam) { return 33; }
     constexpr std::uint8_t BuffShoot(UnitTeam) { return 40; }

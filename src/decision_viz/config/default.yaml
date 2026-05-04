@@ -147,6 +147,11 @@ structures:
       alpha: 50
       outline: "#f472b6"
       outline_alpha: 150
+    follow_zone:
+      fill: "#22c55e"
+      alpha: 34
+      outline: "#86efac"
+      outline_alpha: 150
   items:
     # Walls (major visual barriers / tunnel-style blocks)
     - {name: Wall.CenterCore, kind: wall, rect: [1200, 600, 420, 300]}
@@ -158,6 +163,9 @@ structures:
     - {name: EnergyMechanism.Center, kind: energy_mechanism, shape: circle, center: [1400, 760], radius: 115}
     - {name: Outpost.RedSide, kind: outpost, shape: circle, center: [1090, 370], radius: 95}
     - {name: Outpost.BlueSide, kind: outpost, shape: circle, center: [1707, 1141], radius: 95}
+    # Regional AreaManager follow-mode sub-area
+    - {name: RoadlandFollow.Red, kind: follow_zone, polygon: [[510, 192], [987, 203], [990, 29], [510, 26]]}
+    - {name: RoadlandFollow.Blue, kind: follow_zone, polygon: [[2290, 1308], [1813, 1297], [1810, 1471], [2290, 1474]]}
 
 unit_styles:
   friend:
@@ -195,7 +203,7 @@ goals:
   - {id: 2, name: Recovery, red: [183, 245], blue: [2619, 1249]}
   - {id: 3, name: BuffShoot, red: [924, 1388], blue: [1872, 115]}
   - {id: 4, name: LeftHighLand, red: [406, 1332], blue: [2392, 187]}
-  - {id: 5, name: CastleLeft, red: [657, 952], blue: [2136, 542]}
+  - {id: 5, name: CastleLeft1, red: [510, 964], blue: [2290, 536]}
   - {id: 6, name: Castle, red: [666, 749], blue: [2132, 749]}
   - {id: 7, name: CastleRight1, red: [505, 497], blue: [2293, 1014]}
   - {id: 8, name: CastleRight2, red: [831, 509], blue: [1971, 985]}
@@ -210,3 +218,6 @@ goals:
   - {id: 17, name: HoleRoad, red: [1074, 1249], blue: [1677, 204]}
   - {id: 18, name: OccupyArea, red: [1075, 898], blue: [1702, 609]}
   - {id: 19, name: Highland, red: [744, 1263], blue: [2056, 237]}
+  - {id: 20, name: CastleLeft2, red: [831, 960], blue: [1969, 540]}
+  - {id: 21, name: BaseToCentral, red: [1125, 155], blue: [1675, 1345]}
+  - {id: 22, name: CentralToBase, red: [451, 146], blue: [2349, 1354]}

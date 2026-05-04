@@ -204,6 +204,29 @@ namespace BehaviorTree{
             app.rfidStatus = msg->raw;
         });
 
+        // ly_navi_position
+        // Navigation/TF-derived self position in official-map centimeters: [x, y].
+        GenSub<ly_navi_position>([](Application& app, auto msg) {
+            if (msg->data.size() < 2) {
+                const auto now = std::chrono::steady_clock::now();
+                if (now - app.lastPositionDataGuardLogTime_ > std::chrono::seconds(2)) {
+                    if (app.LoggerPtr) {
+                        app.LoggerPtr->Warning(
+                            "Ignore invalid /ly/navi/position: data size={} (need >=2)",
+                            msg->data.size());
+                    }
+                    app.lastPositionDataGuardLogTime_ = now;
+                }
+                return;
+            }
+            const auto sentry_index = static_cast<std::size_t>(UnitType::Sentry);
+            app.friendRobots[UnitType::Sentry].position_.X = msg->data[0];
+            app.friendRobots[UnitType::Sentry].position_.Y = msg->data[1];
+            app.hasReceivedSentryPosition_ = true;
+            app.lastSentryPositionRxTime_ = std::chrono::steady_clock::now();
+            app.lastFriendPositionRxTime_[sentry_index] = app.lastSentryPositionRxTime_;
+        });
+
         // ly_position_data
         GenSub<ly_position_data>([](Application& app, auto msg) {
             int FriendCarId = msg->friendcarid;

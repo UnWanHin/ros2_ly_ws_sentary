@@ -81,7 +81,7 @@ namespace LangYa{
                     rng = std::mt19937(static_cast<unsigned int>(rd()));
                     random_number = dist(rng);
                     if (random_number == 0) DestinationID = Castle(MyTeam);
-                    else if (random_number == 1) DestinationID = CastleLeft(MyTeam);
+                    else if (random_number == 1) DestinationID = CastleLeft1(MyTeam);
                     else if (random_number == 2) DestinationID = CastleRight1(MyTeam);
                     else DestinationID = BuffShoot(MyTeam);
                 }
@@ -222,7 +222,7 @@ namespace LangYa{
                     std::mt19937 rng(static_cast<unsigned int>(rd()));
                     std::uniform_int_distribution<int> dist(0, 6);
                     int random_number = dist(rng);
-                    if (random_number == 0) DestinationID = CastleLeft(MyTeam);
+                    if (random_number == 0) DestinationID = CastleLeft1(MyTeam);
                     else if (random_number == 1) DestinationID = CastleRight1(MyTeam);
                     else if (random_number == 2) DestinationID = BuffShoot(MyTeam);
                     else DestinationID = Castle(MyTeam);
@@ -234,7 +234,7 @@ namespace LangYa{
                 //     std::mt19937 rng(static_cast<unsigned int>(rd()));
                 //     std::uniform_int_distribution<int> dist(0, 6);
                 //     int random_number = dist(rng);
-                //     if (random_number == 0) DestinationID = CastleLeft(MyTeam);
+                //     if (random_number == 0) DestinationID = CastleLeft1(MyTeam);
                 //     else if (random_number == 1) DestinationID = CastleRight(MyTeam);
                 //     else if (random_number == 2) DestinationID = FlyDefense(MyTeam);
                 //     else DestinationID = Castle(MyTeam);
@@ -483,7 +483,7 @@ class SetAimTargetFromAim : public BT::SyncActionNode {
                     std::mt19937 rng(static_cast<unsigned int>(rd()));
                     std::uniform_int_distribution<int> dist(0, 6);
                     int random_number = dist(rng);
-                    if (random_number == 0) DestinationID = CastleLeft(MyTeam);
+                    if (random_number == 0) DestinationID = CastleLeft1(MyTeam);
                     else if (random_number == 1) DestinationID = CastleRight1(MyTeam);
                     else if (random_number == 2) DestinationID = BuffShoot(MyTeam);
                     else DestinationID = Castle(MyTeam);
@@ -495,7 +495,7 @@ class SetAimTargetFromAim : public BT::SyncActionNode {
                 //     std::mt19937 rng(static_cast<unsigned int>(rd()));
                 //     std::uniform_int_distribution<int> dist(0, 6);
                 //     int random_number = dist(rng);
-                //     if (random_number == 0) DestinationID = CastleLeft(MyTeam);
+                //     if (random_number == 0) DestinationID = CastleLeft1(MyTeam);
                 //     else if (random_number == 1) DestinationID = CastleRight(MyTeam);
                 //     else if (random_number == 2) DestinationID = FlyDefense(MyTeam);
                 //     else DestinationID = Castle(MyTeam);
@@ -960,7 +960,8 @@ namespace BT {
         if (str == "Home") return LangYa::Home;
         if (str == "Recovery") return LangYa::Recovery;
         if (str == "Castle") return LangYa::Castle;
-        if (str == "CastleLeft") return LangYa::CastleLeft;
+        if (str == "CastleLeft1") return LangYa::CastleLeft1;
+        if (str == "CastleLeft2") return LangYa::CastleLeft2;
         if (str == "CastleRight") return LangYa::CastleRight1; // CastleRight 已重命名為 CastleRight1
         if (str == "FlyDefense") return LangYa::FlyRoad;       // FlyDefense 已重命名為 FlyRoad
         if (str == "OutpostArea") return LangYa::OutpostArea;
@@ -968,6 +969,8 @@ namespace BT {
         if (str == "LeftShoot") return LangYa::LeftShoot;
         if (str == "OccupyArea") return LangYa::OccupyArea;
         if (str == "Highland") return LangYa::Highland;
+        if (str == "BaseToCentral") return LangYa::BaseToCentral;
+        if (str == "CentralToBase") return LangYa::CentralToBase;
         return LangYa::Home; // 默認返回 Home
     }
 
