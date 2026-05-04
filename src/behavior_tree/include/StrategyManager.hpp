@@ -38,6 +38,7 @@ private:
     bool handled_{false};
     bool hard_lock_{false};
     bool default_requested_{false};
+    bool default_goal_commanded_{false};
     StrategyLayer handled_layer_{StrategyLayer::Finalizer};
     const char* handled_by_{"none"};
 };

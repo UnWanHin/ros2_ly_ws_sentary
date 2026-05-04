@@ -33,6 +33,7 @@ void StrategyManager::Reset(Application& app) noexcept {
     handled_ = false;
     hard_lock_ = false;
     default_requested_ = false;
+    default_goal_commanded_ = false;
     handled_layer_ = StrategyLayer::Finalizer;
     handled_by_ = "none";
     PublishRuntimeToBlackboards(app);
@@ -77,21 +78,22 @@ bool StrategyManager::RunDefault(Application& app) {
 
     const UnitTeam my_team = app.team;
     const UnitTeam enemy_team = app.team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
-    default_requested_ =
-        !app.IsLeagueProfile() &&
-        !app.IsShowcasePatrolEnabled() &&
-        app.GetStrategyMode() == StrategyMode::HitHero &&
-        app.aimMode != AimMode::Buff &&
-        app.aimMode != AimMode::Outpost &&
-        !app.areaManager_.RegionalAreaTaskActive() &&
-        !app.areaManager_.HighlandTransitionActive() &&
-        !app.EvaluateRegionalDefenseThreat(my_team, enemy_team).has_value();
-    PublishRuntimeToBlackboards(app);
-    return default_requested_;
+    default_requested_ = app.IsDefaultRegionalDecisionReady(my_team, enemy_team);
+    if (!default_requested_) {
+        PublishRuntimeToBlackboards(app);
+        return false;
+    }
+
+    if (app.naviCommandIntervalClock.trigger()) {
+        default_goal_commanded_ = app.TrySetDefaultRegionalGoal(my_team, enemy_team);
+    }
+    MarkHandled(app, StrategyLayer::Default);
+    return true;
 }
 
 bool StrategyManager::RunTask(Application& app) {
-    if (handled_) {
+    if (handled_ &&
+        (handled_layer_ != StrategyLayer::Default || default_goal_commanded_)) {
         return true;
     }
 

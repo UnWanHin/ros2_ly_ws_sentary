@@ -35,8 +35,8 @@ Hard -> Default -> Task -> Tactical -> Finalizer
 
 各層的責任是：
 
-- `Hard`：最高優先級保護，處理 recovery 和 Roadland 強綁定穿越段。Roadland 強綁定段在這層 hard lock，避免被戰術層中途搶走。
-- `Default`：無特別事件時的底層決策請求，主要對應 regional 基本任務和普通 HitHero 巡遊語義。
+- `Hard`：最高優先級保護，處理 recovery/補血補彈和 Roadland 強綁定穿越段。Roadland 強綁定段在這層 hard lock，避免被戰術層中途搶走。
+- `Default`：無特別事件時的底層決策，現在只承接新的底層選點入口：`DecisionAutonomy.NaviGoal(HitHero)` 和 `RegionalIdlePatrol`。舊 HitHero fallback 點表不在 Default 裡。
 - `Task`：已啟動的 AreaManager 任務繼續 tick，包含 Highland/Base/Roadland/Central 任務、Highland 兼容過渡和導航 watchdog。
 - `Tactical`：戰術疊加層，繼續使用原本的 `SetPositionLeagueSimple/HitSentry/HitHero/Protect/NaviTest/ShowcasePatrol` 鏈路。
 - `Finalizer`：保證本 tick 有一個策略層完成，並把策略層狀態同步到黑板。

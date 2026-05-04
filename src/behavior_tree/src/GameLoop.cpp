@@ -2336,6 +2336,33 @@ namespace BehaviorTree {
         return true;
     }
 
+    bool Application::IsDefaultRegionalDecisionReady(
+        const UnitTeam my_team,
+        const UnitTeam enemy_team) const {
+        return !IsLeagueProfile() &&
+            !IsShowcasePatrolEnabled() &&
+            GetStrategyMode() == StrategyMode::HitHero &&
+            aimMode != AimMode::Buff &&
+            aimMode != AimMode::Outpost &&
+            !areaManager_.RegionalAreaTaskActive() &&
+            !areaManager_.HighlandTransitionActive() &&
+            !EvaluateRegionalDefenseThreat(my_team, enemy_team).has_value();
+    }
+
+    bool Application::TrySetDefaultRegionalGoal(
+        const UnitTeam my_team,
+        const UnitTeam enemy_team) {
+        if (TrySetNaviGoalByAutonomy(StrategyMode::HitHero, my_team, enemy_team)) {
+            speedLevel = 1;
+            return true;
+        }
+        if (TrySetRegionalIdlePatrolGoal(my_team, enemy_team)) {
+            speedLevel = 1;
+            return true;
+        }
+        return false;
+    }
+
     bool Application::TrySetScopedPositionByBaseGoal(
         const std::uint8_t base_goal_id,
         const UnitTeam goal_team,
@@ -3432,11 +3459,8 @@ namespace BehaviorTree {
             naviCommandIntervalClock.reset(Seconds(2));
             // speedLevel = 1;
         }else { //普通模式
-            const bool selected_by_autonomy =
-                TrySetNaviGoalByAutonomy(StrategyMode::HitHero, MyTeam, EnemyTeam);
-            const bool selected_by_idle_patrol =
-                !selected_by_autonomy && TrySetRegionalIdlePatrolGoal(MyTeam, EnemyTeam);
-            if (!selected_by_autonomy && !selected_by_idle_patrol) {
+            const bool selected_by_default = TrySetDefaultRegionalGoal(MyTeam, EnemyTeam);
+            if (!selected_by_default) {
                 // 判断英雄是否处于高地
                 bool hero_in_central = false;
                 std::int16_t hero_x = enemyRobots[UnitType::Hero].position_.X, hero_y = enemyRobots[UnitType::Hero].position_.Y;
@@ -3510,7 +3534,7 @@ namespace BehaviorTree {
             }
             
             // 底盘能量低于5%
-            if(!selected_by_idle_patrol &&
+            if(!selected_by_default &&
                (teamBuff.RemainingEnergy == 0b10000 || teamBuff.RemainingEnergy == 0b00000)) {
                 LoggerPtr->Info("!!! Low Energy !!!");
                 TrySetRandomScopedPositionByBaseGoal(

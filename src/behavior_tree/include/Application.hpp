@@ -511,6 +511,8 @@ public:
         UnitTeam enemy_team) const;
     bool TrySetRegionalDefenseGoal(UnitTeam my_team, UnitTeam enemy_team);
     bool TickNaviProgressWatchdog(UnitTeam my_team, UnitTeam enemy_team);
+    bool IsDefaultRegionalDecisionReady(UnitTeam my_team, UnitTeam enemy_team) const;
+    bool TrySetDefaultRegionalGoal(UnitTeam my_team, UnitTeam enemy_team);
     bool TrySetRegionalIdlePatrolGoal(UnitTeam my_team, UnitTeam enemy_team);
     void UpdateNaviProgressWatchdogGoal(
         std::uint8_t base_goal_id,
