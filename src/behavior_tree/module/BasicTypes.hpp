@@ -570,6 +570,8 @@ namespace LangYa
         int EnemyPositionFreshMs{2500};
         int HardHoldSec{5};
         int SoftHoldSec{8};
+        int SearchHoldSec{4};
+        int SearchNoTargetSec{4};
         std::uint16_t StrongHealthMin{250};
         std::uint16_t StrongAmmoMin{40};
         int MultiEnemyBaseCount{2};

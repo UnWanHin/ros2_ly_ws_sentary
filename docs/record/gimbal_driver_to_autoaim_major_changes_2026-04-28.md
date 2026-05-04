@@ -66,7 +66,7 @@
 
 `EventData.msg` 以 `RoboMaster 2026 机甲大师高校系列赛通信协议 V1.3.0（20260327）` 為準，不使用 2025 附錄版的 `0x0101` layout。
 
-`RfidStatus.msg` 目前只拆 `rfid_status` 低 32 位。協議裡額外的 8 位 `rfid_status_2` 暫時沒有進 current TypeID=4 payload，所以沒有加進消息。
+`RfidStatus.msg` 目前只拆 `rfid_status` 低 32 位。協議裡額外的 8 位 `rfid_status_2` 暫時沒有進 current TypeID=4 payload；2026-05-05 起 ROS msg 預留了 `rfid_status_2` 欄位，發布端默認標記 `has_rfid_status_2=false`。
 
 ## Behavior Tree 同步
 

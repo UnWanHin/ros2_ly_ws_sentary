@@ -202,6 +202,8 @@ namespace BehaviorTree{
         // ly_me_rfid
         GenSub<ly_me_rfid>([](Application& app, auto msg) {
             app.rfidStatus = msg->raw;
+            app.hasRfidStatus2 = msg->has_rfid_status_2;
+            app.rfidStatus2 = msg->rfid_status_2_raw;
         });
 
         // ly_navi_position

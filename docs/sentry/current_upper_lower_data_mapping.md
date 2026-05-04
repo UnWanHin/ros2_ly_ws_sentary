@@ -335,7 +335,7 @@ struct RFIDAndBuffData{
 
 | 串口字段 | 发布 topic | ROS 字段 / 备注 |
 |---|---|---|
-| `RFIDStatus` | `/ly/me/rfid` | `RfidStatus` 拆字段，仍只覆盖 bit0-31 |
+| `RFIDStatus` | `/ly/me/rfid` | `RfidStatus` 拆字段，当前串口 payload 只覆盖 bit0-31；ROS msg 已预留 `rfid_status_2` |
 | `BuffStatus.RecoveryBuff` | `/ly/team/buff` | `recoverybuff` |
 | `BuffStatus.CoolingBuff` | `/ly/team/buff` | `coolingbuff` |
 | `BuffStatus.DefenceBuff` | `/ly/team/buff` | `defencebuff` |
@@ -383,7 +383,20 @@ struct RFIDAndBuffData{
 注意：
 
 - `BuffStatus.reserve` 当前没有被发布
-- `0x0209` 的 `rfid_status_2`（额外 8 bit）当前未并入 `TypeID=4`；本链路仅承载 `rfid_status` 低 32 位
+- `0x0209` 的 `rfid_status_2`（额外 8 bit）当前未并入 `TypeID=4`；本链路实际承载仍是 `rfid_status` 低 32 位
+- `/ly/me/rfid` 的 `RfidStatus` 已预留 `has_rfid_status_2`、`rfid_status_2_raw` 和 bit0-5 的语义字段；当前发布端默认 `has_rfid_status_2=false`
+
+### 5.5.3 `rfid_status_2` 预留语义（RM2026 V1.3.0，0x0209 offset 4）
+
+| bit | ROS 字段 | 含义 |
+|---|---|---|
+| `0` | `enemy_tunnel_road_lower` | 对方隧道靠近对方公路一侧下方 |
+| `1` | `enemy_tunnel_road_middle` | 对方隧道靠近对方公路一侧中间 |
+| `2` | `enemy_tunnel_road_upper` | 对方隧道靠近对方公路一侧上方 |
+| `3` | `enemy_tunnel_trapezoid_low` | 对方隧道靠近对方梯形高地较低处 |
+| `4` | `enemy_tunnel_trapezoid_middle` | 对方隧道靠近对方梯形高地较中间 |
+| `5` | `enemy_tunnel_trapezoid_high` | 对方隧道靠近对方梯形高地较高处 |
+| `6-7` | `rfid_status_2_reserved` | 保留位 |
 
 ---
 

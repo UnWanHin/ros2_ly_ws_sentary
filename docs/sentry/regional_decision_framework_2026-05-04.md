@@ -139,6 +139,20 @@ DefaultPolicy 的當前選區規則：
 - 候選分數會扣除距離、目前所在同區域、上次已選區域；Highland 任務正常完成後會臨時提高 MyBase/MyRoadland 分數。
 - `unreachable / timeout / unhealthy / canceled` 會進入 failure/unreachable cooldown，連續失敗數達到 `MaxRetry` 時使用更長的 unreachable cooldown。
 
+## RegionalDefense
+
+RegionalDefense 是事件驅動戰術層，優先級高於 Default。敵方位置判斷只使用 `/ly/position/data` 寫入的官方場地坐標，不使用 map/odom 坐標混判；AreaManager 用 `Area.hpp` 官方點位區域邊界判斷敵方是否進入我方 Base/Highland/Roadland 或公共 Central。
+
+當前防守搜索規則：
+
+- 敵方進入我方 Base：優先去 `Castle`，再 fallback 到左右 Castle 點。
+- 我方 Highland 和 Roadland 同時有敵方：優先去 `Castle`。
+- 敵方進入我方 Roadland：去 `CastleRight2 -> CastleRight1 -> Castle` 搜索。
+- 敵方進入我方 Highland：去 `HoleRoad -> Highland -> Castle` 搜索，先利用 HoleRoad 視野，再進 Highland。
+- 敵方在公共 Central：去 `HoleRoad -> Castle` 搜索。
+
+搜索點會尊重 area scope，但不啟動 Base/Highland/Roadland 的 AreaManager 區域任務；它只做 scope 檢查、必要的 Highland transition，然後直接下導航點。`RegionalDefense.SearchHoldSec` 和 `RegionalDefense.SearchNoTargetSec` 控制「一直找不到」後切下一個搜索點；找不到的判斷使用 autoaim 最近有效目標時間，不混用 buff/outpost 目標。
+
 ## 各區域任務
 
 ### MyHighland

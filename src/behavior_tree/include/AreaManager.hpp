@@ -126,6 +126,7 @@ struct RegionalDefenseThreat {
     int OwnBaseCount{0};
     int OwnHighlandCount{0};
     int OwnRoadlandCount{0};
+    int CommonCentralCount{0};
     int EnemyHighlandCount{0};
     int EnemyRoadlandCount{0};
     bool HardThreat{false};

@@ -635,6 +635,8 @@ namespace LangYa {
         rd.EnemyPositionFreshMs = j.value("EnemyPositionFreshMs", rd.EnemyPositionFreshMs);
         rd.HardHoldSec = j.value("HardHoldSec", rd.HardHoldSec);
         rd.SoftHoldSec = j.value("SoftHoldSec", rd.SoftHoldSec);
+        rd.SearchHoldSec = j.value("SearchHoldSec", rd.SearchHoldSec);
+        rd.SearchNoTargetSec = j.value("SearchNoTargetSec", rd.SearchNoTargetSec);
         rd.StrongHealthMin = j.value("StrongHealthMin", rd.StrongHealthMin);
         rd.StrongAmmoMin = j.value("StrongAmmoMin", rd.StrongAmmoMin);
         rd.MultiEnemyBaseCount = j.value("MultiEnemyBaseCount", rd.MultiEnemyBaseCount);
@@ -1393,6 +1395,8 @@ namespace BehaviorTree {
         LoggerPtr->Debug("EnemyPositionFreshMs: {}", config.RegionalDefenseSettings.EnemyPositionFreshMs);
         LoggerPtr->Debug("HardHoldSec: {}", config.RegionalDefenseSettings.HardHoldSec);
         LoggerPtr->Debug("SoftHoldSec: {}", config.RegionalDefenseSettings.SoftHoldSec);
+        LoggerPtr->Debug("SearchHoldSec: {}", config.RegionalDefenseSettings.SearchHoldSec);
+        LoggerPtr->Debug("SearchNoTargetSec: {}", config.RegionalDefenseSettings.SearchNoTargetSec);
         LoggerPtr->Debug("StrongHealthMin: {}", config.RegionalDefenseSettings.StrongHealthMin);
         LoggerPtr->Debug("StrongAmmoMin: {}", config.RegionalDefenseSettings.StrongAmmoMin);
         LoggerPtr->Debug("MultiEnemyBaseCount: {}", config.RegionalDefenseSettings.MultiEnemyBaseCount);
@@ -1702,6 +1706,16 @@ namespace BehaviorTree {
             LoggerPtr->Warning("Invalid RegionalDefense.SoftHoldSec={}, fallback to 8.",
                                config.RegionalDefenseSettings.SoftHoldSec);
             config.RegionalDefenseSettings.SoftHoldSec = 8;
+        }
+        if (config.RegionalDefenseSettings.SearchHoldSec <= 0) {
+            LoggerPtr->Warning("Invalid RegionalDefense.SearchHoldSec={}, fallback to 4.",
+                               config.RegionalDefenseSettings.SearchHoldSec);
+            config.RegionalDefenseSettings.SearchHoldSec = 4;
+        }
+        if (config.RegionalDefenseSettings.SearchNoTargetSec <= 0) {
+            LoggerPtr->Warning("Invalid RegionalDefense.SearchNoTargetSec={}, fallback to 4.",
+                               config.RegionalDefenseSettings.SearchNoTargetSec);
+            config.RegionalDefenseSettings.SearchNoTargetSec = 4;
         }
         if (config.RegionalDefenseSettings.MultiEnemyBaseCount <= 0) {
             LoggerPtr->Warning("Invalid RegionalDefense.MultiEnemyBaseCount={}, fallback to 2.",

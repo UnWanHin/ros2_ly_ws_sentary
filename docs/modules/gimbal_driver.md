@@ -231,7 +231,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData>
 | `/ly/me/ammo_left` | `UInt16` | 剩餘子彈 |
 | `/ly/bullet/speed` | `Float32` | 子彈速度（m/s，当前代码发布 `PositionData.BulletSpeed / 100.0f`） |
 | `/ly/team/buff` | `BuffData` | 能量機關增益狀態 |
-| `/ly/me/rfid` | `RfidStatus` | 0x0209 `rfid_status` 低 32 位拆字段 |
+| `/ly/me/rfid` | `RfidStatus` | 0x0209 `rfid_status` 低 32 位拆字段；`rfid_status_2` 字段已预留，当前下位机未提供时 `has_rfid_status_2=false` |
 | `/ly/position/data` | `PositionData` | UWB位置數據 |
 | `/ly/me/uwb_pos` | `UInt16MultiArray` | 自身UWB位置[x, y] |
 | `/ly/gimbal/chassis` | `Chassis` | 底盘四元反馈（`steer_angle`, `angular_velocity`, `velocity_x`, `velocity_y`） |

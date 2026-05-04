@@ -112,6 +112,18 @@ namespace BehaviorTree {
         return std::find(tokens.begin(), tokens.end(), normalized_expected) != tokens.end();
     }
 
+    const char* RegionalDefenseSearchKindToString(const RegionalDefenseSearchKind kind) {
+        switch (kind) {
+            case RegionalDefenseSearchKind::OwnBase: return "own_base";
+            case RegionalDefenseSearchKind::OwnHighland: return "own_highland";
+            case RegionalDefenseSearchKind::OwnRoadland: return "own_roadland";
+            case RegionalDefenseSearchKind::OwnHighlandRoadland: return "own_highland_roadland";
+            case RegionalDefenseSearchKind::CommonCentral: return "common_central";
+            case RegionalDefenseSearchKind::EnemySideSoft: return "enemy_side_soft";
+            default: return "none";
+        }
+    }
+
     std::optional<StrategyMode> StrategyModeFromAutonomyToken(const std::string& token) {
         if (token == "hithero" || token == "hit_hero" || token == "hero") {
             return StrategyMode::HitHero;
@@ -268,6 +280,8 @@ namespace BehaviorTree {
         GlobalBlackboard_->set<std::uint16_t>("SelfBaseHealth", selfBaseHealth);
         GlobalBlackboard_->set<std::uint16_t>("EnemyBaseHealth", enemyBaseHealth);
         GlobalBlackboard_->set<std::uint32_t>("RfidStatus", rfidStatus);
+        GlobalBlackboard_->set<bool>("HasRfidStatus2", hasRfidStatus2);
+        GlobalBlackboard_->set<std::uint8_t>("RfidStatus2", rfidStatus2);
         GlobalBlackboard_->set<std::uint32_t>("ExtEventData", extEventData);
         GlobalBlackboard_->set("ArmorList", armorList);
         GlobalBlackboard_->set("TeamBuff", teamBuff);
@@ -2115,6 +2129,8 @@ namespace BehaviorTree {
             if (enemy_x <= 0 || enemy_y <= 0) {
                 continue;
             }
+            // /ly/position/data is normalized into official-field centimeters in SubscribeMessage.cpp.
+            // Keep regional defense area tests in that frame; do not mix map/odom coordinates here.
             fresh_enemies.push_back(RegionalDefenseEnemyPosition{.X = enemy_x, .Y = enemy_y});
         }
 
@@ -2136,6 +2152,10 @@ namespace BehaviorTree {
         const auto& defense = config.RegionalDefenseSettings;
         const auto maybe_threat = EvaluateRegionalDefenseThreat(my_team, enemy_team);
         if (!maybe_threat.has_value()) {
+            regionalDefenseSearchKind_ = RegionalDefenseSearchKind::None;
+            regionalDefenseSearchIndex_ = 0U;
+            regionalDefenseSearchBaseGoal_ = LangYa::Home.ID;
+            regionalDefenseSearchStartTime_ = {};
             return false;
         }
         const auto threat = *maybe_threat;
@@ -2147,71 +2167,163 @@ namespace BehaviorTree {
             }
         }
 
-        auto try_defense_candidates =
-            [&](const std::vector<std::uint8_t>& candidates,
-                const char* reason,
-                const int hold_sec) {
-                for (const auto goal_id : candidates) {
-                    if (!AreaManager::IsValidBaseGoalId(goal_id)) {
-                        continue;
-                    }
-                    if (TrySetScopedPositionByBaseGoal(
-                            goal_id,
-                            my_team,
-                            my_team,
-                            enemy_team,
-                            true,
-                            reason)) {
-                        naviCommandIntervalClock.reset(Seconds{std::max(1, hold_sec)});
-                        speedLevel = 1;
-                        if (LoggerPtr) {
-                            LoggerPtr->Info(
-                                "Regional defense {}: goal={} own_base={} own_highland={} own_roadland={} enemy_highland={} enemy_roadland={}",
-                                reason,
-                                static_cast<int>(naviCommandGoal),
-                                threat.OwnBaseCount,
-                                threat.OwnHighlandCount,
-                                threat.OwnRoadlandCount,
-                                threat.EnemyHighlandCount,
-                                threat.EnemyRoadlandCount);
-                        }
-                        return true;
-                    }
-                }
-                return false;
-            };
+        const auto now = std::chrono::steady_clock::now();
+        const bool strong_resource =
+            myselfHealth >= defense.StrongHealthMin &&
+            ammoLeft >= defense.StrongAmmoMin;
+
+        RegionalDefenseSearchKind search_kind = RegionalDefenseSearchKind::None;
+        const char* reason = "regional_defense";
+        int hold_sec = defense.HardHoldSec;
+        std::vector<std::uint8_t> candidates;
 
         if (threat.HardThreat) {
-            areaManager_.StartRegionalDefenseSuppress(
-                std::chrono::steady_clock::now(),
-                defense.HardHoldSec);
-            aimMode = AimMode::RotateScan;
-
-            const bool strong_resource =
-                myselfHealth >= defense.StrongHealthMin &&
-                ammoLeft >= defense.StrongAmmoMin;
-            if (threat.OwnBaseCount >= defense.MultiEnemyBaseCount && strong_resource) {
-                return try_defense_candidates(
-                    {LangYa::Castle.ID, LangYa::CastleLeft1.ID, LangYa::CastleLeft2.ID, LangYa::CastleRight1.ID, LangYa::CastleRight2.ID},
-                    "own_base_multi",
-                    defense.HardHoldSec);
-            }
             if (threat.OwnBaseCount > 0) {
-                return try_defense_candidates(
-                    {LangYa::Castle.ID, LangYa::CastleLeft1.ID, LangYa::CastleLeft2.ID, LangYa::CastleRight1.ID, LangYa::CastleRight2.ID},
-                    strong_resource ? "own_base_chase" : "own_base_guard",
-                    defense.HardHoldSec);
+                search_kind = RegionalDefenseSearchKind::OwnBase;
+                reason = threat.OwnBaseCount >= defense.MultiEnemyBaseCount
+                    ? "own_base_multi"
+                    : (strong_resource ? "own_base_chase" : "own_base_guard");
+                candidates = {
+                    LangYa::Castle.ID,
+                    LangYa::CastleRight2.ID,
+                    LangYa::CastleLeft2.ID,
+                    LangYa::CastleRight1.ID,
+                    LangYa::CastleLeft1.ID
+                };
+            } else if (threat.OwnHighlandCount > 0 && threat.OwnRoadlandCount > 0) {
+                search_kind = RegionalDefenseSearchKind::OwnHighlandRoadland;
+                reason = "own_highland_roadland";
+                candidates = {LangYa::Castle.ID, LangYa::HoleRoad.ID, LangYa::CastleRight2.ID};
+            } else if (threat.OwnRoadlandCount > 0) {
+                search_kind = RegionalDefenseSearchKind::OwnRoadland;
+                reason = "own_roadland";
+                candidates = {LangYa::CastleRight2.ID, LangYa::CastleRight1.ID, LangYa::Castle.ID};
+            } else if (threat.OwnHighlandCount > 0) {
+                search_kind = RegionalDefenseSearchKind::OwnHighland;
+                reason = "own_highland";
+                candidates = {LangYa::HoleRoad.ID, LangYa::Highland.ID, LangYa::Castle.ID};
+            } else if (threat.CommonCentralCount > 0) {
+                search_kind = RegionalDefenseSearchKind::CommonCentral;
+                reason = "common_central";
+                candidates = {LangYa::HoleRoad.ID, LangYa::Castle.ID};
             }
-            return try_defense_candidates(
-                {LangYa::BuffShoot.ID, LangYa::HoleRoad.ID, LangYa::Highland.ID},
-                threat.OwnHighlandCount > 0 ? "own_highland" : "own_roadland",
-                defense.HardHoldSec);
+        } else {
+            search_kind = RegionalDefenseSearchKind::EnemySideSoft;
+            reason = threat.EnemyRoadlandCount > 0 ? "enemy_roadland_soft" : "enemy_highland_soft";
+            hold_sec = defense.SoftHoldSec;
+            candidates = {LangYa::HoleRoad.ID, LangYa::Highland.ID, LangYa::Castle.ID};
         }
 
-        return try_defense_candidates(
-            {LangYa::BuffShoot.ID, LangYa::HoleRoad.ID, LangYa::Highland.ID},
-            threat.EnemyRoadlandCount > 0 ? "enemy_roadland_soft" : "enemy_highland_soft",
-            defense.SoftHoldSec);
+        if (candidates.empty()) {
+            regionalDefenseSearchKind_ = RegionalDefenseSearchKind::None;
+            regionalDefenseSearchIndex_ = 0U;
+            regionalDefenseSearchBaseGoal_ = LangYa::Home.ID;
+            regionalDefenseSearchStartTime_ = {};
+            return false;
+        }
+
+        if (threat.HardThreat) {
+            areaManager_.StartRegionalDefenseSuppress(now, defense.HardHoldSec);
+            aimMode = AimMode::RotateScan;
+        }
+
+        const bool same_search = regionalDefenseSearchKind_ == search_kind;
+        if (!same_search) {
+            regionalDefenseSearchKind_ = search_kind;
+            regionalDefenseSearchIndex_ = 0U;
+            regionalDefenseSearchBaseGoal_ = candidates.front();
+            regionalDefenseSearchStartTime_ = now;
+        } else if (regionalDefenseSearchIndex_ >= candidates.size()) {
+            regionalDefenseSearchIndex_ = 0U;
+            regionalDefenseSearchBaseGoal_ = candidates.front();
+            regionalDefenseSearchStartTime_ = now;
+        } else {
+            regionalDefenseSearchBaseGoal_ = candidates[regionalDefenseSearchIndex_];
+        }
+
+        auto autoaim_recently_seen = [&]() {
+            if (!autoAimData.HasLatchedAngles ||
+                autoAimData.LastValidTime.time_since_epoch().count() == 0) {
+                return false;
+            }
+            return now - autoAimData.LastValidTime <=
+                std::chrono::seconds(std::max(1, defense.SearchNoTargetSec));
+        };
+
+        auto current_goal_done = [&](const std::uint8_t base_goal_id) {
+            return IsBaseGoalArrived(base_goal_id, my_team, true) ||
+                IsBaseGoalExternallyUnreachable(base_goal_id, my_team, true);
+        };
+
+        const bool search_held_long_enough =
+            regionalDefenseSearchStartTime_.time_since_epoch().count() != 0 &&
+            now - regionalDefenseSearchStartTime_ >=
+                std::chrono::seconds(std::max(1, defense.SearchHoldSec));
+        const bool current_search_done =
+            current_goal_done(regionalDefenseSearchBaseGoal_);
+        const bool should_advance_search =
+            same_search &&
+            candidates.size() > 1U &&
+            (current_search_done || search_held_long_enough) &&
+            !autoaim_recently_seen();
+
+        if (should_advance_search) {
+            regionalDefenseSearchIndex_ =
+                (regionalDefenseSearchIndex_ + 1U) % candidates.size();
+            regionalDefenseSearchBaseGoal_ = candidates[regionalDefenseSearchIndex_];
+            regionalDefenseSearchStartTime_ = now;
+        }
+
+        const auto current_goal_id =
+            ResolveGoalId(regionalDefenseSearchBaseGoal_, my_team, true);
+        if (same_search &&
+            !should_advance_search &&
+            regionalDefenseSearchBaseGoal_ != LangYa::Home.ID &&
+            naviCommandGoal == current_goal_id) {
+            return true;
+        }
+
+        auto set_defense_goal = [&](const std::uint8_t goal_id) {
+            if (!AreaManager::IsValidBaseGoalId(goal_id)) {
+                return false;
+            }
+            if (!IsNaviGoalAllowedByAreaScope(goal_id, my_team, my_team, enemy_team)) {
+                naviGoalPublishAllowed_ = false;
+                return false;
+            }
+            if (!TryStartNaviAreaTransition(goal_id, my_team, my_team, true, reason)) {
+                SetPositionByBaseGoal(goal_id, my_team, true);
+            }
+            naviCommandIntervalClock.reset(Seconds{std::max(1, hold_sec)});
+            speedLevel = 1;
+            if (LoggerPtr) {
+                LoggerPtr->Info(
+                    "Regional defense {} kind={} search_index={} goal={} own_base={} own_highland={} own_roadland={} common_central={} enemy_highland={} enemy_roadland={}",
+                    reason,
+                    RegionalDefenseSearchKindToString(search_kind),
+                    regionalDefenseSearchIndex_,
+                    static_cast<int>(naviCommandGoal),
+                    threat.OwnBaseCount,
+                    threat.OwnHighlandCount,
+                    threat.OwnRoadlandCount,
+                    threat.CommonCentralCount,
+                    threat.EnemyHighlandCount,
+                    threat.EnemyRoadlandCount);
+            }
+            return true;
+        };
+
+        for (std::size_t attempt = 0; attempt < candidates.size(); ++attempt) {
+            const auto index = (regionalDefenseSearchIndex_ + attempt) % candidates.size();
+            regionalDefenseSearchIndex_ = index;
+            regionalDefenseSearchBaseGoal_ = candidates[index];
+            if (set_defense_goal(regionalDefenseSearchBaseGoal_)) {
+                regionalDefenseSearchStartTime_ = now;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     void Application::UpdateNaviProgressWatchdogGoal(

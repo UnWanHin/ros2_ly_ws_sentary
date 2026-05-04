@@ -44,6 +44,8 @@
         "EnemyPositionFreshMs": 2500,
         "HardHoldSec": 5,
         "SoftHoldSec": 8,
+        "SearchHoldSec": 4,
+        "SearchNoTargetSec": 4,
         "StrongHealthMin": 250,
         "StrongAmmoMin": 40,
         "MultiEnemyBaseCount": 2

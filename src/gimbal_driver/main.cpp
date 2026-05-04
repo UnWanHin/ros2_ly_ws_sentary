@@ -182,7 +182,11 @@ namespace
             return msg;
         }
 
-        static gimbal_driver::msg::RfidStatus ToRfidStatusMsg(std::uint32_t raw) {
+        static gimbal_driver::msg::RfidStatus ToRfidStatusMsg(
+            std::uint32_t raw,
+            bool has_status2 = false,
+            std::uint8_t raw_status2 = 0
+        ) {
             gimbal_driver::msg::RfidStatus msg;
             msg.raw = raw;
             msg.self_base_gain_point = Bit(raw, 0);
@@ -217,6 +221,15 @@ namespace
             msg.self_tunnel_trapezoid_low = Bit(raw, 29);
             msg.self_tunnel_trapezoid_middle = Bit(raw, 30);
             msg.self_tunnel_trapezoid_high = Bit(raw, 31);
+            msg.has_rfid_status_2 = has_status2;
+            msg.rfid_status_2_raw = has_status2 ? raw_status2 : 0;
+            msg.enemy_tunnel_road_lower = has_status2 && Bit(raw_status2, 0);
+            msg.enemy_tunnel_road_middle = has_status2 && Bit(raw_status2, 1);
+            msg.enemy_tunnel_road_upper = has_status2 && Bit(raw_status2, 2);
+            msg.enemy_tunnel_trapezoid_low = has_status2 && Bit(raw_status2, 3);
+            msg.enemy_tunnel_trapezoid_middle = has_status2 && Bit(raw_status2, 4);
+            msg.enemy_tunnel_trapezoid_high = has_status2 && Bit(raw_status2, 5);
+            msg.rfid_status_2_reserved = has_status2 ? BitsU8(raw_status2, 6, 2) : 0;
             return msg;
         }
 

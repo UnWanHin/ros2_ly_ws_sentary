@@ -93,6 +93,8 @@ ros2 topic pub /ly/control/firecode gimbal_driver/msg/FireCode "{field_mask: 16,
 
 `/ly/me/rfid` 从 `RFIDAndBuffData.RFIDStatus` 拆字段发布，只覆盖 `0x0209 rfid_status` 的 bit0-31。协议里的 `rfid_status_2` 额外 8 位暂不进入当前 `TypeID=4`，因为当前自定义上行 payload 固定 12B，不能追加第 13 字节。
 
+2026-05-05 追加调整：`RfidStatus` 消息已预留 `rfid_status_2` 字段和 bit0-5 的语义名；发布端在下位机未提供该字节时固定 `has_rfid_status_2=false`，不改变串口 payload。
+
 2026-04-28 追加调整：不再保留 `/ly/me/rfid_status` 这个额外 topic，避免与 `/ly/me/rfid` 混淆；`/ly/me/rfid` 本身就是语义化 `RfidStatus`。
 
 ## 6. 链路同步

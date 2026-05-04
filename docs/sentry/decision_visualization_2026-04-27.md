@@ -1,6 +1,6 @@
 # Decision Visualization Trace And Viewer
 
-Updated: 2026-05-04
+Updated: 2026-05-05
 
 ## Purpose
 
@@ -214,7 +214,7 @@ Each line is one JSON object. Important top-level fields:
 - `navi_goal`: ID, base ID, side, speed, publish flags, and `position_cm`
 - `navi_relative_target`: chase/bridge relative target, including x/y/z, distance, yaw/pitch error, armor type, and aim mode
 - `posture`: command, state, runtime desired/current/pending, reason
-- `referee`: HP, ammo, time, outpost/base HP, RFID/buff state
+- `referee`: HP, ammo, time, outpost/base HP, RFID/RFID2 reserved raw state, and buff state
 - `gimbal.fire_code.follow_mode`: semantic firecode bit4; old `hole_mode` naming should no longer be used in new traces/docs
 - `units`: friend/enemy unit records with type, HP, distance, and `position_cm`
 - `runtime_guard`: current fault and recovery state

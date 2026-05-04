@@ -97,6 +97,16 @@ inline const char* CompetitionProfileToString(const CompetitionProfile profile) 
     }
 }
 
+enum class RegionalDefenseSearchKind : std::uint8_t {
+    None = 0,
+    OwnBase = 1,
+    OwnHighland = 2,
+    OwnRoadland = 3,
+    OwnHighlandRoadland = 4,
+    CommonCentral = 5,
+    EnemySideSoft = 6
+};
+
     #define SET_POSITION(area, team) \
     do { \
         naviCommandGoal = LangYa::area(team); \
@@ -140,6 +150,8 @@ private:
     Robots enemyRobots; // 敌方机器人的信息
     BuffType teamBuff{0}; // 当前的增益情况
     std::uint32_t rfidStatus{0}; // 0x0209 rfid_status（低32位）
+    bool hasRfidStatus2{false}; // 0x0209 rfid_status_2 是否已由下位机提供
+    std::uint8_t rfidStatus2{0}; // 0x0209 rfid_status_2 预留扩展字节
     std::uint32_t extEventData{};
     std::array<ArmorData, 10> armorList; // 辅瞄返回的装甲板序列
     bool is_game_begin{false}; // 比赛开始的标志
@@ -301,6 +313,10 @@ private:
     DefaultStrategyManager defaultStrategyManager_{};
     PostureManager postureManager_{};
     StrategyManager strategyManager_{};
+    RegionalDefenseSearchKind regionalDefenseSearchKind_{RegionalDefenseSearchKind::None};
+    std::size_t regionalDefenseSearchIndex_{0};
+    std::uint8_t regionalDefenseSearchBaseGoal_{LangYa::Home.ID};
+    std::chrono::steady_clock::time_point regionalDefenseSearchStartTime_{};
     struct RegionalAreaControlOverride {
         bool Active{false};
         bool UseFaceMode{false};

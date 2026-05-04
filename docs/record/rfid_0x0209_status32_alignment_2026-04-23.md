@@ -58,6 +58,7 @@ static_assert(sizeof(RFIDAndBuffData) == sizeof(GimbalData), "TypeID=4 payload m
 ## 3.2 关于 `rfid_status_2`
 
 - `rfid_status_2` 属于 `0x0209` 的扩展 8 位。
+- 2026-05-05 起，`gimbal_driver/msg/RfidStatus` 已预留该扩展字节的 ROS 字段，但当前 TypeID=4 未承载该字节，发布端默认 `has_rfid_status_2=false`。
 - 建议通过以下任一方式后续接入：
   - 新增一个 TypeID 专门承载扩展字节。
   - 复用其他已规划的扩展通道（由上下位机统一约定）。
@@ -73,4 +74,5 @@ static_assert(sizeof(RFIDAndBuffData) == sizeof(GimbalData), "TypeID=4 payload m
 
 - 2026-04-28 更新：`/ly/me/rfid` 已改为 `gimbal_driver/msg/RfidStatus`，不再是 `UInt32`。
 - `behavior_tree` 从 `/ly/me/rfid.raw` 写回内部 `rfidStatus`，内部仍保留 `uint32` 缓存。
+- 2026-05-05 更新：`behavior_tree` 额外缓存 `hasRfidStatus2` 和 `rfidStatus2`，并写入黑板/decision trace，供后续决策使用。
 - 本次属于协议语义对齐，不引入链路长度变化。

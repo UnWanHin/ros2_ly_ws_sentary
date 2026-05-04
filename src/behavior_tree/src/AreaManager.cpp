@@ -583,6 +583,9 @@ RegionalDefenseThreat AreaManager::AnalyzeRegionalDefenseThreat(
                 case Area::MainAreaKind::Roadland:
                     ++threat.OwnRoadlandCount;
                     break;
+                case Area::MainAreaKind::Central:
+                    ++threat.CommonCentralCount;
+                    break;
                 default:
                     break;
             }
@@ -601,7 +604,8 @@ RegionalDefenseThreat AreaManager::AnalyzeRegionalDefenseThreat(
     threat.HardThreat =
         threat.OwnBaseCount > 0 ||
         threat.OwnHighlandCount > 0 ||
-        threat.OwnRoadlandCount > 0;
+        threat.OwnRoadlandCount > 0 ||
+        threat.CommonCentralCount > 0;
     threat.SoftEnemySideThreat =
         enable_soft_enemy_side_threat &&
         !threat.HardThreat &&

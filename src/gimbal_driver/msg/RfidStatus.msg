@@ -1,6 +1,8 @@
-# Decoded referee 0x0209 rfid_status low 32 bits, aligned with
+# Decoded referee 0x0209 rfid_status, aligned with
 # RoboMaster 2026 university series communication protocol V1.3.0 (2026-03-27).
-# The extra rfid_status_2 byte is not carried by the current TypeID=4 payload.
+# Current TypeID=4 payload carries only the low 32-bit rfid_status.
+# rfid_status_2 fields are reserved and marked unavailable until the lower
+# layer provides the extra protocol byte.
 
 std_msgs/Header header
 uint32 raw
@@ -36,3 +38,12 @@ bool self_tunnel_road_upper
 bool self_tunnel_trapezoid_low
 bool self_tunnel_trapezoid_middle
 bool self_tunnel_trapezoid_high
+bool has_rfid_status_2
+uint8 rfid_status_2_raw
+bool enemy_tunnel_road_lower
+bool enemy_tunnel_road_middle
+bool enemy_tunnel_road_upper
+bool enemy_tunnel_trapezoid_low
+bool enemy_tunnel_trapezoid_middle
+bool enemy_tunnel_trapezoid_high
+uint8 rfid_status_2_reserved

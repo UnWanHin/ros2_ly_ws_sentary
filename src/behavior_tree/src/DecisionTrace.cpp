@@ -413,6 +413,8 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         {"has_ammo", hasReceivedAmmoLeft_},
         {"has_game_start", hasReceivedGameStartFlag_},
         {"rfid_status", rfidStatus},
+        {"has_rfid_status_2", hasRfidStatus2},
+        {"rfid_status_2", static_cast<int>(rfidStatus2)},
         {"ext_event_data", extEventData},
         {"team_buff", {
             {"recovery", static_cast<int>(teamBuff.RecoveryBuff)},

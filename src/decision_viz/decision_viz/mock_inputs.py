@@ -259,6 +259,8 @@ def main(argv: list[str] | None = None) -> int:
 
             rfid = RfidStatus()
             rfid.raw = 0
+            rfid.has_rfid_status_2 = False
+            rfid.rfid_status_2_raw = 0
             self.pub_rfid.publish(rfid)
 
             if self.pub_target is not None:
