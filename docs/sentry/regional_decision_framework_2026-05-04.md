@@ -20,6 +20,8 @@ Updated: 2026-05-04
 - `config/AreaManager.yaml`
 - `src/behavior_tree/include/AreaManager.hpp`
 - `src/behavior_tree/src/AreaManager.cpp`
+- `src/behavior_tree/include/DefaultStrategyManager.hpp`
+- `src/behavior_tree/src/DefaultStrategyManager.cpp`
 - `src/behavior_tree/include/StrategyManager.hpp`
 - `src/behavior_tree/src/StrategyManager.cpp`
 - `src/behavior_tree/src/GameLoop.cpp`
@@ -36,7 +38,7 @@ Hard -> Default -> Task -> Tactical -> Finalizer
 各層的責任是：
 
 - `Hard`：最高優先級保護，處理 recovery/補血補彈和 Roadland 強綁定穿越段。Roadland 強綁定段在這層 hard lock，避免被戰術層中途搶走。
-- `Default`：無特別事件時的底層決策，現在只承接新的底層選點入口：`DecisionAutonomy.NaviGoal(HitHero)` 和 `RegionalIdlePatrol`。舊 HitHero fallback 點表不在 Default 裡。
+- `Default`：無特別事件時的底層決策，現在先按啟用的大區域輪換啟動 AreaManager 任務；沒有可用區域時才 fallback 到 `DecisionAutonomy.NaviGoal(HitHero)`。舊 HitHero fallback 點表不在 Default 裡，`RegionalIdlePatrol` 點表不再是正式 regional 的 Default 入口。
 - `Task`：已啟動的 AreaManager 任務繼續 tick，包含 Highland/Base/Roadland/Central 任務、Highland 兼容過渡和導航 watchdog。
 - `Tactical`：戰術疊加層，繼續使用原本的 `SetPositionLeagueSimple/HitSentry/HitHero/Protect/NaviTest/ShowcasePatrol` 鏈路。
 - `Finalizer`：保證本 tick 有一個策略層完成，並把策略層狀態同步到黑板。
@@ -110,7 +112,7 @@ AreaManager:
       Enable: true
 ```
 
-根層 `AreaManager.yaml` 不再默認寫 `Area.MyArea/EnemyArea/CommonArea` 的區域開關，避免它把不同 `bt_config_file` 裡的區域選擇全部覆蓋成同一套。正式 regional 和單區域 areatest 的「哪些區域可選」仍由對應 `ConfigJson` 裡的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 控制；`AreaManager.yaml` 只保留 `Switch_Point` 和區域狀態機任務的時序、門檻、啟停參數。
+根層 `AreaManager.yaml` 不再默認寫 `Area.MyArea/EnemyArea/CommonArea` 的區域開關，避免它把不同 `bt_config_file` 裡的區域選擇全部覆蓋成同一套。正式 regional 和單區域 areatest 的「哪些區域可選」仍由對應 `ConfigJson` 裡的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 控制；Default 會在這些已啟用區域中按 `MyHighland -> MyBase -> MyRoadland -> CommonCentral` 輪換啟動任務。`AreaManager.yaml` 只保留 `Switch_Point` 和區域狀態機任務的時序、門檻、啟停參數。
 
 `Switch_Point=true` 時只交換 `Area.hpp` 裡紅/藍官方點位和區域邊界查找結果，不交換 `team`、敵我語義或導航 goal ID。這是給導航零點/物理場地方向反了時使用的點位查找開關。
 

@@ -57,7 +57,7 @@
         "FallbackCooldownSec": 12
     },
     "RegionalIdlePatrol": {
-        "Enable": true,
+        "Enable": false,
         "GoalHoldSec": 8,
         "GoalEnable": {
             "Highland": true,

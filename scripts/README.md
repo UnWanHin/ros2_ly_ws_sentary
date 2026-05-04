@@ -219,7 +219,7 @@ python3 ./scripts/python/start.py --keep-to-navi
 | `scripts/areatest/regional_central.sh` | 单测 Common Central 区域任务，走正式 regional 链路 |
 | `scripts/areatest/regional_area_test.sh` | 上面四个脚本的共用 runner，可手动传 `base/highland/roadland/central` |
 
-单区域 regional 脚本不是 `navi_debug`，也不是直接发 `/ly/navi/goal`。它们通过专用 `bt_config_file` 只保留一个导航候选点，再启动 `scripts/launch/start_sentry_all.sh --mode regional`，因此会进入 `TrySetScopedPositionByBaseGoal()`、AreaManager 和实际 `/ly/navi/goal_pos_raw -> /goal_pose` 链路。
+单区域 regional 脚本不是 `navi_debug`，也不是直接发 `/ly/navi/goal`。它们通过专用 `bt_config_file` 只啟用一個大區域，再启动 `scripts/launch/start_sentry_all.sh --mode regional`，因此會從 Default 的大區域輪換入口進入 `TrySetScopedPositionByBaseGoal()`、AreaManager 和實際 `/ly/navi/goal_pos_raw -> /goal_pose` 鏈路。
 
 默认模式仍保留正式链路里可用的 autoaim/fire/posture 行为，便于测接近实战的单区域效果。只想测区域内无事件时的游走/驻守，用 `--pure`：
 

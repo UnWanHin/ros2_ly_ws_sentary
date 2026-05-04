@@ -46,6 +46,7 @@
 #include "Topic.hpp"
 #include "Robot.hpp"
 #include "AreaManager.hpp"
+#include "DefaultStrategyManager.hpp"
 #include "PostureManager.hpp"
 #include "StrategyManager.hpp"
 
@@ -297,6 +298,7 @@ private:
 
     Config config{}; // 配置文件
     AreaManager areaManager_{};
+    DefaultStrategyManager defaultStrategyManager_{};
     PostureManager postureManager_{};
     StrategyManager strategyManager_{};
     struct RegionalAreaControlOverride {
@@ -513,6 +515,7 @@ public:
     bool TickNaviProgressWatchdog(UnitTeam my_team, UnitTeam enemy_team);
     bool IsDefaultRegionalDecisionReady(UnitTeam my_team, UnitTeam enemy_team) const;
     bool TrySetDefaultRegionalGoal(UnitTeam my_team, UnitTeam enemy_team);
+    bool TrySetDefaultRegionalAreaTaskGoal(UnitTeam my_team, UnitTeam enemy_team);
     bool TrySetRegionalIdlePatrolGoal(UnitTeam my_team, UnitTeam enemy_team);
     void UpdateNaviProgressWatchdogGoal(
         std::uint8_t base_goal_id,

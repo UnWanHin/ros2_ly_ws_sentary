@@ -432,7 +432,7 @@ FollowMode active 時：
 - `Default`
   - 新底層無事件決策入口
   - 只嘗試 `TrySetDefaultRegionalGoal()`
-  - 內容是 `DecisionAutonomy.NaviGoal(HitHero)` 和 `RegionalIdlePatrol`
+  - 內容是啟用大區域輪換，無可用區域時 fallback 到 `DecisionAutonomy.NaviGoal(HitHero)`
   - 不包含舊 HitHero hardcoded fallback 點表
 - `Task`
   - 已啟動的 AreaManager 任務繼續 tick

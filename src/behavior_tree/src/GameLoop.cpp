@@ -220,6 +220,7 @@ namespace BehaviorTree {
         UnitTeam Team{UnitTeam::Red};
         double Bias{0.0};
     };
+
     }  // namespace
 
      /**
@@ -2349,14 +2350,61 @@ namespace BehaviorTree {
             !EvaluateRegionalDefenseThreat(my_team, enemy_team).has_value();
     }
 
+    bool Application::TrySetDefaultRegionalAreaTaskGoal(
+        const UnitTeam my_team,
+        const UnitTeam enemy_team) {
+        const auto& task = config.RegionalAreaTaskSettings;
+        if (!task.Enable ||
+            IsLeagueProfile() ||
+            IsShowcasePatrolEnabled() ||
+            aimMode == AimMode::Buff ||
+            aimMode == AimMode::Outpost) {
+            return false;
+        }
+
+        const auto candidates =
+            defaultStrategyManager_.BuildRegionalAreaCandidates(config, my_team);
+        if (candidates.empty()) {
+            defaultStrategyManager_.ResetRegionalAreaRotation();
+            return false;
+        }
+
+        for (const auto index : defaultStrategyManager_.BuildAttemptOrder(candidates.size())) {
+            const auto& candidate = candidates[index];
+            if (!TrySetScopedPositionByBaseGoal(
+                    candidate.BaseGoalId,
+                    candidate.GoalTeam,
+                    my_team,
+                    enemy_team,
+                    true,
+                    "default_area_rotation")) {
+                continue;
+            }
+
+            defaultStrategyManager_.CommitRegionalAreaSelection(index);
+            naviCommandIntervalClock.reset(Seconds{1});
+            speedLevel = 1;
+            if (LoggerPtr) {
+                LoggerPtr->Info(
+                    "Default regional area rotation: area={} base_goal={} goal={}.",
+                    candidate.Name,
+                    static_cast<int>(candidate.BaseGoalId),
+                    static_cast<int>(naviCommandGoal));
+            }
+            return true;
+        }
+
+        return false;
+    }
+
     bool Application::TrySetDefaultRegionalGoal(
         const UnitTeam my_team,
         const UnitTeam enemy_team) {
-        if (TrySetNaviGoalByAutonomy(StrategyMode::HitHero, my_team, enemy_team)) {
+        if (TrySetDefaultRegionalAreaTaskGoal(my_team, enemy_team)) {
             speedLevel = 1;
             return true;
         }
-        if (TrySetRegionalIdlePatrolGoal(my_team, enemy_team)) {
+        if (TrySetNaviGoalByAutonomy(StrategyMode::HitHero, my_team, enemy_team)) {
             speedLevel = 1;
             return true;
         }

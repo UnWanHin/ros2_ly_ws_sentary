@@ -66,7 +66,7 @@
 
 策略執行時，`StrategyManager` 會把舊戰術入口完整轉到新分層裡：
 - `Hard`：`CheckPositionRecovery()` 和 Roadland 強綁定穿越保護；回基地補血/補彈仍在這層，不放在 Default。
-- `Default`：只做新的底層選點入口：`DecisionAutonomy.NaviGoal(HitHero)` 和 `RegionalIdlePatrol`，不再落回舊 HitHero fallback 點表。
+- `Default`：只做新的底層選點入口：先按啟用的大區域輪換啟動 AreaManager 任務，沒有可用區域時才 fallback 到 `DecisionAutonomy.NaviGoal(HitHero)`，不再落回舊 HitHero fallback 點表。
 - `Task`：已啟動的 AreaManager 任務、Highland 過渡和導航 watchdog。
 - `Tactical`：按當前 `StrategyMode` 調用 `SetPositionHitSentry()`、`SetPositionHitHero()`、`SetPositionLeagueSimple()`、`SetPositionProtect()`、`SetPositionNaviTest()`。
 - `Finalizer`：保證本 tick 有策略層完成，並同步策略層監控黑板字段。
