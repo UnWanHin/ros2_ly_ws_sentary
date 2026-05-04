@@ -258,7 +258,7 @@ NaviTest 有兩種形態：
   - 可 random；
   - 可 DisableTeamOffset；
   - 可設 `SpeedLevel`；
-  - plan 空時 fallback 到 `OccupyArea`。
+  - plan 空時 fallback 到 `OccupyArea`。a
 - 如果 NaviDebug 沒開，走舊固定時間腳本：
   - `BuffShoot`
   - `LeftHighLand`
