@@ -1,6 +1,6 @@
 # Navi External Status Topics
 
-Updated: 2026-05-03
+Updated: 2026-05-06
 
 `behavior_tree` 只订阅外部导航状态，不发布这两个状态 topic。
 

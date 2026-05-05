@@ -154,5 +154,5 @@ reserve_16 = ((uint16_t)(posture & 0xFFu) << 8) | reserve_8;
 - `src/gimbal_driver/module/BasicTypes.hpp`
 - `src/gimbal_driver/main.cpp`
 - `docs/modules/2026-05-05_gimbal_driver.md`
-- `docs/sentry/2026-03-13_posture_lower_firmware_integration.md`
-- `docs/sentry/2026-03-03_sentry_posture_interface_change.md`
+- `docs/record/2026-03-13_posture_lower_firmware_integration.md`
+- `docs/record/2026-03-03_sentry_posture_interface_change.md`

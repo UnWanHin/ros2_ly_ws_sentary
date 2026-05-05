@@ -1,6 +1,6 @@
 # 賽規血量/彈量與 BT 資源模型盤點
 
-Updated: 2026-05-04
+Updated: 2026-05-06
 
 本文記錄 `docs/rules` 裡和哨兵血量、彈量相關的賽規數值，並對照目前 `gimbal_driver -> behavior_tree` 的數據流。這次只做分析文檔，不改運行代碼。
 

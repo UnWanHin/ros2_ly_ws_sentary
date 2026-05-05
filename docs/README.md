@@ -6,12 +6,12 @@
 
 ```text
 docs/
-├── 2026-05-03_README.md         # 当前索引
+├── README.md                    # 当前索引
 ├── architecture/                # 系统行为、消息链路
 ├── guides/                      # 配置、测试、上车前清单
 ├── modules/                     # 各 ROS 包说明
 ├── record/                      # 已落地的重要改动记录与调参记录
-├── sentry/                      # 哨兵决策/姿态专项
+├── sentry/                      # 当前有效哨兵专项文档
 ├── reports/                     # 阶段性检查报告
 ├── references/                  # 参考材料（如 logger 文档）
 ├── rules/                       # 官方规则/通信协议 PDF
@@ -40,19 +40,14 @@ docs/
 [modules/2026-03-05_shooting_table_calib.md](modules/2026-03-05_shooting_table_calib.md)
 [modules/2026-04-23_auto_aim_common.md](modules/2026-04-23_auto_aim_common.md)
 [modules/2026-05-04_navi_tf_bridge.md](modules/2026-05-04_navi_tf_bridge.md)
-6. 哨兵专项（2026 姿态机制）
-[sentry/2026-05-04_decision_runtime_behavior.md](sentry/2026-05-04_decision_runtime_behavior.md)
-[sentry/2026-05-03_sentry_decision_zone_blocks.md](sentry/2026-05-03_sentry_decision_zone_blocks.md)
-[sentry/2026-03-12_sentry_decision_autoaim_manual.md](sentry/2026-03-12_sentry_decision_autoaim_manual.md)
-[sentry/2026-04-27_decision_visualization.md](sentry/2026-04-27_decision_visualization.md)
-[sentry/2026-05-04_optional_items_demo_runbook.md](sentry/2026-05-04_optional_items_demo_runbook.md)
-[sentry/2026-05-04_showcase_demo_runbook.md](sentry/2026-05-04_showcase_demo_runbook.md)
-[sentry/2026-05-04_navi_debug_runbook.md](sentry/2026-05-04_navi_debug_runbook.md)
-[sentry/2026-03-04_sentry_posture_system.md](sentry/2026-03-04_sentry_posture_system.md)
-[sentry/2026-03-03_sentry_posture_interface_change.md](sentry/2026-03-03_sentry_posture_interface_change.md)
-[sentry/2026-03-13_posture_lower_firmware_integration.md](sentry/2026-03-13_posture_lower_firmware_integration.md)
-[sentry/2026-03-13_posture_firmware_integration_checklist.md](sentry/2026-03-13_posture_firmware_integration_checklist.md)
-[sentry/2026-05-02_lower_downlink_message_contract.md](sentry/2026-05-02_lower_downlink_message_contract.md)
+6. 哨兵专项（当前有效）
+[sentry/README.md](sentry/README.md)
+[sentry/regional/current_behavior.md](sentry/regional/current_behavior.md)
+[sentry/regional/decision_framework.md](sentry/regional/decision_framework.md)
+[sentry/internal/decision_visualization.md](sentry/internal/decision_visualization.md)
+[sentry/embedded/serial_data_mapping.md](sentry/embedded/serial_data_mapping.md)
+[sentry/embedded/downlink_control_frame.md](sentry/embedded/downlink_control_frame.md)
+[sentry/info/rule_resource_profile.md](sentry/info/rule_resource_profile.md)
 7. 落地执行与上车前检查
 [guides/2026-03-04_config_setup_guide.md](guides/2026-03-04_config_setup_guide.md)
 [guides/2026-04-11_auto_aim_tuning_handover.md](guides/2026-04-11_auto_aim_tuning_handover.md)
@@ -82,7 +77,7 @@ docs/
 - `modules/`
   - 每个包的职责、topic、关键实现点。
 - `sentry/`
-  - 决策与姿态设计文档，和比赛规则最相关。
+  - 当前有效哨兵专项文档，按 `regional/league/internal/external/embedded/info` 维护。
 - `guides/`
   - 面向实机调试和赛前执行。
 - `reports/`

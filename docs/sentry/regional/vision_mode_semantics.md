@@ -1,6 +1,6 @@
 # Vision Mode Semantics
 
-Updated: 2026-05-05
+Updated: 2026-05-06
 
 ## Purpose
 

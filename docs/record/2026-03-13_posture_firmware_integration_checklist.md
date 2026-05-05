@@ -3,8 +3,8 @@
 适用版本：单通道主控制幀（`GimbalControlData` 含 `Posture` 字段）
 
 参考文档：
-- `docs/sentry/2026-05-02_lower_downlink_message_contract.md`
-- `docs/sentry/2026-03-13_posture_lower_firmware_integration.md`
+- `docs/sentry/embedded/downlink_control_frame.md`
+- `docs/record/2026-03-13_posture_lower_firmware_integration.md`
 
 ---
 

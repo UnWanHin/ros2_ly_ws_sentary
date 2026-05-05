@@ -108,8 +108,8 @@ ros2 topic pub /ly/control/firecode gimbal_driver/msg/FireCode "{field_mask: 16,
 - `buff_hitter` 火控 topic 类型声明
 - detector/feature-test/debug 脚本中的 firecode 和 control velocity 发布
 - `scripts/selfcheck/sentry.sh` topic type 契约
-- `docs/sentry/2026-05-05_current_upper_lower_data_mapping.md`
-- `docs/sentry/2026-05-02_lower_downlink_message_contract.md`
+- `docs/sentry/embedded/serial_data_mapping.md`
+- `docs/sentry/embedded/downlink_control_frame.md`
 - `docs/modules/2026-05-05_gimbal_driver.md`
 
 ## 7. 验证

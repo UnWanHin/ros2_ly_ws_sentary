@@ -117,7 +117,7 @@
 ## 5. 下位机电控需要做的事
 
 详细版本见：
-- `docs/sentry/2026-03-13_posture_lower_firmware_integration.md`
+- `docs/record/2026-03-13_posture_lower_firmware_integration.md`
 
 ## 5.1 指令下发链路
 

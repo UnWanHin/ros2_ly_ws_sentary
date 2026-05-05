@@ -1,6 +1,6 @@
 # Vision / Task / Patrol Mode Flow
 
-Updated: 2026-05-05
+Updated: 2026-05-06
 
 本文說明目前 `regional` 鏈路裡幾個容易混淆的「模式」：`/ly/vision/mode`、BT JSON 的 `Task`、雲台巡邏、區域巡邏、`FollowMode`、`FaceMode`。這些不是同一層東西，不能混着改。
 

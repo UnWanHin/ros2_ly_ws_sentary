@@ -420,7 +420,7 @@ FollowMode active 時：
 - pending 姿態有小幅加分，避免抖動；
 - 最後用 hysteresis 保持當前姿態，防止分差很小時頻繁切。
 
-這套姿態是輸出 finalizer 後的下游命令，不直接決定導航 goal，但會和 strategy/aim/chase 的結果一起發下去。
+這套姿態是輸出 finalizer 後的下游命令，不直接決定導航 goal，但會和 strategy、aim、chase 的結果一起發下去。
 
 ## 現在已搬到新分層的位置
 

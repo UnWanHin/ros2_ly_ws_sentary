@@ -1,6 +1,6 @@
 # Decision Visualization Trace And Viewer
 
-Updated: 2026-05-05
+Updated: 2026-05-06
 
 ## Purpose
 
@@ -237,6 +237,6 @@ When decision data changes, update the visualization in the same change:
 - New output checks: update `src/decision_viz/decision_viz/validation.py`.
 - New point IDs or map assumptions: update `src/decision_viz/config/default.yaml`.
 - New visual layer or style: update `src/decision_viz/decision_viz/viewer.py` and this document.
-- New decision interface docs: add a dated note under `docs/sentry/` or update this dated document with the new date.
+- New decision interface docs: update the current internal or regional document under `docs/sentry/` and add a dated implementation record under `docs/record/` when the change needs historical context.
 
 Do not move this tool back under `tools/`; it is a maintained source package because it tracks the decision interface.
