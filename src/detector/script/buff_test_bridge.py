@@ -12,7 +12,7 @@ from rclpy.node import Node
 
 from auto_aim_common.msg import Target
 from gimbal_driver.msg import ControlVelocity, FireCode, GimbalAngles
-from std_msgs.msg import Bool, UInt8
+from std_msgs.msg import UInt8
 
 
 @dataclass
@@ -28,16 +28,12 @@ class BuffTestBridge(Node):
         super().__init__("buff_test_bridge")
 
         self.declare_parameter("target_topic", "/ly/buff/target")
-        self.declare_parameter("aa_enable_topic", "/ly/aa/enable")
-        self.declare_parameter("ra_enable_topic", "/ly/ra/enable")
-        self.declare_parameter("outpost_enable_topic", "/ly/outpost/enable")
+        self.declare_parameter("vision_mode_topic", "/ly/vision/mode")
         self.declare_parameter("bt_target_topic", "/ly/bt/target")
         self.declare_parameter("control_angles_topic", "/ly/control/angles")
         self.declare_parameter("control_firecode_topic", "/ly/control/firecode")
         self.declare_parameter("control_vel_topic", "/ly/control/vel")
-        self.declare_parameter("gate_aa_enable", False)
-        self.declare_parameter("gate_ra_enable", True)
-        self.declare_parameter("gate_outpost_enable", False)
+        self.declare_parameter("gate_vision_mode", 2)
         self.declare_parameter("gate_publish_bt_target", False)
         self.declare_parameter("gate_bt_target", 1)
         self.declare_parameter("timeout_sec", 1.0)
@@ -49,17 +45,13 @@ class BuffTestBridge(Node):
         self.declare_parameter("zero_velocity", True)
 
         self.target_topic = str(self.get_parameter("target_topic").value)
-        self.aa_enable_topic = str(self.get_parameter("aa_enable_topic").value)
-        self.ra_enable_topic = str(self.get_parameter("ra_enable_topic").value)
-        self.outpost_enable_topic = str(self.get_parameter("outpost_enable_topic").value)
+        self.vision_mode_topic = str(self.get_parameter("vision_mode_topic").value)
         self.bt_target_topic = str(self.get_parameter("bt_target_topic").value)
         self.control_angles_topic = str(self.get_parameter("control_angles_topic").value)
         self.control_firecode_topic = str(self.get_parameter("control_firecode_topic").value)
         self.control_vel_topic = str(self.get_parameter("control_vel_topic").value)
 
-        self.gate_aa_enable = bool(self.get_parameter("gate_aa_enable").value)
-        self.gate_ra_enable = bool(self.get_parameter("gate_ra_enable").value)
-        self.gate_outpost_enable = bool(self.get_parameter("gate_outpost_enable").value)
+        self.gate_vision_mode = int(self.get_parameter("gate_vision_mode").value) & 0xFF
         self.gate_publish_bt_target = bool(self.get_parameter("gate_publish_bt_target").value)
         self.gate_bt_target = int(self.get_parameter("gate_bt_target").value) & 0xFF
 
@@ -74,9 +66,7 @@ class BuffTestBridge(Node):
         self.timeout_ns = int(max(timeout_sec, 0.05) * 1e9)
         self.fire_interval_ns = int(1e9 / max(fire_hz, 1.0))
 
-        self.pub_aa_enable = self.create_publisher(Bool, self.aa_enable_topic, 10)
-        self.pub_ra_enable = self.create_publisher(Bool, self.ra_enable_topic, 10)
-        self.pub_outpost_enable = self.create_publisher(Bool, self.outpost_enable_topic, 10)
+        self.pub_vision_mode = self.create_publisher(UInt8, self.vision_mode_topic, 10)
         self.pub_bt_target = self.create_publisher(UInt8, self.bt_target_topic, 10)
         self.pub_angles = self.create_publisher(GimbalAngles, self.control_angles_topic, 50)
         self.pub_firecode = self.create_publisher(FireCode, self.control_firecode_topic, 50)
@@ -96,9 +86,7 @@ class BuffTestBridge(Node):
         self.get_logger().info(
             "buff_test_bridge started: "
             f"target={self.target_topic} -> angles={self.control_angles_topic}, firecode={self.control_firecode_topic}, "
-            f"aa={int(self.gate_aa_enable)}@{self.aa_enable_topic}, "
-            f"ra={int(self.gate_ra_enable)}@{self.ra_enable_topic}, "
-            f"outpost={int(self.gate_outpost_enable)}@{self.outpost_enable_topic}, "
+            f"vision_mode={self.gate_vision_mode}@{self.vision_mode_topic}, "
             f"bt_target={'off' if not self.gate_publish_bt_target else self.gate_bt_target}@{self.bt_target_topic}, "
             f"enable_fire={int(self.enable_fire)} use_target_status={int(self.use_target_status)} fire_hz={fire_hz:.1f}"
         )
@@ -113,17 +101,9 @@ class BuffTestBridge(Node):
         )
 
     def _on_gate_timer(self) -> None:
-        aa_msg = Bool()
-        aa_msg.data = self.gate_aa_enable
-        self.pub_aa_enable.publish(aa_msg)
-
-        ra_msg = Bool()
-        ra_msg.data = self.gate_ra_enable
-        self.pub_ra_enable.publish(ra_msg)
-
-        outpost_msg = Bool()
-        outpost_msg.data = self.gate_outpost_enable
-        self.pub_outpost_enable.publish(outpost_msg)
+        mode_msg = UInt8()
+        mode_msg.data = self.gate_vision_mode
+        self.pub_vision_mode.publish(mode_msg)
 
         if self.gate_publish_bt_target:
             target_msg = UInt8()

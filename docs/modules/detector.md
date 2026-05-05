@@ -130,7 +130,7 @@ python3 src/detector/script/mapper_node.py --target-id 6 --enable-fire true --au
 | `/ly/me/is_team_red` | `my_team_callback` | 更新 `myTeamRed`，控制過濾器保留哪種顏色的裝甲板 |
 | `/ly/gimbal/angles` | `gimbal_callback` | 更新當前雲台角，綁定到每幀圖像 |
 | `/ly/bt/target` | `get_target_callback` | 更新目標裝甲板類型，傳給 `ArmorFilter` |
-| `/ly/aa/enable` | `aa_enable_callback` | 切換普通瞄準模式 |
+| `/ly/vision/mode` | `vision_mode_callback` | 主模式入口，`0/1/2/3` 對應禁用/裝甲板/打符/前哨 |
 | `/ly/compressed/image` | `image_callback` | 僅在 `use_ros_bag=true` 時使用，從 bag 文件讀取圖像 |
 
 #### 發布的 Topics

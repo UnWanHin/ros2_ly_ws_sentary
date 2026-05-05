@@ -203,9 +203,7 @@ std::string DefaultConfigPathForProfile(const std::string& pkg_path, const std::
         // [修復] 初始化所有發布者指針 — 必須在 PublishMessageAll() 之前完成
         // 每個指針對應 Topic.hpp 中的 topic 名稱和 Application.hpp 中聲明的類型
         // 这里集中初始化，避免运行期因空指针导致发布失败。
-        pub_aa_enable_       = node_->create_publisher<std_msgs::msg::Bool>(ly_aa_enable::Name, 10);
-        pub_ra_enable_       = node_->create_publisher<std_msgs::msg::Bool>(ly_ra_enable::Name, 10);
-        pub_outpost_enable_  = node_->create_publisher<std_msgs::msg::Bool>(ly_outpost_enable::Name, 10);
+        pub_vision_mode_     = node_->create_publisher<std_msgs::msg::UInt8>(ly_vision_mode::Name, 10);
         pub_gimbal_control_  = node_->create_publisher<gimbal_driver::msg::GimbalAngles>(ly_control_angles::Name, 10);
         pub_gimbal_firecode_ = node_->create_publisher<gimbal_driver::msg::FireCode>(ly_control_firecode::Name, 10);
         pub_gimbal_posture_  = node_->create_publisher<std_msgs::msg::UInt8>(ly_control_posture::Name, 10);

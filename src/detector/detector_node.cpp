@@ -77,9 +77,7 @@
 
 namespace {
 
-LY_DEF_ROS_TOPIC(ly_aa_enable, "/ly/aa/enable", std_msgs::msg::Bool);
-LY_DEF_ROS_TOPIC(ly_ra_enable, "/ly/ra/enable", std_msgs::msg::Bool);
-LY_DEF_ROS_TOPIC(ly_outpost_enable, "/ly/outpost/enable", std_msgs::msg::Bool);
+LY_DEF_ROS_TOPIC(ly_vision_mode, "/ly/vision/mode", std_msgs::msg::UInt8);
 LY_DEF_ROS_TOPIC(ly_camera_image, "/ly/camera/image", sensor_msgs::msg::Image);
 LY_DEF_ROS_TOPIC(ly_backcamera_image, "/ly/backcamera/image", sensor_msgs::msg::Image);
 LY_DEF_ROS_TOPIC(ly_me_is_team_red, "/ly/me/is_team_red", std_msgs::msg::Bool);
@@ -125,6 +123,9 @@ std::atomic_bool myTeamRed{false};
 std::atomic_bool aa_enable{true};
 std::atomic_bool ra_enable{false};
 std::atomic_bool outpost_enable{false};
+constexpr std::uint8_t kVisionModeArmor = 1;
+constexpr std::uint8_t kVisionModeBuff = 2;
+constexpr std::uint8_t kVisionModeOutpost = 3;
 
 constexpr const char AppName[] = "detector";
 std::shared_ptr<LangYa::ROSNode<AppName>> global_node = nullptr;
@@ -559,16 +560,10 @@ void get_target_callback(const std_msgs::msg::UInt8::ConstSharedPtr msg) {
     atomic_target = static_cast<ly_auto_aim::ArmorType>(msg->data);
 }
 
-void aa_enable_callback(const std_msgs::msg::Bool::ConstSharedPtr &msg) {
-    aa_enable = msg->data;
-}
-
-void ra_enable_callback(const std_msgs::msg::Bool::ConstSharedPtr &msg) {
-    ra_enable = msg->data;
-}
-
-void outpost_enable_callback(const std_msgs::msg::Bool::ConstSharedPtr &msg) {
-    outpost_enable = msg->data;
+void vision_mode_callback(const std_msgs::msg::UInt8::ConstSharedPtr &msg) {
+    aa_enable = msg->data == kVisionModeArmor;
+    ra_enable = msg->data == kVisionModeBuff;
+    outpost_enable = msg->data == kVisionModeOutpost;
 }
 
 void predictor_debug_callback(const auto_aim_common::msg::DebugFilter::ConstSharedPtr& msg) {
@@ -1371,10 +1366,7 @@ int main(int argc, char **argv) try {
     global_node->GenSubscriber<ly_me_is_team_red>(my_team_callback);
     global_node->GenSubscriber<ly_bt_target>(get_target_callback);
     global_node->GenSubscriber<ly_gimbal_angles>(gimbal_callback);
-    global_node->GenSubscriber<ly_aa_enable>(aa_enable_callback);
-    // [修復] 補上缺失的訂閱者，否則 ra_enable/outpost_enable 永遠是 false
-    global_node->GenSubscriber<ly_ra_enable>(ra_enable_callback);
-    global_node->GenSubscriber<ly_outpost_enable>(outpost_enable_callback);
+    global_node->GenSubscriber<ly_vision_mode>(vision_mode_callback);
     global_node->GenSubscriber<ly_predictor_debug>(predictor_debug_callback);
     global_node->GenSubscriber<ly_predictor_vis>(predictor_vis_callback);
     global_node->GenSubscriber<ly_buff_debug>(buff_debug_callback);

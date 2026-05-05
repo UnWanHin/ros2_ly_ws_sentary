@@ -17,7 +17,7 @@
 
 決策輸出仍沿用原本業務資料與接口：
 - 雲台控制：`/ly/control/angles`、`/ly/control/firecode`
-- 模式使能：`/ly/aa/enable`、`/ly/ra/enable`、`/ly/outpost/enable`
+- 視覺模式：`/ly/vision/mode`，`UInt8`：0=DISABLED, 1=ARMOR, 2=BUFF, 3=OUTPOST
 - 目標類型：`/ly/bt/target`
 - 導航：`/ly/navi/goal`、bridge 輸入 `/ly/navi/goal_pos_raw` / `/ly/navi/target_rel`，最終 `geometry_msgs/PoseStamped /goal_pose`、`/ly/navi/speed_level`
 
@@ -246,23 +246,21 @@ ros2 topic list | rg '^/ly/'
 - `/ly/buff/target`
 - `/ly/control/angles`
 - `/ly/control/firecode`
-- `/ly/aa/enable`
-- `/ly/ra/enable`
-- `/ly/outpost/enable`
+- `/ly/vision/mode`
 - `/ly/bt/target`
 
 ### 6.2 方向檢查（誰發誰收）
 
 ```bash
 ros2 topic info /ly/bt/target -v
-ros2 topic info /ly/aa/enable -v
+ros2 topic info /ly/vision/mode -v
 ros2 topic info /ly/control/angles -v
 ros2 topic info /ly/predictor/target -v
 ```
 
 預期：
 - `/ly/bt/target`：`behavior_tree` 發，`detector/predictor` 收
-- `/ly/aa/enable`：`behavior_tree` 發，`detector` 收
+- `/ly/vision/mode`：`behavior_tree` 發，`detector/buff_hitter` 收
 - `/ly/control/angles`：`behavior_tree` 發，`gimbal_driver` 收
 - `/ly/predictor/target`：`predictor` 發，`behavior_tree` 收
 

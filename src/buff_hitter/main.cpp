@@ -65,11 +65,9 @@
 #include <vector>
 #include <ament_index_cpp/get_package_share_directory.hpp>
 
-// TODO copy to auto aim detector
-LY_DEF_ROS_TOPIC(ly_aa_enable, "/ly/aa/enable", std_msgs::msg::Bool);
+LY_DEF_ROS_TOPIC(ly_vision_mode, "/ly/vision/mode", std_msgs::msg::UInt8);
 
 // rune aim
-LY_DEF_ROS_TOPIC(ly_ra_enable, "/ly/ra/enable", std_msgs::msg::Bool);
 LY_DEF_ROS_TOPIC(ly_ra_mode, "/ly/ra/mode", std_msgs::msg::UInt8);
 
 // LY_DEF_ROS_TOPIC(ly_camera_image, "/ly/camera/image", sensor_msgs::msg::Image);
@@ -85,6 +83,11 @@ LY_DEF_ROS_TOPIC(ly_buff_target, "/ly/buff/target", auto_aim_common::msg::Target
 LY_DEF_ROS_TOPIC(ly_buff_debug, "/ly/buff/debug", auto_aim_common::msg::BuffDebug)
 
 LY_DEF_ROS_TOPIC(ly_ra_angle_image, "/ly/ra/angle_image", auto_aim_common::msg::AngleImage);
+
+namespace {
+constexpr std::uint8_t kVisionModeArmor = 1;
+constexpr std::uint8_t kVisionModeBuff = 2;
+}
 
 // LY_DEF_ROS_TOPIC(ly_control_angles, "/ly/control/angles", gimbal_driver::msg::GimbalAngles);
 // LY_DEF_ROS_TOPIC(ly_control_firecode, "/ly/control/firecode", gimbal_driver::msg::FireCode);
@@ -265,9 +268,9 @@ private:
         return static_cast<float>(safe_speed);
     }
 
-    void aa_enable_callback(const std_msgs::msg::Bool& msg) {
-        aa_enable = msg.data; //ROS1 aa_enable = msg->data;
-        roslog::info("aa_enable: {}", aa_enable);
+    void vision_mode_callback(const std_msgs::msg::UInt8::ConstSharedPtr msg) {
+        aa_enable = msg->data == kVisionModeArmor;
+        roslog::info("vision_mode: {}, aa_enable: {}", static_cast<int>(msg->data), aa_enable);
     }
 
     template<typename TTopic>
@@ -282,10 +285,9 @@ private:
         //     g.GimbalAngles.Yaw = static_cast<float>(m.Yaw);
         //     g.GimbalAngles.Pitch = static_cast<float>(m.Pitch);
         // });
-        GenSub<ly_ra_enable>([](RA_MultiThreadVariables &g, const std_msgs::msg::Bool &m) {
-            roslog::info("received messasge: {}", m.data);
-             g.Enable = m.data; 
-            });
+        GenSub<ly_vision_mode>([](RA_MultiThreadVariables &g, const std_msgs::msg::UInt8 &m) {
+            g.Enable = m.data == kVisionModeBuff;
+        });
         // GenSub<ly_gimbal_firecode>([](RA_MultiThreadVariables &g, const gimbal_driver::msg::FireCode &m) {
         //     g.FireCode.FireStatus = m.fire_status & 0b11;
         // });
@@ -667,7 +669,8 @@ public:
 
     void Run(int argc, char **argv) {
     GenSubs();
-    Node.GenSubscriber<ly_aa_enable>([this](const std_msgs::msg::Bool& msg){ aa_enable_callback(msg); });
+    Node.GenSubscriber<ly_vision_mode>(
+        [this](const std_msgs::msg::UInt8::ConstSharedPtr msg) { vision_mode_callback(msg); });
     Node.GenSubscriber<ly_ra_mode>(
         [this](const std_msgs::msg::UInt8::ConstSharedPtr msg) { ra_mode_callback(msg); });
     Node.GenSubscriber<ly_bullet_speed>(

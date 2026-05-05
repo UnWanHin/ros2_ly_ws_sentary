@@ -11,7 +11,7 @@
 - gimbal_driver
 - detector
 - outpost_hitter
-- buff_test_bridge（将 /ly/outpost/target 桥接到 /ly/control/*，并持续发布 outpost 模式开关）
+- buff_test_bridge（将 /ly/outpost/target 桥接到 /ly/control/*，并持续发布 /ly/vision/mode=3）
 """
 
 import os
@@ -157,9 +157,7 @@ def generate_launch_description():
                 "gate_hz": ParameterValue(bridge_gate_hz, value_type=float),
                 "timeout_sec": ParameterValue(bridge_timeout_sec, value_type=float),
                 "zero_velocity": ParameterValue(bridge_zero_velocity, value_type=bool),
-                "gate_aa_enable": ParameterValue(False, value_type=bool),
-                "gate_ra_enable": ParameterValue(False, value_type=bool),
-                "gate_outpost_enable": ParameterValue(True, value_type=bool),
+                "gate_vision_mode": ParameterValue(3, value_type=int),
                 "gate_publish_bt_target": ParameterValue(True, value_type=bool),
                 "gate_bt_target": ParameterValue(bridge_bt_target, value_type=int),
             }],
@@ -169,4 +167,3 @@ def generate_launch_description():
     ]
 
     return LaunchDescription(launch_args + info_logs + nodes)
-

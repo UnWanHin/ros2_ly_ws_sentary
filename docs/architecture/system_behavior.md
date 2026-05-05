@@ -217,9 +217,7 @@ ros2 launch behavior_tree behavior_tree.launch.py
 
 **模式控制**:
 - `/ly/bt/target` - 目標選擇
-- `/ly/aa/enable` - 自瞄使能
-- `/ly/ra/enable` - 能量機關使能
-- `/ly/outpost/enable` - 前哨使能
+- `/ly/vision/mode` - 視覺模式，`0=DISABLED`, `1=ARMOR`, `2=BUFF`, `3=OUTPOST`
 
 ---
 

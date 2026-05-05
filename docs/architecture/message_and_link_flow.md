@@ -98,7 +98,7 @@ LY_DEF_ROS_TOPIC(ly_bullet_speed, "/ly/bullet/speed", std_msgs::msg::Float32);
 - `/ly/gimbal/angles` - 雲台角度 (用於 PnP 解算)
 - `/ly/me/is_team_red` - 隊伍顏色 (用於顏色過濾)
 - `/ly/bt/target` - 目標選擇 (決策模塊發送，可選)
-- `/ly/aa/enable` - 自瞄使能開關
+- `/ly/vision/mode` - 視覺模式，`1=ARMOR`, `2=BUFF`, `3=OUTPOST`
 
 **發布的 Topic**:
 - `/ly/detector/armors` - 檢測到的裝甲板列表
@@ -366,8 +366,7 @@ node.Publisher<ly_outpost_target>()->publish(target_msg);
 
 **訂閱的 Topic**:
 - `/ly/ra/angle_image` - 帶角度的圖像
-- `/ly/ra/enable` - 能量機關使能開關
-- `/ly/aa/enable` - 自瞄使能 (用於互斥)
+- `/ly/vision/mode` - 視覺模式，`2=BUFF` 時啟用打符
 - `/ly/bullet/speed` - 彈速回讀（動態彈道參數）
 
 **發布的 Topic**:
@@ -486,21 +485,14 @@ float32 pitch
 
 ## 🎮 模式切換機制
 
-### 使能開關 Topic
+### 視覺模式 Topic
 
-系統通過以下 Topic 控制模式切換：
+系統通過 `/ly/vision/mode` 控制視覺模式切換：
 
-1. `/ly/aa/enable` - 自瞄模式使能
-   - `true` = 啟用自瞄
-   - `false` = 禁用自瞄
-
-2. `/ly/ra/enable` - 能量機關模式使能
-   - `true` = 啟用能量機關
-   - `false` = 禁用能量機關
-
-3. `/ly/outpost/enable` - 前哨模式使能
-   - `true` = 啟用前哨
-   - `false` = 禁用前哨
+- `0` = DISABLED
+- `1` = ARMOR
+- `2` = BUFF
+- `3` = OUTPOST
 
 **互斥邏輯**:
 - 自瞄和能量機關互斥 (buff_hitter 第 238-241 行)
@@ -617,9 +609,7 @@ ros2 topic hz /ly/predictor/target
    - 類型: `std_msgs::msg::UInt8`
 
 2. **模式切換**:
-   - `/ly/aa/enable` - 控制自瞄使能
-   - `/ly/ra/enable` - 控制能量機關使能
-   - `/ly/outpost/enable` - 控制前哨使能
+   - `/ly/vision/mode` - 控制 ARMOR/BUFF/OUTPOST 視覺模式
 
 3. **导航输出**:
    - `/ly/navi/goal` - 点位 ID

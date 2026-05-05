@@ -25,7 +25,6 @@
 #include <auto_aim_common/msg/target.hpp>
 #include <auto_aim_common/msg/armor.hpp>
 #include <auto_aim_common/msg/armors.hpp>
-#include <std_msgs/msg/bool.hpp>
 
 // [引入你的模塊] 確保這些頭文件路徑正確
 #include "solver/solver.hpp"
@@ -50,7 +49,6 @@ using namespace std;
 namespace {
     // [ROS 2] 修正 Topic 定義: 加上 ::msg::
     LY_DEF_ROS_TOPIC(ly_outpost_armors, "/ly/outpost/armors", auto_aim_common::msg::Armors);
-    LY_DEF_ROS_TOPIC(ly_outpost_enable, "/ly/outpost/enable", std_msgs::msg::Bool);
     LY_DEF_ROS_TOPIC(ly_outpost_target, "/ly/outpost/target", auto_aim_common::msg::Target);
 
     constexpr const char AppName[] = "outpost_hitter_node";
@@ -68,9 +66,6 @@ namespace {
             node.GenSubscriber<ly_outpost_armors>([this](const auto_aim_common::msg::Armors::ConstSharedPtr msg) { 
                 outpost_detection_callback(msg); 
             });
-
-            // 如果需要 enable 回调，可以解开注释
-            // node.GenSubscriber<ly_outpost_enable>([this](const std_msgs::msg::Bool::ConstSharedPtr msg) { outpost_enable_callback(msg); });
 
             // 初始化其餘模塊（PoseSolver 需要在 main 設置 global_solver_node 後再初始化）
             outpost_predictor = std::make_unique<PREDICTOR::OutpostPredictor>();
@@ -164,10 +159,7 @@ namespace {
                 outpost_time_delay_sec_);
         }
 
-        // [ROS 2] Callback 修正：類型為 ConstSharedPtr
         void outpost_detection_callback(const auto_aim_common::msg::Armors::ConstSharedPtr msg) {
-            // if(!outpost_enable.load()) return;
-
             if (!solver) {
                 RCLCPP_WARN_THROTTLE(node.get_logger(), *node.get_clock(), 2000, "OutpostHitterNode> PoseSolver is not ready, skip frame.");
                 return;

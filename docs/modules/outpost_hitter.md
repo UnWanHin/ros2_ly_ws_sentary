@@ -92,4 +92,4 @@ outpost_hitter/
 - **調試殘留**：`outpost_hitter_node.cpp` 第92-93行有 `yaw_now = 1000.0f; pitch_now = 10.0f;`，正式使用必須刪除，改用 `msg->yaw/pitch`
 - **彈速硬編碼**：`setBulletSpeed(23.0)` 應改為訂閱 `/ly/bullet/speed`
 - **全局指針**：`SOLVER::global_solver_node` 與 `predictor` 的 `global_predictor_solver_node` **不同**，各自獨立讀相機內參
-- **上游依賴**：`behavior_tree` 通過 `/ly/outpost/enable` 控制是否激活前哨模式；`detector` 通過此 Topic 決定是否通過 `/ly/outpost/armors` 輸出前哨裝甲板
+- **上游依賴**：`behavior_tree` 通過 `/ly/vision/mode=3` 控制是否激活前哨模式；`detector` 據此決定是否通過 `/ly/outpost/armors` 輸出前哨裝甲板

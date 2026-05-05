@@ -11,7 +11,7 @@
 - gimbal_driver
 - detector
 - buff_hitter
-- buff_test_bridge（固定 aa=false/ra=true，并将 /ly/buff/target 桥接到 /ly/control/*）
+- buff_test_bridge（固定 /ly/vision/mode=2，并将 /ly/buff/target 桥接到 /ly/control/*）
 """
 
 import os
@@ -151,6 +151,7 @@ def generate_launch_description():
                 "gate_hz": ParameterValue(bridge_gate_hz, value_type=float),
                 "timeout_sec": ParameterValue(bridge_timeout_sec, value_type=float),
                 "zero_velocity": ParameterValue(bridge_zero_velocity, value_type=bool),
+                "gate_vision_mode": ParameterValue(2, value_type=int),
             }],
             on_exit=Shutdown(reason="buff_test_bridge exited"),
             condition=IfCondition(use_bridge),

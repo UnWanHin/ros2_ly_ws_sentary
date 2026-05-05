@@ -6,6 +6,10 @@
 
 namespace {
     constexpr float kVelocityRawToMps = 0.025f;
+    constexpr std::uint8_t kVisionModeDisabled = 0;
+    constexpr std::uint8_t kVisionModeArmor = 1;
+    constexpr std::uint8_t kVisionModeBuff = 2;
+    constexpr std::uint8_t kVisionModeOutpost = 3;
 
     gimbal_driver::msg::FireCode MakeFireCodeMsg(const LangYa::FireCodeType& firecode, const rclcpp::Time& stamp) {
         gimbal_driver::msg::FireCode msg;
@@ -56,20 +60,23 @@ namespace BehaviorTree {
     }
 
     void Application::PubAimModeEnableData() {
+        const auto vision_mode = [&]() -> std::uint8_t {
+            switch (aimMode) {
+                case AimMode::AutoAim:
+                case AimMode::RotateScan:
+                    return kVisionModeArmor;
+                case AimMode::Buff:
+                    return kVisionModeBuff;
+                case AimMode::Outpost:
+                    return kVisionModeOutpost;
+                default:
+                    return kVisionModeDisabled;
+            }
+        }();
         {
-            std_msgs::msg::Bool msg;
-            msg.data = (aimMode == AimMode::AutoAim || aimMode == AimMode::RotateScan);
-            pub_aa_enable_->publish(msg);
-        }
-        {
-            std_msgs::msg::Bool msg;
-            msg.data = (aimMode == AimMode::Buff);
-            pub_ra_enable_->publish(msg);
-        }
-        {
-            std_msgs::msg::Bool msg;
-            msg.data = (aimMode == AimMode::Outpost);
-            pub_outpost_enable_->publish(msg);
+            std_msgs::msg::UInt8 msg;
+            msg.data = vision_mode;
+            pub_vision_mode_->publish(msg);
         }
     }
 

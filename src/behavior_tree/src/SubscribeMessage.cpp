@@ -355,20 +355,11 @@ namespace BehaviorTree{
 
         // ly_face_mode_angles
         GenSub<ly_face_mode_angles>([](Application& app, auto msg) {
-            auto &obj = app;
-            const bool angles_valid = std::isfinite(msg->yaw) && std::isfinite(msg->pitch);
-            obj.faceModeData.Angles = GimbalAnglesType{
-                static_cast<AngleType>(msg->yaw),
-                static_cast<AngleType>(msg->pitch)
-            };
-            obj.faceModeData.FireStatus = false;
-            obj.faceModeData.BuffFollow = false;
-            obj.faceModeData.Valid = angles_valid;
-            obj.faceModeData.Fresh = angles_valid;
-            if (angles_valid) {
-                obj.faceModeData.HasLatchedAngles = true;
-                obj.faceModeData.LastValidTime = std::chrono::steady_clock::now();
-            }
+            app.faceModeManager_.CacheAngles(
+                app.faceModeData,
+                msg->yaw,
+                msg->pitch,
+                std::chrono::steady_clock::now());
         });
 
         // ly_enemy_hp

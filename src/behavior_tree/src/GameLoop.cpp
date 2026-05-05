@@ -356,10 +356,6 @@ namespace BehaviorTree {
         static constexpr int kDamageScanBoostWindowMs = 1300;
         static constexpr int kDamageScanYawPhaseMs = 160;
         const bool follow_mode_active = gimbalControlData.FireCode.FollowMode != 0;
-        const bool face_mode_requested =
-            regionalAreaControl_.Active &&
-            regionalAreaControl_.UseFaceMode &&
-            config.FaceModeSettings.Enable;
 
         
         // 小陀螺策略（老设计）：
@@ -466,9 +462,10 @@ namespace BehaviorTree {
                    (now - activeAimData->LastValidTime) <= std::chrono::milliseconds(hold_ms);
         }();
         const bool has_target_for_angles = find_target || has_recent_latched_target;
+        const bool visual_target_has_face_priority =
+            has_target_for_angles && (aimMode == AimMode::Buff || aimMode == AimMode::Outpost);
         const bool face_mode_active =
-            face_mode_requested &&
-            !(has_target_for_angles && (aimMode == AimMode::Buff || aimMode == AimMode::Outpost));
+            faceModeManager_.Active(config.FaceModeSettings, visual_target_has_face_priority);
         const auto chase_mode_enabled = [&]() -> bool {
             if (!config.ChaseSettings.Enable || !config.ChaseSettings.FollowAimTarget) {
                 return false;
@@ -503,22 +500,6 @@ namespace BehaviorTree {
             patrolScanCenterInitialized_ = false;
             patrolScanActiveMode_ = 0;
         };
-        auto face_mode_angles = [&]() -> std::optional<GimbalAnglesType> {
-            if (!regionalAreaControl_.Active ||
-                !regionalAreaControl_.UseFaceMode ||
-                !config.FaceModeSettings.Enable ||
-                !faceModeData.Valid ||
-                !faceModeData.HasLatchedAngles ||
-                faceModeData.LastValidTime.time_since_epoch().count() == 0) {
-                return std::nullopt;
-            }
-            const int hold_ms = std::max(0, config.FaceModeSettings.LostTargetHoldMs);
-            if (faceModeData.Fresh ||
-                (hold_ms > 0 && now - faceModeData.LastValidTime <= std::chrono::milliseconds(hold_ms))) {
-                return faceModeData.Angles;
-            }
-            return std::nullopt;
-        };
         if (face_mode_active) {
             reset_patrol_scan_state();
             gimbalControlData.FireCode.AimMode = 0;
@@ -526,7 +507,8 @@ namespace BehaviorTree {
                 gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
                 buffAimData.FireStatus = false;
             }
-            const auto face_angles = face_mode_angles();
+            const auto face_angles =
+                faceModeManager_.SelectAngles(faceModeData, config.FaceModeSettings, now);
             nextAngles = face_angles.value_or(gimbalAngles);
 
             static auto last_face_mode_log = std::chrono::steady_clock::time_point{};
@@ -1714,36 +1696,14 @@ namespace BehaviorTree {
     }
 
     void Application::ResetRegionalAreaControlOverride() noexcept {
-        regionalAreaControl_ = {};
+        faceModeManager_.ResetControl();
     }
 
     void Application::ApplyAimModeFaceTarget(const UnitTeam target_team) {
-        if (aimMode != AimMode::Buff && aimMode != AimMode::Outpost) {
-            return;
-        }
-
-        regionalAreaControl_.Active = true;
-        regionalAreaControl_.UseFaceMode = true;
-        regionalAreaControl_.Phase = RegionalAreaTaskPhase::Idle;
-
-        if (!pub_face_mode_target_raw_) {
-            return;
-        }
-
-        const auto target = aimMode == AimMode::Buff
-            ? Area::BuffPose(target_team)
-            : Area::OutpostPose(target_team);
-        auto clamp_u16 = [](const double value) {
-            return static_cast<std::uint16_t>(
-                std::clamp(static_cast<int>(std::lround(value)), 0, 65535));
-        };
-        std_msgs::msg::UInt16MultiArray msg;
-        msg.data = {
-            clamp_u16(target.x),
-            clamp_u16(target.y),
-            clamp_u16(target.z)
-        };
-        pub_face_mode_target_raw_->publish(msg);
+        (void)faceModeManager_.PublishAimTarget(
+            aimMode,
+            target_team,
+            pub_face_mode_target_raw_);
     }
 
     bool Application::TrySetAimModeTaskGoal(
@@ -1761,28 +1721,16 @@ namespace BehaviorTree {
             enemy_team,
             true,
             reason);
-        ApplyAimModeFaceTarget(my_team);
+        const auto face_target_team = aimMode == AimMode::Outpost ? enemy_team : my_team;
+        ApplyAimModeFaceTarget(face_target_team);
         naviCommandIntervalClock.reset(Seconds{2});
         speedLevel = 1;
         return true;
     }
 
     void Application::ApplyRegionalAreaTaskControl(const RegionalAreaTaskTickResult& result) {
-        regionalAreaControl_.Active = result.Active;
-        regionalAreaControl_.UseFaceMode = result.Active && result.UseFaceMode;
-        regionalAreaControl_.Phase = result.Phase;
+        faceModeManager_.ApplyRegionalTaskResult(result, pub_face_mode_target_raw_);
         gimbalControlData.FireCode.FollowMode = result.FollowMode ? 1 : 0;
-        if (result.Active && result.PublishFaceTarget && pub_face_mode_target_raw_) {
-            const auto face_target =
-                AreaManager::GoalPointByBaseId(result.FaceTargetBaseGoalId, result.GoalTeam);
-            std_msgs::msg::UInt16MultiArray msg;
-            msg.data = {
-                face_target.x,
-                face_target.y,
-                static_cast<std::uint16_t>(std::clamp(result.FaceTargetZCm, 0, 65535))
-            };
-            pub_face_mode_target_raw_->publish(msg);
-        }
         if (result.SuppressFire) {
             gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
             buffAimData.FireStatus = false;

@@ -42,7 +42,7 @@ Usage:
 Purpose:
   Standalone outpost mode:
   - Launch minimal stack (gimbal_driver + detector + outpost_hitter, no behavior_tree)
-  - Publish mode switch topics (/ly/aa_enable=false, /ly/outpost/enable=true, /ly/bt/target=7)
+  - Publish /ly/vision/mode=3 and /ly/bt/target=7
   - Bridge /ly/outpost/target -> /ly/control/angles,/ly/control/firecode
 
 Options:
@@ -195,9 +195,7 @@ if ! kill -0 "${LAUNCH_PID}" 2>/dev/null; then
 fi
 
 python3 "${ROOT_DIR}/scripts/feature_test/standalone/tools/control_mode_publisher.py" \
-  --aa-enable false \
-  --ra-enable false \
-  --outpost-enable true \
+  --vision-mode 3 \
   --bt-target 7 \
   --hz 5 &
 MODE_PUB_PID="$!"

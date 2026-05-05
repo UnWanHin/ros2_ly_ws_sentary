@@ -41,7 +41,7 @@ main()
 ├── rclcpp::init()
 ├── app.Init("/path/config.json")    // 讀取配置，初始化 BuffDetector 和 BuffCalculator
 └── app.Run(argc, argv)              // 主循環
-    ├── GenSubs()                    // 訂閱 /ly/ra/enable、/ly/aa/enable、/ly/ra/angle_image、/ly/bullet/speed
+    ├── GenSubs()                    // 訂閱 /ly/vision/mode、/ly/ra/angle_image、/ly/bullet/speed
     └── while(rclcpp::ok()):
         ├── rclcpp::spin_some()
         ├── if(aa_enable) continue   // 普通瞄準開啟時跳過打符
@@ -57,9 +57,8 @@ main()
 
 | Topic | 說明 |
 |-------|------|
-| `/ly/ra/enable` | 打符使能開關（由 `behavior_tree` 控制） |
+| `/ly/vision/mode` | 主模式入口，`2=BUFF` 時啟用打符；`1=ARMOR` 時跳過打符 |
 | `/ly/ra/angle_image` | 帶雲台角的圖像（`detector` 發布的 `AngleImage.msg`） |
-| `/ly/aa/enable` | 普通瞄準使能（如果普通瞄準開著則跳過打符） |
 | `/ly/me/is_team_red` | 我方隊伍顏色；`buff_config.enemy_color=auto` 時用於選紅/藍打符模型 |
 
 #### 發布的 Topics
@@ -170,6 +169,5 @@ Application::Run() 主循環
 ## 修改注意事項
 
 - **配置文件路徑**：`app.Init("/home/hustlyrm/workspace/src/buff_hitter/config/config.json")` 是**硬編碼路徑**，需要改為相對路徑或使用 `ament_index_cpp::get_package_share_directory()`
-- **`aa_enable` 回調**：接收的是 `const std_msgs::msg::Bool&`（沒有 `->` 箭頭），這是 ROS1 的值傳遞語法，ROS2 建議使用 `ConstSharedPtr`，但目前這樣也可以工作
 - **`gimbal_driver::msg::GimbalAngles`** 字段：代碼中使用 `.pitch` 和 `.yaw`（小寫），確認與 `gimbal_driver/msg/GimbalAngles.msg` 的字段名一致
 - **彈速**：当前已订阅 `/ly/bullet/speed`，并支持 `dynamic_bullet_speed_enable/min_bullet_speed/bullet_speed_alpha/default_bullet_speed` 参数

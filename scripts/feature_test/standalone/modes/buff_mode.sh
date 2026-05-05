@@ -42,7 +42,7 @@ Usage:
 Purpose:
   Standalone buff mode:
   - Launch minimal stack (gimbal_driver + detector + buff_hitter, no behavior_tree)
-  - Publish mode switch topics (/ly/aa_enable=false, /ly/ra_enable=true)
+  - Publish /ly/vision/mode=2
   - Bridge /ly/buff/target -> /ly/control/angles,/ly/control/firecode
 
 Options:
@@ -195,9 +195,7 @@ if ! kill -0 "${LAUNCH_PID}" 2>/dev/null; then
 fi
 
 python3 "${ROOT_DIR}/scripts/feature_test/standalone/tools/control_mode_publisher.py" \
-  --aa-enable false \
-  --ra-enable true \
-  --outpost-enable false \
+  --vision-mode 2 \
   --bt-target 6 \
   --hz 5 &
 MODE_PUB_PID="$!"

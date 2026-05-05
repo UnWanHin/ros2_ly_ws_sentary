@@ -47,6 +47,7 @@
 #include "Robot.hpp"
 #include "AreaManager.hpp"
 #include "DefaultStrategyManager.hpp"
+#include "FaceModeManager.hpp"
 #include "PostureManager.hpp"
 #include "StrategyManager.hpp"
 
@@ -321,16 +322,10 @@ private:
     std::size_t regionalDefenseSearchIndex_{0};
     std::uint8_t regionalDefenseSearchBaseGoal_{LangYa::Home.ID};
     std::chrono::steady_clock::time_point regionalDefenseSearchStartTime_{};
-    struct RegionalAreaControlOverride {
-        bool Active{false};
-        bool UseFaceMode{false};
-        RegionalAreaTaskPhase Phase{RegionalAreaTaskPhase::Idle};
-    };
-    RegionalAreaControlOverride regionalAreaControl_{};
+    FaceModeManager faceModeManager_{};
     std::chrono::steady_clock::time_point lastUpdateBlackboardLogTime_{};
     std::chrono::steady_clock::time_point lastTreeTickLogTime_{};
     std::chrono::steady_clock::time_point lastTransportLogTime_{};
-    std::chrono::steady_clock::time_point lastFaceModeLogTime_{};
     std::ofstream decisionTraceStream_{};
     std::string decisionTraceFile_{};
     bool decisionTraceRequested_{false};
@@ -380,9 +375,7 @@ private:
     }
 
     // [ROS 2] 發布者指針 (明確類型)
-    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr pub_aa_enable_;
-    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr pub_ra_enable_;
-    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr pub_outpost_enable_;
+    rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_vision_mode_;
 
     rclcpp::Publisher<gimbal_driver::msg::GimbalAngles>::SharedPtr pub_gimbal_control_;
     rclcpp::Publisher<gimbal_driver::msg::FireCode>::SharedPtr pub_gimbal_firecode_;

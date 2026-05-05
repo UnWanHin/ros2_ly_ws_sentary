@@ -46,6 +46,7 @@ behavior_tree/
 │   ├── PublishMessage.cpp      # 所有發布函數（PubGimbalControlData等）
 │   ├── SetPosition.cpp         # 導航位置決策
 │   ├── SubscribeMessage.cpp    # 所有訂閱回調（接收感知和遊戲數據）
+│   ├── FaceModeManager.cpp     # FaceMode 角度鎖存、啟停判斷與固定朝向目標發布
 │   └── WaitBeforeGame.cpp      # 等待比賽開始邏輯
 ├── module/                     # 工具庫
 │   ├── BasicTypes.hpp          # 遊戲數據類型（AimMode、ArmorType、FireCodeType等）
@@ -230,7 +231,7 @@ void TreeTick() {
 這個函數決定最終發出什麼角度和火控碼：
 
 1. **小陀螺控制**：根據血量下降速度（`healthDecreaseDetector`）和底盤速度（`naviVelocity`），動態設置 `FireCode.Rotate`（0=停止、1-3=不同速度）
-2. **FaceMode 優先級**：区域任务启用 FaceMode 时接管云台角，停止云台巡逻扫描，并按 `FaceMode.SuppressFire` 停止新的开火翻转；FaceMode 本身不清零 `FireCode.Rotate`，底盘小陀螺继续由原策略输出。
+2. **FaceMode 優先級**：`FaceModeManager` 管理角度鎖存、啟停判斷與 `/ly/face_mode/target_raw` 目標發布；区域任务启用 FaceMode 时接管云台角，停止云台巡逻扫描，并按 `FaceMode.SuppressFire` 停止新的开火翻转；FaceMode 本身不清零 `FireCode.Rotate`，底盘小陀螺继续由原策略输出。
 3. **FollowMode 優先級**：`FireCode.FollowMode=1` 時停止 rotate、停止巡邏掃描、保持當前雲台角，並停止新的 `FireStatus` 翻轉。
 4. **本輪收到目標回調時**：
    - 按 `aimMode` 從對應的 `Aim*Data` 取角度
@@ -286,9 +287,7 @@ void TreeTick() {
 | `/ly/control/firecode` | 火控碼（開火狀態、電容、FollowMode、瞄準模式、旋轉速度） |
 | `/ly/control/vel` | 底盤速度指令（導航） |
 | `/ly/control/posture` | 姿態指令（0不下發/1進攻/2防禦/3移動） |
-| `/ly/aa/enable` | 普通瞄準開關 |
-| `/ly/ra/enable` | 打符模式開關 |
-| `/ly/outpost/enable` | 前哨站瞄準開關 |
+| `/ly/vision/mode` | 視覺鏈路模式，`UInt8`：0=DISABLED, 1=ARMOR, 2=BUFF, 3=OUTPOST |
 | `/ly/bt/target` | 當前打擊目標類型（→ `detector` 和 `predictor`） |
 | `/ly/face_mode/target_raw` | FaceMode 动态目标，`[official_map_x, official_map_y, map_z]` cm |
 | `/ly/navi/target_rel` | 追擊相對目標點（x/y/z，供導航側閉環） |
@@ -432,7 +431,7 @@ SET_POSITION(BuffShoot, MyTeam);  // 設置導航目標為打符點位
 
 ### 發布（共10+個）
 控制類：`/ly/control/angles`, `/ly/control/firecode`, `/ly/control/vel`, `/ly/control/posture`
-模式切換：`/ly/aa/enable`, `/ly/ra/enable`, `/ly/outpost/enable`
+模式切換：`/ly/vision/mode`
 目標廣播：`/ly/bt/target`（→ `detector`, `predictor`）
 導航：`/ly/navi/*`
 

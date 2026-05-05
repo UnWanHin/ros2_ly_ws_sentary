@@ -29,7 +29,7 @@ Purpose:
   Pure buff test:
   - no behavior_tree
   - no patrol strategy
-  - force /ly/aa/enable=false and /ly/ra/enable=true
+  - force /ly/vision/mode=2
   - bridge /ly/buff/target -> /ly/control/* for gimbal debug/firing
 
 Examples:

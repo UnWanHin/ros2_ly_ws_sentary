@@ -803,9 +803,7 @@ if (( STATIC_ONLY == 0 )); then
   check_node_sub "/gimbal_driver" "/ly/control/posture" hard
 
   # detector
-  check_node_sub "/detector" "/ly/aa/enable" hard
-  check_node_sub "/detector" "/ly/ra/enable" hard
-  check_node_sub "/detector" "/ly/outpost/enable" hard
+  check_node_sub "/detector" "/ly/vision/mode" hard
   check_node_sub "/detector" "/ly/bt/target" hard
   check_node_sub "/detector" "/ly/gimbal/angles" hard
   check_node_sub "/detector" "/ly/me/is_team_red" hard
@@ -823,8 +821,7 @@ if (( STATIC_ONLY == 0 )); then
     warn "Skip outpost subscriber contract checks: node offline"
   fi
   if [[ -n "${BUFF_NODE}" ]]; then
-    check_node_sub "${BUFF_NODE}" "/ly/ra/enable" hard
-    check_node_sub "${BUFF_NODE}" "/ly/aa/enable" hard
+    check_node_sub "${BUFF_NODE}" "/ly/vision/mode" hard
     check_node_sub "${BUFF_NODE}" "/ly/ra/angle_image" hard
   else
     warn "Skip buff subscriber contract checks: node offline"
@@ -844,9 +841,7 @@ if (( STATIC_ONLY == 0 )); then
   check_node_pub "/behavior_tree" "/ly/control/angles" hard
   check_node_pub "/behavior_tree" "/ly/control/firecode" hard
   check_node_pub "/behavior_tree" "/ly/control/posture" hard
-  check_node_pub "/behavior_tree" "/ly/aa/enable" hard
-  check_node_pub "/behavior_tree" "/ly/ra/enable" hard
-  check_node_pub "/behavior_tree" "/ly/outpost/enable" hard
+  check_node_pub "/behavior_tree" "/ly/vision/mode" hard
   check_node_pub "/behavior_tree" "/ly/bt/target" hard
   check_node_pub "/behavior_tree" "/ly/navi/vel" hard
 
@@ -859,9 +854,7 @@ if (( STATIC_ONLY == 0 )); then
   check_topic_link "/ly/control/vel" "gimbal_driver/msg/ControlVelocity" "/behavior_tree" "/gimbal_driver" hard
 
   check_topic_link "/ly/bt/target" "std_msgs/msg/UInt8" "/behavior_tree" "/detector,/predictor_node" hard
-  check_topic_link "/ly/aa/enable" "std_msgs/msg/Bool" "/behavior_tree" "/detector,${BUFF_NODE:-/buff_hitter}" hard
-  check_topic_link "/ly/ra/enable" "std_msgs/msg/Bool" "/behavior_tree" "/detector,${BUFF_NODE:-/buff_hitter}" hard
-  check_topic_link "/ly/outpost/enable" "std_msgs/msg/Bool" "/behavior_tree" "/detector" hard
+  check_topic_link "/ly/vision/mode" "std_msgs/msg/UInt8" "/behavior_tree" "/detector,${BUFF_NODE:-/buff_hitter}" hard
 
   print_section "Conditional Topics (Data-Dependent)"
   check_topic_link "/ly/gimbal/angles" "gimbal_driver/msg/GimbalAngles" "/gimbal_driver" "/behavior_tree,/detector" warn
