@@ -38,6 +38,8 @@ FALLBACK_POINT_ID_NAME = {
     20: "CastleLeft2",
     21: "BaseToCentral",
     22: "CentralToBase",
+    23: "BuffOutpost",
+    24: "OutpostGuard",
 }
 
 

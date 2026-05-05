@@ -221,3 +221,5 @@ goals:
   - {id: 20, name: CastleLeft2, red: [831, 960], blue: [1969, 540]}
   - {id: 21, name: BaseToCentral, red: [1125, 155], blue: [1675, 1345]}
   - {id: 22, name: CentralToBase, red: [451, 146], blue: [2349, 1354]}
+  - {id: 23, name: BuffOutpost, red: [1100, 1130], blue: [1700, 370]}
+  - {id: 24, name: OutpostGuard, red: [969, 368], blue: [1831, 1132]}

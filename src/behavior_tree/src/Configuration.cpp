@@ -440,6 +440,11 @@ namespace LangYa {
         gs.Protected = j.value("Protected", gs.Protected);
     }
 
+    void from_json(const json& j, TaskSetting& ts) {
+        ts.Buff = j.value("Buff", ts.Buff);
+        ts.Outpost = j.value("Outpost", ts.Outpost);
+    }
+
     void from_json(const json& j, DamageOpenGateSetting& dog) {
         dog.Enable = j.value("Enable", dog.Enable);
         dog.HealthDropThreshold = j.value("HealthDropThreshold", dog.HealthDropThreshold);
@@ -836,6 +841,11 @@ namespace LangYa {
         c.SwitchPoint = j.value("SwitchPoint", c.SwitchPoint);
         if (j.contains("GameStrategy")) {
             j.at("GameStrategy").get_to(c.GameStrategySettings);
+        }
+        c.TaskSettings.Buff = c.GameStrategySettings.HitBuff != 0;
+        c.TaskSettings.Outpost = c.GameStrategySettings.HitOutpost;
+        if (j.contains("Task")) {
+            j.at("Task").get_to(c.TaskSettings);
         }
         if (j.contains("DamageOpenGate")) {
             j.at("DamageOpenGate").get_to(c.DamageOpenGateSettings);
@@ -1354,6 +1364,9 @@ namespace BehaviorTree {
         LoggerPtr->Debug("HitSentry: {}", config.GameStrategySettings.HitSentry);
         LoggerPtr->Debug("TestNavi: {}", config.GameStrategySettings.TestNavi);
         LoggerPtr->Debug("Protected: {}", config.GameStrategySettings.Protected);
+        LoggerPtr->Debug("------ Task ------");
+        LoggerPtr->Debug("Buff: {}", config.TaskSettings.Buff);
+        LoggerPtr->Debug("Outpost: {}", config.TaskSettings.Outpost);
         LoggerPtr->Debug("------ DamageOpenGate ------");
         LoggerPtr->Debug("Enable: {}", config.DamageOpenGateSettings.Enable);
         LoggerPtr->Debug("HealthDropThreshold: {}", config.DamageOpenGateSettings.HealthDropThreshold);

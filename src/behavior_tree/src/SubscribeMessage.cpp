@@ -49,6 +49,13 @@ namespace BehaviorTree{
         // 2) 裁判/比赛态数据（血量、弹药、时间、开赛标志）
         // 3) 感知与预测结果（装甲板、predictor/buff/outpost 目标）
         // 4) 导航与定位（速度、位置、低头标志）
+        auto cache_event_data_raw = [](Application& app, const std::uint32_t raw) {
+            app.extEventData = raw;
+            app.eventSelfSmallEnergyStatus_ = static_cast<std::uint8_t>((raw >> 3U) & 0x03U);
+            app.eventSelfLargeEnergyStatus_ = static_cast<std::uint8_t>((raw >> 5U) & 0x03U);
+            app.hasReceivedEventData_ = true;
+            app.lastEventDataRxTime_ = std::chrono::steady_clock::now();
+        };
 
         // ly_gimbal_angles
         GenSub<ly_gimbal_angles>([](Application& app, auto msg) {
@@ -88,13 +95,17 @@ namespace BehaviorTree{
         });
 
         // ly_game_eventdata
-        GenSub<ly_game_eventdata>([](Application& app, auto msg) {
-            app.extEventData = msg->data;
+        GenSub<ly_game_eventdata>([cache_event_data_raw](Application& app, auto msg) {
+            cache_event_data_raw(app, msg->data);
         });
 
         // ly_game_event_data
         GenSub<ly_game_event_data>([](Application& app, auto msg) {
             app.extEventData = msg->raw;
+            app.eventSelfSmallEnergyStatus_ = msg->self_small_energy_status;
+            app.eventSelfLargeEnergyStatus_ = msg->self_large_energy_status;
+            app.hasReceivedEventData_ = true;
+            app.lastEventDataRxTime_ = std::chrono::steady_clock::now();
         });
 
         // 兼容历史 topic（无前导 '/'）:
@@ -103,8 +114,8 @@ namespace BehaviorTree{
         auto legacy_game_event_sub = node_->create_subscription<std_msgs::msg::UInt32>(
             "ly/gimbal/eventdata",
             rclcpp::QoS(10),
-            [this](const std_msgs::msg::UInt32::SharedPtr msg) {
-                extEventData = msg->data;
+            [this, cache_event_data_raw](const std_msgs::msg::UInt32::SharedPtr msg) {
+                cache_event_data_raw(*this, msg->data);
             }
         );
         subscribers_.push_back(legacy_game_event_sub);

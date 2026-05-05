@@ -93,6 +93,8 @@ const char* GoalName(const int base_goal_id) noexcept {
         case LangYa::CastleLeft2.ID: return "CastleLeft2";
         case LangYa::BaseToCentral.ID: return "BaseToCentral";
         case LangYa::CentralToBase.ID: return "CentralToBase";
+        case LangYa::BuffOutpost.ID: return "BuffOutpost";
+        case LangYa::OutpostGuard.ID: return "OutpostGuard";
         default: return "Unknown";
     }
 }
@@ -416,6 +418,9 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         {"has_rfid_status_2", hasRfidStatus2},
         {"rfid_status_2", static_cast<int>(rfidStatus2)},
         {"ext_event_data", extEventData},
+        {"has_event_data", hasReceivedEventData_},
+        {"event_self_small_energy_status", static_cast<int>(eventSelfSmallEnergyStatus_)},
+        {"event_self_large_energy_status", static_cast<int>(eventSelfLargeEnergyStatus_)},
         {"team_buff", {
             {"recovery", static_cast<int>(teamBuff.RecoveryBuff)},
             {"cooling", static_cast<int>(teamBuff.CoolingBuff)},

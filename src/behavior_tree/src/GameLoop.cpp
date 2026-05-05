@@ -283,6 +283,9 @@ namespace BehaviorTree {
         GlobalBlackboard_->set<bool>("HasRfidStatus2", hasRfidStatus2);
         GlobalBlackboard_->set<std::uint8_t>("RfidStatus2", rfidStatus2);
         GlobalBlackboard_->set<std::uint32_t>("ExtEventData", extEventData);
+        GlobalBlackboard_->set<bool>("HasEventData", hasReceivedEventData_);
+        GlobalBlackboard_->set<std::uint8_t>("EventSelfSmallEnergyStatus", eventSelfSmallEnergyStatus_);
+        GlobalBlackboard_->set<std::uint8_t>("EventSelfLargeEnergyStatus", eventSelfLargeEnergyStatus_);
         GlobalBlackboard_->set("ArmorList", armorList);
         GlobalBlackboard_->set("TeamBuff", teamBuff);
         GlobalBlackboard_->set<std::uint8_t>("AimMode", static_cast<std::uint8_t>(aimMode));
@@ -353,7 +356,7 @@ namespace BehaviorTree {
         static constexpr int kDamageScanBoostWindowMs = 1300;
         static constexpr int kDamageScanYawPhaseMs = 160;
         const bool follow_mode_active = gimbalControlData.FireCode.FollowMode != 0;
-        const bool face_mode_active =
+        const bool face_mode_requested =
             regionalAreaControl_.Active &&
             regionalAreaControl_.UseFaceMode &&
             config.FaceModeSettings.Enable;
@@ -463,6 +466,9 @@ namespace BehaviorTree {
                    (now - activeAimData->LastValidTime) <= std::chrono::milliseconds(hold_ms);
         }();
         const bool has_target_for_angles = find_target || has_recent_latched_target;
+        const bool face_mode_active =
+            face_mode_requested &&
+            !(has_target_for_angles && (aimMode == AimMode::Buff || aimMode == AimMode::Outpost));
         const auto chase_mode_enabled = [&]() -> bool {
             if (!config.ChaseSettings.Enable || !config.ChaseSettings.FollowAimTarget) {
                 return false;
@@ -1108,12 +1114,24 @@ namespace BehaviorTree {
             LoggerPtr->Info("Regional defense active: suppress Buff/Outpost aim mode.");
             return;
         }
-        if(config.GameStrategySettings.HitBuff) { // 打符
+        if(config.TaskSettings.Buff) { // 打符
             if(now_time < 25 && buff_shoot_count <= 15){
                 if(now_time > 7) {
-                    if(teamBuff.DefenceBuff > 20 || teamBuff.VulnerabilityBuff > 20){
-                        LoggerPtr->Info("Buff has been activated!");
-                        LoggerPtr->Info("Defense Buff: {}, Vulnerability Buff: {}", teamBuff.DefenceBuff, teamBuff.VulnerabilityBuff);
+                    const bool event_data_fresh =
+                        hasReceivedEventData_ &&
+                        lastEventDataRxTime_.time_since_epoch().count() != 0 &&
+                        std::chrono::steady_clock::now() - lastEventDataRxTime_ <= std::chrono::seconds(2);
+                    const bool energy_activated =
+                        event_data_fresh &&
+                        (eventSelfSmallEnergyStatus_ == 1 || eventSelfLargeEnergyStatus_ == 1);
+                    const bool legacy_buff_activated =
+                        !event_data_fresh &&
+                        (teamBuff.DefenceBuff > 20 || teamBuff.VulnerabilityBuff > 20);
+                    if(energy_activated || legacy_buff_activated){
+                        LoggerPtr->Info("Buff has been activated! event_fresh={}, small_status={}, large_status={}",
+                            event_data_fresh ? 1 : 0,
+                            static_cast<int>(eventSelfSmallEnergyStatus_),
+                            static_cast<int>(eventSelfLargeEnergyStatus_));
                         aimMode = AimMode::RotateScan;
                     }
                     else{
@@ -1126,7 +1144,7 @@ namespace BehaviorTree {
                 LoggerPtr->Info("Time out 25 seconds, stop hit buff!");
                 aimMode = AimMode::RotateScan;
             }
-        }else if(config.GameStrategySettings.HitOutpost) { // 打前哨站
+        }else if(config.TaskSettings.Outpost) { // 打前哨站
             if(enemyOutpostHealth > 0) {
                 LoggerPtr->Info("Enemy Outpost Health: {}", enemyOutpostHealth);;
                 if(now_time < 90) {
@@ -1193,14 +1211,14 @@ namespace BehaviorTree {
             return IsIgnoredArmorType(config.AimTargetIgnore, armor_type);
         };
         if(aimMode == AimMode::Buff) { // 打符，修改为默认值
-            if(BehaviorTree::Area::BuffShoot.near(nowx, nowy, 100, MyTeam) &&
+            if(BehaviorTree::Area::BuffOutpost.near(nowx, nowy, 100, MyTeam) &&
                !is_ignored_armor(ArmorType::Hero)) {
                 targetArmor.Type = ArmorType::Hero;
             } else {
                 SetAimTargetNormal();
             }
         }else if(aimMode == AimMode::Outpost) { // 打前哨站
-            if(BehaviorTree::Area::OutpostShoot.near(nowx, nowy, 100, MyTeam) &&
+            if(BehaviorTree::Area::BuffOutpost.near(nowx, nowy, 100, MyTeam) &&
                !is_ignored_armor(ArmorType::Outpost)) {
                 targetArmor.Type = ArmorType::Outpost;
             } else {
@@ -1697,6 +1715,56 @@ namespace BehaviorTree {
 
     void Application::ResetRegionalAreaControlOverride() noexcept {
         regionalAreaControl_ = {};
+    }
+
+    void Application::ApplyAimModeFaceTarget(const UnitTeam target_team) {
+        if (aimMode != AimMode::Buff && aimMode != AimMode::Outpost) {
+            return;
+        }
+
+        regionalAreaControl_.Active = true;
+        regionalAreaControl_.UseFaceMode = true;
+        regionalAreaControl_.Phase = RegionalAreaTaskPhase::Idle;
+
+        if (!pub_face_mode_target_raw_) {
+            return;
+        }
+
+        const auto target = aimMode == AimMode::Buff
+            ? Area::BuffPose(target_team)
+            : Area::OutpostPose(target_team);
+        auto clamp_u16 = [](const double value) {
+            return static_cast<std::uint16_t>(
+                std::clamp(static_cast<int>(std::lround(value)), 0, 65535));
+        };
+        std_msgs::msg::UInt16MultiArray msg;
+        msg.data = {
+            clamp_u16(target.x),
+            clamp_u16(target.y),
+            clamp_u16(target.z)
+        };
+        pub_face_mode_target_raw_->publish(msg);
+    }
+
+    bool Application::TrySetAimModeTaskGoal(
+        const UnitTeam my_team,
+        const UnitTeam enemy_team,
+        const char* reason) {
+        if (aimMode != AimMode::Buff && aimMode != AimMode::Outpost) {
+            return false;
+        }
+
+        TrySetScopedPositionByBaseGoal(
+            LangYa::BuffOutpost.ID,
+            my_team,
+            my_team,
+            enemy_team,
+            true,
+            reason);
+        ApplyAimModeFaceTarget(my_team);
+        naviCommandIntervalClock.reset(Seconds{2});
+        speedLevel = 1;
+        return true;
     }
 
     void Application::ApplyRegionalAreaTaskControl(const RegionalAreaTaskTickResult& result) {
@@ -2673,6 +2741,8 @@ namespace BehaviorTree {
             case LangYa::Highland.ID: assign_position(LangYa::Highland, BehaviorTree::Area::Highland); break;
             case LangYa::BaseToCentral.ID: assign_position(LangYa::BaseToCentral, BehaviorTree::Area::BaseToCentral); break;
             case LangYa::CentralToBase.ID: assign_position(LangYa::CentralToBase, BehaviorTree::Area::CentralToBase); break;
+            case LangYa::BuffOutpost.ID: assign_position(LangYa::BuffOutpost, BehaviorTree::Area::BuffOutpost); break;
+            case LangYa::OutpostGuard.ID: assign_position(LangYa::OutpostGuard, BehaviorTree::Area::OutpostGuard); break;
             default:
                 LoggerPtr->Warning("Unknown base goal id={}, fallback to Home.", static_cast<int>(base_goal_id));
                 effective_base_goal_id = LangYa::Home.ID;
@@ -3428,14 +3498,10 @@ namespace BehaviorTree {
             return;
         }        
         if(aimMode == AimMode::Buff) {
-            TrySetScopedPositionByBaseGoal(
-                LangYa::BuffShoot.ID, MyTeam, MyTeam, EnemyTeam, true, "protect_buff");
-            naviCommandIntervalClock.reset(Seconds(2));
+            TrySetAimModeTaskGoal(MyTeam, EnemyTeam, "protect_buff");
             // speedLevel = 2; //加速
         }else if (aimMode == AimMode::Outpost) {
-            TrySetScopedPositionByBaseGoal(
-                LangYa::OutpostShoot.ID, MyTeam, MyTeam, EnemyTeam, true, "protect_outpost");
-            naviCommandIntervalClock.reset(Seconds(2));
+            TrySetAimModeTaskGoal(MyTeam, EnemyTeam, "protect_outpost");
             // speedLevel = 1; // 正常
         }else { //普通模式
             if (!TrySetNaviGoalByAutonomy(StrategyMode::Protected, MyTeam, EnemyTeam)) {
@@ -3548,14 +3614,10 @@ namespace BehaviorTree {
             return;
         }
         if(aimMode == AimMode::Buff) {
-            TrySetScopedPositionByBaseGoal(
-                LangYa::BuffShoot.ID, MyTeam, MyTeam, EnemyTeam, true, "hit_sentry_buff");
-            naviCommandIntervalClock.reset(Seconds(2));
+            TrySetAimModeTaskGoal(MyTeam, EnemyTeam, "hit_sentry_buff");
             // speedLevel = 2;
         }else if (aimMode == AimMode::Outpost) {
-            TrySetScopedPositionByBaseGoal(
-                LangYa::OutpostShoot.ID, MyTeam, MyTeam, EnemyTeam, true, "hit_sentry_outpost");
-            naviCommandIntervalClock.reset(Seconds(2));
+            TrySetAimModeTaskGoal(MyTeam, EnemyTeam, "hit_sentry_outpost");
             // speedLevel = 1;
         }else { //普通模式
             if (!TrySetNaviGoalByAutonomy(StrategyMode::HitSentry, MyTeam, EnemyTeam)) {
@@ -3660,14 +3722,10 @@ namespace BehaviorTree {
             return;
         }
         if(aimMode == AimMode::Buff) {
-            TrySetScopedPositionByBaseGoal(
-                LangYa::BuffShoot.ID, MyTeam, MyTeam, EnemyTeam, true, "hit_hero_buff");
-            naviCommandIntervalClock.reset(Seconds(2));
+            TrySetAimModeTaskGoal(MyTeam, EnemyTeam, "hit_hero_buff");
             // speedLevel = 2;
         }else if (aimMode == AimMode::Outpost) {
-            TrySetScopedPositionByBaseGoal(
-                LangYa::OutpostShoot.ID, MyTeam, MyTeam, EnemyTeam, true, "hit_hero_outpost");
-            naviCommandIntervalClock.reset(Seconds(2));
+            TrySetAimModeTaskGoal(MyTeam, EnemyTeam, "hit_hero_outpost");
             // speedLevel = 1;
         }else { //普通模式
             const bool selected_by_default = TrySetDefaultRegionalGoal(MyTeam, EnemyTeam);

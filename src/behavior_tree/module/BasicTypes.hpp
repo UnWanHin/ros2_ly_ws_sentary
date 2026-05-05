@@ -286,6 +286,8 @@ namespace LangYa
     static constexpr TeamedLocation CastleLeft2{ 20 };
     static constexpr TeamedLocation BaseToCentral{ 21 };
     static constexpr TeamedLocation CentralToBase{ 22 };
+    static constexpr TeamedLocation BuffOutpost{ 23 };
+    static constexpr TeamedLocation OutpostGuard{ 24 };
 
     /// @brief 团队类型
     enum class NaviTeam : std::uint8_t
@@ -408,6 +410,11 @@ namespace LangYa
         bool TestNavi{false}; // 是否测试导航
         bool HitSentry{false}; // 攻击哨兵
         bool Protected{false}; // 保守模式
+    };
+
+    struct TaskSetting {
+        bool Buff{false};
+        bool Outpost{false};
     };
 
     struct DamageOpenGateSetting {
@@ -716,6 +723,7 @@ namespace LangYa
         Rate RateSettings{};
         bool SwitchPoint{false};
         GameStrategy GameStrategySettings{};
+        TaskSetting TaskSettings{};
         DamageOpenGateSetting DamageOpenGateSettings{};
         NaviSetting NaviSettings{};
         FaceModeSetting FaceModeSettings{};

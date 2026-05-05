@@ -526,8 +526,12 @@ namespace Area {
     static const Location<std::uint16_t> Highland{ {744, 1263}, {2056, 237} };
     static const Location<std::uint16_t> BaseToCentral{ {1125, 155}, {1675, 1345} };
     static const Location<std::uint16_t> CentralToBase{ {451, 146}, {2349, 1354} };
+    static const Location<std::uint16_t> BuffOutpost{ {1100, 1130}, {1700, 370} };
+    static const Location<std::uint16_t> OutpostGuard{ {969, 368}, {1831, 1132} };
 
     // 地图静态瞄准点，单位为 cm；z 是目标中心相对地图平面的高度。
+    static const Location3<double> OutpostPose{ {1093.0, 366.0, 100.0}, {1707.0, 1134.0, 100.0} };
+    static const Location3<double> BuffPose{ {1400.0, 750.0, 100.0}, {1400.0, 750.0, 100.0} };
     static const Location3<double> OutpostAimTarget{ {1093.0, 366.0, 100.0}, {1707.0, 1134.0, 100.0} };
     static const Location3<double> BuffAimTarget{ {1400.0, 750.0, 100.0}, {1400.0, 750.0, 100.0} };
 

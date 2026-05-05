@@ -25,6 +25,10 @@
         "HitSentry": false,
         "Protected": false
     },
+    "Task": {
+        "Buff": false,
+        "Outpost": false
+    },
     "DamageOpenGate": {
         "Enable": false,
         "HealthDropThreshold": 30

@@ -153,6 +153,10 @@ private:
     bool hasRfidStatus2{false}; // 0x0209 rfid_status_2 是否已由下位机提供
     std::uint8_t rfidStatus2{0}; // 0x0209 rfid_status_2 预留扩展字节
     std::uint32_t extEventData{};
+    bool hasReceivedEventData_{false};
+    std::uint8_t eventSelfSmallEnergyStatus_{0};
+    std::uint8_t eventSelfLargeEnergyStatus_{0};
+    std::chrono::steady_clock::time_point lastEventDataRxTime_{};
     std::array<ArmorData, 10> armorList; // 辅瞄返回的装甲板序列
     bool is_game_begin{false}; // 比赛开始的标志
     FireCodeType RecFireCode{}; // 云台的火控数据
@@ -506,6 +510,8 @@ public:
         bool apply_team_offset = true) const;
     bool IsHighlandCompatArrived(UnitTeam goal_team) const;
     void ResetRegionalAreaControlOverride() noexcept;
+    void ApplyAimModeFaceTarget(UnitTeam target_team);
+    bool TrySetAimModeTaskGoal(UnitTeam my_team, UnitTeam enemy_team, const char* reason);
     void ApplyRegionalAreaTaskControl(const RegionalAreaTaskTickResult& result);
     bool RequestRoadlandSafeReturn(const char* reason);
     bool TickRegionalAreaTask(UnitTeam my_team, UnitTeam enemy_team);
