@@ -1,6 +1,6 @@
 # 哨兵姿态下位机对接说明（并入主控制幀）
 
-> 下发全量协议（含角度/速度/火控/姿态）请优先看：`docs/sentry/lower_downlink_message_contract.md`
+> 下发全量协议（含角度/速度/火控/姿态）请优先看：`docs/sentry/2026-05-02_lower_downlink_message_contract.md`
 
 ## 1. 目标
 

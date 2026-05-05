@@ -6,7 +6,7 @@
 
 ```text
 docs/
-├── README.md                    # 当前索引
+├── 2026-05-03_README.md         # 当前索引
 ├── architecture/                # 系统行为、消息链路
 ├── guides/                      # 配置、测试、上车前清单
 ├── modules/                     # 各 ROS 包说明
@@ -21,59 +21,59 @@ docs/
 ## 推荐阅读顺序
 
 1. 全局链路
-[architecture/message_and_link_flow.md](architecture/message_and_link_flow.md)
+[architecture/2026-05-03_message_and_link_flow.md](architecture/2026-05-03_message_and_link_flow.md)
 2. `/ly/control/angles` 专项链路追踪
-[architecture/control_angles_data_flow.md](architecture/control_angles_data_flow.md)
+[architecture/2026-05-04_control_angles_data_flow.md](architecture/2026-05-04_control_angles_data_flow.md)
 3. `/ly/control/firecode` 专项链路追踪
-[architecture/fire_control_flow.md](architecture/fire_control_flow.md)
+[architecture/2026-05-04_fire_control_flow.md](architecture/2026-05-04_fire_control_flow.md)
 4. 当前系统运行行为
-[architecture/system_behavior.md](architecture/system_behavior.md)
+[architecture/2026-05-05_system_behavior.md](architecture/2026-05-05_system_behavior.md)
 5. 模块文档（建议按数据流）
-[modules/gimbal_driver.md](modules/gimbal_driver.md)
-[modules/detector.md](modules/detector.md)
-[modules/tracker_solver.md](modules/tracker_solver.md)
-[modules/predictor.md](modules/predictor.md)
-[modules/behavior_tree.md](modules/behavior_tree.md)
+[modules/2026-05-05_gimbal_driver.md](modules/2026-05-05_gimbal_driver.md)
+[modules/2026-05-05_detector.md](modules/2026-05-05_detector.md)
+[modules/2026-03-04_tracker_solver.md](modules/2026-03-04_tracker_solver.md)
+[modules/2026-04-23_predictor.md](modules/2026-04-23_predictor.md)
+[modules/2026-05-05_behavior_tree.md](modules/2026-05-05_behavior_tree.md)
 补充模块文档
-[modules/outpost_hitter.md](modules/outpost_hitter.md)
-[modules/buff_hitter.md](modules/buff_hitter.md)
-[modules/shooting_table_calib.md](modules/shooting_table_calib.md)
-[modules/auto_aim_common.md](modules/auto_aim_common.md)
-[modules/navi_tf_bridge.md](modules/navi_tf_bridge.md)
+[modules/2026-05-05_outpost_hitter.md](modules/2026-05-05_outpost_hitter.md)
+[modules/2026-05-05_buff_hitter.md](modules/2026-05-05_buff_hitter.md)
+[modules/2026-03-05_shooting_table_calib.md](modules/2026-03-05_shooting_table_calib.md)
+[modules/2026-04-23_auto_aim_common.md](modules/2026-04-23_auto_aim_common.md)
+[modules/2026-05-04_navi_tf_bridge.md](modules/2026-05-04_navi_tf_bridge.md)
 6. 哨兵专项（2026 姿态机制）
-[sentry/decision_runtime_behavior.md](sentry/decision_runtime_behavior.md)
-[sentry/sentry_decision_zone_blocks.md](sentry/sentry_decision_zone_blocks.md)
-[sentry/sentry_decision_autoaim_manual.md](sentry/sentry_decision_autoaim_manual.md)
-[sentry/decision_visualization_2026-04-27.md](sentry/decision_visualization_2026-04-27.md)
-[sentry/optional_items_demo_runbook.md](sentry/optional_items_demo_runbook.md)
-[sentry/showcase_demo_runbook.md](sentry/showcase_demo_runbook.md)
-[sentry/navi_debug_runbook.md](sentry/navi_debug_runbook.md)
-[sentry/sentry_posture_system.md](sentry/sentry_posture_system.md)
-[sentry/sentry_posture_interface_change_2026-03-03.md](sentry/sentry_posture_interface_change_2026-03-03.md)
-[sentry/posture_lower_firmware_integration.md](sentry/posture_lower_firmware_integration.md)
-[sentry/posture_firmware_integration_checklist.md](sentry/posture_firmware_integration_checklist.md)
-[sentry/lower_downlink_message_contract.md](sentry/lower_downlink_message_contract.md)
+[sentry/2026-05-04_decision_runtime_behavior.md](sentry/2026-05-04_decision_runtime_behavior.md)
+[sentry/2026-05-03_sentry_decision_zone_blocks.md](sentry/2026-05-03_sentry_decision_zone_blocks.md)
+[sentry/2026-03-12_sentry_decision_autoaim_manual.md](sentry/2026-03-12_sentry_decision_autoaim_manual.md)
+[sentry/2026-04-27_decision_visualization.md](sentry/2026-04-27_decision_visualization.md)
+[sentry/2026-05-04_optional_items_demo_runbook.md](sentry/2026-05-04_optional_items_demo_runbook.md)
+[sentry/2026-05-04_showcase_demo_runbook.md](sentry/2026-05-04_showcase_demo_runbook.md)
+[sentry/2026-05-04_navi_debug_runbook.md](sentry/2026-05-04_navi_debug_runbook.md)
+[sentry/2026-03-04_sentry_posture_system.md](sentry/2026-03-04_sentry_posture_system.md)
+[sentry/2026-03-03_sentry_posture_interface_change.md](sentry/2026-03-03_sentry_posture_interface_change.md)
+[sentry/2026-03-13_posture_lower_firmware_integration.md](sentry/2026-03-13_posture_lower_firmware_integration.md)
+[sentry/2026-03-13_posture_firmware_integration_checklist.md](sentry/2026-03-13_posture_firmware_integration_checklist.md)
+[sentry/2026-05-02_lower_downlink_message_contract.md](sentry/2026-05-02_lower_downlink_message_contract.md)
 7. 落地执行与上车前检查
-[guides/config_setup_guide.md](guides/config_setup_guide.md)
-[guides/auto_aim_tuning_handover.md](guides/auto_aim_tuning_handover.md)
-[guides/auto_aim_yamlization_checklist.md](guides/auto_aim_yamlization_checklist.md)
-[guides/external_topic_boundary.md](guides/external_topic_boundary.md)
-[guides/self_check_dual_suite.md](guides/self_check_dual_suite.md)
-[guides/module_standalone_test.md](guides/module_standalone_test.md)
-[guides/test_guide.md](guides/test_guide.md)
-[guides/preflight_checklist.md](guides/preflight_checklist.md)
+[guides/2026-03-04_config_setup_guide.md](guides/2026-03-04_config_setup_guide.md)
+[guides/2026-04-11_auto_aim_tuning_handover.md](guides/2026-04-11_auto_aim_tuning_handover.md)
+[guides/2026-03-17_auto_aim_yamlization_checklist.md](guides/2026-03-17_auto_aim_yamlization_checklist.md)
+[guides/2026-05-04_external_topic_boundary.md](guides/2026-05-04_external_topic_boundary.md)
+[guides/2026-03-17_self_check_dual_suite.md](guides/2026-03-17_self_check_dual_suite.md)
+[guides/2026-05-03_module_standalone_test.md](guides/2026-05-03_module_standalone_test.md)
+[guides/2026-03-04_test_guide.md](guides/2026-03-04_test_guide.md)
+[guides/2026-03-05_preflight_checklist.md](guides/2026-03-05_preflight_checklist.md)
 8. 近期稳定性修复记录（接口不变）
-[reports/stability_fix_no_interface_change_2026-03-05.md](reports/stability_fix_no_interface_change_2026-03-05.md)
-[reports/self_check_status_2026-03-05.md](reports/self_check_status_2026-03-05.md)
-[reports/repository_completeness_audit_2026-03-05.md](reports/repository_completeness_audit_2026-03-05.md)
-[reports/full_link_audit_2026-03-05.md](reports/full_link_audit_2026-03-05.md)
+[reports/2026-03-05_stability_fix_no_interface_change.md](reports/2026-03-05_stability_fix_no_interface_change.md)
+[reports/2026-03-05_self_check_status.md](reports/2026-03-05_self_check_status.md)
+[reports/2026-03-05_repository_completeness_audit.md](reports/2026-03-05_repository_completeness_audit.md)
+[reports/2026-03-05_full_link_audit.md](reports/2026-03-05_full_link_audit.md)
 9. 重要行为变更与调参记录
-[record/behavior_tree_bt_pinned_and_old_fire_logic_2026-03-18.md](record/behavior_tree_bt_pinned_and_old_fire_logic_2026-03-18.md)
-[record/autoaim_follow_fire_change_2026-03-18.md](record/autoaim_follow_fire_change_2026-03-18.md)
-[record/tf_tree_integration_for_navi_2026-05-01.md](record/tf_tree_integration_for_navi_2026-05-01.md)
-[record/navi_tf_bridge_facemode_and_script_layout_2026-05-03.md](record/navi_tf_bridge_facemode_and_script_layout_2026-05-03.md)
-[record/follow_mode_navi_transition_and_external_status_2026-05-03.md](record/follow_mode_navi_transition_and_external_status_2026-05-03.md)
-[record/README.md](record/README.md)
+[record/2026-03-18_behavior_tree_bt_pinned_and_old_fire_logic.md](record/2026-03-18_behavior_tree_bt_pinned_and_old_fire_logic.md)
+[record/2026-03-18_autoaim_follow_fire_change.md](record/2026-03-18_autoaim_follow_fire_change.md)
+[record/2026-05-01_tf_tree_integration_for_navi.md](record/2026-05-01_tf_tree_integration_for_navi.md)
+[record/2026-05-03_navi_tf_bridge_facemode_and_script_layout.md](record/2026-05-03_navi_tf_bridge_facemode_and_script_layout.md)
+[record/2026-05-03_follow_mode_navi_transition_and_external_status.md](record/2026-05-03_follow_mode_navi_transition_and_external_status.md)
+[record/2026-05-03_README.md](record/2026-05-03_README.md)
 
 ## 分类说明
 
@@ -99,17 +99,17 @@ docs/
 ## 历史与兼容文档
 
 - 旧行为说明（保留对照）
-[architecture/system_behavior_v1.md](architecture/system_behavior_v1.md)
+[architecture/2026-04-22_system_behavior_v1.md](architecture/2026-04-22_system_behavior_v1.md)
 - 旧版射表标定说明（保留对照）
-[modules/shooting_table_calib_usage_legacy.md](modules/shooting_table_calib_usage_legacy.md)
+[modules/2026-03-04_shooting_table_calib_usage_legacy.md](modules/2026-03-04_shooting_table_calib_usage_legacy.md)
 
 ## 文档维护约定
 
 1. 新增文档统一放 `docs/`，禁止再落到仓库根目录。
 2. 涉及接口变更（topic/msg/参数）时，至少同步更新：
    - 对应模块文档
-   - `architecture/message_and_link_flow.md`
+   - `architecture/2026-05-03_message_and_link_flow.md`
    - 本索引文件
 3. 实机流程改动后，优先更新：
-   - `guides/config_setup_guide.md`
-   - `guides/preflight_checklist.md`
+   - `guides/2026-03-04_config_setup_guide.md`
+   - `guides/2026-03-05_preflight_checklist.md`

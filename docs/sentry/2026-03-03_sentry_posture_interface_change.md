@@ -58,15 +58,15 @@
 
 ### 2.2 文档改动
 
-- `docs/README.md`
+- `docs/2026-05-03_README.md`
   - Topic 速查表新增：
     - `/ly/control/posture`
     - `/ly/gimbal/posture`
 
-- `docs/modules/gimbal_driver.md`
+- `docs/modules/2026-05-05_gimbal_driver.md`
   - 增加姿态 Topic 在订阅/发布与注意事项中的说明
 
-- `docs/modules/behavior_tree.md`
+- `docs/modules/2026-05-05_behavior_tree.md`
   - 增加姿态控制与回读 Topic 说明
 
 ---
@@ -117,7 +117,7 @@
 ## 5. 下位机电控需要做的事
 
 详细版本见：
-- `docs/sentry/posture_lower_firmware_integration.md`
+- `docs/sentry/2026-03-13_posture_lower_firmware_integration.md`
 
 ## 5.1 指令下发链路
 

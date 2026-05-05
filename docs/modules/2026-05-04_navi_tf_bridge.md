@@ -92,4 +92,4 @@ FaceMode 默认：
 - 区域任务需要切换固定朝向点时，由 BT 发布 `/ly/face_mode/target_raw`；`facemode.sh --bt-output official_map_x official_map_y map_z` 只负责提供启动初始目标。
 - `/ly/navi/position` 依赖 raw-goal static calibration；如果 `tf_config.yaml` 的 4x4 没准备好，节点不会发布这个补充位置。
 - FaceMode 默认 `yaw_sign=-1.0`；`camera_projection` 下目标在 `gx_camera` 后方时会用几何 yaw/pitch fallback 先转向正面，再继续投影微调。
-- 详细变更记录见 [navi_tf_bridge / FaceMode / scripts 入口整理记录](../record/navi_tf_bridge_facemode_and_script_layout_2026-05-03.md)。
+- 详细变更记录见 [navi_tf_bridge / FaceMode / scripts 入口整理记录](../record/2026-05-03_navi_tf_bridge_facemode_and_script_layout.md)。

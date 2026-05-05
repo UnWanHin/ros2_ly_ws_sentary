@@ -633,7 +633,7 @@ ros2 topic hz /ly/predictor/target
 - Launch 檔案: [`src/detector/launch/`](../../src/detector/launch/)
 - 配置檔案: [`src/detector/config/auto_aim_config.yaml`](../../src/detector/config/auto_aim_config.yaml)
 - 消息定義: [`src/auto_aim_common/msg/`](../../src/auto_aim_common/msg/)
-- 上車檢查清單: [`上車前最終檢查清單.md`](上車前最終檢查清單.md)
+- 上車檢查清單: [`2026-03-05_preflight_checklist.md`](../guides/2026-03-05_preflight_checklist.md)
 
 ---
 

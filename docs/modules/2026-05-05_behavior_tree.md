@@ -169,7 +169,7 @@ Trace 會保留 `navi_goal` 原始資料，同時輸出穩定的 `decision_outpu
 ```
 
 維護文檔見：
-[docs/sentry/decision_visualization_2026-04-27.md](../sentry/decision_visualization_2026-04-27.md)
+[docs/sentry/2026-04-27_decision_visualization.md](../sentry/2026-04-27_decision_visualization.md)
 
 ---
 

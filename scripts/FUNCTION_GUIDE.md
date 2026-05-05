@@ -650,7 +650,7 @@ BT 导航调试：
 
 - 这份文档只讲 `scripts/` 怎么用，不展开模块实现细节。
 - 如果你要看链路原理，去看：
-  - `docs/modules/behavior_tree.md`
-  - `docs/modules/predictor.md`
-  - `docs/architecture/control_angles_data_flow.md`
-  - `docs/architecture/fire_control_flow.md`
+  - `docs/modules/2026-05-05_behavior_tree.md`
+  - `docs/modules/2026-04-23_predictor.md`
+  - `docs/architecture/2026-05-04_control_angles_data_flow.md`
+  - `docs/architecture/2026-05-04_fire_control_flow.md`

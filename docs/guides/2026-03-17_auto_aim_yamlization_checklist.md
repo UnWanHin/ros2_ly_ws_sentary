@@ -69,7 +69,7 @@
 2. 保持 `dot/slash` 兩套鍵兼容（沿用 detector 現有做法）。  
 3. 不改 topic 名、不改 msg 定義、不改串口包結構。  
 4. 每完成一項 YAML 化，必須同步更新：
-- `docs/guides/auto_aim_tuning_handover.md`
+- `docs/guides/2026-04-11_auto_aim_tuning_handover.md`
 - 對應模塊文檔
 - 本清單狀態
 

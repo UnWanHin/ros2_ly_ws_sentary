@@ -42,8 +42,8 @@ static_assert(sizeof(RFIDAndBuffData) == sizeof(GimbalData), "TypeID=4 payload m
 
 已更新：
 
-- `docs/sentry/current_upper_lower_data_mapping.md`
-- `docs/modules/gimbal_driver.md`
+- `docs/sentry/2026-05-05_current_upper_lower_data_mapping.md`
+- `docs/modules/2026-05-05_gimbal_driver.md`
 
 新增 `RFIDStatus(bit0-31)` 含义表，并注明 `rfid_status_2` 未接入当前 `TypeID=4`。
 
@@ -68,7 +68,7 @@ static_assert(sizeof(RFIDAndBuffData) == sizeof(GimbalData), "TypeID=4 payload m
 `RFIDStatus` 对应 `0x0209 rfid_status` 的 bit0-31。
 完整 bit 语义见：
 
-- `docs/sentry/current_upper_lower_data_mapping.md`（5.5.2 节）
+- `docs/sentry/2026-05-05_current_upper_lower_data_mapping.md`（5.5.2 节）
 
 ## 5. 兼容性结论
 

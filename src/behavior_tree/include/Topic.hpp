@@ -11,7 +11,7 @@
  * - 作为 behavior_tree 与其他模块的通信契约中心
  *
  * 维护建议：
- * - 新增或变更话题时，同时更新 docs/architecture/message_and_link_flow.md
+ * - 新增或变更话题时，同时更新 docs/architecture/2026-05-03_message_and_link_flow.md
  */
 
 // #include <ros/ros.h>

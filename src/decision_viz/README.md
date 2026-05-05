@@ -273,7 +273,7 @@ When a behavior-tree decision output changes, update this package in the same PR
 - `src/decision_viz/decision_viz/trace.py`
 - `src/decision_viz/decision_viz/validation.py` if output checks need to change
 - `src/decision_viz/config/default.yaml` if field, map, point, unit, layer, or style assumptions changed
-- `docs/sentry/decision_visualization_2026-04-27.md` or a newer dated document
+- `docs/sentry/2026-04-27_decision_visualization.md` or a newer dated document
 
 Do not rely on `tools/maps/map_plugin.json` for required point positions until it has non-zero calibrated coordinates. The viewer currently uses trace positions first, YAML points second, and optional map plugin coordinates third.
 Terrain height is an approximate YAML overlay, not inferred from the image at runtime. Use official CAD/rules or measured map metadata before using it for path-cost decisions.

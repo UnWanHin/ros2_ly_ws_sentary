@@ -72,4 +72,4 @@ ros2 topic echo /ly/gimbal/d_vel
 
 - `src/gimbal_driver/main.cpp`
 - 下游使用方（当前主要是 `behavior_tree`）
-- 本文档与 `docs/sentry/current_upper_lower_data_mapping.md`
+- 本文档与 `docs/sentry/2026-05-05_current_upper_lower_data_mapping.md`

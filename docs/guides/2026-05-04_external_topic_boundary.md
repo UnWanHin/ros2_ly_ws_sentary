@@ -59,7 +59,7 @@ FaceMode 的独立测试节点默认直接发布 `/ly/control/angles`，可选�
   BT 不再执行本地追击速度闭环。
 - 当 `NaviSetting.ToNavi=true` 时，BT 发布的是 `/ly/navi/goal_pos_raw`，再由 `navi_tf_bridge` 转 `/goal_pose`；`false` 时不会走这条 4x4 静态转换链。
 - 姿态 topic `/ly/control/posture` 已并入主控制幀字段 `GimbalControlData.Posture`（单通道下发）。
-- 下发全量规格见：`docs/sentry/lower_downlink_message_contract.md`。
+- 下发全量规格见：`docs/sentry/2026-05-02_lower_downlink_message_contract.md`。
 
 ## 4. 联调建议
 

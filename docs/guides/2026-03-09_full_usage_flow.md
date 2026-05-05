@@ -345,11 +345,11 @@ ros2 param get /target_to_gimbal_mapper use_sim_time
 
 ## 📚 相關文檔
 
-- [`消息通訊鏈路文檔.md`](消息通訊鏈路文檔.md) - 詳細的消息流程
-- [`上車前最終檢查清單.md`](上車前最終檢查清單.md) - 部署前檢查項目
-- [`系統行為說明_更新.md`](系統行為說明_更新.md) - 系統行為詳解
-- [`TEST_GUIDE.md`](TEST_GUIDE.md) - 測試指南
-- [`CONFIG_SETUP_GUIDE.md`](CONFIG_SETUP_GUIDE.md) - 配置指南
+- [`2026-05-03_message_and_link_flow.md`](../architecture/2026-05-03_message_and_link_flow.md) - 詳細的消息流程
+- [`2026-03-05_preflight_checklist.md`](2026-03-05_preflight_checklist.md) - 部署前檢查項目
+- [`2026-05-05_system_behavior.md`](../architecture/2026-05-05_system_behavior.md) - 系統行為詳解
+- [`2026-03-04_test_guide.md`](2026-03-04_test_guide.md) - 測試指南
+- [`2026-03-04_config_setup_guide.md`](2026-03-04_config_setup_guide.md) - 配置指南
 
 ---
 

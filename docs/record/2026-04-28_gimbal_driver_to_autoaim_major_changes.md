@@ -128,8 +128,8 @@ league、regional、debug/test JSON 都可以用，但默認全關。`gate` 和 
 
 ## 相關記錄
 
-- `docs/record/firecode_velocity_event_rfid_semantic_topics_2026-04-28.md`
-- `docs/record/damage_open_gate_common_2026-04-28.md`
-- `docs/record/autoaim_latched_target_hold_2026-04-28.md`
-- `docs/record/eventdata_0x0101_v1_3_0_alignment_2026-04-23.md`
-- `docs/record/rfid_0x0209_status32_alignment_2026-04-23.md`
+- `docs/record/2026-04-28_firecode_velocity_event_rfid_semantic_topics.md`
+- `docs/record/2026-04-28_damage_open_gate_common.md`
+- `docs/record/2026-04-28_autoaim_latched_target_hold.md`
+- `docs/record/2026-04-23_eventdata_0x0101_v1_3_0_alignment.md`
+- `docs/record/2026-04-23_rfid_0x0209_status32_alignment.md`

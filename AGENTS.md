@@ -55,7 +55,7 @@ This repository is a ROS2 workspace built with `colcon`.
   - `src/decision_viz/decision_viz/trace.py`
   - `src/decision_viz/decision_viz/validation.py` when the new output affects offline checks
   - `src/decision_viz/config/default.yaml` when map, field, point, unit, layer, or style assumptions change
-  - the dated docs under `docs/sentry/`, currently `docs/sentry/decision_visualization_2026-04-27.md`
+  - the dated docs under `docs/sentry/`, currently `docs/sentry/2026-04-27_decision_visualization.md`
 - Dated decision visualization docs must include an `Updated: YYYY-MM-DD` line.
 
 ## Default Engineer Mode (Project)
