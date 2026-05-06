@@ -17,38 +17,38 @@ namespace BehaviorTree{
         state.HasRfidStatus2 = msg.has_rfid_status_2;
         state.RfidStatus2Raw = msg.rfid_status_2_raw;
 
-        state.SelfBaseGainPoint = msg.self_base_gain_point;
-        state.SelfNonResourceSupply = msg.self_non_resource_supply_or_rmul_supply;
-        state.SelfResourceSupply = msg.self_resource_supply;
+        state.SelfBaseGainPoint = msg.friend_base;
+        state.SelfNonResourceSupply = msg.friend_supply_noremix;
+        state.SelfResourceSupply = msg.friend_supply_remix;
         state.SelfSupply = state.SelfNonResourceSupply || state.SelfResourceSupply;
         state.SelfHighlandGainPoint =
-            msg.self_central_highland_gain_point || msg.self_trapezoid_highland_gain_point;
+            msg.friend_central || msg.friend_highland;
         state.EnemyHighlandGainPoint =
-            msg.enemy_central_highland_gain_point || msg.enemy_trapezoid_highland_gain_point;
-        state.SelfRoadCrossing = msg.self_road_lower_crossing || msg.self_road_upper_crossing;
-        state.EnemyRoadCrossing = msg.enemy_road_lower_crossing || msg.enemy_road_upper_crossing;
+            msg.enemy_central || msg.enemy_highland;
+        state.SelfRoadCrossing = msg.friend_roadland_under || msg.friend_roadland_high;
+        state.EnemyRoadCrossing = msg.enemy_roadland_under || msg.enemy_roadland_high;
         state.SelfCentralHighlandCrossing =
-            msg.self_central_highland_lower_crossing || msg.self_central_highland_upper_crossing;
+            msg.friend_central_under || msg.friend_central_high;
         state.EnemyCentralHighlandCrossing =
-            msg.enemy_central_highland_lower_crossing || msg.enemy_central_highland_upper_crossing;
+            msg.enemy_central_under || msg.enemy_central_high;
         state.SelfTunnel =
-            msg.self_tunnel_road_lower || msg.self_tunnel_road_middle || msg.self_tunnel_road_upper ||
-            msg.self_tunnel_trapezoid_low || msg.self_tunnel_trapezoid_middle ||
-            msg.self_tunnel_trapezoid_high;
+            msg.friend_tunnel_roadland_down || msg.friend_tunnel_roadland_mid ||
+            msg.friend_tunnel_roadland_up || msg.friend_tunnel_highland_low ||
+            msg.friend_tunnel_highland_mid || msg.friend_tunnel_highland_high;
         state.EnemyTunnel =
-            msg.enemy_tunnel_road_lower || msg.enemy_tunnel_road_middle || msg.enemy_tunnel_road_upper ||
-            msg.enemy_tunnel_trapezoid_low || msg.enemy_tunnel_trapezoid_middle ||
-            msg.enemy_tunnel_trapezoid_high;
+            msg.enemy_tunnel_roadland_down || msg.enemy_tunnel_roadland_mid ||
+            msg.enemy_tunnel_roadland_up || msg.enemy_tunnel_highland_low ||
+            msg.enemy_tunnel_highland_mid || msg.enemy_tunnel_highland_high;
         state.Tunnel = state.SelfTunnel || state.EnemyTunnel;
-        state.CenterGainPoint = msg.center_gain_point;
-        state.SelfFortressGainPoint = msg.self_fortress_gain_point;
-        state.EnemyFortressGainPoint = msg.enemy_fortress_gain_point;
-        state.SelfOutpostGainPoint = msg.self_outpost_gain_point;
-        state.EnemyOutpostGainPoint = msg.enemy_outpost_gain_point;
-        state.SelfAssemblyGainPoint = msg.self_assembly_gain_point;
-        state.EnemyAssemblyGainPoint = msg.enemy_assembly_gain_point;
-        state.SelfFlyRamp = msg.self_fly_ramp_front || msg.self_fly_ramp_back;
-        state.EnemyFlyRamp = msg.enemy_fly_ramp_front || msg.enemy_fly_ramp_back;
+        state.CenterGainPoint = msg.central_rmul;
+        state.SelfFortressGainPoint = msg.friend_bastion;
+        state.EnemyFortressGainPoint = msg.enemy_bastion;
+        state.SelfOutpostGainPoint = msg.friend_outpost;
+        state.EnemyOutpostGainPoint = msg.enemy_outpost;
+        state.SelfAssemblyGainPoint = msg.friend_armor;
+        state.EnemyAssemblyGainPoint = msg.enemy_armor;
+        state.SelfFlyRamp = msg.friend_flyroad_front || msg.friend_flyroad_back;
+        state.EnemyFlyRamp = msg.enemy_flyroad_front || msg.enemy_flyroad_back;
 
         state.OnSelfSideRfid =
             state.SelfBaseGainPoint || state.SelfSupply || state.SelfHighlandGainPoint ||

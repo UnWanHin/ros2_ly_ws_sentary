@@ -377,40 +377,40 @@ struct RFIDAndBuffData{
 
 ### 5.5.2 `RFIDStatus` 位语义（RM2026 V1.3.0，0x0209 bit0-31）
 
-| bit | 含义 |
-|---|---|
-| `0` | 己方基地增益点 |
-| `1` | 己方中央高地增益点 |
-| `2` | 对方中央高地增益点 |
-| `3` | 己方梯形高地增益点 |
-| `4` | 对方梯形高地增益点 |
-| `5` | 己方飞坡前（靠近己方一侧） |
-| `6` | 己方飞坡后（靠近己方一侧） |
-| `7` | 对方飞坡前（靠近对方一侧） |
-| `8` | 对方飞坡后（靠近对方一侧） |
-| `9` | 己方中央高地下方 |
-| `10` | 己方中央高地上方 |
-| `11` | 对方中央高地下方 |
-| `12` | 对方中央高地上方 |
-| `13` | 己方公路下方 |
-| `14` | 己方公路上方 |
-| `15` | 对方公路下方 |
-| `16` | 对方公路上方 |
-| `17` | 己方堡垒增益点 |
-| `18` | 己方前哨站增益点 |
-| `19` | 己方与资源区不重叠的补给区 / RMUL 补给区 |
-| `20` | 己方与资源区重叠的补给区 |
-| `21` | 己方装配增益点 |
-| `22` | 对方装配增益点 |
-| `23` | 中心增益点（仅 RMUL 适用） |
-| `24` | 对方堡垒增益点 |
-| `25` | 对方前哨站增益点 |
-| `26` | 己方隧道下方（靠近己方公路区） |
-| `27` | 己方隧道中间（靠近己方公路区） |
-| `28` | 己方隧道上方（靠近己方公路区） |
-| `29` | 己方隧道较低处（靠近己方梯形高地） |
-| `30` | 己方隧道较中间（靠近己方梯形高地） |
-| `31` | 己方隧道较高处（靠近己方梯形高地） |
+| bit | ROS 字段 | 含义 |
+|---|---|---|
+| `0` | `friend_base` | 己方基地增益点 |
+| `1` | `friend_central` | 己方中央高地增益点 |
+| `2` | `enemy_central` | 对方中央高地增益点 |
+| `3` | `friend_highland` | 己方梯形高地增益点 |
+| `4` | `enemy_highland` | 对方梯形高地增益点 |
+| `5` | `friend_flyroad_front` | 己方飞坡前（靠近己方一侧） |
+| `6` | `friend_flyroad_back` | 己方飞坡后（靠近己方一侧） |
+| `7` | `enemy_flyroad_front` | 对方飞坡前（靠近对方一侧） |
+| `8` | `enemy_flyroad_back` | 对方飞坡后（靠近对方一侧） |
+| `9` | `friend_central_under` | 己方中央高地下方 |
+| `10` | `friend_central_high` | 己方中央高地上方 |
+| `11` | `enemy_central_under` | 对方中央高地下方 |
+| `12` | `enemy_central_high` | 对方中央高地上方 |
+| `13` | `friend_roadland_under` | 己方公路下方 |
+| `14` | `friend_roadland_high` | 己方公路上方 |
+| `15` | `enemy_roadland_under` | 对方公路下方 |
+| `16` | `enemy_roadland_high` | 对方公路上方 |
+| `17` | `friend_bastion` | 己方堡垒增益点 |
+| `18` | `friend_outpost` | 己方前哨站增益点 |
+| `19` | `friend_supply_noremix` | 己方与资源区不重叠的补给区 / RMUL 补给区 |
+| `20` | `friend_supply_remix` | 己方与资源区重叠的补给区 |
+| `21` | `friend_armor` | 己方装配增益点 |
+| `22` | `enemy_armor` | 对方装配增益点 |
+| `23` | `central_rmul` | 中心增益点（仅 RMUL 适用；ROS 字段名使用小写） |
+| `24` | `enemy_bastion` | 对方堡垒增益点 |
+| `25` | `enemy_outpost` | 对方前哨站增益点 |
+| `26` | `friend_tunnel_roadland_down` | 己方隧道下方（靠近己方公路区） |
+| `27` | `friend_tunnel_roadland_mid` | 己方隧道中间（靠近己方公路区） |
+| `28` | `friend_tunnel_roadland_up` | 己方隧道上方（靠近己方公路区） |
+| `29` | `friend_tunnel_highland_low` | 己方隧道较低处（靠近己方梯形高地） |
+| `30` | `friend_tunnel_highland_mid` | 己方隧道较中间（靠近己方梯形高地） |
+| `31` | `friend_tunnel_highland_high` | 己方隧道较高处（靠近己方梯形高地） |
 
 注意：
 
@@ -422,12 +422,12 @@ struct RFIDAndBuffData{
 
 | bit | ROS 字段 | 含义 |
 |---|---|---|
-| `0` | `enemy_tunnel_road_lower` | 对方隧道靠近对方公路一侧下方 |
-| `1` | `enemy_tunnel_road_middle` | 对方隧道靠近对方公路一侧中间 |
-| `2` | `enemy_tunnel_road_upper` | 对方隧道靠近对方公路一侧上方 |
-| `3` | `enemy_tunnel_trapezoid_low` | 对方隧道靠近对方梯形高地较低处 |
-| `4` | `enemy_tunnel_trapezoid_middle` | 对方隧道靠近对方梯形高地较中间 |
-| `5` | `enemy_tunnel_trapezoid_high` | 对方隧道靠近对方梯形高地较高处 |
+| `0` | `enemy_tunnel_roadland_down` | 对方隧道靠近对方公路一侧下方 |
+| `1` | `enemy_tunnel_roadland_mid` | 对方隧道靠近对方公路一侧中间 |
+| `2` | `enemy_tunnel_roadland_up` | 对方隧道靠近对方公路一侧上方 |
+| `3` | `enemy_tunnel_highland_low` | 对方隧道靠近对方梯形高地较低处 |
+| `4` | `enemy_tunnel_highland_mid` | 对方隧道靠近对方梯形高地较中间 |
+| `5` | `enemy_tunnel_highland_high` | 对方隧道靠近对方梯形高地较高处 |
 | `6-7` | `rfid_status_2_reserved` | 保留位 |
 
 ---

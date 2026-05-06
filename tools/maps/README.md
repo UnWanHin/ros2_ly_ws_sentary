@@ -16,7 +16,7 @@
 - `scripts/step_inspect.py`：讀 STEP 基本資訊（單位、bbox）
 - `scripts/map_plugin_cli.py`：管理點位插件 JSON（初始化/同步/驗證/輸出 Area.hpp 片段；點位清單和座標會從 `BasicTypes.hpp`/`Area.hpp` 讀取）
 - `scripts/solve_affine.py`：用對照點解 2D 仿射映射（解決「上位機點位 ≠ 導航實際」）
-- `web/map_marker.html`：標點工具（載入底圖、紅藍點位點選、匯出 JSON；C++ 區塊線中 `Common*Points` 會用黃色顯示）
+- `web/map_marker.html`：標點工具（載入底圖、紅藍點位點選或手寫座標、鏡像另一隊、匯出 JSON；C++ 區塊線中 `Common*Points` 會用黃色顯示）
 
 ## STEP 轉底圖（獨立）
 
@@ -53,7 +53,7 @@ python3 tools/maps/mappointer.py --image-file tools/maps/basemaps/RMUC2026_V1.2.
    - 若你本機 CAD 匯出更快，也可直接用 FreeCAD/SolidWorks/Fusion 匯出頂視圖 PNG 再進標點流程。
 3. **標點**
    - 開 `tools/maps/web/map_marker.html`（瀏覽器）。
-   - 上傳底圖 PNG，按點位 ID 填紅/藍座標，匯出 `map_plugin.json`。
+   - 上傳底圖 PNG，按點位 ID 點圖或手寫 X/Y 填紅/藍座標；需要對稱點時打開「鏡像另一隊」，再匯出 `map_plugin.json`。
 4. **驗證/產出 C++ 片段**
    - `python3 tools/maps/scripts/map_plugin_cli.py sync --input tools/maps/map_plugin.json`
    - `python3 tools/maps/scripts/map_plugin_cli.py validate --input tools/maps/map_plugin.json`

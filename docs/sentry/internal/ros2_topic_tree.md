@@ -331,45 +331,45 @@ gimbal_driver/msg
 ```text
 gimbal_driver/msg/RfidStatus
 ├── raw : uint32  # low 32 bits from TypeID 4 / referee 0x0209 rfid_status
-│   ├── bit00 self_base_gain_point
-│   ├── bit01 self_central_highland_gain_point
-│   ├── bit02 enemy_central_highland_gain_point
-│   ├── bit03 self_trapezoid_highland_gain_point
-│   ├── bit04 enemy_trapezoid_highland_gain_point
-│   ├── bit05 self_fly_ramp_front
-│   ├── bit06 self_fly_ramp_back
-│   ├── bit07 enemy_fly_ramp_front
-│   ├── bit08 enemy_fly_ramp_back
-│   ├── bit09 self_central_highland_lower_crossing
-│   ├── bit10 self_central_highland_upper_crossing
-│   ├── bit11 enemy_central_highland_lower_crossing
-│   ├── bit12 enemy_central_highland_upper_crossing
-│   ├── bit13 self_road_lower_crossing
-│   ├── bit14 self_road_upper_crossing
-│   ├── bit15 enemy_road_lower_crossing
-│   ├── bit16 enemy_road_upper_crossing
-│   ├── bit17 self_fortress_gain_point
-│   ├── bit18 self_outpost_gain_point
-│   ├── bit19 self_non_resource_supply_or_rmul_supply
-│   ├── bit20 self_resource_supply
-│   ├── bit21 self_assembly_gain_point
-│   ├── bit22 enemy_assembly_gain_point
-│   ├── bit23 center_gain_point
-│   ├── bit24 enemy_fortress_gain_point
-│   ├── bit25 enemy_outpost_gain_point
-│   ├── bit26 self_tunnel_road_lower
-│   ├── bit27 self_tunnel_road_middle
-│   ├── bit28 self_tunnel_road_upper
-│   ├── bit29 self_tunnel_trapezoid_low
-│   ├── bit30 self_tunnel_trapezoid_middle
-│   └── bit31 self_tunnel_trapezoid_high
+│   ├── bit00 friend_base
+│   ├── bit01 friend_central
+│   ├── bit02 enemy_central
+│   ├── bit03 friend_highland
+│   ├── bit04 enemy_highland
+│   ├── bit05 friend_flyroad_front
+│   ├── bit06 friend_flyroad_back
+│   ├── bit07 enemy_flyroad_front
+│   ├── bit08 enemy_flyroad_back
+│   ├── bit09 friend_central_under
+│   ├── bit10 friend_central_high
+│   ├── bit11 enemy_central_under
+│   ├── bit12 enemy_central_high
+│   ├── bit13 friend_roadland_under
+│   ├── bit14 friend_roadland_high
+│   ├── bit15 enemy_roadland_under
+│   ├── bit16 enemy_roadland_high
+│   ├── bit17 friend_bastion
+│   ├── bit18 friend_outpost
+│   ├── bit19 friend_supply_noremix
+│   ├── bit20 friend_supply_remix
+│   ├── bit21 friend_armor
+│   ├── bit22 enemy_armor
+│   ├── bit23 central_rmul
+│   ├── bit24 enemy_bastion
+│   ├── bit25 enemy_outpost
+│   ├── bit26 friend_tunnel_roadland_down
+│   ├── bit27 friend_tunnel_roadland_mid
+│   ├── bit28 friend_tunnel_roadland_up
+│   ├── bit29 friend_tunnel_highland_low
+│   ├── bit30 friend_tunnel_highland_mid
+│   └── bit31 friend_tunnel_highland_high
 └── rfid_status_2_raw : uint8  # high extra 8 bits from TypeID 8 / referee 0x0209 rfid_status_2
-    ├── bit00 enemy_tunnel_road_lower
-    ├── bit01 enemy_tunnel_road_middle
-    ├── bit02 enemy_tunnel_road_upper
-    ├── bit03 enemy_tunnel_trapezoid_low
-    ├── bit04 enemy_tunnel_trapezoid_middle
-    ├── bit05 enemy_tunnel_trapezoid_high
+    ├── bit00 enemy_tunnel_roadland_down
+    ├── bit01 enemy_tunnel_roadland_mid
+    ├── bit02 enemy_tunnel_roadland_up
+    ├── bit03 enemy_tunnel_highland_low
+    ├── bit04 enemy_tunnel_highland_mid
+    ├── bit05 enemy_tunnel_highland_high
     └── bit06-07 rfid_status_2_reserved
 ```
 

@@ -43,7 +43,9 @@ enum class RfidAreaKind : std::uint8_t {
 struct RfidAreaSpec {
     std::string Name{};
     RfidAreaKind Kind{RfidAreaKind::Unknown};
+    Area::ShapeType Shape{Area::ShapeType::Polygon};
     std::vector<Area::Point<int>> Boundary{};
+    Area::CircleRing<double> CircleRing{};
     int Priority{0};
     bool Enabled{true};
 };
@@ -57,6 +59,7 @@ struct RfidAreaEvaluation {
     bool RfidTriggered{false};
     bool HasCenter{false};
     Area::Point<double> Center{};
+    std::vector<Area::Point<double>> RepresentativePoints{};
 };
 
 const char* RfidAreaKindName(RfidAreaKind kind) noexcept;
@@ -69,6 +72,14 @@ std::optional<Area::Point<double>> ComputeRfidAreaCenter(
     const std::vector<Area::Point<int>>& boundary) noexcept;
 std::optional<Area::Point<std::uint16_t>> ComputeRfidAreaCenterGoal(
     const std::vector<Area::Point<int>>& boundary) noexcept;
+std::vector<Area::Point<double>> ComputeRfidAreaRepresentativePoints(
+    const RfidAreaSpec& spec) noexcept;
+std::vector<Area::Point<std::uint16_t>> ComputeRfidAreaRepresentativeGoals(
+    const RfidAreaSpec& spec) noexcept;
+std::optional<Area::Point<double>> ComputeRfidAreaCenter(
+    const RfidAreaSpec& spec) noexcept;
+std::optional<Area::Point<std::uint16_t>> ComputeRfidAreaCenterGoal(
+    const RfidAreaSpec& spec) noexcept;
 
 RfidAreaEvaluation EvaluateRfidArea(
     const RfidMatchState& state,

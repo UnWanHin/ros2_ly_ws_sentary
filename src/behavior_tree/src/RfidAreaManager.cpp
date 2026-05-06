@@ -10,6 +10,8 @@
 namespace BehaviorTree {
 namespace {
 
+constexpr double kPi = 3.14159265358979323846;
+
 std::string NormalizeToken(std::string_view token) {
     std::string normalized;
     normalized.reserve(token.size());
@@ -45,6 +47,38 @@ std::uint16_t ClampRoundToU16(const double value) noexcept {
         return std::numeric_limits<std::uint16_t>::max();
     }
     return static_cast<std::uint16_t>(std::lround(value));
+}
+
+bool IsCircleRingValid(const Area::CircleRing<double>& ring) noexcept {
+    return std::isfinite(ring.center.x) &&
+           std::isfinite(ring.center.y) &&
+           std::isfinite(ring.innerRadiusCm) &&
+           std::isfinite(ring.outerRadiusCm) &&
+           ring.innerRadiusCm >= 0.0 &&
+           ring.outerRadiusCm > ring.innerRadiusCm;
+}
+
+std::vector<Area::Point<double>> ComputeCircleRingRepresentativePoints(
+    const Area::CircleRing<double>& ring) noexcept {
+    std::vector<Area::Point<double>> points;
+    if (!IsCircleRingValid(ring)) {
+        return points;
+    }
+
+    const int segment_count = std::max(1, ring.segmentCount);
+    points.reserve(static_cast<std::size_t>(segment_count));
+
+    const double radius = (ring.innerRadiusCm + ring.outerRadiusCm) * 0.5;
+    const double start_angle_rad = ring.startAngleDeg * kPi / 180.0;
+    const double step = 2.0 * kPi / static_cast<double>(segment_count);
+    for (int i = 0; i < segment_count; ++i) {
+        const double angle = start_angle_rad + step * static_cast<double>(i);
+        points.push_back({
+            ring.center.x + radius * std::cos(angle),
+            ring.center.y + radius * std::sin(angle),
+        });
+    }
+    return points;
 }
 
 } // namespace
@@ -150,10 +184,29 @@ bool IsRfidAreaKindTriggered(const RfidMatchState& state, const RfidAreaKind kin
 }
 
 bool IsPointInsideRfidArea(const RfidAreaSpec& spec, const int x, const int y) noexcept {
-    if (!spec.Enabled || spec.Boundary.size() < 3) {
+    if (!spec.Enabled) {
         return false;
     }
-    return Area::IsPointInsideMainAreaBoundary(spec.Boundary, x, y);
+    switch (spec.Shape) {
+        case Area::ShapeType::Polygon:
+            if (spec.Boundary.size() < 3) {
+                return false;
+            }
+            return Area::IsPointInsideMainAreaBoundary(spec.Boundary, x, y);
+        case Area::ShapeType::CircleRing: {
+            if (!IsCircleRingValid(spec.CircleRing)) {
+                return false;
+            }
+            const double dx = static_cast<double>(x) - spec.CircleRing.center.x;
+            const double dy = static_cast<double>(y) - spec.CircleRing.center.y;
+            const double distance_sq = dx * dx + dy * dy;
+            const double inner_sq = spec.CircleRing.innerRadiusCm * spec.CircleRing.innerRadiusCm;
+            const double outer_sq = spec.CircleRing.outerRadiusCm * spec.CircleRing.outerRadiusCm;
+            return distance_sq >= inner_sq && distance_sq <= outer_sq;
+        }
+        default:
+            return false;
+    }
 }
 
 std::optional<Area::Point<double>> ComputeRfidAreaCenter(
@@ -201,6 +254,58 @@ std::optional<Area::Point<std::uint16_t>> ComputeRfidAreaCenterGoal(
     };
 }
 
+std::vector<Area::Point<double>> ComputeRfidAreaRepresentativePoints(
+    const RfidAreaSpec& spec) noexcept {
+    switch (spec.Shape) {
+        case Area::ShapeType::Polygon: {
+            std::vector<Area::Point<double>> points;
+            const auto center = ComputeRfidAreaCenter(spec.Boundary);
+            if (center.has_value()) {
+                points.push_back(*center);
+            }
+            return points;
+        }
+        case Area::ShapeType::CircleRing:
+            return ComputeCircleRingRepresentativePoints(spec.CircleRing);
+        default:
+            return {};
+    }
+}
+
+std::vector<Area::Point<std::uint16_t>> ComputeRfidAreaRepresentativeGoals(
+    const RfidAreaSpec& spec) noexcept {
+    const auto points = ComputeRfidAreaRepresentativePoints(spec);
+    std::vector<Area::Point<std::uint16_t>> goals;
+    goals.reserve(points.size());
+    for (const auto& point : points) {
+        goals.push_back({
+            ClampRoundToU16(point.x),
+            ClampRoundToU16(point.y),
+        });
+    }
+    return goals;
+}
+
+std::optional<Area::Point<double>> ComputeRfidAreaCenter(const RfidAreaSpec& spec) noexcept {
+    const auto points = ComputeRfidAreaRepresentativePoints(spec);
+    if (points.empty()) {
+        return std::nullopt;
+    }
+    return points.front();
+}
+
+std::optional<Area::Point<std::uint16_t>> ComputeRfidAreaCenterGoal(
+    const RfidAreaSpec& spec) noexcept {
+    const auto center = ComputeRfidAreaCenter(spec);
+    if (!center.has_value()) {
+        return std::nullopt;
+    }
+    return Area::Point<std::uint16_t>{
+        ClampRoundToU16(center->x),
+        ClampRoundToU16(center->y),
+    };
+}
+
 RfidAreaEvaluation EvaluateRfidArea(
     const RfidMatchState& state,
     const RfidAreaSpec& spec) {
@@ -212,10 +317,10 @@ RfidAreaEvaluation EvaluateRfidArea(
     evaluation.RfidFresh = state.Fresh;
     evaluation.RfidTriggered = spec.Enabled && IsRfidAreaKindTriggered(state, spec.Kind);
 
-    const auto center = ComputeRfidAreaCenter(spec.Boundary);
-    if (center.has_value()) {
+    evaluation.RepresentativePoints = ComputeRfidAreaRepresentativePoints(spec);
+    if (!evaluation.RepresentativePoints.empty()) {
         evaluation.HasCenter = true;
-        evaluation.Center = *center;
+        evaluation.Center = evaluation.RepresentativePoints.front();
     }
     return evaluation;
 }

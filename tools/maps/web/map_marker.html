@@ -84,6 +84,16 @@
         </label>
         <button id="addCustomBtn" type="button">新增自定義點</button>
       </div>
+      <div class="row">
+        <label>手寫點位 X(cm)：
+          <input type="number" id="presetX" step="1" />
+        </label>
+        <label>Y(cm)：
+          <input type="number" id="presetY" step="1" />
+        </label>
+        <button id="applyPresetCoordBtn" type="button">寫入當前點位</button>
+        <span class="small">使用上方「點位 / 隊伍」，並沿用「鏡像另一隊」開關。</span>
+      </div>
       <div class="small">
         坐標系固定：左下角為 (0,0)，X 向右，Y 向上；點圖時會自動換算 cm。
       </div>
@@ -202,6 +212,8 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
     const customX = document.getElementById("customX");
     const customY = document.getElementById("customY");
     const customTeam = document.getElementById("customTeam");
+    const presetX = document.getElementById("presetX");
+    const presetY = document.getElementById("presetY");
     const eraserBtn = document.getElementById("eraserBtn");
     const TEAM_STYLE = {
       red: { color: "#ff3b30", prefix: "R", label: "紅方" },
@@ -245,6 +257,7 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
     function refreshPointCatalogUi(preferredId = Number(pointSelect.value)) {
       fillPointSelect(preferredId);
       renderTable();
+      syncPresetCoordInputsFromSelection();
     }
 
     function mapSize() {
@@ -295,6 +308,64 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
         Math.round(size.width - value[0]),
         Math.round(size.height - value[1])
       ];
+    }
+
+    function buildPresetCoordFromInput() {
+      const x = Number(presetX.value);
+      const y = Number(presetY.value);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+      return [Math.round(x), Math.round(y)];
+    }
+
+    function syncPresetCoordInputsFromSelection() {
+      const id = Number(pointSelect.value);
+      const team = normalizeTeam(teamSelect.value);
+      const point = findPointById(id);
+      const value = point ? point[team] : null;
+      presetX.value = value ? String(value[0]) : "";
+      presetY.value = value ? String(value[1]) : "";
+    }
+
+    function setPresetPointValue(id, team, value, sourceLabel) {
+      const normalizedTeam = normalizeTeam(team);
+      const target = findPointById(id);
+      if (!target || normalizedTeam === "common") return false;
+
+      const prev = target[normalizedTeam] ? [...target[normalizedTeam]] : null;
+      target[normalizedTeam] = value;
+      if (mirrorToggle.checked) {
+        const mirrorTeam = oppositeTeam(normalizedTeam);
+        const mirrorValue = mirrorPoint(value);
+        const mirrorPrev = target[mirrorTeam] ? [...target[mirrorTeam]] : null;
+        target[mirrorTeam] = mirrorValue;
+        state.history.push({
+          kind: "preset_mirror",
+          id,
+          team: normalizedTeam,
+          prev,
+          mirrorTeam,
+          mirrorPrev
+        });
+        setStatus(
+          `${sourceLabel} ${normalizedTeam === "red" ? "紅" : "藍"}方 ID=${id} (${value[0]}, ${value[1]})，` +
+          `鏡像 ${mirrorTeam === "red" ? "紅" : "藍"}方 (${mirrorValue[0]}, ${mirrorValue[1]})`
+        );
+      } else {
+        state.history.push({ kind: "preset", id, team: normalizedTeam, prev });
+        setStatus(`${sourceLabel} ${normalizedTeam === "red" ? "紅" : "藍"}方 ID=${id} (${value[0]}, ${value[1]})`);
+      }
+      syncPresetCoordInputsFromSelection();
+      drawAll();
+      return true;
+    }
+
+    function applyPresetCoordFromInput() {
+      const value = buildPresetCoordFromInput();
+      if (!value) {
+        setStatus("手寫點位 x/y 無效");
+        return false;
+      }
+      return setPresetPointValue(Number(pointSelect.value), teamSelect.value, value, "已手寫標記");
     }
 
     function buildCustomPointFromInput() {
@@ -525,6 +596,7 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
       state.regions = [];
       const regionCount = importCppRegions(text);
       drawAll();
+      syncPresetCoordInputsFromSelection();
       setStatus(`C++ 匯入完成：點位 ${locationResult.imported}，新增留位 ${locationResult.added}，區塊 ${regionCount}`);
     }
 
@@ -954,6 +1026,7 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
         }
       }
       drawAll();
+      syncPresetCoordInputsFromSelection();
     }
 
     function decodeBase64Url(value) {
@@ -1081,23 +1154,7 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
       const target = findPointById(id);
       if (!target) return;
       const value = toCm(x, y);
-      const prev = target[team] ? [...target[team]] : null;
-      target[team] = value;
-      if (mirrorToggle.checked) {
-        const mirrorTeam = oppositeTeam(team);
-        const mirrorValue = mirrorPoint(value);
-        const mirrorPrev = target[mirrorTeam] ? [...target[mirrorTeam]] : null;
-        target[mirrorTeam] = mirrorValue;
-        state.history.push({ kind: "preset_mirror", id, team, prev, mirrorTeam, mirrorPrev });
-        setStatus(
-          `已標記 ${team === "red" ? "紅" : "藍"}方 ID=${id} (${value[0]}, ${value[1]})，` +
-          `鏡像 ${mirrorTeam === "red" ? "紅" : "藍"}方 (${mirrorValue[0]}, ${mirrorValue[1]})`
-        );
-      } else {
-        state.history.push({ kind: "preset", id, team, prev });
-        setStatus(`已標記 ${team === "red" ? "紅" : "藍"}方 ID=${id} (${value[0]}, ${value[1]})`);
-      }
-      drawAll();
+      setPresetPointValue(id, team, value, "已標記");
     });
 
     document.getElementById("undoBtn").addEventListener("click", () => {
@@ -1127,11 +1184,13 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
         point[last.mirrorTeam] = last.mirrorPrev;
         setStatus(`已撤銷鏡像標記 ID=${last.id}`);
         drawAll();
+        syncPresetCoordInputsFromSelection();
         return;
       }
       point[last.team] = last.prev;
       setStatus(`已撤銷 ${last.team === "red" ? "紅" : "藍"}方 ID=${last.id}`);
       drawAll();
+      syncPresetCoordInputsFromSelection();
     });
 
     document.getElementById("clearBtn").addEventListener("click", () => {
@@ -1144,6 +1203,7 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
       point[team] = null;
       setStatus(`已清空 ${team === "red" ? "紅" : "藍"}方 ID=${id}`);
       drawAll();
+      syncPresetCoordInputsFromSelection();
     });
 
     showTagToggle.addEventListener("change", () => {
@@ -1152,8 +1212,14 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
     mirrorToggle.addEventListener("change", () => {
       drawAll();
     });
-    pointSelect.addEventListener("change", () => drawAll());
-    teamSelect.addEventListener("change", () => drawAll());
+    pointSelect.addEventListener("change", () => {
+      syncPresetCoordInputsFromSelection();
+      drawAll();
+    });
+    teamSelect.addEventListener("change", () => {
+      syncPresetCoordInputsFromSelection();
+      drawAll();
+    });
     customX.addEventListener("input", updateCustomPreview);
     customY.addEventListener("input", updateCustomPreview);
     customLabel.addEventListener("input", updateCustomPreview);
@@ -1170,7 +1236,18 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
       event.preventDefault();
       addCustomPointFromInput();
     });
+    presetX.addEventListener("keydown", event => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      applyPresetCoordFromInput();
+    });
+    presetY.addEventListener("keydown", event => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      applyPresetCoordFromInput();
+    });
     document.getElementById("addCustomBtn").addEventListener("click", addCustomPointFromInput);
+    document.getElementById("applyPresetCoordBtn").addEventListener("click", applyPresetCoordFromInput);
     eraserBtn.addEventListener("click", () => {
       setEraserMode(!state.eraserMode);
     });
@@ -1253,6 +1330,7 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
     }
     refreshOverlayCursor();
     updateCustomPreview();
+    syncPresetCoordInputsFromSelection();
     renderTable();
     renderRegionStats();
     renderCustomStats();

@@ -61,6 +61,20 @@ namespace Area {
         T z;
     };
 
+    enum class ShapeType : std::uint8_t {
+        Polygon,
+        CircleRing,
+    };
+
+    template<Arithmetic T>
+    struct CircleRing {
+        Point<T> center;
+        T innerRadiusCm;
+        T outerRadiusCm;
+        int segmentCount{8};
+        T startAngleDeg{0};
+    };
+
     template<Arithmetic T>
     class Location {
     public:
@@ -103,6 +117,23 @@ namespace Area {
     private:
         Point3<T> pointRed_;
         Point3<T> pointBlue_;
+    };
+
+    template<Arithmetic T>
+    class CircleRingLocation {
+    public:
+        CircleRingLocation() = default;
+        explicit CircleRingLocation(const CircleRing<T>& ringRed, const CircleRing<T>& ringBlue)
+            : ringRed_(ringRed), ringBlue_(ringBlue) {}
+
+        CircleRing<T> operator()(const UnitTeam team) const {
+            const auto lookup_team = PointLookupTeam(team);
+            return lookup_team == UnitTeam::Red ? ringRed_ : ringBlue_;
+        }
+
+    private:
+        CircleRing<T> ringRed_;
+        CircleRing<T> ringBlue_;
     };
 
     template<Arithmetic T>
