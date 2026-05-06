@@ -432,9 +432,31 @@ namespace LangYa {
         r.TreeTickRate = j.value("TreeTickRate", r.TreeTickRate);
         r.NaviCommandRate = j.value("NaviCommandRate", r.NaviCommandRate);
     }
+    void from_json(const json& j, BuffTimerSetting& bs) {
+        bs.Enable = j.value("Enable", bs.Enable);
+        bs.StartSec = j.value("StartSec", bs.StartSec);
+        bs.EndSec = j.value("EndSec", bs.EndSec);
+        bs.MaxShootCount = j.value("MaxShootCount", bs.MaxShootCount);
+    }
+    void from_json(const json& j, BuffConfirmSetting& bs) {
+        bs.RefereeFreshTimeoutMs = j.value("RefereeFreshTimeoutMs", bs.RefereeFreshTimeoutMs);
+        bs.PulseMs = j.value("PulseMs", bs.PulseMs);
+        bs.RetryIntervalMs = j.value("RetryIntervalMs", bs.RetryIntervalMs);
+        bs.PostConfirmGraceMs = j.value("PostConfirmGraceMs", bs.PostConfirmGraceMs);
+        bs.TaskHoldTimeoutMs = j.value("TaskHoldTimeoutMs", bs.TaskHoldTimeoutMs);
+        bs.DamageAbortThreshold = j.value("DamageAbortThreshold", bs.DamageAbortThreshold);
+        bs.DamageAbortWindowMs = j.value("DamageAbortWindowMs", bs.DamageAbortWindowMs);
+        bs.DamageAbortHoldMs = j.value("DamageAbortHoldMs", bs.DamageAbortHoldMs);
+    }
     void from_json(const json& j, TaskSetting& ts) {
         ts.Buff = j.value("Buff", ts.Buff);
         ts.Outpost = j.value("Outpost", ts.Outpost);
+        if (j.contains("BuffTimer")) {
+            j.at("BuffTimer").get_to(ts.BuffTimer);
+        }
+        if (j.contains("BuffConfirm")) {
+            j.at("BuffConfirm").get_to(ts.BuffConfirm);
+        }
     }
 
     void from_json(const json& j, DamageOpenGateSetting& dog) {
@@ -863,6 +885,90 @@ namespace BehaviorTree {
                 "Task/Outpost"
             },
             config.TaskSettings.Outpost);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "Task.BuffTimer.Enable",
+                "Task/BuffTimer/Enable"
+            },
+            config.TaskSettings.BuffTimer.Enable);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.BuffTimer.StartSec",
+                "Task/BuffTimer/StartSec"
+            },
+            config.TaskSettings.BuffTimer.StartSec);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.BuffTimer.EndSec",
+                "Task/BuffTimer/EndSec"
+            },
+            config.TaskSettings.BuffTimer.EndSec);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.BuffTimer.MaxShootCount",
+                "Task/BuffTimer/MaxShootCount"
+            },
+            config.TaskSettings.BuffTimer.MaxShootCount);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.BuffConfirm.RefereeFreshTimeoutMs",
+                "Task/BuffConfirm/RefereeFreshTimeoutMs"
+            },
+            config.TaskSettings.BuffConfirm.RefereeFreshTimeoutMs);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.BuffConfirm.PulseMs",
+                "Task/BuffConfirm/PulseMs"
+            },
+            config.TaskSettings.BuffConfirm.PulseMs);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.BuffConfirm.RetryIntervalMs",
+                "Task/BuffConfirm/RetryIntervalMs"
+            },
+            config.TaskSettings.BuffConfirm.RetryIntervalMs);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.BuffConfirm.PostConfirmGraceMs",
+                "Task/BuffConfirm/PostConfirmGraceMs"
+            },
+            config.TaskSettings.BuffConfirm.PostConfirmGraceMs);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.BuffConfirm.TaskHoldTimeoutMs",
+                "Task/BuffConfirm/TaskHoldTimeoutMs"
+            },
+            config.TaskSettings.BuffConfirm.TaskHoldTimeoutMs);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.BuffConfirm.DamageAbortThreshold",
+                "Task/BuffConfirm/DamageAbortThreshold"
+            },
+            config.TaskSettings.BuffConfirm.DamageAbortThreshold);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.BuffConfirm.DamageAbortWindowMs",
+                "Task/BuffConfirm/DamageAbortWindowMs"
+            },
+            config.TaskSettings.BuffConfirm.DamageAbortWindowMs);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.BuffConfirm.DamageAbortHoldMs",
+                "Task/BuffConfirm/DamageAbortHoldMs"
+            },
+            config.TaskSettings.BuffConfirm.DamageAbortHoldMs);
     }
 
     void Application::ApplyAreaManagerParameterOverrides() {
@@ -1326,6 +1432,22 @@ namespace BehaviorTree {
         LoggerPtr->Debug("------ Task ------");
         LoggerPtr->Debug("Buff: {}", config.TaskSettings.Buff);
         LoggerPtr->Debug("Outpost: {}", config.TaskSettings.Outpost);
+        LoggerPtr->Debug(
+            "BuffTimer: enable={} start={} end={} max_shoot={}",
+            config.TaskSettings.BuffTimer.Enable,
+            config.TaskSettings.BuffTimer.StartSec,
+            config.TaskSettings.BuffTimer.EndSec,
+            config.TaskSettings.BuffTimer.MaxShootCount);
+        LoggerPtr->Debug(
+            "BuffConfirm: referee_fresh_ms={} pulse_ms={} retry_ms={} grace_ms={} hold_timeout_ms={} damage_abort_threshold={} damage_abort_window_ms={} damage_abort_hold_ms={}",
+            config.TaskSettings.BuffConfirm.RefereeFreshTimeoutMs,
+            config.TaskSettings.BuffConfirm.PulseMs,
+            config.TaskSettings.BuffConfirm.RetryIntervalMs,
+            config.TaskSettings.BuffConfirm.PostConfirmGraceMs,
+            config.TaskSettings.BuffConfirm.TaskHoldTimeoutMs,
+            config.TaskSettings.BuffConfirm.DamageAbortThreshold,
+            config.TaskSettings.BuffConfirm.DamageAbortWindowMs,
+            config.TaskSettings.BuffConfirm.DamageAbortHoldMs);
         LoggerPtr->Debug("------ DamageOpenGate ------");
         LoggerPtr->Debug("Enable: {}", config.DamageOpenGateSettings.Enable);
         LoggerPtr->Debug("HealthDropThreshold: {}", config.DamageOpenGateSettings.HealthDropThreshold);
@@ -1880,9 +2002,9 @@ namespace BehaviorTree {
             default_policy.Health.LowResourceFallbackHp = 250;
         }
         if (default_policy.Ammo.MyAreaAmmoMin < 0) {
-            LoggerPtr->Warning("Invalid DefaultPolicy.Ammo.MyAreaAmmoMin={}, fallback to 30.",
+            LoggerPtr->Warning("Invalid DefaultPolicy.Ammo.MyAreaAmmoMin={}, fallback to 50.",
                 default_policy.Ammo.MyAreaAmmoMin);
-            default_policy.Ammo.MyAreaAmmoMin = 30;
+            default_policy.Ammo.MyAreaAmmoMin = 50;
         }
         if (default_policy.Ammo.CommonCentralAmmoMin < 0) {
             LoggerPtr->Warning("Invalid DefaultPolicy.Ammo.CommonCentralAmmoMin={}, fallback to 50.",

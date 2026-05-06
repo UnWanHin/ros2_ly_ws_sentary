@@ -133,7 +133,7 @@ Roadland 用這些門檻決定是否離開駐守點並安全返回。Central 則
 DefaultPolicy 的當前選區規則：
 
 - Area scope 是硬門檻：`MyArea / EnemyArea / CommonArea` 關掉的區域永遠不進候選。
-- `MyBase` 是保守 fallback：血量/彈量缺失或低資源時仍可選，且會得到 `LowResourceMyBaseBonus`。
+- `MyBase` 需要新鮮血量/彈量並達到我方區域門檻，健康時才會啟動基地巡遊。
 - `MyHighland` 需要新鮮血量/彈量並達到我方區域門檻。
 - `MyRoadland` 需要同時滿足 DefaultPolicy 我方門檻和 `MyRoadland.Healthy*` 門檻。
 - `CommonCentral` 需要同時滿足 DefaultPolicy Central 門檻和 `CommonCentral.Healthy*` 門檻。
@@ -192,7 +192,7 @@ Highland 巡邏和 BuffShoot 駐守時：
 CastleLeft1 -> CastleLeft2 -> CastleRight2 -> CastleRight1 -> repeat
 ```
 
-起點會用自身坐標選最近點。拿不到自身坐標時，保守從 `CastleLeft2` 開始。
+起點會用自身坐標選最近點。拿不到自身坐標時，保守從 `CastleLeft2` 開始。Default 啟動 MyBase 前會先檢查血量/彈量是否新鮮且達到 `DefaultPolicy` 我方區域門檻。
 
 MyBase 本身不開 `FollowMode`，也不開 `FaceMode`，就是普通基地巡遊狀態機。
 

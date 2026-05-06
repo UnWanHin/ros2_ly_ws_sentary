@@ -699,7 +699,7 @@ struct BulletDataAndRfid2 {
   -> behavior_tree ammoLeft
 ```
 
-当前“兑弹”的下发接口已经接到 `/ly/control/sentry_cmd` 和主控制幀 `SentryCmd`。BT 姿态切换主链路走 `/ly/control/posture`，其它 `SentryCmd` 字段还没有自动策略主动下发；BT 目前仍只会根据低弹量进入 Recovery/回补策略。
+当前“兑弹”的下发接口已经接到 `/ly/control/sentry_cmd` 和主控制幀 `SentryCmd`。BT 姿态切换主链路走 `/ly/control/posture`；能量机关确认会在打符链路满足到点、识别锁定、`can_activate_energy_mechanism=true` 后，通过 `/ly/control/sentry_cmd` 主动下发 `confirm_energy_activate` 脉冲。兑弹/远程回血/复活确认仍未由自动策略主动下发；BT 目前仍只会根据低弹量进入 Recovery/回补策略。
 
 如果后续要实现自动兑弹，建议按两个方向补齐：
 

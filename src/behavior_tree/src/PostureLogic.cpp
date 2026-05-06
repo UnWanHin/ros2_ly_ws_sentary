@@ -113,6 +113,10 @@ SentryPosture Application::SelectDesiredPosture(const bool has_target) const {
         return SentryPosture::Unknown;
     }
 
+    if (aimMode == AimMode::Buff) {
+        return SentryPosture::Move;
+    }
+
     const auto& runtime = postureManager_.Runtime();
     PostureScore score{};
 

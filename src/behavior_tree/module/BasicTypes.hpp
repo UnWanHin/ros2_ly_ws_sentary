@@ -437,9 +437,29 @@ namespace LangYa
         int TreeTickRate{100};
         int NaviCommandRate{1};
     };
+    struct BuffTimerSetting {
+        bool Enable{false};
+        int StartSec{0};
+        int EndSec{25};
+        int MaxShootCount{15};
+    };
+
+    struct BuffConfirmSetting {
+        int RefereeFreshTimeoutMs{2000};
+        int PulseMs{500};
+        int RetryIntervalMs{2000};
+        int PostConfirmGraceMs{3000};
+        int TaskHoldTimeoutMs{30000};
+        int DamageAbortThreshold{30};
+        int DamageAbortWindowMs{1000};
+        int DamageAbortHoldMs{5000};
+    };
+
     struct TaskSetting {
         bool Buff{false};
         bool Outpost{false};
+        BuffTimerSetting BuffTimer{};
+        BuffConfirmSetting BuffConfirm{};
     };
 
     struct DamageOpenGateSetting {
@@ -647,7 +667,7 @@ namespace LangYa
     };
 
     struct DefaultPolicyAmmoSetting {
-        int MyAreaAmmoMin{30};
+        int MyAreaAmmoMin{50};
         int CommonCentralAmmoMin{50};
         int EnemyAreaAmmoMin{80};
         int LowResourceFallbackAmmo{30};

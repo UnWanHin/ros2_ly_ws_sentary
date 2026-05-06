@@ -489,12 +489,30 @@ namespace BehaviorTree {
                 has_recent_latched_target ? 1 : 0);
             if (find_target && !config.AimDebugSettings.StopFire){
                 if(aimMode == AimMode::Buff) { // 打符模式
-                    if(activeAimData->FireStatus){
+                    const int referee_fresh_ms =
+                        std::max(0, config.TaskSettings.BuffConfirm.RefereeFreshTimeoutMs);
+                    const bool event_data_fresh =
+                        hasReceivedEventData_ &&
+                        lastEventDataRxTime_.time_since_epoch().count() != 0 &&
+                        now - lastEventDataRxTime_ <= std::chrono::milliseconds(referee_fresh_ms);
+                    const bool energy_activating =
+                        event_data_fresh &&
+                        (eventSelfSmallEnergyStatus_ == 2 || eventSelfLargeEnergyStatus_ == 2);
+                    const int post_confirm_grace_ms =
+                        std::max(0, config.TaskSettings.BuffConfirm.PostConfirmGraceMs);
+                    const bool confirm_grace_active =
+                        lastEnergyActivateConfirmTime_.time_since_epoch().count() != 0 &&
+                        now - lastEnergyActivateConfirmTime_ <= std::chrono::milliseconds(post_confirm_grace_ms);
+                    const bool buff_fire_allowed =
+                        config.TaskSettings.BuffTimer.Enable || energy_activating || confirm_grace_active;
+                    if(buff_fire_allowed && activeAimData->FireStatus){
                         /// 立刻响应不需要tick
                         RecFireCode.FlipFireStatus();
                         gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
                         buffAimData.FireStatus = false;
                         buff_shoot_count++;
+                    } else {
+                        gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
                     }
                 } else { // 非打符模式（打前哨和打车），沿用老代码：收到回调就按频率开火
                     if(fireRateClock.trigger()){
@@ -962,42 +980,161 @@ namespace BehaviorTree {
         // int now_time = 420 - timeLeft;
         int now_time = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - gameStartTime).count();
         LoggerPtr->Info("SetAimMode - now_time: {}", now_time);
-        if (IsRegionalDefenseAimSuppressActive()) {
-            aimMode = AimMode::RotateScan;
-            LoggerPtr->Info("Regional defense active: suppress Buff/Outpost aim mode.");
-            return;
-        }
         if(config.TaskSettings.Buff) { // 打符
-            if(now_time < 25 && buff_shoot_count <= 15){
-                if(now_time > 7) {
-                    const bool event_data_fresh =
-                        hasReceivedEventData_ &&
-                        lastEventDataRxTime_.time_since_epoch().count() != 0 &&
-                        std::chrono::steady_clock::now() - lastEventDataRxTime_ <= std::chrono::seconds(2);
-                    const bool energy_activated =
-                        event_data_fresh &&
-                        (eventSelfSmallEnergyStatus_ == 1 || eventSelfLargeEnergyStatus_ == 1);
-                    const bool legacy_buff_activated =
-                        !event_data_fresh &&
-                        (teamBuff.DefenceBuff > 20 || teamBuff.VulnerabilityBuff > 20);
-                    if(energy_activated || legacy_buff_activated){
-                        LoggerPtr->Info("Buff has been activated! event_fresh={}, small_status={}, large_status={}",
-                            event_data_fresh ? 1 : 0,
-                            static_cast<int>(eventSelfSmallEnergyStatus_),
-                            static_cast<int>(eventSelfLargeEnergyStatus_));
-                        aimMode = AimMode::RotateScan;
+            const auto now = std::chrono::steady_clock::now();
+            const int referee_fresh_ms =
+                std::max(0, config.TaskSettings.BuffConfirm.RefereeFreshTimeoutMs);
+            const int post_confirm_grace_ms =
+                std::max(0, config.TaskSettings.BuffConfirm.PostConfirmGraceMs);
+            const int task_hold_timeout_ms =
+                std::max(0, config.TaskSettings.BuffConfirm.TaskHoldTimeoutMs);
+            const int damage_abort_threshold =
+                std::max(0, config.TaskSettings.BuffConfirm.DamageAbortThreshold);
+            const int damage_abort_window_ms =
+                std::max(0, config.TaskSettings.BuffConfirm.DamageAbortWindowMs);
+            const int damage_abort_hold_ms =
+                std::max(0, config.TaskSettings.BuffConfirm.DamageAbortHoldMs);
+            const bool event_data_fresh =
+                hasReceivedEventData_ &&
+                lastEventDataRxTime_.time_since_epoch().count() != 0 &&
+                now - lastEventDataRxTime_ <= std::chrono::milliseconds(referee_fresh_ms);
+            const bool sentry_info_fresh =
+                hasReceivedSentryInfo_ &&
+                lastSentryInfoRxTime_.time_since_epoch().count() != 0 &&
+                now - lastSentryInfoRxTime_ <= std::chrono::milliseconds(referee_fresh_ms);
+            const bool energy_activated =
+                event_data_fresh &&
+                (eventSelfSmallEnergyStatus_ == 1 || eventSelfLargeEnergyStatus_ == 1);
+            const bool energy_activating =
+                event_data_fresh &&
+                (eventSelfSmallEnergyStatus_ == 2 || eventSelfLargeEnergyStatus_ == 2);
+            const bool can_activate_energy =
+                sentry_info_fresh && sentryCanActivateEnergyMechanism_;
+            const bool energy_done_without_next =
+                energy_activated && !energy_activating && !can_activate_energy;
+            const bool confirm_grace_active =
+                lastEnergyActivateConfirmTime_.time_since_epoch().count() != 0 &&
+                now - lastEnergyActivateConfirmTime_ <= std::chrono::milliseconds(post_confirm_grace_ms);
+            const bool damage_abort_active =
+                buffTaskDamageAbortUntil_.time_since_epoch().count() != 0 &&
+                now < buffTaskDamageAbortUntil_;
+            const bool recent_damage_abort = [&]() {
+                if (damage_abort_threshold <= 0 || damage_abort_window_ms <= 0) {
+                    return false;
+                }
+                for (auto it = postureRecentDamageSamples_.rbegin();
+                     it != postureRecentDamageSamples_.rend();
+                     ++it) {
+                    if ((now - it->Time) > std::chrono::milliseconds(damage_abort_window_ms)) {
+                        break;
                     }
-                    else{
-                        LoggerPtr->Info("Buff has not been activated!");
-                        aimMode = AimMode::Buff;
+                    if (it->Delta > static_cast<std::uint16_t>(damage_abort_threshold)) {
+                        return true;
                     }
-                }else aimMode = AimMode::Buff;
-                
-            }else {
-                LoggerPtr->Info("Time out 25 seconds, stop hit buff!");
+                }
+                return false;
+            }();
+
+            if (recent_damage_abort) {
+                buffTaskLocked_ = false;
+                buffTaskStartTime_ = {};
+                buffTaskDamageAbortUntil_ = now + std::chrono::milliseconds(damage_abort_hold_ms);
                 aimMode = AimMode::RotateScan;
+                LoggerPtr->Info(
+                    "Buff interrupted by damage > {}. Hold armor mode for {} ms.",
+                    damage_abort_threshold,
+                    damage_abort_hold_ms);
+            } else if (damage_abort_active) {
+                aimMode = AimMode::RotateScan;
+            } else if (energy_done_without_next) {
+                buffTaskLocked_ = false;
+                buffTaskStartTime_ = {};
+                LoggerPtr->Info(
+                    "Buff energy active and no next activation window. event_fresh={} sentry_fresh={} small_status={} large_status={} can_activate={}",
+                    event_data_fresh ? 1 : 0,
+                    sentry_info_fresh ? 1 : 0,
+                    static_cast<int>(eventSelfSmallEnergyStatus_),
+                    static_cast<int>(eventSelfLargeEnergyStatus_),
+                    can_activate_energy ? 1 : 0);
+                aimMode = AimMode::RotateScan;
+            } else if (config.TaskSettings.BuffTimer.Enable) {
+                const int timer_start = config.TaskSettings.BuffTimer.StartSec;
+                const int timer_end = config.TaskSettings.BuffTimer.EndSec;
+                const int max_shoot_count = config.TaskSettings.BuffTimer.MaxShootCount;
+                const bool in_timer_window = now_time >= timer_start && now_time < timer_end;
+                const bool shoot_count_allowed =
+                    max_shoot_count < 0 || buff_shoot_count <= max_shoot_count;
+                if (in_timer_window && shoot_count_allowed) {
+                    if (!buffTaskLocked_) {
+                        buffTaskStartTime_ = now;
+                    }
+                    buffTaskLocked_ = true;
+                    aimMode = AimMode::Buff;
+                } else {
+                    buffTaskLocked_ = false;
+                    buffTaskStartTime_ = {};
+                    LoggerPtr->Info(
+                        "Buff timer gate closed: now={} window=[{}, {}) shoot_count={} max={}",
+                        now_time,
+                        timer_start,
+                        timer_end,
+                        buff_shoot_count,
+                        max_shoot_count);
+                    aimMode = AimMode::RotateScan;
+                }
+            } else {
+                const bool task_hold_timeout =
+                    buffTaskLocked_ &&
+                    task_hold_timeout_ms > 0 &&
+                    buffTaskStartTime_.time_since_epoch().count() != 0 &&
+                    now - buffTaskStartTime_ > std::chrono::milliseconds(task_hold_timeout_ms);
+                const bool official_state_keeps_task =
+                    energy_activating || can_activate_energy || confirm_grace_active;
+                if (task_hold_timeout && !official_state_keeps_task) {
+                    buffTaskLocked_ = false;
+                    buffTaskStartTime_ = {};
+                    LoggerPtr->Warning(
+                        "Buff task timeout without fresh active state: timeout_ms={} event_fresh={} sentry_fresh={} small_status={} large_status={} can_activate={}",
+                        task_hold_timeout_ms,
+                        event_data_fresh ? 1 : 0,
+                        sentry_info_fresh ? 1 : 0,
+                        static_cast<int>(eventSelfSmallEnergyStatus_),
+                        static_cast<int>(eventSelfLargeEnergyStatus_),
+                        can_activate_energy ? 1 : 0);
+                    aimMode = AimMode::RotateScan;
+                } else if (official_state_keeps_task || buffTaskLocked_) {
+                    if (!buffTaskLocked_) {
+                        buffTaskStartTime_ = now;
+                    }
+                    buffTaskLocked_ = true;
+                    LoggerPtr->Info(
+                        "Buff state gate open: event_fresh={} sentry_fresh={} small_status={} large_status={} can_activate={} confirm_grace={} locked={}",
+                        event_data_fresh ? 1 : 0,
+                        sentry_info_fresh ? 1 : 0,
+                        static_cast<int>(eventSelfSmallEnergyStatus_),
+                        static_cast<int>(eventSelfLargeEnergyStatus_),
+                        can_activate_energy ? 1 : 0,
+                        confirm_grace_active ? 1 : 0,
+                        buffTaskLocked_ ? 1 : 0);
+                    aimMode = AimMode::Buff;
+                } else {
+                    LoggerPtr->Info(
+                        "Buff state gate closed: event_fresh={} sentry_fresh={} small_status={} large_status={} can_activate={} confirm_grace={}",
+                        event_data_fresh ? 1 : 0,
+                        sentry_info_fresh ? 1 : 0,
+                        static_cast<int>(eventSelfSmallEnergyStatus_),
+                        static_cast<int>(eventSelfLargeEnergyStatus_),
+                        can_activate_energy ? 1 : 0,
+                        confirm_grace_active ? 1 : 0);
+                    aimMode = AimMode::RotateScan;
+                }
             }
         }else if(config.TaskSettings.Outpost) { // 打前哨站
+            if (IsRegionalDefenseAimSuppressActive()) {
+                aimMode = AimMode::RotateScan;
+                LoggerPtr->Info("Regional defense active: suppress Outpost aim mode.");
+                return;
+            }
             if(enemyOutpostHealth > 0) {
                 LoggerPtr->Info("Enemy Outpost Health: {}", enemyOutpostHealth);;
                 if(now_time < 90) {
@@ -1011,7 +1148,11 @@ namespace BehaviorTree {
                 aimMode = AimMode::RotateScan;
             }
         }else { // 普通模式
-            LoggerPtr->Info("AimMode: RotateScan!");
+            if (IsRegionalDefenseAimSuppressActive()) {
+                LoggerPtr->Info("Regional defense active: keep armor vision mode.");
+            } else {
+                LoggerPtr->Info("AimMode: RotateScan!");
+            }
             aimMode = AimMode::RotateScan;
         }
 

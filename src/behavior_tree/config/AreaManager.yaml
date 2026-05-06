@@ -40,7 +40,7 @@ behavior_tree:
           EnemyAreaHpMin: 350
           LowResourceFallbackHp: 250
         Ammo:
-          MyAreaAmmoMin: 30
+          MyAreaAmmoMin: 50
           CommonCentralAmmoMin: 50
           EnemyAreaAmmoMin: 80
           LowResourceFallbackAmmo: 30

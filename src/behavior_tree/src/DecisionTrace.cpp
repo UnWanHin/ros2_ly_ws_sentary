@@ -465,6 +465,10 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         {"has_event_data", hasReceivedEventData_},
         {"event_self_small_energy_status", static_cast<int>(eventSelfSmallEnergyStatus_)},
         {"event_self_large_energy_status", static_cast<int>(eventSelfLargeEnergyStatus_)},
+        {"has_sentry_info", hasReceivedSentryInfo_},
+        {"sentry_can_activate_energy", sentryCanActivateEnergyMechanism_},
+        {"energy_activate_confirm_pulse", energyActivateConfirmPulseActive_},
+        {"buff_task_locked", buffTaskLocked_},
         {"team_buff", {
             {"recovery", static_cast<int>(teamBuff.RecoveryBuff)},
             {"cooling", static_cast<int>(teamBuff.CoolingBuff)},

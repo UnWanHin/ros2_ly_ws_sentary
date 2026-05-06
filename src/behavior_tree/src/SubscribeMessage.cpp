@@ -150,6 +150,13 @@ namespace BehaviorTree{
             app.lastEventDataRxTime_ = std::chrono::steady_clock::now();
         });
 
+        // ly_game_sentry_info: referee 0x020D sentry_info/sentry_info_2 semantic topic.
+        GenSub<ly_game_sentry_info>([](Application& app, auto msg) {
+            app.sentryCanActivateEnergyMechanism_ = msg->can_activate_energy_mechanism;
+            app.hasReceivedSentryInfo_ = true;
+            app.lastSentryInfoRxTime_ = std::chrono::steady_clock::now();
+        });
+
         // ly_friend_is_team_red
         GenSub<ly_friend_is_team_red>([](Application& app, auto msg) {
             app.team = msg->data ? UnitTeam::Red : UnitTeam::Blue;

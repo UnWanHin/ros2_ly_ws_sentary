@@ -199,15 +199,17 @@ behavior_tree AimMode::RotateScan
 
 主要邏輯：
 
-- 開局 `25s` 內才打。
-- `buff_shoot_count <= 15`。
-- 開局 `7s` 後會看 `event_data`，如果己方能量機關已激活，就退出 Buff 回普通掃描。
-- 未激活時保持 `AimMode::Buff`。
+- 默認不走定時窗口，而是看 `/ly/game/sentry/info.can_activate_energy_mechanism`。
+- 當 `can_activate_energy_mechanism=true`，或 `/ly/game/event_data` 顯示己方能量機關已在 `正在激活`，BT 進 `AimMode::Buff`。
+- 若 `Task.BuffTimer.Enable=true`，則兼容定時窗口：窗口內允許進 Buff，窗口外退出。
+- 當 `event_data` 顯示已激活，且 `sentry_info` 沒有新的可激活窗口時，退出 Buff 回普通掃描。
+- 打符任務一旦鎖住，不會被 RegionalDefense 或視野裡的普通裝甲板打斷；只會在成功激活、任務超時退化、或近期單次扣血超過 `DamageAbortThreshold` 時退出。
 
 輸出：
 
 ```text
 /ly/vision/mode = 2
+/ly/control/sentry_cmd.confirm_energy_activate = pulse
 ```
 
 導航與朝向：
@@ -215,6 +217,37 @@ behavior_tree AimMode::RotateScan
 - 導航去 `BuffOutpost` 點。
 - FaceMode 朝向 `BuffPose`。
 - 識別到符時，視覺角度優先；沒識別到時，FaceMode 提供粗朝向。
+- 只有同時滿足「到達 `BuffOutpost`」、「`buff_hitter` 識別並給出可擊打狀態」、「`can_activate_energy_mechanism=true`」時，BT 才會向 `/ly/control/sentry_cmd` 發 `FIELD_CONFIRM_ENERGY_ACTIVATE` 脈衝。
+- 默認狀態模式下，`FireStatus` 會在 `/ly/game/event_data` 顯示己方小/大能量機關 `正在激活(2)` 後翻轉；同時確認脈衝後有 `PostConfirmGraceMs` 的延時保護，避免裁判回包從可激活切到正在激活時的延遲讓開火被卡死。
+- 若打符過程近期單次扣血大於 `DamageAbortThreshold`，BT 會退出 Buff，保持普通裝甲板視覺模式 `DamageAbortHoldMs`，之後仍可在可激活/正在激活條件恢復時回到打符。
+- 打符期間姿態固定選 `Move(3)`，不切 `Attack(1)`；扣血中斷回普通裝甲板後才恢復原姿態策略。
+
+相關 `Task.yaml`：
+
+```yaml
+Task:
+  Buff: false
+  BuffTimer:
+    Enable: false
+    StartSec: 0
+    EndSec: 25
+    MaxShootCount: 15
+  BuffConfirm:
+    RefereeFreshTimeoutMs: 2000
+    PulseMs: 500
+    RetryIntervalMs: 2000
+    PostConfirmGraceMs: 3000
+    TaskHoldTimeoutMs: 30000
+    DamageAbortThreshold: 30
+    DamageAbortWindowMs: 1000
+    DamageAbortHoldMs: 5000
+```
+
+規則/通信差異：
+
+- 2026 超級對抗賽規則把哨兵接入了能量機關確認鏈路：裁判 `0x020D sentry_info_2.bit14` 告訴哨兵「己方能量機關是否能進入正在激活」，裁判 `0x0120 sentry_cmd.bit23` 是哨兵確認使其進入正在激活。
+- 2025 通信協議裡 `sentry_info_2.bit14` 和 `sentry_cmd.bit23` 仍是保留位；舊邏輯只能按規則時間窗/客戶端狀態去打，沒有哨兵串口確認位。
+- 因此新 BT 不再把「未激活」直接等同於「可以去打」，默認要等 `can_activate_energy_mechanism=true`，到點並鎖到模型後才下發確認脈衝。
 
 ## EventData
 
@@ -262,15 +295,14 @@ BT 目前實際使用：
 - `self_large_energy_status`
 - `raw` 會同步到 blackboard / trace
 
-打符任務中，BT 只在 event data 新鮮時看：
+打符任務中，BT 在 event data 新鮮時看：
 
 ```text
-self_small_energy_status == 1
-or
-self_large_energy_status == 1
+self_small_energy_status == 1 / 2
+self_large_energy_status == 1 / 2
 ```
 
-只要其中一個成立，就認為己方能量機關已激活，退出 `AimMode::Buff`，回普通裝甲板掃描。其他 EventData 字段目前主要是已拆好、可給後續決策用，還沒有大面積接入 regional 任務。
+`1` 表示已激活，`2` 表示正在激活。是否能把能量機關從未激活切到正在激活，不從 event_data 推斷，而是看 `/ly/game/sentry/info.can_activate_energy_mechanism`。
 
 ## 打前哨
 

@@ -182,9 +182,9 @@ std::vector<DefaultRegionalAreaCandidate> DefaultStrategyManager::BuildRegionalA
         },
         task.MyBase.Enable,
         navi_goal.MyArea,
-        false,
-        0,
-        0);
+        true,
+        policy.Health.MyAreaHpMin,
+        policy.Ammo.MyAreaAmmoMin);
 
     add_candidate(
         DefaultRegionalAreaCandidate{

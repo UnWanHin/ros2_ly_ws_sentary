@@ -155,6 +155,9 @@ private:
     std::uint8_t eventSelfSmallEnergyStatus_{0};
     std::uint8_t eventSelfLargeEnergyStatus_{0};
     std::chrono::steady_clock::time_point lastEventDataRxTime_{};
+    bool sentryCanActivateEnergyMechanism_{false};
+    bool hasReceivedSentryInfo_{false};
+    std::chrono::steady_clock::time_point lastSentryInfoRxTime_{};
     std::array<ArmorData, 10> armorList; // 辅瞄返回的装甲板序列
     bool is_game_begin{false}; // 比赛开始的标志
     FireCodeType RecFireCode{}; // 云台的火控数据
@@ -208,6 +211,13 @@ private:
     std::uint16_t postureLastHealth_{0};
     SentryPosture postureLastDesired_{SentryPosture::Unknown};
     std::string postureLastReason_{"init"};
+    bool energyActivateConfirmPulseActive_{false};
+    std::chrono::steady_clock::time_point energyActivateConfirmPulseUntil_{};
+    std::chrono::steady_clock::time_point nextEnergyActivateConfirmTime_{};
+    std::chrono::steady_clock::time_point lastEnergyActivateConfirmTime_{};
+    bool buffTaskLocked_{false};
+    std::chrono::steady_clock::time_point buffTaskStartTime_{};
+    std::chrono::steady_clock::time_point buffTaskDamageAbortUntil_{};
 
     std::uint8_t naviCommandGoal{0}; // 导航目标
     Area::Point<std::uint16_t> naviGoalPosition{}; // 导航定位目标
@@ -379,6 +389,7 @@ private:
     rclcpp::Publisher<gimbal_driver::msg::GimbalAngles>::SharedPtr pub_gimbal_control_;
     rclcpp::Publisher<gimbal_driver::msg::FireCode>::SharedPtr pub_gimbal_firecode_;
     rclcpp::Publisher<gimbal_driver::msg::SentryCmd>::SharedPtr pub_control_posture_;
+    rclcpp::Publisher<gimbal_driver::msg::SentryCmd>::SharedPtr pub_control_sentry_cmd_;
     rclcpp::Publisher<gimbal_driver::msg::ControlVelocity>::SharedPtr pub_gimbal_vel_;
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_gimbal_capV_;
 
@@ -407,6 +418,8 @@ public:
     void PubAimModeEnableData();
     void PubGimbalControlData();
     void PubPostureControlData();
+    void PubEnergyActivateConfirmData(bool confirm);
+    void UpdateEnergyActivateConfirmCommand(bool should_confirm);
     void PubAimTargetData();
     void PubNaviControlData();
     void PubNaviRelativeTarget();

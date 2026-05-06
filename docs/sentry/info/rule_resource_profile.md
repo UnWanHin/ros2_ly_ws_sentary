@@ -176,6 +176,7 @@ BT 目前只存一份 runtime 當前資源值：
 
 | 模塊 | 當前門檻 |
 |---|---:|
+| `DefaultPolicy.Ammo.MyAreaAmmoMin` | 50 |
 | `MyRoadland.HealthyHpMin` | 300 |
 | `MyRoadland.HealthyAmmoMin` | 50 |
 | `CommonCentral.HealthyHpMin` | 300 |

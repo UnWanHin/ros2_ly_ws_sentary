@@ -3,3 +3,21 @@ behavior_tree:
     Task:
       Buff: false
       Outpost: false
+      BuffTimer:
+        # false: 以裁判 0x020D sentry_info_2.bit14 can_activate 為準，能激活才去打。
+        # true: 兼容定時窗口；窗口內進 Buff，仍只在到點且視覺鎖定後下發確認。
+        Enable: false
+        StartSec: 0
+        EndSec: 25
+        MaxShootCount: 15
+      BuffConfirm:
+        RefereeFreshTimeoutMs: 2000
+        PulseMs: 500
+        RetryIntervalMs: 2000
+        # 裁判從「可激活」切到「正在激活」有回包延遲，確認後這段時間仍保持 Buff 並允許擊打。
+        PostConfirmGraceMs: 3000
+        # 避免裁判狀態丟失時永久卡在打符；正常成功會由 event_data=已激活 提前退出。
+        TaskHoldTimeoutMs: 30000
+        DamageAbortThreshold: 30
+        DamageAbortWindowMs: 1000
+        DamageAbortHoldMs: 5000

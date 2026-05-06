@@ -128,12 +128,20 @@ bool StrategyManager::RunTactical(Application& app) {
     const UnitTeam my_team = app.team;
     const UnitTeam enemy_team = app.team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
 
+    if (app.aimMode == AimMode::Buff) {
+        if (app.naviCommandIntervalClock.trigger()) {
+            app.TrySetAimModeTaskGoal(my_team, enemy_team, "regional_tactical_buff_mode");
+        }
+        MarkHandled(app, StrategyLayer::Tactical);
+        return true;
+    }
+
     if (app.TrySetRegionalDefenseGoal(my_team, enemy_team)) {
         MarkHandled(app, StrategyLayer::Tactical);
         return true;
     }
 
-    if (app.aimMode == AimMode::Buff || app.aimMode == AimMode::Outpost) {
+    if (app.aimMode == AimMode::Outpost) {
         if (app.naviCommandIntervalClock.trigger()) {
             app.TrySetAimModeTaskGoal(my_team, enemy_team, "regional_tactical_aim_mode");
         }

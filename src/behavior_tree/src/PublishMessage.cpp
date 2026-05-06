@@ -4,6 +4,8 @@
 
 #include "../include/Application.hpp"
 
+#include <algorithm>
+
 namespace {
     constexpr float kVelocityRawToMps = 0.025f;
     constexpr std::uint8_t kVisionModeDisabled = 0;
@@ -33,6 +35,34 @@ namespace BehaviorTree {
         PubAimModeEnableData();
         PubGimbalControlData();
         PubPostureControlData();
+        const auto now = std::chrono::steady_clock::now();
+        const int referee_fresh_ms =
+            std::max(0, config.TaskSettings.BuffConfirm.RefereeFreshTimeoutMs);
+        const bool sentry_info_fresh =
+            hasReceivedSentryInfo_ &&
+            lastSentryInfoRxTime_.time_since_epoch().count() != 0 &&
+            now - lastSentryInfoRxTime_ <= std::chrono::milliseconds(referee_fresh_ms);
+        const bool event_data_fresh =
+            hasReceivedEventData_ &&
+            lastEventDataRxTime_.time_since_epoch().count() != 0 &&
+            now - lastEventDataRxTime_ <= std::chrono::milliseconds(referee_fresh_ms);
+        const bool energy_done_without_next =
+            event_data_fresh &&
+            (eventSelfSmallEnergyStatus_ == 1 || eventSelfLargeEnergyStatus_ == 1) &&
+            !sentryCanActivateEnergyMechanism_;
+        const bool buff_visual_locked =
+            buffAimData.Fresh &&
+            buffAimData.Valid &&
+            buffAimData.BuffFollow &&
+            buffAimData.FireStatus;
+        const bool should_confirm_energy_activate =
+            aimMode == AimMode::Buff &&
+            sentry_info_fresh &&
+            sentryCanActivateEnergyMechanism_ &&
+            !energy_done_without_next &&
+            IsBaseGoalArrived(LangYa::BuffOutpost.ID, team, true) &&
+            buff_visual_locked;
+        UpdateEnergyActivateConfirmCommand(should_confirm_energy_activate);
         PubAimTargetData();
         PubNaviControlData();
         const bool enable_chase_to_navi =
@@ -116,6 +146,48 @@ namespace BehaviorTree {
         msg.posture = postureCommand;
         msg.raw = static_cast<std::uint32_t>(postureCommand) << 21;
         pub_control_posture_->publish(msg);
+    }
+
+    void Application::PubEnergyActivateConfirmData(const bool confirm) {
+        if (!pub_control_sentry_cmd_) {
+            return;
+        }
+        gimbal_driver::msg::SentryCmd msg;
+        msg.header.stamp = node_->now();
+        msg.field_mask = gimbal_driver::msg::SentryCmd::FIELD_CONFIRM_ENERGY_ACTIVATE;
+        msg.confirm_energy_activate = confirm;
+        msg.raw = confirm ? (1u << 23) : 0u;
+        pub_control_sentry_cmd_->publish(msg);
+    }
+
+    void Application::UpdateEnergyActivateConfirmCommand(const bool should_confirm) {
+        const auto now = std::chrono::steady_clock::now();
+        if (energyActivateConfirmPulseActive_ && now >= energyActivateConfirmPulseUntil_) {
+            PubEnergyActivateConfirmData(false);
+            energyActivateConfirmPulseActive_ = false;
+        }
+
+        if (!should_confirm || energyActivateConfirmPulseActive_) {
+            return;
+        }
+        if (nextEnergyActivateConfirmTime_.time_since_epoch().count() != 0 &&
+            now < nextEnergyActivateConfirmTime_) {
+            return;
+        }
+
+        const int pulse_ms = std::max(0, config.TaskSettings.BuffConfirm.PulseMs);
+        const int retry_ms = std::max(
+            pulse_ms,
+            std::max(0, config.TaskSettings.BuffConfirm.RetryIntervalMs));
+        PubEnergyActivateConfirmData(true);
+        lastEnergyActivateConfirmTime_ = now;
+        energyActivateConfirmPulseActive_ = true;
+        energyActivateConfirmPulseUntil_ = now + std::chrono::milliseconds(pulse_ms);
+        nextEnergyActivateConfirmTime_ = now + std::chrono::milliseconds(retry_ms);
+        LoggerPtr->Info(
+            "SentryCmd confirm_energy_activate pulse: pulse_ms={} retry_ms={} buff_goal_arrived=1 visual_locked=1",
+            pulse_ms,
+            retry_ms);
     }
 
     /**
