@@ -404,14 +404,6 @@ namespace LangYa
         int TreeTickRate{100};
         int NaviCommandRate{1};
     };
-    struct GameStrategy {
-        bool HitOutpost{false}; // 是否击打前哨站
-        int HitBuff{false};  // 击打前哨站时
-        bool TestNavi{false}; // 是否测试导航
-        bool HitSentry{false}; // 攻击哨兵
-        bool Protected{false}; // 保守模式
-    };
-
     struct TaskSetting {
         bool Buff{false};
         bool Outpost{false};
@@ -528,18 +520,7 @@ namespace LangYa
         int ScoreHysteresis{2};       // 姿态切换分差迟滞
     };
 
-    struct NaviGoalOption {
-        std::uint8_t GoalId{LangYa::MidShoot.ID};
-        std::string Team{"my"}; // my / enemy
-        double Bias{0.0};
-        bool Enable{true};
-    };
-
     struct NaviGoalAutonomySetting {
-        bool UseCustomCandidates{false};
-        std::vector<NaviGoalOption> HitHeroCandidates{};
-        std::vector<NaviGoalOption> HitSentryCandidates{};
-        std::vector<NaviGoalOption> ProtectCandidates{};
         bool UseAreaScope{false};
         std::vector<std::string> MyArea{};
         std::vector<std::string> EnemyArea{};
@@ -548,14 +529,6 @@ namespace LangYa
         bool HighlandCompatDisableRotate{false};
         int HighlandCompatArriveDistanceCm{20};
         int HighlandCompatTimeoutSec{6};
-        double DistanceWeight{1.0};
-        double EnemyTeamBonus{0.25};
-        double HeroProximityWeight{0.35};
-        double CurrentGoalBonus{0.30};
-        double LowEnergyOwnSideBonus{0.8};
-        double LowEnergyEnemyPenalty{1.0};
-        double LowOutpostOwnSideBonus{0.4};
-        double GoalBiasWeight{1.0};
     };
 
     struct RegionalDefenseSetting {
@@ -696,7 +669,7 @@ namespace LangYa
 
     struct DecisionAutonomySetting {
         bool Enable{false};
-        std::vector<std::string> EnabledModules{"navi_goal", "aim_target"};
+        std::vector<std::string> EnabledModules{"aim_target"};
         std::vector<std::string> HardRuleModules{"recovery", "aim_mode", "fire_safety"};
         NaviGoalAutonomySetting NaviGoal{};
         AimTargetAutonomySetting AimTarget{};
@@ -708,7 +681,6 @@ namespace LangYa
         PatrolScanSetting PatrolScanSettings{};
         Rate RateSettings{};
         bool SwitchPoint{false};
-        GameStrategy GameStrategySettings{};
         TaskSetting TaskSettings{};
         DamageOpenGateSetting DamageOpenGateSettings{};
         NaviSetting NaviSettings{};

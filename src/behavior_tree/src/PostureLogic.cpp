@@ -118,21 +118,6 @@ SentryPosture Application::SelectDesiredPosture(const bool has_target) const {
 
     // 1) 基础策略加权
     switch (strategyMode_) {
-        case StrategyMode::Protected:
-            score.Defense += 6;
-            score.Move += 1;
-            break;
-        case StrategyMode::NaviTest:
-            score.Move += 8;
-            break;
-        case StrategyMode::HitSentry:
-            score.Attack += 3;
-            score.Move += 1;
-            break;
-        case StrategyMode::HitHero:
-            score.Attack += 2;
-            score.Move += 1;
-            break;
         case StrategyMode::Regional:
             score.Attack += 2;
             score.Move += 1;

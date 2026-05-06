@@ -59,10 +59,9 @@ Updated: 2026-05-06
 ## 7. League / Regional 分离
 
 - `CompetitionProfile=league` 时只走 `LeagueSimple`。
-- `CompetitionProfile=regional` 时固定进入 `Regional`，不再使用旧 `HitHero / HitSentry / Protected / NaviTest` 点表。
+- `CompetitionProfile=regional` 时固定进入 `Regional`，不再使用旧单策略点表。
 - Regional 的无事件行为由 Default 大区域任务和 AreaManager 状态机决定；战术层只保留 RegionalDefense、Buff/Outpost 任务站位和导航 watchdog 这类明确 overlay。
-- 如果这些层都没有输出，不会再用旧 HitHero 点表兜底。
-- 旧 `SetPositionHitHero/HitSentry/Protect/NaviTest` 即使被误调用，也只会回到当前 profile 的安全入口，不会执行历史点表。
+- 如果这些层都没有输出，Finalizer 只同步策略层 blackboard，不再做旧点表兜底。
 
 ---
 
@@ -74,5 +73,5 @@ Updated: 2026-05-06
 - 收到低头指令会强制低头。  
 - 低血低弹会转保守。  
 - 区域过渡时会开 `FollowMode`，停旋转、停巡逻、停新开火；FaceMode 只负责固定点云台角和停火，不负责停底盘小陀螺。
-- Regional 不再落回旧 HitHero/HitSentry/Protect/NaviTest 点表。
+- Regional 不再落回旧单策略点表。
 - 姿态会切，但不会无意义高频乱切。  

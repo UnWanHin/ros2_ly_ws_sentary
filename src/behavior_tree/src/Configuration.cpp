@@ -432,14 +432,6 @@ namespace LangYa {
         r.TreeTickRate = j.value("TreeTickRate", r.TreeTickRate);
         r.NaviCommandRate = j.value("NaviCommandRate", r.NaviCommandRate);
     }
-    void from_json(const json& j, GameStrategy& gs) {
-        gs.HitBuff = j.value("HitBuff", gs.HitBuff);
-        gs.HitOutpost = j.value("HitOutpost", gs.HitOutpost);
-        gs.TestNavi = j.value("TestNavi", gs.TestNavi);
-        gs.HitSentry = j.value("HitSentry", gs.HitSentry);
-        gs.Protected = j.value("Protected", gs.Protected);
-    }
-
     void from_json(const json& j, TaskSetting& ts) {
         ts.Buff = j.value("Buff", ts.Buff);
         ts.Outpost = j.value("Outpost", ts.Outpost);
@@ -560,24 +552,7 @@ namespace LangYa {
         ps.ScoreHysteresis = j.value("ScoreHysteresis", ps.ScoreHysteresis);
     }
 
-    void from_json(const json& j, NaviGoalOption& option) {
-        option.GoalId = j.value("GoalId", option.GoalId);
-        option.Team = j.value("Team", option.Team);
-        option.Bias = j.value("Bias", option.Bias);
-        option.Enable = j.value("Enable", option.Enable);
-    }
-
     void from_json(const json& j, NaviGoalAutonomySetting& na) {
-        na.UseCustomCandidates = j.value("UseCustomCandidates", na.UseCustomCandidates);
-        if (j.contains("HitHeroCandidates")) {
-            j.at("HitHeroCandidates").get_to(na.HitHeroCandidates);
-        }
-        if (j.contains("HitSentryCandidates")) {
-            j.at("HitSentryCandidates").get_to(na.HitSentryCandidates);
-        }
-        if (j.contains("ProtectCandidates")) {
-            j.at("ProtectCandidates").get_to(na.ProtectCandidates);
-        }
         na.UseAreaScope = j.value("UseAreaScope", na.UseAreaScope);
         if (j.contains("MyArea")) {
             na.MyArea = ParseAreaScopeList(j.at("MyArea"));
@@ -600,14 +575,6 @@ namespace LangYa {
         na.HighlandCompatArriveDistanceCm =
             j.value("HighlandCompatArriveDistanceCm", na.HighlandCompatArriveDistanceCm);
         na.HighlandCompatTimeoutSec = j.value("HighlandCompatTimeoutSec", na.HighlandCompatTimeoutSec);
-        na.DistanceWeight = j.value("DistanceWeight", na.DistanceWeight);
-        na.EnemyTeamBonus = j.value("EnemyTeamBonus", na.EnemyTeamBonus);
-        na.HeroProximityWeight = j.value("HeroProximityWeight", na.HeroProximityWeight);
-        na.CurrentGoalBonus = j.value("CurrentGoalBonus", na.CurrentGoalBonus);
-        na.LowEnergyOwnSideBonus = j.value("LowEnergyOwnSideBonus", na.LowEnergyOwnSideBonus);
-        na.LowEnergyEnemyPenalty = j.value("LowEnergyEnemyPenalty", na.LowEnergyEnemyPenalty);
-        na.LowOutpostOwnSideBonus = j.value("LowOutpostOwnSideBonus", na.LowOutpostOwnSideBonus);
-        na.GoalBiasWeight = j.value("GoalBiasWeight", na.GoalBiasWeight);
     }
 
     void from_json(const json& j, AimTargetAutonomySetting& aa) {
@@ -821,11 +788,6 @@ namespace LangYa {
         }
         c.SwitchPoint = j.value("Switch_Point", c.SwitchPoint);
         c.SwitchPoint = j.value("SwitchPoint", c.SwitchPoint);
-        if (j.contains("GameStrategy")) {
-            j.at("GameStrategy").get_to(c.GameStrategySettings);
-        }
-        c.TaskSettings.Buff = c.GameStrategySettings.HitBuff != 0;
-        c.TaskSettings.Outpost = c.GameStrategySettings.HitOutpost;
         if (j.contains("Task")) {
             j.at("Task").get_to(c.TaskSettings);
         }
@@ -1357,13 +1319,7 @@ namespace BehaviorTree {
         LoggerPtr->Debug("FireRate: {}", config.RateSettings.FireRate);
         LoggerPtr->Debug("TickRate: {}", config.RateSettings.TreeTickRate);
         LoggerPtr->Debug("NaviCommandRate: {}", config.RateSettings.NaviCommandRate);
-        LoggerPtr->Debug("------ GameStrategy ------");
         LoggerPtr->Debug("ScanCounter: {}", config.ScanCounter);
-        LoggerPtr->Debug("HitOutpost: {}", config.GameStrategySettings.HitOutpost);
-        LoggerPtr->Debug("HitBuff: {}", config.GameStrategySettings.HitBuff);
-        LoggerPtr->Debug("HitSentry: {}", config.GameStrategySettings.HitSentry);
-        LoggerPtr->Debug("TestNavi: {}", config.GameStrategySettings.TestNavi);
-        LoggerPtr->Debug("Protected: {}", config.GameStrategySettings.Protected);
         LoggerPtr->Debug("------ Task ------");
         LoggerPtr->Debug("Buff: {}", config.TaskSettings.Buff);
         LoggerPtr->Debug("Outpost: {}", config.TaskSettings.Outpost);
@@ -1482,12 +1438,6 @@ namespace BehaviorTree {
         for (const auto& module : config.DecisionAutonomySettings.HardRuleModules) {
             LoggerPtr->Debug("  {}", module);
         }
-        LoggerPtr->Debug(
-            "NaviGoalWeights(distance/enemy_bonus/hero_proximity/current_goal): {}/{}/{}/{}",
-            config.DecisionAutonomySettings.NaviGoal.DistanceWeight,
-            config.DecisionAutonomySettings.NaviGoal.EnemyTeamBonus,
-            config.DecisionAutonomySettings.NaviGoal.HeroProximityWeight,
-            config.DecisionAutonomySettings.NaviGoal.CurrentGoalBonus);
         LoggerPtr->Debug("NaviGoal.UseAreaScope: {}", config.DecisionAutonomySettings.NaviGoal.UseAreaScope);
         LoggerPtr->Debug("NaviGoal.MyArea:");
         for (const auto& area : config.DecisionAutonomySettings.NaviGoal.MyArea) {
@@ -2062,47 +2012,10 @@ namespace BehaviorTree {
         config.DecisionAutonomySettings.HardRuleModules =
             sanitize_module_list(config.DecisionAutonomySettings.HardRuleModules);
         if (config.DecisionAutonomySettings.EnabledModules.empty()) {
-            config.DecisionAutonomySettings.EnabledModules = {"navi_goal", "aim_target"};
+            config.DecisionAutonomySettings.EnabledModules = {"aim_target"};
         }
 
-        auto sanitize_goal_options = [this](const std::vector<NaviGoalOption>& options,
-                                            const char* option_name) {
-            std::vector<NaviGoalOption> sanitized_options;
-            sanitized_options.reserve(options.size());
-            for (auto option : options) {
-                if (!option.Enable) {
-                    continue;
-                }
-                if (!IsValidBaseGoal(option.GoalId)) {
-                    LoggerPtr->Warning("Ignore invalid DecisionAutonomy.{}.GoalId={}.",
-                                       option_name, static_cast<int>(option.GoalId));
-                    continue;
-                }
-                option.Team = NormalizeAutonomyToken(std::move(option.Team));
-                if (option.Team != "my" && option.Team != "enemy") {
-                    LoggerPtr->Warning("Ignore invalid DecisionAutonomy.{}.Team='{}'.",
-                                       option_name, option.Team);
-                    continue;
-                }
-                sanitized_options.push_back(std::move(option));
-            }
-            return sanitized_options;
-        };
         auto& autonomy = config.DecisionAutonomySettings;
-        autonomy.NaviGoal.HitHeroCandidates =
-            sanitize_goal_options(autonomy.NaviGoal.HitHeroCandidates, "NaviGoal.HitHeroCandidates");
-        autonomy.NaviGoal.HitSentryCandidates =
-            sanitize_goal_options(autonomy.NaviGoal.HitSentryCandidates, "NaviGoal.HitSentryCandidates");
-        autonomy.NaviGoal.ProtectCandidates =
-            sanitize_goal_options(autonomy.NaviGoal.ProtectCandidates, "NaviGoal.ProtectCandidates");
-        if (autonomy.NaviGoal.UseCustomCandidates &&
-            autonomy.NaviGoal.HitHeroCandidates.empty() &&
-            autonomy.NaviGoal.HitSentryCandidates.empty() &&
-            autonomy.NaviGoal.ProtectCandidates.empty()) {
-            LoggerPtr->Warning("DecisionAutonomy.NaviGoal.UseCustomCandidates=true but no valid candidates, fallback to built-in candidates.");
-            autonomy.NaviGoal.UseCustomCandidates = false;
-        }
-
         auto sanitize_area_list = [this](const std::vector<std::string>& areas,
                                          const char* option_name,
                                          const bool common_area) {
@@ -2155,14 +2068,6 @@ namespace BehaviorTree {
                 value = 0.0;
             }
         };
-        clamp_non_negative(autonomy.NaviGoal.DistanceWeight, "DecisionAutonomy.NaviGoal.DistanceWeight");
-        clamp_non_negative(autonomy.NaviGoal.EnemyTeamBonus, "DecisionAutonomy.NaviGoal.EnemyTeamBonus");
-        clamp_non_negative(autonomy.NaviGoal.HeroProximityWeight, "DecisionAutonomy.NaviGoal.HeroProximityWeight");
-        clamp_non_negative(autonomy.NaviGoal.CurrentGoalBonus, "DecisionAutonomy.NaviGoal.CurrentGoalBonus");
-        clamp_non_negative(autonomy.NaviGoal.LowEnergyOwnSideBonus, "DecisionAutonomy.NaviGoal.LowEnergyOwnSideBonus");
-        clamp_non_negative(autonomy.NaviGoal.LowEnergyEnemyPenalty, "DecisionAutonomy.NaviGoal.LowEnergyEnemyPenalty");
-        clamp_non_negative(autonomy.NaviGoal.LowOutpostOwnSideBonus, "DecisionAutonomy.NaviGoal.LowOutpostOwnSideBonus");
-        clamp_non_negative(autonomy.NaviGoal.GoalBiasWeight, "DecisionAutonomy.NaviGoal.GoalBiasWeight");
         if (autonomy.NaviGoal.HighlandCompatArriveDistanceCm <= 0) {
             LoggerPtr->Warning("Invalid DecisionAutonomy.NaviGoal.HighlandCompat.ArriveDistanceCm={}, fallback to 20.",
                                autonomy.NaviGoal.HighlandCompatArriveDistanceCm);

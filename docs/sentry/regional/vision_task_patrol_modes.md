@@ -154,7 +154,7 @@ ros2 topic pub --once /ly/control/firecode gimbal_driver/msg/FireCode \
 - `Task.Outpost=true`：BT 允許進 `AimMode::Outpost`。
 - 兩者都是 `false`：普通裝甲板模式，通常是 `AimMode::RotateScan`。
 
-舊的 `GameStrategy.HitBuff / HitOutpost` 只保留在解析層做歷史兼容；active config 不再寫 `GameStrategy`，新語義看 `Task.Buff / Task.Outpost`。
+舊任務開關解析兼容已移除；新語義只看 `Task.Buff / Task.Outpost`。
 如果 JSON 和 `Task.yaml` 同時寫了 `Task.Buff/Outpost`，`Task.yaml` 會覆蓋 JSON，用來決定這局是否打符或打前哨。
 
 ## 打裝甲板

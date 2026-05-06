@@ -42,8 +42,14 @@
     },
     "DecisionAutonomy": {
         "Enable": true,
-        "EnabledModules": ["navi_goal"],
-        "HardRuleModules": ["recovery", "aim_mode", "fire_safety"],
+        "EnabledModules": [
+            "aim_target"
+        ],
+        "HardRuleModules": [
+            "recovery",
+            "aim_mode",
+            "fire_safety"
+        ],
         "NaviGoal": {
             "UseAreaScope": true,
             "MyArea": {
@@ -64,9 +70,7 @@
                 "DisableRotate": true,
                 "ArriveDistanceCm": 20,
                 "TimeoutSec": 6
-            },
-            "GoalBiasWeight": 1.0,
-            "DistanceWeight": 1.0
+            }
         }
     },
     "Chase": {

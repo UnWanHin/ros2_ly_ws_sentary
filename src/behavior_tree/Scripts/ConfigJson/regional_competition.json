@@ -60,14 +60,26 @@
         "GoalHoldSec": 8,
         "Goals": []
     },
-    "AimTargetPriority": [1, 3, 4, 6, 2],
+    "AimTargetPriority": [
+        1,
+        3,
+        4,
+        6,
+        2
+    ],
     "AimTargetIgnore": [],
     "DecisionAutonomy": {
         "Enable": false,
-        "EnabledModules": ["navi_goal", "aim_target"],
-        "HardRuleModules": ["recovery", "aim_mode", "fire_safety"],
+        "EnabledModules": [
+            "aim_target"
+        ],
+        "HardRuleModules": [
+            "recovery",
+            "aim_mode",
+            "fire_safety"
+        ],
         "NaviGoal": {
-            "UseAreaScope": true, 
+            "UseAreaScope": true,
             "MyArea": {
                 "Base": true,
                 "Highland": true,
@@ -86,15 +98,7 @@
                 "DisableRotate": true,
                 "ArriveDistanceCm": 20,
                 "TimeoutSec": 6
-            },
-            "DistanceWeight": 1.0,
-            "EnemyTeamBonus": 0.25,
-            "HeroProximityWeight": 0.35,
-            "CurrentGoalBonus": 0.30,
-            "LowEnergyOwnSideBonus": 0.8,
-            "LowEnergyEnemyPenalty": 1.0,
-            "LowOutpostOwnSideBonus": 0.4,
-            "GoalBiasWeight": 1.0
+            }
         },
         "AimTarget": {
             "PriorityWeight": 1.0,
@@ -123,7 +127,7 @@
         "MaxForwardSpeed": 35,
         "MaxBackwardSpeed": 25,
         "UseYawStrafe": true,
-        "YawKp": 0.40,
+        "YawKp": 0.4,
         "YawDeadbandDeg": 3,
         "MaxStrafeSpeed": 22,
         "InvertStrafeDirection": false

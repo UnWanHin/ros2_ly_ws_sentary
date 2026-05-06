@@ -67,20 +67,12 @@ enum class RuntimeFaultCode : std::uint8_t {
 };
 
 enum class StrategyMode : std::uint8_t {
-    HitSentry = 0,
-    HitHero = 1,
-    Protected = 2,
-    NaviTest = 3,
     LeagueSimple = 4,
     Regional = 5
 };
 
 inline const char* StrategyModeToString(const StrategyMode mode) {
     switch (mode) {
-        case StrategyMode::HitSentry: return "HitSentry";
-        case StrategyMode::HitHero: return "HitHero";
-        case StrategyMode::Protected: return "Protected";
-        case StrategyMode::NaviTest: return "NaviTest";
         case StrategyMode::LeagueSimple: return "LeagueSimple";
         case StrategyMode::Regional: return "Regional";
         default: return "Unknown";
@@ -451,11 +443,6 @@ public:
     bool RunStrategyLayerTask();
     bool RunStrategyLayerTactical();
     bool RunStrategyLayerFinalizer();
-    bool TrySetNaviGoalByAutonomy(StrategyMode strategy_mode, UnitTeam my_team, UnitTeam enemy_team);
-    void SetPositionProtect();
-    void SetPositionNaviTest();
-    void SetPositionHitSentry();
-    void SetPositionHitHero();
     void SetPositionLeagueSimple();
     void SetPositionShowcasePatrol();
     void SetPositionNaviDebugPlan();

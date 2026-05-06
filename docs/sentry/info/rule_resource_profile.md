@@ -228,11 +228,7 @@ BT 目前只存一份 runtime 當前資源值：
 - `myselfHealth < 150` 時回 Recovery；
 - `ammoLeft <= 30` 且 recoveryClock 到期時回 Recovery。
 
-舊 `HitHero/HitSentry` 邏輯還有：
-
-- `selfOutpostHealth > 100`
-- `selfOutpostHealth > 200`
-- `selfBaseHealth > 2000`
+舊單策略點表已從 live code 移除；區域選擇和資源門檻改由 `AreaManager.DefaultPolicy` 和 `CheckPositionRecovery()` 管。
 
 這些是老策略門檻，不是正式的規則 profile 模型。
 

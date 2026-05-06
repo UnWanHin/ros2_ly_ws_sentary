@@ -31,18 +31,14 @@
     },
     "DecisionAutonomy": {
         "Enable": false,
-        "EnabledModules": ["navi_goal", "aim_target"],
-        "HardRuleModules": ["recovery", "aim_mode", "fire_safety"],
-        "NaviGoal": {
-            "DistanceWeight": 1.0,
-            "EnemyTeamBonus": 0.25,
-            "HeroProximityWeight": 0.35,
-            "CurrentGoalBonus": 0.30,
-            "LowEnergyOwnSideBonus": 0.8,
-            "LowEnergyEnemyPenalty": 1.0,
-            "LowOutpostOwnSideBonus": 0.4,
-            "GoalBiasWeight": 1.0
-        },
+        "EnabledModules": [
+            "aim_target"
+        ],
+        "HardRuleModules": [
+            "recovery",
+            "aim_mode",
+            "fire_safety"
+        ],
         "AimTarget": {
             "PriorityWeight": 1.0,
             "DistanceWeight": 0.8,

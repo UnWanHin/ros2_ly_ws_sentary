@@ -1,8 +1,8 @@
 {
-    "AimDebug" :{
-        "StopFire" : false,
-        "StopRotate":  false,
-        "StopScan" : false,
+    "AimDebug": {
+        "StopFire": false,
+        "StopRotate": false,
+        "StopScan": false,
         "HitBuff": false,
         "HitOutpost": false,
         "HitCar": false,
@@ -11,10 +11,10 @@
     "PatrolScan": {
         "Mode": 1
     },
-    "Rate" : {
-        "FireRate" : 20,
-        "TreeTickRate" : 100,
-        "NaviCommandRate" : 1
+    "Rate": {
+        "FireRate": 20,
+        "TreeTickRate": 100,
+        "NaviCommandRate": 1
     },
     "Task": {
         "Buff": false,
@@ -24,7 +24,7 @@
         "Enable": false,
         "HealthDropThreshold": 30
     },
-    "NaviSetting" : {
+    "NaviSetting": {
         "UseXY": true
     },
     "FaceMode": {
@@ -34,8 +34,14 @@
     },
     "DecisionAutonomy": {
         "Enable": false,
-        "EnabledModules": ["navi_goal", "aim_target"],
-        "HardRuleModules": ["recovery", "aim_mode", "fire_safety"],
+        "EnabledModules": [
+            "aim_target"
+        ],
+        "HardRuleModules": [
+            "recovery",
+            "aim_mode",
+            "fire_safety"
+        ],
         "NaviGoal": {
             "UseAreaScope": false,
             "MyArea": {
@@ -50,15 +56,7 @@
             },
             "CommonArea": {
                 "Central": true
-            },
-            "DistanceWeight": 1.0,
-            "EnemyTeamBonus": 0.25,
-            "HeroProximityWeight": 0.35,
-            "CurrentGoalBonus": 0.30,
-            "LowEnergyOwnSideBonus": 0.8,
-            "LowEnergyEnemyPenalty": 1.0,
-            "LowOutpostOwnSideBonus": 0.4,
-            "GoalBiasWeight": 1.0
+            }
         },
         "AimTarget": {
             "PriorityWeight": 1.0,
@@ -69,7 +67,7 @@
             "SentryBonus": 0.1
         }
     },
-    "Posture" : {
+    "Posture": {
         "Enable": true,
         "SwitchCooldownSec": 5,
         "MaxSinglePostureSec": 180,
@@ -86,5 +84,5 @@
         "LowAmmoThreshold": 30,
         "ScoreHysteresis": 2
     },
-    "ScanCounter" : 1
+    "ScanCounter": 1
 }
