@@ -208,7 +208,7 @@ Each line is one JSON object. Important top-level fields:
 - `event`: `game_start`, `tick`, or `stop`
 - `t`: seconds from `gameStartTime`
 - `field_cm`: map frame and field size
-- `competition_profile`, `strategy_mode`, `team`
+- `competition_profile`, `strategy_mode`, `team`; current live strategy names include `LeagueSimple` and `Regional`
 - `aim_mode`, `target_armor`, `target_state`
 - `decision_output`: stable viewer-facing output model; includes final output kind, topic, goal ID, `goal_pos_cm`, publish flags, and bridge hints
 - `navi_goal`: ID, base ID, side, speed, publish flags, and `position_cm`

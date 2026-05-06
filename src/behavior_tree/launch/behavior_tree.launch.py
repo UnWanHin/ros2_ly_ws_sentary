@@ -27,12 +27,18 @@ def generate_launch_description():
         "config",
         "AreaManager.yaml",
     )
+    default_task_config_file = os.path.join(
+        behavior_tree_share,
+        "config",
+        "Task.yaml",
+    )
 
     output = LaunchConfiguration("output")
     competition_profile = LaunchConfiguration("competition_profile")
     bt_config_file = LaunchConfiguration("bt_config_file")
     bt_tree_file = LaunchConfiguration("bt_tree_file")
     area_manager_config_file = LaunchConfiguration("area_manager_config_file")
+    task_config_file = LaunchConfiguration("task_config_file")
     debug_bypass_is_start = LaunchConfiguration("debug_bypass_is_start")
     runtime_rearm_start_gate = LaunchConfiguration("runtime_rearm_start_gate")
     wait_for_game_start_timeout_sec = LaunchConfiguration("wait_for_game_start_timeout_sec")
@@ -66,6 +72,11 @@ def generate_launch_description():
             "area_manager_config_file",
             default_value=default_area_manager_config_file,
             description="AreaManager/state-machine YAML for behavior_tree.",
+        ),
+        DeclareLaunchArgument(
+            "task_config_file",
+            default_value=default_task_config_file,
+            description="Task YAML for Buff/Outpost enable switches.",
         ),
         DeclareLaunchArgument(
             "debug_bypass_is_start",
@@ -110,6 +121,7 @@ def generate_launch_description():
         LogInfo(msg=["[behavior_tree] bt_config_file: ", bt_config_file]),
         LogInfo(msg=["[behavior_tree] bt_tree_file: ", bt_tree_file]),
         LogInfo(msg=["[behavior_tree] area_manager_config_file: ", area_manager_config_file]),
+        LogInfo(msg=["[behavior_tree] task_config_file: ", task_config_file]),
         LogInfo(msg=["[behavior_tree] debug_bypass_is_start: ", debug_bypass_is_start]),
         LogInfo(msg=["[behavior_tree] runtime_rearm_start_gate: ", runtime_rearm_start_gate]),
         LogInfo(msg=["[behavior_tree] wait_for_game_start_timeout_sec: ", wait_for_game_start_timeout_sec]),
@@ -127,6 +139,7 @@ def generate_launch_description():
             output=output,
             parameters=[
                 area_manager_config_file,
+                task_config_file,
                 {
                     "competition_profile": competition_profile,
                     "bt_config_file": bt_config_file,

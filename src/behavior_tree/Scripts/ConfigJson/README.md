@@ -34,4 +34,4 @@ Only these three competition entry presets should stay in this directory root.
 
 ## Legacy Presets
 
-Old single-strategy presets are kept under `regional/test/legacy/` for manual reference only. They are not selected by current launch wrappers by default.
+Old single-strategy presets were removed from runnable config directories. Keep legacy strategy notes in documentation only; do not keep launchable HitHero/HitSentry/Protected/NaviTest JSON presets here.

@@ -137,9 +137,9 @@ ros2 topic pub --once /ly/control/firecode gimbal_driver/msg/FireCode \
 - `field_mask=0` 或 `31` 都是完整快照；部分字段更新可用 mask，但未更新字段超過 `firecode_partial_hold_ms` 會回 0，默認 100ms。
 - `/ly/gimbal/firecode` 是 `gimbal_driver` 回讀 topic，用來檢查實際進入主控制幀的語義字段。
 
-## JSON `Task`
+## Task YAML
 
-目前沒有 `/ly/task` ROS2 topic。現在的 `Task` 是 BT JSON 裡的配置字段：
+目前沒有 `/ly/task` ROS2 topic。現在的 `Task` 是 BT 配置字段，正式入口集中在 `src/behavior_tree/config/Task.yaml`：
 
 ```json
 "Task": {
@@ -154,7 +154,8 @@ ros2 topic pub --once /ly/control/firecode gimbal_driver/msg/FireCode \
 - `Task.Outpost=true`：BT 允許進 `AimMode::Outpost`。
 - 兩者都是 `false`：普通裝甲板模式，通常是 `AimMode::RotateScan`。
 
-舊的 `GameStrategy.HitBuff / HitOutpost` 仍會先兼容填到 `TaskSettings`，但新語義應該看 `Task.Buff / Task.Outpost`。
+舊的 `GameStrategy.HitBuff / HitOutpost` 只保留在解析層做歷史兼容；active config 不再寫 `GameStrategy`，新語義看 `Task.Buff / Task.Outpost`。
+如果 JSON 和 `Task.yaml` 同時寫了 `Task.Buff/Outpost`，`Task.yaml` 會覆蓋 JSON，用來決定這局是否打符或打前哨。
 
 ## 打裝甲板
 
@@ -359,7 +360,7 @@ StopScan=false
 }
 ```
 
-`AreaManager.yaml` 管狀態機參數和 DefaultPolicy 權重；JSON scope 管哪些區域允許被選。JSON 裡是 `false` 的區域，即使血量彈量健康，也不會被 Default 選中。
+`src/behavior_tree/config/AreaManager.yaml` 管狀態機參數和 DefaultPolicy 權重；JSON scope 管哪些區域允許被選。JSON 裡是 `false` 的區域，即使血量彈量健康，也不會被 Default 選中。
 
 ## FollowMode
 

@@ -560,21 +560,6 @@ namespace LangYa {
         ps.ScoreHysteresis = j.value("ScoreHysteresis", ps.ScoreHysteresis);
     }
 
-    void from_json(const json& j, StrategyAutonomySetting& sa) {
-        if (j.contains("Candidates")) {
-            j.at("Candidates").get_to(sa.Candidates);
-        }
-        sa.HitHeroBias = j.value("HitHeroBias", sa.HitHeroBias);
-        sa.HitSentryBias = j.value("HitSentryBias", sa.HitSentryBias);
-        sa.ProtectedBias = j.value("ProtectedBias", sa.ProtectedBias);
-        sa.LowResourceProtectedBonus = j.value("LowResourceProtectedBonus", sa.LowResourceProtectedBonus);
-        sa.LowResourceOffensePenalty = j.value("LowResourceOffensePenalty", sa.LowResourceOffensePenalty);
-        sa.SentryWindowBonus = j.value("SentryWindowBonus", sa.SentryWindowBonus);
-        sa.NoOutpostSentryPenalty = j.value("NoOutpostSentryPenalty", sa.NoOutpostSentryPenalty);
-        sa.TimePressureProtectedBonus = j.value("TimePressureProtectedBonus", sa.TimePressureProtectedBonus);
-        sa.CurrentStrategyBonus = j.value("CurrentStrategyBonus", sa.CurrentStrategyBonus);
-    }
-
     void from_json(const json& j, NaviGoalOption& option) {
         option.GoalId = j.value("GoalId", option.GoalId);
         option.Team = j.value("Team", option.Team);
@@ -816,9 +801,6 @@ namespace LangYa {
         if (j.contains("HardRuleModules")) {
             j.at("HardRuleModules").get_to(da.HardRuleModules);
         }
-        if (j.contains("Strategy")) {
-            j.at("Strategy").get_to(da.Strategy);
-        }
         if (j.contains("NaviGoal")) {
             j.at("NaviGoal").get_to(da.NaviGoal);
         }
@@ -900,6 +882,23 @@ namespace LangYa {
 namespace BehaviorTree {
     using namespace LangYa;
     using json = nlohmann::json;
+
+    void Application::ApplyTaskParameterOverrides() {
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "Task.Buff",
+                "Task/Buff"
+            },
+            config.TaskSettings.Buff);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "Task.Outpost",
+                "Task/Outpost"
+            },
+            config.TaskSettings.Outpost);
+    }
 
     void Application::ApplyAreaManagerParameterOverrides() {
         auto& navi_goal = config.DecisionAutonomySettings.NaviGoal;
@@ -1339,6 +1338,7 @@ namespace BehaviorTree {
         ifs >> j;
         // 一次性反序列化到 Config，后续再做范围校验与默认回退。
         config = j.get<Config>();
+        ApplyTaskParameterOverrides();
         ApplyAreaManagerParameterOverrides();
         LoggerPtr->Debug("Switch_Point: {}", config.SwitchPoint);
         LoggerPtr->Debug("------ AimDebug ------");
@@ -1482,11 +1482,6 @@ namespace BehaviorTree {
         for (const auto& module : config.DecisionAutonomySettings.HardRuleModules) {
             LoggerPtr->Debug("  {}", module);
         }
-        LoggerPtr->Debug(
-            "StrategyBias(Hero/Sentry/Protected): {}/{}/{}",
-            config.DecisionAutonomySettings.Strategy.HitHeroBias,
-            config.DecisionAutonomySettings.Strategy.HitSentryBias,
-            config.DecisionAutonomySettings.Strategy.ProtectedBias);
         LoggerPtr->Debug(
             "NaviGoalWeights(distance/enemy_bonus/hero_proximity/current_goal): {}/{}/{}/{}",
             config.DecisionAutonomySettings.NaviGoal.DistanceWeight,
@@ -2067,39 +2062,8 @@ namespace BehaviorTree {
         config.DecisionAutonomySettings.HardRuleModules =
             sanitize_module_list(config.DecisionAutonomySettings.HardRuleModules);
         if (config.DecisionAutonomySettings.EnabledModules.empty()) {
-            config.DecisionAutonomySettings.EnabledModules = {"strategy_mode", "navi_goal", "aim_target"};
+            config.DecisionAutonomySettings.EnabledModules = {"navi_goal", "aim_target"};
         }
-
-        auto sanitize_strategy_candidate = [](std::string value) {
-            value = NormalizeAutonomyToken(std::move(value));
-            if (value == "hithero" || value == "hit_hero" || value == "hero") {
-                return std::string("hithero");
-            }
-            if (value == "hitsentry" || value == "hit_sentry" || value == "sentry") {
-                return std::string("hitsentry");
-            }
-            if (value == "protected" || value == "protect") {
-                return std::string("protected");
-            }
-            return std::string{};
-        };
-        std::vector<std::string> sanitized_strategy_candidates;
-        sanitized_strategy_candidates.reserve(config.DecisionAutonomySettings.Strategy.Candidates.size());
-        for (const auto& candidate : config.DecisionAutonomySettings.Strategy.Candidates) {
-            const auto normalized = sanitize_strategy_candidate(candidate);
-            if (normalized.empty()) {
-                continue;
-            }
-            if (std::find(sanitized_strategy_candidates.begin(),
-                          sanitized_strategy_candidates.end(),
-                          normalized) == sanitized_strategy_candidates.end()) {
-                sanitized_strategy_candidates.push_back(normalized);
-            }
-        }
-        if (sanitized_strategy_candidates.empty()) {
-            sanitized_strategy_candidates = {"hithero", "hitsentry", "protected"};
-        }
-        config.DecisionAutonomySettings.Strategy.Candidates = std::move(sanitized_strategy_candidates);
 
         auto sanitize_goal_options = [this](const std::vector<NaviGoalOption>& options,
                                             const char* option_name) {
@@ -2191,12 +2155,6 @@ namespace BehaviorTree {
                 value = 0.0;
             }
         };
-        clamp_non_negative(autonomy.Strategy.LowResourceProtectedBonus, "DecisionAutonomy.Strategy.LowResourceProtectedBonus");
-        clamp_non_negative(autonomy.Strategy.LowResourceOffensePenalty, "DecisionAutonomy.Strategy.LowResourceOffensePenalty");
-        clamp_non_negative(autonomy.Strategy.SentryWindowBonus, "DecisionAutonomy.Strategy.SentryWindowBonus");
-        clamp_non_negative(autonomy.Strategy.NoOutpostSentryPenalty, "DecisionAutonomy.Strategy.NoOutpostSentryPenalty");
-        clamp_non_negative(autonomy.Strategy.TimePressureProtectedBonus, "DecisionAutonomy.Strategy.TimePressureProtectedBonus");
-        clamp_non_negative(autonomy.Strategy.CurrentStrategyBonus, "DecisionAutonomy.Strategy.CurrentStrategyBonus");
         clamp_non_negative(autonomy.NaviGoal.DistanceWeight, "DecisionAutonomy.NaviGoal.DistanceWeight");
         clamp_non_negative(autonomy.NaviGoal.EnemyTeamBonus, "DecisionAutonomy.NaviGoal.EnemyTeamBonus");
         clamp_non_negative(autonomy.NaviGoal.HeroProximityWeight, "DecisionAutonomy.NaviGoal.HeroProximityWeight");
@@ -2294,18 +2252,10 @@ namespace BehaviorTree {
             LoggerPtr->Warning("NaviDebug is enabled with UseXY=true. Dedicated point-plan mode recommends /ly/navi/goal.");
         }
 
-        // 与旧逻辑保持一致：SetPositionRepeat 的初始优先级
-        // 联赛模式会直接进入 LeagueSimple。
         if (competitionProfile_ == CompetitionProfile::League) {
             strategyMode_ = StrategyMode::LeagueSimple;
-        } else if (config.GameStrategySettings.HitSentry) {
-            strategyMode_ = StrategyMode::HitSentry;
-        } else if (config.GameStrategySettings.TestNavi) {
-            strategyMode_ = StrategyMode::NaviTest;
-        } else if (config.GameStrategySettings.Protected) {
-            strategyMode_ = StrategyMode::Protected;
         } else {
-            strategyMode_ = StrategyMode::HitHero;
+            strategyMode_ = StrategyMode::Regional;
         }
         LoggerPtr->Info("Initial StrategyMode: {}", StrategyModeToString(strategyMode_));
 

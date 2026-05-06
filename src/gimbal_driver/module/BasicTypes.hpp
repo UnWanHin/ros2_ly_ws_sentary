@@ -223,7 +223,7 @@ namespace LangYa
     struct ChassisData {
         static constexpr auto TypeID = 6;
         std::uint16_t UWBAngleYaw; // 2B
-        std::uint16_t Posture;     // 2B
+        std::uint16_t Posture;     // 2B //準備沒用
         // low16: 舵角当前角(int16, 解析后/10), high16: 底盘角速度(int16, 解析后/100)
         std::uint32_t ChassisPacked1;
         // low16: 底盘x方向速度(int16, 解析后/100), high16: 底盘y方向速度(int16, 解析后/100)

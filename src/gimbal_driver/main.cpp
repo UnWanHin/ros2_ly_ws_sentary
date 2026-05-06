@@ -12,7 +12,7 @@
  *
  * 备注：
  * - /ly/control/sentry_cmd 为完整裁判命令输入，/ly/control/posture 为姿态命令输入。
- * - /ly/gimbal/posture 仅发布下位机回传状态。
+ * - /ly/gimbal/posture 发布下位机/裁判姿态回读状态，不镜像上位机命令。
  */
 #include <chrono>
 #include <thread>
@@ -577,7 +577,7 @@ namespace
                                            }
                                            postureCommand_ = cmd;
                                            g.SentryCmd.Posture = cmd;
-                                           // /ly/gimbal/posture 仅由下位机回传驱动，避免命令回环掩盖真实执行状态。
+                                           // /ly/gimbal/posture 由下位机/裁判回读驱动，避免命令回环掩盖真实执行状态。
                                            if (cmd == 0) {
                                                posturePendingRepeat_ = 0;
                                                posturePendingToSend_ = 0;
@@ -870,11 +870,15 @@ namespace
 
         void PubSentryData(const SentryData& data) {
             const auto now = Node.GetNode()->now();
+            auto sentry_info_msg = ToSentryInfoMsg(data);
+            sentry_info_msg.header.stamp = now;
             {
                 using topic = ly_gimbal_sentryinfo;
-                auto msg = ToSentryInfoMsg(data);
-                msg.header.stamp = now;
-                Node.Publisher<topic>()->publish(msg);
+                Node.Publisher<topic>()->publish(sentry_info_msg);
+            }
+            if (IsValidPosture(sentry_info_msg.posture)) {
+                postureState_ = sentry_info_msg.posture;
+                PublishPosture(postureState_);
             }
 
             latestBulletInitialSpeed_ = data.BulletInitialSpeed;

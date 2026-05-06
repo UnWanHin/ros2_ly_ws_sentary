@@ -17,7 +17,8 @@ Updated: 2026-05-06
 
 主要相關文件：
 
-- `config/AreaManager.yaml`
+- `src/behavior_tree/config/AreaManager.yaml`
+- `src/behavior_tree/config/Task.yaml`
 - `src/behavior_tree/include/AreaManager.hpp`
 - `src/behavior_tree/src/AreaManager.cpp`
 - `src/behavior_tree/include/DefaultStrategyManager.hpp`
@@ -38,10 +39,10 @@ Hard -> Default -> Task -> Tactical -> Finalizer
 各層的責任是：
 
 - `Hard`：最高優先級保護，處理 recovery/補血補彈和 Roadland 強綁定穿越段。Roadland 強綁定段在這層 hard lock，避免被戰術層中途搶走。
-- `Default`：無特別事件時的底層決策，現在按 `AreaManager.DefaultPolicy` 對已啟用的大區域做資源門檻、距離、目前區域、上次任務結果、冷卻和重試評分，再啟動 AreaManager 任務；沒有可用區域時才 fallback 到 `DecisionAutonomy.NaviGoal(HitHero)`。舊 HitHero fallback 點表不在 Default 裡，`RegionalIdlePatrol` 點表不再是正式 regional 的 Default 入口。
+- `Default`：無特別事件時的底層決策，現在按 `AreaManager.DefaultPolicy` 對已啟用的大區域做資源門檻、距離、目前區域、上次任務結果、冷卻和重試評分，再啟動 AreaManager 任務；沒有可用區域時不再 fallback 到 `DecisionAutonomy.NaviGoal(HitHero)` 或任何舊點表。`RegionalIdlePatrol` 點表不再是正式 regional 的 Default 入口。
 - `Task`：已啟動的 AreaManager 任務繼續 tick，包含 Highland/Base/Roadland/Central 任務、Highland 兼容過渡和導航 watchdog。
-- `Tactical`：戰術疊加層，繼續使用原本的 `SetPositionLeagueSimple/HitSentry/HitHero/Protect/NaviTest/ShowcasePatrol` 鏈路。
-- `Finalizer`：保證本 tick 有一個策略層完成，並把策略層狀態同步到黑板。
+- `Tactical`：regional 只保留明確戰術 overlay：`RegionalDefense`、Buff/Outpost 任務站位和導航 watchdog；不再調用舊 `SetPositionHitHero/HitSentry/Protect/NaviTest` 點表。`LeagueSimple` 只在 `CompetitionProfile=league` 時使用，Showcase 只在明確 showcase 配置時使用。
+- `Finalizer`：只做本 tick 策略層完成標記和黑板同步；regional 不再 fallback 到舊 `SetPositionHitHero()`。
 
 分層狀態會寫入 BT blackboard：
 
@@ -95,7 +96,7 @@ TrySetScopedPositionByBaseGoal()
 
 ## 當前配置
 
-目前 `config/AreaManager.yaml` 的基本區域配置是：
+目前 `src/behavior_tree/config/AreaManager.yaml` 的基本區域配置是：
 
 ```yaml
 AreaManager:
@@ -112,7 +113,7 @@ AreaManager:
       Enable: true
 ```
 
-根層 `AreaManager.yaml` 不再默認寫 `Area.MyArea/EnemyArea/CommonArea` 的區域開關，避免它把不同 `bt_config_file` 裡的區域選擇全部覆蓋成同一套。正式 regional 和單區域 areatest 的「哪些區域可選」仍由對應 `ConfigJson` 裡的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 控制；DefaultPolicy 只會在這些已啟用區域內挑候選，JSON 裡為 `false` 的區域不會因為血量健康或權重高而被選中。`AreaManager.yaml` 只保留 `Switch_Point`、區域狀態機任務時序，以及 DefaultPolicy 的門檻、權重、冷卻和重試參數。
+`src/behavior_tree/config/AreaManager.yaml` 不再默認寫 `Area.MyArea/EnemyArea/CommonArea` 的區域開關，避免它把不同 `bt_config_file` 裡的區域選擇全部覆蓋成同一套。正式 regional 和單區域 areatest 的「哪些區域可選」仍由對應 `ConfigJson` 裡的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 控制；DefaultPolicy 只會在這些已啟用區域內挑候選，JSON 裡為 `false` 的區域不會因為血量健康或權重高而被選中。`AreaManager.yaml` 只保留 `Switch_Point`、區域狀態機任務時序，以及 DefaultPolicy 的門檻、權重、冷卻和重試參數。`Task.yaml` 只管這局是否允許 `Task.Buff / Task.Outpost`，會覆蓋 JSON 裡同名字段。
 
 `Switch_Point=true` 時只交換 `Area.hpp` 裡紅/藍官方點位和區域邊界查找結果，不交換 `team`、敵我語義或導航 goal ID。這是給導航零點/物理場地方向反了時使用的點位查找開關。
 
@@ -322,6 +323,34 @@ FaceMode 目標格式：
 ```
 
 FaceMode 負責固定點朝向和接管雲台角度。FollowMode 是更強的模式，會同時用 firecode 語義停底盤小陀螺、停雲台巡邏並停火。
+
+## League / Regional 邊界
+
+`CompetitionProfile=league` 和 `CompetitionProfile=regional` 已在策略入口分開：
+
+- `league`：`SelectStrategyMode()` 固定為 `LeagueSimple`，Tactical 只會走 `SetPositionLeagueSimple()`。
+- `regional`：`SelectStrategyMode()` 固定為 `Regional`，由 Default/AreaManager 產生正式區域任務；Tactical 不會再調用舊 `SetPositionHitHero()` 點表，也不會走 `HitSentry / Protected / NaviTest` 舊點表。
+
+因此正式 regional 的導航點來源應只來自：
+
+- `Hard` recovery / Roadland hard lock；
+- `Default` 選中的 AreaManager 大區域任務；
+- `Task` 正在執行的區域狀態機、Highland transition、watchdog；
+- `Tactical` 的 `RegionalDefense` 或 Buff/Outpost 任務站位。
+
+如果這些都沒有輸出，`Finalizer` 不會再用舊 HitHero 點表兜底。
+
+舊 `SetPositionHitHero/SetPositionHitSentry/SetPositionProtect/SetPositionNaviTest` 函數仍保留符號以避免歷史代碼直接編譯失效，但入口已加 disabled guard：如果誤調用，只會回到當前 `CompetitionProfile` 的安全入口，不會執行函數內的歷史點表。
+
+## Legacy Strategy Reference
+
+以下只作設計參考，不是正式 regional 的 live 鏈路：
+
+- `HitHero`：舊進攻默認。先做 recovery、區域任務、RegionalDefense 和 watchdog；Buff/Outpost 模式會去任務站位；普通模式會先嘗試 Default/Autonomy，失敗後用英雄位置和一組進攻射擊點 fallback。
+- `HitSentry`：舊打前哨窗口策略。早期且敵方前哨仍有血時，從多個射擊點中選；窗口結束後偏向敵方 FlyRoad；低能量時回我方 HoleRoad。
+- `Protected`：舊保守策略。核心是在我方 CastleLeft/CastleRight/BuffShoot 一帶防守，低資源時更保守。
+- `NaviTest`：舊定時點位測試。按時間窗口硬切一串固定點，只適合早期導航調試，不適合正式 regional。
+- `LeagueSimple`：聯盟賽專用簡化巡邏和 recovery。現在只有 `CompetitionProfile=league` 才會使用它。
 
 ## 當前完整性
 

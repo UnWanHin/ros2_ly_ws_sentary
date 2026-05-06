@@ -133,6 +133,10 @@ SentryPosture Application::SelectDesiredPosture(const bool has_target) const {
             score.Attack += 2;
             score.Move += 1;
             break;
+        case StrategyMode::Regional:
+            score.Attack += 2;
+            score.Move += 1;
+            break;
         case StrategyMode::LeagueSimple:
             score.Attack += 1;
             score.Move += 3;

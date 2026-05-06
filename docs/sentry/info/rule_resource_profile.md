@@ -172,7 +172,7 @@ BT 目前只存一份 runtime 當前資源值：
 
 ### Regional 相關
 
-`config/AreaManager.yaml`：
+`src/behavior_tree/config/AreaManager.yaml`：
 
 | 模塊 | 當前門檻 |
 |---|---:|

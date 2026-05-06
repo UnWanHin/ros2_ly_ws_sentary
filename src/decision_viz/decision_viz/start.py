@@ -224,11 +224,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="List available presets under src/behavior_tree/Scripts/ConfigJson and exit.",
     )
     parser.add_argument(
-        "--include-legacy",
-        action="store_true",
-        help="Include src/behavior_tree/Scripts/ConfigJson/regional/test/legacy presets in --list-configs.",
-    )
-    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print the final start.sh command without executing.",
@@ -323,13 +318,11 @@ def normalize_extra_launch_args(raw: list[str]) -> list[str]:
     return raw
 
 
-def iter_config_paths(config_root: Path, include_legacy: bool) -> list[Path]:
+def iter_config_paths(config_root: Path, include_legacy: bool = False) -> list[Path]:
     paths = sorted(config_root.glob("*.json"))
     paths.extend(sorted((config_root / "league").glob("*.json")))
     paths.extend(sorted((config_root / "regional" / "debug").glob("*.json")))
     paths.extend(sorted((config_root / "regional" / "test").glob("*.json")))
-    if include_legacy:
-        paths.extend(sorted((config_root / "regional" / "test" / "legacy").glob("*.json")))
     return paths
 
 
@@ -368,8 +361,6 @@ def resolve_bt_config_path(root: Path, mode: str, configured: str) -> tuple[Path
                 candidates.append((cfg_root / "league" / f"{raw.name}.json").resolve())
                 candidates.append((cfg_root / "regional" / "debug" / f"{raw.name}.json").resolve())
                 candidates.append((cfg_root / "regional" / "test" / f"{raw.name}.json").resolve())
-                candidates.append((cfg_root / "regional" / "test" / "legacy" / f"{raw.name}.json").resolve())
-            candidates.append((cfg_root / "regional" / "test" / "legacy" / raw.name).resolve())
 
     seen: set[Path] = set()
     existing: Path | None = None
@@ -395,13 +386,13 @@ def resolve_bt_config_path(root: Path, mode: str, configured: str) -> tuple[Path
     return existing, launch_value
 
 
-def print_configs(root: Path, include_legacy: bool) -> int:
+def print_configs(root: Path) -> int:
     cfg_root = config_dir(root)
     if not cfg_root.exists():
         print(f"config dir not found: {cfg_root}", file=sys.stderr)
         return 2
     print(f"Config root: {cfg_root}")
-    for item in iter_config_paths(cfg_root, include_legacy):
+    for item in iter_config_paths(cfg_root):
         rel = item.relative_to(cfg_root).as_posix()
         print(rel)
     return 0
@@ -627,7 +618,7 @@ def main(argv: list[str] | None = None) -> int:
     root = repo_root().resolve()
 
     if args.list_configs:
-        return print_configs(root, args.include_legacy)
+        return print_configs(root)
 
     extra_launch_args = normalize_extra_launch_args(args.extra_launch_args)
     try:

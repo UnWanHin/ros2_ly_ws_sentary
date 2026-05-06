@@ -71,7 +71,8 @@ enum class StrategyMode : std::uint8_t {
     HitHero = 1,
     Protected = 2,
     NaviTest = 3,
-    LeagueSimple = 4
+    LeagueSimple = 4,
+    Regional = 5
 };
 
 inline const char* StrategyModeToString(const StrategyMode mode) {
@@ -81,6 +82,7 @@ inline const char* StrategyModeToString(const StrategyMode mode) {
         case StrategyMode::Protected: return "Protected";
         case StrategyMode::NaviTest: return "NaviTest";
         case StrategyMode::LeagueSimple: return "LeagueSimple";
+        case StrategyMode::Regional: return "Regional";
         default: return "Unknown";
     }
 }
@@ -239,7 +241,7 @@ private:
     std::uint8_t naviRelativeTargetAimMode{0U};
     TimerClock naviCommandIntervalClock{Seconds{10}}, recoveryClock{Seconds{90}}; // 控制间隔，回家时间 
     std::uint8_t speedLevel{1}; // 0 没电, 1 正常, 2 快速
-    StrategyMode strategyMode_{StrategyMode::HitHero}; // 当前策略
+    StrategyMode strategyMode_{StrategyMode::Regional}; // 当前策略
     CompetitionProfile competitionProfile_{CompetitionProfile::Regional};
     std::string competitionProfileOverride_{};
     bool debugBypassGameStart_{false};
@@ -575,6 +577,7 @@ public:
 
     // 获取配置文件
     bool ConfigurationInit();
+    void ApplyTaskParameterOverrides();
     void ApplyAreaManagerParameterOverrides();
     bool InitDecisionTrace();
     void WriteDecisionTrace(std::string_view event);

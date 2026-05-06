@@ -54,7 +54,7 @@ typedef struct {
 
 - `sentry_info/sentry_info_2` 发布到 `/ly/gimbal/sentryinfo`，消息类型 `gimbal_driver/msg/SentryInfo`。
 - `bullet_initial_speed` 合并发布到 `/ly/gimbal/bulletinfo.initial_speed`，消息类型 `gimbal_driver/msg/BulletInfo`。
-- 不覆盖 `/ly/gimbal/posture`。`0x020D` 的姿态只放在 `/ly/gimbal/sentryinfo.posture`。
+- `0x020D` 的有效姿态会同时放在 `/ly/gimbal/sentryinfo.posture` 并覆盖发布到 `/ly/gimbal/posture`。
 
 `sentry_info` 拆字段：
 
@@ -139,11 +139,11 @@ RFID2 不放在 `BulletInfo`；TypeID 8 的 `rfid_status_2` 只合并到
 | `/ly/gimbal/sentryinfo` | `gimbal_driver/msg/SentryInfo` | TypeID 7, `0x020D` |
 | `/ly/gimbal/bulletinfo` | `gimbal_driver/msg/BulletInfo` | TypeID 7/8, `0x0207 + 0x0208` |
 
-保留旧 topic，不覆盖：
+保留旧 topic，其中姿态回读改为由 `0x020D` 有效 posture 覆盖：
 
 | 旧 topic | 仍然来源 | 说明 |
 |---|---|---|
-| `/ly/gimbal/posture` | TypeID 6 `ChassisData.Posture` | 不用 `0x020D posture` 覆盖 |
+| `/ly/gimbal/posture` | TypeID 6 `ChassisData.Posture` + TypeID 7 `0x020D posture` | `0x020D posture=1/2/3` 覆盖，`0` 忽略 |
 | `/ly/bullet/speed` | TypeID 5 `PositionData.BulletSpeed / 100` | 不用 `0x0207 initial_speed` 覆盖 |
 | `/ly/me/ammo_left` | TypeID 1 `GameData.AmmoLeft` | 不用 `0x0208 projectile_allowance_17mm` 覆盖 |
 | `/ly/me/rfid` | TypeID 4 low32 + TypeID 8 status2 | TypeID 8 只补 `rfid_status_2` |

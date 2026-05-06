@@ -113,38 +113,44 @@ bool StrategyManager::RunTactical(Application& app) {
         return true;
     }
 
-    StrategyLayer handled_layer = StrategyLayer::Tactical;
-    if (app.IsShowcasePatrolEnabled()) {
-        app.SetPositionShowcasePatrol();
-    } else {
-        switch (app.GetStrategyMode()) {
-            case StrategyMode::LeagueSimple:
-                app.SetPositionLeagueSimple();
-                break;
-            case StrategyMode::HitSentry:
-                app.SetPositionHitSentry();
-                break;
-            case StrategyMode::Protected:
-                app.SetPositionProtect();
-                break;
-            case StrategyMode::NaviTest:
-                app.SetPositionNaviTest();
-                break;
-            case StrategyMode::HitHero:
-            default:
-                app.SetPositionHitHero();
-                handled_layer = default_requested_ ? StrategyLayer::Default : StrategyLayer::Tactical;
-                break;
-        }
+    if (app.IsLeagueProfile()) {
+        app.SetPositionLeagueSimple();
+        MarkHandled(app, StrategyLayer::Tactical);
+        return true;
     }
 
-    MarkHandled(app, handled_layer);
-    return true;
+    if (app.IsShowcasePatrolEnabled()) {
+        app.SetPositionShowcasePatrol();
+        MarkHandled(app, StrategyLayer::Tactical);
+        return true;
+    }
+
+    const UnitTeam my_team = app.team;
+    const UnitTeam enemy_team = app.team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
+
+    if (app.TrySetRegionalDefenseGoal(my_team, enemy_team)) {
+        MarkHandled(app, StrategyLayer::Tactical);
+        return true;
+    }
+
+    if (app.aimMode == AimMode::Buff || app.aimMode == AimMode::Outpost) {
+        if (app.naviCommandIntervalClock.trigger()) {
+            app.TrySetAimModeTaskGoal(my_team, enemy_team, "regional_tactical_aim_mode");
+        }
+        MarkHandled(app, StrategyLayer::Tactical);
+        return true;
+    }
+
+    if (app.TickNaviProgressWatchdog(my_team, enemy_team)) {
+        MarkHandled(app, StrategyLayer::Tactical);
+        return true;
+    }
+
+    return false;
 }
 
 bool StrategyManager::RunFinalizer(Application& app) {
     if (!handled_) {
-        app.SetPositionHitHero();
         MarkHandled(app, StrategyLayer::Finalizer);
     } else {
         PublishRuntimeToBlackboards(app);

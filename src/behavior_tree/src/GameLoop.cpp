@@ -124,25 +124,6 @@ namespace BehaviorTree {
         }
     }
 
-    std::optional<StrategyMode> StrategyModeFromAutonomyToken(const std::string& token) {
-        if (token == "hithero" || token == "hit_hero" || token == "hero") {
-            return StrategyMode::HitHero;
-        }
-        if (token == "hitsentry" || token == "hit_sentry" || token == "sentry") {
-            return StrategyMode::HitSentry;
-        }
-        if (token == "protected" || token == "protect") {
-            return StrategyMode::Protected;
-        }
-        if (token == "navitest" || token == "navi_test") {
-            return StrategyMode::NaviTest;
-        }
-        if (token == "leaguesimple" || token == "league_simple") {
-            return StrategyMode::LeagueSimple;
-        }
-        return std::nullopt;
-    }
-
     std::vector<NaviGoalOption> BuildBuiltinNaviGoalOptions(
         const StrategyMode strategy_mode,
         const UnitTeam my_team,
@@ -969,122 +950,10 @@ namespace BehaviorTree {
             SetStrategyMode(StrategyMode::LeagueSimple);
             return;
         }
-        if (IsNaviDebugEnabled()) {
-            SetStrategyMode(StrategyMode::NaviTest);
-            return;
-        }
 
-        const int now_time = ElapsedSeconds();
-        std::uint16_t self_outpost_health = selfOutpostHealth;
-        std::uint16_t enemy_outpost_health = enemyOutpostHealth;
-        std::uint16_t self_health = myselfHealth;
-        std::uint16_t time_left = timeLeft;
-        BuffType team_buff = teamBuff;
-        if (GlobalBlackboard_) {
-            (void)GlobalBlackboard_->get("SelfOutpostHealth", self_outpost_health);
-            (void)GlobalBlackboard_->get("EnemyOutpostHealth", enemy_outpost_health);
-            (void)GlobalBlackboard_->get("SelfHealth", self_health);
-            (void)GlobalBlackboard_->get("TimeLeft", time_left);
-            (void)GlobalBlackboard_->get("TeamBuff", team_buff);
-        }
-
-        const StrategyMode current_strategy = GetStrategyMode();
-        StrategyMode next_strategy = current_strategy;
-        const bool low_resource = (self_health < 100 || time_left <= 120 ||
-                                   team_buff.RemainingEnergy == 0b10000 ||
-                                   team_buff.RemainingEnergy == 0b00000);
-        const bool sentry_window =
-            (enemy_outpost_health > 0 && self_outpost_health > 100 && now_time < 55);
-
-        // 开局保持初始策略，避免频繁抖动。
-        if (now_time < 10) {
-            SetStrategyMode(next_strategy);
-            return;
-        }
-        // NaviTest 保持与旧逻辑一致，直到脚本窗口结束。
-        if (current_strategy == StrategyMode::NaviTest && now_time < 340) {
-            SetStrategyMode(next_strategy);
-            return;
-        }
-
-        if (IsDecisionAutonomyModuleEnabled("strategy_mode")) {
-            const auto& strategy_autonomy = config.DecisionAutonomySettings.Strategy;
-            std::vector<StrategyMode> candidates;
-            candidates.reserve(strategy_autonomy.Candidates.size());
-            for (const auto& candidate : strategy_autonomy.Candidates) {
-                const auto mode = StrategyModeFromAutonomyToken(candidate);
-                if (!mode.has_value()) {
-                    continue;
-                }
-                if (std::find(candidates.begin(), candidates.end(), *mode) == candidates.end()) {
-                    candidates.push_back(*mode);
-                }
-            }
-            if (candidates.empty()) {
-                candidates = {StrategyMode::HitHero, StrategyMode::HitSentry, StrategyMode::Protected};
-            }
-
-            double best_score = -std::numeric_limits<double>::infinity();
-            std::optional<StrategyMode> best_mode;
-            for (const auto candidate : candidates) {
-                double score = 0.0;
-                switch (candidate) {
-                    case StrategyMode::HitHero:
-                        score += strategy_autonomy.HitHeroBias;
-                        break;
-                    case StrategyMode::HitSentry:
-                        score += strategy_autonomy.HitSentryBias;
-                        if (sentry_window) {
-                            score += strategy_autonomy.SentryWindowBonus;
-                        }
-                        if (enemy_outpost_health <= 0 || !sentry_window) {
-                            score -= strategy_autonomy.NoOutpostSentryPenalty;
-                        }
-                        break;
-                    case StrategyMode::Protected:
-                        score += strategy_autonomy.ProtectedBias;
-                        if (low_resource) {
-                            score += strategy_autonomy.LowResourceProtectedBonus;
-                        }
-                        if (time_left <= 120) {
-                            score += strategy_autonomy.TimePressureProtectedBonus;
-                        }
-                        break;
-                    default:
-                        break;
-                }
-                if (low_resource && candidate != StrategyMode::Protected) {
-                    score -= strategy_autonomy.LowResourceOffensePenalty;
-                }
-                if (candidate == current_strategy) {
-                    score += strategy_autonomy.CurrentStrategyBonus;
-                }
-                if (score > best_score) {
-                    best_score = score;
-                    best_mode = candidate;
-                }
-            }
-            if (best_mode.has_value()) {
-                next_strategy = *best_mode;
-            }
-        } else {
-            if (low_resource) {
-                next_strategy = StrategyMode::Protected;
-            } else if (sentry_window) {
-                next_strategy = StrategyMode::HitSentry;
-            } else {
-                next_strategy = StrategyMode::HitHero;
-            }
-        }
-
-        SetStrategyMode(next_strategy);
-        if (next_strategy != current_strategy) {
-            LoggerPtr->Info(
-                "StrategyMode switch: {} -> {} (autonomy={})",
-                StrategyModeToString(current_strategy),
-                StrategyModeToString(next_strategy),
-                IsDecisionAutonomyModuleEnabled("strategy_mode") ? 1 : 0);
-        }
+        // Regional uses AreaManager/default-task policy only; old point-table
+        // strategies stay out of the live regional chain.
+        SetStrategyMode(StrategyMode::Regional);
     }
 
     void Application::SetAimMode() {
@@ -2487,7 +2356,7 @@ namespace BehaviorTree {
         const UnitTeam enemy_team) const {
         return !IsLeagueProfile() &&
             !IsShowcasePatrolEnabled() &&
-            GetStrategyMode() == StrategyMode::HitHero &&
+            GetStrategyMode() == StrategyMode::Regional &&
             aimMode != AimMode::Buff &&
             aimMode != AimMode::Outpost &&
             !areaManager_.RegionalAreaTaskActive() &&
@@ -2574,10 +2443,6 @@ namespace BehaviorTree {
         const UnitTeam my_team,
         const UnitTeam enemy_team) {
         if (TrySetDefaultRegionalAreaTaskGoal(my_team, enemy_team)) {
-            speedLevel = 1;
-            return true;
-        }
-        if (TrySetNaviGoalByAutonomy(StrategyMode::HitHero, my_team, enemy_team)) {
             speedLevel = 1;
             return true;
         }
@@ -2701,12 +2566,17 @@ namespace BehaviorTree {
     }
 
     void Application::SetPositionRepeat() {
-        if(IsLeagueProfile()) SetPositionLeagueSimple();
-        else if(IsShowcasePatrolEnabled()) SetPositionShowcasePatrol();
-        else if(config.GameStrategySettings.HitSentry) SetPositionHitSentry();
-        else if(config.GameStrategySettings.TestNavi) SetPositionNaviTest();
-        else if(config.GameStrategySettings.Protected) SetPositionProtect();
-        else SetPositionHitHero();
+        if (IsLeagueProfile()) {
+            SetPositionLeagueSimple();
+            return;
+        }
+        if (IsShowcasePatrolEnabled()) {
+            SetPositionShowcasePatrol();
+            return;
+        }
+        const UnitTeam my_team = team;
+        const UnitTeam enemy_team = team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
+        (void)TrySetDefaultRegionalGoal(my_team, enemy_team);
     }
 
     void Application::SetPositionLeagueSimple() {
@@ -3417,6 +3287,14 @@ namespace BehaviorTree {
     }
 
     void Application::SetPositionProtect() {
+        static bool warned = false;
+        if (!warned && LoggerPtr) {
+            LoggerPtr->Warning("Legacy SetPositionProtect disabled; fallback to current profile strategy.");
+            warned = true;
+        }
+        SetPositionRepeat();
+        return;
+
         UnitTeam MyTeam = team, EnemyTeam = team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
         int now_time = 420 - timeLeft;
         
@@ -3480,6 +3358,14 @@ namespace BehaviorTree {
     }
 
     void Application::SetPositionNaviTest() {
+        static bool warned = false;
+        if (!warned && LoggerPtr) {
+            LoggerPtr->Warning("Legacy SetPositionNaviTest disabled; fallback to current profile strategy.");
+            warned = true;
+        }
+        SetPositionRepeat();
+        return;
+
         if (config.NaviDebugSettings.Enable) {
             SetPositionNaviDebugPlan();
             return;
@@ -3534,6 +3420,14 @@ namespace BehaviorTree {
     }
 
     void Application::SetPositionHitSentry() {
+        static bool warned = false;
+        if (!warned && LoggerPtr) {
+            LoggerPtr->Warning("Legacy SetPositionHitSentry disabled; fallback to current profile strategy.");
+            warned = true;
+        }
+        SetPositionRepeat();
+        return;
+
         UnitTeam MyTeam = team, EnemyTeam = team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
         // int now_time = 420 - timeLeft;
         int now_time = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - gameStartTime).count();
@@ -3633,6 +3527,14 @@ namespace BehaviorTree {
     }
 
     void Application::SetPositionHitHero() {
+        static bool warned = false;
+        if (!warned && LoggerPtr) {
+            LoggerPtr->Warning("Legacy SetPositionHitHero disabled; fallback to current profile strategy.");
+            warned = true;
+        }
+        SetPositionRepeat();
+        return;
+
         if (IsLeagueProfile()) {
             SetPositionLeagueSimple();
             return;

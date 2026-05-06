@@ -118,10 +118,12 @@ posture = 1/2/3
 
 ### 5.3 姿态回读语义
 
-- `/ly/gimbal/posture` 表示**下位机回读状态**，当前来源 `TypeID=6 ChassisData.Posture`。
+- `/ly/gimbal/posture` 表示**下位机/裁判姿态回读状态**。
+- 当前来源有两条：`TypeID=6 ChassisData.Posture` 和 `TypeID=7 SentryData.SentryInfo2 posture`。
+- `TypeID=7` 的有效 `posture=1/2/3` 会覆盖发布到 `/ly/gimbal/posture`；`0` 不主动清掉当前姿态。
 - 不建议将 `/ly/control/sentry_cmd.posture` 或 `/ly/control/posture` 直接镜像回
   `/ly/gimbal/posture`，否则会掩盖“已下发但未执行”的链路问题。
-- 若下位机暂未实现回读，`/ly/gimbal/posture` 可保持未更新，上位机会按无回读路径处理。
+- 若下位机暂未实现 TypeID 6 回读，但已经透传裁判 `0x020D`，`/ly/gimbal/posture` 仍可由 `sentryinfo.posture` 更新。
 
 ## 6. 下位机实现要求
 
@@ -129,8 +131,9 @@ posture = 1/2/3
 2. 按 little-endian 读取 byte `12-15` 为 `uint32_t sentry_cmd`.
 3. 用 `sentry_cmd_shadow` 维护裁判 `0x0120` 命令字，不能用姿态或其它命令重置整字。
 4. 将 `sentry_cmd_shadow` 封装到裁判系统串口 `0x0301 + data_cmd_id=0x0120`。
-5. 上行把下位机实际姿态状态写入 `TypeID=6 ChassisData.Posture`。
-6. 上行继续把裁判 `0x020D` 拆到 TypeID=7，把 `0x0208/0x0209` 拆到 TypeID=8。
+5. 上行把下位机实际姿态状态写入 `TypeID=6 ChassisData.Posture`，作为兼容回读。
+6. 上行继续把裁判 `0x020D` 拆到 TypeID=7；其中 `sentry_info_2 bit12-13 posture` 会作为 `/ly/gimbal/posture` 的优先回读来源。
+7. 上行把 `0x0208/0x0209` 拆到 TypeID=8。
 
 ## 7. 固件实现速查
 

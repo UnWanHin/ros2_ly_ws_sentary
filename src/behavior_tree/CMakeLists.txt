@@ -249,6 +249,12 @@ if(EXISTS "${BTCPP_WS_ROOT_DIR}/config")
   )
 endif()
 
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/config")
+  install(DIRECTORY config/
+    DESTINATION share/${PROJECT_NAME}/config
+  )
+endif()
+
 # 安裝 Include (如果需要給別人用)
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/include")
   install(DIRECTORY include/

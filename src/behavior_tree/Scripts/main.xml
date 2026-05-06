@@ -23,52 +23,6 @@
     </Sequence>
   </BehaviorTree>
 
-  <BehaviorTree ID="StrategyDispatch">
-    <Fallback name="StrategySelector">
-      <CheckNeedRecovery/>
-      <SubTree ID="HitSentryStrategy"/>
-      <SubTree ID="HitHeroStrategy"/>
-      <SubTree ID="LeagueSimpleStrategy"/>
-      <SubTree ID="ProtectedStrategy"/>
-      <SubTree ID="NaviTestStrategy"/>
-    </Fallback>
-  </BehaviorTree>
-
-  <BehaviorTree ID="HitSentryStrategy">
-    <Sequence name="HitSentrySequence">
-      <IsStrategyHitSentry/>
-      <ExecuteHitSentryStrategy/>
-    </Sequence>
-  </BehaviorTree>
-
-  <BehaviorTree ID="HitHeroStrategy">
-    <Sequence name="HitHeroSequence">
-      <IsStrategyHitHero/>
-      <ExecuteHitHeroStrategy/>
-    </Sequence>
-  </BehaviorTree>
-
-  <BehaviorTree ID="ProtectedStrategy">
-    <Sequence name="ProtectedSequence">
-      <IsStrategyProtected/>
-      <ExecuteProtectedStrategy/>
-    </Sequence>
-  </BehaviorTree>
-
-  <BehaviorTree ID="LeagueSimpleStrategy">
-    <Sequence name="LeagueSimpleSequence">
-      <IsStrategyLeagueSimple/>
-      <ExecuteLeagueSimpleStrategy/>
-    </Sequence>
-  </BehaviorTree>
-
-  <BehaviorTree ID="NaviTestStrategy">
-    <Sequence name="NaviTestSequence">
-      <IsStrategyNaviTest/>
-      <ExecuteNaviTestStrategy/>
-    </Sequence>
-  </BehaviorTree>
-
   <TreeNodesModel>
     <Action ID="UpdateGlobalData"/>
     <Action ID="SelectAimMode"/>
@@ -78,21 +32,9 @@
     <Action ID="Task"/>
     <Action ID="Tactical"/>
     <Action ID="Finalizer"/>
-    <Action ID="ExecuteHitSentryStrategy"/>
-    <Action ID="ExecuteHitHeroStrategy"/>
-    <Action ID="ExecuteProtectedStrategy"/>
-    <Action ID="ExecuteNaviTestStrategy"/>
-    <Action ID="ExecuteLeagueSimpleStrategy"/>
     <Action ID="PreprocessData"/>
     <Action ID="SelectAimTarget"/>
     <Action ID="SelectPosture"/>
     <Action ID="PublishAll"/>
-
-    <Condition ID="CheckNeedRecovery"/>
-    <Condition ID="IsStrategyHitSentry"/>
-    <Condition ID="IsStrategyHitHero"/>
-    <Condition ID="IsStrategyProtected"/>
-    <Condition ID="IsStrategyNaviTest"/>
-    <Condition ID="IsStrategyLeagueSimple"/>
   </TreeNodesModel>
 </root>

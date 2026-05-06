@@ -91,8 +91,8 @@ main()
 | `HealthEnemyData` | `PubHealthEnemyData()` | `/ly/enemy/hp`, `/ly/enemy/base_hp` |
 | `RFIDAndBuffData` | `PubRFIDAndBuffData()` | `/ly/me/rfid`, `/ly/team/buff` |
 | `PositionData` | `PubPositionData()` | `/ly/position/data`, `/ly/me/uwb_pos`, `/ly/bullet/speed` |
-| `ChassisData` (`TypeID=6`) | `PubChassisData()` | `/ly/me/uwb_yaw`, `/ly/gimbal/chassis`（四元浮點）, `/ly/gimbal/posture` |
-| `ExtendData` (`TypeID=7`) | （预留，暂不解析） | 当前无发布 |
+| `ChassisData` (`TypeID=6`) | `PubChassisData()` | `/ly/me/uwb_yaw`, `/ly/gimbal/chassis`（四元浮點）, `/ly/gimbal/posture` 兼容回读 |
+| `SentryData` (`TypeID=7`) | `PubSentryData()` | `/ly/gimbal/sentryinfo`, `/ly/gimbal/bulletinfo`, `/ly/gimbal/posture`（有效 `sentryinfo.posture` 覆盖） |
 
 #### 「寫入」路徑：`GenSubs()` → `Device.Write()`
 
@@ -236,7 +236,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData>
 | `/ly/position/data` | `PositionData` | UWB位置數據 |
 | `/ly/me/uwb_pos` | `UInt16MultiArray` | 自身UWB位置[x, y] |
 | `/ly/gimbal/chassis` | `Chassis` | 底盘四元反馈（`steer_angle`, `angular_velocity`, `velocity_x`, `velocity_y`） |
-| `/ly/gimbal/posture` | `UInt8` | 姿態回讀（來源 `ChassisData.Posture`，先低 8 位再回退高 8 位；僅 1/2/3 視為有效） |
+| `/ly/gimbal/posture` | `UInt8` | 姿態回讀（TypeID 7 `sentryinfo.posture` 有效值优先覆盖；TypeID 6 `ChassisData.Posture` 作兼容回读；僅 1/2/3 視為有效） |
 | `ly/gimbal/eventdata` | `UInt32` | 場地事件原始值（當前 topic 字符串無前導 `/`） |
 | `/ly/game/event_data` | `EventData` | 0x0101 `event_data` 按 RM2026 V1.3.0 拆字段 |
 

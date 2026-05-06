@@ -152,6 +152,7 @@ def generate_launch_description():
     default_base_config_file = os.path.join(behavior_tree_config_root, "base_config.yaml")
     default_override_config_file = os.path.join(behavior_tree_config_root, "override_config.yaml")
     default_area_manager_config_file = os.path.join(behavior_tree_config_root, "AreaManager.yaml")
+    default_task_config_file = os.path.join(behavior_tree_config_root, "Task.yaml")
     default_detector_config_file = os.path.join(detector_share, "config", "detector_config.yaml")
     default_predictor_config_file = os.path.join(predictor_share, "config", "predictor_config.yaml")
     default_outpost_config_file = os.path.join(outpost_share, "config", "outpost_config.yaml")
@@ -160,6 +161,7 @@ def generate_launch_description():
     mode = LaunchConfiguration("mode")
     config_file = LaunchConfiguration("config_file")
     area_manager_config_file = LaunchConfiguration("area_manager_config_file")
+    task_config_file = LaunchConfiguration("task_config_file")
     base_config_file = LaunchConfiguration("base_config_file")
     detector_config_file = LaunchConfiguration("detector_config_file")
     predictor_config_file = LaunchConfiguration("predictor_config_file")
@@ -222,6 +224,11 @@ def generate_launch_description():
             "area_manager_config_file",
             default_value=default_area_manager_config_file,
             description="AreaManager/state-machine YAML for behavior_tree.",
+        ),
+        DeclareLaunchArgument(
+            "task_config_file",
+            default_value=default_task_config_file,
+            description="Task YAML for behavior_tree Buff/Outpost enable switches.",
         ),
         DeclareLaunchArgument(
             "detector_config_file",
@@ -394,6 +401,7 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] config: ", config_file]),
         LogInfo(msg=["[sentry_all] base_config: ", base_config_file]),
         LogInfo(msg=["[sentry_all] area_manager_config: ", area_manager_config_file]),
+        LogInfo(msg=["[sentry_all] task_config: ", task_config_file]),
         LogInfo(msg=["[sentry_all] detector_config: ", detector_config_file]),
         LogInfo(msg=["[sentry_all] predictor_config: ", predictor_config_file]),
         LogInfo(msg=["[sentry_all] outpost_config: ", outpost_config_file]),
@@ -631,6 +639,7 @@ def generate_launch_description():
             output=output,
             parameters=[
                 area_manager_config_file,
+                task_config_file,
                 {
                     "competition_profile": resolved_competition_profile,
                     "bt_config_file": resolved_bt_config_file,

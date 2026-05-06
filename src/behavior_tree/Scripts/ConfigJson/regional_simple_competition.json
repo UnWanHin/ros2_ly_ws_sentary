@@ -18,13 +18,6 @@
         "TreeTickRate": 100,
         "NaviCommandRate": 1
     },
-    "GameStrategy": {
-        "HitBuff": false,
-        "HitOutpost": false,
-        "TestNavi": false,
-        "HitSentry": false,
-        "Protected": false
-    },
     "Task": {
         "Buff": false,
         "Outpost": false
@@ -79,10 +72,9 @@
     "AimTargetIgnore": [],
     "DecisionAutonomy": {
         "Enable": false,
-        "EnabledModules": ["strategy_mode", "navi_goal", "aim_target"],
+        "EnabledModules": ["navi_goal", "aim_target"],
         "HardRuleModules": ["recovery", "aim_mode", "fire_safety"],
         "NaviGoal": {
-            "UseCustomCandidates": false,
             "UseAreaScope": true,
             "MyArea": {
                 "Base": true,

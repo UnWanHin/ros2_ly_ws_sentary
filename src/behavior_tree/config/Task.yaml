@@ -1,0 +1,5 @@
+behavior_tree:
+  ros__parameters:
+    Task:
+      Buff: false
+      Outpost: false

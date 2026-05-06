@@ -102,6 +102,6 @@ posture = 1/2/3
 1. 下位机能解析 17B 主控制幀。
 2. 下位机能从 `SentryCmd bit21-22` 取姿态。
 3. 下位机能把姿态写进裁判 `0x0120 bit21-22`。
-4. 下位机能通过 TypeID 6 回传实际姿态到 `/ly/gimbal/posture`。
+4. 下位机能通过 TypeID 6 回传实际姿态到 `/ly/gimbal/posture`，并通过 TypeID 7 透传 `0x020D sentry_info_2.posture`；TypeID 7 有效姿态会覆盖 `/ly/gimbal/posture`。
 
 复活、兑弹、远程回血、能量机关确认的上位机接口已经预留，但 BT 自动策略还没有开始主动下发这些字段。

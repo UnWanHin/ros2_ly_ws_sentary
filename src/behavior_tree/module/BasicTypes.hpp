@@ -528,19 +528,6 @@ namespace LangYa
         int ScoreHysteresis{2};       // 姿态切换分差迟滞
     };
 
-    struct StrategyAutonomySetting {
-        std::vector<std::string> Candidates{"HitHero", "HitSentry", "Protected"};
-        double HitHeroBias{0.0};
-        double HitSentryBias{0.0};
-        double ProtectedBias{0.0};
-        double LowResourceProtectedBonus{2.0};
-        double LowResourceOffensePenalty{1.0};
-        double SentryWindowBonus{1.5};
-        double NoOutpostSentryPenalty{1.0};
-        double TimePressureProtectedBonus{0.8};
-        double CurrentStrategyBonus{0.4};
-    };
-
     struct NaviGoalOption {
         std::uint8_t GoalId{LangYa::MidShoot.ID};
         std::string Team{"my"}; // my / enemy
@@ -709,9 +696,8 @@ namespace LangYa
 
     struct DecisionAutonomySetting {
         bool Enable{false};
-        std::vector<std::string> EnabledModules{"strategy_mode", "navi_goal", "aim_target"};
+        std::vector<std::string> EnabledModules{"navi_goal", "aim_target"};
         std::vector<std::string> HardRuleModules{"recovery", "aim_mode", "fire_safety"};
-        StrategyAutonomySetting Strategy{};
         NaviGoalAutonomySetting NaviGoal{};
         AimTargetAutonomySetting AimTarget{};
     };

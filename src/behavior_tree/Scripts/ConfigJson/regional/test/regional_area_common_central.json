@@ -18,13 +18,6 @@
         "TreeTickRate": 100,
         "NaviCommandRate": 1
     },
-    "GameStrategy": {
-        "HitBuff": false,
-        "HitOutpost": false,
-        "TestNavi": false,
-        "HitSentry": false,
-        "Protected": false
-    },
     "DamageOpenGate": {
         "Enable": false
     },
@@ -49,16 +42,9 @@
     },
     "DecisionAutonomy": {
         "Enable": true,
-        "EnabledModules": ["strategy_mode", "navi_goal"],
+        "EnabledModules": ["navi_goal"],
         "HardRuleModules": ["recovery", "aim_mode", "fire_safety"],
-        "Strategy": {
-            "Candidates": ["HitHero"],
-            "HitHeroBias": 10.0,
-            "HitSentryBias": 0.0,
-            "ProtectedBias": 0.0
-        },
         "NaviGoal": {
-            "UseCustomCandidates": true,
             "UseAreaScope": true,
             "MyArea": {
                 "Base": false,
@@ -80,17 +66,7 @@
                 "TimeoutSec": 6
             },
             "GoalBiasWeight": 1.0,
-            "DistanceWeight": 1.0,
-            "HitHeroCandidates": [
-                {
-                    "GoalId": 10,
-                    "Team": "my",
-                    "Bias": 100.0,
-                    "Enable": true
-                }
-            ],
-            "HitSentryCandidates": [],
-            "ProtectCandidates": []
+            "DistanceWeight": 1.0
         }
     },
     "Chase": {

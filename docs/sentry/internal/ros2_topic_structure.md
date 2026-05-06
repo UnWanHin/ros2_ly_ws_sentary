@@ -62,7 +62,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/gimbal/vel` | `gimbal_driver/msg/Vel` | 调试/兼容 | `header`, `x`, `y`。 |
 | `/ly/gimbal/chassis` | `gimbal_driver/msg/Chassis` | `behavior_tree` | `steer_angle`, `angular_velocity`, `velocity_x`, `velocity_y`。 |
 | `/ly/gimbal/big_yaw_angles` | `std_msgs/msg/Float32` | 调试/可视化 | 大 yaw 角。 |
-| `/ly/gimbal/posture` | `std_msgs/msg/UInt8` | `behavior_tree` | 下位机实际姿态回读，`1/2/3` 有效；不要镜像命令。 |
+| `/ly/gimbal/posture` | `std_msgs/msg/UInt8` | `behavior_tree` | 下位机/裁判姿态回读，`1/2/3` 有效；TypeID 7 的 `sentryinfo.posture` 会覆盖 TypeID 6 回读；不要镜像命令。 |
 | `/ly/gimbal/capV` | `std_msgs/msg/UInt8` | `behavior_tree` | 电容电压/电容状态回读。 |
 | `ly/gimbal/eventdata` | `std_msgs/msg/UInt32` | 兼容链路 | legacy 原始 event data，注意当前 gimbal 侧定义无前导 `/`。 |
 | `/ly/game/event_data` | `gimbal_driver/msg/EventData` | `behavior_tree` | 裁判 `0x0101 event_data` 语义拆字段。 |
@@ -85,7 +85,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/team/buff` | `gimbal_driver/msg/BuffData` | `behavior_tree` | 队伍增益与剩余能量。 |
 | `/ly/position/data` | `gimbal_driver/msg/PositionData` | `behavior_tree` | 官方坐标系统中一组友方/敌方机器人位置。 |
 | `/ly/bullet/speed` | `std_msgs/msg/Float32` | predictor/调试 | 旧弹速 topic，来自 TypeID 5。 |
-| `/ly/gimbal/sentryinfo` | `gimbal_driver/msg/SentryInfo` | 后续策略/调试 | 裁判 `0x020D sentry_info/sentry_info_2` 语义拆字段；当前 BT 还未订阅。 |
+| `/ly/gimbal/sentryinfo` | `gimbal_driver/msg/SentryInfo` | 后续策略/调试 | 裁判 `0x020D sentry_info/sentry_info_2` 语义拆字段；其中有效 `posture` 会同步覆盖 `/ly/gimbal/posture`；当前 BT 还未订阅此完整消息。 |
 | `/ly/gimbal/bulletinfo` | `gimbal_driver/msg/BulletInfo` | 后续策略/调试 | TypeID 7/8 合并出的弹速、发射事件、允许发弹量、金币；当前 BT 还未订阅，RFID2 不在这里。 |
 
 ## 4. Internal Vision And Aim

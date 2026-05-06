@@ -502,7 +502,7 @@ struct ChassisData {
 | 串口字段 | 解析方式 | 发布 topic | 备注 |
 |---|---|---|---|
 | `UWBAngleYaw` | 直接读 `uint16` | `/ly/me/uwb_yaw` | 自身朝向角 |
-| `Posture` | 先读低8位，低8位无效时回退高8位；按 `uint8` 姿态值解析 | `/ly/gimbal/posture` | 仅 `1/2/3` 才发布 |
+| `Posture` | 先读低8位，低8位无效时回退高8位；按 `uint8` 姿态值解析 | `/ly/gimbal/posture` | TypeID 6 兼容回读；仅 `1/2/3` 才发布 |
 | `ChassisPacked1` low16（byte0~1） | 8位整数+8位小数（2位小数） | `/ly/gimbal/chassis` | `steer_angle` |
 | `ChassisPacked1` high16（byte2~3） | 8位整数+8位小数（2位小数） | `/ly/gimbal/chassis` | `angular_velocity` |
 | `ChassisPacked2` low16（byte0~1） | 8位整数+8位小数（2位小数） | `/ly/gimbal/chassis` | `velocity_x` |
@@ -522,7 +522,7 @@ struct ChassisData {
 但要注意当前代码行为：
 
 - 文档语义上 `0` 表示未知
-- 代码里只有 `1/2/3` 会发布 `/ly/gimbal/posture`
+- TypeID 6 和 TypeID 7 都只有 `1/2/3` 会发布 `/ly/gimbal/posture`
 - 如果下位机发 `0`，当前上位机不会主动发布一个新的 `0`
 
 ---
@@ -549,8 +549,8 @@ struct SentryData {
 | `BulletInitialSpeed` | `0x0207 shoot_data.initial_speed` offset 3 | `/ly/gimbal/bulletinfo.initial_speed` |
 | `Reserved` | 上下位机保留 | `/ly/gimbal/sentryinfo.reserved` |
 
-`/ly/gimbal/sentryinfo` 不覆盖 `/ly/gimbal/posture`。`0x020D sentry_info_2 bit12-13`
-会发布到 `SentryInfo.posture`，原 `/ly/gimbal/posture` 仍只表示 TypeID=6 的下位机/云台姿态回读。
+`0x020D sentry_info_2 bit12-13` 会发布到 `SentryInfo.posture`。当该字段为有效
+`1/2/3` 时，`gimbal_driver` 也会同步覆盖发布到 `/ly/gimbal/posture`，作为当前优先姿态回读来源。
 
 ### 5.8.1 `SentryInfo` 拆字段
 
@@ -653,8 +653,8 @@ struct BulletDataAndRfid2 {
 | `5` | 弹速 | `PositionData.BulletSpeed` | `/ly/bullet/speed` |
 | `6` | 自身朝向 | `ChassisData.UWBAngleYaw` | `/ly/me/uwb_yaw` |
 | `6` | 底盘回读（四元） | `ChassisPacked1/2`（8位整数+8位小数） | `/ly/gimbal/chassis` |
-| `6` | 姿态回读 | `ChassisData.Posture`（先低8位，后高8位） | `/ly/gimbal/posture` |
-| `7` | 哨兵自主决策状态 | `SentryData.SentryInfo/SentryInfo2` | `/ly/gimbal/sentryinfo` |
+| `6` | 姿态兼容回读 | `ChassisData.Posture`（先低8位，后高8位） | `/ly/gimbal/posture` |
+| `7` | 哨兵自主决策状态 | `SentryData.SentryInfo/SentryInfo2` | `/ly/gimbal/sentryinfo`；有效 `posture` 同步覆盖 `/ly/gimbal/posture` |
 | `7` | 发射初速度 | `SentryData.BulletInitialSpeed` | `/ly/gimbal/bulletinfo` |
 | `8` | 发射事件字段 | `BulletDataAndRfid2.BulletType/ShooterNumber/LaunchingFrequency` | `/ly/gimbal/bulletinfo` |
 | `8` | 允许发弹量/金币 | `BulletDataAndRfid2.ProjectileAllowance* / RemainingGoldCoin` | `/ly/gimbal/bulletinfo` |
@@ -685,7 +685,7 @@ struct BulletDataAndRfid2 {
 |---|---|---|
 | `0x0207 shoot_data` | 裁判系统 -> 机器人状态 | 已通过 TypeID=7/8 进入 `/ly/gimbal/bulletinfo`；旧 `/ly/bullet/speed` 仍保留 TypeID=5 来源 |
 | `0x0208 projectile_allowance` | 裁判系统 -> 机器人状态 | 已通过 TypeID=8 进入 `/ly/gimbal/bulletinfo`；旧 `/ly/me/ammo_left` 仍保留 TypeID=1 来源 |
-| `0x020D sentry_info/sentry_info_2` | 裁判系统 -> 哨兵状态 | 已通过 TypeID=7 进入 `/ly/gimbal/sentryinfo`；不会覆盖 `/ly/gimbal/posture` |
+| `0x020D sentry_info/sentry_info_2` | 裁判系统 -> 哨兵状态 | 已通过 TypeID=7 进入 `/ly/gimbal/sentryinfo`；有效 `posture` 会覆盖 `/ly/gimbal/posture` |
 | `0x0301 + data_cmd_id=0x0120 sentry_cmd` | 机器人 -> 裁判系统命令 | 姿态经 `/ly/control/posture` 写入 `SentryCmd bit21-22`；完整命令也可通过 `/ly/control/sentry_cmd` 进入主控制幀 byte `12~15`；下位机负责封装裁判 `0x0301/0x0120` |
 
 ### 8.1 当前看弹量和兑弹怎么走

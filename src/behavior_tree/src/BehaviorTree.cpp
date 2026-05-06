@@ -129,16 +129,6 @@ bool Application::RegisterTreeNodes() {
         REGISTER_APP_NODE(FinalizerLayerNode, "Finalizer");
         REGISTER_APP_NODE(IsAimModeBuffNode, "IsAimModeBuff");
         REGISTER_APP_NODE(IsAimModeOutpostNode, "IsAimModeOutpost");
-        REGISTER_APP_NODE(IsStrategyHitSentryNode, "IsStrategyHitSentry");
-        REGISTER_APP_NODE(IsStrategyHitHeroNode, "IsStrategyHitHero");
-        REGISTER_APP_NODE(IsStrategyProtectedNode, "IsStrategyProtected");
-        REGISTER_APP_NODE(IsStrategyNaviTestNode, "IsStrategyNaviTest");
-        REGISTER_APP_NODE(IsStrategyLeagueSimpleNode, "IsStrategyLeagueSimple");
-        REGISTER_APP_NODE(ExecuteHitSentryStrategyNode, "ExecuteHitSentryStrategy");
-        REGISTER_APP_NODE(ExecuteHitHeroStrategyNode, "ExecuteHitHeroStrategy");
-        REGISTER_APP_NODE(ExecuteProtectedStrategyNode, "ExecuteProtectedStrategy");
-        REGISTER_APP_NODE(ExecuteNaviTestStrategyNode, "ExecuteNaviTestStrategy");
-        REGISTER_APP_NODE(ExecuteLeagueSimpleStrategyNode, "ExecuteLeagueSimpleStrategy");
         REGISTER_APP_NODE(PreprocessDataNode, "PreprocessData");
         REGISTER_APP_NODE(SelectAimTargetNode, "SelectAimTarget");
         REGISTER_APP_NODE(SelectPostureNode, "SelectPosture");
