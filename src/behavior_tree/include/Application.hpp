@@ -379,7 +379,7 @@ private:
 
     rclcpp::Publisher<gimbal_driver::msg::GimbalAngles>::SharedPtr pub_gimbal_control_;
     rclcpp::Publisher<gimbal_driver::msg::FireCode>::SharedPtr pub_gimbal_firecode_;
-    rclcpp::Publisher<gimbal_driver::msg::SentryCmd>::SharedPtr pub_referee_sentry_cmd_;
+    rclcpp::Publisher<gimbal_driver::msg::SentryCmd>::SharedPtr pub_control_posture_;
     rclcpp::Publisher<gimbal_driver::msg::ControlVelocity>::SharedPtr pub_gimbal_vel_;
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_gimbal_capV_;
 

@@ -172,7 +172,7 @@ scripts/
 
 适合：
 
-- 单独验证 `/ly/control/posture`
+- 单独验证 `/ly/control/posture`（`gimbal_driver/msg/SentryCmd`，只使用 `FIELD_POSTURE`）
 - 单独验证 `/ly/gimbal/posture`
 - 联调下位机姿态回读
 

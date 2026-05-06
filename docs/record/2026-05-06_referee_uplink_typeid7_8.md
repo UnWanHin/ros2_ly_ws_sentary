@@ -52,9 +52,9 @@ typedef struct {
 
 上位机行为：
 
-- `sentry_info/sentry_info_2` 发布到 `/ly/referee/sentry_info`，消息类型 `gimbal_driver/msg/SentryInfo`。
-- `bullet_initial_speed` 合并发布到 `/ly/referee/bullet_info.initial_speed`，消息类型 `gimbal_driver/msg/BulletInfo`。
-- 不覆盖 `/ly/gimbal/posture`。`0x020D` 的姿态只放在 `/ly/referee/sentry_info.posture`。
+- `sentry_info/sentry_info_2` 发布到 `/ly/gimbal/sentryinfo`，消息类型 `gimbal_driver/msg/SentryInfo`。
+- `bullet_initial_speed` 合并发布到 `/ly/gimbal/bulletinfo.initial_speed`，消息类型 `gimbal_driver/msg/BulletInfo`。
+- 不覆盖 `/ly/gimbal/posture`。`0x020D` 的姿态只放在 `/ly/gimbal/sentryinfo.posture`。
 
 `sentry_info` 拆字段：
 
@@ -101,7 +101,7 @@ typedef struct {
 
 上位机行为：
 
-- 发布 `/ly/referee/bullet_info`，消息类型 `gimbal_driver/msg/BulletInfo`。
+- 发布 `/ly/gimbal/bulletinfo`，消息类型 `gimbal_driver/msg/BulletInfo`。
 - `rfid_status_2` 合并到现有 `/ly/me/rfid`，消息类型 `gimbal_driver/msg/RfidStatus`。
 - 如果 TypeID 8 先到、TypeID 4 的低 32 bit `rfid_status` 还没到，上位机会先缓存 `rfid_status_2`；等 TypeID 4 到达后再发布完整 `/ly/me/rfid`。
 
@@ -126,7 +126,9 @@ initial_speed 是上一发
 | `has_initial_speed` | 已收到 TypeID 7 的 `initial_speed` |
 | `has_shoot_data` | 已收到 TypeID 8 的 `bullet_type/shooter_number/launching_frequency` |
 | `has_projectile_allowance` | 已收到 TypeID 8 的 `0x0208` |
-| `has_rfid_status_2` | 已收到 TypeID 8 的 `rfid_status_2` |
+
+RFID2 不放在 `BulletInfo`；TypeID 8 的 `rfid_status_2` 只合并到
+`/ly/me/rfid` 的 `RfidStatus` 消息。
 
 ## 6. 上位机 ROS 对接
 
@@ -134,8 +136,8 @@ initial_speed 是上一发
 
 | Topic | Msg | 来源 |
 |---|---|---|
-| `/ly/referee/sentry_info` | `gimbal_driver/msg/SentryInfo` | TypeID 7, `0x020D` |
-| `/ly/referee/bullet_info` | `gimbal_driver/msg/BulletInfo` | TypeID 7/8, `0x0207 + 0x0208 + rfid_status_2` |
+| `/ly/gimbal/sentryinfo` | `gimbal_driver/msg/SentryInfo` | TypeID 7, `0x020D` |
+| `/ly/gimbal/bulletinfo` | `gimbal_driver/msg/BulletInfo` | TypeID 7/8, `0x0207 + 0x0208` |
 
 保留旧 topic，不覆盖：
 
@@ -151,14 +153,14 @@ initial_speed 是上一发
 上位机启动 `gimbal_driver` 后检查：
 
 ```bash
-ros2 topic echo /ly/referee/sentry_info
-ros2 topic echo /ly/referee/bullet_info
+ros2 topic echo /ly/gimbal/sentryinfo
+ros2 topic echo /ly/gimbal/bulletinfo
 ros2 topic echo /ly/me/rfid
 ```
 
 预期：
 
-- TypeID 7 到达后，`/ly/referee/sentry_info` 有 `out_of_combat`、`can_activate_energy_mechanism` 等语义字段。
-- TypeID 7 到达后，`/ly/referee/bullet_info.has_initial_speed=true`。
-- TypeID 8 到达后，`/ly/referee/bullet_info.has_shoot_data=true`、`has_projectile_allowance=true`、`has_rfid_status_2=true`。
+- TypeID 7 到达后，`/ly/gimbal/sentryinfo` 有 `out_of_combat`、`can_activate_energy_mechanism` 等语义字段。
+- TypeID 7 到达后，`/ly/gimbal/bulletinfo.has_initial_speed=true`。
+- TypeID 8 到达后，`/ly/gimbal/bulletinfo.has_shoot_data=true`、`has_projectile_allowance=true`。
 - TypeID 4 和 TypeID 8 都到达后，`/ly/me/rfid.has_rfid_status_2=true`。

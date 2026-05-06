@@ -801,6 +801,7 @@ if (( STATIC_ONLY == 0 )); then
   check_node_sub "/gimbal_driver" "/ly/control/firecode" hard
   check_node_sub "/gimbal_driver" "/ly/control/vel" hard
   check_node_sub "/gimbal_driver" "/ly/control/posture" hard
+  check_node_sub "/gimbal_driver" "/ly/control/sentry_cmd" hard
 
   # detector
   check_node_sub "/detector" "/ly/vision/mode" hard
@@ -848,7 +849,7 @@ if (( STATIC_ONLY == 0 )); then
   print_section "Critical Topic Links"
   check_topic_link "/ly/control/angles" "gimbal_driver/msg/GimbalAngles" "/behavior_tree" "/gimbal_driver" hard
   check_topic_link "/ly/control/firecode" "gimbal_driver/msg/FireCode" "/behavior_tree" "/gimbal_driver" hard
-  check_topic_link "/ly/control/posture" "std_msgs/msg/UInt8" "/behavior_tree" "/gimbal_driver" hard
+  check_topic_link "/ly/control/posture" "gimbal_driver/msg/SentryCmd" "/behavior_tree" "/gimbal_driver" hard
 
   # 兼容鏈路檢查：電控側仍訂閱 /ly/control/vel，若沒有發布者視為缺口
   check_topic_link "/ly/control/vel" "gimbal_driver/msg/ControlVelocity" "/behavior_tree" "/gimbal_driver" hard

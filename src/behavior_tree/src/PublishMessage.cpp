@@ -109,7 +109,7 @@ namespace BehaviorTree {
         msg.field_mask = gimbal_driver::msg::SentryCmd::FIELD_POSTURE;
         msg.posture = postureCommand;
         msg.raw = static_cast<std::uint32_t>(postureCommand) << 21;
-        pub_referee_sentry_cmd_->publish(msg);
+        pub_control_posture_->publish(msg);
     }
 
     /**

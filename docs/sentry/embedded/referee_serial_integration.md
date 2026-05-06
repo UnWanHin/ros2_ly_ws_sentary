@@ -12,7 +12,7 @@ Updated: 2026-05-06
   -> 下位机打包 TypeID 7/8 等上发给上位机
   -> gimbal_driver 发布 ROS 语义 topic
   -> behavior_tree 决策
-  -> /ly/referee/sentry_cmd
+  -> /ly/control/posture（姿态 SentryCmd）或 /ly/control/sentry_cmd（完整哨兵裁判命令）
   -> gimbal_driver 主控制幀 SentryCmd
   -> 下位机封装裁判 0x0301 / 0x0120
   -> 裁判系统串口
@@ -22,10 +22,10 @@ Updated: 2026-05-06
 
 | 裁判 cmd_id | 裁判结构 | 下位机上发 TypeID | ROS topic | 说明 |
 |---|---|---|---|---|
-| `0x0207` | `shoot_data_t` | TypeID 7/8 | `/ly/referee/bullet_info` | 初速度放 TypeID 7，弹丸类型/发射机构/射频放 TypeID 8 |
-| `0x0208` | `projectile_allowance_t` | TypeID 8 | `/ly/referee/bullet_info` | 17mm、42mm、剩余金币、堡垒储备 17mm |
+| `0x0207` | `shoot_data_t` | TypeID 7/8 | `/ly/gimbal/bulletinfo` | 初速度放 TypeID 7，弹丸类型/发射机构/射频放 TypeID 8 |
+| `0x0208` | `projectile_allowance_t` | TypeID 8 | `/ly/gimbal/bulletinfo` | 17mm、42mm、剩余金币、堡垒储备 17mm |
 | `0x0209` | `rfid_status_t` | TypeID 4/8 | `/ly/me/rfid` | 低 32 bit 仍走 TypeID 4，`rfid_status_2` 走 TypeID 8 |
-| `0x020D` | `sentry_info_t` | TypeID 7 | `/ly/referee/sentry_info` | 兑换成功次数、脱战、复活、姿态、能量机关可激活 |
+| `0x020D` | `sentry_info_t` | TypeID 7 | `/ly/gimbal/sentryinfo` | 兑换成功次数、脱战、复活、姿态、能量机关可激活 |
 
 TypeID 7/8 的具体 12B 布局见：
 
@@ -87,12 +87,15 @@ TypeID 7/8 的具体 12B 布局见：
 
 ## 6. 当前上位机实际会发什么
 
-当前 BT 主链路已经从 `/ly/control/posture` 改为 `/ly/referee/sentry_cmd`：
+当前 BT 姿态主链路使用 `/ly/control/posture`，消息类型为 `gimbal_driver/msg/SentryCmd`：
 
 ```text
 field_mask = FIELD_POSTURE
 posture = 1/2/3
 ```
+
+`gimbal_driver` 会只取 posture 字段并转写到 `SentryCmd bit21-22`。`/ly/control/sentry_cmd`
+保留为完整 `SentryCmd` 命令入口，用于复活、兑弹、远程回血、能量机关确认等字段。
 
 也就是说，现阶段实车最先需要验证的是：
 

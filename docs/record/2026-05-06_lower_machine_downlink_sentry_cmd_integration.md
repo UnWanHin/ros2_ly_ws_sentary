@@ -100,25 +100,20 @@ typedef struct {
 
 ## 5. 上位机 ROS 链路
 
-当前 BT 主链路已经改成：
+当前 BT 姿态主链路保持：
 
 ```text
 behavior_tree
-  -> /ly/referee/sentry_cmd (gimbal_driver/msg/SentryCmd)
+  -> /ly/control/posture (gimbal_driver/msg/SentryCmd, FIELD_POSTURE)
   -> gimbal_driver
-  -> GimbalControlData.SentryCmd
+  -> GimbalControlData.SentryCmd.Posture
   -> 下位机
 ```
 
-旧的 `/ly/control/posture` 仍保留为兼容入口。它不会再占用主幀 byte `12`，而是由
-`gimbal_driver` 转写到 `SentryCmd.Posture`。
+`/ly/control/sentry_cmd` 仍保留为完整 `SentryCmd` 命令入口。它不会再占用旧主幀
+byte `12` 的单独姿态字段，而是写入 17B 主控制幀的 `SentryCmd`。
 
-当前 BT 实际只主动下发姿态：
-
-```text
-field_mask = FIELD_POSTURE
-posture = 1/2/3
-```
+当前 BT 实际只主动下发姿态 `1/2/3`。
 
 复活、兑弹、远程回血、能量机关确认的接口已经在 `SentryCmd` 里预留，但 BT 自动策略还没有开始主动下发这些字段。
 
@@ -144,23 +139,23 @@ referee_sentry_cmd_shadow = frame.sentry_cmd;
 
 第一阶段只测姿态：
 
-1. 上位机发 `/ly/referee/sentry_cmd`，`posture=2`。
+1. 上位机发 `/ly/control/posture`，`field_mask=FIELD_POSTURE, posture=2`。
 2. 下位机确认收到 17B 主幀。
 3. 下位机确认 `sentry_cmd bit21-22 == 2`。
 4. 下位机封装裁判 `0x0301 / 0x0120`，写入 `bit21-22`。
 5. 下位机从实际状态回传 TypeID 6 `ChassisData.Posture`。
 6. 上位机 `/ly/gimbal/posture` 能看到 `2`。
 
-测试命令：
+BT 主链路测试：
 
 ```bash
-ros2 topic pub /ly/referee/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 32, posture: 2}" -1
+ros2 topic pub /ly/control/posture gimbal_driver/msg/SentryCmd "{field_mask: 32, posture: 2}" -1
 ```
 
-旧兼容入口也可测：
+完整 `SentryCmd` 入口也可直接测：
 
 ```bash
-ros2 topic pub /ly/control/posture std_msgs/msg/UInt8 "{data: 2}" -1
+ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 32, posture: 2}" -1
 ```
 
 ## 8. 对接文件
@@ -170,7 +165,7 @@ ros2 topic pub /ly/control/posture std_msgs/msg/UInt8 "{data: 2}" -1
   - `GimbalControlData`
 - `src/gimbal_driver/msg/SentryCmd.msg`
 - `src/gimbal_driver/main.cpp`
-  - `/ly/referee/sentry_cmd`
-  - `/ly/control/posture` 兼容转写
+  - `/ly/control/sentry_cmd`
+  - `/ly/control/posture` 姿态主入口，转写到 `SentryCmd.Posture`
 - `docs/sentry/embedded/downlink_control_frame.md`
 - `docs/sentry/embedded/referee_serial_integration.md`

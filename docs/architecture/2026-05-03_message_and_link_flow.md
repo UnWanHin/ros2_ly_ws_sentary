@@ -45,7 +45,7 @@
    ↓ 發布: /ly/predictor/target
    ↓
 [behavior_tree] ← 訂閱: /ly/predictor/target
-   ↓ 發布: /ly/control/angles + /ly/control/firecode (+ /ly/control/vel,/ly/control/posture)
+   ↓ 發布: /ly/control/angles + /ly/control/firecode (+ /ly/control/vel,/ly/control/posture,/ly/control/sentry_cmd)
    ↓
 [gimbal_driver] ← 訂閱: /ly/control/*
    ↓ 串口下發主控制幀

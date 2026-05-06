@@ -23,8 +23,8 @@ Updated: 2026-05-06
   - `/ly/control/angles`
   - `/ly/control/vel`
   - `/ly/control/firecode`
-  - `/ly/referee/sentry_cmd`
-  - `/ly/control/posture`，兼容旧姿态入口，会转写到 `SentryCmd.Posture`
+  - `/ly/control/posture`，BT 姿态切换主入口，消息类型也是 `SentryCmd`，只使用 `FIELD_POSTURE`
+  - `/ly/control/sentry_cmd`，完整哨兵裁判命令入口，供复活、兑弹、能量机关确认等字段使用
 
 ## 3. 主控制幀
 
@@ -56,8 +56,8 @@ Updated: 2026-05-06
 | `/ly/control/angles` | `GimbalAngles` | `GimbalAngles.Yaw/Pitch` | 直接写 float |
 | `/ly/control/vel` | `ControlVelocity` | `Velocity.X/Y` | `use_raw=true` 时直接写 `raw_x/raw_y` |
 | `/ly/control/firecode` | `FireCode` | `FireCode` | 支持 `field_mask` 局部更新 |
-| `/ly/referee/sentry_cmd` | `SentryCmd` | `SentryCmd` | 支持 `field_mask` 局部更新 |
-| `/ly/control/posture` | `UInt8` | `SentryCmd.Posture` | 旧兼容入口，只改 `bit21-22` |
+| `/ly/control/posture` | `SentryCmd` | `SentryCmd.Posture` | 姿态切换主入口，只使用 `FIELD_POSTURE`，只改 `bit21-22` |
+| `/ly/control/sentry_cmd` | `SentryCmd` | `SentryCmd` | 支持 `field_mask` 局部更新，给非姿态裁判命令使用 |
 
 ## 4. `FireCode` 位语义（1B）
 
@@ -92,13 +92,17 @@ Updated: 2026-05-06
 
 ### 5.1 ROS `SentryCmd.msg`
 
-`/ly/referee/sentry_cmd` 使用 `gimbal_driver/msg/SentryCmd`：
+`/ly/control/sentry_cmd` 使用 `gimbal_driver/msg/SentryCmd`：
 
 - `field_mask=0` 或 `FIELD_ALL`：完整快照，所有字段都应用。
 - `field_mask!=0`：只更新 mask 指定字段，未指定字段保留 `gimbal_driver` 当前 shadow。
 - `raw` 只用于调试和记录；当前 `gimbal_driver` 按语义字段组包，不按 `raw` 反解。
 
-当前 BT 姿态链路只发布：
+当前 BT 姿态链路发布 `/ly/control/posture`，消息类型为 `gimbal_driver/msg/SentryCmd`。
+`gimbal_driver` 只取其中 `FIELD_POSTURE/posture` 写入 `SentryCmd.Posture`。
+`/ly/control/sentry_cmd` 保留为完整 `SentryCmd` 命令入口。
+
+姿态链路应只发布：
 
 ```text
 field_mask = FIELD_POSTURE
@@ -107,15 +111,15 @@ posture = 1/2/3
 
 ### 5.2 姿态重发策略
 
-- 收到 `/ly/referee/sentry_cmd` 且 mask 包含 `FIELD_POSTURE` 时，写入 `SentryCmd.Posture`。
-- 收到旧 `/ly/control/posture` 的 `1/2/3` 时，也转写到 `SentryCmd.Posture`。
+- 收到 `/ly/control/posture` 且 mask 包含 `FIELD_POSTURE` 时，转写到 `SentryCmd.Posture`。
+- 收到 `/ly/control/sentry_cmd` 且 mask 包含 `FIELD_POSTURE` 时，也会写入 `SentryCmd.Posture`。
 - 每次姿态切换按参数重发（默认 `3` 次，间隔 `20ms`）。
 - 串口重连后会按当前姿态再次触发重发。
 
 ### 5.3 姿态回读语义
 
 - `/ly/gimbal/posture` 表示**下位机回读状态**，当前来源 `TypeID=6 ChassisData.Posture`。
-- 不建议将 `/ly/referee/sentry_cmd.posture` 或 `/ly/control/posture` 直接镜像回
+- 不建议将 `/ly/control/sentry_cmd.posture` 或 `/ly/control/posture` 直接镜像回
   `/ly/gimbal/posture`，否则会掩盖“已下发但未执行”的链路问题。
 - 若下位机暂未实现回读，`/ly/gimbal/posture` 可保持未更新，上位机会按无回读路径处理。
 
@@ -173,12 +177,12 @@ set_bits_u32(&sentry_cmd_shadow, 0x3u << 21, frame.sentry_cmd & (0x3u << 21));
 
 | 下发动作 | 推荐参考状态 |
 |---|---|
-| 免费复活 | `/ly/referee/sentry_info.can_confirm_free_revive` |
-| 立即复活 | `/ly/referee/sentry_info.can_exchange_immediate_revive` 和 `immediate_revive_cost` |
-| 非远程兑弹 | `/ly/referee/bullet_info.remaining_gold_coin`、`projectile_allowance_17mm`、`/ly/me/rfid` |
-| 远程兑弹 | `/ly/referee/sentry_info.out_of_combat`、`remaining_exchangeable_17mm`、`remaining_gold_coin` |
-| 远程回血 | `/ly/referee/sentry_info.out_of_combat`、`remote_hp_exchange_count`、`remaining_gold_coin` |
-| 能量机关确认 | `/ly/referee/sentry_info.can_activate_energy_mechanism` 和 `/ly/game/event_data` 能量机关状态 |
+| 免费复活 | `/ly/gimbal/sentryinfo.can_confirm_free_revive` |
+| 立即复活 | `/ly/gimbal/sentryinfo.can_exchange_immediate_revive` 和 `immediate_revive_cost` |
+| 非远程兑弹 | `/ly/gimbal/bulletinfo.remaining_gold_coin`、`projectile_allowance_17mm`、`/ly/me/rfid` |
+| 远程兑弹 | `/ly/gimbal/sentryinfo.out_of_combat`、`remaining_exchangeable_17mm`、`remaining_gold_coin` |
+| 远程回血 | `/ly/gimbal/sentryinfo.out_of_combat`、`remote_hp_exchange_count`、`remaining_gold_coin` |
+| 能量机关确认 | `/ly/gimbal/sentryinfo.can_activate_energy_mechanism` 和 `/ly/game/event_data` 能量机关状态 |
 
 ## 9. 版本切换建议
 
@@ -202,14 +206,14 @@ ros2 topic pub /ly/control/angles gimbal_driver/msg/GimbalAngles "{yaw: 10.0, pi
 ros2 topic pub /ly/control/firecode gimbal_driver/msg/FireCode "{field_mask: 1, fire_status: 3}" -1
 ```
 
-发姿态（新链路，防御）：
+发姿态（BT 主链路，防御）：
 
 ```bash
-ros2 topic pub /ly/referee/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 32, posture: 2}" -1
+ros2 topic pub /ly/control/posture gimbal_driver/msg/SentryCmd "{field_mask: 32, posture: 2}" -1
 ```
 
-发姿态（旧兼容入口，仍可用）：
+直接测试完整 `SentryCmd` 入口：
 
 ```bash
-ros2 topic pub /ly/control/posture std_msgs/msg/UInt8 "{data: 2}" -1
+ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 32, posture: 2}" -1
 ```

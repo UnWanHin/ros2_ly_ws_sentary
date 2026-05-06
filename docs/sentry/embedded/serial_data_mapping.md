@@ -81,7 +81,7 @@ struct GimbalControlData
 | 3~6 | `GimbalAngles.Yaw` | `float` | `/ly/control/angles.yaw` | 直接写 `float` |
 | 7~10 | `GimbalAngles.Pitch` | `float` | `/ly/control/angles.pitch` | 直接写 `float` |
 | 11 | `FireCode` | `uint8` | `/ly/control/firecode` 分字段 | `FireCode` msg 组包；partial 字段 100ms 超时退回 0 |
-| 12~15 | `SentryCmd` | `uint32` | `/ly/referee/sentry_cmd` 或兼容 `/ly/control/posture` | little-endian，映射裁判 `0x0120 sentry_cmd` |
+| 12~15 | `SentryCmd` | `uint32` | `/ly/control/posture` 或 `/ly/control/sentry_cmd` | little-endian，映射裁判 `0x0120 sentry_cmd` |
 | 16 | `Tail` | `uint8` | 固定值 | `0x00` |
 
 ### 3.1.2 ROS 输入与字段映射
@@ -93,8 +93,8 @@ struct GimbalControlData
 | `/ly/control/vel` | `x_mps/raw_x/use_raw` | `Velocity.X` | 语义速度或原始 int8 |
 | `/ly/control/vel` | `y_mps/raw_y/use_raw` | `Velocity.Y` | 语义速度或原始 int8 |
 | `/ly/control/firecode` | `fire_status/cap_state/follow_mode/aim_mode/rotate/field_mask` | `FireCode` | 分字段组包 |
-| `/ly/referee/sentry_cmd` | `confirm/revive/exchange/posture/energy` | `SentryCmd` | 分字段组包，直接对应裁判 `0x0120` |
-| `/ly/control/posture` | `data` | `SentryCmd.Posture` | 兼容旧入口，只改 `bit21-22` |
+| `/ly/control/posture` | `field_mask/posture` | `SentryCmd.Posture` | BT 姿态切换主入口，消息类型为 `SentryCmd`，只使用 `FIELD_POSTURE` |
+| `/ly/control/sentry_cmd` | `confirm/revive/exchange/posture/energy` | `SentryCmd` | 分字段组包，直接对应裁判 `0x0120` |
 
 ### 3.1.3 `FireCode` 位定义
 
@@ -129,8 +129,8 @@ struct GimbalControlData
 
 当前代码行为：
 
-1. BT 主链路发布 `/ly/referee/sentry_cmd`，`field_mask=FIELD_POSTURE`
-2. 旧 `/ly/control/posture` 仍可用，会转写到 `SentryCmd.Posture`
+1. BT 姿态主链路发布 `/ly/control/posture`，消息类型为 `gimbal_driver/msg/SentryCmd`
+2. `/ly/control/sentry_cmd` 仍可直接写 `SentryCmd`，包含姿态、复活、兑弹、远程回血、能量机关确认等字段
 3. `0` 允许写入，表示“不请求姿态切换 / 保留值”
 4. `1/2/3` 为有效姿态
 5. 有效姿态会按参数做重发
@@ -367,7 +367,7 @@ struct RFIDAndBuffData{
 
 | 串口字段 | 发布 topic | ROS 字段 / 备注 |
 |---|---|---|
-| `RFIDStatus` | `/ly/me/rfid` | `RfidStatus` 拆字段，当前串口 payload 只覆盖 bit0-31；ROS msg 已预留 `rfid_status_2` |
+| `RFIDStatus` | `/ly/me/rfid` | `RfidStatus` 拆字段，TypeID=4 覆盖 bit0-31；TypeID=8 补 `rfid_status_2` |
 | `BuffStatus.RecoveryBuff` | `/ly/team/buff` | `recoverybuff` |
 | `BuffStatus.CoolingBuff` | `/ly/team/buff` | `coolingbuff` |
 | `BuffStatus.DefenceBuff` | `/ly/team/buff` | `defencebuff` |
@@ -415,10 +415,10 @@ struct RFIDAndBuffData{
 注意：
 
 - `BuffStatus.reserve` 当前没有被发布
-- `0x0209` 的 `rfid_status_2`（额外 8 bit）当前未并入 `TypeID=4`；本链路实际承载仍是 `rfid_status` 低 32 位
-- `/ly/me/rfid` 的 `RfidStatus` 已预留 `has_rfid_status_2`、`rfid_status_2_raw` 和 bit0-5 的语义字段；收到 TypeID=8 后会把 `rfid_status_2` 合并发布
+- `0x0209` 的 `rfid_status_2`（额外 8 bit）不并入 `TypeID=4`，由 `TypeID=8` 承载
+- `/ly/me/rfid` 的 `RfidStatus` 包含 `has_rfid_status_2`、`rfid_status_2_raw` 和 bit0-5 的语义字段；收到 TypeID=8 后会把 `rfid_status_2` 合并发布
 
-### 5.5.3 `rfid_status_2` 预留语义（RM2026 V1.3.0，0x0209 offset 4）
+### 5.5.3 `rfid_status_2` 扩展语义（RM2026 V1.3.0，0x0209 offset 4）
 
 | bit | ROS 字段 | 含义 |
 |---|---|---|
@@ -544,12 +544,12 @@ struct SentryData {
 
 | 串口字段 | 裁判系统字段 | 发布 topic / ROS 字段 |
 |---|---|---|
-| `SentryInfo` | `0x020D sentry_info` offset 0 | `/ly/referee/sentry_info.sentry_info_raw`，并拆语义字段 |
-| `SentryInfo2` | `0x020D sentry_info_2` offset 4 | `/ly/referee/sentry_info.sentry_info_2_raw`，并拆语义字段 |
-| `BulletInitialSpeed` | `0x0207 shoot_data.initial_speed` offset 3 | `/ly/referee/bullet_info.initial_speed` |
-| `Reserved` | 上下位机保留 | `/ly/referee/sentry_info.reserved` |
+| `SentryInfo` | `0x020D sentry_info` offset 0 | `/ly/gimbal/sentryinfo.sentry_info_raw`，并拆语义字段 |
+| `SentryInfo2` | `0x020D sentry_info_2` offset 4 | `/ly/gimbal/sentryinfo.sentry_info_2_raw`，并拆语义字段 |
+| `BulletInitialSpeed` | `0x0207 shoot_data.initial_speed` offset 3 | `/ly/gimbal/bulletinfo.initial_speed` |
+| `Reserved` | 上下位机保留 | `/ly/gimbal/sentryinfo.reserved` |
 
-`/ly/referee/sentry_info` 不覆盖 `/ly/gimbal/posture`。`0x020D sentry_info_2 bit12-13`
+`/ly/gimbal/sentryinfo` 不覆盖 `/ly/gimbal/posture`。`0x020D sentry_info_2 bit12-13`
 会发布到 `SentryInfo.posture`，原 `/ly/gimbal/posture` 仍只表示 TypeID=6 的下位机/云台姿态回读。
 
 ### 5.8.1 `SentryInfo` 拆字段
@@ -590,19 +590,19 @@ struct BulletDataAndRfid2 {
 
 | 串口字段 | 裁判系统字段 | 发布 topic / ROS 字段 |
 |---|---|---|
-| `BulletType` | `0x0207 shoot_data.bullet_type` offset 0 | `/ly/referee/bullet_info.bullet_type` |
-| `ShooterNumber` | `0x0207 shoot_data.shooter_number` offset 1 | `/ly/referee/bullet_info.shooter_number` |
-| `LaunchingFrequency` | `0x0207 shoot_data.launching_frequency` offset 2 | `/ly/referee/bullet_info.launching_frequency` |
-| `ProjectileAllowance17mm` | `0x0208 projectile_allowance_17mm` offset 0 | `/ly/referee/bullet_info.projectile_allowance_17mm` |
-| `ProjectileAllowance42mm` | `0x0208 projectile_allowance_42mm` offset 2 | `/ly/referee/bullet_info.projectile_allowance_42mm` |
-| `RemainingGoldCoin` | `0x0208 remaining_gold_coin` offset 4 | `/ly/referee/bullet_info.remaining_gold_coin` |
-| `ProjectileAllowanceFortress` | `0x0208 projectile_allowance_fortress` offset 6 | `/ly/referee/bullet_info.projectile_allowance_fortress_17mm` |
-| `RfidStatus2` | `0x0209 rfid_status_2` offset 4 | `/ly/me/rfid.rfid_status_2_raw`，也保留在 `/ly/referee/bullet_info.rfid_status_2_raw` |
+| `BulletType` | `0x0207 shoot_data.bullet_type` offset 0 | `/ly/gimbal/bulletinfo.bullet_type` |
+| `ShooterNumber` | `0x0207 shoot_data.shooter_number` offset 1 | `/ly/gimbal/bulletinfo.shooter_number` |
+| `LaunchingFrequency` | `0x0207 shoot_data.launching_frequency` offset 2 | `/ly/gimbal/bulletinfo.launching_frequency` |
+| `ProjectileAllowance17mm` | `0x0208 projectile_allowance_17mm` offset 0 | `/ly/gimbal/bulletinfo.projectile_allowance_17mm` |
+| `ProjectileAllowance42mm` | `0x0208 projectile_allowance_42mm` offset 2 | `/ly/gimbal/bulletinfo.projectile_allowance_42mm` |
+| `RemainingGoldCoin` | `0x0208 remaining_gold_coin` offset 4 | `/ly/gimbal/bulletinfo.remaining_gold_coin` |
+| `ProjectileAllowanceFortress` | `0x0208 projectile_allowance_fortress` offset 6 | `/ly/gimbal/bulletinfo.projectile_allowance_fortress_17mm` |
+| `RfidStatus2` | `0x0209 rfid_status_2` offset 4 | `/ly/me/rfid.rfid_status_2_raw` |
 
 注意：`0x0207` 被拆在 TypeID=7 和 TypeID=8 两帧中。下位机应在收到一次 `0x0207`
 时同步更新内部 `shoot_data` shadow，再分别填入 TypeID=7/8。上位机以最近一次值合成
-`/ly/referee/bullet_info`，并通过 `has_initial_speed`、`has_shoot_data`、
-`has_projectile_allowance`、`has_rfid_status_2` 标记当前消息中哪些部分已经收到。
+`/ly/gimbal/bulletinfo`，并通过 `has_initial_speed`、`has_shoot_data`、
+`has_projectile_allowance` 标记当前消息中哪些部分已经收到。
 
 `TypeID=8` 的 `rfid_status_2` 会合并到现有 `/ly/me/rfid`。如果 TypeID=8 先于 TypeID=4
 到达，上位机会先缓存 `rfid_status_2`，等 TypeID=4 的低 32 位 `rfid_status` 到达后再发布完整
@@ -621,8 +621,8 @@ struct BulletDataAndRfid2 {
 | 底盘速度 x | `GimbalControlData.Velocity.X` | `/ly/control/vel` (`ControlVelocity`) |
 | 底盘速度 y | `GimbalControlData.Velocity.Y` | `/ly/control/vel` (`ControlVelocity`) |
 | 火控字段 | `GimbalControlData.FireCode` | `/ly/control/firecode` (`FireCode`) |
-| 哨兵裁判命令 | `GimbalControlData.SentryCmd` | `/ly/referee/sentry_cmd` (`SentryCmd`) |
-| 姿态兼容入口 | `GimbalControlData.SentryCmd.Posture` | `/ly/control/posture` |
+| 姿态命令 | `GimbalControlData.SentryCmd.Posture` | `/ly/control/posture` |
+| 哨兵裁判命令 | `GimbalControlData.SentryCmd` | `/ly/control/sentry_cmd` (`SentryCmd`) |
 
 ## 6.2 下位机 -> 上位机已对接
 
@@ -654,11 +654,11 @@ struct BulletDataAndRfid2 {
 | `6` | 自身朝向 | `ChassisData.UWBAngleYaw` | `/ly/me/uwb_yaw` |
 | `6` | 底盘回读（四元） | `ChassisPacked1/2`（8位整数+8位小数） | `/ly/gimbal/chassis` |
 | `6` | 姿态回读 | `ChassisData.Posture`（先低8位，后高8位） | `/ly/gimbal/posture` |
-| `7` | 哨兵自主决策状态 | `SentryData.SentryInfo/SentryInfo2` | `/ly/referee/sentry_info` |
-| `7` | 发射初速度 | `SentryData.BulletInitialSpeed` | `/ly/referee/bullet_info` |
-| `8` | 发射事件字段 | `BulletDataAndRfid2.BulletType/ShooterNumber/LaunchingFrequency` | `/ly/referee/bullet_info` |
-| `8` | 允许发弹量/金币 | `BulletDataAndRfid2.ProjectileAllowance* / RemainingGoldCoin` | `/ly/referee/bullet_info` |
-| `8` | RFID 扩展字节 | `BulletDataAndRfid2.RfidStatus2` | `/ly/me/rfid` 和 `/ly/referee/bullet_info` |
+| `7` | 哨兵自主决策状态 | `SentryData.SentryInfo/SentryInfo2` | `/ly/gimbal/sentryinfo` |
+| `7` | 发射初速度 | `SentryData.BulletInitialSpeed` | `/ly/gimbal/bulletinfo` |
+| `8` | 发射事件字段 | `BulletDataAndRfid2.BulletType/ShooterNumber/LaunchingFrequency` | `/ly/gimbal/bulletinfo` |
+| `8` | 允许发弹量/金币 | `BulletDataAndRfid2.ProjectileAllowance* / RemainingGoldCoin` | `/ly/gimbal/bulletinfo` |
+| `8` | RFID 扩展字节 | `BulletDataAndRfid2.RfidStatus2` | `/ly/me/rfid` |
 
 ---
 
@@ -683,10 +683,10 @@ struct BulletDataAndRfid2 {
 
 | 裁判协议项 | 方向 | 当前本仓库状态 |
 |---|---|---|
-| `0x0207 shoot_data` | 裁判系统 -> 机器人状态 | 已通过 TypeID=7/8 进入 `/ly/referee/bullet_info`；旧 `/ly/bullet/speed` 仍保留 TypeID=5 来源 |
-| `0x0208 projectile_allowance` | 裁判系统 -> 机器人状态 | 已通过 TypeID=8 进入 `/ly/referee/bullet_info`；旧 `/ly/me/ammo_left` 仍保留 TypeID=1 来源 |
-| `0x020D sentry_info/sentry_info_2` | 裁判系统 -> 哨兵状态 | 已通过 TypeID=7 进入 `/ly/referee/sentry_info`；不会覆盖 `/ly/gimbal/posture` |
-| `0x0301 + data_cmd_id=0x0120 sentry_cmd` | 机器人 -> 裁判系统命令 | 已通过 `/ly/referee/sentry_cmd` 进入主控制幀 byte `12~15`；下位机负责封装裁判 `0x0301/0x0120` |
+| `0x0207 shoot_data` | 裁判系统 -> 机器人状态 | 已通过 TypeID=7/8 进入 `/ly/gimbal/bulletinfo`；旧 `/ly/bullet/speed` 仍保留 TypeID=5 来源 |
+| `0x0208 projectile_allowance` | 裁判系统 -> 机器人状态 | 已通过 TypeID=8 进入 `/ly/gimbal/bulletinfo`；旧 `/ly/me/ammo_left` 仍保留 TypeID=1 来源 |
+| `0x020D sentry_info/sentry_info_2` | 裁判系统 -> 哨兵状态 | 已通过 TypeID=7 进入 `/ly/gimbal/sentryinfo`；不会覆盖 `/ly/gimbal/posture` |
+| `0x0301 + data_cmd_id=0x0120 sentry_cmd` | 机器人 -> 裁判系统命令 | 姿态经 `/ly/control/posture` 写入 `SentryCmd bit21-22`；完整命令也可通过 `/ly/control/sentry_cmd` 进入主控制幀 byte `12~15`；下位机负责封装裁判 `0x0301/0x0120` |
 
 ### 8.1 当前看弹量和兑弹怎么走
 
@@ -699,12 +699,12 @@ struct BulletDataAndRfid2 {
   -> behavior_tree ammoLeft
 ```
 
-当前“兑弹”的下发接口已经接到 `/ly/referee/sentry_cmd` 和主控制幀 `SentryCmd`。但 BT 目前仍只会根据低弹量进入 Recovery/回补策略；除了姿态以外，还没有自动产生兑换弹量、远程兑换次数或远程回血次数。
+当前“兑弹”的下发接口已经接到 `/ly/control/sentry_cmd` 和主控制幀 `SentryCmd`。BT 姿态切换主链路走 `/ly/control/posture`，其它 `SentryCmd` 字段还没有自动策略主动下发；BT 目前仍只会根据低弹量进入 Recovery/回补策略。
 
 如果后续要实现自动兑弹，建议按两个方向补齐：
 
 1. 状态回读：下位机把 `0x0208` 和 `0x020D` 拆成语义状态。当前已用 TypeID=7/8 上发 `0x0207`、`0x0208`、`0x0209 rfid_status_2` 和 `0x020D`；若后续还要更多裁判字段，应继续新增明确语义字段或新 TypeID。
-2. 命令下发：当前已新增上位机 -> 下位机语义命令 `/ly/referee/sentry_cmd`，不再挤进 `FireCode`。该命令最终由下位机写入裁判 `0x0301/0x0120 sentry_cmd`，包括兑换弹量、远程兑换请求次数、远程回血请求次数、确认复活、确认能量机关激活等字段。
+2. 命令下发：当前已新增上位机 -> 下位机语义命令 `/ly/control/sentry_cmd`，不再挤进 `FireCode`。该命令最终由下位机写入裁判 `0x0301/0x0120 sentry_cmd`，包括兑换弹量、远程兑换请求次数、远程回血请求次数、确认复活、确认能量机关激活等字段。
 
 注意：`0x020D` 是状态回读，不是上位机发出去的命令。真正的兑弹/激活确认命令在 `0x0301/0x0120 sentry_cmd`。
 

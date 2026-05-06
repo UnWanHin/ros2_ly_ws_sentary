@@ -163,8 +163,8 @@ launch_gimbal_driver() {
 
 publish_once() {
   local value="$1"
-  echo "[POSTURE-TEST][TX] topic=${TX_TOPIC} data=${value}" >&2
-  ros2 topic pub "${TX_TOPIC}" std_msgs/msg/UInt8 "{data: ${value}}" -1 >/dev/null
+  echo "[POSTURE-TEST][TX] topic=${TX_TOPIC} posture=${value}" >&2
+  ros2 topic pub "${TX_TOPIC}" gimbal_driver/msg/SentryCmd "{field_mask: 32, posture: ${value}}" -1 >/dev/null
 }
 
 run_tx_loop() {

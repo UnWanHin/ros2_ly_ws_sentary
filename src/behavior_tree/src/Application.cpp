@@ -206,7 +206,7 @@ std::string DefaultConfigPathForProfile(const std::string& pkg_path, const std::
         pub_vision_mode_     = node_->create_publisher<std_msgs::msg::UInt8>(ly_vision_mode::Name, 10);
         pub_gimbal_control_  = node_->create_publisher<gimbal_driver::msg::GimbalAngles>(ly_control_angles::Name, 10);
         pub_gimbal_firecode_ = node_->create_publisher<gimbal_driver::msg::FireCode>(ly_control_firecode::Name, 10);
-        pub_referee_sentry_cmd_ = node_->create_publisher<gimbal_driver::msg::SentryCmd>(ly_referee_sentry_cmd::Name, 10);
+        pub_control_posture_ = node_->create_publisher<gimbal_driver::msg::SentryCmd>(ly_control_posture::Name, 10);
         pub_gimbal_vel_      = node_->create_publisher<gimbal_driver::msg::ControlVelocity>(ly_control_vel::Name, 10);
         pub_navi_vel_        = node_->create_publisher<gimbal_driver::msg::Vel>(ly_navi_vel::Name, 10);
         pub_navi_target_rel_ = node_->create_publisher<auto_aim_common::msg::RelativeTarget>(ly_navi_target_rel::Name, 10);

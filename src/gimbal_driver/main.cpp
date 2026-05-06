@@ -11,7 +11,7 @@
  * 3) 发布 /ly/gimbal/* 与 /ly/game/*（回传状态）
  *
  * 备注：
- * - /ly/referee/sentry_cmd 为裁判命令输入，/ly/control/posture 保留为姿态兼容入口。
+ * - /ly/control/sentry_cmd 为完整裁判命令输入，/ly/control/posture 为姿态命令输入。
  * - /ly/gimbal/posture 仅发布下位机回传状态。
  */
 #include <chrono>
@@ -57,8 +57,8 @@ namespace
     LY_DEF_ROS_TOPIC(ly_control_angles, "/ly/control/angles", gimbal_driver::msg::GimbalAngles);
     LY_DEF_ROS_TOPIC(ly_control_firecode, "/ly/control/firecode", gimbal_driver::msg::FireCode);
     LY_DEF_ROS_TOPIC(ly_control_vel, "/ly/control/vel", gimbal_driver::msg::ControlVelocity);
-    LY_DEF_ROS_TOPIC(ly_control_posture, "/ly/control/posture", std_msgs::msg::UInt8);
-    LY_DEF_ROS_TOPIC(ly_referee_sentry_cmd, "/ly/referee/sentry_cmd", gimbal_driver::msg::SentryCmd);
+    LY_DEF_ROS_TOPIC(ly_control_posture, "/ly/control/posture", gimbal_driver::msg::SentryCmd);
+    LY_DEF_ROS_TOPIC(ly_control_sentry_cmd, "/ly/control/sentry_cmd", gimbal_driver::msg::SentryCmd);
 
     LY_DEF_ROS_TOPIC(ly_gimbal_angles, "/ly/gimbal/angles", gimbal_driver::msg::GimbalAngles);
     LY_DEF_ROS_TOPIC(ly_gimbal_firecode, "/ly/gimbal/firecode", gimbal_driver::msg::FireCode);
@@ -94,8 +94,8 @@ namespace
     LY_DEF_ROS_TOPIC(ly_team_buff, "/ly/team/buff", gimbal_driver::msg::BuffData);
     LY_DEF_ROS_TOPIC(ly_me_rfid, "/ly/me/rfid", gimbal_driver::msg::RfidStatus);
     LY_DEF_ROS_TOPIC(ly_position_data, "/ly/position/data", gimbal_driver::msg::PositionData);
-    LY_DEF_ROS_TOPIC(ly_referee_sentry_info, "/ly/referee/sentry_info", gimbal_driver::msg::SentryInfo);
-    LY_DEF_ROS_TOPIC(ly_referee_bullet_info, "/ly/referee/bullet_info", gimbal_driver::msg::BulletInfo);
+    LY_DEF_ROS_TOPIC(ly_gimbal_sentryinfo, "/ly/gimbal/sentryinfo", gimbal_driver::msg::SentryInfo);
+    LY_DEF_ROS_TOPIC(ly_gimbal_bulletinfo, "/ly/gimbal/bulletinfo", gimbal_driver::msg::BulletInfo);
         
 
     using namespace std::chrono_literals;
@@ -444,7 +444,7 @@ namespace
             if (has_field(gimbal_driver::msg::SentryCmd::FIELD_POSTURE)) {
                 const auto posture = ClampU2(m.posture);
                 if (m.posture != posture) {
-                    roslog::warn("Invalid /ly/referee/sentry_cmd posture: %u (expect 0/1/2/3)",
+                    roslog::warn("Invalid /ly/control/sentry_cmd posture: %u (expect 0/1/2/3)",
                                  m.posture);
                 }
                 g.SentryCmd.Posture = posture;
@@ -561,9 +561,16 @@ namespace
                                        g.Velocity.Y = EncodeVelocityRaw(m.y_mps);
                                    });
 
-            GenSub<ly_control_posture>([this](GimbalControlData& g, const std_msgs::msg::UInt8& m)
+            GenSub<ly_control_posture>([this](GimbalControlData& g, const gimbal_driver::msg::SentryCmd& m)
                                        {
-                                           const auto cmd = m.data;
+                                           const bool has_posture =
+                                               m.field_mask == 0 ||
+                                               ((m.field_mask & gimbal_driver::msg::SentryCmd::FIELD_POSTURE) != 0);
+                                           if (!has_posture) {
+                                               roslog::warn("/ly/control/posture missing FIELD_POSTURE; ignore");
+                                               return;
+                                           }
+                                           const auto cmd = m.posture;
                                            if (cmd != 0 && !IsValidPosture(cmd)) {
                                                roslog::warn("Invalid /ly/control/posture: %u (expect 0/1/2/3)", cmd);
                                                return;
@@ -579,7 +586,7 @@ namespace
                                            ArmPostureTx(cmd);
                                        });
 
-            GenSub<ly_referee_sentry_cmd>([this](GimbalControlData& g, const gimbal_driver::msg::SentryCmd& m)
+            GenSub<ly_control_sentry_cmd>([this](GimbalControlData& g, const gimbal_driver::msg::SentryCmd& m)
                                           {
                                               ApplySentryCmdCommand(g, m);
                                           });
@@ -596,7 +603,7 @@ namespace
         }
 
         void PublishBulletInfo(const rclcpp::Time& stamp) {
-            using topic = ly_referee_bullet_info;
+            using topic = ly_gimbal_bulletinfo;
             topic::Msg msg;
             msg.header.stamp = stamp;
 
@@ -618,9 +625,6 @@ namespace
                 hasBulletDataAndRfid2_ ? latestBulletDataAndRfid2_.RemainingGoldCoin : 0;
             msg.projectile_allowance_fortress_17mm =
                 hasBulletDataAndRfid2_ ? latestBulletDataAndRfid2_.ProjectileAllowanceFortress : 0;
-
-            msg.has_rfid_status_2 = hasRfidStatus2_;
-            msg.rfid_status_2_raw = hasRfidStatus2_ ? latestRfidStatus2_ : 0;
             Node.Publisher<topic>()->publish(msg);
         }
 
@@ -867,7 +871,7 @@ namespace
         void PubSentryData(const SentryData& data) {
             const auto now = Node.GetNode()->now();
             {
-                using topic = ly_referee_sentry_info;
+                using topic = ly_gimbal_sentryinfo;
                 auto msg = ToSentryInfoMsg(data);
                 msg.header.stamp = now;
                 Node.Publisher<topic>()->publish(msg);

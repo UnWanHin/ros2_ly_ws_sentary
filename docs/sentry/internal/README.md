@@ -8,6 +8,7 @@ Updated: 2026-05-06
 
 | 文件 | 内容 |
 |---|---|
+| `ros2_topic_structure.md` | 当前 ROS2 topic 分层、内外部边界、关键消息结构 |
 | `decision_visualization.md` | 决策 trace 与离线 pygame viewer 维护说明 |
 
 ## 维护重点

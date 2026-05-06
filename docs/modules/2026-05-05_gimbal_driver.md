@@ -104,7 +104,8 @@ main()
 | `/ly/control/angles` (`GimbalAngles`) | `GimbalControlData.GimbalAngles.Yaw/Pitch` | 期望雲台角 |
 | `/ly/control/firecode` (`FireCode`) | `GimbalControlData.FireCode` | 分字段開火/電容/模式/旋轉指令 |
 | `/ly/control/vel` (`ControlVelocity`) | `GimbalControlData.Velocity.X/Y` | 語義速度；`use_raw=true` 時保留原 int8 下發 |
-| `/ly/control/posture` (`UInt8`) | `GimbalControlData.Posture` | 姿態指令（0=保留, 1=進攻, 2=防禦, 3=移動） |
+| `/ly/control/posture` (`SentryCmd`) | `GimbalControlData.SentryCmd.Posture` | 姿態指令，只使用 `FIELD_POSTURE`（0=保留, 1=進攻, 2=防禦, 3=移動） |
+| `/ly/control/sentry_cmd` (`SentryCmd`) | `GimbalControlData.SentryCmd` | 完整哨兵裁判命令入口 |
 
 姿態下發採用「主控制幀並入字段」策略：
 - `Posture` 並入 `GimbalControlData`，與角度/速度/火控同包下發
@@ -231,7 +232,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData>
 | `/ly/me/ammo_left` | `UInt16` | 剩餘子彈 |
 | `/ly/bullet/speed` | `Float32` | 子彈速度（m/s，当前代码发布 `PositionData.BulletSpeed / 100.0f`） |
 | `/ly/team/buff` | `BuffData` | 能量機關增益狀態 |
-| `/ly/me/rfid` | `RfidStatus` | 0x0209 `rfid_status` 低 32 位拆字段；`rfid_status_2` 字段已预留，当前下位机未提供时 `has_rfid_status_2=false` |
+| `/ly/me/rfid` | `RfidStatus` | 0x0209 `rfid_status` 低 32 位拆字段；TypeID 8 的 `rfid_status_2` 也合并在这里 |
 | `/ly/position/data` | `PositionData` | UWB位置數據 |
 | `/ly/me/uwb_pos` | `UInt16MultiArray` | 自身UWB位置[x, y] |
 | `/ly/gimbal/chassis` | `Chassis` | 底盘四元反馈（`steer_angle`, `angular_velocity`, `velocity_x`, `velocity_y`） |
@@ -246,7 +247,8 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData>
 | `/ly/control/angles` | `GimbalAngles` | 接收決策節點的目標角度 |
 | `/ly/control/firecode` | `FireCode` | 接收分字段火控指令 |
 | `/ly/control/vel` | `ControlVelocity` | 接收語義速度/原始速度指令 |
-| `/ly/control/posture` | `UInt8` | 接收姿態指令（上位決策輸入） |
+| `/ly/control/posture` | `SentryCmd` | 接收姿態指令（上位決策輸入，只使用 `FIELD_POSTURE`） |
+| `/ly/control/sentry_cmd` | `SentryCmd` | 接收完整哨兵裁判命令 |
 
 ### 姿態下發参数
 
@@ -254,14 +256,14 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData>
 |---|---:|---|
 | `repeat_count` | `3` | 每次切换默认重发 3 次 |
 | `repeat_interval_ms` | `20` | 重发间隔 20ms |
-| `field` | `GimbalControlData.Posture` | 姿态并入主控制幀字段 |
+| `field` | `GimbalControlData.SentryCmd.Posture` | 姿态并入主控制幀 `SentryCmd` 字段 |
 
 ---
 
 ## 修改注意事項
 
 - **串口協議調整**：修改 `module/BasicTypes.hpp` 的結構體時一定要注意字節對齊和電控端的協議版本一致
-- **姿態指令協議策略**：姿態併入 `GimbalControlData.Posture`，主包長度變更需與下位機同步升級
+- **姿態指令協議策略**：姿態併入 `GimbalControlData.SentryCmd.Posture`，主包長度變更需與下位機同步升級
 - **新增 Topic**：在 `main.cpp` 增加 `LY_DEF_ROS_TOPIC` 定義和對應的 `Pub*()` 函數，並在 `LoopRead()` 的 switch-case 中處理
 - **`/ly/bullet/speed`**：当前实现直接发布 `data.BulletSpeed / 100.0f`；若下游表现为固定弹速，优先检查下游是否又做默认值或平滑策略
 - **虛擬設備**：調試時可設置 YAML 參數 `io_config/use_virtual_device: true` 來使用迴環模式而無需電控硬件

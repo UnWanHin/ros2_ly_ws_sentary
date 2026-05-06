@@ -286,7 +286,7 @@ void TreeTick() {
 | `/ly/control/angles` | 目標雲台角（`gimbalControlData.GimbalAngles`） |
 | `/ly/control/firecode` | 火控碼（開火狀態、電容、FollowMode、瞄準模式、旋轉速度） |
 | `/ly/control/vel` | 底盤速度指令（導航） |
-| `/ly/control/posture` | 姿態指令（0不下發/1進攻/2防禦/3移動） |
+| `/ly/control/posture` | 姿態指令，`SentryCmd` 只帶 `FIELD_POSTURE`（0不下發/1進攻/2防禦/3移動） |
 | `/ly/vision/mode` | 視覺鏈路模式，`UInt8`：0=DISABLED, 1=ARMOR, 2=BUFF, 3=OUTPOST |
 | `/ly/bt/target` | 當前打擊目標類型（→ `detector` 和 `predictor`） |
 | `/ly/face_mode/target_raw` | FaceMode 动态目标，`[official_map_x, official_map_y, map_z]` cm |
