@@ -22,10 +22,10 @@ Updated: 2026-05-06
 
 | 裁判 cmd_id | 裁判结构 | 下位机上发 TypeID | ROS topic | 说明 |
 |---|---|---|---|---|
-| `0x0207` | `shoot_data_t` | TypeID 7/8 | `/ly/gimbal/bulletinfo` | 初速度放 TypeID 7，弹丸类型/发射机构/射频放 TypeID 8 |
-| `0x0208` | `projectile_allowance_t` | TypeID 8 | `/ly/gimbal/bulletinfo` | 17mm、42mm、剩余金币、堡垒储备 17mm |
-| `0x0209` | `rfid_status_t` | TypeID 4/8 | `/ly/me/rfid` | 低 32 bit 仍走 TypeID 4，`rfid_status_2` 走 TypeID 8 |
-| `0x020D` | `sentry_info_t` | TypeID 7 | `/ly/gimbal/sentryinfo` | 兑换成功次数、脱战、复活、姿态、能量机关可激活 |
+| `0x0207` | `shoot_data_t` | TypeID 7/8 | `/ly/game/bullet` | 初速度放 TypeID 7，弹丸类型/发射机构/射频放 TypeID 8 |
+| `0x0208` | `projectile_allowance_t` | TypeID 8 | `/ly/game/bullet` | 17mm、42mm、剩余金币、堡垒储备 17mm |
+| `0x0209` | `rfid_status_t` | TypeID 4/8 | `/ly/game/rfid` | 低 32 bit 仍走 TypeID 4，`rfid_status_2` 走 TypeID 8 |
+| `0x020D` | `sentry_info_t` | TypeID 7 | `/ly/game/sentry/info` | 兑换成功次数、脱战、复活、姿态、能量机关可激活 |
 
 TypeID 7/8 的具体 12B 布局见：
 

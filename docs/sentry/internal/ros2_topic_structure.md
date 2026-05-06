@@ -1,6 +1,6 @@
 # ROS2 Topic Structure
 
-Updated: 2026-05-06
+Updated: 2026-05-07
 
 本文记录当前哨兵上位机 ROS2 topic 结构，按接口边界分为：
 
@@ -21,8 +21,8 @@ Updated: 2026-05-06
 |---|---|---|
 | `/ly/control/*` | Embedded-facing | 上位机控制输入，`gimbal_driver` 订阅后写入下行主控制帧。 |
 | `/ly/gimbal/*` | Embedded-facing | 下位机/云台/底盘回读状态，由 `gimbal_driver` 发布。 |
-| `/ly/game/*` | Embedded-facing | 裁判系统比赛状态语义，由 `gimbal_driver` 从下位机上行拆出。 |
-| `/ly/me/*`, `/ly/enemy/*`, `/ly/team/*` | Embedded-facing | 血量、弹量、RFID、队伍增益等语义状态。 |
+| `/ly/game/*` | Embedded-facing | 裁判系统比赛状态、RFID、哨兵裁判信息和弹丸资源语义，由 `gimbal_driver` 从下位机上行拆出。 |
+| `/ly/friend/*`, `/ly/enemy/*`, `/ly/team/*` | Embedded-facing | 我方/敌方血量、弹量、队伍增益等语义状态。 |
 | `/ly/vision/*`, `/ly/bt/*`, `/ly/detector/*`, `/ly/predictor/*`, `/ly/buff/*`, `/ly/outpost/*` | Internal | 视觉、预测、任务模式和 BT 内部协作。 |
 | `/ly/face_mode/*` | Internal | FaceMode 固定点朝向链路。 |
 | `/ly/navi/*`, `/goal_pose` | External | 导航目标、导航桥、导航状态和 TF 导出的定位接口。 |
@@ -62,31 +62,31 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/gimbal/vel` | `gimbal_driver/msg/Vel` | 调试/兼容 | `header`, `x`, `y`。 |
 | `/ly/gimbal/chassis` | `gimbal_driver/msg/Chassis` | `behavior_tree` | `steer_angle`, `angular_velocity`, `velocity_x`, `velocity_y`。 |
 | `/ly/gimbal/big_yaw_angles` | `std_msgs/msg/Float32` | 调试/可视化 | 大 yaw 角。 |
-| `/ly/gimbal/posture` | `std_msgs/msg/UInt8` | `behavior_tree` | 下位机/裁判姿态回读，`1/2/3` 有效；TypeID 7 的 `sentryinfo.posture` 会覆盖 TypeID 6 回读；不要镜像命令。 |
+| `/ly/gimbal/posture` | `std_msgs/msg/UInt8` | `behavior_tree` | 下位机/裁判姿态回读，`1/2/3` 有效；TypeID 7 的 `/ly/game/sentry/info.posture` 会覆盖 TypeID 6 回读；不要镜像命令。 |
 | `/ly/gimbal/capV` | `std_msgs/msg/UInt8` | `behavior_tree` | 电容电压/电容状态回读。 |
-| `ly/gimbal/eventdata` | `std_msgs/msg/UInt32` | 兼容链路 | legacy 原始 event data，注意当前 gimbal 侧定义无前导 `/`。 |
+| `ly/gimbal/eventdata` | `std_msgs/msg/UInt32` | legacy 调试/兼容 | legacy 原始 event data，注意当前 gimbal 侧定义无前导 `/`；`behavior_tree` 不再订阅。 |
 | `/ly/game/event_data` | `gimbal_driver/msg/EventData` | `behavior_tree` | 裁判 `0x0101 event_data` 语义拆字段。 |
 | `/ly/game/all` | `gimbal_driver/msg/GameData` | `behavior_tree` | `gamecode`, `ammoleft`, `timeleft`, `selfhealth`, `exteventdata` 摘要。 |
 | `/ly/game/is_start` | `std_msgs/msg/Bool` | `behavior_tree` | 比赛是否开始。 |
 | `/ly/game/time_left` | `std_msgs/msg/UInt16` | `behavior_tree` | 剩余比赛时间。 |
-| `/ly/me/is_team_red` | `std_msgs/msg/Bool` | `behavior_tree` | 我方是否红方。 |
-| `/ly/me/is_at_home` | `std_msgs/msg/Bool` | `behavior_tree` | 是否回补/回家状态。 |
-| `/ly/me/is_precaution` | `std_msgs/msg/Bool` | `behavior_tree` | 英雄预警。 |
-| `/ly/me/hp` | `gimbal_driver/msg/Health` | `behavior_tree` | 我方各兵种血量。 |
-| `/ly/me/base_hp` | `std_msgs/msg/UInt16` | `behavior_tree` | 我方基地血量。 |
-| `/ly/me/op_hp` | `std_msgs/msg/UInt16` | `behavior_tree` | 我方前哨血量。 |
-| `/ly/me/ammo_left` | `std_msgs/msg/UInt16` | `behavior_tree` | 当前弹量。 |
-| `/ly/me/uwb_pos` | `std_msgs/msg/UInt16MultiArray` | `behavior_tree` | 自身官方坐标 `[x, y]`，来自下位机 TypeID 5。 |
-| `/ly/me/uwb_yaw` | `std_msgs/msg/UInt16` | 调试/兼容 | 自身 UWB yaw。 |
-| `/ly/me/rfid` | `gimbal_driver/msg/RfidStatus` | `behavior_tree` | 裁判 `0x0209 rfid_status` 语义拆字段，TypeID 8 的 `rfid_status_2` 也合并在这里。 |
+| `/ly/friend/is_team_red` | `std_msgs/msg/Bool` | `behavior_tree` | 我方是否红方。 |
+| `/ly/friend/is_at_home` | `std_msgs/msg/Bool` | `behavior_tree` | 是否回补/回家状态。 |
+| `/ly/friend/is_precaution` | `std_msgs/msg/Bool` | `behavior_tree` | 英雄预警。 |
+| `/ly/friend/hp` | `gimbal_driver/msg/Health` | `behavior_tree` | 我方各兵种血量。 |
+| `/ly/friend/base_hp` | `std_msgs/msg/UInt16` | `behavior_tree` | 我方基地血量。 |
+| `/ly/friend/op_hp` | `std_msgs/msg/UInt16` | `behavior_tree` | 我方前哨血量。 |
+| `/ly/friend/ammo_left` | `std_msgs/msg/UInt16` | `behavior_tree` | 当前弹量。 |
+| `/ly/friend/uwb_pos` | `std_msgs/msg/UInt16MultiArray` | `behavior_tree` | 自身官方坐标 `[x, y]`，来自下位机 TypeID 5。 |
+| `/ly/friend/uwb_yaw` | `std_msgs/msg/UInt16` | 调试/兼容 | 自身 UWB yaw。 |
+| `/ly/game/rfid` | `gimbal_driver/msg/RfidStatus` | `behavior_tree` | 裁判 `0x0209 rfid_status` 语义拆字段，TypeID 8 的 `rfid_status_2` 也合并在这里；BT 内部聚合为 `RfidMatchState`。 |
 | `/ly/enemy/hp` | `gimbal_driver/msg/Health` | `behavior_tree` | 敌方各兵种血量。 |
 | `/ly/enemy/base_hp` | `std_msgs/msg/UInt16` | `behavior_tree` | 敌方基地血量。 |
 | `/ly/enemy/op_hp` | `std_msgs/msg/UInt16` | `behavior_tree` | 敌方前哨血量。 |
 | `/ly/team/buff` | `gimbal_driver/msg/BuffData` | `behavior_tree` | 队伍增益与剩余能量。 |
 | `/ly/position/data` | `gimbal_driver/msg/PositionData` | `behavior_tree` | 官方坐标系统中一组友方/敌方机器人位置。 |
 | `/ly/bullet/speed` | `std_msgs/msg/Float32` | predictor/调试 | 旧弹速 topic，来自 TypeID 5。 |
-| `/ly/gimbal/sentryinfo` | `gimbal_driver/msg/SentryInfo` | 后续策略/调试 | 裁判 `0x020D sentry_info/sentry_info_2` 语义拆字段；其中有效 `posture` 会同步覆盖 `/ly/gimbal/posture`；当前 BT 还未订阅此完整消息。 |
-| `/ly/gimbal/bulletinfo` | `gimbal_driver/msg/BulletInfo` | 后续策略/调试 | TypeID 7/8 合并出的弹速、发射事件、允许发弹量、金币；当前 BT 还未订阅，RFID2 不在这里。 |
+| `/ly/game/sentry/info` | `gimbal_driver/msg/SentryInfo` | 后续策略/调试 | 裁判 `0x020D sentry_info/sentry_info_2` 语义拆字段；其中有效 `posture` 会同步覆盖 `/ly/gimbal/posture`；当前 BT 还未订阅此完整消息。 |
+| `/ly/game/bullet` | `gimbal_driver/msg/BulletInfo` | 后续策略/调试 | TypeID 7/8 合并出的弹速、发射事件、允许发弹量、金币；当前 BT 还未订阅，RFID2 不在这里。 |
 
 ## 4. Internal Vision And Aim
 

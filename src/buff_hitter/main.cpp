@@ -77,7 +77,7 @@ LY_DEF_ROS_TOPIC(ly_compressed_image, "/ly/compressed/image", sensor_msgs::msg::
 LY_DEF_ROS_TOPIC(ly_gimbal_angles, "/ly/gimbal/angles", gimbal_driver::msg::GimbalAngles);
 LY_DEF_ROS_TOPIC(ly_gimbal_firecode, "/ly/gimbal/firecode", gimbal_driver::msg::FireCode);
 LY_DEF_ROS_TOPIC(ly_bullet_speed, "/ly/bullet/speed", std_msgs::msg::Float32);
-LY_DEF_ROS_TOPIC(ly_me_is_team_red, "/ly/me/is_team_red", std_msgs::msg::Bool);
+LY_DEF_ROS_TOPIC(ly_friend_is_team_red, "/ly/friend/is_team_red", std_msgs::msg::Bool);
 
 LY_DEF_ROS_TOPIC(ly_buff_target, "/ly/buff/target", auto_aim_common::msg::Target)
 LY_DEF_ROS_TOPIC(ly_buff_debug, "/ly/buff/debug", auto_aim_common::msg::BuffDebug)
@@ -675,7 +675,7 @@ public:
         [this](const std_msgs::msg::UInt8::ConstSharedPtr msg) { ra_mode_callback(msg); });
     Node.GenSubscriber<ly_bullet_speed>(
         [this](const std_msgs::msg::Float32::ConstSharedPtr msg) { bullet_speed_callback(msg); });
-    Node.GenSubscriber<ly_me_is_team_red>(
+    Node.GenSubscriber<ly_friend_is_team_red>(
         [this](const std_msgs::msg::Bool::ConstSharedPtr msg) { my_team_callback(msg); });
     
     using namespace std::chrono_literals;
@@ -712,7 +712,7 @@ public:
 
         if (buff_color_auto_ && !has_my_team_color_.load(std::memory_order_relaxed)) {
             if (!warned_waiting_team_color_) {
-                roslog::warn("buff target color auto: waiting for /ly/me/is_team_red");
+                roslog::warn("buff target color auto: waiting for /ly/friend/is_team_red");
                 warned_waiting_team_color_ = true;
             }
             prev_shoot_cmd_ = false;

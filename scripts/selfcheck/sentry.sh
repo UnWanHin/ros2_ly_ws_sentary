@@ -807,7 +807,7 @@ if (( STATIC_ONLY == 0 )); then
   check_node_sub "/detector" "/ly/vision/mode" hard
   check_node_sub "/detector" "/ly/bt/target" hard
   check_node_sub "/detector" "/ly/gimbal/angles" hard
-  check_node_sub "/detector" "/ly/me/is_team_red" hard
+  check_node_sub "/detector" "/ly/friend/is_team_red" hard
 
   # tracker/predictor
   check_node_sub "/tracker_solver" "/ly/detector/armors" hard
@@ -833,7 +833,7 @@ if (( STATIC_ONLY == 0 )); then
   check_node_sub "/behavior_tree" "/ly/gimbal/posture" hard
   check_node_sub "/behavior_tree" "/ly/game/is_start" hard
   check_node_sub "/behavior_tree" "/ly/game/time_left" hard
-  check_node_sub "/behavior_tree" "/ly/me/is_team_red" hard
+  check_node_sub "/behavior_tree" "/ly/friend/is_team_red" hard
   check_node_sub "/behavior_tree" "/ly/predictor/target" hard
   check_node_sub "/behavior_tree" "/ly/buff/target" hard
   check_node_sub "/behavior_tree" "/ly/outpost/target" hard

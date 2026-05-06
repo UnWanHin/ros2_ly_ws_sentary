@@ -160,6 +160,40 @@ json RobotsToJson(const Robots& robots, const char* side) {
     return out;
 }
 
+json RfidMatchToJson(const RfidMatchState& state) {
+    return {
+        {"fresh", state.Fresh},
+        {"any", state.Fresh && state.Any},
+        {"raw", state.Raw},
+        {"has_rfid_status_2", state.HasRfidStatus2},
+        {"rfid_status_2_raw", static_cast<int>(state.RfidStatus2Raw)},
+        {"self_base_gain_point", state.Fresh && state.SelfBaseGainPoint},
+        {"self_supply", state.Fresh && state.SelfSupply},
+        {"self_non_resource_supply", state.Fresh && state.SelfNonResourceSupply},
+        {"self_resource_supply", state.Fresh && state.SelfResourceSupply},
+        {"self_highland_gain_point", state.Fresh && state.SelfHighlandGainPoint},
+        {"enemy_highland_gain_point", state.Fresh && state.EnemyHighlandGainPoint},
+        {"self_road_crossing", state.Fresh && state.SelfRoadCrossing},
+        {"enemy_road_crossing", state.Fresh && state.EnemyRoadCrossing},
+        {"self_central_highland_crossing", state.Fresh && state.SelfCentralHighlandCrossing},
+        {"enemy_central_highland_crossing", state.Fresh && state.EnemyCentralHighlandCrossing},
+        {"self_tunnel", state.Fresh && state.SelfTunnel},
+        {"enemy_tunnel", state.Fresh && state.EnemyTunnel},
+        {"tunnel", state.Fresh && state.Tunnel},
+        {"center_gain_point", state.Fresh && state.CenterGainPoint},
+        {"self_fortress_gain_point", state.Fresh && state.SelfFortressGainPoint},
+        {"enemy_fortress_gain_point", state.Fresh && state.EnemyFortressGainPoint},
+        {"self_outpost_gain_point", state.Fresh && state.SelfOutpostGainPoint},
+        {"enemy_outpost_gain_point", state.Fresh && state.EnemyOutpostGainPoint},
+        {"self_assembly_gain_point", state.Fresh && state.SelfAssemblyGainPoint},
+        {"enemy_assembly_gain_point", state.Fresh && state.EnemyAssemblyGainPoint},
+        {"self_fly_ramp", state.Fresh && state.SelfFlyRamp},
+        {"enemy_fly_ramp", state.Fresh && state.EnemyFlyRamp},
+        {"on_self_side", state.Fresh && state.OnSelfSideRfid},
+        {"on_enemy_side", state.Fresh && state.OnEnemySideRfid},
+    };
+}
+
 json PostureValueJson(const std::uint8_t value) {
     const auto posture = ToPosture(value);
     return {
@@ -426,6 +460,7 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         {"rfid_status", rfidStatus},
         {"has_rfid_status_2", hasRfidStatus2},
         {"rfid_status_2", static_cast<int>(rfidStatus2)},
+        {"rfid_match", RfidMatchToJson(rfidMatchState)},
         {"ext_event_data", extEventData},
         {"has_event_data", hasReceivedEventData_},
         {"event_self_small_energy_status", static_cast<int>(eventSelfSmallEnergyStatus_)},

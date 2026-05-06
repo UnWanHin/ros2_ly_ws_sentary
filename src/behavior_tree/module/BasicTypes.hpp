@@ -216,6 +216,39 @@ namespace LangYa
                                       // 1%以上反馈0x10，0b10000
     };
 
+    struct RfidMatchState {
+        bool Fresh{false};
+        bool Any{false};
+        std::uint32_t Raw{0};
+        bool HasRfidStatus2{false};
+        std::uint8_t RfidStatus2Raw{0};
+
+        bool SelfBaseGainPoint{false};
+        bool SelfSupply{false};
+        bool SelfNonResourceSupply{false};
+        bool SelfResourceSupply{false};
+        bool SelfHighlandGainPoint{false};
+        bool EnemyHighlandGainPoint{false};
+        bool SelfRoadCrossing{false};
+        bool EnemyRoadCrossing{false};
+        bool SelfCentralHighlandCrossing{false};
+        bool EnemyCentralHighlandCrossing{false};
+        bool SelfTunnel{false};
+        bool EnemyTunnel{false};
+        bool Tunnel{false};
+        bool CenterGainPoint{false};
+        bool SelfFortressGainPoint{false};
+        bool EnemyFortressGainPoint{false};
+        bool SelfOutpostGainPoint{false};
+        bool EnemyOutpostGainPoint{false};
+        bool SelfAssemblyGainPoint{false};
+        bool EnemyAssemblyGainPoint{false};
+        bool SelfFlyRamp{false};
+        bool EnemyFlyRamp{false};
+        bool OnSelfSideRfid{false};
+        bool OnEnemySideRfid{false};
+    };
+
     struct RFIDAndBuffData{
         static constexpr auto TypeID = 4;
 

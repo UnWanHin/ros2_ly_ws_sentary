@@ -124,17 +124,17 @@ Updated: 2026-05-06
     - `selfhealth`
     - `gamecode`
     - `exteventdata`
-  - `/ly/me/ammo_left`
+  - `/ly/friend/ammo_left`
     - `GameData::AmmoLeft`
-  - `/ly/me/op_hp`
+  - `/ly/friend/op_hp`
     - `GameCode.SelfOutpostHealth * 25`
   - `/ly/enemy/op_hp`
     - `GameCode.EnemyOutpostHealth * 25`
-  - `/ly/me/base_hp`
+  - `/ly/friend/base_hp`
     - `HealthMyselfData::BaseMyself`
   - `/ly/enemy/base_hp`
     - `HealthEnemyData::BaseEnemy`
-  - `/ly/me/hp`
+  - `/ly/friend/hp`
     - 己方各機器人血量
   - `/ly/enemy/hp`
     - 敵方各機器人血量
@@ -159,12 +159,12 @@ BT 目前只存一份 runtime 當前資源值：
 
 - `src/behavior_tree/src/SubscribeMessage.cpp`
   - `/ly/game/all.selfhealth` -> `myselfHealth`
-  - `/ly/me/ammo_left` -> `ammoLeft`
-  - `/ly/me/op_hp` -> `selfOutpostHealth`
+  - `/ly/friend/ammo_left` -> `ammoLeft`
+  - `/ly/friend/op_hp` -> `selfOutpostHealth`
   - `/ly/enemy/op_hp` -> `enemyOutpostHealth`
-  - `/ly/me/base_hp` -> `selfBaseHealth`
+  - `/ly/friend/base_hp` -> `selfBaseHealth`
   - `/ly/enemy/base_hp` -> `enemyBaseHealth`
-  - `/ly/me/hp` / `/ly/enemy/hp` -> 己方/敵方機器人血量表
+  - `/ly/friend/hp` / `/ly/enemy/hp` -> 己方/敵方機器人血量表
 
 也就是說，BT 現在的 runtime 當前血量/彈量只有一份，不會同時保存「聯盟賽版本」和「超級對抗賽版本」。目前 profile 差異主要靠配置文件的門檻值來體現。
 

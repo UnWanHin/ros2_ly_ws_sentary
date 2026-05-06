@@ -70,16 +70,16 @@ namespace
     LY_DEF_ROS_TOPIC(ly_game_eventdata, "ly/gimbal/eventdata", std_msgs::msg::UInt32);
     LY_DEF_ROS_TOPIC(ly_game_event_data, "/ly/game/event_data", gimbal_driver::msg::EventData);
 
-    LY_DEF_ROS_TOPIC(ly_me_is_precaution, "/ly/me/is_precaution", std_msgs::msg::Bool);
-    LY_DEF_ROS_TOPIC(ly_me_is_at_home, "/ly/me/is_at_home", std_msgs::msg::Bool);
-    LY_DEF_ROS_TOPIC(ly_me_is_team_red, "/ly/me/is_team_red", std_msgs::msg::Bool);
-    LY_DEF_ROS_TOPIC(ly_me_hp, "/ly/me/hp", gimbal_driver::msg::Health);
-    LY_DEF_ROS_TOPIC(ly_me_op_hp, "/ly/me/op_hp", std_msgs::msg::UInt16);
-    LY_DEF_ROS_TOPIC(ly_me_base_hp, "/ly/me/base_hp", std_msgs::msg::UInt16);
+    LY_DEF_ROS_TOPIC(ly_friend_is_precaution, "/ly/friend/is_precaution", std_msgs::msg::Bool);
+    LY_DEF_ROS_TOPIC(ly_friend_is_at_home, "/ly/friend/is_at_home", std_msgs::msg::Bool);
+    LY_DEF_ROS_TOPIC(ly_friend_is_team_red, "/ly/friend/is_team_red", std_msgs::msg::Bool);
+    LY_DEF_ROS_TOPIC(ly_friend_hp, "/ly/friend/hp", gimbal_driver::msg::Health);
+    LY_DEF_ROS_TOPIC(ly_friend_op_hp, "/ly/friend/op_hp", std_msgs::msg::UInt16);
+    LY_DEF_ROS_TOPIC(ly_friend_base_hp, "/ly/friend/base_hp", std_msgs::msg::UInt16);
 
-    LY_DEF_ROS_TOPIC(ly_me_ammo_left, "/ly/me/ammo_left", std_msgs::msg::UInt16);
-    LY_DEF_ROS_TOPIC(ly_me_uwb_pos, "/ly/me/uwb_pos", std_msgs::msg::UInt16MultiArray);
-    LY_DEF_ROS_TOPIC(ly_me_uwb_yaw, "/ly/me/uwb_yaw", std_msgs::msg::UInt16);
+    LY_DEF_ROS_TOPIC(ly_friend_ammo_left, "/ly/friend/ammo_left", std_msgs::msg::UInt16);
+    LY_DEF_ROS_TOPIC(ly_friend_uwb_pos, "/ly/friend/uwb_pos", std_msgs::msg::UInt16MultiArray);
+    LY_DEF_ROS_TOPIC(ly_friend_uwb_yaw, "/ly/friend/uwb_yaw", std_msgs::msg::UInt16);
 
     LY_DEF_ROS_TOPIC(ly_game_is_start, "/ly/game/is_start", std_msgs::msg::Bool);
     LY_DEF_ROS_TOPIC(ly_game_time_left, "/ly/game/time_left", std_msgs::msg::UInt16);
@@ -92,10 +92,10 @@ namespace
     LY_DEF_ROS_TOPIC(ly_bullet_speed, "/ly/bullet/speed", std_msgs::msg::Float32);
 
     LY_DEF_ROS_TOPIC(ly_team_buff, "/ly/team/buff", gimbal_driver::msg::BuffData);
-    LY_DEF_ROS_TOPIC(ly_me_rfid, "/ly/me/rfid", gimbal_driver::msg::RfidStatus);
+    LY_DEF_ROS_TOPIC(ly_game_rfid, "/ly/game/rfid", gimbal_driver::msg::RfidStatus);
     LY_DEF_ROS_TOPIC(ly_position_data, "/ly/position/data", gimbal_driver::msg::PositionData);
-    LY_DEF_ROS_TOPIC(ly_gimbal_sentryinfo, "/ly/gimbal/sentryinfo", gimbal_driver::msg::SentryInfo);
-    LY_DEF_ROS_TOPIC(ly_gimbal_bulletinfo, "/ly/gimbal/bulletinfo", gimbal_driver::msg::BulletInfo);
+    LY_DEF_ROS_TOPIC(ly_game_sentry_info, "/ly/game/sentry/info", gimbal_driver::msg::SentryInfo);
+    LY_DEF_ROS_TOPIC(ly_game_bullet, "/ly/game/bullet", gimbal_driver::msg::BulletInfo);
         
 
     using namespace std::chrono_literals;
@@ -596,14 +596,14 @@ namespace
             if (!hasRfidStatusRaw_) {
                 return;
             }
-            using topic = ly_me_rfid;
+            using topic = ly_game_rfid;
             auto msg = ToRfidStatusMsg(latestRfidStatusRaw_, hasRfidStatus2_, latestRfidStatus2_);
             msg.header.stamp = stamp;
             Node.Publisher<topic>()->publish(msg);
         }
 
         void PublishBulletInfo(const rclcpp::Time& stamp) {
-            using topic = ly_gimbal_bulletinfo;
+            using topic = ly_game_bullet;
             topic::Msg msg;
             msg.header.stamp = stamp;
 
@@ -665,7 +665,7 @@ namespace
                 Node.Publisher<topic>()->publish(msg);
             }
             {
-                using topic = ly_me_ammo_left;
+                using topic = ly_friend_ammo_left;
                 topic::Msg msg;
                 msg.data = data.AmmoLeft;
                 Node.Publisher<topic>()->publish(msg);
@@ -677,7 +677,7 @@ namespace
                 Node.Publisher<topic>()->publish(msg);
             }
             {
-                using topic = ly_me_is_precaution;
+                using topic = ly_friend_is_precaution;
                 topic::Msg msg;
                 msg.data = data.GameCode.HeroPrecaution;
                 Node.Publisher<topic>()->publish(msg);
@@ -689,19 +689,19 @@ namespace
                 Node.Publisher<topic>()->publish(msg);
             }
             {
-                using topic = ly_me_is_team_red;
+                using topic = ly_friend_is_team_red;
                 topic::Msg msg;
                 msg.data = data.GameCode.IsMyTeamRed;
                 Node.Publisher<topic>()->publish(msg);
             }
             {
-                using topic = ly_me_is_at_home;
+                using topic = ly_friend_is_at_home;
                 topic::Msg msg;
                 msg.data = data.GameCode.IsReturnedHome;
                 Node.Publisher<topic>()->publish(msg);
             }
             {
-                using topic = ly_me_op_hp;
+                using topic = ly_friend_op_hp;
                 topic::Msg msg;
                 msg.data = data.GameCode.SelfOutpostHealth * 25;
                 Node.Publisher<topic>()->publish(msg);
@@ -757,7 +757,7 @@ namespace
                     Node.Publisher<topic>()->publish(msg);
                 }
                 if(data.Friend.CarId == 7) {
-                    using topic = ly_me_uwb_pos;
+                    using topic = ly_friend_uwb_pos;
                     std::vector<std::uint16_t> pos = {
                         static_cast<std::uint16_t>(data.Friend.X),
                         static_cast<std::uint16_t>(data.Friend.Y)
@@ -777,7 +777,7 @@ namespace
 
         void PubHealthMyselfData(const HealthMyselfData& data){
             {
-                using topic = ly_me_hp;
+                using topic = ly_friend_hp;
                 topic::Msg msg;
                 msg.hero = data.HeroMyself;
                 msg.engineer = data.EngineerMyself;
@@ -788,7 +788,7 @@ namespace
                 Node.Publisher<topic>()->publish(msg);
             }
             {
-                using topic = ly_me_base_hp;
+                using topic = ly_friend_base_hp;
                 topic::Msg msg;
                 msg.data = data.BaseMyself;
                 Node.Publisher<topic>()->publish(msg);
@@ -831,7 +831,7 @@ namespace
             const auto velocity_y = DecodeI16WithScale(vel_y_u16, 100.0f);
 
             {
-                using topic = ly_me_uwb_yaw;
+                using topic = ly_friend_uwb_yaw;
                 topic::Msg msg;
                 msg.data = data.UWBAngleYaw;
                 Node.Publisher<topic>()->publish(msg);
@@ -873,7 +873,7 @@ namespace
             auto sentry_info_msg = ToSentryInfoMsg(data);
             sentry_info_msg.header.stamp = now;
             {
-                using topic = ly_gimbal_sentryinfo;
+                using topic = ly_game_sentry_info;
                 Node.Publisher<topic>()->publish(sentry_info_msg);
             }
             if (IsValidPosture(sentry_info_msg.posture)) {

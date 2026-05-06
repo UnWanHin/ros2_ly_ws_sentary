@@ -147,6 +147,9 @@ private:
     std::uint32_t rfidStatus{0}; // 0x0209 rfid_status（低32位）
     bool hasRfidStatus2{false}; // 0x0209 rfid_status_2 是否已由下位机提供
     std::uint8_t rfidStatus2{0}; // 0x0209 rfid_status_2 预留扩展字节
+    RfidMatchState rfidMatchState{};
+    bool hasReceivedRfidStatus_{false};
+    std::chrono::steady_clock::time_point lastRfidStatusRxTime_{};
     std::uint32_t extEventData{};
     bool hasReceivedEventData_{false};
     std::uint8_t eventSelfSmallEnergyStatus_{0};

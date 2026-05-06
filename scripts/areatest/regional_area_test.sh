@@ -28,10 +28,10 @@ Options:
   --cleanup-existing     Clean previous sentry_all launch tree before starting (default from start_sentry_all.sh)
   --no-cleanup-existing  Keep existing sentry_all launch tree
   --offline              Pass offline:=true to sentry_all
-  --fake-referee         Publish healthy /ly/game/all and /ly/me/ammo_left for bench tests
+  --fake-referee         Publish healthy /ly/game/all and /ly/friend/ammo_left for bench tests
   --hp VALUE             Fake referee self health, default 450
   --ammo VALUE           Fake referee ammo_left, default 200
-  --red|--blue           With --fake-referee, publish /ly/me/is_team_red
+  --red|--blue           With --fake-referee, publish /ly/friend/is_team_red
 
 Examples:
   ./scripts/areatest/regional_base.sh --pure
@@ -220,7 +220,7 @@ start_fake_referee_publishers() {
     >/dev/null 2>&1 &
   CHILD_PIDS+=("$!")
 
-  ros2 topic pub -r 5 /ly/me/ammo_left std_msgs/msg/UInt16 \
+  ros2 topic pub -r 5 /ly/friend/ammo_left std_msgs/msg/UInt16 \
     "{data: ${FAKE_AMMO}}" \
     >/dev/null 2>&1 &
   CHILD_PIDS+=("$!")
@@ -231,7 +231,7 @@ start_fake_referee_publishers() {
   CHILD_PIDS+=("$!")
 
   if [[ -n "${FAKE_TEAM_RED}" ]]; then
-    ros2 topic pub -r 2 /ly/me/is_team_red std_msgs/msg/Bool \
+    ros2 topic pub -r 2 /ly/friend/is_team_red std_msgs/msg/Bool \
       "{data: ${FAKE_TEAM_RED}}" \
       >/dev/null 2>&1 &
     CHILD_PIDS+=("$!")

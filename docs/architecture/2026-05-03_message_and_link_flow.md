@@ -68,7 +68,7 @@
   - 類型: [`gimbal_driver::msg::GimbalAngles`](../../src/gimbal_driver/msg/GimbalAngles.msg)
   - 內容: `yaw`, `pitch`
 
-- `/ly/me/is_team_red` - 我方隊伍顏色
+- `/ly/friend/is_team_red` - 我方隊伍顏色
   - 類型: `std_msgs::msg::Bool`
   - 內容: `true` = 紅方, `false` = 藍方
 
@@ -84,7 +84,7 @@
 ```cpp
 // 定義 Topic (第 29-62 行)
 LY_DEF_ROS_TOPIC(ly_gimbal_angles, "/ly/gimbal/angles", gimbal_driver::msg::GimbalAngles);
-LY_DEF_ROS_TOPIC(ly_me_is_team_red, "/ly/me/is_team_red", std_msgs::msg::Bool);
+LY_DEF_ROS_TOPIC(ly_friend_is_team_red, "/ly/friend/is_team_red", std_msgs::msg::Bool);
 LY_DEF_ROS_TOPIC(ly_bullet_speed, "/ly/bullet/speed", std_msgs::msg::Float32);
 ```
 
@@ -96,7 +96,7 @@ LY_DEF_ROS_TOPIC(ly_bullet_speed, "/ly/bullet/speed", std_msgs::msg::Float32);
 
 **訂閱的 Topic**:
 - `/ly/gimbal/angles` - 雲台角度 (用於 PnP 解算)
-- `/ly/me/is_team_red` - 隊伍顏色 (用於顏色過濾)
+- `/ly/friend/is_team_red` - 隊伍顏色 (用於顏色過濾)
 - `/ly/bt/target` - 目標選擇 (決策模塊發送，可選)
 - `/ly/vision/mode` - 視覺模式，`1=ARMOR`, `2=BUFF`, `3=OUTPOST`
 
@@ -590,10 +590,10 @@ ros2 topic hz /ly/predictor/target
 1. **遊戲狀態** (來自 gimbal_driver):
    - `/ly/game/is_start` - 比賽是否開始
    - `/ly/game/time_left` - 剩餘時間
-   - `/ly/me/hp` - 我方血量
+   - `/ly/friend/hp` - 我方血量
    - `/ly/enemy/hp` - 敵方血量
-   - `/ly/me/is_at_home` - 是否在家
-   - `/ly/me/ammo_left` - 剩餘彈藥
+   - `/ly/friend/is_at_home` - 是否在家
+   - `/ly/friend/ammo_left` - 剩餘彈藥
 
 2. **檢測結果**:
    - `/ly/detector/armors` - 裝甲板檢測

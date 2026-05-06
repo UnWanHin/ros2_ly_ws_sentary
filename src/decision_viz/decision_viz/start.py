@@ -172,7 +172,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--mock-ammo",
         type=int,
         default=200,
-        help="Mock /ly/me/ammo_left value for --offline-decision (default: 200).",
+        help="Mock /ly/friend/ammo_left value for --offline-decision (default: 200).",
     )
     parser.add_argument(
         "--mock-posture",

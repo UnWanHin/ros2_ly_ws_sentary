@@ -8,7 +8,7 @@
  * 核心职责：
  * 1) 输入图像（相机/视频），执行装甲板+车辆检测
  * 2) 输出 /ly/detector/armors 供 tracker_solver 使用
- * 3) 读取 /ly/me/is_team_red 与 /ly/bt/target 做目标过滤
+ * 3) 读取 /ly/friend/is_team_red 与 /ly/bt/target 做目标过滤
  *
  * 兼容策略：
  * - 参数同时支持 dot/slash 两种命名，统一读 auto_aim_config.yaml。
@@ -80,7 +80,7 @@ namespace {
 LY_DEF_ROS_TOPIC(ly_vision_mode, "/ly/vision/mode", std_msgs::msg::UInt8);
 LY_DEF_ROS_TOPIC(ly_camera_image, "/ly/camera/image", sensor_msgs::msg::Image);
 LY_DEF_ROS_TOPIC(ly_backcamera_image, "/ly/backcamera/image", sensor_msgs::msg::Image);
-LY_DEF_ROS_TOPIC(ly_me_is_team_red, "/ly/me/is_team_red", std_msgs::msg::Bool);
+LY_DEF_ROS_TOPIC(ly_friend_is_team_red, "/ly/friend/is_team_red", std_msgs::msg::Bool);
 LY_DEF_ROS_TOPIC(ly_bt_target, "/ly/bt/target", std_msgs::msg::UInt8);
 LY_DEF_ROS_TOPIC(ly_detector_armors, "/ly/detector/armors", auto_aim_common::msg::Armors);
 LY_DEF_ROS_TOPIC(ly_detector_high_armors, "/ly/detector/high_armors", auto_aim_common::msg::Armors);
@@ -1363,7 +1363,7 @@ int main(int argc, char **argv) try {
 
     std::cout << "[DEBUG] All Models Loaded Successfully!" << std::endl;
 
-    global_node->GenSubscriber<ly_me_is_team_red>(my_team_callback);
+    global_node->GenSubscriber<ly_friend_is_team_red>(my_team_callback);
     global_node->GenSubscriber<ly_bt_target>(get_target_callback);
     global_node->GenSubscriber<ly_gimbal_angles>(gimbal_callback);
     global_node->GenSubscriber<ly_vision_mode>(vision_mode_callback);

@@ -1,6 +1,6 @@
 # 上位机下发协议总览（给下位机）
 
-Updated: 2026-05-06
+Updated: 2026-05-07
 
 ## 1. 目的与范围
 
@@ -123,7 +123,7 @@ posture = 1/2/3
 - `TypeID=7` 的有效 `posture=1/2/3` 会覆盖发布到 `/ly/gimbal/posture`；`0` 不主动清掉当前姿态。
 - 不建议将 `/ly/control/sentry_cmd.posture` 或 `/ly/control/posture` 直接镜像回
   `/ly/gimbal/posture`，否则会掩盖“已下发但未执行”的链路问题。
-- 若下位机暂未实现 TypeID 6 回读，但已经透传裁判 `0x020D`，`/ly/gimbal/posture` 仍可由 `sentryinfo.posture` 更新。
+- 若下位机暂未实现 TypeID 6 回读，但已经透传裁判 `0x020D`，`/ly/gimbal/posture` 仍可由 `/ly/game/sentry/info.posture` 更新。
 
 ## 6. 下位机实现要求
 
@@ -180,12 +180,12 @@ set_bits_u32(&sentry_cmd_shadow, 0x3u << 21, frame.sentry_cmd & (0x3u << 21));
 
 | 下发动作 | 推荐参考状态 |
 |---|---|
-| 免费复活 | `/ly/gimbal/sentryinfo.can_confirm_free_revive` |
-| 立即复活 | `/ly/gimbal/sentryinfo.can_exchange_immediate_revive` 和 `immediate_revive_cost` |
-| 非远程兑弹 | `/ly/gimbal/bulletinfo.remaining_gold_coin`、`projectile_allowance_17mm`、`/ly/me/rfid` |
-| 远程兑弹 | `/ly/gimbal/sentryinfo.out_of_combat`、`remaining_exchangeable_17mm`、`remaining_gold_coin` |
-| 远程回血 | `/ly/gimbal/sentryinfo.out_of_combat`、`remote_hp_exchange_count`、`remaining_gold_coin` |
-| 能量机关确认 | `/ly/gimbal/sentryinfo.can_activate_energy_mechanism` 和 `/ly/game/event_data` 能量机关状态 |
+| 免费复活 | `/ly/game/sentry/info.can_confirm_free_revive` |
+| 立即复活 | `/ly/game/sentry/info.can_exchange_immediate_revive` 和 `immediate_revive_cost` |
+| 非远程兑弹 | `/ly/game/bullet.remaining_gold_coin`、`projectile_allowance_17mm`、`/ly/game/rfid` |
+| 远程兑弹 | `/ly/game/sentry/info.out_of_combat`、`remaining_exchangeable_17mm`、`remaining_gold_coin` |
+| 远程回血 | `/ly/game/sentry/info.out_of_combat`、`remote_hp_exchange_count`、`remaining_gold_coin` |
+| 能量机关确认 | `/ly/game/sentry/info.can_activate_energy_mechanism` 和 `/ly/game/event_data` 能量机关状态 |
 
 ## 9. 版本切换建议
 

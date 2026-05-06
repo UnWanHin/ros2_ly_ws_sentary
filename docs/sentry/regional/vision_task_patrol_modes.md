@@ -226,7 +226,7 @@ behavior_tree AimMode::RotateScan
 gimbal_driver/msg/EventData
 ```
 
-同時還保留 raw 來源：
+`gimbal_driver` 同時還保留 raw 來源作調試/兼容；`behavior_tree` 不再依賴它們：
 
 ```text
 /ly/game/all.exteventdata

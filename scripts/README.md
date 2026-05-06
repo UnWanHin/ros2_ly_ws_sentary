@@ -236,7 +236,7 @@ python3 ./scripts/python/start.py --keep-to-navi
 ./scripts/areatest/regional_central.sh --pure --fake-referee
 ```
 
-`--fake-referee` 只用于测试，会发布健康的 `/ly/game/all`、`/ly/me/ammo_left` 和开赛标志；上车连真实下位机时不要开这个选项。
+`--fake-referee` 只用于测试，会发布健康的 `/ly/game/all`、`/ly/friend/ammo_left` 和开赛标志；上车连真实下位机时不要开这个选项。
 
 ### Selfcheck
 

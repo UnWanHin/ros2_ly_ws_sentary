@@ -203,10 +203,10 @@ ros2 launch behavior_tree behavior_tree.launch.py
 
 **遊戲狀態**:
 - `/ly/game/is_start` - 比賽是否開始
-- `/ly/me/hp` - 我方血量
+- `/ly/friend/hp` - 我方血量
 - `/ly/enemy/hp` - 敵方血量
-- `/ly/me/ammo_left` - 剩餘彈藥
-- `/ly/me/is_at_home` - 是否在家
+- `/ly/friend/ammo_left` - 剩餘彈藥
+- `/ly/friend/is_at_home` - 是否在家
 
 ### behavior_tree 發布的 Topic
 

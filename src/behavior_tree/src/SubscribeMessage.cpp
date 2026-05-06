@@ -9,6 +9,61 @@ using namespace LangYa;
 
 namespace BehaviorTree{
 
+    namespace {
+    RfidMatchState BuildRfidMatchState(const gimbal_driver::msg::RfidStatus& msg) {
+        RfidMatchState state;
+        state.Fresh = true;
+        state.Raw = msg.raw;
+        state.HasRfidStatus2 = msg.has_rfid_status_2;
+        state.RfidStatus2Raw = msg.rfid_status_2_raw;
+
+        state.SelfBaseGainPoint = msg.self_base_gain_point;
+        state.SelfNonResourceSupply = msg.self_non_resource_supply_or_rmul_supply;
+        state.SelfResourceSupply = msg.self_resource_supply;
+        state.SelfSupply = state.SelfNonResourceSupply || state.SelfResourceSupply;
+        state.SelfHighlandGainPoint =
+            msg.self_central_highland_gain_point || msg.self_trapezoid_highland_gain_point;
+        state.EnemyHighlandGainPoint =
+            msg.enemy_central_highland_gain_point || msg.enemy_trapezoid_highland_gain_point;
+        state.SelfRoadCrossing = msg.self_road_lower_crossing || msg.self_road_upper_crossing;
+        state.EnemyRoadCrossing = msg.enemy_road_lower_crossing || msg.enemy_road_upper_crossing;
+        state.SelfCentralHighlandCrossing =
+            msg.self_central_highland_lower_crossing || msg.self_central_highland_upper_crossing;
+        state.EnemyCentralHighlandCrossing =
+            msg.enemy_central_highland_lower_crossing || msg.enemy_central_highland_upper_crossing;
+        state.SelfTunnel =
+            msg.self_tunnel_road_lower || msg.self_tunnel_road_middle || msg.self_tunnel_road_upper ||
+            msg.self_tunnel_trapezoid_low || msg.self_tunnel_trapezoid_middle ||
+            msg.self_tunnel_trapezoid_high;
+        state.EnemyTunnel =
+            msg.enemy_tunnel_road_lower || msg.enemy_tunnel_road_middle || msg.enemy_tunnel_road_upper ||
+            msg.enemy_tunnel_trapezoid_low || msg.enemy_tunnel_trapezoid_middle ||
+            msg.enemy_tunnel_trapezoid_high;
+        state.Tunnel = state.SelfTunnel || state.EnemyTunnel;
+        state.CenterGainPoint = msg.center_gain_point;
+        state.SelfFortressGainPoint = msg.self_fortress_gain_point;
+        state.EnemyFortressGainPoint = msg.enemy_fortress_gain_point;
+        state.SelfOutpostGainPoint = msg.self_outpost_gain_point;
+        state.EnemyOutpostGainPoint = msg.enemy_outpost_gain_point;
+        state.SelfAssemblyGainPoint = msg.self_assembly_gain_point;
+        state.EnemyAssemblyGainPoint = msg.enemy_assembly_gain_point;
+        state.SelfFlyRamp = msg.self_fly_ramp_front || msg.self_fly_ramp_back;
+        state.EnemyFlyRamp = msg.enemy_fly_ramp_front || msg.enemy_fly_ramp_back;
+
+        state.OnSelfSideRfid =
+            state.SelfBaseGainPoint || state.SelfSupply || state.SelfHighlandGainPoint ||
+            state.SelfRoadCrossing || state.SelfCentralHighlandCrossing || state.SelfTunnel ||
+            state.SelfFortressGainPoint || state.SelfOutpostGainPoint || state.SelfAssemblyGainPoint ||
+            state.SelfFlyRamp;
+        state.OnEnemySideRfid =
+            state.EnemyHighlandGainPoint || state.EnemyRoadCrossing ||
+            state.EnemyCentralHighlandCrossing || state.EnemyTunnel || state.EnemyFortressGainPoint ||
+            state.EnemyOutpostGainPoint || state.EnemyAssemblyGainPoint || state.EnemyFlyRamp;
+        state.Any = state.OnSelfSideRfid || state.OnEnemySideRfid || state.CenterGainPoint;
+        return state;
+    }
+    }  // namespace
+
     void Application::PrintMessageAll() {
         LoggerPtr->Debug("-------------PrintMessageAll-------------");
         LoggerPtr->Debug("|  Myself Hreo Position: {}, {}", friendRobots[UnitType::Hero].position_.X, friendRobots[UnitType::Hero].position_.Y);
@@ -49,14 +104,6 @@ namespace BehaviorTree{
         // 2) 裁判/比赛态数据（血量、弹药、时间、开赛标志）
         // 3) 感知与预测结果（装甲板、predictor/buff/outpost 目标）
         // 4) 导航与定位（速度、位置、低头标志）
-        auto cache_event_data_raw = [](Application& app, const std::uint32_t raw) {
-            app.extEventData = raw;
-            app.eventSelfSmallEnergyStatus_ = static_cast<std::uint8_t>((raw >> 3U) & 0x03U);
-            app.eventSelfLargeEnergyStatus_ = static_cast<std::uint8_t>((raw >> 5U) & 0x03U);
-            app.hasReceivedEventData_ = true;
-            app.lastEventDataRxTime_ = std::chrono::steady_clock::now();
-        };
-
         // ly_gimbal_angles
         GenSub<ly_gimbal_angles>([](Application& app, auto msg) {
             app.gimbalAngles = GimbalAnglesType{
@@ -94,12 +141,7 @@ namespace BehaviorTree{
             app.capV = msg->data;
         });
 
-        // ly_game_eventdata
-        GenSub<ly_game_eventdata>([cache_event_data_raw](Application& app, auto msg) {
-            cache_event_data_raw(app, msg->data);
-        });
-
-        // ly_game_event_data
+        // ly_game_event_data: semantic referee 0x0101 event_data topic.
         GenSub<ly_game_event_data>([](Application& app, auto msg) {
             app.extEventData = msg->raw;
             app.eventSelfSmallEnergyStatus_ = msg->self_small_energy_status;
@@ -108,20 +150,8 @@ namespace BehaviorTree{
             app.lastEventDataRxTime_ = std::chrono::steady_clock::now();
         });
 
-        // 兼容历史 topic（无前导 '/'）:
-        // gimbal_driver 旧版本可能发布到 "ly/gimbal/eventdata"。
-        // 为避免链路断开，这里额外订阅一次，统一写入同一变量。
-        auto legacy_game_event_sub = node_->create_subscription<std_msgs::msg::UInt32>(
-            "ly/gimbal/eventdata",
-            rclcpp::QoS(10),
-            [this, cache_event_data_raw](const std_msgs::msg::UInt32::SharedPtr msg) {
-                cache_event_data_raw(*this, msg->data);
-            }
-        );
-        subscribers_.push_back(legacy_game_event_sub);
-
-        // ly_me_is_team_red
-        GenSub<ly_me_is_team_red>([](Application& app, auto msg) {
+        // ly_friend_is_team_red
+        GenSub<ly_friend_is_team_red>([](Application& app, auto msg) {
             app.team = msg->data ? UnitTeam::Red : UnitTeam::Blue;
         });
 
@@ -138,13 +168,13 @@ namespace BehaviorTree{
             app.enemyOutpostHealth = msg->data;
         });
 
-        // ly_me_op_hp
-        GenSub<ly_me_op_hp>([](Application& app, auto msg) {
+        // ly_friend_op_hp
+        GenSub<ly_friend_op_hp>([](Application& app, auto msg) {
             app.selfOutpostHealth = msg->data;
         });
 
-        // ly_me_base_hp
-        GenSub<ly_me_base_hp>([](Application& app, auto msg) {
+        // ly_friend_base_hp
+        GenSub<ly_friend_base_hp>([](Application& app, auto msg) {
             app.selfBaseHealth = msg->data;
         });
 
@@ -153,8 +183,8 @@ namespace BehaviorTree{
             app.enemyBaseHealth = msg->data;
         });
 
-        // ly_me_ammo_left
-        GenSub<ly_me_ammo_left>([](Application& app, auto msg) {
+        // ly_friend_ammo_left
+        GenSub<ly_friend_ammo_left>([](Application& app, auto msg) {
             app.ammoLeft = msg->data;
             app.hasReceivedAmmoLeft_ = true;
             app.lastAmmoLeftRxTime = std::chrono::steady_clock::now();
@@ -210,11 +240,14 @@ namespace BehaviorTree{
             app.teamBuff.RemainingEnergy = msg->remainingenergy;
         });
 
-        // ly_me_rfid
-        GenSub<ly_me_rfid>([](Application& app, auto msg) {
+        // ly_game_rfid
+        GenSub<ly_game_rfid>([](Application& app, auto msg) {
             app.rfidStatus = msg->raw;
             app.hasRfidStatus2 = msg->has_rfid_status_2;
             app.rfidStatus2 = msg->rfid_status_2_raw;
+            app.rfidMatchState = BuildRfidMatchState(*msg);
+            app.hasReceivedRfidStatus_ = true;
+            app.lastRfidStatusRxTime_ = std::chrono::steady_clock::now();
         });
 
         // ly_navi_position
@@ -371,8 +404,8 @@ namespace BehaviorTree{
             app.enemyRobots[UnitType::Sentry].setCurrentHealth(static_cast<std::uint16_t>(msg->sentry));
         });
 
-        // ly_me_hp
-        GenSub<ly_me_hp>([](Application& app, auto msg) {
+        // ly_friend_hp
+        GenSub<ly_friend_hp>([](Application& app, auto msg) {
             app.friendRobots[UnitType::Hero].setCurrentHealth(static_cast<std::uint16_t>(msg->hero));
             app.friendRobots[UnitType::Engineer].setCurrentHealth(static_cast<std::uint16_t>(msg->engineer));
             app.friendRobots[UnitType::Infantry1].setCurrentHealth(static_cast<std::uint16_t>(msg->infantry1));

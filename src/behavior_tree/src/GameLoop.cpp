@@ -32,6 +32,7 @@ namespace BehaviorTree {
     constexpr int kLeagueRouteCompatViaHoldSec = 5;
     constexpr int kOfficialFieldWidthCm = 2800;
     constexpr int kOfficialFieldHeightCm = 1500;
+    constexpr auto kRfidFreshTimeout = std::chrono::milliseconds(1000);
     // 丢 1~2 帧时保留锁角，避免抖动；时间过长会让云台“粘住旧目标”。
     constexpr auto kLostTargetHold = std::chrono::milliseconds(200);
 
@@ -176,6 +177,10 @@ namespace BehaviorTree {
         const bool has_outpost_target = outpostAimData.Fresh && outpostAimData.Valid;
         const bool IsFindTarget = has_auto_target || has_buff_target || has_outpost_target;
         const auto now = std::chrono::steady_clock::now();
+        rfidMatchState.Fresh =
+            hasReceivedRfidStatus_ &&
+            lastRfidStatusRxTime_.time_since_epoch().count() != 0 &&
+            now - lastRfidStatusRxTime_ <= kRfidFreshTimeout;
         const auto enemy_team = team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
         const bool self_position_fresh =
             hasReceivedSentryPosition_ &&
@@ -207,6 +212,21 @@ namespace BehaviorTree {
         GlobalBlackboard_->set<std::uint32_t>("RfidStatus", rfidStatus);
         GlobalBlackboard_->set<bool>("HasRfidStatus2", hasRfidStatus2);
         GlobalBlackboard_->set<std::uint8_t>("RfidStatus2", rfidStatus2);
+        GlobalBlackboard_->set<RfidMatchState>("RfidMatch", rfidMatchState);
+        GlobalBlackboard_->set<bool>("RfidFresh", rfidMatchState.Fresh);
+        GlobalBlackboard_->set<bool>("RfidAny", rfidMatchState.Fresh && rfidMatchState.Any);
+        GlobalBlackboard_->set<bool>("RfidSelfSupply", rfidMatchState.Fresh && rfidMatchState.SelfSupply);
+        GlobalBlackboard_->set<bool>("RfidSelfBaseGainPoint", rfidMatchState.Fresh && rfidMatchState.SelfBaseGainPoint);
+        GlobalBlackboard_->set<bool>("RfidSelfHighlandGainPoint", rfidMatchState.Fresh && rfidMatchState.SelfHighlandGainPoint);
+        GlobalBlackboard_->set<bool>("RfidEnemyHighlandGainPoint", rfidMatchState.Fresh && rfidMatchState.EnemyHighlandGainPoint);
+        GlobalBlackboard_->set<bool>("RfidSelfRoadCrossing", rfidMatchState.Fresh && rfidMatchState.SelfRoadCrossing);
+        GlobalBlackboard_->set<bool>("RfidEnemyRoadCrossing", rfidMatchState.Fresh && rfidMatchState.EnemyRoadCrossing);
+        GlobalBlackboard_->set<bool>("RfidSelfTunnel", rfidMatchState.Fresh && rfidMatchState.SelfTunnel);
+        GlobalBlackboard_->set<bool>("RfidEnemyTunnel", rfidMatchState.Fresh && rfidMatchState.EnemyTunnel);
+        GlobalBlackboard_->set<bool>("RfidTunnel", rfidMatchState.Fresh && rfidMatchState.Tunnel);
+        GlobalBlackboard_->set<bool>("RfidCenterGainPoint", rfidMatchState.Fresh && rfidMatchState.CenterGainPoint);
+        GlobalBlackboard_->set<bool>("RfidOnSelfSide", rfidMatchState.Fresh && rfidMatchState.OnSelfSideRfid);
+        GlobalBlackboard_->set<bool>("RfidOnEnemySide", rfidMatchState.Fresh && rfidMatchState.OnEnemySideRfid);
         GlobalBlackboard_->set<std::uint32_t>("ExtEventData", extEventData);
         GlobalBlackboard_->set<bool>("HasEventData", hasReceivedEventData_);
         GlobalBlackboard_->set<std::uint8_t>("EventSelfSmallEnergyStatus", eventSelfSmallEnergyStatus_);

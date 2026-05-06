@@ -6,7 +6,7 @@
 [`mapper_node.py`](../../src/detector/script/mapper_node.py:1) 目前功能：
 - 订阅 `/ly/predictor/target` 话题，接收目标信息
 - 发布 `/ly/control/angles` 话题，映射云台角度
-- 发布 `/ly/me/is_team_red` 话题，发布队伍颜色
+- 发布 `/ly/friend/is_team_red` 话题，发布队伍颜色
 - 发布 `/ly/bt/target` 话题，发布目标ID
 
 ### 缺失功能

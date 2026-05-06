@@ -98,16 +98,17 @@ rclcpp::shutdown();
 **感知數據（從回調函數更新）**：
 | 變量 | 類型 | 數據來源 Topic |
 |------|------|----------------|
-| `team` | `UnitTeam` | `/ly/me/is_team_red` |
+| `team` | `UnitTeam` | `/ly/friend/is_team_red` |
 | `enemyOutpostHealth` | `uint16_t` | `/ly/enemy/op_hp` |
-| `selfOutpostHealth` | `uint16_t` | `/ly/me/op_hp` |
-| `selfBaseHealth` | `uint16_t` | `/ly/me/base_hp` |
-| `ammoLeft` | `uint16_t` | `/ly/me/ammo_left` |
+| `selfOutpostHealth` | `uint16_t` | `/ly/friend/op_hp` |
+| `selfBaseHealth` | `uint16_t` | `/ly/friend/base_hp` |
+| `ammoLeft` | `uint16_t` | `/ly/friend/ammo_left` |
 | `timeLeft` | `uint16_t` | `/ly/game/time_left` |
-| `myselfHealth` | `uint16_t` | `/ly/me/hp` → sentry 血量 |
-| `friendRobots` | `Robots` | `/ly/position/data`, `/ly/me/hp` |
+| `myselfHealth` | `uint16_t` | `/ly/friend/hp` → sentry 血量 |
+| `friendRobots` | `Robots` | `/ly/position/data`, `/ly/friend/hp` |
 | `enemyRobots` | `Robots` | `/ly/enemy/hp`, `/ly/position/data` |
 | `teamBuff` | `BuffType` | `/ly/team/buff` |
+| `rfidMatchState` | `RfidMatchState` | `/ly/game/rfid` 聚合出的 RFID 區域匹配狀態 |
 | `armorList` | `array<ArmorData,10>` | `/ly/predictor/target` 等（含距離和類型） |
 | `gimbalAngles` | `GimbalAnglesType` | `/ly/gimbal/angles` |
 | `naviVelocity` | `VelocityType` | `/ly/gimbal/vel`（底盤速度反饋） |
@@ -252,17 +253,18 @@ void TreeTick() {
 
 | 訂閱 Topic | 更新的變量 | 說明 |
 |-----------|-----------|------|
-| `/ly/me/is_team_red` | `team` | 我方顏色 |
+| `/ly/friend/is_team_red` | `team` | 我方顏色 |
 | `/ly/game/all` | `myselfHealth` | 下位機彙總裁判數據（自血） |
 | `/ly/game/is_start` | `is_game_begin` | 比賽開始標誌 |
 | `/ly/game/time_left` | `timeLeft` | 剩餘時間 |
-| `/ly/me/hp` | `friendRobots` | 我方各車血量明細 |
+| `/ly/friend/hp` | `friendRobots` | 我方各車血量明細 |
 | `/ly/enemy/hp` | `enemyRobots` | 敵方血量 |
-| `/ly/me/ammo_left` | `ammoLeft` | 子彈數 |
+| `/ly/friend/ammo_left` | `ammoLeft` | 子彈數 |
 | `/ly/enemy/op_hp` | `enemyOutpostHealth` | 敵方前哨血量 |
-| `/ly/me/op_hp` | `selfOutpostHealth` | 我方前哨血量 |
-| `/ly/me/base_hp` | `selfBaseHealth` | 我方基地血量 |
+| `/ly/friend/op_hp` | `selfOutpostHealth` | 我方前哨血量 |
+| `/ly/friend/base_hp` | `selfBaseHealth` | 我方基地血量 |
 | `/ly/team/buff` | `teamBuff` | 增益狀態 |
+| `/ly/game/rfid` | `rfidStatus`, `rfidStatus2`, `rfidMatchState` | 裁判 RFID bit 語義和 BT 內部區域匹配狀態；1s 內未更新則 `RfidFresh=false` |
 | `/ly/position/data` | `friendRobots`, `enemyRobots`（更新position） | UWB位置 |
 | `/ly/gimbal/angles` | `gimbalAngles` | 當前雲台角 |
 | `/ly/gimbal/posture` | `postureState` | 姿態回讀（0未知/1進攻/2防禦/3移動） |

@@ -86,13 +86,13 @@ main()
 | TypeID 對應數據結構 | 調用函數 | 發布的 Topic |
 |---|---|---|
 | `GimbalData` | `PubGimbalData()` | `/ly/gimbal/angles`, `/ly/gimbal/firecode`, `/ly/gimbal/vel`, `/ly/gimbal/capV` |
-| `GameData` | `PubGameData()` | `/ly/game/all`, `/ly/game/event_data`, `/ly/me/ammo_left`, `/ly/enemy/op_hp`, `/ly/me/is_team_red`, `/ly/game/is_start`, `/ly/game/time_left`, 等 |
-| `HealthMyselfData` | `PubHealthMyselfData()` | `/ly/me/hp`, `/ly/me/base_hp` |
+| `GameData` | `PubGameData()` | `/ly/game/all`, `/ly/game/event_data`, `/ly/friend/ammo_left`, `/ly/enemy/op_hp`, `/ly/friend/is_team_red`, `/ly/game/is_start`, `/ly/game/time_left`, 等 |
+| `HealthMyselfData` | `PubHealthMyselfData()` | `/ly/friend/hp`, `/ly/friend/base_hp` |
 | `HealthEnemyData` | `PubHealthEnemyData()` | `/ly/enemy/hp`, `/ly/enemy/base_hp` |
-| `RFIDAndBuffData` | `PubRFIDAndBuffData()` | `/ly/me/rfid`, `/ly/team/buff` |
-| `PositionData` | `PubPositionData()` | `/ly/position/data`, `/ly/me/uwb_pos`, `/ly/bullet/speed` |
-| `ChassisData` (`TypeID=6`) | `PubChassisData()` | `/ly/me/uwb_yaw`, `/ly/gimbal/chassis`（四元浮點）, `/ly/gimbal/posture` 兼容回读 |
-| `SentryData` (`TypeID=7`) | `PubSentryData()` | `/ly/gimbal/sentryinfo`, `/ly/gimbal/bulletinfo`, `/ly/gimbal/posture`（有效 `sentryinfo.posture` 覆盖） |
+| `RFIDAndBuffData` | `PubRFIDAndBuffData()` | `/ly/game/rfid`, `/ly/team/buff` |
+| `PositionData` | `PubPositionData()` | `/ly/position/data`, `/ly/friend/uwb_pos`, `/ly/bullet/speed` |
+| `ChassisData` (`TypeID=6`) | `PubChassisData()` | `/ly/friend/uwb_yaw`, `/ly/gimbal/chassis`（四元浮點）, `/ly/gimbal/posture` 兼容回读 |
+| `SentryData` (`TypeID=7`) | `PubSentryData()` | `/ly/game/sentry/info`, `/ly/game/bullet`, `/ly/gimbal/posture`（有效 `/ly/game/sentry/info.posture` 覆盖） |
 
 #### 「寫入」路徑：`GenSubs()` → `Device.Write()`
 
@@ -191,7 +191,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData>
 
 ### `Health.msg`
 
-**Topic**：`/ly/me/hp`, `/ly/enemy/hp`
+**Topic**：`/ly/friend/hp`, `/ly/enemy/hp`
 
 | 字段 | 說明 |
 |------|------|
@@ -224,19 +224,19 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData>
 | Topic | 消息類型 | 說明 |
 |-------|----------|------|
 | `/ly/gimbal/angles` | `GimbalAngles` | **最重要**：雲台當前角度，`detector` 和 `behavior_tree` 都需要 |
-| `/ly/me/is_team_red` | `Bool` | 我方是否紅隊 |
+| `/ly/friend/is_team_red` | `Bool` | 我方是否紅隊 |
 | `/ly/game/is_start` | `Bool` | 比賽是否開始 |
 | `/ly/game/time_left` | `UInt16` | 剩餘時間 |
-| `/ly/me/hp` | `Health` | 我方各機器人血量 |
+| `/ly/friend/hp` | `Health` | 我方各機器人血量 |
 | `/ly/enemy/hp` | `Health` | 敵方各機器人血量 |
-| `/ly/me/ammo_left` | `UInt16` | 剩餘子彈 |
+| `/ly/friend/ammo_left` | `UInt16` | 剩餘子彈 |
 | `/ly/bullet/speed` | `Float32` | 子彈速度（m/s，当前代码发布 `PositionData.BulletSpeed / 100.0f`） |
 | `/ly/team/buff` | `BuffData` | 能量機關增益狀態 |
-| `/ly/me/rfid` | `RfidStatus` | 0x0209 `rfid_status` 低 32 位拆字段；TypeID 8 的 `rfid_status_2` 也合并在这里 |
+| `/ly/game/rfid` | `RfidStatus` | 0x0209 `rfid_status` 低 32 位拆字段；TypeID 8 的 `rfid_status_2` 也合并在这里 |
 | `/ly/position/data` | `PositionData` | UWB位置數據 |
-| `/ly/me/uwb_pos` | `UInt16MultiArray` | 自身UWB位置[x, y] |
+| `/ly/friend/uwb_pos` | `UInt16MultiArray` | 自身UWB位置[x, y] |
 | `/ly/gimbal/chassis` | `Chassis` | 底盘四元反馈（`steer_angle`, `angular_velocity`, `velocity_x`, `velocity_y`） |
-| `/ly/gimbal/posture` | `UInt8` | 姿態回讀（TypeID 7 `sentryinfo.posture` 有效值优先覆盖；TypeID 6 `ChassisData.Posture` 作兼容回读；僅 1/2/3 視為有效） |
+| `/ly/gimbal/posture` | `UInt8` | 姿態回讀（TypeID 7 `/ly/game/sentry/info.posture` 有效值优先覆盖；TypeID 6 `ChassisData.Posture` 作兼容回读；僅 1/2/3 視為有效） |
 | `ly/gimbal/eventdata` | `UInt32` | 場地事件原始值（當前 topic 字符串無前導 `/`） |
 | `/ly/game/event_data` | `EventData` | 0x0101 `event_data` 按 RM2026 V1.3.0 拆字段 |
 

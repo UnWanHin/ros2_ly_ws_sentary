@@ -92,15 +92,15 @@ def main(argv: list[str] | None = None) -> int:
 
             self.pub_gimbal_angles = self.create_publisher(GimbalAngles, "/ly/gimbal/angles", 10)
             self.pub_gimbal_posture = self.create_publisher(UInt8, "/ly/gimbal/posture", 10)
-            self.pub_team = self.create_publisher(Bool, "/ly/me/is_team_red", 10)
+            self.pub_team = self.create_publisher(Bool, "/ly/friend/is_team_red", 10)
             self.pub_game_start = self.create_publisher(Bool, "/ly/game/is_start", 10)
             self.pub_time_left = self.create_publisher(UInt16, "/ly/game/time_left", 10)
-            self.pub_ammo_left = self.create_publisher(UInt16, "/ly/me/ammo_left", 10)
+            self.pub_ammo_left = self.create_publisher(UInt16, "/ly/friend/ammo_left", 10)
             self.pub_game_all = self.create_publisher(GameData, "/ly/game/all", 10)
-            self.pub_me_hp = self.create_publisher(Health, "/ly/me/hp", 10)
+            self.pub_me_hp = self.create_publisher(Health, "/ly/friend/hp", 10)
             self.pub_enemy_hp = self.create_publisher(Health, "/ly/enemy/hp", 10)
             self.pub_team_buff = self.create_publisher(BuffData, "/ly/team/buff", 10)
-            self.pub_rfid = self.create_publisher(RfidStatus, "/ly/me/rfid", 10)
+            self.pub_rfid = self.create_publisher(RfidStatus, "/ly/game/rfid", 10)
 
             self.target_source = args.target_source
             self.pub_target = None

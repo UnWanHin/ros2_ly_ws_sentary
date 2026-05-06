@@ -237,7 +237,7 @@ struct GameData
 当前代码对前哨站血量的处理是：
 
 - `EnemyOutpostHealth * 25` -> `/ly/enemy/op_hp`
-- `SelfOutpostHealth * 25` -> `/ly/me/op_hp`
+- `SelfOutpostHealth * 25` -> `/ly/friend/op_hp`
 
 ### 5.2.2 `ExtEventData` 位定义
 
@@ -264,7 +264,7 @@ struct GameData
 |---|---|---|---|
 | `GameCode` | 整体重解释成 `uint16` | `/ly/game/all` | `gamecode` |
 | `AmmoLeft` | 直接读 `uint16` | `/ly/game/all` | `ammoleft` |
-| `AmmoLeft` | 直接读 `uint16` | `/ly/me/ammo_left` | `data` |
+| `AmmoLeft` | 直接读 `uint16` | `/ly/friend/ammo_left` | `data` |
 | `TimeLeft` | 直接读 `uint16` | `/ly/game/all` | `timeleft` |
 | `TimeLeft` | 直接读 `uint16` | `/ly/game/time_left` | `data` |
 | `SelfHealth` | 直接读 `uint16` | `/ly/game/all` | `selfhealth` |
@@ -272,11 +272,11 @@ struct GameData
 | `ExtEventData` | 整体转 `uint32` | `ly/gimbal/eventdata` | `data`，注意当前 topic 字符串无前导 `/` |
 | `ExtEventData` | 按 V1.3.0 bit 拆字段 | `/ly/game/event_data` | `EventData` |
 | `GameCode.EnemyOutpostHealth` | `* 25` | `/ly/enemy/op_hp` | `data` |
-| `GameCode.HeroPrecaution` | 直接读 bit | `/ly/me/is_precaution` | `data` |
+| `GameCode.HeroPrecaution` | 直接读 bit | `/ly/friend/is_precaution` | `data` |
 | `GameCode.IsGameBegin` | 直接读 bit | `/ly/game/is_start` | `data` |
-| `GameCode.IsMyTeamRed` | 直接读 bit | `/ly/me/is_team_red` | `data` |
-| `GameCode.IsReturnedHome` | 直接读 bit | `/ly/me/is_at_home` | `data` |
-| `GameCode.SelfOutpostHealth` | `* 25` | `/ly/me/op_hp` | `data` |
+| `GameCode.IsMyTeamRed` | 直接读 bit | `/ly/friend/is_team_red` | `data` |
+| `GameCode.IsReturnedHome` | 直接读 bit | `/ly/friend/is_at_home` | `data` |
+| `GameCode.SelfOutpostHealth` | `* 25` | `/ly/friend/op_hp` | `data` |
 
 ---
 
@@ -299,13 +299,13 @@ struct HealthMyselfData {
 
 | 串口字段 | 发布 topic | ROS 字段 |
 |---|---|---|
-| `HeroMyself` | `/ly/me/hp` | `hero` |
-| `EngineerMyself` | `/ly/me/hp` | `engineer` |
-| `Infantry1Myself` | `/ly/me/hp` | `infantry1` |
-| `Infantry2Myself` | `/ly/me/hp` | `infantry2` |
-| `BaseMyself` | `/ly/me/hp` | `reserve` |
-| `SentryMyself` | `/ly/me/hp` | `sentry` |
-| `BaseMyself` | `/ly/me/base_hp` | `data` |
+| `HeroMyself` | `/ly/friend/hp` | `hero` |
+| `EngineerMyself` | `/ly/friend/hp` | `engineer` |
+| `Infantry1Myself` | `/ly/friend/hp` | `infantry1` |
+| `Infantry2Myself` | `/ly/friend/hp` | `infantry2` |
+| `BaseMyself` | `/ly/friend/hp` | `reserve` |
+| `SentryMyself` | `/ly/friend/hp` | `sentry` |
+| `BaseMyself` | `/ly/friend/base_hp` | `data` |
 
 注意：当前 `Health.msg` 的 `reserve` 字段，实际上被上位机填的是 `BaseMyself`。
 
@@ -367,7 +367,7 @@ struct RFIDAndBuffData{
 
 | 串口字段 | 发布 topic | ROS 字段 / 备注 |
 |---|---|---|
-| `RFIDStatus` | `/ly/me/rfid` | `RfidStatus` 拆字段，TypeID=4 覆盖 bit0-31；TypeID=8 补 `rfid_status_2` |
+| `RFIDStatus` | `/ly/game/rfid` | `RfidStatus` 拆字段，TypeID=4 覆盖 bit0-31；TypeID=8 补 `rfid_status_2` |
 | `BuffStatus.RecoveryBuff` | `/ly/team/buff` | `recoverybuff` |
 | `BuffStatus.CoolingBuff` | `/ly/team/buff` | `coolingbuff` |
 | `BuffStatus.DefenceBuff` | `/ly/team/buff` | `defencebuff` |
@@ -416,7 +416,7 @@ struct RFIDAndBuffData{
 
 - `BuffStatus.reserve` 当前没有被发布
 - `0x0209` 的 `rfid_status_2`（额外 8 bit）不并入 `TypeID=4`，由 `TypeID=8` 承载
-- `/ly/me/rfid` 的 `RfidStatus` 包含 `has_rfid_status_2`、`rfid_status_2_raw` 和 bit0-5 的语义字段；收到 TypeID=8 后会把 `rfid_status_2` 合并发布
+- `/ly/game/rfid` 的 `RfidStatus` 包含 `has_rfid_status_2`、`rfid_status_2_raw` 和 bit0-5 的语义字段；收到 TypeID=8 后会把 `rfid_status_2` 合并发布
 
 ### 5.5.3 `rfid_status_2` 扩展语义（RM2026 V1.3.0，0x0209 offset 4）
 
@@ -472,14 +472,14 @@ data.Friend.CarId == 7
 
 则上位机还会额外发布：
 
-- topic：`/ly/me/uwb_pos`
+- topic：`/ly/friend/uwb_pos`
 - 类型：`UInt16MultiArray`
 - 内容：`[Friend.X, Friend.Y]`
 
 注意当前代码行为：
 
 1. `Friend.X/Y` 原始类型是 `int16_t`
-2. 发布 `/ly/me/uwb_pos` 时，代码做了 `static_cast<std::uint16_t>`
+2. 发布 `/ly/friend/uwb_pos` 时，代码做了 `static_cast<std::uint16_t>`
 3. 所以这里是“按当前实现直接转换后发布”，不是重新定义过坐标系
 
 ---
@@ -501,7 +501,7 @@ struct ChassisData {
 
 | 串口字段 | 解析方式 | 发布 topic | 备注 |
 |---|---|---|---|
-| `UWBAngleYaw` | 直接读 `uint16` | `/ly/me/uwb_yaw` | 自身朝向角 |
+| `UWBAngleYaw` | 直接读 `uint16` | `/ly/friend/uwb_yaw` | 自身朝向角 |
 | `Posture` | 先读低8位，低8位无效时回退高8位；按 `uint8` 姿态值解析 | `/ly/gimbal/posture` | TypeID 6 兼容回读；仅 `1/2/3` 才发布 |
 | `ChassisPacked1` low16（byte0~1） | 8位整数+8位小数（2位小数） | `/ly/gimbal/chassis` | `steer_angle` |
 | `ChassisPacked1` high16（byte2~3） | 8位整数+8位小数（2位小数） | `/ly/gimbal/chassis` | `angular_velocity` |
@@ -544,10 +544,10 @@ struct SentryData {
 
 | 串口字段 | 裁判系统字段 | 发布 topic / ROS 字段 |
 |---|---|---|
-| `SentryInfo` | `0x020D sentry_info` offset 0 | `/ly/gimbal/sentryinfo.sentry_info_raw`，并拆语义字段 |
-| `SentryInfo2` | `0x020D sentry_info_2` offset 4 | `/ly/gimbal/sentryinfo.sentry_info_2_raw`，并拆语义字段 |
-| `BulletInitialSpeed` | `0x0207 shoot_data.initial_speed` offset 3 | `/ly/gimbal/bulletinfo.initial_speed` |
-| `Reserved` | 上下位机保留 | `/ly/gimbal/sentryinfo.reserved` |
+| `SentryInfo` | `0x020D sentry_info` offset 0 | `/ly/game/sentry/info.sentry_info_raw`，并拆语义字段 |
+| `SentryInfo2` | `0x020D sentry_info_2` offset 4 | `/ly/game/sentry/info.sentry_info_2_raw`，并拆语义字段 |
+| `BulletInitialSpeed` | `0x0207 shoot_data.initial_speed` offset 3 | `/ly/game/bullet.initial_speed` |
+| `Reserved` | 上下位机保留 | `/ly/game/sentry/info.reserved` |
 
 `0x020D sentry_info_2 bit12-13` 会发布到 `SentryInfo.posture`。当该字段为有效
 `1/2/3` 时，`gimbal_driver` 也会同步覆盖发布到 `/ly/gimbal/posture`，作为当前优先姿态回读来源。
@@ -590,23 +590,23 @@ struct BulletDataAndRfid2 {
 
 | 串口字段 | 裁判系统字段 | 发布 topic / ROS 字段 |
 |---|---|---|
-| `BulletType` | `0x0207 shoot_data.bullet_type` offset 0 | `/ly/gimbal/bulletinfo.bullet_type` |
-| `ShooterNumber` | `0x0207 shoot_data.shooter_number` offset 1 | `/ly/gimbal/bulletinfo.shooter_number` |
-| `LaunchingFrequency` | `0x0207 shoot_data.launching_frequency` offset 2 | `/ly/gimbal/bulletinfo.launching_frequency` |
-| `ProjectileAllowance17mm` | `0x0208 projectile_allowance_17mm` offset 0 | `/ly/gimbal/bulletinfo.projectile_allowance_17mm` |
-| `ProjectileAllowance42mm` | `0x0208 projectile_allowance_42mm` offset 2 | `/ly/gimbal/bulletinfo.projectile_allowance_42mm` |
-| `RemainingGoldCoin` | `0x0208 remaining_gold_coin` offset 4 | `/ly/gimbal/bulletinfo.remaining_gold_coin` |
-| `ProjectileAllowanceFortress` | `0x0208 projectile_allowance_fortress` offset 6 | `/ly/gimbal/bulletinfo.projectile_allowance_fortress_17mm` |
-| `RfidStatus2` | `0x0209 rfid_status_2` offset 4 | `/ly/me/rfid.rfid_status_2_raw` |
+| `BulletType` | `0x0207 shoot_data.bullet_type` offset 0 | `/ly/game/bullet.bullet_type` |
+| `ShooterNumber` | `0x0207 shoot_data.shooter_number` offset 1 | `/ly/game/bullet.shooter_number` |
+| `LaunchingFrequency` | `0x0207 shoot_data.launching_frequency` offset 2 | `/ly/game/bullet.launching_frequency` |
+| `ProjectileAllowance17mm` | `0x0208 projectile_allowance_17mm` offset 0 | `/ly/game/bullet.projectile_allowance_17mm` |
+| `ProjectileAllowance42mm` | `0x0208 projectile_allowance_42mm` offset 2 | `/ly/game/bullet.projectile_allowance_42mm` |
+| `RemainingGoldCoin` | `0x0208 remaining_gold_coin` offset 4 | `/ly/game/bullet.remaining_gold_coin` |
+| `ProjectileAllowanceFortress` | `0x0208 projectile_allowance_fortress` offset 6 | `/ly/game/bullet.projectile_allowance_fortress_17mm` |
+| `RfidStatus2` | `0x0209 rfid_status_2` offset 4 | `/ly/game/rfid.rfid_status_2_raw` |
 
 注意：`0x0207` 被拆在 TypeID=7 和 TypeID=8 两帧中。下位机应在收到一次 `0x0207`
 时同步更新内部 `shoot_data` shadow，再分别填入 TypeID=7/8。上位机以最近一次值合成
-`/ly/gimbal/bulletinfo`，并通过 `has_initial_speed`、`has_shoot_data`、
+`/ly/game/bullet`，并通过 `has_initial_speed`、`has_shoot_data`、
 `has_projectile_allowance` 标记当前消息中哪些部分已经收到。
 
-`TypeID=8` 的 `rfid_status_2` 会合并到现有 `/ly/me/rfid`。如果 TypeID=8 先于 TypeID=4
+`TypeID=8` 的 `rfid_status_2` 会合并到现有 `/ly/game/rfid`。如果 TypeID=8 先于 TypeID=4
 到达，上位机会先缓存 `rfid_status_2`，等 TypeID=4 的低 32 位 `rfid_status` 到达后再发布完整
-`/ly/me/rfid`。
+`/ly/game/rfid`。
 
 ---
 
@@ -633,32 +633,32 @@ struct BulletDataAndRfid2 {
 | `0` | 火控状态 | `GimbalData.FireCode` | `/ly/gimbal/firecode` (`FireCode`) |
 | `0` | 电容值 | `GimbalData.CapV` | `/ly/gimbal/capV` |
 | `1` | 比赛摘要 | `GameData` | `/ly/game/all` |
-| `1` | 子弹余量 | `GameData.AmmoLeft` | `/ly/me/ammo_left` |
+| `1` | 子弹余量 | `GameData.AmmoLeft` | `/ly/friend/ammo_left` |
 | `1` | 比赛剩余时间 | `GameData.TimeLeft` | `/ly/game/time_left` |
 | `1` | 敌方前哨站血量 | `GameCode.EnemyOutpostHealth` | `/ly/enemy/op_hp` |
-| `1` | 我方前哨站血量 | `GameCode.SelfOutpostHealth` | `/ly/me/op_hp` |
-| `1` | 英雄预警 | `GameCode.HeroPrecaution` | `/ly/me/is_precaution` |
+| `1` | 我方前哨站血量 | `GameCode.SelfOutpostHealth` | `/ly/friend/op_hp` |
+| `1` | 英雄预警 | `GameCode.HeroPrecaution` | `/ly/friend/is_precaution` |
 | `1` | 比赛开始标志 | `GameCode.IsGameBegin` | `/ly/game/is_start` |
-| `1` | 我方颜色 | `GameCode.IsMyTeamRed` | `/ly/me/is_team_red` |
-| `1` | 回家标志 | `GameCode.IsReturnedHome` | `/ly/me/is_at_home` |
+| `1` | 我方颜色 | `GameCode.IsMyTeamRed` | `/ly/friend/is_team_red` |
+| `1` | 回家标志 | `GameCode.IsReturnedHome` | `/ly/friend/is_at_home` |
 | `1` | 场地事件原始值/拆字段 | `GameData.ExtEventData` | `/ly/game/all`, `ly/gimbal/eventdata`, `/ly/game/event_data` |
-| `2` | 我方各兵种血量 | `HealthMyselfData` | `/ly/me/hp` |
-| `2` | 我方基地血量 | `HealthMyselfData.BaseMyself` | `/ly/me/base_hp` |
+| `2` | 我方各兵种血量 | `HealthMyselfData` | `/ly/friend/hp` |
+| `2` | 我方基地血量 | `HealthMyselfData.BaseMyself` | `/ly/friend/base_hp` |
 | `3` | 敌方各兵种血量 | `HealthEnemyData` | `/ly/enemy/hp` |
 | `3` | 敌方基地血量 | `HealthEnemyData.BaseEnemy` | `/ly/enemy/base_hp` |
-| `4` | RFID | `RFIDAndBuffData.RFIDStatus` | `/ly/me/rfid` |
+| `4` | RFID | `RFIDAndBuffData.RFIDStatus` | `/ly/game/rfid` |
 | `4` | 增益状态 | `RFIDAndBuffData.BuffStatus.*` | `/ly/team/buff` |
 | `5` | 位置数据 | `PositionData.Friend/Enemy` | `/ly/position/data` |
-| `5` | 自身 UWB 坐标 | `PositionData.Friend.X/Y` | `/ly/me/uwb_pos` |
+| `5` | 自身 UWB 坐标 | `PositionData.Friend.X/Y` | `/ly/friend/uwb_pos` |
 | `5` | 弹速 | `PositionData.BulletSpeed` | `/ly/bullet/speed` |
-| `6` | 自身朝向 | `ChassisData.UWBAngleYaw` | `/ly/me/uwb_yaw` |
+| `6` | 自身朝向 | `ChassisData.UWBAngleYaw` | `/ly/friend/uwb_yaw` |
 | `6` | 底盘回读（四元） | `ChassisPacked1/2`（8位整数+8位小数） | `/ly/gimbal/chassis` |
 | `6` | 姿态兼容回读 | `ChassisData.Posture`（先低8位，后高8位） | `/ly/gimbal/posture` |
-| `7` | 哨兵自主决策状态 | `SentryData.SentryInfo/SentryInfo2` | `/ly/gimbal/sentryinfo`；有效 `posture` 同步覆盖 `/ly/gimbal/posture` |
-| `7` | 发射初速度 | `SentryData.BulletInitialSpeed` | `/ly/gimbal/bulletinfo` |
-| `8` | 发射事件字段 | `BulletDataAndRfid2.BulletType/ShooterNumber/LaunchingFrequency` | `/ly/gimbal/bulletinfo` |
-| `8` | 允许发弹量/金币 | `BulletDataAndRfid2.ProjectileAllowance* / RemainingGoldCoin` | `/ly/gimbal/bulletinfo` |
-| `8` | RFID 扩展字节 | `BulletDataAndRfid2.RfidStatus2` | `/ly/me/rfid` |
+| `7` | 哨兵自主决策状态 | `SentryData.SentryInfo/SentryInfo2` | `/ly/game/sentry/info`；有效 `posture` 同步覆盖 `/ly/gimbal/posture` |
+| `7` | 发射初速度 | `SentryData.BulletInitialSpeed` | `/ly/game/bullet` |
+| `8` | 发射事件字段 | `BulletDataAndRfid2.BulletType/ShooterNumber/LaunchingFrequency` | `/ly/game/bullet` |
+| `8` | 允许发弹量/金币 | `BulletDataAndRfid2.ProjectileAllowance* / RemainingGoldCoin` | `/ly/game/bullet` |
+| `8` | RFID 扩展字节 | `BulletDataAndRfid2.RfidStatus2` | `/ly/game/rfid` |
 
 ---
 
@@ -683,9 +683,9 @@ struct BulletDataAndRfid2 {
 
 | 裁判协议项 | 方向 | 当前本仓库状态 |
 |---|---|---|
-| `0x0207 shoot_data` | 裁判系统 -> 机器人状态 | 已通过 TypeID=7/8 进入 `/ly/gimbal/bulletinfo`；旧 `/ly/bullet/speed` 仍保留 TypeID=5 来源 |
-| `0x0208 projectile_allowance` | 裁判系统 -> 机器人状态 | 已通过 TypeID=8 进入 `/ly/gimbal/bulletinfo`；旧 `/ly/me/ammo_left` 仍保留 TypeID=1 来源 |
-| `0x020D sentry_info/sentry_info_2` | 裁判系统 -> 哨兵状态 | 已通过 TypeID=7 进入 `/ly/gimbal/sentryinfo`；有效 `posture` 会覆盖 `/ly/gimbal/posture` |
+| `0x0207 shoot_data` | 裁判系统 -> 机器人状态 | 已通过 TypeID=7/8 进入 `/ly/game/bullet`；旧 `/ly/bullet/speed` 仍保留 TypeID=5 来源 |
+| `0x0208 projectile_allowance` | 裁判系统 -> 机器人状态 | 已通过 TypeID=8 进入 `/ly/game/bullet`；旧 `/ly/friend/ammo_left` 仍保留 TypeID=1 来源 |
+| `0x020D sentry_info/sentry_info_2` | 裁判系统 -> 哨兵状态 | 已通过 TypeID=7 进入 `/ly/game/sentry/info`；有效 `posture` 会覆盖 `/ly/gimbal/posture` |
 | `0x0301 + data_cmd_id=0x0120 sentry_cmd` | 机器人 -> 裁判系统命令 | 姿态经 `/ly/control/posture` 写入 `SentryCmd bit21-22`；完整命令也可通过 `/ly/control/sentry_cmd` 进入主控制幀 byte `12~15`；下位机负责封装裁判 `0x0301/0x0120` |
 
 ### 8.1 当前看弹量和兑弹怎么走
@@ -695,7 +695,7 @@ struct BulletDataAndRfid2 {
 ```text
 下位机 TypeID=1 GameData.AmmoLeft
   -> gimbal_driver
-  -> /ly/me/ammo_left
+  -> /ly/friend/ammo_left
   -> behavior_tree ammoLeft
 ```
 
@@ -822,14 +822,14 @@ out_of_combat = alive && (now - last_combat_time >= 6s)
 
 1. 最可靠：下位机解析裁判 `0x020D sentry_info_2 bit0`，上发给上位机。该 bit 为 1 时，哨兵当前处于脱战状态。
 2. 退化估算：如果暂时没有 `0x020D`，上位机可用自身血量下降时间和发弹时间估算：
-   - `last_hp_decrease_time`：来自 `/ly/game/all.selfhealth` 或 `/ly/me/hp.sentry` 的下降沿。
+   - `last_hp_decrease_time`：来自 `/ly/game/all.selfhealth` 或 `/ly/friend/hp.sentry` 的下降沿。
    - `last_projectile_fired_time`：优先来自裁判发射事件/允许发弹量减少；没有时只能用上位机 firecode 翻转作为近似。
    - 估算值只能作为策略保护，不能作为和裁判完全一致的判定。
 
 当前代码现状：
 
-- 已有 `/ly/me/ammo_left`，可看简化弹量。
-- 已有 `/ly/me/hp`、`/ly/game/all.selfhealth`，可看血量变化。
+- 已有 `/ly/friend/ammo_left`，可看简化弹量。
+- 已有 `/ly/friend/hp`、`/ly/game/all.selfhealth`，可看血量变化。
 - 没有完整 `0x020D sentry_info_2 bit0`，所以没有官方脱战状态 topic。
 - 没有完整 `0x0120 sentry_cmd` 下行，所以还不能由上位机真正下发自动兑弹/远程回血命令。
 

@@ -59,7 +59,7 @@ main()
 |-------|------|
 | `/ly/vision/mode` | 主模式入口，`2=BUFF` 時啟用打符；`1=ARMOR` 時跳過打符 |
 | `/ly/ra/angle_image` | 帶雲台角的圖像（`detector` 發布的 `AngleImage.msg`） |
-| `/ly/me/is_team_red` | 我方隊伍顏色；`buff_config.enemy_color=auto` 時用於選紅/藍打符模型 |
+| `/ly/friend/is_team_red` | 我方隊伍顏色；`buff_config.enemy_color=auto` 時用於選紅/藍打符模型 |
 
 #### 發布的 Topics
 
@@ -78,7 +78,7 @@ bool buffDetect(cv::Mat image);  // 識別成功返回 true
 std::vector<cv::Point2f> getCameraPoints();  // 返回 R標+靶心的5個像素點
 ```
 
-使用基於顏色的圖像分割 + 幾何特徵（R標的圓形特徵 + 靶心形狀）識別能量機關。紅/藍模型路徑從 `red_buff_model_path` / `blue_buff_model_path` 讀取；`buff_config.enemy_color=auto` 時按我方隊伍顏色選擇目標符顏色（紅隊打紅符，藍隊打藍符），收到 `/ly/me/is_team_red` 前不輸出打符射擊，手動設為 `red` / `blue` 時保持固定顏色。
+使用基於顏色的圖像分割 + 幾何特徵（R標的圓形特徵 + 靶心形狀）識別能量機關。紅/藍模型路徑從 `red_buff_model_path` / `blue_buff_model_path` 讀取；`buff_config.enemy_color=auto` 時按我方隊伍顏色選擇目標符顏色（紅隊打紅符，藍隊打藍符），收到 `/ly/friend/is_team_red` 前不輸出打符射擊，手動設為 `red` / `blue` 時保持固定顏色。
 
 ---
 
