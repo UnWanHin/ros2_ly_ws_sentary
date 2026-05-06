@@ -1185,8 +1185,8 @@ namespace BehaviorTree {
     }
 
     void Application::CheckDebug() {
-        if (config.AimDebugSettings.HitBuff) aimMode = AimMode::Buff;
-        else if(config.AimDebugSettings.HitOutpost) aimMode = AimMode::Outpost; 
+        if (config.AimDebugSettings.ForceBuff) aimMode = AimMode::Buff;
+        else if(config.AimDebugSettings.ForceOutpost) aimMode = AimMode::Outpost;
         /*------------打印日志---------*/
         if(aimMode == AimMode::AutoAim) LoggerPtr->Info("AimMode: AutoAim");
         else if(aimMode == AimMode::Buff) LoggerPtr->Info("AimMode: Buff");

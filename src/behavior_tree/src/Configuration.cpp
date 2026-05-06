@@ -415,8 +415,8 @@ namespace LangYa {
         ad.StopFire = j.value("StopFire", ad.StopFire);
         ad.StopRotate = j.value("StopRotate", ad.StopRotate);
         ad.StopScan = j.value("StopScan", ad.StopScan);
-        ad.HitOutpost = j.value("HitOutpost", ad.HitOutpost);
-        ad.HitBuff = j.value("HitBuff", ad.HitBuff);
+        ad.ForceOutpost = j.value("ForceOutpost", ad.ForceOutpost);
+        ad.ForceBuff = j.value("ForceBuff", ad.ForceBuff);
         ad.HitCar = j.value("HitCar", ad.HitCar);
         ad.FireRequireTargetStatus = j.value("FireRequireTargetStatus", ad.FireRequireTargetStatus);
         ad.ReuseLatchedAnglesOnNoTarget = j.value("ReuseLatchedAnglesOnNoTarget", ad.ReuseLatchedAnglesOnNoTarget);
@@ -1307,8 +1307,8 @@ namespace BehaviorTree {
         LoggerPtr->Debug("StopFire: {}", config.AimDebugSettings.StopFire);
         LoggerPtr->Debug("StopRotate: {}", config.AimDebugSettings.StopRotate);
         LoggerPtr->Debug("StopScan: {}", config.AimDebugSettings.StopScan);
-        LoggerPtr->Debug("HitOutpost: {}", config.AimDebugSettings.HitOutpost);
-        LoggerPtr->Debug("HitBuff: {}", config.AimDebugSettings.HitBuff);
+        LoggerPtr->Debug("ForceOutpost: {}", config.AimDebugSettings.ForceOutpost);
+        LoggerPtr->Debug("ForceBuff: {}", config.AimDebugSettings.ForceBuff);
         LoggerPtr->Debug("HitCar: {}", config.AimDebugSettings.HitCar);
         LoggerPtr->Debug("FireRequireTargetStatus: {}", config.AimDebugSettings.FireRequireTargetStatus);
         LoggerPtr->Debug("ReuseLatchedAnglesOnNoTarget: {}", config.AimDebugSettings.ReuseLatchedAnglesOnNoTarget);

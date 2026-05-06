@@ -4,8 +4,8 @@
         "StopFire": false,
         "StopRotate": true,
         "StopScan": true,
-        "HitBuff": false,
-        "HitOutpost": false,
+        "ForceBuff": false,
+        "ForceOutpost": false,
         "HitCar": false,
         "FireRequireTargetStatus": false,
         "LatchedTargetHoldMs": 100

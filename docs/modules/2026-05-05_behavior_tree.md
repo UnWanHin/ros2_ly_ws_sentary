@@ -215,9 +215,10 @@ void TreeTick() {
 
 | 條件 | 設置 |
 |------|------|
-| config.HitBuff=true 且 now_time<25 且 buff次數≤15 | `AimMode::Buff` |
-| Buff激活（DefenceBuff或VulnerabilityBuff>20） | `AimMode::RotateScan`（Buff進了就切回掃描） |
-| config.HitOutpost=true 且 enemyOutpostHealth>0 且 now_time<90 | `AimMode::Outpost` |
+| `Task.Buff=true` 且 now_time<25 且 buff次數≤15 | `AimMode::Buff` |
+| 能量機關已激活（event_data 狀態或 legacy buff 狀態） | `AimMode::RotateScan`（Buff進了就切回掃描） |
+| `Task.Outpost=true` 且 enemyOutpostHealth>0 且 now_time<90 | `AimMode::Outpost` |
+| `AimDebug.ForceBuff=true` / `AimDebug.ForceOutpost=true` | 調試覆蓋到 `AimMode::Buff` / `AimMode::Outpost` |
 | 其他 | `AimMode::RotateScan` |
 
 > Regional strategy mode 现在不再自动切到旧单策略点表。`CompetitionProfile=league` 才固定走 `LeagueSimple`；`CompetitionProfile=regional` 固定为 `Regional`，Default 只通过 AreaManager 区域任务输出。

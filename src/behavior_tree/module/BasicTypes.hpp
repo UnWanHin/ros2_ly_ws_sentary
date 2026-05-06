@@ -385,8 +385,8 @@ namespace LangYa
         bool StopFire{false};
         bool StopRotate{false};
         bool StopScan{false};
-        bool HitOutpost{false};
-        bool HitBuff{false};
+        bool ForceOutpost{false};
+        bool ForceBuff{false};
         bool HitCar{false};
         bool FireRequireTargetStatus{true};
         bool ReuseLatchedAnglesOnNoTarget{true};
