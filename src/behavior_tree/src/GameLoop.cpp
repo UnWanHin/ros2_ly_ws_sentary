@@ -30,6 +30,8 @@ namespace BehaviorTree {
     namespace {
     constexpr std::uint8_t kLeagueRouteCompatViaGoalBaseId = LangYa::LeftHighLand.ID;  // base goal id=4
     constexpr int kLeagueRouteCompatViaHoldSec = 5;
+    constexpr int kOfficialFieldWidthCm = 2800;
+    constexpr int kOfficialFieldHeightCm = 1500;
     // 丢 1~2 帧时保留锁角，避免抖动；时间过长会让云台“粘住旧目标”。
     constexpr auto kLostTargetHold = std::chrono::milliseconds(200);
 
@@ -93,6 +95,38 @@ namespace BehaviorTree {
 
     int ClampToInt8(const int value) {
         return std::clamp(value, -128, 127);
+    }
+
+    bool IsOfficialFieldPointValid(const int x, const int y) {
+        return x > 0 && y > 0 && x <= kOfficialFieldWidthCm && y <= kOfficialFieldHeightCm;
+    }
+
+    Area::Point<std::uint16_t> BuildOfficialChaseGoal(
+        const int self_x,
+        const int self_y,
+        const int target_x,
+        const int target_y,
+        const int preferred_distance_cm,
+        const int distance_deadband_cm) {
+        int goal_x = self_x;
+        int goal_y = self_y;
+        const double dx = static_cast<double>(target_x - self_x);
+        const double dy = static_cast<double>(target_y - self_y);
+        const double distance = std::hypot(dx, dy);
+        const double preferred = static_cast<double>(std::max(0, preferred_distance_cm));
+        const double deadband = static_cast<double>(std::max(0, distance_deadband_cm));
+
+        if (distance > 1e-6 && std::abs(distance - preferred) > deadband && distance > preferred) {
+            const double scale = (distance - preferred) / distance;
+            goal_x = static_cast<int>(std::lround(static_cast<double>(self_x) + dx * scale));
+            goal_y = static_cast<int>(std::lround(static_cast<double>(self_y) + dy * scale));
+        }
+
+        goal_x = std::clamp(goal_x, 0, kOfficialFieldWidthCm);
+        goal_y = std::clamp(goal_y, 0, kOfficialFieldHeightCm);
+        return Area::Point<std::uint16_t>{
+            static_cast<std::uint16_t>(goal_x),
+            static_cast<std::uint16_t>(goal_y)};
     }
 
     std::string NormalizeDecisionModule(std::string_view module) {
@@ -383,6 +417,8 @@ namespace BehaviorTree {
         naviRelativeTargetPitchErrorDeg = 0.0F;
         naviRelativeTargetArmorType = 0U;
         naviRelativeTargetAimMode = static_cast<std::uint8_t>(aimMode);
+        naviChaseOfficialTargetValid = false;
+        naviChaseOfficialTargetArmorType = 0U;
         auto reset_patrol_scan_state = [this]() {
             patrolScanDirection_ = 1;
             patrolScanCenterYaw_ = 0.0f;
@@ -683,6 +719,42 @@ namespace BehaviorTree {
                 if (self_x >= 0 && self_y >= 0) {
                     naviGoalPosition.x = static_cast<std::uint16_t>(std::clamp(self_x, 0, 65535));
                     naviGoalPosition.y = static_cast<std::uint16_t>(std::clamp(self_y, 0, 65535));
+                }
+            }
+
+            if (chase_to_navi && config.ChaseSettings.UseOfficialPositionSource) {
+                const bool should_try_official =
+                    config.ChaseSettings.PreferOfficialPositionSource || !naviRelativeTargetValid;
+                const auto maybe_target_unit = UnitTypeFromArmorType(targetArmor.Type);
+                const auto sentry_index = static_cast<std::size_t>(UnitType::Sentry);
+                const bool self_position_fresh =
+                    hasReceivedSentryPosition_ &&
+                    sentry_index < lastFriendPositionRxTime_.size() &&
+                    lastFriendPositionRxTime_[sentry_index].time_since_epoch().count() != 0 &&
+                    now - lastFriendPositionRxTime_[sentry_index] <=
+                        std::chrono::milliseconds(std::max(1, config.ChaseSettings.OfficialPositionFreshMs));
+
+                if (should_try_official &&
+                    maybe_target_unit.has_value() &&
+                    IsEnemyPositionFresh(*maybe_target_unit, config.ChaseSettings.OfficialPositionFreshMs)) {
+                    const int target_x = static_cast<int>(enemyRobots[*maybe_target_unit].position_.X);
+                    const int target_y = static_cast<int>(enemyRobots[*maybe_target_unit].position_.Y);
+                    const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
+                    const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
+                    if (IsOfficialFieldPointValid(target_x, target_y) &&
+                        self_position_fresh &&
+                        IsOfficialFieldPointValid(self_x, self_y)) {
+                        naviGoalPosition = BuildOfficialChaseGoal(
+                            self_x,
+                            self_y,
+                            target_x,
+                            target_y,
+                            config.ChaseSettings.PreferredDistanceCm,
+                            config.ChaseSettings.DistanceDeadbandCm);
+                        naviChaseOfficialTargetValid = true;
+                        naviChaseOfficialTargetArmorType =
+                            static_cast<std::uint8_t>(targetArmor.Type);
+                    }
                 }
             }
         }

@@ -181,7 +181,7 @@ namespace LangYa
         VelocityType Velocity;
         GimbalAnglesType GimbalAngles;
         FireCodeType FireCode;
-        SentryCmdType SentryCmd;
+        SentryCmdType SentryCmd; //復活是下位機自己做的
         std::uint8_t Tail{ 0 };
     };
     static_assert(sizeof(GimbalControlData) == 17, "GimbalControlData must stay 17B");

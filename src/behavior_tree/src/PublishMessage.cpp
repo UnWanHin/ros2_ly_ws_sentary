@@ -38,7 +38,10 @@ namespace BehaviorTree {
         const bool enable_chase_to_navi =
             config.ChaseSettings.Enable &&
             config.ChaseSettings.ToNavi;
-        if (enable_chase_to_navi) {
+        const bool chase_official_target_active =
+            enable_chase_to_navi &&
+            naviChaseOfficialTargetValid;
+        if (enable_chase_to_navi && !chase_official_target_active) {
             PubNaviRelativeTarget();
         }
         if(publishNaviGoal_ && naviCommandRateClock.trigger()) {
@@ -50,11 +53,14 @@ namespace BehaviorTree {
                 config.NaviSettings.UseXY &&
                 config.NaviSettings.ToNavi &&
                 enable_chase_to_navi &&
-                naviRelativeTargetValid;
+                naviRelativeTargetValid &&
+                !chase_official_target_active;
             // 导航目标按模式二选一：
             // - UseXY=true 时固定点位发布坐标；ToNavi=true 则走 /ly/navi/goal_pos_raw -> /goal_pose。
             // - 有有效追击目标时，/ly/navi/target_rel 交给 bridge 输出 /goal_pose，避免固定点位覆盖追击。
-            if(config.NaviSettings.UseXY && !chase_bridge_active) PubNaviGoalPos();
+            // - 官方坐标追击源有效时，发布 /ly/navi/goal_pos_raw，避免和 target_rel 同 tick 双写 /goal_pose。
+            if(chase_official_target_active) PubNaviGoalPos();
+            else if(config.NaviSettings.UseXY && !chase_bridge_active) PubNaviGoalPos();
             else PubNaviGoal();
         }
     }

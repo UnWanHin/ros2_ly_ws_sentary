@@ -472,6 +472,9 @@ namespace LangYa
         bool Enable{false};
         bool FollowAimTarget{true};
         bool ToNavi{false}; // true: publish /ly/navi/target_rel and let navi own speed control
+        bool UseOfficialPositionSource{true}; // true: chase can use /ly/position/data official-map target positions
+        bool PreferOfficialPositionSource{true}; // true: fresh official target overrides camera-relative target_rel
+        int OfficialPositionFreshMs{500};
         bool EnableInAutoAim{true};
         bool EnableInRotateScan{true};
         bool EnableInOutpostMode{false};

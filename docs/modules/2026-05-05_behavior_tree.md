@@ -368,12 +368,21 @@ void TreeTick() {
   - 默認：`[1, 3, 4, 6, 2]`（Hero > Infantry1 > Infantry2 > Sentry > Engineer）
 - `Chase`：底盤追擊配置
   - `Enable`：總開關
-  - `ToNavi`：改由 BT 發布 `/ly/navi/target_rel`（x/y/z 相對目標點），導航側負責速度閉環
+  - `ToNavi`：改由 BT 發布導航追擊輸入，導航側負責速度閉環
+  - `UseOfficialPositionSource`：允許用 `/ly/position/data` 的敵方官方坐標作追擊源
+  - `PreferOfficialPositionSource`：官方坐標新鮮且可匹配目標時，優先走 `/ly/navi/goal_pos_raw -> /goal_pose`；否則退回 `/ly/navi/target_rel`
+  - `OfficialPositionFreshMs`：敵方/自身官方坐標最大有效時間；超時不使用官方源
   - `PreferredDistanceCm`：與目標保持的最適距離（cm）
   - `DistanceDeadbandCm`：距離死區（cm）
   - `DistanceKp` / `MaxForwardSpeed` / `MaxBackwardSpeed`：前後追擊控制
   - `UseYawStrafe` / `YawKp` / `YawDeadbandDeg` / `MaxStrafeSpeed`：側向跟隨控制
   - `LostTargetHoldMs` / `StopWhenNoTarget`：丟目標回退策略
+
+`Chase.ToNavi=true` 時現在是多源輸出：
+
+- 官方坐標源有效：`targetArmor -> enemyRobots[unit].position_`，結合自身官方坐標按 `PreferredDistanceCm` 留距後，發布 `/ly/navi/goal_pos_raw`，由 `navi_tf_bridge` 的 4x4 靜態矩陣轉 `/goal_pose`。
+- 官方坐標缺失、超時、越界或自身坐標不可用：保留原視覺追擊，發布 `/ly/navi/target_rel`，默認按 `gx_camera -> map` TF 轉 `/goal_pose`。
+- `Chase.ToNavi=false` 仍是 BT 內部速度追擊，只使用視覺角度/距離計算 `/ly/gimbal/vel`。
 
 ### 黑板結構（兩種賽制一致）
 

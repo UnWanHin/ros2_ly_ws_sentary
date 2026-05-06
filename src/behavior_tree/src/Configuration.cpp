@@ -511,6 +511,9 @@ namespace LangYa {
         } else {
             cs.ToNavi = j.value("UseRelativeTargetTopic", cs.ToNavi);
         }
+        cs.UseOfficialPositionSource = j.value("UseOfficialPositionSource", cs.UseOfficialPositionSource);
+        cs.PreferOfficialPositionSource = j.value("PreferOfficialPositionSource", cs.PreferOfficialPositionSource);
+        cs.OfficialPositionFreshMs = j.value("OfficialPositionFreshMs", cs.OfficialPositionFreshMs);
         cs.EnableInAutoAim = j.value("EnableInAutoAim", cs.EnableInAutoAim);
         cs.EnableInRotateScan = j.value("EnableInRotateScan", cs.EnableInRotateScan);
         cs.EnableInOutpostMode = j.value("EnableInOutpostMode", cs.EnableInOutpostMode);
@@ -1467,6 +1470,9 @@ namespace BehaviorTree {
         LoggerPtr->Debug("Enable: {}", config.ChaseSettings.Enable);
         LoggerPtr->Debug("FollowAimTarget: {}", config.ChaseSettings.FollowAimTarget);
         LoggerPtr->Debug("Chase.ToNavi: {}", config.ChaseSettings.ToNavi);
+        LoggerPtr->Debug("UseOfficialPositionSource: {}", config.ChaseSettings.UseOfficialPositionSource);
+        LoggerPtr->Debug("PreferOfficialPositionSource: {}", config.ChaseSettings.PreferOfficialPositionSource);
+        LoggerPtr->Debug("OfficialPositionFreshMs: {}", config.ChaseSettings.OfficialPositionFreshMs);
         LoggerPtr->Debug("EnableInAutoAim: {}", config.ChaseSettings.EnableInAutoAim);
         LoggerPtr->Debug("EnableInRotateScan: {}", config.ChaseSettings.EnableInRotateScan);
         LoggerPtr->Debug("EnableInOutpostMode: {}", config.ChaseSettings.EnableInOutpostMode);
@@ -2089,6 +2095,11 @@ namespace BehaviorTree {
             LoggerPtr->Warning("Invalid Chase.LostTargetHoldMs={}, fallback to 0.",
                                config.ChaseSettings.LostTargetHoldMs);
             config.ChaseSettings.LostTargetHoldMs = 0;
+        }
+        if (config.ChaseSettings.OfficialPositionFreshMs < 0) {
+            LoggerPtr->Warning("Invalid Chase.OfficialPositionFreshMs={}, fallback to 0.",
+                               config.ChaseSettings.OfficialPositionFreshMs);
+            config.ChaseSettings.OfficialPositionFreshMs = 0;
         }
         if (config.ChaseSettings.PreferredDistanceCm <= 0) {
             LoggerPtr->Warning("Invalid Chase.PreferredDistanceCm={}, fallback to 100.",

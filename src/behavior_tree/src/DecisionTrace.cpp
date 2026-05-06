@@ -259,15 +259,20 @@ void Application::WriteDecisionTrace(const std::string_view event) {
     const auto posture_runtime = postureManager_.Runtime();
     const bool enable_chase_to_navi =
         config.ChaseSettings.Enable && config.ChaseSettings.ToNavi;
-    const bool uses_chase_to_navi =
-        config.NaviSettings.UseXY && config.NaviSettings.ToNavi && enable_chase_to_navi;
-    const bool uses_goal_pos = config.NaviSettings.UseXY && !uses_chase_to_navi;
+    const bool uses_chase_official_goal = enable_chase_to_navi && naviChaseOfficialTargetValid;
+    const bool uses_chase_relative_target = enable_chase_to_navi && !uses_chase_official_goal;
+    const bool uses_goal_pos = uses_chase_official_goal ||
+        (config.NaviSettings.UseXY && !uses_chase_relative_target);
     const bool uses_goal_pos_bridge = uses_goal_pos && config.NaviSettings.ToNavi;
-    const bool uses_any_to_navi = uses_chase_to_navi || uses_goal_pos_bridge;
+    const bool uses_any_to_navi = uses_chase_relative_target || uses_goal_pos_bridge;
     const char* output_kind = "goal_id";
     const char* output_topic = ly_navi_goal::Name;
     const char* final_goal_pos_topic = "";
-    if (uses_chase_to_navi) {
+    if (uses_chase_official_goal) {
+        output_kind = config.NaviSettings.ToNavi ? "chase_goal_pos_raw_bridge" : "chase_goal_pos";
+        output_topic = config.NaviSettings.ToNavi ? ly_navi_goal_pos_raw::Name : ly_navi_goal_pos::Name;
+        final_goal_pos_topic = config.NaviSettings.ToNavi ? "/goal_pose" : ly_navi_goal_pos::Name;
+    } else if (uses_chase_relative_target) {
         output_kind = "relative_target_bridge";
         output_topic = ly_navi_target_rel::Name;
         final_goal_pos_topic = "/goal_pose";
@@ -330,6 +335,8 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         {"uses_goal_pos", uses_goal_pos},
         {"uses_to_navi", uses_any_to_navi},
         {"relative_target_valid", naviRelativeTargetValid},
+        {"chase_official_target_valid", naviChaseOfficialTargetValid},
+        {"chase_official_armor_type", static_cast<int>(naviChaseOfficialTargetArmorType)},
         {"output_topic", output_topic},
         {"output_frame", "map"},
         {"final_goal_pos_topic", final_goal_pos_topic},
@@ -373,6 +380,8 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         {"pitch_error_deg", FiniteFloat(naviRelativeTargetPitchErrorDeg)},
         {"armor_type", static_cast<int>(naviRelativeTargetArmorType)},
         {"aim_mode", static_cast<int>(naviRelativeTargetAimMode)},
+        {"official_target_valid", naviChaseOfficialTargetValid},
+        {"official_armor_type", static_cast<int>(naviChaseOfficialTargetArmorType)},
     };
 
     record["posture"] = {
