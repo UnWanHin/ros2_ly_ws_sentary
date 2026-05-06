@@ -11,7 +11,8 @@
  * 3) 发布 /ly/gimbal/* 与 /ly/game/*（回传状态）
  *
  * 备注：
- * - /ly/control/posture 为姿态指令输入，/ly/gimbal/posture 仅发布下位机回传状态。
+ * - /ly/referee/sentry_cmd 为裁判命令输入，/ly/control/posture 保留为姿态兼容入口。
+ * - /ly/gimbal/posture 仅发布下位机回传状态。
  */
 #include <chrono>
 #include <thread>
@@ -35,6 +36,7 @@
 #include "gimbal_driver/msg/buff_data.hpp"
 #include "gimbal_driver/msg/bullet_info.hpp"
 #include "gimbal_driver/msg/position_data.hpp"
+#include "gimbal_driver/msg/sentry_cmd.hpp"
 #include "gimbal_driver/msg/sentry_info.hpp"
 
 #include <std_msgs/msg/float32.hpp>
@@ -56,6 +58,7 @@ namespace
     LY_DEF_ROS_TOPIC(ly_control_firecode, "/ly/control/firecode", gimbal_driver::msg::FireCode);
     LY_DEF_ROS_TOPIC(ly_control_vel, "/ly/control/vel", gimbal_driver::msg::ControlVelocity);
     LY_DEF_ROS_TOPIC(ly_control_posture, "/ly/control/posture", std_msgs::msg::UInt8);
+    LY_DEF_ROS_TOPIC(ly_referee_sentry_cmd, "/ly/referee/sentry_cmd", gimbal_driver::msg::SentryCmd);
 
     LY_DEF_ROS_TOPIC(ly_gimbal_angles, "/ly/gimbal/angles", gimbal_driver::msg::GimbalAngles);
     LY_DEF_ROS_TOPIC(ly_gimbal_firecode, "/ly/gimbal/firecode", gimbal_driver::msg::FireCode);
@@ -143,6 +146,16 @@ namespace
 
         static std::uint8_t ClampU2(std::uint8_t value) noexcept {
             return static_cast<std::uint8_t>(value & 0x03u);
+        }
+
+        static std::uint8_t ClampU8Bits(std::uint8_t value, unsigned width) noexcept {
+            const std::uint8_t mask = static_cast<std::uint8_t>((1u << width) - 1u);
+            return static_cast<std::uint8_t>(value & mask);
+        }
+
+        static std::uint16_t ClampU16Bits(std::uint16_t value, unsigned width) noexcept {
+            const std::uint16_t mask = static_cast<std::uint16_t>((1u << width) - 1u);
+            return static_cast<std::uint16_t>(value & mask);
         }
 
         static std::int8_t ClampInt8(int value) noexcept {
@@ -334,7 +347,7 @@ namespace
             }
 
             auto tx = controlShadow_;
-            tx.Posture = posturePendingToSend_;
+            tx.SentryCmd.Posture = posturePendingToSend_;
             if (!Device.Write(tx)) {
                 DeviceError = true;
                 return;
@@ -401,6 +414,50 @@ namespace
 
             if (!full_snapshot) {
                 DegradeStaleFireCode(g.FireCode, now);
+            }
+        }
+
+        void ApplySentryCmdCommand(GimbalControlData& g, const gimbal_driver::msg::SentryCmd& m) {
+            const bool full_snapshot = (m.field_mask == 0) ||
+                ((m.field_mask & gimbal_driver::msg::SentryCmd::FIELD_ALL) == gimbal_driver::msg::SentryCmd::FIELD_ALL);
+
+            auto has_field = [&](const std::uint8_t field) {
+                return full_snapshot || ((m.field_mask & field) != 0);
+            };
+
+            if (has_field(gimbal_driver::msg::SentryCmd::FIELD_CONFIRM_FREE_REVIVE)) {
+                g.SentryCmd.ConfirmFreeRevive = m.confirm_free_revive ? 1 : 0;
+            }
+            if (has_field(gimbal_driver::msg::SentryCmd::FIELD_CONFIRM_IMMEDIATE_REVIVE)) {
+                g.SentryCmd.ConfirmImmediateRevive = m.confirm_immediate_revive ? 1 : 0;
+            }
+            if (has_field(gimbal_driver::msg::SentryCmd::FIELD_EXCHANGE_PROJECTILE_ALLOWANCE)) {
+                g.SentryCmd.ExchangeProjectileAllowance = ClampU16Bits(m.exchange_projectile_allowance, 11);
+            }
+            if (has_field(gimbal_driver::msg::SentryCmd::FIELD_REMOTE_PROJECTILE_EXCHANGE_COUNT)) {
+                g.SentryCmd.RemoteProjectileExchangeCount =
+                    ClampU8Bits(m.remote_projectile_exchange_count, 4);
+            }
+            if (has_field(gimbal_driver::msg::SentryCmd::FIELD_REMOTE_HP_EXCHANGE_COUNT)) {
+                g.SentryCmd.RemoteHpExchangeCount = ClampU8Bits(m.remote_hp_exchange_count, 4);
+            }
+            if (has_field(gimbal_driver::msg::SentryCmd::FIELD_POSTURE)) {
+                const auto posture = ClampU2(m.posture);
+                if (m.posture != posture) {
+                    roslog::warn("Invalid /ly/referee/sentry_cmd posture: %u (expect 0/1/2/3)",
+                                 m.posture);
+                }
+                g.SentryCmd.Posture = posture;
+                postureCommand_ = posture;
+                if (posture == 0) {
+                    posturePendingRepeat_ = 0;
+                    posturePendingToSend_ = 0;
+                } else {
+                    ArmPostureTx(posture);
+                }
+            }
+            if (has_field(gimbal_driver::msg::SentryCmd::FIELD_CONFIRM_ENERGY_ACTIVATE)) {
+                g.SentryCmd.ConfirmEnergyActivate = m.confirm_energy_activate ? 1 : 0;
             }
         }
 
@@ -512,7 +569,7 @@ namespace
                                                return;
                                            }
                                            postureCommand_ = cmd;
-                                           g.Posture = cmd;
+                                           g.SentryCmd.Posture = cmd;
                                            // /ly/gimbal/posture 仅由下位机回传驱动，避免命令回环掩盖真实执行状态。
                                            if (cmd == 0) {
                                                posturePendingRepeat_ = 0;
@@ -521,6 +578,11 @@ namespace
                                            }
                                            ArmPostureTx(cmd);
                                        });
+
+            GenSub<ly_referee_sentry_cmd>([this](GimbalControlData& g, const gimbal_driver::msg::SentryCmd& m)
+                                          {
+                                              ApplySentryCmdCommand(g, m);
+                                          });
         }
 
         void PublishRfidStatus(const rclcpp::Time& stamp) {
@@ -994,7 +1056,7 @@ namespace
                 DeviceError = false;
                 posturePendingRepeat_ = 0;
                 postureLastSent_ = 0;
-                controlShadow_.Posture = IsValidPosture(postureCommand_) ? postureCommand_ : 0;
+                controlShadow_.SentryCmd.Posture = IsValidPosture(postureCommand_) ? postureCommand_ : 0;
                 if (IsValidPosture(postureCommand_)) {
                     ArmPostureTx(postureCommand_);
                 }

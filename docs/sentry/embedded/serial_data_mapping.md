@@ -64,12 +64,12 @@ struct GimbalControlData
     VelocityType Velocity;
     GimbalAnglesType GimbalAngles;
     FireCodeType FireCode;
-    std::uint8_t Posture{0};
+    SentryCmdType SentryCmd;
     std::uint8_t Tail{ 0 };
 };
 ```
 
-按当前定义，主控制幀长度是 **14B**。
+按当前定义，主控制幀长度是 **17B**。
 
 ### 3.1.1 字节布局
 
@@ -81,8 +81,8 @@ struct GimbalControlData
 | 3~6 | `GimbalAngles.Yaw` | `float` | `/ly/control/angles.yaw` | 直接写 `float` |
 | 7~10 | `GimbalAngles.Pitch` | `float` | `/ly/control/angles.pitch` | 直接写 `float` |
 | 11 | `FireCode` | `uint8` | `/ly/control/firecode` 分字段 | `FireCode` msg 组包；partial 字段 100ms 超时退回 0 |
-| 12 | `Posture` | `uint8` | `/ly/control/posture.data` | 仅接受 `0/1/2/3` |
-| 13 | `Tail` | `uint8` | 固定值 | `0x00` |
+| 12~15 | `SentryCmd` | `uint32` | `/ly/referee/sentry_cmd` 或兼容 `/ly/control/posture` | little-endian，映射裁判 `0x0120 sentry_cmd` |
+| 16 | `Tail` | `uint8` | 固定值 | `0x00` |
 
 ### 3.1.2 ROS 输入与字段映射
 
@@ -93,7 +93,8 @@ struct GimbalControlData
 | `/ly/control/vel` | `x_mps/raw_x/use_raw` | `Velocity.X` | 语义速度或原始 int8 |
 | `/ly/control/vel` | `y_mps/raw_y/use_raw` | `Velocity.Y` | 语义速度或原始 int8 |
 | `/ly/control/firecode` | `fire_status/cap_state/follow_mode/aim_mode/rotate/field_mask` | `FireCode` | 分字段组包 |
-| `/ly/control/posture` | `data` | `Posture` | `0=保留, 1=进攻, 2=防御, 3=移动` |
+| `/ly/referee/sentry_cmd` | `confirm/revive/exchange/posture/energy` | `SentryCmd` | 分字段组包，直接对应裁判 `0x0120` |
+| `/ly/control/posture` | `data` | `SentryCmd.Posture` | 兼容旧入口，只改 `bit21-22` |
 
 ### 3.1.3 `FireCode` 位定义
 
@@ -109,14 +110,30 @@ struct GimbalControlData
 
 `behavior_tree` 发布 `FollowMode=1` 时，会同时把 `Rotate` 压到 `0`、关闭 `AimMode`、停止新的 `FireStatus` 翻转，并保持当前云台角度，不再进入巡逻扫描。FaceMode 是上位机内部云台接管语义：停止云台巡逻并按配置停火，但不会单独把 `Rotate` 压到 `0`。
 
-### 3.1.4 `Posture` 当前规则
+### 3.1.4 `SentryCmd` 位定义
+
+`SentryCmd` 是 4B 命令字，按 little-endian 写入主幀 byte `12~15`：
+
+| bit | 名称 | 含义 |
+|---|---|---|
+| 0 | `ConfirmFreeRevive` | 确认免费复活 |
+| 1 | `ConfirmImmediateRevive` | 确认兑换立即复活 |
+| 2~12 | `ExchangeProjectileAllowance` | 非远程兑换允许发弹量累计值 |
+| 13~16 | `RemoteProjectileExchangeCount` | 远程兑换发弹量请求次数 |
+| 17~20 | `RemoteHpExchangeCount` | 远程兑换血量请求次数 |
+| 21~22 | `Posture` | `0=保留, 1=进攻, 2=防御, 3=移动` |
+| 23 | `ConfirmEnergyActivate` | 确认己方能量机关进入正在激活状态 |
+| 24~31 | `Reserved` | 保留 |
+
+### 3.1.5 `Posture` 当前规则
 
 当前代码行为：
 
-1. `0` 允许写入，表示“不请求姿态切换 / 保留值”
-2. `1/2/3` 为有效姿态
-3. 非 `0/1/2/3` 会被上位机直接丢弃并报警告
-4. 有效姿态会按参数做重发
+1. BT 主链路发布 `/ly/referee/sentry_cmd`，`field_mask=FIELD_POSTURE`
+2. 旧 `/ly/control/posture` 仍可用，会转写到 `SentryCmd.Posture`
+3. `0` 允许写入，表示“不请求姿态切换 / 保留值”
+4. `1/2/3` 为有效姿态
+5. 有效姿态会按参数做重发
 
 当前重发参数默认值：
 
@@ -604,7 +621,8 @@ struct BulletDataAndRfid2 {
 | 底盘速度 x | `GimbalControlData.Velocity.X` | `/ly/control/vel` (`ControlVelocity`) |
 | 底盘速度 y | `GimbalControlData.Velocity.Y` | `/ly/control/vel` (`ControlVelocity`) |
 | 火控字段 | `GimbalControlData.FireCode` | `/ly/control/firecode` (`FireCode`) |
-| 姿态指令 | `GimbalControlData.Posture` | `/ly/control/posture` |
+| 哨兵裁判命令 | `GimbalControlData.SentryCmd` | `/ly/referee/sentry_cmd` (`SentryCmd`) |
+| 姿态兼容入口 | `GimbalControlData.SentryCmd.Posture` | `/ly/control/posture` |
 
 ## 6.2 下位机 -> 上位机已对接
 
@@ -651,7 +669,6 @@ struct BulletDataAndRfid2 {
 | 结构 | 字段 | 当前状态 |
 |---|---|---|
 | `RFIDAndBuffData.BuffStatus` | `reserve` | 未发布 |
-| `0x0301/0x0120 sentry_cmd` | 确认复活、立即复活、兑换弹量、远程兑换、远程回血、姿态、确认能量机关激活 | 当前上位机下行只支持姿态字段；兑换和能量机关确认未接入 |
 
 ---
 
@@ -669,7 +686,7 @@ struct BulletDataAndRfid2 {
 | `0x0207 shoot_data` | 裁判系统 -> 机器人状态 | 已通过 TypeID=7/8 进入 `/ly/referee/bullet_info`；旧 `/ly/bullet/speed` 仍保留 TypeID=5 来源 |
 | `0x0208 projectile_allowance` | 裁判系统 -> 机器人状态 | 已通过 TypeID=8 进入 `/ly/referee/bullet_info`；旧 `/ly/me/ammo_left` 仍保留 TypeID=1 来源 |
 | `0x020D sentry_info/sentry_info_2` | 裁判系统 -> 哨兵状态 | 已通过 TypeID=7 进入 `/ly/referee/sentry_info`；不会覆盖 `/ly/gimbal/posture` |
-| `0x0301 + data_cmd_id=0x0120 sentry_cmd` | 机器人 -> 裁判系统命令 | 当前上位机没有完整下发该命令；只有 `/ly/control/posture` 语义上对应 `sentry_cmd bit21-22`，由下位机映射到裁判链路 |
+| `0x0301 + data_cmd_id=0x0120 sentry_cmd` | 机器人 -> 裁判系统命令 | 已通过 `/ly/referee/sentry_cmd` 进入主控制幀 byte `12~15`；下位机负责封装裁判 `0x0301/0x0120` |
 
 ### 8.1 当前看弹量和兑弹怎么走
 
@@ -682,12 +699,12 @@ struct BulletDataAndRfid2 {
   -> behavior_tree ammoLeft
 ```
 
-当前“兑弹”的链路还没有真正接通到上位机命令。现在 BT 只会根据低弹量进入 Recovery/回补策略；它不会下发 `0x0120` 里的兑换弹量、远程兑换次数或远程回血次数。
+当前“兑弹”的下发接口已经接到 `/ly/referee/sentry_cmd` 和主控制幀 `SentryCmd`。但 BT 目前仍只会根据低弹量进入 Recovery/回补策略；除了姿态以外，还没有自动产生兑换弹量、远程兑换次数或远程回血次数。
 
 如果后续要实现自动兑弹，建议按两个方向补齐：
 
 1. 状态回读：下位机把 `0x0208` 和 `0x020D` 拆成语义状态。当前已用 TypeID=7/8 上发 `0x0207`、`0x0208`、`0x0209 rfid_status_2` 和 `0x020D`；若后续还要更多裁判字段，应继续新增明确语义字段或新 TypeID。
-2. 命令下发：新增明确的上位机 -> 下位机语义命令，不建议继续挤进 `FireCode`。该命令最终由下位机写入裁判 `0x0301/0x0120 sentry_cmd`，包括兑换弹量、远程兑换请求次数、远程回血请求次数、确认复活、确认能量机关激活等字段。
+2. 命令下发：当前已新增上位机 -> 下位机语义命令 `/ly/referee/sentry_cmd`，不再挤进 `FireCode`。该命令最终由下位机写入裁判 `0x0301/0x0120 sentry_cmd`，包括兑换弹量、远程兑换请求次数、远程回血请求次数、确认复活、确认能量机关激活等字段。
 
 注意：`0x020D` 是状态回读，不是上位机发出去的命令。真正的兑弹/激活确认命令在 `0x0301/0x0120 sentry_cmd`。
 

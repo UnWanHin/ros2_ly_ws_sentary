@@ -55,6 +55,20 @@ namespace LangYa
         void FlipFireStatus() noexcept { FireStatus = FireStatus == 0 ? 0b11 : 0b00; }
     };
 
+    /// @brief 裁判 0x0301 / 0x0120 sentry_cmd，下位机应整体映射到裁判系统 sentry_cmd。
+    struct SentryCmdType
+    {
+        std::uint32_t ConfirmFreeRevive : 1 = 0;             // bit0
+        std::uint32_t ConfirmImmediateRevive : 1 = 0;        // bit1
+        std::uint32_t ExchangeProjectileAllowance : 11 = 0;  // bit2-12
+        std::uint32_t RemoteProjectileExchangeCount : 4 = 0; // bit13-16
+        std::uint32_t RemoteHpExchangeCount : 4 = 0;         // bit17-20
+        std::uint32_t Posture : 2 = 0;                       // bit21-22, 0=保留, 1=进攻, 2=防御, 3=移动
+        std::uint32_t ConfirmEnergyActivate : 1 = 0;         // bit23
+        std::uint32_t Reserved : 8 = 0;                      // bit24-31
+    };
+    static_assert(sizeof(SentryCmdType) == sizeof(std::uint32_t), "SentryCmdType must stay 4B");
+
     /// @note 这里类型要求使用 @c std::uint16_t ，是因为在非 g++ 编译器上，此结构体的大小可能不符合预期
     struct GameCodeType
     {
@@ -167,9 +181,10 @@ namespace LangYa
         VelocityType Velocity;
         GimbalAnglesType GimbalAngles;
         FireCodeType FireCode;
-        std::uint8_t Posture{0}; // 0=保留, 1=进攻, 2=防御, 3=移动
+        SentryCmdType SentryCmd;
         std::uint8_t Tail{ 0 };
     };
+    static_assert(sizeof(GimbalControlData) == 17, "GimbalControlData must stay 17B");
 
     struct BuffType{
         std::uint8_t reserve;

@@ -104,9 +104,12 @@ namespace BehaviorTree {
         if (postureCommand < 1 || postureCommand > 3) {
             return;
         }
-        std_msgs::msg::UInt8 msg;
-        msg.data = postureCommand;
-        pub_gimbal_posture_->publish(msg);
+        gimbal_driver::msg::SentryCmd msg;
+        msg.header.stamp = node_->now();
+        msg.field_mask = gimbal_driver::msg::SentryCmd::FIELD_POSTURE;
+        msg.posture = postureCommand;
+        msg.raw = static_cast<std::uint32_t>(postureCommand) << 21;
+        pub_referee_sentry_cmd_->publish(msg);
     }
 
     /**

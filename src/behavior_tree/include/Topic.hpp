@@ -54,6 +54,7 @@
 #include "gimbal_driver/msg/fire_code.hpp"
 #include "gimbal_driver/msg/health.hpp"
 #include "gimbal_driver/msg/rfid_status.hpp"
+#include "gimbal_driver/msg/sentry_cmd.hpp"
 #include "gimbal_driver/msg/uwb_pos.hpp"
 #include "gimbal_driver/msg/vel.hpp"
 #include "gimbal_driver/msg/buff_data.hpp"
@@ -68,6 +69,7 @@ namespace BehaviorTree {
     LY_DEF_ROS_TOPIC(ly_control_firecode, "/ly/control/firecode", gimbal_driver::msg::FireCode);
     LY_DEF_ROS_TOPIC(ly_control_vel, "/ly/control/vel", gimbal_driver::msg::ControlVelocity);
     LY_DEF_ROS_TOPIC(ly_control_posture, "/ly/control/posture", std_msgs::msg::UInt8);
+    LY_DEF_ROS_TOPIC(ly_referee_sentry_cmd, "/ly/referee/sentry_cmd", gimbal_driver::msg::SentryCmd);
     LY_DEF_ROS_TOPIC(ly_game_all, "/ly/game/all", gimbal_driver::msg::GameData);
     
     LY_DEF_ROS_TOPIC(ly_gimbal_angles, "/ly/gimbal/angles", gimbal_driver::msg::GimbalAngles);

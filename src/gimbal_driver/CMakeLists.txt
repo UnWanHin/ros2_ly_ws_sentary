@@ -98,6 +98,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/BuffData.msg"
   "msg/BulletInfo.msg"
   "msg/PositionData.msg"
+  "msg/SentryCmd.msg"
   "msg/SentryInfo.msg"
   DEPENDENCIES geometry_msgs std_msgs
 )
