@@ -157,7 +157,8 @@ TypedMessage<sizeof(GimbalData)>
 | `4` | `RFIDAndBuffData` | `PubRFIDAndBuffData()` |
 | `5` | `PositionData` | `PubPositionData()` |
 | `6` | `ChassisData` | `PubChassisData()` |
-| `7` | `ExtendData` | 当前仅识别，暂不解析发布 |
+| `7` | `SentryData` | `PubSentryData()` |
+| `8` | `BulletDataAndRfid2` | `PubBulletDataAndRfid2()` |
 
 ---
 
@@ -398,7 +399,7 @@ struct RFIDAndBuffData{
 
 - `BuffStatus.reserve` 当前没有被发布
 - `0x0209` 的 `rfid_status_2`（额外 8 bit）当前未并入 `TypeID=4`；本链路实际承载仍是 `rfid_status` 低 32 位
-- `/ly/me/rfid` 的 `RfidStatus` 已预留 `has_rfid_status_2`、`rfid_status_2_raw` 和 bit0-5 的语义字段；当前发布端默认 `has_rfid_status_2=false`
+- `/ly/me/rfid` 的 `RfidStatus` 已预留 `has_rfid_status_2`、`rfid_status_2_raw` 和 bit0-5 的语义字段；收到 TypeID=8 后会把 `rfid_status_2` 合并发布
 
 ### 5.5.3 `rfid_status_2` 预留语义（RM2026 V1.3.0，0x0209 offset 4）
 
@@ -509,9 +510,86 @@ struct ChassisData {
 
 ---
 
-## 5.8 `TypeID=7` - `ExtendData`
+## 5.8 `TypeID=7` - `SentryData`
 
-当前作为 12B 预留扩展帧接入，`gimbal_driver` 已识别 `TypeID=7`，但暂不拆字段发布。
+结构：
+
+```cpp
+struct SentryData {
+    uint32_t SentryInfo;
+    uint16_t SentryInfo2;
+    float BulletInitialSpeed;
+    uint16_t Reserved;
+};
+```
+
+来源：
+
+| 串口字段 | 裁判系统字段 | 发布 topic / ROS 字段 |
+|---|---|---|
+| `SentryInfo` | `0x020D sentry_info` offset 0 | `/ly/referee/sentry_info.sentry_info_raw`，并拆语义字段 |
+| `SentryInfo2` | `0x020D sentry_info_2` offset 4 | `/ly/referee/sentry_info.sentry_info_2_raw`，并拆语义字段 |
+| `BulletInitialSpeed` | `0x0207 shoot_data.initial_speed` offset 3 | `/ly/referee/bullet_info.initial_speed` |
+| `Reserved` | 上下位机保留 | `/ly/referee/sentry_info.reserved` |
+
+`/ly/referee/sentry_info` 不覆盖 `/ly/gimbal/posture`。`0x020D sentry_info_2 bit12-13`
+会发布到 `SentryInfo.posture`，原 `/ly/gimbal/posture` 仍只表示 TypeID=6 的下位机/云台姿态回读。
+
+### 5.8.1 `SentryInfo` 拆字段
+
+| 字段 | 位 | ROS 字段 |
+|---|---|---|
+| 除远程兑换外成功兑换的允许发弹量 | `sentry_info bit0-10` | `exchanged_projectile_allowance` |
+| 成功远程兑换允许发弹量次数 | `bit11-14` | `remote_projectile_exchange_count` |
+| 成功远程兑换血量次数 | `bit15-18` | `remote_hp_exchange_count` |
+| 当前可确认免费复活 | `bit19` | `can_confirm_free_revive` |
+| 当前可兑换立即复活 | `bit20` | `can_exchange_immediate_revive` |
+| 立即复活所需金币 | `bit21-30` | `immediate_revive_cost` |
+| 保留 | `bit31` | `sentry_info_reserved` |
+| 当前是否脱战 | `sentry_info_2 bit0` | `out_of_combat` |
+| 队伍 17mm 允许发弹量剩余可兑换数 | `bit1-11` | `remaining_exchangeable_17mm` |
+| 当前姿态 | `bit12-13` | `posture` |
+| 己方能量机关当前可进入正在激活状态 | `bit14` | `can_activate_energy_mechanism` |
+| 保留 | `bit15` | `sentry_info_2_reserved` |
+
+## 5.9 `TypeID=8` - `BulletDataAndRfid2`
+
+结构：
+
+```cpp
+struct BulletDataAndRfid2 {
+    uint8_t BulletType;
+    uint8_t ShooterNumber;
+    uint8_t LaunchingFrequency;
+    uint16_t ProjectileAllowance17mm;
+    uint16_t ProjectileAllowance42mm;
+    uint16_t RemainingGoldCoin;
+    uint16_t ProjectileAllowanceFortress;
+    uint8_t RfidStatus2;
+};
+```
+
+来源：
+
+| 串口字段 | 裁判系统字段 | 发布 topic / ROS 字段 |
+|---|---|---|
+| `BulletType` | `0x0207 shoot_data.bullet_type` offset 0 | `/ly/referee/bullet_info.bullet_type` |
+| `ShooterNumber` | `0x0207 shoot_data.shooter_number` offset 1 | `/ly/referee/bullet_info.shooter_number` |
+| `LaunchingFrequency` | `0x0207 shoot_data.launching_frequency` offset 2 | `/ly/referee/bullet_info.launching_frequency` |
+| `ProjectileAllowance17mm` | `0x0208 projectile_allowance_17mm` offset 0 | `/ly/referee/bullet_info.projectile_allowance_17mm` |
+| `ProjectileAllowance42mm` | `0x0208 projectile_allowance_42mm` offset 2 | `/ly/referee/bullet_info.projectile_allowance_42mm` |
+| `RemainingGoldCoin` | `0x0208 remaining_gold_coin` offset 4 | `/ly/referee/bullet_info.remaining_gold_coin` |
+| `ProjectileAllowanceFortress` | `0x0208 projectile_allowance_fortress` offset 6 | `/ly/referee/bullet_info.projectile_allowance_fortress_17mm` |
+| `RfidStatus2` | `0x0209 rfid_status_2` offset 4 | `/ly/me/rfid.rfid_status_2_raw`，也保留在 `/ly/referee/bullet_info.rfid_status_2_raw` |
+
+注意：`0x0207` 被拆在 TypeID=7 和 TypeID=8 两帧中。下位机应在收到一次 `0x0207`
+时同步更新内部 `shoot_data` shadow，再分别填入 TypeID=7/8。上位机以最近一次值合成
+`/ly/referee/bullet_info`，并通过 `has_initial_speed`、`has_shoot_data`、
+`has_projectile_allowance`、`has_rfid_status_2` 标记当前消息中哪些部分已经收到。
+
+`TypeID=8` 的 `rfid_status_2` 会合并到现有 `/ly/me/rfid`。如果 TypeID=8 先于 TypeID=4
+到达，上位机会先缓存 `rfid_status_2`，等 TypeID=4 的低 32 位 `rfid_status` 到达后再发布完整
+`/ly/me/rfid`。
 
 ---
 
@@ -558,7 +636,11 @@ struct ChassisData {
 | `6` | 自身朝向 | `ChassisData.UWBAngleYaw` | `/ly/me/uwb_yaw` |
 | `6` | 底盘回读（四元） | `ChassisPacked1/2`（8位整数+8位小数） | `/ly/gimbal/chassis` |
 | `6` | 姿态回读 | `ChassisData.Posture`（先低8位，后高8位） | `/ly/gimbal/posture` |
-| `7` | 预留扩展帧 | `ExtendData.Raw[12]` | 当前未发布 |
+| `7` | 哨兵自主决策状态 | `SentryData.SentryInfo/SentryInfo2` | `/ly/referee/sentry_info` |
+| `7` | 发射初速度 | `SentryData.BulletInitialSpeed` | `/ly/referee/bullet_info` |
+| `8` | 发射事件字段 | `BulletDataAndRfid2.BulletType/ShooterNumber/LaunchingFrequency` | `/ly/referee/bullet_info` |
+| `8` | 允许发弹量/金币 | `BulletDataAndRfid2.ProjectileAllowance* / RemainingGoldCoin` | `/ly/referee/bullet_info` |
+| `8` | RFID 扩展字节 | `BulletDataAndRfid2.RfidStatus2` | `/ly/me/rfid` 和 `/ly/referee/bullet_info` |
 
 ---
 
@@ -569,9 +651,6 @@ struct ChassisData {
 | 结构 | 字段 | 当前状态 |
 |---|---|---|
 | `RFIDAndBuffData.BuffStatus` | `reserve` | 未发布 |
-| `ExtendData` | `Raw[12]` | 未解析（TypeID=7 预留） |
-| `0x0208 projectile_allowance` | 17mm/42mm 允许发弹量、剩余金币、堡垒储备 17mm 允许发弹量 | 当前没有完整进入上位机串口结构；上位机只看到自定义 `GameData.AmmoLeft` |
-| `0x020D sentry_info` | 成功兑换量、远程兑换次数、远程回血次数、可复活、可立即复活、可激活能量机关等 | 当前没有完整进入上位机串口结构；姿态仅通过 `TypeID=6 ChassisData.Posture` 单独回读 |
 | `0x0301/0x0120 sentry_cmd` | 确认复活、立即复活、兑换弹量、远程兑换、远程回血、姿态、确认能量机关激活 | 当前上位机下行只支持姿态字段；兑换和能量机关确认未接入 |
 
 ---
@@ -587,8 +666,9 @@ struct ChassisData {
 
 | 裁判协议项 | 方向 | 当前本仓库状态 |
 |---|---|---|
-| `0x0208 projectile_allowance` | 裁判系统 -> 机器人状态 | 未完整进入上位机；当前只通过 `TypeID=1 GameData.AmmoLeft` 得到一个简化弹量值 |
-| `0x020D sentry_info/sentry_info_2` | 裁判系统 -> 哨兵状态 | 未完整进入上位机；`can_activate`、兑换成功次数、可复活等还没有语义 topic |
+| `0x0207 shoot_data` | 裁判系统 -> 机器人状态 | 已通过 TypeID=7/8 进入 `/ly/referee/bullet_info`；旧 `/ly/bullet/speed` 仍保留 TypeID=5 来源 |
+| `0x0208 projectile_allowance` | 裁判系统 -> 机器人状态 | 已通过 TypeID=8 进入 `/ly/referee/bullet_info`；旧 `/ly/me/ammo_left` 仍保留 TypeID=1 来源 |
+| `0x020D sentry_info/sentry_info_2` | 裁判系统 -> 哨兵状态 | 已通过 TypeID=7 进入 `/ly/referee/sentry_info`；不会覆盖 `/ly/gimbal/posture` |
 | `0x0301 + data_cmd_id=0x0120 sentry_cmd` | 机器人 -> 裁判系统命令 | 当前上位机没有完整下发该命令；只有 `/ly/control/posture` 语义上对应 `sentry_cmd bit21-22`，由下位机映射到裁判链路 |
 
 ### 8.1 当前看弹量和兑弹怎么走
@@ -606,7 +686,7 @@ struct ChassisData {
 
 如果后续要实现自动兑弹，建议按两个方向补齐：
 
-1. 状态回读：下位机把 `0x0208` 和 `0x020D` 拆成语义状态，复用当前 `TypeID=7 ExtendData` 或新增明确的上行 `TypeID`。至少要包含 17mm 允许发弹量、42mm 允许发弹量、剩余金币、已成功兑换量、远程兑换成功次数、远程回血成功次数、`can_activate`。
+1. 状态回读：下位机把 `0x0208` 和 `0x020D` 拆成语义状态。当前已用 TypeID=7/8 上发 `0x0207`、`0x0208`、`0x0209 rfid_status_2` 和 `0x020D`；若后续还要更多裁判字段，应继续新增明确语义字段或新 TypeID。
 2. 命令下发：新增明确的上位机 -> 下位机语义命令，不建议继续挤进 `FireCode`。该命令最终由下位机写入裁判 `0x0301/0x0120 sentry_cmd`，包括兑换弹量、远程兑换请求次数、远程回血请求次数、确认复活、确认能量机关激活等字段。
 
 注意：`0x020D` 是状态回读，不是上位机发出去的命令。真正的兑弹/激活确认命令在 `0x0301/0x0120 sentry_cmd`。

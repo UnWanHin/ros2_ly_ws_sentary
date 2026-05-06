@@ -96,7 +96,9 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Health.msg"
   "msg/GameData.msg"
   "msg/BuffData.msg"
+  "msg/BulletInfo.msg"
   "msg/PositionData.msg"
+  "msg/SentryInfo.msg"
   DEPENDENCIES geometry_msgs std_msgs
 )
 

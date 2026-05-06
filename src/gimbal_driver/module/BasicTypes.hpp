@@ -216,12 +216,29 @@ namespace LangYa
     };
     static_assert(sizeof(ChassisData) == sizeof(GimbalData), "TypeID=6 payload must stay 12B");
 
-    /// TypeID=7: 预留扩展数据（固定12B）
-    struct ExtendData {
+    /// TypeID=7: 哨兵裁判状态与发射初速度（固定12B）
+    struct SentryData {
         static constexpr auto TypeID = 7;
-        std::array<std::uint8_t, sizeof(GimbalData)> Raw{};
+        std::uint32_t SentryInfo;        // 0x020D offset 0
+        std::uint16_t SentryInfo2;       // 0x020D offset 4
+        float BulletInitialSpeed;        // 0x0207 offset 3
+        std::uint16_t Reserved{};
     };
-    static_assert(sizeof(ExtendData) == sizeof(GimbalData), "TypeID=7 payload must stay 12B");
+    static_assert(sizeof(SentryData) == sizeof(GimbalData), "TypeID=7 payload must stay 12B");
+
+    /// TypeID=8: 发射事件、允许发弹量与 rfid_status_2（固定12B）
+    struct BulletDataAndRfid2 {
+        static constexpr auto TypeID = 8;
+        std::uint8_t BulletType;                     // 0x0207 offset 0
+        std::uint8_t ShooterNumber;                  // 0x0207 offset 1
+        std::uint8_t LaunchingFrequency;             // 0x0207 offset 2
+        std::uint16_t ProjectileAllowance17mm;       // 0x0208 offset 0
+        std::uint16_t ProjectileAllowance42mm;       // 0x0208 offset 2
+        std::uint16_t RemainingGoldCoin;             // 0x0208 offset 4
+        std::uint16_t ProjectileAllowanceFortress;   // 0x0208 offset 6
+        std::uint8_t RfidStatus2;                    // 0x0209 offset 4
+    };
+    static_assert(sizeof(BulletDataAndRfid2) == sizeof(GimbalData), "TypeID=8 payload must stay 12B");
 
 
 #pragma pack(pop)

@@ -33,7 +33,9 @@
 #include "gimbal_driver/msg/health.hpp"
 #include "gimbal_driver/msg/game_data.hpp"
 #include "gimbal_driver/msg/buff_data.hpp"
+#include "gimbal_driver/msg/bullet_info.hpp"
 #include "gimbal_driver/msg/position_data.hpp"
+#include "gimbal_driver/msg/sentry_info.hpp"
 
 #include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/u_int8.hpp>
@@ -89,6 +91,8 @@ namespace
     LY_DEF_ROS_TOPIC(ly_team_buff, "/ly/team/buff", gimbal_driver::msg::BuffData);
     LY_DEF_ROS_TOPIC(ly_me_rfid, "/ly/me/rfid", gimbal_driver::msg::RfidStatus);
     LY_DEF_ROS_TOPIC(ly_position_data, "/ly/position/data", gimbal_driver::msg::PositionData);
+    LY_DEF_ROS_TOPIC(ly_referee_sentry_info, "/ly/referee/sentry_info", gimbal_driver::msg::SentryInfo);
+    LY_DEF_ROS_TOPIC(ly_referee_bullet_info, "/ly/referee/bullet_info", gimbal_driver::msg::BulletInfo);
         
 
     using namespace std::chrono_literals;
@@ -116,6 +120,14 @@ namespace
         std::chrono::steady_clock::time_point postureNextSendTime_{
             std::chrono::steady_clock::time_point::min()
         };
+        std::uint32_t latestRfidStatusRaw_{0};
+        bool hasRfidStatusRaw_{false};
+        std::uint8_t latestRfidStatus2_{0};
+        bool hasRfidStatus2_{false};
+        float latestBulletInitialSpeed_{0.0f};
+        bool hasBulletInitialSpeed_{false};
+        BulletDataAndRfid2 latestBulletDataAndRfid2_{};
+        bool hasBulletDataAndRfid2_{false};
 
         enum FireCodeFieldIndex : std::size_t {
             kFireStatusField = 0,
@@ -230,6 +242,28 @@ namespace
             msg.enemy_tunnel_trapezoid_middle = has_status2 && Bit(raw_status2, 4);
             msg.enemy_tunnel_trapezoid_high = has_status2 && Bit(raw_status2, 5);
             msg.rfid_status_2_reserved = has_status2 ? BitsU8(raw_status2, 6, 2) : 0;
+            return msg;
+        }
+
+        static gimbal_driver::msg::SentryInfo ToSentryInfoMsg(const SentryData& data) {
+            gimbal_driver::msg::SentryInfo msg;
+            msg.sentry_info_raw = data.SentryInfo;
+            msg.sentry_info_2_raw = data.SentryInfo2;
+            msg.reserved = data.Reserved;
+
+            msg.exchanged_projectile_allowance = BitsU16(data.SentryInfo, 0, 11);
+            msg.remote_projectile_exchange_count = BitsU8(data.SentryInfo, 11, 4);
+            msg.remote_hp_exchange_count = BitsU8(data.SentryInfo, 15, 4);
+            msg.can_confirm_free_revive = Bit(data.SentryInfo, 19);
+            msg.can_exchange_immediate_revive = Bit(data.SentryInfo, 20);
+            msg.immediate_revive_cost = BitsU16(data.SentryInfo, 21, 10);
+            msg.sentry_info_reserved = Bit(data.SentryInfo, 31);
+
+            msg.out_of_combat = Bit(data.SentryInfo2, 0);
+            msg.remaining_exchangeable_17mm = BitsU16(data.SentryInfo2, 1, 11);
+            msg.posture = BitsU8(data.SentryInfo2, 12, 2);
+            msg.can_activate_energy_mechanism = Bit(data.SentryInfo2, 14);
+            msg.sentry_info_2_reserved = Bit(data.SentryInfo2, 15);
             return msg;
         }
 
@@ -489,8 +523,47 @@ namespace
                                        });
         }
 
+        void PublishRfidStatus(const rclcpp::Time& stamp) {
+            if (!hasRfidStatusRaw_) {
+                return;
+            }
+            using topic = ly_me_rfid;
+            auto msg = ToRfidStatusMsg(latestRfidStatusRaw_, hasRfidStatus2_, latestRfidStatus2_);
+            msg.header.stamp = stamp;
+            Node.Publisher<topic>()->publish(msg);
+        }
+
+        void PublishBulletInfo(const rclcpp::Time& stamp) {
+            using topic = ly_referee_bullet_info;
+            topic::Msg msg;
+            msg.header.stamp = stamp;
+
+            msg.has_initial_speed = hasBulletInitialSpeed_;
+            msg.initial_speed = hasBulletInitialSpeed_ ? latestBulletInitialSpeed_ : 0.0f;
+
+            msg.has_shoot_data = hasBulletDataAndRfid2_;
+            msg.bullet_type = hasBulletDataAndRfid2_ ? latestBulletDataAndRfid2_.BulletType : 0;
+            msg.shooter_number = hasBulletDataAndRfid2_ ? latestBulletDataAndRfid2_.ShooterNumber : 0;
+            msg.launching_frequency =
+                hasBulletDataAndRfid2_ ? latestBulletDataAndRfid2_.LaunchingFrequency : 0;
+
+            msg.has_projectile_allowance = hasBulletDataAndRfid2_;
+            msg.projectile_allowance_17mm =
+                hasBulletDataAndRfid2_ ? latestBulletDataAndRfid2_.ProjectileAllowance17mm : 0;
+            msg.projectile_allowance_42mm =
+                hasBulletDataAndRfid2_ ? latestBulletDataAndRfid2_.ProjectileAllowance42mm : 0;
+            msg.remaining_gold_coin =
+                hasBulletDataAndRfid2_ ? latestBulletDataAndRfid2_.RemainingGoldCoin : 0;
+            msg.projectile_allowance_fortress_17mm =
+                hasBulletDataAndRfid2_ ? latestBulletDataAndRfid2_.ProjectileAllowanceFortress : 0;
+
+            msg.has_rfid_status_2 = hasRfidStatus2_;
+            msg.rfid_status_2_raw = hasRfidStatus2_ ? latestRfidStatus2_ : 0;
+            Node.Publisher<topic>()->publish(msg);
+        }
+
         void  PubGimbalData(const GimbalData& data)
-        {
+	        {
             {
                 using topic = ly_gimbal_angles;
                 topic::Msg msg;
@@ -588,12 +661,9 @@ namespace
         }
 
         void PubRFIDAndBuffData(const RFIDAndBuffData& data){
-            {
-                using topic = ly_me_rfid;
-                auto msg = ToRfidStatusMsg(data.RFIDStatus);
-                msg.header.stamp = Node.GetNode()->now();
-                Node.Publisher<topic>()->publish(msg);
-            }
+            latestRfidStatusRaw_ = data.RFIDStatus;
+            hasRfidStatusRaw_ = true;
+            PublishRfidStatus(Node.GetNode()->now());
             {
                 using topic = ly_team_buff;
                 topic::Msg msg;
@@ -732,6 +802,31 @@ namespace
             }
         }
 
+        void PubSentryData(const SentryData& data) {
+            const auto now = Node.GetNode()->now();
+            {
+                using topic = ly_referee_sentry_info;
+                auto msg = ToSentryInfoMsg(data);
+                msg.header.stamp = now;
+                Node.Publisher<topic>()->publish(msg);
+            }
+
+            latestBulletInitialSpeed_ = data.BulletInitialSpeed;
+            hasBulletInitialSpeed_ = true;
+            PublishBulletInfo(now);
+        }
+
+        void PubBulletDataAndRfid2(const BulletDataAndRfid2& data) {
+            const auto now = Node.GetNode()->now();
+            latestBulletDataAndRfid2_ = data;
+            hasBulletDataAndRfid2_ = true;
+            latestRfidStatus2_ = data.RfidStatus2;
+            hasRfidStatus2_ = true;
+
+            PublishBulletInfo(now);
+            PublishRfidStatus(now);
+        }
+
         void LoopRead()
         {
             Device.LoopRead(DeviceError, [this](const TypedMessage<sizeof(GimbalData)>& m)
@@ -770,9 +865,14 @@ namespace
                         PubChassisData(chassis_data);
                         break;
                     }
-                    case ExtendData::TypeID:
+                    case SentryData::TypeID:
                     {
-                        // TypeID=7 预留扩展帧，当前上位机暂不解析。
+                        PubSentryData(m.GetDataAs<SentryData>());
+                        break;
+                    }
+                    case BulletDataAndRfid2::TypeID:
+                    {
+                        PubBulletDataAndRfid2(m.GetDataAs<BulletDataAndRfid2>());
                         break;
                     }
 
