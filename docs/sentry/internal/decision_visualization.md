@@ -211,11 +211,12 @@ Each line is one JSON object. Important top-level fields:
 - `field_cm`: map frame and field size
 - `competition_profile`, `strategy_mode`, `team`; current live strategy names include `LeagueSimple` and `Regional`
 - `aim_mode`, `target_armor`, `target_state`
+- `events`: EventManager semantic snapshot, including Buff/Outpost/RegionalDefense/resource/damage/navigation event flags
 - `decision_output`: stable viewer-facing output model; includes final output kind, topic, goal ID, `goal_pos_cm`, publish flags, and bridge hints
 - `navi_goal`: ID, base ID, side, speed, publish flags, and `position_cm`
 - `navi_relative_target`: chase/bridge relative target, including x/y/z, distance, yaw/pitch error, armor type, and aim mode
 - `posture`: command, state, runtime desired/current/pending, reason
-- `referee`: HP, ammo, time, outpost/base HP, RFID/RFID2 raw state, `rfid_match`, and buff state
+- `referee`: HP, ammo, time, outpost/base HP, RFID/RFID2 raw state, `rfid_match`, event-data energy/fortress gain-point state, and buff state
 - `gimbal.fire_code.follow_mode`: semantic firecode bit4; old `hole_mode` naming should no longer be used in new traces/docs
 - `units`: friend/enemy unit records with type, HP, distance, and `position_cm`
 - `runtime_guard`: current fault and recovery state

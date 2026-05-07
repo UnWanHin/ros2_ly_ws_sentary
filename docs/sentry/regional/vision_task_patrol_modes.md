@@ -293,7 +293,11 @@ BT 目前實際使用：
 
 - `self_small_energy_status`
 - `self_large_energy_status`
+- `self_fortress_gain_point_status`
+- `self_outpost_gain_point_status`
+- `self_base_gain_point_status`
 - `raw` 會同步到 blackboard / trace
+- `EventManager` 會把上述字段和其他裁判/視覺/導航狀態整理成 `EventSnapshot`，但 `EventSnapshot` 本身不直接發導航或火控。
 
 打符任務中，BT 在 event data 新鮮時看：
 
@@ -310,15 +314,28 @@ self_large_energy_status == 1 / 2
 
 ```json
 "Task": {
-  "Outpost": true
+  "Outpost": true,
+  "OutpostConfirm": {
+    "RefereeFreshTimeoutMs": 2000,
+    "MaxGameTimeSec": 90,
+    "MinSelfHp": 150,
+    "MinAmmo": 30,
+    "DamageAbortThreshold": 30,
+    "DamageAbortWindowMs": 1000,
+    "DamageAbortHoldMs": 3000
+  }
 }
 ```
 
 主要邏輯：
 
-- `enemyOutpostHealth > 0` 才打。
-- 開局 `90s` 內保持 `AimMode::Outpost`。
-- 前哨血量歸零或超時後退回普通掃描。
+- `Task.Outpost=true` 才允許進前哨任務。
+- `/ly/enemy/op_hp` 新鮮且 `enemyOutpostHealth > 0` 才主動進 `AimMode::Outpost`。
+- 自身血量、彈量低於 `OutpostConfirm.MinSelfHp / MinAmmo` 時不主動進前哨任務，讓 Hard Recovery 優先處理。
+- 默認只在開局 `OutpostConfirm.MaxGameTimeSec=90` 秒內主動打前哨；設 `0` 可關閉時間窗口。
+- Roadland 強綁定穿越、RegionalDefense、受擊超過門檻、看到普通裝甲板、導航回報 `BuffOutpost` 不可達，都會退出前哨模式。
+- 前哨血量歸零、超時或裁判血量資料 stale 且沒有近期前哨視覺鎖定時，退回普通掃描。
+- `/ly/outpost/target.status` 必須有效，BT 才會把前哨視覺角度視為可用並允許按火控頻率開火。
 
 輸出：
 

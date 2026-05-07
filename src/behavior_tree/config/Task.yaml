@@ -3,6 +3,18 @@ behavior_tree:
     Task:
       Buff: false
       Outpost: false
+      OutpostConfirm:
+        # 敵方前哨血量、自己血量/彈量等裁判資料超過這個時間未更新時，不主動進前哨任務。
+        RefereeFreshTimeoutMs: 2000
+        # 兼容原有邏輯：開局 90 秒內才主動打前哨；設 0 可關閉時間窗口。
+        MaxGameTimeSec: 90
+        # 低於這些資源門檻時不主動打前哨，讓 Hard Recovery 優先。
+        MinSelfHp: 150
+        MinAmmo: 30
+        # 前哨任務可被受擊打斷；與 Buff 不同，打前哨之後可再回來打。
+        DamageAbortThreshold: 30
+        DamageAbortWindowMs: 1000
+        DamageAbortHoldMs: 3000
       BuffTimer:
         # false: 以裁判 0x020D sentry_info_2.bit14 can_activate 為準，能激活才去打。
         # true: 兼容定時窗口；窗口內進 Buff，仍只在到點且視覺鎖定後下發確認。

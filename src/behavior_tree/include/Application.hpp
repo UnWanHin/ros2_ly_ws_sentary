@@ -47,6 +47,7 @@
 #include "Robot.hpp"
 #include "AreaManager.hpp"
 #include "DefaultStrategyManager.hpp"
+#include "EventManager.hpp"
 #include "FaceModeManager.hpp"
 #include "PostureManager.hpp"
 #include "StrategyManager.hpp"
@@ -129,6 +130,8 @@ private:
     UnitTeam team{UnitTeam::Red}; // 当前队伍颜色
     std::uint16_t enemyOutpostHealth{0}; // 敌方前哨站血量
     std::uint16_t selfOutpostHealth{0}; // 我方前哨站血量
+    bool hasReceivedEnemyOutpostHealth_{false};
+    std::chrono::steady_clock::time_point lastEnemyOutpostHealthRxTime_{};
     std::uint16_t enemyBaseHealth{0};  // 基地血量
     std::uint16_t selfBaseHealth{0};
     std::uint16_t ammoLeft{0}; // 剩余子弹数
@@ -154,6 +157,9 @@ private:
     bool hasReceivedEventData_{false};
     std::uint8_t eventSelfSmallEnergyStatus_{0};
     std::uint8_t eventSelfLargeEnergyStatus_{0};
+    std::uint8_t eventSelfFortressGainPointStatus_{0};
+    std::uint8_t eventSelfOutpostGainPointStatus_{0};
+    bool eventSelfBaseGainPointStatus_{false};
     std::chrono::steady_clock::time_point lastEventDataRxTime_{};
     bool sentryCanActivateEnergyMechanism_{false};
     bool hasReceivedSentryInfo_{false};
@@ -218,6 +224,7 @@ private:
     bool buffTaskLocked_{false};
     std::chrono::steady_clock::time_point buffTaskStartTime_{};
     std::chrono::steady_clock::time_point buffTaskDamageAbortUntil_{};
+    std::chrono::steady_clock::time_point outpostTaskDamageAbortUntil_{};
 
     std::uint8_t naviCommandGoal{0}; // 导航目标
     Area::Point<std::uint16_t> naviGoalPosition{}; // 导航定位目标
@@ -325,6 +332,8 @@ private:
     Config config{}; // 配置文件
     AreaManager areaManager_{};
     DefaultStrategyManager defaultStrategyManager_{};
+    EventManager eventManager_{};
+    EventSnapshot eventSnapshot_{};
     PostureManager postureManager_{};
     StrategyManager strategyManager_{};
     RegionalDefenseSearchKind regionalDefenseSearchKind_{RegionalDefenseSearchKind::None};
@@ -448,6 +457,7 @@ public:
         return value;
     }
     void UpdateBlackBoard();
+    void UpdateEventSnapshot();
     void TransportData();
     void PublishTogether();
     void TreeTick();

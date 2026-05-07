@@ -231,6 +231,9 @@ namespace BehaviorTree {
         GlobalBlackboard_->set<bool>("HasEventData", hasReceivedEventData_);
         GlobalBlackboard_->set<std::uint8_t>("EventSelfSmallEnergyStatus", eventSelfSmallEnergyStatus_);
         GlobalBlackboard_->set<std::uint8_t>("EventSelfLargeEnergyStatus", eventSelfLargeEnergyStatus_);
+        GlobalBlackboard_->set<std::uint8_t>("EventSelfFortressGainPointStatus", eventSelfFortressGainPointStatus_);
+        GlobalBlackboard_->set<std::uint8_t>("EventSelfOutpostGainPointStatus", eventSelfOutpostGainPointStatus_);
+        GlobalBlackboard_->set<bool>("EventSelfBaseGainPointStatus", eventSelfBaseGainPointStatus_);
         GlobalBlackboard_->set("ArmorList", armorList);
         GlobalBlackboard_->set("TeamBuff", teamBuff);
         GlobalBlackboard_->set<std::uint8_t>("AimMode", static_cast<std::uint8_t>(aimMode));
@@ -253,6 +256,87 @@ namespace BehaviorTree {
                 timeLeft, SelfHealth, ammoLeft, enemyOutpostHealth, selfOutpostHealth);
             lastUpdateBlackboardLogTime_ = now;
         }
+    }
+
+    void Application::UpdateEventSnapshot() {
+        const auto now = std::chrono::steady_clock::now();
+        const auto my_team = team;
+        const auto enemy_team = team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
+        const int referee_fresh_ms = std::max(
+            std::max(0, config.TaskSettings.BuffConfirm.RefereeFreshTimeoutMs),
+            std::max(0, config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs));
+        const bool recent_damage_over_30 = [&]() {
+            for (auto it = postureRecentDamageSamples_.rbegin();
+                 it != postureRecentDamageSamples_.rend();
+                 ++it) {
+                if ((now - it->Time) > std::chrono::milliseconds(1000)) {
+                    break;
+                }
+                if (it->Delta > 30U) {
+                    return true;
+                }
+            }
+            return false;
+        }();
+
+        eventSnapshot_ = eventManager_.Evaluate(
+            EventEvaluateInput{
+                .Now = now,
+                .RefereeFreshTimeoutMs = referee_fresh_ms,
+                .HasEventData = hasReceivedEventData_,
+                .LastEventDataRxTime = lastEventDataRxTime_,
+                .SelfSmallEnergyStatus = eventSelfSmallEnergyStatus_,
+                .SelfLargeEnergyStatus = eventSelfLargeEnergyStatus_,
+                .SelfFortressGainPointStatus = eventSelfFortressGainPointStatus_,
+                .SelfOutpostGainPointStatus = eventSelfOutpostGainPointStatus_,
+                .SelfBaseGainPointStatus = eventSelfBaseGainPointStatus_,
+                .HasSentryInfo = hasReceivedSentryInfo_,
+                .LastSentryInfoRxTime = lastSentryInfoRxTime_,
+                .SentryCanActivateEnergyMechanism = sentryCanActivateEnergyMechanism_,
+                .BuffTaskEnabled = config.TaskSettings.Buff,
+                .OutpostTaskEnabled = config.TaskSettings.Outpost,
+                .OutpostMaxGameTimeSec = config.TaskSettings.OutpostConfirm.MaxGameTimeSec,
+                .ElapsedGameSec = ElapsedSeconds(),
+                .HasEnemyOutpostHealth = hasReceivedEnemyOutpostHealth_,
+                .LastEnemyOutpostHealthRxTime = lastEnemyOutpostHealthRxTime_,
+                .EnemyOutpostHealth = enemyOutpostHealth,
+                .HasSelfHealth = hasReceivedMyselfHealth_,
+                .LastSelfHealthRxTime = lastMyselfHealthRxTime,
+                .SelfHealth = myselfHealth,
+                .LowHpThreshold = config.LeagueStrategySettings.HealthRecoveryThreshold,
+                .HasAmmo = hasReceivedAmmoLeft_,
+                .LastAmmoRxTime = lastAmmoLeftRxTime,
+                .Ammo = ammoLeft,
+                .LowAmmoThreshold = config.LeagueStrategySettings.AmmoRecoveryThreshold,
+                .RecentDamageOver30 = recent_damage_over_30,
+                .ArmorTargetVisible = autoAimData.Fresh && autoAimData.Valid,
+                .BuffTargetLocked = buffAimData.Fresh && buffAimData.Valid && buffAimData.BuffFollow,
+                .OutpostTargetLocked = outpostAimData.Fresh && outpostAimData.Valid,
+                .NaviStatusFreshTimeoutMs = kNaviExternalStatusTimeoutMs,
+                .HasNaviReach = hasReceivedNaviReach_,
+                .NaviReach = naviReach,
+                .LastNaviReachRxTime = lastNaviReachRxTime_,
+                .HasNaviReachable = hasReceivedNaviReachable_,
+                .NaviReachable = naviReachable,
+                .LastNaviReachableRxTime = lastNaviReachableRxTime_,
+                .RegionalDefense = EvaluateRegionalDefenseThreat(my_team, enemy_team)
+            });
+
+        if (!GlobalBlackboard_) {
+            GlobalBlackboard_ = BT::Blackboard::create();
+        }
+        GlobalBlackboard_->set<EventSnapshot>("EventSnapshot", eventSnapshot_);
+        GlobalBlackboard_->set<bool>("EventBuffCanActivate", eventSnapshot_.BuffCanActivate);
+        GlobalBlackboard_->set<bool>("EventBuffActivating", eventSnapshot_.BuffActivating);
+        GlobalBlackboard_->set<bool>("EventBuffActivated", eventSnapshot_.BuffActivated);
+        GlobalBlackboard_->set<bool>("EventEnemyOutpostAlive", eventSnapshot_.EnemyOutpostAlive);
+        GlobalBlackboard_->set<bool>("EventRegionalDefenseActive", eventSnapshot_.RegionalDefenseActive);
+        GlobalBlackboard_->set<bool>("EventRecentDamageOver30", eventSnapshot_.RecentDamageOver30);
+        GlobalBlackboard_->set<bool>("EventGoalReached", eventSnapshot_.GoalReached);
+        GlobalBlackboard_->set<bool>("EventGoalUnreachable", eventSnapshot_.GoalUnreachable);
+        GlobalBlackboard_->set<std::uint8_t>(
+            "EventSelfFortressGainPointStatus",
+            eventSnapshot_.SelfFortressGainPointStatus);
     }
 
     /**
@@ -1135,17 +1219,114 @@ namespace BehaviorTree {
                 LoggerPtr->Info("Regional defense active: suppress Outpost aim mode.");
                 return;
             }
-            if(enemyOutpostHealth > 0) {
-                LoggerPtr->Info("Enemy Outpost Health: {}", enemyOutpostHealth);;
-                if(now_time < 90) {
-                    aimMode = AimMode::Outpost;
-                }else {
-                    LoggerPtr->Info("Time out 1.5 min, stop hit outpost!");
-                    aimMode = AimMode::RotateScan;
+            if (areaManager_.RegionalAreaTaskActive() &&
+                areaManager_.RegionalAreaTask().Type == RegionalAreaTaskType::MyRoadland &&
+                !areaManager_.RegionalAreaTaskCanYieldToHigherPriority()) {
+                aimMode = AimMode::RotateScan;
+                LoggerPtr->Info("Roadland hard crossing active: suppress Outpost aim mode.");
+                return;
+            }
+
+            const auto& outpost_confirm = config.TaskSettings.OutpostConfirm;
+            const auto now = std::chrono::steady_clock::now();
+            const int referee_fresh_ms = std::max(0, outpost_confirm.RefereeFreshTimeoutMs);
+            const bool enemy_outpost_hp_fresh =
+                hasReceivedEnemyOutpostHealth_ &&
+                lastEnemyOutpostHealthRxTime_.time_since_epoch().count() != 0 &&
+                now - lastEnemyOutpostHealthRxTime_ <= std::chrono::milliseconds(referee_fresh_ms);
+            const bool self_hp_fresh =
+                hasReceivedMyselfHealth_ &&
+                lastMyselfHealthRxTime.time_since_epoch().count() != 0 &&
+                now - lastMyselfHealthRxTime <= std::chrono::milliseconds(referee_fresh_ms);
+            const bool ammo_fresh =
+                hasReceivedAmmoLeft_ &&
+                lastAmmoLeftRxTime.time_since_epoch().count() != 0 &&
+                now - lastAmmoLeftRxTime <= std::chrono::milliseconds(referee_fresh_ms);
+            const bool self_hp_ready =
+                outpost_confirm.MinSelfHp <= 0 || (self_hp_fresh && myselfHealth >= outpost_confirm.MinSelfHp);
+            const bool ammo_ready =
+                outpost_confirm.MinAmmo <= 0 || (ammo_fresh && ammoLeft >= outpost_confirm.MinAmmo);
+            const bool in_time_window =
+                outpost_confirm.MaxGameTimeSec <= 0 || now_time < outpost_confirm.MaxGameTimeSec;
+            const bool outpost_goal_unreachable =
+                IsBaseGoalExternallyUnreachable(LangYa::BuffOutpost.ID, team, true);
+            const bool armor_target_visible = autoAimData.Fresh && autoAimData.Valid;
+            const int damage_abort_threshold = std::max(0, outpost_confirm.DamageAbortThreshold);
+            const int damage_abort_window_ms = std::max(0, outpost_confirm.DamageAbortWindowMs);
+            const int damage_abort_hold_ms = std::max(0, outpost_confirm.DamageAbortHoldMs);
+            const bool damage_abort_active =
+                outpostTaskDamageAbortUntil_.time_since_epoch().count() != 0 &&
+                now < outpostTaskDamageAbortUntil_;
+            const bool recent_damage_abort = [&]() {
+                if (damage_abort_threshold <= 0 || damage_abort_window_ms <= 0) {
+                    return false;
                 }
-            }else {
+                for (auto it = postureRecentDamageSamples_.rbegin();
+                     it != postureRecentDamageSamples_.rend();
+                     ++it) {
+                    if ((now - it->Time) > std::chrono::milliseconds(damage_abort_window_ms)) {
+                        break;
+                    }
+                    if (it->Delta > static_cast<std::uint16_t>(damage_abort_threshold)) {
+                        return true;
+                    }
+                }
+                return false;
+            }();
+            const bool outpost_visual_recent =
+                aimMode == AimMode::Outpost &&
+                outpostAimData.HasLatchedAngles &&
+                outpostAimData.LastValidTime.time_since_epoch().count() != 0 &&
+                now - outpostAimData.LastValidTime <=
+                    std::chrono::milliseconds(std::max(0, config.AimDebugSettings.LatchedTargetHoldMs));
+
+            if (recent_damage_abort) {
+                outpostTaskDamageAbortUntil_ = now + std::chrono::milliseconds(damage_abort_hold_ms);
+                aimMode = AimMode::RotateScan;
+                LoggerPtr->Info(
+                    "Outpost interrupted by damage > {}. Hold armor mode for {} ms.",
+                    damage_abort_threshold,
+                    damage_abort_hold_ms);
+            } else if (damage_abort_active) {
+                aimMode = AimMode::RotateScan;
+            } else if (armor_target_visible) {
+                aimMode = AimMode::RotateScan;
+                LoggerPtr->Info("Armor target visible: interrupt Outpost aim mode.");
+            } else if (!self_hp_ready || !ammo_ready) {
+                aimMode = AimMode::RotateScan;
+                LoggerPtr->Info(
+                    "Outpost resource gate closed: hp={} fresh={} min={} ammo={} fresh={} min={}.",
+                    myselfHealth,
+                    self_hp_fresh ? 1 : 0,
+                    outpost_confirm.MinSelfHp,
+                    ammoLeft,
+                    ammo_fresh ? 1 : 0,
+                    outpost_confirm.MinAmmo);
+            } else if (!in_time_window) {
+                aimMode = AimMode::RotateScan;
+                LoggerPtr->Info(
+                    "Outpost time gate closed: now={} max={}.",
+                    now_time,
+                    outpost_confirm.MaxGameTimeSec);
+            } else if (outpost_goal_unreachable) {
+                aimMode = AimMode::RotateScan;
+                LoggerPtr->Info("Outpost task canceled: BuffOutpost goal externally unreachable.");
+            } else if (enemy_outpost_hp_fresh && enemyOutpostHealth == 0) {
                 LoggerPtr->Info("Enemy Outpost has been destroyed!");
                 aimMode = AimMode::RotateScan;
+            } else if (enemy_outpost_hp_fresh && enemyOutpostHealth > 0) {
+                LoggerPtr->Info("Enemy Outpost Health: {}", enemyOutpostHealth);
+                aimMode = AimMode::Outpost;
+            } else if (outpost_visual_recent) {
+                LoggerPtr->Info(
+                    "Enemy Outpost HP stale, keep recent visual Outpost target for short hold.");
+                aimMode = AimMode::Outpost;
+            } else {
+                aimMode = AimMode::RotateScan;
+                LoggerPtr->Info(
+                    "Outpost referee gate closed: enemy_outpost_hp_fresh={} hp={}.",
+                    enemy_outpost_hp_fresh ? 1 : 0,
+                    enemyOutpostHealth);
             }
         }else { // 普通模式
             if (IsRegionalDefenseAimSuppressActive()) {

@@ -1,6 +1,6 @@
 # Regional 決策框架說明
 
-Updated: 2026-05-06
+Updated: 2026-05-07
 
 本文記錄目前 `behavior_tree` 裡 regional 決策的區域狀態機框架：它會做哪些任務、怎麼啟動、怎麼判斷到達、會輸出什麼控制，以及哪些階段會被高優先級邏輯打斷。
 
@@ -23,6 +23,8 @@ Updated: 2026-05-06
 - `src/behavior_tree/src/AreaManager.cpp`
 - `src/behavior_tree/include/DefaultStrategyManager.hpp`
 - `src/behavior_tree/src/DefaultStrategyManager.cpp`
+- `src/behavior_tree/include/EventManager.hpp`
+- `src/behavior_tree/src/EventManager.cpp`
 - `src/behavior_tree/include/StrategyManager.hpp`
 - `src/behavior_tree/src/StrategyManager.cpp`
 - `src/behavior_tree/src/GameLoop.cpp`
@@ -33,11 +35,12 @@ Updated: 2026-05-06
 `Scripts/main.xml` 的主決策入口現在走 `StrategyStack`，每 tick 依序執行：
 
 ```text
-Hard -> Default -> Task -> Tactical -> Finalizer
+EvaluateEvents -> Hard -> Default -> Task -> Tactical -> Finalizer
 ```
 
 各層的責任是：
 
+- `EvaluateEvents`：語義整理層，只把裁判資料、視覺鎖定、受擊、導航狀態和 RegionalDefense 威脅收斂成 `EventSnapshot`。這層不發導航、不改火控、不接管輸出。
 - `Hard`：最高優先級保護，處理 recovery/補血補彈和 Roadland 強綁定穿越段。Roadland 強綁定段在這層 hard lock，避免被戰術層中途搶走。
 - `Default`：無特別事件時的底層決策，現在按 `AreaManager.DefaultPolicy` 對已啟用的大區域做資源門檻、距離、目前區域、上次任務結果、冷卻和重試評分，再啟動 AreaManager 任務；沒有可用區域時不再 fallback 到任何舊點表。`RegionalIdlePatrol` 點表不再是正式 regional 的 Default 入口。
 - `Task`：已啟動的 AreaManager 任務繼續 tick，包含 Highland/Base/Roadland/Central 任務、Highland 兼容過渡和導航 watchdog。
@@ -46,12 +49,22 @@ Hard -> Default -> Task -> Tactical -> Finalizer
 
 分層狀態會寫入 BT blackboard：
 
+- `EventSnapshot`
+- `EventBuffCanActivate`
+- `EventBuffActivating`
+- `EventBuffActivated`
+- `EventEnemyOutpostAlive`
+- `EventRegionalDefenseActive`
+- `EventRecentDamageOver30`
+- `EventGoalReached`
+- `EventGoalUnreachable`
+- `EventSelfFortressGainPointStatus`
 - `StrategyLayerHandled`
 - `StrategyLayerHandledBy`
 - `StrategyLayerHardLock`
 - `StrategyLayerDefaultRequested`
 
-這些字段只做監控，不改 ROS topic contract。
+這些字段只做監控和後續 Tactical 輸入，不改 ROS topic contract。
 
 ## 數據來源
 

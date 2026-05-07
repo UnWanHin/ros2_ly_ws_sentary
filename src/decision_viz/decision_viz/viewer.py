@@ -918,12 +918,19 @@ class Viewer:
         if self.bad_lines:
             y = self.draw_text(f"Skipped bad lines: {self.bad_lines}", x, y, self.small_font, self.palette["enemy"], rect.width - 36)
         y += 10
+        events = as_dict(record.raw.get("events"))
+        event_summary = (
+            f"RD:{int(bool(events.get('regional_defense_active')))} "
+            f"Buff:{int(bool(events.get('buff_can_activate') or events.get('buff_activating')))} "
+            f"Outpost:{int(bool(events.get('enemy_outpost_alive')))}"
+        )
         y = self.draw_section(x, y, "Decision", [
             ("Profile", str(record.raw.get("competition_profile", "-"))),
             ("Team", record.team),
             ("Strategy", record.strategy),
             ("Aim", record.aim),
             ("Target", record.target),
+            ("Events", event_summary),
         ], rect.width - 36)
         y = self.draw_section(x, y, "Decision Output", [
             ("Kind", record.output.kind),
@@ -949,6 +956,9 @@ class Viewer:
             ("Ammo", str(record.ammo)),
             ("TimeLeft", str(record.time_left)),
             ("Outpost", self.outpost_text(record.raw)),
+            ("FortressGP", str(
+                as_dict(record.raw.get("referee")).get("event_self_fortress_gain_point_status", "-")
+            )),
         ], rect.width - 36)
         y = self.draw_resource_bars(x, y, rect.width - 36, record)
         if self.layers.get("recent_changes", True):

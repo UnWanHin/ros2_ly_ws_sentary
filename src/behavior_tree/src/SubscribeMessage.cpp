@@ -146,6 +146,9 @@ namespace BehaviorTree{
             app.extEventData = msg->raw;
             app.eventSelfSmallEnergyStatus_ = msg->self_small_energy_status;
             app.eventSelfLargeEnergyStatus_ = msg->self_large_energy_status;
+            app.eventSelfFortressGainPointStatus_ = msg->self_fortress_gain_point_status;
+            app.eventSelfOutpostGainPointStatus_ = msg->self_outpost_gain_point_status;
+            app.eventSelfBaseGainPointStatus_ = msg->self_base_gain_point_status;
             app.hasReceivedEventData_ = true;
             app.lastEventDataRxTime_ = std::chrono::steady_clock::now();
         });
@@ -173,6 +176,8 @@ namespace BehaviorTree{
         // ly_enemy_op_hp
         GenSub<ly_enemy_op_hp>([](Application& app, auto msg) {
             app.enemyOutpostHealth = msg->data;
+            app.hasReceivedEnemyOutpostHealth_ = true;
+            app.lastEnemyOutpostHealthRxTime_ = std::chrono::steady_clock::now();
         });
 
         // ly_friend_op_hp
@@ -378,19 +383,24 @@ namespace BehaviorTree{
         // ly_outpost_target
         GenSub<ly_outpost_target>([](Application& app, auto msg) {
             auto &obj = app;
+            const bool target_valid = msg->status;
             obj.outpostAimData.Angles = GimbalAnglesType{
                 static_cast<AngleType>(msg->yaw),
                 static_cast<AngleType>(msg->pitch)
             };
-            obj.outpostAimData.FireStatus = true;
+            obj.outpostAimData.FireStatus = target_valid;
             obj.outpostAimData.BuffFollow = false;
-            obj.outpostAimData.Valid = true;
-            obj.outpostAimData.Fresh = true;
+            obj.outpostAimData.Valid = target_valid;
+            obj.outpostAimData.Fresh = target_valid;
             const auto now = std::chrono::steady_clock::now();
-            obj.outpostAimData.HasLatchedAngles = true;
-            obj.outpostAimData.LastValidTime = now;
-            obj.isFindTargetAtomic = true;
-            obj.lastTargetSeenTime = now;
+            if (target_valid) {
+                obj.outpostAimData.HasLatchedAngles = true;
+                obj.outpostAimData.LastValidTime = now;
+                obj.isFindTargetAtomic = true;
+                obj.lastTargetSeenTime = now;
+            } else {
+                obj.outpostAimData.HasLatchedAngles = false;
+            }
         });
 
         // ly_face_mode_angles

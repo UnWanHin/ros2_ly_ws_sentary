@@ -448,6 +448,15 @@ namespace LangYa {
         bs.DamageAbortWindowMs = j.value("DamageAbortWindowMs", bs.DamageAbortWindowMs);
         bs.DamageAbortHoldMs = j.value("DamageAbortHoldMs", bs.DamageAbortHoldMs);
     }
+    void from_json(const json& j, OutpostConfirmSetting& os) {
+        os.RefereeFreshTimeoutMs = j.value("RefereeFreshTimeoutMs", os.RefereeFreshTimeoutMs);
+        os.MaxGameTimeSec = j.value("MaxGameTimeSec", os.MaxGameTimeSec);
+        os.MinSelfHp = j.value("MinSelfHp", os.MinSelfHp);
+        os.MinAmmo = j.value("MinAmmo", os.MinAmmo);
+        os.DamageAbortThreshold = j.value("DamageAbortThreshold", os.DamageAbortThreshold);
+        os.DamageAbortWindowMs = j.value("DamageAbortWindowMs", os.DamageAbortWindowMs);
+        os.DamageAbortHoldMs = j.value("DamageAbortHoldMs", os.DamageAbortHoldMs);
+    }
     void from_json(const json& j, TaskSetting& ts) {
         ts.Buff = j.value("Buff", ts.Buff);
         ts.Outpost = j.value("Outpost", ts.Outpost);
@@ -456,6 +465,9 @@ namespace LangYa {
         }
         if (j.contains("BuffConfirm")) {
             j.at("BuffConfirm").get_to(ts.BuffConfirm);
+        }
+        if (j.contains("OutpostConfirm")) {
+            j.at("OutpostConfirm").get_to(ts.OutpostConfirm);
         }
     }
 
@@ -969,6 +981,55 @@ namespace BehaviorTree {
                 "Task/BuffConfirm/DamageAbortHoldMs"
             },
             config.TaskSettings.BuffConfirm.DamageAbortHoldMs);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.OutpostConfirm.RefereeFreshTimeoutMs",
+                "Task/OutpostConfirm/RefereeFreshTimeoutMs"
+            },
+            config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.OutpostConfirm.MaxGameTimeSec",
+                "Task/OutpostConfirm/MaxGameTimeSec"
+            },
+            config.TaskSettings.OutpostConfirm.MaxGameTimeSec);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.OutpostConfirm.MinSelfHp",
+                "Task/OutpostConfirm/MinSelfHp"
+            },
+            config.TaskSettings.OutpostConfirm.MinSelfHp);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.OutpostConfirm.MinAmmo",
+                "Task/OutpostConfirm/MinAmmo"
+            },
+            config.TaskSettings.OutpostConfirm.MinAmmo);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.OutpostConfirm.DamageAbortThreshold",
+                "Task/OutpostConfirm/DamageAbortThreshold"
+            },
+            config.TaskSettings.OutpostConfirm.DamageAbortThreshold);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.OutpostConfirm.DamageAbortWindowMs",
+                "Task/OutpostConfirm/DamageAbortWindowMs"
+            },
+            config.TaskSettings.OutpostConfirm.DamageAbortWindowMs);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.OutpostConfirm.DamageAbortHoldMs",
+                "Task/OutpostConfirm/DamageAbortHoldMs"
+            },
+            config.TaskSettings.OutpostConfirm.DamageAbortHoldMs);
     }
 
     void Application::ApplyAreaManagerParameterOverrides() {
@@ -1448,6 +1509,15 @@ namespace BehaviorTree {
             config.TaskSettings.BuffConfirm.DamageAbortThreshold,
             config.TaskSettings.BuffConfirm.DamageAbortWindowMs,
             config.TaskSettings.BuffConfirm.DamageAbortHoldMs);
+        LoggerPtr->Debug(
+            "OutpostConfirm: referee_fresh_ms={} max_game_time_sec={} min_self_hp={} min_ammo={} damage_abort_threshold={} damage_abort_window_ms={} damage_abort_hold_ms={}",
+            config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs,
+            config.TaskSettings.OutpostConfirm.MaxGameTimeSec,
+            config.TaskSettings.OutpostConfirm.MinSelfHp,
+            config.TaskSettings.OutpostConfirm.MinAmmo,
+            config.TaskSettings.OutpostConfirm.DamageAbortThreshold,
+            config.TaskSettings.OutpostConfirm.DamageAbortWindowMs,
+            config.TaskSettings.OutpostConfirm.DamageAbortHoldMs);
         LoggerPtr->Debug("------ DamageOpenGate ------");
         LoggerPtr->Debug("Enable: {}", config.DamageOpenGateSettings.Enable);
         LoggerPtr->Debug("HealthDropThreshold: {}", config.DamageOpenGateSettings.HealthDropThreshold);
@@ -1698,6 +1768,49 @@ namespace BehaviorTree {
                 "Invalid DamageOpenGate.HealthDropThreshold={}, clamp to 400.",
                 config.DamageOpenGateSettings.HealthDropThreshold);
             config.DamageOpenGateSettings.HealthDropThreshold = 400;
+        }
+        auto& outpost_confirm = config.TaskSettings.OutpostConfirm;
+        if (outpost_confirm.RefereeFreshTimeoutMs <= 0) {
+            LoggerPtr->Warning(
+                "Invalid Task.OutpostConfirm.RefereeFreshTimeoutMs={}, fallback to 2000.",
+                outpost_confirm.RefereeFreshTimeoutMs);
+            outpost_confirm.RefereeFreshTimeoutMs = 2000;
+        }
+        if (outpost_confirm.MaxGameTimeSec < 0) {
+            LoggerPtr->Warning(
+                "Invalid Task.OutpostConfirm.MaxGameTimeSec={}, fallback to 90.",
+                outpost_confirm.MaxGameTimeSec);
+            outpost_confirm.MaxGameTimeSec = 90;
+        }
+        if (outpost_confirm.MinSelfHp < 0) {
+            LoggerPtr->Warning(
+                "Invalid Task.OutpostConfirm.MinSelfHp={}, fallback to 150.",
+                outpost_confirm.MinSelfHp);
+            outpost_confirm.MinSelfHp = 150;
+        }
+        if (outpost_confirm.MinAmmo < 0) {
+            LoggerPtr->Warning(
+                "Invalid Task.OutpostConfirm.MinAmmo={}, fallback to 30.",
+                outpost_confirm.MinAmmo);
+            outpost_confirm.MinAmmo = 30;
+        }
+        if (outpost_confirm.DamageAbortThreshold < 0) {
+            LoggerPtr->Warning(
+                "Invalid Task.OutpostConfirm.DamageAbortThreshold={}, fallback to 30.",
+                outpost_confirm.DamageAbortThreshold);
+            outpost_confirm.DamageAbortThreshold = 30;
+        }
+        if (outpost_confirm.DamageAbortWindowMs < 0) {
+            LoggerPtr->Warning(
+                "Invalid Task.OutpostConfirm.DamageAbortWindowMs={}, fallback to 1000.",
+                outpost_confirm.DamageAbortWindowMs);
+            outpost_confirm.DamageAbortWindowMs = 1000;
+        }
+        if (outpost_confirm.DamageAbortHoldMs < 0) {
+            LoggerPtr->Warning(
+                "Invalid Task.OutpostConfirm.DamageAbortHoldMs={}, fallback to 3000.",
+                outpost_confirm.DamageAbortHoldMs);
+            outpost_confirm.DamageAbortHoldMs = 3000;
         }
         if (config.FaceModeSettings.LostTargetHoldMs < 0) {
             LoggerPtr->Warning(

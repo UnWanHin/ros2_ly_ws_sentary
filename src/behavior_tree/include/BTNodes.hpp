@@ -67,6 +67,19 @@ public:
     }
 };
 
+class EvaluateEventsNode : public AppSyncActionNode {
+public:
+    EvaluateEventsNode(const std::string& name, const BT::NodeConfig& config, Application* app)
+        : AppSyncActionNode(name, config, app) {}
+
+    static BT::PortsList providedPorts() { return {}; }
+
+    BT::NodeStatus tick() override {
+        app_->UpdateEventSnapshot();
+        return BT::NodeStatus::SUCCESS;
+    }
+};
+
 class SelectStrategyModeNode : public AppSyncActionNode {
 public:
     SelectStrategyModeNode(const std::string& name, const BT::NodeConfig& config, Application* app)

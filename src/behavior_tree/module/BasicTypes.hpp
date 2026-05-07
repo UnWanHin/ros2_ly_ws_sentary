@@ -455,11 +455,22 @@ namespace LangYa
         int DamageAbortHoldMs{5000};
     };
 
+    struct OutpostConfirmSetting {
+        int RefereeFreshTimeoutMs{2000};
+        int MaxGameTimeSec{90};
+        int MinSelfHp{150};
+        int MinAmmo{30};
+        int DamageAbortThreshold{30};
+        int DamageAbortWindowMs{1000};
+        int DamageAbortHoldMs{3000};
+    };
+
     struct TaskSetting {
         bool Buff{false};
         bool Outpost{false};
         BuffTimerSetting BuffTimer{};
         BuffConfirmSetting BuffConfirm{};
+        OutpostConfirmSetting OutpostConfirm{};
     };
 
     struct DamageOpenGateSetting {

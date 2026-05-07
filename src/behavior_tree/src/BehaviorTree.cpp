@@ -119,6 +119,7 @@ bool Application::RegisterTreeNodes() {
         })
 
         REGISTER_APP_NODE(UpdateGlobalData, "UpdateGlobalData");
+        REGISTER_APP_NODE(EvaluateEventsNode, "EvaluateEvents");
         REGISTER_APP_NODE(SelectAimModeNode, "SelectAimMode");
         REGISTER_APP_NODE(SelectStrategyModeNode, "SelectStrategyMode");
         REGISTER_APP_NODE(CheckNeedRecoveryNode, "CheckNeedRecovery");
