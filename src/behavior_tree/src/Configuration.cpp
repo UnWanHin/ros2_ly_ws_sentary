@@ -453,6 +453,9 @@ namespace LangYa {
         os.MaxGameTimeSec = j.value("MaxGameTimeSec", os.MaxGameTimeSec);
         os.MinSelfHp = j.value("MinSelfHp", os.MinSelfHp);
         os.MinAmmo = j.value("MinAmmo", os.MinAmmo);
+        os.VisualScoutWithoutHp = j.value("VisualScoutWithoutHp", os.VisualScoutWithoutHp);
+        os.VisualScoutHoldMs = j.value("VisualScoutHoldMs", os.VisualScoutHoldMs);
+        os.VisualScoutCooldownMs = j.value("VisualScoutCooldownMs", os.VisualScoutCooldownMs);
         os.DamageAbortThreshold = j.value("DamageAbortThreshold", os.DamageAbortThreshold);
         os.DamageAbortWindowMs = j.value("DamageAbortWindowMs", os.DamageAbortWindowMs);
         os.DamageAbortHoldMs = j.value("DamageAbortHoldMs", os.DamageAbortHoldMs);
@@ -1024,6 +1027,27 @@ namespace BehaviorTree {
                 "Task/OutpostConfirm/MinAmmo"
             },
             config.TaskSettings.OutpostConfirm.MinAmmo);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "Task.OutpostConfirm.VisualScoutWithoutHp",
+                "Task/OutpostConfirm/VisualScoutWithoutHp"
+            },
+            config.TaskSettings.OutpostConfirm.VisualScoutWithoutHp);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.OutpostConfirm.VisualScoutHoldMs",
+                "Task/OutpostConfirm/VisualScoutHoldMs"
+            },
+            config.TaskSettings.OutpostConfirm.VisualScoutHoldMs);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.OutpostConfirm.VisualScoutCooldownMs",
+                "Task/OutpostConfirm/VisualScoutCooldownMs"
+            },
+            config.TaskSettings.OutpostConfirm.VisualScoutCooldownMs);
         ReadOptionalIntParam(
             node_,
             {
@@ -1525,11 +1549,14 @@ namespace BehaviorTree {
             config.TaskSettings.BuffConfirm.DamageAbortWindowMs,
             config.TaskSettings.BuffConfirm.DamageAbortHoldMs);
         LoggerPtr->Debug(
-            "OutpostConfirm: referee_fresh_ms={} max_game_time_sec={} min_self_hp={} min_ammo={} damage_abort_threshold={} damage_abort_window_ms={} damage_abort_hold_ms={}",
+            "OutpostConfirm: referee_fresh_ms={} max_game_time_sec={} min_self_hp={} min_ammo={} visual_scout_without_hp={} visual_scout_hold_ms={} visual_scout_cooldown_ms={} damage_abort_threshold={} damage_abort_window_ms={} damage_abort_hold_ms={}",
             config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs,
             config.TaskSettings.OutpostConfirm.MaxGameTimeSec,
             config.TaskSettings.OutpostConfirm.MinSelfHp,
             config.TaskSettings.OutpostConfirm.MinAmmo,
+            config.TaskSettings.OutpostConfirm.VisualScoutWithoutHp ? 1 : 0,
+            config.TaskSettings.OutpostConfirm.VisualScoutHoldMs,
+            config.TaskSettings.OutpostConfirm.VisualScoutCooldownMs,
             config.TaskSettings.OutpostConfirm.DamageAbortThreshold,
             config.TaskSettings.OutpostConfirm.DamageAbortWindowMs,
             config.TaskSettings.OutpostConfirm.DamageAbortHoldMs);
@@ -1820,6 +1847,18 @@ namespace BehaviorTree {
                 "Invalid Task.OutpostConfirm.MinAmmo={}, fallback to 30.",
                 outpost_confirm.MinAmmo);
             outpost_confirm.MinAmmo = 30;
+        }
+        if (outpost_confirm.VisualScoutHoldMs < 0) {
+            LoggerPtr->Warning(
+                "Invalid Task.OutpostConfirm.VisualScoutHoldMs={}, fallback to 8000.",
+                outpost_confirm.VisualScoutHoldMs);
+            outpost_confirm.VisualScoutHoldMs = 8000;
+        }
+        if (outpost_confirm.VisualScoutCooldownMs < 0) {
+            LoggerPtr->Warning(
+                "Invalid Task.OutpostConfirm.VisualScoutCooldownMs={}, fallback to 15000.",
+                outpost_confirm.VisualScoutCooldownMs);
+            outpost_confirm.VisualScoutCooldownMs = 15000;
         }
         if (outpost_confirm.DamageAbortThreshold < 0) {
             LoggerPtr->Warning(

@@ -53,7 +53,7 @@ Regional 目前已有的主要邏輯：
 - RegionalDefense：用官方敵方位置和 `event_data` 做戰術防守；敵方進我方 Base/Highland/Roadland/CommonCentral 或己方堡壘增益點 `2/3` 都可觸發。
 - 己方堡壘增益點 `2/3`：不去 `Castle`，只在 `CastleLeft1 / CastleLeft2 / CastleRight1 / CastleRight2` 搜索；若 Base 大區敵方數達門檻且普通裝甲目標已鎖定並允許開火，才原地停車、最高小陀螺開火；長時間無官方敵方位置且無視覺目標會退化忽略一段時間。
 - Buff：由能量機關裁判狀態、sentry info、timer、damage abort 和 timeout 決定是否進 `AimMode::Buff`；戰術站位使用 `BuffOutpost`，FaceMode 對己方目標側。
-- Outpost：由敵方前哨血量、血量/彈藥門檻、時間窗、普通裝甲目標可見性、damage abort 和目標不可達狀態決定是否進 `AimMode::Outpost`；戰術站位同樣使用 `BuffOutpost`，FaceMode 對敵方側。
+- Outpost：正式入口不依賴 `op_hp`，由血量/彈藥門檻、時間窗、普通裝甲目標可見性、damage abort、目標不可達狀態和 `Task.OutpostConfirm.VisualScoutWithoutHp` 決定是否去 `BuffOutpost` 開前哨視覺偵查；到達 `BuffOutpost` 後仍沒有 `/ly/outpost/target` 才開始計算偵查 timeout，超時退出並冷卻。`op_hp` 接口保留，若它新鮮且為 0，可提前判定敵方前哨已毀並跳過任務。戰術站位同樣使用 `BuffOutpost`，FaceMode 對敵方側。
 - Navi progress watchdog：檢測 goal 不可達或長時間無位移，按當前目標區域選 fallback 點。
 - Regional idle patrol：預留空閒巡邏，默認候選是 `HoleRoad / Castle / CastleRight2 / CastleRight1 / CastleLeft1 / CastleLeft2`。
 
@@ -108,10 +108,11 @@ Regional 任務主要使用這些導航/定位輸入：
 
 - `/ly/navi/reached`：當前 goal 是否已到達，主到達判斷。
 - `/ly/navi/reachable`：當前 goal 是否有有效路徑，主不可達判斷。
+- `/ly/friend/uwb_pos`：雷達/UWB 推出的己方哨兵自身官方地圖坐標，單位 cm。
 - `/ly/navi/position`：導航/TF 推出的自身官方地圖坐標，單位 cm。
 - `/ly/position/data`：官方/雷達定位坐標。
 
-`/ly/navi/position` 和 `/ly/position/data` 目前都會寫入 BT 裡同一份哨兵自身坐標欄位。這個坐標主要用於：
+自身哨兵坐標的優先級是 `/ly/friend/uwb_pos` 最高；`/ly/position/data` 裡 `friendcarid == Sentry` 的自身坐標只在雷達/UWB 超過 2 秒未更新時才會覆蓋；`/ly/navi/position` 是導航/TF 反算的最後 fallback。這個坐標主要用於：
 
 - 選最近的巡邏起點；
 - 判斷自己目前在哪個大區域；

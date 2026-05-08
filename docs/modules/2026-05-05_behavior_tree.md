@@ -218,7 +218,8 @@ void TreeTick() {
 |------|------|
 | `Task.Buff=true` 且 now_time<25 且 buff次數≤15 | `AimMode::Buff` |
 | 能量機關已激活（event_data 狀態或 legacy buff 狀態） | `AimMode::RotateScan`（Buff進了就切回掃描） |
-| `Task.Outpost=true` 且 enemyOutpostHealth>0 且 now_time<90 | `AimMode::Outpost` |
+| `Task.Outpost=true` 且敵方前哨血量新鮮、大於 0、now_time<90 | `AimMode::Outpost` |
+| `Task.Outpost=true` 且 `VisualScoutWithoutHp=true`、資源/時間/不可達 gate 通過 | 不依賴 `op_hp`，去 `BuffOutpost` 開前哨視覺偵查；到點後仍沒有 `/ly/outpost/target` 才退出並 cooldown |
 | `AimDebug.ForceBuff=true` / `AimDebug.ForceOutpost=true` | 調試覆蓋到 `AimMode::Buff` / `AimMode::Outpost` |
 | 其他 | `AimMode::RotateScan` |
 
@@ -265,7 +266,8 @@ void TreeTick() {
 | `/ly/friend/base_hp` | `selfBaseHealth` | 我方基地血量 |
 | `/ly/team/buff` | `teamBuff` | 增益狀態 |
 | `/ly/game/rfid` | `rfidStatus`, `rfidStatus2`, `rfidMatchState` | 裁判 RFID bit 語義和 BT 內部區域匹配狀態；1s 內未更新則 `RfidFresh=false` |
-| `/ly/position/data` | `friendRobots`, `enemyRobots`（更新position） | UWB位置 |
+| `/ly/friend/uwb_pos` | `friendRobots[Sentry].position_` | 雷達/UWB 自身坐標，優先級高於 `/ly/position/data` 的自身 friend slot |
+| `/ly/position/data` | `friendRobots`, `enemyRobots`（更新position） | 通用位置；`friendcarid == Sentry` 只在 `/ly/friend/uwb_pos` 超過 2s 未更新時覆蓋自身坐標 |
 | `/ly/gimbal/angles` | `gimbalAngles` | 當前雲台角 |
 | `/ly/gimbal/posture` | `postureState` | 姿態回讀（0未知/1進攻/2防禦/3移動） |
 | `/ly/gimbal/vel` | `naviVelocity` | 底盤速度反饋 |
@@ -281,6 +283,7 @@ void TreeTick() {
 安全降級（兼容默認行為）：
 
 - `/ly/position/data` 會做 ID 邊界檢查，非法 `carid` 直接忽略並節流告警。
+- 自身哨兵坐標優先使用 `/ly/friend/uwb_pos`；雷達/UWB 2 秒內新鮮時，`/ly/position/data` 和 `/ly/navi/position` 都不覆蓋自身坐標。
 - 聯盟賽回補判斷只在 `myselfHealth/ammoLeft` 已收到（且可選地未過期）時生效，避免默認值 `0` 誤觸發回補。
 - `wait_for_game_start_timeout_sec`、`debug_bypass_is_start` 默認關閉，不改變原始開賽門控行為。
 
@@ -431,7 +434,7 @@ SET_POSITION(BuffShoot, MyTeam);  // 設置導航目標為打符點位
 
 `Area.CommonArea.Central.Task.CommonCentral` 管 Central 公共区域的健康巡逻任务：上游选中 Central 大区点且自身血量/弹量数据新鲜并达到阈值时，从当前坐标最近的巡逻点插入循环。循环顺序为 `my OutpostArea -> my RightShoot -> my BuffAround2 -> my LeftShoot -> my OutpostShoot -> enemy RightShoot -> enemy OccupyArea -> enemy OutpostShoot -> my OutpostArea`。拿不到自身坐标时从 `my OutpostArea` 开始；到达/不可达仍复用 `/ly/navi/reached`、`/ly/navi/reachable`。
 
-区域状态机参数集中在 `src/behavior_tree/config/AreaManager.yaml`：`AreaManager.Switch_Point` 默认 `false`，设为 `true` 时只交换 `Area.hpp` 中红/蓝官方点位和区域边界查找结果，不交换 `team` 语义和导航 goal ID。`Task.Buff/Outpost` 开关集中在 `src/behavior_tree/config/Task.yaml`，会覆盖 JSON 同名字段。默认 YAML 不写 `Area.MyArea/EnemyArea/CommonArea` 区域开关，避免覆盖不同 `bt_config_file` 的区域选择；正式 regional 和单区域 areatest 的可选区域仍由 `ConfigJson` 里的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 控制。`AreaManager.RegionalAreaTask.MyHighland/MyBase/MyRoadland/CommonCentral` 管各自区域任务时序，`AreaManager.DefaultPolicy` 管 Default 层的血量/弹量门槛、区域权重、距离惩罚、冷却和重试。RegionalDefense 使用 `/ly/position/data` 的官方场地坐标判定敌方区域，高优先级搜索 Base/Highland/Roadland/Central 威胁，不用 map/odom 坐标混判。区域任务需要动态切换 FaceMode 目标时，BT 发布 `/ly/face_mode/target_raw`，格式为 `[official_map_x, official_map_y, map_z]` cm。正式 regional 不再使用旧单策略点表兜底。
+区域状态机参数集中在 `src/behavior_tree/config/AreaManager.yaml`：`AreaManager.Switch_Point` 默认 `false`，设为 `true` 时只交换 `Area.hpp` 中红/蓝官方点位和区域边界查找结果，不交换 `team` 语义和导航 goal ID。`Task.Buff/Outpost` 开关集中在 `src/behavior_tree/config/Task.yaml`，会覆盖 JSON 同名字段。`Task.OutpostConfirm.VisualScoutWithoutHp` 讓前哨任務不依賴 `op_hp`，而是短時去 `BuffOutpost` 開前哨視覺偵查，`VisualScoutHoldMs/CooldownMs` 控制偵查窗口和冷卻；若 `op_hp` 接口有資料，仍可用來提前判斷前哨已毀。默认 YAML 不写 `Area.MyArea/EnemyArea/CommonArea` 区域开关，避免覆盖不同 `bt_config_file` 的区域选择；正式 regional 和单区域 areatest 的可选区域仍由 `ConfigJson` 里的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 控制。`AreaManager.RegionalAreaTask.MyHighland/MyBase/MyRoadland/CommonCentral` 管各自区域任务时序，`AreaManager.DefaultPolicy` 管 Default 层的血量/弹量门槛、区域权重、距离惩罚、冷却和重试。RegionalDefense 使用 `/ly/position/data` 的官方场地坐标判定敌方区域，高优先级搜索 Base/Highland/Roadland/Central 威胁，不用 map/odom 坐标混判。区域任务需要动态切换 FaceMode 目标时，BT 发布 `/ly/face_mode/target_raw`，格式为 `[official_map_x, official_map_y, map_z]` cm。正式 regional 不再使用旧单策略点表兜底。
 
 ---
 

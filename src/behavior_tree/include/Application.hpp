@@ -235,6 +235,8 @@ private:
     std::chrono::steady_clock::time_point buffTaskStartTime_{};
     std::chrono::steady_clock::time_point buffTaskDamageAbortUntil_{};
     std::chrono::steady_clock::time_point outpostTaskDamageAbortUntil_{};
+    std::chrono::steady_clock::time_point outpostVisualScoutStartTime_{};
+    std::chrono::steady_clock::time_point outpostVisualScoutCooldownUntil_{};
 
     std::uint8_t naviCommandGoal{0}; // 导航目标
     Area::Point<std::uint16_t> naviGoalPosition{}; // 导航定位目标
@@ -298,6 +300,7 @@ private:
     std::chrono::steady_clock::time_point lastPositionDataGuardLogTime_{};
     bool hasReceivedSentryPosition_{false};
     std::chrono::steady_clock::time_point lastSentryPositionRxTime_{};
+    std::chrono::steady_clock::time_point lastSentryRadarPositionRxTime_{};
     std::array<std::chrono::steady_clock::time_point, 10> lastEnemyPositionRxTime_{};
     std::array<std::chrono::steady_clock::time_point, 10> lastFriendPositionRxTime_{};
 

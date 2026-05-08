@@ -1336,6 +1336,8 @@ namespace BehaviorTree {
                 outpost_confirm.MaxGameTimeSec <= 0 || now_time < outpost_confirm.MaxGameTimeSec;
             const bool outpost_goal_unreachable =
                 IsBaseGoalExternallyUnreachable(LangYa::BuffOutpost.ID, team, true);
+            const bool outpost_visual_scout_point_reached =
+                IsBaseGoalArrived(LangYa::BuffOutpost.ID, team, true);
             const bool armor_target_visible = autoAimData.Fresh && autoAimData.Valid;
             const int damage_abort_threshold = std::max(0, outpost_confirm.DamageAbortThreshold);
             const int damage_abort_window_ms = std::max(0, outpost_confirm.DamageAbortWindowMs);
@@ -1360,13 +1362,22 @@ namespace BehaviorTree {
                 return false;
             }();
             const bool outpost_visual_recent =
-                aimMode == AimMode::Outpost &&
                 outpostAimData.HasLatchedAngles &&
                 outpostAimData.LastValidTime.time_since_epoch().count() != 0 &&
                 now - outpostAimData.LastValidTime <=
                     std::chrono::milliseconds(std::max(0, config.AimDebugSettings.LatchedTargetHoldMs));
+            const int visual_scout_hold_ms = std::max(0, outpost_confirm.VisualScoutHoldMs);
+            const int visual_scout_cooldown_ms = std::max(0, outpost_confirm.VisualScoutCooldownMs);
+            auto clear_outpost_visual_scout_attempt = [&]() {
+                outpostVisualScoutStartTime_ = {};
+            };
+            auto reset_outpost_visual_scout_state = [&]() {
+                outpostVisualScoutStartTime_ = {};
+                outpostVisualScoutCooldownUntil_ = {};
+            };
 
             if (recent_damage_abort) {
+                clear_outpost_visual_scout_attempt();
                 outpostTaskDamageAbortUntil_ = now + std::chrono::milliseconds(damage_abort_hold_ms);
                 aimMode = AimMode::RotateScan;
                 LoggerPtr->Info(
@@ -1374,11 +1385,14 @@ namespace BehaviorTree {
                     damage_abort_threshold,
                     damage_abort_hold_ms);
             } else if (damage_abort_active) {
+                clear_outpost_visual_scout_attempt();
                 aimMode = AimMode::RotateScan;
             } else if (armor_target_visible) {
+                clear_outpost_visual_scout_attempt();
                 aimMode = AimMode::RotateScan;
                 LoggerPtr->Info("Armor target visible: interrupt Outpost aim mode.");
             } else if (!self_hp_ready || !ammo_ready) {
+                clear_outpost_visual_scout_attempt();
                 aimMode = AimMode::RotateScan;
                 LoggerPtr->Info(
                     "Outpost resource gate closed: hp={} fresh={} min={} ammo={} fresh={} min={}.",
@@ -1389,28 +1403,73 @@ namespace BehaviorTree {
                     ammo_fresh ? 1 : 0,
                     outpost_confirm.MinAmmo);
             } else if (!in_time_window) {
+                clear_outpost_visual_scout_attempt();
                 aimMode = AimMode::RotateScan;
                 LoggerPtr->Info(
                     "Outpost time gate closed: now={} max={}.",
                     now_time,
                     outpost_confirm.MaxGameTimeSec);
             } else if (outpost_goal_unreachable) {
+                clear_outpost_visual_scout_attempt();
                 aimMode = AimMode::RotateScan;
                 LoggerPtr->Info("Outpost task canceled: BuffOutpost goal externally unreachable.");
             } else if (enemy_outpost_hp_fresh && enemyOutpostHealth == 0) {
-                LoggerPtr->Info("Enemy Outpost has been destroyed!");
+                reset_outpost_visual_scout_state();
+                LoggerPtr->Info("Enemy Outpost HP interface says destroyed; skip Outpost task.");
                 aimMode = AimMode::RotateScan;
             } else if (enemy_outpost_hp_fresh && enemyOutpostHealth > 0) {
-                LoggerPtr->Info("Enemy Outpost Health: {}", enemyOutpostHealth);
+                reset_outpost_visual_scout_state();
+                LoggerPtr->Info("Enemy Outpost HP interface says alive: {}", enemyOutpostHealth);
                 aimMode = AimMode::Outpost;
             } else if (outpost_visual_recent) {
+                reset_outpost_visual_scout_state();
                 LoggerPtr->Info(
-                    "Enemy Outpost HP stale, keep recent visual Outpost target for short hold.");
+                    "Keep Outpost task by recent visual target.");
                 aimMode = AimMode::Outpost;
+            } else if (outpost_confirm.VisualScoutWithoutHp &&
+                       visual_scout_hold_ms > 0) {
+                if (outpostVisualScoutCooldownUntil_.time_since_epoch().count() != 0 &&
+                    now < outpostVisualScoutCooldownUntil_) {
+                    aimMode = AimMode::RotateScan;
+                    LoggerPtr->Info(
+                        "Outpost visual scout cooling down: cooldown_left_ms={}.",
+                        std::chrono::duration_cast<std::chrono::milliseconds>(
+                            outpostVisualScoutCooldownUntil_ - now).count());
+                } else {
+                    if (!outpost_visual_scout_point_reached) {
+                        outpostVisualScoutStartTime_ = {};
+                        aimMode = AimMode::Outpost;
+                        LoggerPtr->Info(
+                            "Outpost visual scout: go to BuffOutpost before starting no-target timeout.");
+                    } else if (outpostVisualScoutStartTime_.time_since_epoch().count() == 0) {
+                        outpostVisualScoutStartTime_ = now;
+                        LoggerPtr->Info(
+                            "Start Outpost visual scout without HP for {} ms.",
+                            visual_scout_hold_ms);
+                        aimMode = AimMode::Outpost;
+                    } else {
+                        const auto scout_elapsed =
+                            std::chrono::duration_cast<std::chrono::milliseconds>(
+                                now - outpostVisualScoutStartTime_);
+                        if (scout_elapsed <= std::chrono::milliseconds(visual_scout_hold_ms)) {
+                            aimMode = AimMode::Outpost;
+                        } else {
+                            outpostVisualScoutStartTime_ = {};
+                            outpostVisualScoutCooldownUntil_ =
+                                now + std::chrono::milliseconds(visual_scout_cooldown_ms);
+                            aimMode = AimMode::RotateScan;
+                            LoggerPtr->Warning(
+                                "Outpost visual scout timeout without target: hold_ms={} cooldown_ms={}.",
+                                visual_scout_hold_ms,
+                                visual_scout_cooldown_ms);
+                        }
+                    }
+                }
             } else {
+                clear_outpost_visual_scout_attempt();
                 aimMode = AimMode::RotateScan;
                 LoggerPtr->Info(
-                    "Outpost referee gate closed: enemy_outpost_hp_fresh={} hp={}.",
+                    "Outpost visual scout disabled and HP interface unavailable: fresh={} hp={}.",
                     enemy_outpost_hp_fresh ? 1 : 0,
                     enemyOutpostHealth);
             }

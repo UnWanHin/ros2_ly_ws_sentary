@@ -265,8 +265,8 @@ namespace BehaviorTree{
         // ly_navi_position
         // Navigation/TF-derived self position in official-map centimeters: [x, y].
         GenSub<ly_navi_position>([](Application& app, auto msg) {
+            const auto now = std::chrono::steady_clock::now();
             if (msg->data.size() < 2) {
-                const auto now = std::chrono::steady_clock::now();
                 if (now - app.lastPositionDataGuardLogTime_ > std::chrono::seconds(2)) {
                     if (app.LoggerPtr) {
                         app.LoggerPtr->Warning(
@@ -278,11 +278,42 @@ namespace BehaviorTree{
                 return;
             }
             const auto sentry_index = static_cast<std::size_t>(UnitType::Sentry);
+            if (app.lastSentryRadarPositionRxTime_.time_since_epoch().count() != 0 &&
+                now - app.lastSentryRadarPositionRxTime_ <= std::chrono::seconds(2)) {
+                return;
+            }
             app.friendRobots[UnitType::Sentry].position_.X = msg->data[0];
             app.friendRobots[UnitType::Sentry].position_.Y = msg->data[1];
             app.hasReceivedSentryPosition_ = true;
-            app.lastSentryPositionRxTime_ = std::chrono::steady_clock::now();
+            app.lastSentryPositionRxTime_ = now;
             app.lastFriendPositionRxTime_[sentry_index] = app.lastSentryPositionRxTime_;
+        });
+
+        // ly_friend_uwb_pos
+        // Dedicated radar/UWB self position. Prefer it over the generic PositionData friend slot.
+        GenSub<ly_friend_uwb_pos>([](Application& app, auto msg) {
+            const auto now = std::chrono::steady_clock::now();
+            if (msg->data.size() < 2) {
+                if (now - app.lastPositionDataGuardLogTime_ > std::chrono::seconds(2)) {
+                    if (app.LoggerPtr) {
+                        app.LoggerPtr->Warning(
+                            "Ignore invalid /ly/friend/uwb_pos: data size={} (need >=2)",
+                            msg->data.size());
+                    }
+                    app.lastPositionDataGuardLogTime_ = now;
+                }
+                return;
+            }
+
+            const auto sentry_index = static_cast<std::size_t>(UnitType::Sentry);
+            app.friendRobots[UnitType::Sentry].position_.X =
+                static_cast<std::int16_t>(msg->data[0]);
+            app.friendRobots[UnitType::Sentry].position_.Y =
+                static_cast<std::int16_t>(1500 - static_cast<int>(msg->data[1]));
+            app.hasReceivedSentryPosition_ = true;
+            app.lastSentryPositionRxTime_ = now;
+            app.lastSentryRadarPositionRxTime_ = now;
+            app.lastFriendPositionRxTime_[sentry_index] = now;
         });
 
         // ly_position_data
@@ -299,14 +330,20 @@ namespace BehaviorTree{
                 }
             };
             if (in_range(FriendCarId)) {
-                app.friendRobots[FriendCarId].position_.X = msg->friendx;
-                app.friendRobots[FriendCarId].position_.Y = 1500 - msg->friendy;
-                app.lastFriendPositionRxTime_[static_cast<std::size_t>(FriendCarId)] =
-                    std::chrono::steady_clock::now();
-                if (FriendCarId == static_cast<int>(UnitType::Sentry)) {
+                const auto now = std::chrono::steady_clock::now();
+                const auto friend_index = static_cast<std::size_t>(FriendCarId);
+                const bool friend_is_sentry = FriendCarId == static_cast<int>(UnitType::Sentry);
+                const bool radar_sentry_position_fresh =
+                    app.lastSentryRadarPositionRxTime_.time_since_epoch().count() != 0 &&
+                    now - app.lastSentryRadarPositionRxTime_ <= std::chrono::seconds(2);
+                if (!friend_is_sentry || !radar_sentry_position_fresh) {
+                    app.friendRobots[FriendCarId].position_.X = msg->friendx;
+                    app.friendRobots[FriendCarId].position_.Y = 1500 - msg->friendy;
+                    app.lastFriendPositionRxTime_[friend_index] = now;
+                }
+                if (friend_is_sentry && !radar_sentry_position_fresh) {
                     app.hasReceivedSentryPosition_ = true;
-                    app.lastSentryPositionRxTime_ =
-                        app.lastFriendPositionRxTime_[static_cast<std::size_t>(FriendCarId)];
+                    app.lastSentryPositionRxTime_ = app.lastFriendPositionRxTime_[friend_index];
                 }
             } else {
                 maybe_warn_invalid_id("friend", FriendCarId);

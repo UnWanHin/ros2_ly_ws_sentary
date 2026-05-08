@@ -460,6 +460,9 @@ namespace LangYa
         int MaxGameTimeSec{90};
         int MinSelfHp{150};
         int MinAmmo{30};
+        bool VisualScoutWithoutHp{true};
+        int VisualScoutHoldMs{8000};
+        int VisualScoutCooldownMs{15000};
         int DamageAbortThreshold{30};
         int DamageAbortWindowMs{1000};
         int DamageAbortHoldMs{3000};

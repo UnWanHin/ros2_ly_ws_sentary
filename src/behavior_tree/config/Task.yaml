@@ -11,6 +11,12 @@ behavior_tree:
         # 低於這些資源門檻時不主動打前哨，讓 Hard Recovery 優先。
         MinSelfHp: 150
         MinAmmo: 30
+        # op_hp 不能作為哨兵正式 gate；保留 op_hp 接口，但默認靠前哨視覺確認是否可打。
+        # 未收到 op_hp 時會短時切到前哨視覺鏈路去 BuffOutpost 偵查。
+        # 若沒有看到 /ly/outpost/target，超時後退出並冷卻，避免長時間卡前哨任務。
+        VisualScoutWithoutHp: true
+        VisualScoutHoldMs: 8000
+        VisualScoutCooldownMs: 15000
         # 前哨任務可被受擊打斷；與 Buff 不同，打前哨之後可再回來打。
         DamageAbortThreshold: 30
         DamageAbortWindowMs: 1000
