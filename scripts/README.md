@@ -213,7 +213,9 @@ python3 ./scripts/python/start.py --keep-to-navi
 | `scripts/navi/map_aim_point_test.sh` | FaceMode 完整测试入口，可拉 `gimbal_driver` / `tf_tree`，支持 `--unit m\|cm`，默认 cm |
 | `scripts/navi/map_aim_point_attach.sh` | 已有 stack 上只附加 FaceMode 节点 |
 
-`navi_calib` 標定工具的默认单位链路是 `official_map(cm) -> map(m) -> raw_goal_transform_matrix(m)`；官方地图点按 cm 存，map/navi 点按 m 存，矩阵输出给 `tf_config.yaml` 时保持 m。`navi_calib_simple` 是简化 2D rigid 版本，也会在 `--help` 和互动输入时显示单位链路。
+`navi_calib` / `navi_calib_simple` 標定工具的默认单位链路是 `official_map(m) -> map(m) -> raw_goal_transform_matrix(m)`；如果官方地图点按 cm 存，要在 YAML 或命令行显式写 `source_unit: cm` / `--source-unit cm`。矩阵输出给 `tf_config.yaml` 时保持 m；两个工具都会在 `--help` 和互动输入时显示单位链路。
+
+`navi_calib` 的默认可编辑点表是 `src/navi_tf_bridge/config/navi_calib.yaml`。直接运行 `python3 src/navi_tf_bridge/script/navi_calib.py` 后，如果在 `pair[1]` 直接回车，会使用这份 YAML；如果输入任意点，则使用新输入的点重新标定。
 
 ### Area Test
 

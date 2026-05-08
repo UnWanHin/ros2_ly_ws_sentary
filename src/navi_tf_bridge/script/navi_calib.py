@@ -25,9 +25,8 @@ points:
     target: [5.72997, -7.84072, 0.0]
 
 The solved matrix maps source points to target points in output_unit.
-For navi_tf_bridge raw_goal_transform_matrix, the default is official_map source cm,
-map target m, and output_unit=m. Source official-map values are converted to meters
-before solving the matrix.
+The calibration tool defaults to meters for source, target, and matrix output.
+When using official-map centimeter points, set source_unit: cm explicitly.
 """
 
 from __future__ import annotations
@@ -36,6 +35,7 @@ import argparse
 import math
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Sequence, Tuple
 
 try:
@@ -158,6 +158,7 @@ def _prompt_pairs(
     source_unit: str,
     target_unit: str,
     output_unit: str,
+    default_input_path: str,
 ) -> List[PointPair3D]:
     print("No --input and no --point provided, entering interactive mode.")
     print(
@@ -169,7 +170,11 @@ def _prompt_pairs(
         f"then target {target_frame} in {target_unit}."
     )
     print("Format: sx sy [sz] tx ty [tz]  or  sx,sy[,sz]:tx,ty[,tz]")
-    print("Example for official cm -> map m: 1093 366 0 0.413 -9.622 0")
+    print("Example for default m -> m: 10.93 3.66 0 0.413 -9.622 0")
+    print("If source points are official cm, run with --source-unit cm.")
+    if default_input_path:
+        print(f"Press Enter at pair[1] to use YAML points: {default_input_path}")
+        print("Typing any pair starts a new calibration and ignores YAML points.")
     print(f"Need at least {min_points} pairs. Empty line finishes.")
 
     pairs: List[PointPair3D] = []
@@ -185,6 +190,9 @@ def _prompt_pairs(
             break
 
         if not line:
+            if not pairs and default_input_path:
+                print(f"[INFO] using YAML points: {default_input_path}")
+                return []
             if len(pairs) >= min_points:
                 break
             print(f"[WARN] currently only {len(pairs)} pair(s), need >= {min_points}.")
@@ -353,6 +361,33 @@ def _load_yaml(path: str) -> Dict[str, Any]:
     return data
 
 
+def _default_input_candidates(cli_path: str) -> List[Path]:
+    if cli_path:
+        return [Path(cli_path).expanduser()]
+
+    script_path = Path(__file__).resolve()
+    cwd = Path.cwd()
+    candidates = [
+        script_path.parent.parent / "config" / "navi_calib.yaml",
+        cwd / "navi_calib.yaml",
+        cwd.parent / "config" / "navi_calib.yaml",
+        cwd / "src" / "navi_tf_bridge" / "config" / "navi_calib.yaml",
+    ]
+    if len(script_path.parents) >= 3:
+        candidates.append(
+            script_path.parents[2] / "share" / "navi_tf_bridge" / "config" / "navi_calib.yaml"
+        )
+    return candidates
+
+
+def _resolve_default_input_path(cli_path: str) -> Path:
+    candidates = _default_input_candidates(cli_path)
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return candidates[0]
+
+
 def _dump_yaml(path: str, data: Dict[str, Any]) -> None:
     if yaml is None:
         raise RuntimeError(f"missing PyYAML dependency: {YAML_IMPORT_ERROR}")
@@ -372,10 +407,18 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Fit source->target static transform with multi-point Kabsch. "
-            "Default unit flow: official_map(cm) -> map(m), matrix/output=m."
+            "Default unit flow: official_map(m) -> map(m), matrix/output=m."
         )
     )
     parser.add_argument("--input", default="", help="Input point YAML path.")
+    parser.add_argument(
+        "--default-input",
+        default="",
+        help=(
+            "YAML used when running interactively and pressing Enter at pair[1]. "
+            "Default: src/navi_tf_bridge/config/navi_calib.yaml."
+        ),
+    )
     parser.add_argument("--output", default="", help="Optional output YAML path.")
     parser.add_argument(
         "--point",
@@ -388,12 +431,12 @@ def main() -> int:
     parser.add_argument(
         "--source-unit",
         default="",
-        help="Override source point unit: m/cm/mm. Default: cm for official_map.",
+        help="Override source point unit: m/cm/mm. Default: m.",
     )
     parser.add_argument(
         "--target-unit",
         default="",
-        help="Override target point unit: m/cm/mm. Default: m for navi/map.",
+        help="Override target point unit: m/cm/mm. Default: m.",
     )
     parser.add_argument(
         "--output-unit",
@@ -418,6 +461,11 @@ def main() -> int:
         print(f"[ERROR] Missing numpy dependency: {NUMPY_IMPORT_ERROR}", file=sys.stderr)
         return 2
 
+    default_input_path = _resolve_default_input_path(args.default_input)
+    use_interactive_default_context = (
+        not args.input and not args.point and default_input_path.is_file()
+    )
+
     cfg: Dict[str, Any] = {}
     if args.input:
         try:
@@ -425,11 +473,17 @@ def main() -> int:
         except Exception as ex:
             print(f"[ERROR] Failed to read input YAML: {ex}", file=sys.stderr)
             return 2
+    elif use_interactive_default_context:
+        try:
+            cfg = _load_yaml(str(default_input_path))
+        except Exception as ex:
+            print(f"[WARN] Failed to read default input YAML '{default_input_path}': {ex}")
+            cfg = {}
 
     source_frame = str(args.source_frame or cfg.get("source_frame", "official_map"))
     target_frame = str(args.target_frame or cfg.get("target_frame", "map"))
     legacy_unit = cfg.get("unit")
-    source_unit = str(args.source_unit or cfg.get("source_unit", legacy_unit or "cm"))
+    source_unit = str(args.source_unit or cfg.get("source_unit", legacy_unit or "m"))
     target_unit = str(args.target_unit or cfg.get("target_unit", legacy_unit or "m"))
     output_unit = str(args.output_unit or cfg.get("output_unit", target_unit if legacy_unit else "m"))
 
@@ -457,7 +511,13 @@ def main() -> int:
                 source_unit,
                 target_unit,
                 output_unit,
+                str(default_input_path) if default_input_path.is_file() else "",
             )
+            if not raw_pairs and default_input_path.is_file():
+                points_raw = cfg.get("points", [])
+                if not isinstance(points_raw, list):
+                    raise ValueError(f"default input YAML '{default_input_path}' points must be a list")
+                raw_pairs = [_parse_yaml_pair(raw, i) for i, raw in enumerate(points_raw)]
         pairs = _convert_pairs_to_output_unit(raw_pairs, source_unit, target_unit, output_unit)
         _validate_pairs(pairs, max(args.min_points, 3))
         r, t, singular_values = _kabsch(pairs, args.allow_reflection, args.snap_epsilon)

@@ -1,0 +1,32 @@
+# Default editable input for navi_calib.py.
+#
+# Usage:
+#   cd src/navi_tf_bridge/script
+#   python3 navi_calib.py
+#   # Press Enter at pair[1] to solve from this YAML.
+#
+# If you type any pair in interactive mode, typed pairs replace this point list
+# for that run, while these frame/unit settings are still used.
+
+source_frame: official_map
+target_frame: map
+source_unit: m
+target_unit: m
+output_unit: m
+
+points:
+  - name: p1
+    source: [5.74, 12.06, 0.0]
+    target: [8.81, -4.25, 0.0]
+  - name: p2
+    source: [10.43, 3.29, 0.0]
+    target: [-0.0418, -9.656, 0.0]
+  - name: p3
+    source: [9.24, 8.34, 0.0]
+    target: [5.729, -7.84, 0.0]
+  - name: p4
+    source: [18.79, 6.64, 0.0]
+    target: [2.79, -17.52, 0.0]
+  - name: p5
+    source: [3.67, 1.0, 0.0]
+    target: [-3.33, -2.52, 0.0]

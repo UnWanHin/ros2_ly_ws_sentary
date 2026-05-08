@@ -26,60 +26,14 @@ Options:
 Output:
   Converted navigation/map coordinates only. If z is omitted, prints: x y
   If z is provided, prints: x y z
+
+Interactive:
+  Run without coordinates to enter an input loop. Type q to quit.
 EOF
 }
 
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --config)
-      CONFIG_FILE="${2:-}"
-      shift 2
-      ;;
-    --input-unit)
-      INPUT_UNIT="${2:-}"
-      shift 2
-      ;;
-    --output-unit)
-      OUTPUT_UNIT="${2:-}"
-      shift 2
-      ;;
-    --help|-h)
-      usage
-      exit 0
-      ;;
-    --)
-      shift
-      break
-      ;;
-    -*)
-      echo "[ERROR] Unknown option: $1" >&2
-      usage >&2
-      exit 2
-      ;;
-    *)
-      break
-      ;;
-  esac
-done
-
-if (( $# < 2 || $# > 3 )); then
-  usage >&2
-  exit 2
-fi
-if [[ -z "${CONFIG_FILE}" || ! -f "${CONFIG_FILE}" ]]; then
-  echo "[ERROR] tf_config.yaml not found: ${CONFIG_FILE}" >&2
-  exit 1
-fi
-if [[ "${INPUT_UNIT}" != "cm" && "${INPUT_UNIT}" != "m" ]]; then
-  echo "[ERROR] --input-unit must be cm or m." >&2
-  exit 2
-fi
-if [[ "${OUTPUT_UNIT}" != "cm" && "${OUTPUT_UNIT}" != "m" ]]; then
-  echo "[ERROR] --output-unit must be m or cm." >&2
-  exit 2
-fi
-
-python3 - "${CONFIG_FILE}" "${INPUT_UNIT}" "${OUTPUT_UNIT}" "$@" <<'PY'
+convert_once() {
+  python3 - "${CONFIG_FILE}" "${INPUT_UNIT}" "${OUTPUT_UNIT}" "$@" <<'PY'
 import re
 import sys
 
@@ -210,3 +164,86 @@ if z_m is not None:
 
 print(" ".join(f"{value:.6f}" for value in values))
 PY
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --config)
+      CONFIG_FILE="${2:-}"
+      shift 2
+      ;;
+    --input-unit)
+      INPUT_UNIT="${2:-}"
+      shift 2
+      ;;
+    --output-unit)
+      OUTPUT_UNIT="${2:-}"
+      shift 2
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      echo "[ERROR] Unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+if [[ -z "${CONFIG_FILE}" || ! -f "${CONFIG_FILE}" ]]; then
+  echo "[ERROR] tf_config.yaml not found: ${CONFIG_FILE}" >&2
+  exit 1
+fi
+if [[ "${INPUT_UNIT}" != "cm" && "${INPUT_UNIT}" != "m" ]]; then
+  echo "[ERROR] --input-unit must be cm or m." >&2
+  exit 2
+fi
+if [[ "${OUTPUT_UNIT}" != "cm" && "${OUTPUT_UNIT}" != "m" ]]; then
+  echo "[ERROR] --output-unit must be m or cm." >&2
+  exit 2
+fi
+
+if (( $# == 0 )); then
+  echo "[INFO] OfficialToNavi offline converter. input=${INPUT_UNIT}, output=${OUTPUT_UNIT}"
+  echo "[INFO] Type: <official_map_x> <official_map_y> [z]. Type q to quit."
+  while true; do
+    printf '[OfficialToNavi] x y [z] > '
+    if ! IFS= read -r line; then
+      break
+    fi
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    if [[ -z "${line}" ]]; then
+      continue
+    fi
+    case "${line}" in
+      q|Q|quit|exit)
+        break
+        ;;
+    esac
+    # shellcheck disable=SC2206
+    parts=(${line})
+    if (( ${#parts[@]} < 2 || ${#parts[@]} > 3 )); then
+      echo "[WARN] expected: x y [z]"
+      continue
+    fi
+    convert_once "${parts[@]}" || true
+  done
+  exit 0
+fi
+
+if (( $# < 2 || $# > 3 )); then
+  usage >&2
+  exit 2
+fi
+
+convert_once "$@"

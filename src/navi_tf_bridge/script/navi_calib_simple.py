@@ -28,6 +28,9 @@ points:
   - name: p3
     source: [1043, 329]
     target: [-0.042, -9.657]
+
+The calibration tool defaults to meters for source, target, and matrix output.
+When using official-map centimeter points, set source_unit: cm explicitly.
 """
 
 from __future__ import annotations
@@ -134,7 +137,8 @@ def _prompt_points_interactive(
         f"then target {target_frame} in {target_unit}."
     )
     print("Format: sx sy tx ty  (or sx,sy:tx,ty)")
-    print("Example for official cm -> map m: 1093 366 0.413 -9.622")
+    print("Example for default m -> m: 10.93 3.66 0.413 -9.622")
+    print("If source points are official cm, run with --source-unit cm.")
     print(f"Need at least {min_points} pairs. Press Enter on empty line to finish.")
 
     pairs: List[PointPair2D] = []
@@ -310,7 +314,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Solve 2D rigid transform from paired points and output 4x4 matrix "
-            "(source -> target). Default unit flow: official_map(cm) -> map(m), "
+            "(source -> target). Default unit flow: official_map(m) -> map(m), "
             "matrix/output=m. This is the simple 2D solver."
         )
     )
@@ -335,12 +339,12 @@ def main() -> int:
     parser.add_argument(
         "--source-unit",
         default="",
-        help="Override source point unit: m/cm/mm. Default: cm for official_map.",
+        help="Override source point unit: m/cm/mm. Default: m.",
     )
     parser.add_argument(
         "--target-unit",
         default="",
-        help="Override target point unit: m/cm/mm. Default: m for navi/map.",
+        help="Override target point unit: m/cm/mm. Default: m.",
     )
     parser.add_argument(
         "--output-unit",
@@ -387,7 +391,7 @@ def main() -> int:
     source_frame = str(args.source_frame or cfg.get("source_frame", "official_map"))
     target_frame = str(args.target_frame or cfg.get("target_frame", "map"))
     legacy_unit = args.unit or cfg.get("unit")
-    source_unit = str(args.source_unit or cfg.get("source_unit", legacy_unit or "cm")).strip().lower()
+    source_unit = str(args.source_unit or cfg.get("source_unit", legacy_unit or "m")).strip().lower()
     target_unit = str(args.target_unit or cfg.get("target_unit", legacy_unit or "m")).strip().lower()
     output_unit = str(
         args.output_unit or cfg.get("output_unit", legacy_unit or "m")
