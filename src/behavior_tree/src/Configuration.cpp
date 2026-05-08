@@ -615,12 +615,24 @@ namespace LangYa {
     }
 
     void from_json(const json& j, AimTargetAutonomySetting& aa) {
+        aa.Enable = j.value("Enable", aa.Enable);
         aa.PriorityWeight = j.value("PriorityWeight", aa.PriorityWeight);
         aa.DistanceWeight = j.value("DistanceWeight", aa.DistanceWeight);
         aa.LowHealthWeight = j.value("LowHealthWeight", aa.LowHealthWeight);
         aa.CurrentTargetBonus = j.value("CurrentTargetBonus", aa.CurrentTargetBonus);
         aa.HeroBonus = j.value("HeroBonus", aa.HeroBonus);
         aa.SentryBonus = j.value("SentryBonus", aa.SentryBonus);
+        aa.HealthFreshTimeoutMs = j.value("HealthFreshTimeoutMs", aa.HealthFreshTimeoutMs);
+        aa.DeadHealthConfirmMs = j.value("DeadHealthConfirmMs", aa.DeadHealthConfirmMs);
+        aa.DeadHealthHoldMs = j.value("DeadHealthHoldMs", aa.DeadHealthHoldMs);
+        aa.RespawnTransitionTimeoutMs =
+            j.value("RespawnTransitionTimeoutMs", aa.RespawnTransitionTimeoutMs);
+        aa.LostTargetHoldMs = j.value("LostTargetHoldMs", aa.LostTargetHoldMs);
+        aa.MinSwitchIntervalMs = j.value("MinSwitchIntervalMs", aa.MinSwitchIntervalMs);
+        aa.SwitchScoreMargin = j.value("SwitchScoreMargin", aa.SwitchScoreMargin);
+        aa.RespawnInvulnerableSec = j.value("RespawnInvulnerableSec", aa.RespawnInvulnerableSec);
+        aa.SentryRespawnInvulnerableSec =
+            j.value("SentryRespawnInvulnerableSec", aa.SentryRespawnInvulnerableSec);
     }
 
     void from_json(const json& j, RegionalDefenseSetting& rd) {
@@ -1653,11 +1665,20 @@ namespace BehaviorTree {
             config.DecisionAutonomySettings.NaviGoal.HighlandCompatArriveDistanceCm,
             config.DecisionAutonomySettings.NaviGoal.HighlandCompatTimeoutSec);
         LoggerPtr->Debug(
-            "AimTargetWeights(priority/distance/low_health/current_target): {}/{}/{}/{}",
+            "AimTarget(enable, weights priority/distance/low_health/current_target, hold_ms/switch_ms/health_fresh_ms/dead_confirm_ms/dead_hold_ms/respawn_transition_ms/invuln_sec/sentry_invuln_sec): {}/{}/{}/{}/{}/{}/{}/{}/{}/{}/{}/{}/{}",
+            config.DecisionAutonomySettings.AimTarget.Enable,
             config.DecisionAutonomySettings.AimTarget.PriorityWeight,
             config.DecisionAutonomySettings.AimTarget.DistanceWeight,
             config.DecisionAutonomySettings.AimTarget.LowHealthWeight,
-            config.DecisionAutonomySettings.AimTarget.CurrentTargetBonus);
+            config.DecisionAutonomySettings.AimTarget.CurrentTargetBonus,
+            config.DecisionAutonomySettings.AimTarget.LostTargetHoldMs,
+            config.DecisionAutonomySettings.AimTarget.MinSwitchIntervalMs,
+            config.DecisionAutonomySettings.AimTarget.HealthFreshTimeoutMs,
+            config.DecisionAutonomySettings.AimTarget.DeadHealthConfirmMs,
+            config.DecisionAutonomySettings.AimTarget.DeadHealthHoldMs,
+            config.DecisionAutonomySettings.AimTarget.RespawnTransitionTimeoutMs,
+            config.DecisionAutonomySettings.AimTarget.RespawnInvulnerableSec,
+            config.DecisionAutonomySettings.AimTarget.SentryRespawnInvulnerableSec);
         LoggerPtr->Debug("------ Chase ------");
         LoggerPtr->Debug("Enable: {}", config.ChaseSettings.Enable);
         LoggerPtr->Debug("FollowAimTarget: {}", config.ChaseSettings.FollowAimTarget);
@@ -2309,6 +2330,12 @@ namespace BehaviorTree {
                 value = 0.0;
             }
         };
+        auto clamp_non_negative_int = [this](int& value, const char* key_name) {
+            if (value < 0) {
+                LoggerPtr->Warning("Invalid {}={}, clamp to 0.", key_name, value);
+                value = 0;
+            }
+        };
         if (autonomy.NaviGoal.HighlandCompatArriveDistanceCm <= 0) {
             LoggerPtr->Warning("Invalid DecisionAutonomy.NaviGoal.HighlandCompat.ArriveDistanceCm={}, fallback to 20.",
                                autonomy.NaviGoal.HighlandCompatArriveDistanceCm);
@@ -2325,6 +2352,19 @@ namespace BehaviorTree {
         clamp_non_negative(autonomy.AimTarget.CurrentTargetBonus, "DecisionAutonomy.AimTarget.CurrentTargetBonus");
         clamp_non_negative(autonomy.AimTarget.HeroBonus, "DecisionAutonomy.AimTarget.HeroBonus");
         clamp_non_negative(autonomy.AimTarget.SentryBonus, "DecisionAutonomy.AimTarget.SentryBonus");
+        clamp_non_negative(autonomy.AimTarget.SwitchScoreMargin, "DecisionAutonomy.AimTarget.SwitchScoreMargin");
+        clamp_non_negative_int(autonomy.AimTarget.HealthFreshTimeoutMs, "DecisionAutonomy.AimTarget.HealthFreshTimeoutMs");
+        clamp_non_negative_int(autonomy.AimTarget.DeadHealthConfirmMs, "DecisionAutonomy.AimTarget.DeadHealthConfirmMs");
+        clamp_non_negative_int(autonomy.AimTarget.DeadHealthHoldMs, "DecisionAutonomy.AimTarget.DeadHealthHoldMs");
+        clamp_non_negative_int(
+            autonomy.AimTarget.RespawnTransitionTimeoutMs,
+            "DecisionAutonomy.AimTarget.RespawnTransitionTimeoutMs");
+        clamp_non_negative_int(autonomy.AimTarget.LostTargetHoldMs, "DecisionAutonomy.AimTarget.LostTargetHoldMs");
+        clamp_non_negative_int(autonomy.AimTarget.MinSwitchIntervalMs, "DecisionAutonomy.AimTarget.MinSwitchIntervalMs");
+        clamp_non_negative_int(autonomy.AimTarget.RespawnInvulnerableSec, "DecisionAutonomy.AimTarget.RespawnInvulnerableSec");
+        clamp_non_negative_int(
+            autonomy.AimTarget.SentryRespawnInvulnerableSec,
+            "DecisionAutonomy.AimTarget.SentryRespawnInvulnerableSec");
 
         if (config.ChaseSettings.LostTargetHoldMs < 0) {
             LoggerPtr->Warning("Invalid Chase.LostTargetHoldMs={}, fallback to 0.",

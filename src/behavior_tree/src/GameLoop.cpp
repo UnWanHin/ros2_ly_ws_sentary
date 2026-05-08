@@ -1340,6 +1340,7 @@ namespace BehaviorTree {
     }
     // 提前处理坐标等数据
     void Application::ProcessData() {
+        const auto now = std::chrono::steady_clock::now();
         int now_time = 420 - timeLeft;
         // 处理坐标数据
         reliableEnemyPosuition.clear();
@@ -1355,23 +1356,53 @@ namespace BehaviorTree {
 
         // 处理距离和无敌状态的数据
         hitableTargets.clear();
+        const auto& aim_target_setting = config.DecisionAutonomySettings.AimTarget;
+        const auto is_confirmed_dead_hold = [&](const UnitType unit_type) {
+            const auto index = static_cast<std::size_t>(unit_type);
+            if (index >= enemyHealthConfirmedDead_.size()) {
+                return false;
+            }
+            if (!enemyHealthConfirmedDead_[index]) {
+                return false;
+            }
+            const auto last_confirmed_dead = lastEnemyConfirmedDeadTime_[index];
+            if (last_confirmed_dead.time_since_epoch().count() == 0) {
+                return false;
+            }
+            const int dead_hold_ms = std::max(0, aim_target_setting.DeadHealthHoldMs);
+            return dead_hold_ms == 0 ||
+                now - last_confirmed_dead <= std::chrono::milliseconds(dead_hold_ms);
+        };
+        const auto is_invulnerable = [&](const UnitType unit_type) {
+            int hold_seconds = aim_target_setting.RespawnInvulnerableSec;
+            if (unit_type == UnitType::Sentry) {
+                hold_seconds = aim_target_setting.SentryRespawnInvulnerableSec;
+            }
+            return is_confirmed_dead_hold(unit_type) ||
+                enemyRobots[unit_type].isInvulnerable(hold_seconds);
+        };
+        const auto add_hitable_target = [&](const UnitType unit_type) {
+            if (std::find(hitableTargets.begin(), hitableTargets.end(), unit_type) == hitableTargets.end()) {
+                hitableTargets.push_back(unit_type);
+            }
+        };
         for (auto Armor : armorList) {
             if (Armor.Type == ArmorType::UnKnown) continue;
             if(Armor.Type == ArmorType::Hero) {
                 enemyRobots[UnitType::Hero].distance_ = Armor.Distance;
-                if(!enemyRobots[UnitType::Hero].isInvulnerable()) hitableTargets.push_back(UnitType::Hero);
+                if(!is_invulnerable(UnitType::Hero)) add_hitable_target(UnitType::Hero);
             }else if(Armor.Type == ArmorType::Engineer) {
                 enemyRobots[UnitType::Engineer].distance_ = Armor.Distance;
-                if(!enemyRobots[UnitType::Engineer].isInvulnerable() && now_time > 60) hitableTargets.push_back(UnitType::Engineer);
+                if(!is_invulnerable(UnitType::Engineer) && now_time > 60) add_hitable_target(UnitType::Engineer);
             }else if(Armor.Type == ArmorType::Infantry1) {
                 enemyRobots[UnitType::Infantry1].distance_ = Armor.Distance;
-                if(!enemyRobots[UnitType::Infantry1].isInvulnerable()) hitableTargets.push_back(UnitType::Infantry1);
+                if(!is_invulnerable(UnitType::Infantry1)) add_hitable_target(UnitType::Infantry1);
             }else if(Armor.Type == ArmorType::Infantry2) {
                 enemyRobots[UnitType::Infantry2].distance_ = Armor.Distance;
-                if(!enemyRobots[UnitType::Infantry2].isInvulnerable()) hitableTargets.push_back(UnitType::Infantry2);
+                if(!is_invulnerable(UnitType::Infantry2)) add_hitable_target(UnitType::Infantry2);
             }else if(Armor.Type == ArmorType::Sentry) {
                 enemyRobots[UnitType::Sentry].distance_ = Armor.Distance;
-                if(!enemyRobots[UnitType::Sentry].isInvulnerable()) hitableTargets.push_back(UnitType::Sentry);
+                if(!is_invulnerable(UnitType::Sentry)) add_hitable_target(UnitType::Sentry);
             }
         }
         for(auto robot : hitableTargets) {
@@ -1417,7 +1448,8 @@ namespace BehaviorTree {
     }
 
     bool Application::TrySetAimTargetByAutonomy() {
-        if (!IsDecisionAutonomyModuleEnabled("aim_target")) {
+        const auto& autonomy = config.DecisionAutonomySettings.AimTarget;
+        if (!autonomy.Enable && !IsDecisionAutonomyModuleEnabled("aim_target")) {
             return false;
         }
 
@@ -1426,6 +1458,39 @@ namespace BehaviorTree {
             UnitType Unit{UnitType::Unknown};
             float Distance{0.0f};
             std::uint16_t Health{0U};
+            bool HealthFresh{false};
+            double Score{0.0};
+        };
+
+        const auto now = std::chrono::steady_clock::now();
+        const int health_fresh_timeout_ms = std::max(0, autonomy.HealthFreshTimeoutMs);
+        const auto is_health_fresh = [&](const UnitType unit_type) {
+            const auto index = static_cast<std::size_t>(unit_type);
+            if (!hasReceivedEnemyHealth_ || index >= lastEnemyHealthRxTime_.size()) {
+                return false;
+            }
+            const auto rx_time = lastEnemyHealthRxTime_[index];
+            if (rx_time.time_since_epoch().count() == 0) {
+                return false;
+            }
+            if (health_fresh_timeout_ms == 0) {
+                return true;
+            }
+            return now - rx_time <= std::chrono::milliseconds(health_fresh_timeout_ms);
+        };
+        const auto hold_current_if_recent = [&]() {
+            const int lost_target_hold_ms = std::max(0, autonomy.LostTargetHoldMs);
+            if (lost_target_hold_ms <= 0 || targetArmor.Type == ArmorType::UnKnown ||
+                IsIgnoredArmorType(config.AimTargetIgnore, targetArmor.Type) ||
+                lastAimTargetCandidateSeenTime_.time_since_epoch().count() == 0 ||
+                now - lastAimTargetCandidateSeenTime_ > std::chrono::milliseconds(lost_target_hold_ms)) {
+                return false;
+            }
+            const auto unit_type = UnitTypeFromArmorType(targetArmor.Type);
+            if (unit_type.has_value()) {
+                targetArmor.Distance = enemyRobots[*unit_type].distance_;
+            }
+            return true;
         };
 
         std::vector<AimCandidate> candidates;
@@ -1440,19 +1505,23 @@ namespace BehaviorTree {
                 continue;
             }
             const auto& robot = enemyRobots[unit_type];
+            const bool health_fresh = is_health_fresh(unit_type);
             candidates.push_back(AimCandidate{
                 .Armor = *armor_type,
                 .Unit = unit_type,
                 .Distance = robot.distance_,
-                .Health = robot.currentHealth_
+                .Health = robot.currentHealth_,
+                .HealthFresh = health_fresh
             });
-            max_health = std::max(max_health, robot.currentHealth_);
+            if (health_fresh) {
+                max_health = std::max(max_health, robot.currentHealth_);
+            }
         }
         if (candidates.empty()) {
-            return false;
+            return hold_current_if_recent();
         }
+        lastAimTargetCandidateSeenTime_ = now;
 
-        const auto& autonomy = config.DecisionAutonomySettings.AimTarget;
         const auto get_priority_rank = [this](const ArmorType armor_type) {
             const int armor_id = static_cast<int>(armor_type);
             const auto it = std::find(config.AimTargetPriority.begin(), config.AimTargetPriority.end(), armor_id);
@@ -1461,10 +1530,7 @@ namespace BehaviorTree {
             }
             return static_cast<int>(std::distance(config.AimTargetPriority.begin(), it));
         };
-
-        double best_score = -std::numeric_limits<double>::infinity();
-        std::optional<AimCandidate> best_candidate;
-        for (const auto& candidate : candidates) {
+        const auto score_candidate = [&](AimCandidate& candidate) {
             const int rank = get_priority_rank(candidate.Armor);
             const double priority_score = config.AimTargetPriority.empty()
                 ? 0.0
@@ -1473,8 +1539,10 @@ namespace BehaviorTree {
             const double distance_score = (std::isfinite(candidate.Distance) && candidate.Distance > 0.0f)
                 ? 1.0 / (0.1 + static_cast<double>(candidate.Distance))
                 : 0.0;
-            const double health_score = 1.0 -
-                static_cast<double>(candidate.Health) / static_cast<double>(std::max<std::uint16_t>(1U, max_health));
+            const double health_score = candidate.HealthFresh
+                ? 1.0 - static_cast<double>(candidate.Health) /
+                    static_cast<double>(std::max<std::uint16_t>(1U, max_health))
+                : 0.0;
 
             double score = 0.0;
             score += autonomy.PriorityWeight * priority_score;
@@ -1488,18 +1556,51 @@ namespace BehaviorTree {
             } else if (candidate.Armor == ArmorType::Sentry) {
                 score += autonomy.SentryBonus;
             }
+            candidate.Score = score;
+            return score;
+        };
 
+        double best_score = -std::numeric_limits<double>::infinity();
+        std::optional<AimCandidate> best_candidate;
+        std::optional<AimCandidate> current_candidate;
+        for (auto& candidate : candidates) {
+            const double score = score_candidate(candidate);
             if (score > best_score) {
                 best_score = score;
                 best_candidate = candidate;
             }
+            if (candidate.Armor == targetArmor.Type) {
+                current_candidate = candidate;
+            }
         }
 
         if (!best_candidate.has_value()) {
-            return false;
+            return hold_current_if_recent();
         }
-        targetArmor.Type = best_candidate->Armor;
-        targetArmor.Distance = best_candidate->Distance;
+
+        auto selected_candidate = *best_candidate;
+        const int min_switch_interval_ms = std::max(0, autonomy.MinSwitchIntervalMs);
+        const bool switch_too_soon =
+            selected_candidate.Armor != targetArmor.Type &&
+            current_candidate.has_value() &&
+            min_switch_interval_ms > 0 &&
+            lastAimTargetSelectTime_.time_since_epoch().count() != 0 &&
+            now - lastAimTargetSelectTime_ < std::chrono::milliseconds(min_switch_interval_ms);
+        const bool switch_margin_too_small =
+            selected_candidate.Armor != targetArmor.Type &&
+            current_candidate.has_value() &&
+            selected_candidate.Score <
+                current_candidate->Score + std::max(0.0, autonomy.SwitchScoreMargin);
+        if (switch_too_soon || switch_margin_too_small) {
+            selected_candidate = *current_candidate;
+        }
+
+        if (selected_candidate.Armor != targetArmor.Type ||
+            lastAimTargetSelectTime_.time_since_epoch().count() == 0) {
+            lastAimTargetSelectTime_ = now;
+        }
+        targetArmor.Type = selected_candidate.Armor;
+        targetArmor.Distance = selected_candidate.Distance;
         return true;
     }
 

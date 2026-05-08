@@ -1,6 +1,6 @@
 # ROS2 Topic And Message Tree
 
-Updated: 2026-05-07
+Updated: 2026-05-08
 
 这份文档用 tree 方式整理当前哨兵上位机 ROS2 topic 和消息结构，重点回答两个问题：
 
@@ -72,6 +72,16 @@ Updated: 2026-05-07
 ```
 
 注意：`gimbal_driver` 当前仍保留一个 legacy topic 名 `ly/gimbal/eventdata`，没有前导 `/`。`behavior_tree` 现在只订阅新版 `/ly/game/event_data`，不再从 legacy raw topic 更新 EventData。
+
+### `/ly/log` - 可选 raw 调试 topic
+
+```text
+/ly/log
+├── gimbal_raw_rx : gimbal_driver/msg/GimbalRawFrame  [Debug] 下位机 -> 上位机 raw TypeID 幀
+└── gimbal_raw_tx : gimbal_driver/msg/GimbalRawFrame  [Debug] 上位机 -> 下位机 raw 主控制幀
+```
+
+默认关闭，由 `config/common.yaml` 的 `gimbal_raw.topic.enable` 控制。`data` 是原始 bytes，不是 hex 字符串。
 
 ### `/ly/game`
 
@@ -573,6 +583,8 @@ TypeID 8 BulletDataAndRfid2
 └── RfidStatus2                  -> /ly/game/rfid.rfid_status_2_raw
 ```
 
+若 `gimbal_raw.topic.enable=true`，通过 `gimbal_raw.topic.type_ids` 过滤后的上行 raw 幀会同时发布到 `/ly/log/gimbal_raw_rx`。
+
 坐标注意：
 
 - `PositionType.X/Y` 在底层注释里写的是“乘了100”，当前 ROS `PositionData` 直接保留 `int16`。
@@ -593,6 +605,8 @@ GimbalControlData
 ├── SentryCmd      : 4B      # /ly/control/posture 或 /ly/control/sentry_cmd
 └── Tail           : uint8   # 0
 ```
+
+若 `gimbal_raw.topic.enable=true` 且 `gimbal_raw.topic.downlink=true`，下行 raw 主控制幀会同时发布到 `/ly/log/gimbal_raw_tx`，其中 `type_id=255` 表示下行 control frame。
 
 `SentryCmd` bit tree：
 

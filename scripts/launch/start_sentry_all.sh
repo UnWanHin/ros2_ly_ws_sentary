@@ -166,6 +166,127 @@ read_common_scalar() {
   printf '%s\n' "${value}"
 }
 
+read_common_path_scalar() {
+  local config_file="$1"
+  local path="$2"
+  [[ -f "${config_file}" ]] || return 1
+
+  python3 - "${config_file}" "${path}" <<'PY'
+import sys
+
+config_file = sys.argv[1]
+parts = sys.argv[2].split(".")
+stack = []
+
+def strip_inline_comment(line: str) -> str:
+    out = []
+    in_single = False
+    in_double = False
+    for ch in line:
+        if ch == "'" and not in_double:
+            in_single = not in_single
+        elif ch == '"' and not in_single:
+            in_double = not in_double
+        elif ch == "#" and not in_single and not in_double:
+            break
+        out.append(ch)
+    return "".join(out).rstrip()
+
+with open(config_file, encoding="utf-8") as fh:
+    for raw in fh:
+        line = strip_inline_comment(raw.rstrip("\n"))
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        text = line.strip()
+        if ":" not in text:
+            continue
+        key, value = text.split(":", 1)
+        key = key.strip().strip("'\"")
+        value = value.strip()
+
+        while stack and stack[-1][0] >= indent:
+            stack.pop()
+        current = [item[1] for item in stack] + [key]
+
+        if not value:
+            stack.append((indent, key))
+            continue
+
+        if (value.startswith('"') and value.endswith('"')) or (
+            value.startswith("'") and value.endswith("'")
+        ):
+            value = value[1:-1]
+
+        if current == parts:
+            print(value)
+            sys.exit(0)
+
+sys.exit(1)
+PY
+}
+
+read_common_value() {
+  local config_file="$1"
+  local common_key="$2"
+  local legacy_key="${3:-}"
+
+  if [[ "${common_key}" == *.* ]]; then
+    read_common_path_scalar "${config_file}" "${common_key}" && return 0
+  else
+    read_common_scalar "${config_file}" "${common_key}" && return 0
+  fi
+
+  if [[ -n "${legacy_key}" ]]; then
+    read_common_scalar "${config_file}" "${legacy_key}" && return 0
+  fi
+  return 1
+}
+
+add_common_bool_launch_arg() {
+  local common_key="$1"
+  local launch_key="$2"
+  local legacy_key="${3:-}"
+
+  if ! has_launch_arg_key "${launch_key}"; then
+    local raw_value=""
+    local bool_value=""
+    if raw_value="$(read_common_value "${DEFAULT_COMMON_CONFIG_FILE}" "${common_key}" "${legacy_key}")" &&
+       bool_value="$(read_common_bool_value "${raw_value}")"; then
+      local launch_value="true"
+      if [[ "${bool_value}" == "0" ]]; then
+        launch_value="false"
+      fi
+      LAUNCH_ARGS=("${launch_key}:=${launch_value}" "${LAUNCH_ARGS[@]}")
+      echo "[INFO] default ${launch_key}=${launch_value} (from ${DEFAULT_COMMON_CONFIG_FILE}:${common_key})"
+    fi
+  else
+    local arg
+    for arg in "${LAUNCH_ARGS[@]}"; do
+      [[ "${arg}" == "${launch_key}:="* ]] && echo "[INFO] override ${launch_key}=${arg#${launch_key}:=}"
+    done
+  fi
+}
+
+add_common_scalar_launch_arg() {
+  local common_key="$1"
+  local launch_key="$2"
+  local legacy_key="${3:-}"
+
+  if ! has_launch_arg_key "${launch_key}"; then
+    local value=""
+    if value="$(read_common_value "${DEFAULT_COMMON_CONFIG_FILE}" "${common_key}" "${legacy_key}")"; then
+      LAUNCH_ARGS=("${launch_key}:=${value}" "${LAUNCH_ARGS[@]}")
+      echo "[INFO] default ${launch_key}=${value} (from ${DEFAULT_COMMON_CONFIG_FILE}:${common_key})"
+    fi
+  else
+    local arg
+    for arg in "${LAUNCH_ARGS[@]}"; do
+      [[ "${arg}" == "${launch_key}:="* ]] && echo "[INFO] override ${launch_key}=${arg#${launch_key}:=}"
+    done
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --cleanup-existing)
@@ -374,6 +495,18 @@ if ! has_launch_arg_key "velocity_raw_to_mps"; then
 else
   for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == velocity_raw_to_mps:=* ]] && echo "[INFO] override velocity_raw_to_mps=${arg#velocity_raw_to_mps:=}"; done
 fi
+
+add_common_bool_launch_arg "gimbal_raw.file.enable" "gimbal_raw_log_enable" "gimbal_raw_log_enable"
+add_common_bool_launch_arg "gimbal_raw.file.uplink" "gimbal_raw_log_uplink" "gimbal_raw_log_uplink"
+add_common_bool_launch_arg "gimbal_raw.file.downlink" "gimbal_raw_log_downlink" "gimbal_raw_log_downlink"
+add_common_bool_launch_arg "gimbal_raw.file.screen" "gimbal_raw_log_screen" "gimbal_raw_log_screen"
+add_common_bool_launch_arg "gimbal_raw.file.flush" "gimbal_raw_log_flush" "gimbal_raw_log_flush"
+add_common_scalar_launch_arg "gimbal_raw.file.dir" "gimbal_raw_log_dir" "gimbal_raw_log_dir"
+add_common_scalar_launch_arg "gimbal_raw.file.type_ids" "gimbal_raw_log_type_ids" "gimbal_raw_log_type_ids"
+add_common_bool_launch_arg "gimbal_raw.topic.enable" "gimbal_raw_topic_enable" "gimbal_raw_topic_enable"
+add_common_bool_launch_arg "gimbal_raw.topic.uplink" "gimbal_raw_topic_uplink" "gimbal_raw_topic_uplink"
+add_common_bool_launch_arg "gimbal_raw.topic.downlink" "gimbal_raw_topic_downlink" "gimbal_raw_topic_downlink"
+add_common_scalar_launch_arg "gimbal_raw.topic.type_ids" "gimbal_raw_topic_type_ids" "gimbal_raw_topic_type_ids"
 
 if [[ -n "${MODE_ARG}" ]]; then
   LAUNCH_ARGS=("mode:=${MODE_ARG}" "${LAUNCH_ARGS[@]}")

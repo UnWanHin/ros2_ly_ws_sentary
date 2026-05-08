@@ -1,6 +1,6 @@
 # Regional 決策框架說明
 
-Updated: 2026-05-07
+Updated: 2026-05-08
 
 本文記錄目前 `behavior_tree` 裡 regional 決策的區域狀態機框架：它會做哪些任務、怎麼啟動、怎麼判斷到達、會輸出什麼控制，以及哪些階段會被高優先級邏輯打斷。
 
@@ -319,6 +319,33 @@ Roadland 非強綁定階段通常不直接取消，而是請求安全返回：
 - 到達穿越終點；
 - 穿越終點不可達；
 - 穿越超時。
+
+## 裝甲板選敵
+
+普通裝甲板模式仍以 `AimTargetPriority` 作基礎優先級，目前正式配置為：
+
+```text
+Hero -> Infantry1 -> Infantry2 -> Sentry -> Engineer
+```
+
+`DecisionAutonomy.AimTarget.Enable=true` 時，BT 會在這個優先級上疊加距離、低血量、當前目標保持、Hero/Sentry 偏置做打分。這不是舊的全局 utility strategy；`DecisionAutonomy.Enable=false` 時也可以只啟用這個局部選敵器。
+
+延時和退化保護：
+
+- 敵方血量只在 `HealthFreshTimeoutMs` 內用於低血量加分，避免官方裁判數據經串口/下位機延遲後把舊血量當新狀態。
+- 敵方血量單次變成 0 不會立刻確認死亡；需要 0 血狀態持續到 `DeadHealthConfirmMs`，並且期間有 0 血包刷新，才會進 confirmed-dead hold。
+- confirmed-dead hold 只保持 `DeadHealthHoldMs`，避免確認死亡後串口斷流導致永遠不打該目標。
+- confirmed-dead 後只有在 `RespawnTransitionTimeoutMs` 內收到正血，才啟動復活無敵窗口；如果 0 血包中斷太久後才收到正血，視為資料鏈路延遲/恢復，不再補一段完整 30 秒無敵。
+- 目標丟 1-2 幀時，在 `LostTargetHoldMs` 內保持當前目標，避免 detector 短暫掉包造成頻繁切換。
+- 新目標分數未超過當前目標 `SwitchScoreMargin`，或還在 `MinSwitchIntervalMs` 內，保持當前目標。
+- 打分器無候選或被關閉時，退回舊固定優先級和原有步兵 1/2 近距離/低血量判斷。
+
+無敵排除：
+
+- `ProcessData()` 先從 `/ly/detector/armors` 建 `hitableTargets`。
+- 敵方血量從 0 恢復到非滿血時，BT 視為讀條復活，按配置的 `RespawnInvulnerableSec` 排除；Sentry 可用 `SentryRespawnInvulnerableSec` 單獨配置。
+- 死亡確認耗掉的時間不會從復活無敵時間裡扣除；無敵計時從「confirmed dead 後 `RespawnTransitionTimeoutMs` 內第一次收到正血包」開始，因為上位機無法知道裁判端真實復活時刻。
+- 2026 regional/league 正式配置默認 30 秒；如果要跑 2025 超級對抗賽哨兵規則，Sentry 應改成 60 秒。
 
 ## 控制輸出
 

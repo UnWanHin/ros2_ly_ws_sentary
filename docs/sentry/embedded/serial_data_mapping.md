@@ -1,6 +1,6 @@
 # 串口上下行数据映射总表
 
-Updated: 2026-05-06
+Updated: 2026-05-08
 
 ## 1. 说明
 
@@ -48,6 +48,47 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData>
 - 行为树或其它上位机模块对这些 topic/字段的消费方式
 
 如果只是记录历史调试结论，可以放到 `docs/record/`；如果会影响当前联调接口，以本文档为准。
+
+### 2.2 Raw 串口日志
+
+`gimbal_driver` 可以把当前上下位机串口原始幀写到文件，方便对接下位机时核对 byte：
+
+- 配置入口：`config/common.yaml`
+- 默认状态：关闭
+- 默认目录：`~/Log/GimbalRaw`
+- 文件名：`gimbal_raw_YYYYMMDD_HHMMSS.log`
+
+`common.yaml` 可配置。文件内使用分层 YAML；`sentry_all.launch.py` 的 launch argument 仍保留旧的 flat 名称，方便命令行覆盖。
+
+| key | 默认 | 含义 |
+|---|---|---|
+| `gimbal_raw.file.enable` | `false` | 文件日志总开关 |
+| `gimbal_raw.file.uplink` | `true` | 记录下位机 -> 上位机 TypeID 幀 |
+| `gimbal_raw.file.downlink` | `true` | 记录上位机 -> 下位机 `GimbalControlData` 主控制幀 |
+| `gimbal_raw.file.screen` | `false` | 同时输出到 ROS screen 日志 |
+| `gimbal_raw.file.flush` | `true` | 每行写入后 flush，便于掉电/崩溃前保留日志 |
+| `gimbal_raw.file.dir` | `~/Log/GimbalRaw` | 日志目录 |
+| `gimbal_raw.file.type_ids` | `all` | 上行 TypeID 过滤，支持 `all` 或逗号列表如 `1,7,8` |
+
+日志行格式：
+
+```text
+time_ns rx 7 size=15 hex="21 07 ..." name=SentryData
+time_ns tx control size=17 hex="21 ..." reason=control_callback firecode_raw=0 sentry_cmd_raw=0
+```
+
+注意：当前下行不是 TypeID 分型幀，而是单个 17B 主控制幀，所以日志里下行类型固定为 `control`。`gimbal_raw.file.type_ids` 只过滤上行。
+
+同一套 raw 数据也可以选择发布成 ROS2 topic，避免每帧转 hex 和写磁盘：
+
+| key | 默认 | 含义 |
+|---|---|---|
+| `gimbal_raw.topic.enable` | `false` | raw topic 总开关 |
+| `gimbal_raw.topic.uplink` | `true` | 发布下位机 -> 上位机 TypeID 幀到 `/ly/log/gimbal_raw_rx` |
+| `gimbal_raw.topic.downlink` | `true` | 发布上位机 -> 下位机主控制幀到 `/ly/log/gimbal_raw_tx` |
+| `gimbal_raw.topic.type_ids` | `all` | 上行 TypeID 过滤，支持 `all` 或逗号列表如 `1,7,8` |
+
+raw topic 使用 `gimbal_driver/msg/GimbalRawFrame`，`data` 是原始二进制 bytes，不是 hex 字符串。`gimbal_driver` 只有在对应 topic 存在 subscriber 时才组包发布；若用 rosbag 录这些 topic，负载会转移到 DDS/rosbag 写盘。
 
 ---
 

@@ -146,6 +146,14 @@ private:
     
     Robots friendRobots; // 己方机器人的信息
     Robots enemyRobots; // 敌方机器人的信息
+    bool hasReceivedEnemyHealth_{false};
+    std::array<std::chrono::steady_clock::time_point, 10> lastEnemyHealthRxTime_{};
+    std::array<bool, 10> enemyZeroHealthObserved_{};
+    std::array<std::chrono::steady_clock::time_point, 10> enemyZeroHealthSince_{};
+    std::array<bool, 10> enemyHealthConfirmedDead_{};
+    std::array<std::chrono::steady_clock::time_point, 10> lastEnemyConfirmedDeadTime_{};
+    std::chrono::steady_clock::time_point lastAimTargetSelectTime_{};
+    std::chrono::steady_clock::time_point lastAimTargetCandidateSeenTime_{};
     BuffType teamBuff{0}; // 当前的增益情况
     std::uint32_t rfidStatus{0}; // 0x0209 rfid_status（低32位）
     bool hasRfidStatus2{false}; // 0x0209 rfid_status_2 是否已由下位机提供

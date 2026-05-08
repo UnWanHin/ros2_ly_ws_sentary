@@ -201,6 +201,17 @@
       posture_repeat_interval_ms: 20
       firecode_partial_hold_ms: 100
       velocity_raw_to_mps: 0.025
+      raw_serial_log_enable: false
+      raw_serial_log_uplink: true
+      raw_serial_log_downlink: true
+      raw_serial_log_screen: false
+      raw_serial_log_flush: true
+      raw_serial_log_dir: "~/Log/GimbalRaw"
+      raw_serial_log_type_ids: "all"
+      raw_serial_topic_enable: false
+      raw_serial_topic_uplink: true
+      raw_serial_topic_downlink: true
+      raw_serial_topic_type_ids: "all"
 
     "io_config/use_virtual_device": false
     "io_config/device_name": "/dev/ttyACM0"
@@ -209,3 +220,14 @@
     "io_config/posture_repeat_interval_ms": 20
     "io_config/firecode_partial_hold_ms": 100
     "io_config/velocity_raw_to_mps": 0.025
+    "io_config/raw_serial_log_enable": false
+    "io_config/raw_serial_log_uplink": true
+    "io_config/raw_serial_log_downlink": true
+    "io_config/raw_serial_log_screen": false
+    "io_config/raw_serial_log_flush": true
+    "io_config/raw_serial_log_dir": "~/Log/GimbalRaw"
+    "io_config/raw_serial_log_type_ids": "all"
+    "io_config/raw_serial_topic_enable": false
+    "io_config/raw_serial_topic_uplink": true
+    "io_config/raw_serial_topic_downlink": true
+    "io_config/raw_serial_topic_type_ids": "all"

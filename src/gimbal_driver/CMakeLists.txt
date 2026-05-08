@@ -89,6 +89,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ControlVelocity.msg"
   "msg/EventData.msg"
   "msg/FireCode.msg"
+  "msg/GimbalRawFrame.msg"
   "msg/GimbalYaw.msg"
   "msg/RfidStatus.msg"
   "msg/UWBPos.msg"

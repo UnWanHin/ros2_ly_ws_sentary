@@ -55,7 +55,8 @@ namespace BehaviorTree {
               invulnerableStartTime_() {}
 
         // 检查是否处于无敌状态
-        bool isInvulnerable() const {
+        bool isInvulnerable(const int hold_seconds = 10) const {
+            if (hold_seconds <= 0) return false;
             if (currentHealth_ == 0) return false;
             
             auto now = std::chrono::steady_clock::now();
@@ -65,7 +66,7 @@ namespace BehaviorTree {
             if (!has_valid_start_time) return false;
 
             auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - invulnerableStartTime_).count();
-            return (duration < 10);
+            return (duration < hold_seconds);
         }
 
         // 判断是否位于特殊区域
@@ -100,11 +101,15 @@ namespace BehaviorTree {
         }
 
 
-        void setCurrentHealth(int health) {
-            if (currentHealth_ == 0 && health > 0 && health != maxHealth_) { // 判断是否无敌
+        void setCurrentHealth(int health, const bool detect_respawn = true) {
+            if (detect_respawn && currentHealth_ == 0 && health > 0 && health != maxHealth_) { // 判断是否无敌
                 invulnerableStartTime_ = std::chrono::steady_clock::now();
             }
             currentHealth_ = health;
+        }
+
+        void markInvulnerableStartNow() {
+            invulnerableStartTime_ = std::chrono::steady_clock::now();
         }
 
         void SetDistance(double distance) {

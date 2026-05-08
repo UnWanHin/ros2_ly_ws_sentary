@@ -49,12 +49,22 @@
             "fire_safety"
         ],
         "AimTarget": {
+            "Enable": true,
             "PriorityWeight": 1.0,
             "DistanceWeight": 0.8,
             "LowHealthWeight": 0.6,
             "CurrentTargetBonus": 0.3,
             "HeroBonus": 0.2,
-            "SentryBonus": 0.1
+            "SentryBonus": 0.1,
+            "HealthFreshTimeoutMs": 800,
+            "DeadHealthConfirmMs": 500,
+            "DeadHealthHoldMs": 1500,
+            "RespawnTransitionTimeoutMs": 3000,
+            "LostTargetHoldMs": 200,
+            "MinSwitchIntervalMs": 500,
+            "SwitchScoreMargin": 0.25,
+            "RespawnInvulnerableSec": 30,
+            "SentryRespawnInvulnerableSec": 30
         }
     },
     "Chase": {

@@ -1,6 +1,6 @@
 # ROS2 Topic Structure
 
-Updated: 2026-05-07
+Updated: 2026-05-08
 
 本文记录当前哨兵上位机 ROS2 topic 结构，按接口边界分为：
 
@@ -23,6 +23,7 @@ Updated: 2026-05-07
 | `/ly/gimbal/*` | Embedded-facing | 下位机/云台/底盘回读状态，由 `gimbal_driver` 发布。 |
 | `/ly/game/*` | Embedded-facing | 裁判系统比赛状态、RFID、哨兵裁判信息和弹丸资源语义，由 `gimbal_driver` 从下位机上行拆出。 |
 | `/ly/friend/*`, `/ly/enemy/*`, `/ly/team/*` | Embedded-facing | 我方/敌方血量、弹量、队伍增益等语义状态。 |
+| `/ly/log/*` | Internal/Debug | 可选 raw 诊断 topic，默认关闭，不参与决策。 |
 | `/ly/vision/*`, `/ly/bt/*`, `/ly/detector/*`, `/ly/predictor/*`, `/ly/buff/*`, `/ly/outpost/*` | Internal | 视觉、预测、任务模式和 BT 内部协作。 |
 | `/ly/face_mode/*` | Internal | FaceMode 固定点朝向链路。 |
 | `/ly/navi/*`, `/goal_pose` | External | 导航目标、导航桥、导航状态和 TF 导出的定位接口。 |
@@ -88,6 +89,15 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/game/sentry/info` | `gimbal_driver/msg/SentryInfo` | `behavior_tree`/调试 | 裁判 `0x020D sentry_info/sentry_info_2` 语义拆字段；其中有效 `posture` 会同步覆盖 `/ly/gimbal/posture`；BT 使用 `can_activate_energy_mechanism` 判斷打能量機關確認窗口。 |
 | `/ly/game/bullet` | `gimbal_driver/msg/BulletInfo` | 后续策略/调试 | TypeID 7/8 合并出的弹速、发射事件、允许发弹量、金币；当前 BT 还未订阅，RFID2 不在这里。 |
 
+## 3.1 Raw Debug Topics
+
+这些 topic 由 `config/common.yaml` 的 `gimbal_raw.topic.enable` 控制，默认关闭，只用于在线观察或 rosbag 记录串口原始幀。
+
+| Topic | Type | Consumer | 结构/语义 |
+|---|---|---|---|
+| `/ly/log/gimbal_raw_rx` | `gimbal_driver/msg/GimbalRawFrame` | 调试/rosbag | 下位机 -> 上位机 raw `TypedMessage`，`type_id=0..8`，`data` 是原始 bytes。 |
+| `/ly/log/gimbal_raw_tx` | `gimbal_driver/msg/GimbalRawFrame` | 调试/rosbag | 上位机 -> 下位机 raw `GimbalControlData`，`type_id=255`，`data` 是 17B 主控制幀。 |
+
 ## 4. Internal Vision And Aim
 
 | Topic | Type | Direction | 结构/语义 |
@@ -146,6 +156,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `gimbal_driver/msg/RfidStatus` | `raw`, RFID gain/crossing bits, `has_rfid_status_2`, `rfid_status_2_raw` | 裁判 RFID 状态。 |
 | `gimbal_driver/msg/SentryInfo` | `sentry_info_raw`, `sentry_info_2_raw`, exchange/revive/out_of_combat/posture/energy fields | 裁判 `0x020D` 哨兵状态。 |
 | `gimbal_driver/msg/BulletInfo` | `initial_speed`, shoot data, projectile allowance, remaining coin | TypeID 7/8 弹丸与资源状态。 |
+| `gimbal_driver/msg/GimbalRawFrame` | `header`, `direction`, `type_id`, `data`, `firecode_raw`, `sentry_cmd_raw` | 可选 raw 串口诊断 topic。 |
 | `auto_aim_common/msg/Target` | `header`, `status`, `buff_follow`, `yaw`, `pitch` | predictor/buff/outpost 角度目标。 |
 | `auto_aim_common/msg/RelativeTarget` | `header`, `valid`, `x`, `y`, `z`, `distance_m`, `yaw_error_deg`, `pitch_error_deg`, `armor_type`, `aim_mode` | 追击相对目标。 |
 | `auto_aim_common/msg/Armors` | `header`, `Armor[] armors`, `Car[] cars`, `yaw`, `pitch`, predictor target index | 检测输出给跟踪/预测。 |

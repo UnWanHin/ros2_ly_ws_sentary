@@ -414,11 +414,53 @@ namespace BehaviorTree{
 
         // ly_enemy_hp
         GenSub<ly_enemy_hp>([](Application& app, auto msg) {
-            app.enemyRobots[UnitType::Hero].setCurrentHealth(static_cast<std::uint16_t>(msg->hero));
-            app.enemyRobots[UnitType::Engineer].setCurrentHealth(static_cast<std::uint16_t>(msg->engineer));
-            app.enemyRobots[UnitType::Infantry1].setCurrentHealth(static_cast<std::uint16_t>(msg->infantry1));
-            app.enemyRobots[UnitType::Infantry2].setCurrentHealth(static_cast<std::uint16_t>(msg->infantry2));
-            app.enemyRobots[UnitType::Sentry].setCurrentHealth(static_cast<std::uint16_t>(msg->sentry));
+            const auto now = std::chrono::steady_clock::now();
+            const auto& aim_target = app.config.DecisionAutonomySettings.AimTarget;
+            const int dead_confirm_ms = std::max(0, aim_target.DeadHealthConfirmMs);
+            const int respawn_transition_timeout_ms =
+                std::max(0, aim_target.RespawnTransitionTimeoutMs);
+            const auto update_health = [&](const UnitType unit, const std::uint16_t health) {
+                const auto index = static_cast<std::size_t>(unit);
+                app.lastEnemyHealthRxTime_[index] = now;
+                if (health == 0) {
+                    if (!app.enemyZeroHealthObserved_[index]) {
+                        app.enemyZeroHealthObserved_[index] = true;
+                        app.enemyZeroHealthSince_[index] = now;
+                    }
+                    const auto zero_since = app.enemyZeroHealthSince_[index];
+                    const bool zero_confirmed =
+                        dead_confirm_ms == 0 ||
+                        (zero_since.time_since_epoch().count() != 0 &&
+                         now - zero_since >= std::chrono::milliseconds(dead_confirm_ms));
+                    if (zero_confirmed) {
+                        app.enemyHealthConfirmedDead_[index] = true;
+                        app.lastEnemyConfirmedDeadTime_[index] = now;
+                        app.enemyRobots[unit].setCurrentHealth(0, false);
+                    }
+                    return;
+                }
+
+                const auto last_confirmed_dead = app.lastEnemyConfirmedDeadTime_[index];
+                const bool confirmed_dead_recent =
+                    app.enemyHealthConfirmedDead_[index] &&
+                    last_confirmed_dead.time_since_epoch().count() != 0 &&
+                    (respawn_transition_timeout_ms == 0 ||
+                     now - last_confirmed_dead <=
+                         std::chrono::milliseconds(respawn_transition_timeout_ms));
+                app.enemyZeroHealthObserved_[index] = false;
+                app.enemyZeroHealthSince_[index] = {};
+                app.enemyHealthConfirmedDead_[index] = false;
+                if (confirmed_dead_recent) {
+                    app.enemyRobots[unit].markInvulnerableStartNow();
+                }
+                app.enemyRobots[unit].setCurrentHealth(health, false);
+            };
+            app.hasReceivedEnemyHealth_ = true;
+            update_health(UnitType::Hero, static_cast<std::uint16_t>(msg->hero));
+            update_health(UnitType::Engineer, static_cast<std::uint16_t>(msg->engineer));
+            update_health(UnitType::Infantry1, static_cast<std::uint16_t>(msg->infantry1));
+            update_health(UnitType::Infantry2, static_cast<std::uint16_t>(msg->infantry2));
+            update_health(UnitType::Sentry, static_cast<std::uint16_t>(msg->sentry));
         });
 
         // ly_friend_hp

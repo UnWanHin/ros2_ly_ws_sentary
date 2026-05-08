@@ -726,12 +726,22 @@ namespace LangYa
     };
 
     struct AimTargetAutonomySetting {
+        bool Enable{false};
         double PriorityWeight{1.0};
         double DistanceWeight{0.8};
         double LowHealthWeight{0.6};
         double CurrentTargetBonus{0.3};
         double HeroBonus{0.2};
         double SentryBonus{0.1};
+        int HealthFreshTimeoutMs{800};
+        int DeadHealthConfirmMs{500};
+        int DeadHealthHoldMs{1200};
+        int RespawnTransitionTimeoutMs{3000};
+        int LostTargetHoldMs{200};
+        int MinSwitchIntervalMs{500};
+        double SwitchScoreMargin{0.25};
+        int RespawnInvulnerableSec{30};
+        int SentryRespawnInvulnerableSec{30};
     };
 
     struct DecisionAutonomySetting {

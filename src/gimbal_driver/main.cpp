@@ -19,9 +19,19 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <cctype>
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <cmath>
+#include <mutex>
+#include <rclcpp/qos.hpp>
 #include <rclcpp/utilities.hpp>
 #include <rclcpp/executors.hpp>
+#include <sstream>
 
 #include "gimbal_driver/msg/gimbal_angles.hpp"
 #include "gimbal_driver/msg/chassis.hpp"
@@ -29,6 +39,7 @@
 #include "gimbal_driver/msg/event_data.hpp"
 #include "gimbal_driver/msg/fire_code.hpp"
 #include "gimbal_driver/msg/rfid_status.hpp"
+#include "gimbal_driver/msg/gimbal_raw_frame.hpp"
 #include "gimbal_driver/msg/uwb_pos.hpp"
 #include "gimbal_driver/msg/vel.hpp"
 #include "gimbal_driver/msg/health.hpp"
@@ -131,6 +142,23 @@ namespace
         bool hasBulletInitialSpeed_{false};
         BulletDataAndRfid2 latestBulletDataAndRfid2_{};
         bool hasBulletDataAndRfid2_{false};
+        bool rawSerialLogEnable_{false};
+        bool rawSerialLogUplink_{true};
+        bool rawSerialLogDownlink_{true};
+        bool rawSerialLogScreen_{false};
+        bool rawSerialLogFlush_{true};
+        std::string rawSerialLogDir_{"~/Log/GimbalRaw"};
+        std::string rawSerialLogTypeIds_{"all"};
+        std::array<bool, 256> rawSerialLogTypeIdEnabled_{};
+        std::ofstream rawSerialLogFile_{};
+        std::mutex rawSerialLogMutex_{};
+        bool rawSerialTopicEnable_{false};
+        bool rawSerialTopicUplink_{true};
+        bool rawSerialTopicDownlink_{true};
+        std::string rawSerialTopicTypeIds_{"all"};
+        std::array<bool, 256> rawSerialTopicTypeIdEnabled_{};
+        rclcpp::Publisher<gimbal_driver::msg::GimbalRawFrame>::SharedPtr rawSerialRxPublisher_{};
+        rclcpp::Publisher<gimbal_driver::msg::GimbalRawFrame>::SharedPtr rawSerialTxPublisher_{};
 
         enum FireCodeFieldIndex : std::size_t {
             kFireStatusField = 0,
@@ -205,6 +233,284 @@ namespace
             msg.self_base_gain_point_status = Bit(raw, 29);
             msg.reserved = BitsU8(raw, 30, 2);
             return msg;
+        }
+
+        static const char* TypeIdName(std::uint8_t type_id) noexcept {
+            switch (type_id) {
+                case GimbalData::TypeID: return "GimbalData";
+                case GameData::TypeID: return "GameData";
+                case HealthMyselfData::TypeID: return "HealthMyselfData";
+                case HealthEnemyData::TypeID: return "HealthEnemyData";
+                case RFIDAndBuffData::TypeID: return "RFIDAndBuffData";
+                case PositionData::TypeID: return "PositionData";
+                case ChassisData::TypeID: return "ChassisData";
+                case SentryData::TypeID: return "SentryData";
+                case BulletDataAndRfid2::TypeID: return "BulletDataAndRfid2";
+                default: return "Unknown";
+            }
+        }
+
+        static std::string ExpandUserPath(std::string path) {
+            if (path == "~") {
+                if (const char* home = std::getenv("HOME")) {
+                    return std::string{home};
+                }
+            } else if (path.rfind("~/", 0) == 0) {
+                if (const char* home = std::getenv("HOME")) {
+                    return std::string{home} + path.substr(1);
+                }
+            }
+            return path;
+        }
+
+        static std::string TimestampForFileName() {
+            const auto now = std::chrono::system_clock::now();
+            const std::time_t time = std::chrono::system_clock::to_time_t(now);
+            std::tm local_time{};
+            if (const auto* tm_ptr = std::localtime(&time)) {
+                local_time = *tm_ptr;
+            }
+            std::ostringstream oss;
+            oss << std::put_time(&local_time, "%Y%m%d_%H%M%S");
+            return oss.str();
+        }
+
+        static std::uint64_t WallTimeNs() {
+            return static_cast<std::uint64_t>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count());
+        }
+
+        template<typename T>
+        static std::string BytesToHex(const T& item) {
+            const auto* bytes = reinterpret_cast<const std::uint8_t*>(&item);
+            std::ostringstream oss;
+            oss << std::hex << std::setfill('0');
+            for (std::size_t i = 0; i < sizeof(T); ++i) {
+                if (i != 0) {
+                    oss << ' ';
+                }
+                oss << std::setw(2) << static_cast<unsigned>(bytes[i]);
+            }
+            return oss.str();
+        }
+
+        static void ParseRawTypeIdFilter(
+            const std::string& type_ids,
+            std::array<bool, 256>& enabled,
+            const char* label) {
+            enabled.fill(false);
+            auto normalized = type_ids.empty() ? std::string{"all"} : type_ids;
+            std::transform(normalized.begin(), normalized.end(), normalized.begin(), [](unsigned char ch) {
+                return static_cast<char>(std::tolower(ch));
+            });
+            if (normalized == "all" || normalized == "*") {
+                enabled.fill(true);
+                return;
+            }
+
+            std::stringstream ss{normalized};
+            std::string token;
+            while (std::getline(ss, token, ',')) {
+                token.erase(
+                    std::remove_if(token.begin(), token.end(), [](unsigned char ch) {
+                        return std::isspace(ch) != 0;
+                    }),
+                    token.end());
+                if (token.empty()) {
+                    continue;
+                }
+                try {
+                    const auto value = std::stoi(token);
+                    if (value >= 0 && value <= 255) {
+                        enabled[static_cast<std::size_t>(value)] = true;
+                    }
+                } catch (const std::exception& ex) {
+                    roslog::warn("Invalid %s type id token '%s': %s",
+                                 label,
+                                 token.c_str(),
+                                 ex.what());
+                }
+            }
+        }
+
+        template<typename T>
+        static void AssignRawBytes(gimbal_driver::msg::GimbalRawFrame& msg, const T& item) {
+            const auto* bytes = reinterpret_cast<const std::uint8_t*>(&item);
+            msg.data.assign(bytes, bytes + sizeof(T));
+        }
+
+        void ConfigureRawSerialLog(
+            bool enable,
+            bool uplink,
+            bool downlink,
+            bool screen,
+            bool flush,
+            const std::string& dir,
+            const std::string& type_ids) {
+            std::lock_guard lock{rawSerialLogMutex_};
+            rawSerialLogEnable_ = enable;
+            rawSerialLogUplink_ = uplink;
+            rawSerialLogDownlink_ = downlink;
+            rawSerialLogScreen_ = screen;
+            rawSerialLogFlush_ = flush;
+            rawSerialLogDir_ = dir.empty() ? std::string{"~/Log/GimbalRaw"} : dir;
+            rawSerialLogTypeIds_ = type_ids.empty() ? std::string{"all"} : type_ids;
+            ParseRawTypeIdFilter(rawSerialLogTypeIds_, rawSerialLogTypeIdEnabled_, "gimbal raw file log");
+
+            if (!rawSerialLogEnable_) {
+                rawSerialLogFile_.close();
+                return;
+            }
+
+            const auto expanded_dir = ExpandUserPath(rawSerialLogDir_);
+            std::error_code ec;
+            std::filesystem::create_directories(expanded_dir, ec);
+            if (ec) {
+                roslog::error("Cannot create gimbal raw log dir '%s': %s",
+                              expanded_dir.c_str(),
+                              ec.message().c_str());
+                rawSerialLogEnable_ = false;
+                return;
+            }
+
+            const auto log_path = std::filesystem::path(expanded_dir) /
+                ("gimbal_raw_" + TimestampForFileName() + ".log");
+            rawSerialLogFile_.open(log_path, std::ios::out | std::ios::app);
+            if (!rawSerialLogFile_) {
+                roslog::error("Cannot open gimbal raw log file '%s'", log_path.string().c_str());
+                rawSerialLogEnable_ = false;
+                return;
+            }
+            rawSerialLogFile_
+                << "# gimbal_driver raw serial log\n"
+                << "# time_ns direction type size hex extra\n";
+            if (rawSerialLogFlush_) {
+                rawSerialLogFile_.flush();
+            }
+            roslog::warn("gimbal raw serial log enabled: file=%s uplink=%s downlink=%s type_ids=%s",
+                         log_path.string().c_str(),
+                         rawSerialLogUplink_ ? "true" : "false",
+                         rawSerialLogDownlink_ ? "true" : "false",
+                         rawSerialLogTypeIds_.c_str());
+        }
+
+        void ConfigureRawSerialTopic(bool enable, bool uplink, bool downlink, const std::string& type_ids) {
+            rawSerialTopicEnable_ = enable;
+            rawSerialTopicUplink_ = uplink;
+            rawSerialTopicDownlink_ = downlink;
+            rawSerialTopicTypeIds_ = type_ids.empty() ? std::string{"all"} : type_ids;
+            ParseRawTypeIdFilter(rawSerialTopicTypeIds_, rawSerialTopicTypeIdEnabled_, "gimbal raw topic log");
+
+            if (!rawSerialTopicEnable_) {
+                rawSerialRxPublisher_.reset();
+                rawSerialTxPublisher_.reset();
+                return;
+            }
+
+            auto node = Node.GetNode();
+            if (rawSerialTopicUplink_) {
+                rawSerialRxPublisher_ =
+                    node->create_publisher<gimbal_driver::msg::GimbalRawFrame>(
+                        "/ly/log/gimbal_raw_rx",
+                        rclcpp::SensorDataQoS());
+            }
+            if (rawSerialTopicDownlink_) {
+                rawSerialTxPublisher_ =
+                    node->create_publisher<gimbal_driver::msg::GimbalRawFrame>(
+                        "/ly/log/gimbal_raw_tx",
+                        rclcpp::SensorDataQoS());
+            }
+        }
+
+        template<typename T>
+        void WriteRawSerialLogLine(
+            const char* direction,
+            const char* type,
+            const T& item,
+            const std::string& extra = {}) {
+            std::lock_guard lock{rawSerialLogMutex_};
+            if (!rawSerialLogEnable_) {
+                return;
+            }
+
+            std::ostringstream line;
+            line << WallTimeNs()
+                 << " " << direction
+                 << " " << type
+                 << " size=" << sizeof(T)
+                 << " hex=\"" << BytesToHex(item) << "\"";
+            if (!extra.empty()) {
+                line << " " << extra;
+            }
+
+            if (rawSerialLogFile_) {
+                rawSerialLogFile_ << line.str() << '\n';
+                if (rawSerialLogFlush_) {
+                    rawSerialLogFile_.flush();
+                }
+            }
+            if (rawSerialLogScreen_) {
+                roslog::info("%s", line.str().c_str());
+            }
+        }
+
+        void PublishRawRxTopic(const TypedMessage<sizeof(GimbalData)>& message) {
+            if (!rawSerialRxPublisher_ || rawSerialRxPublisher_->get_subscription_count() == 0) {
+                return;
+            }
+            gimbal_driver::msg::GimbalRawFrame msg;
+            msg.header.stamp = Node.GetNode()->now();
+            msg.direction = gimbal_driver::msg::GimbalRawFrame::DIRECTION_RX;
+            msg.type_id = message.TypeID;
+            AssignRawBytes(msg, message);
+            rawSerialRxPublisher_->publish(msg);
+        }
+
+        void PublishRawTxTopic(const GimbalControlData& data) {
+            if (!rawSerialTxPublisher_ || rawSerialTxPublisher_->get_subscription_count() == 0) {
+                return;
+            }
+            gimbal_driver::msg::GimbalRawFrame msg;
+            msg.header.stamp = Node.GetNode()->now();
+            msg.direction = gimbal_driver::msg::GimbalRawFrame::DIRECTION_TX;
+            msg.type_id = gimbal_driver::msg::GimbalRawFrame::TYPE_ID_TX_CONTROL;
+            AssignRawBytes(msg, data);
+            msg.firecode_raw = FireCodeRaw(data.FireCode);
+            msg.sentry_cmd_raw = std::bit_cast<std::uint32_t>(data.SentryCmd);
+            rawSerialTxPublisher_->publish(msg);
+        }
+
+        void LogUplinkRaw(const TypedMessage<sizeof(GimbalData)>& message) {
+            if (rawSerialLogEnable_ &&
+                rawSerialLogUplink_ &&
+                rawSerialLogTypeIdEnabled_[static_cast<std::size_t>(message.TypeID)]) {
+                std::ostringstream extra;
+                extra << "name=" << TypeIdName(message.TypeID);
+                const auto type_id = std::to_string(message.TypeID);
+                WriteRawSerialLogLine("rx", type_id.c_str(), message, extra.str());
+            }
+
+            if (rawSerialTopicEnable_ &&
+                rawSerialTopicUplink_ &&
+                rawSerialTopicTypeIdEnabled_[static_cast<std::size_t>(message.TypeID)]) {
+                PublishRawRxTopic(message);
+            }
+        }
+
+        void LogDownlinkRaw(const GimbalControlData& data, const char* reason) {
+            if (rawSerialLogEnable_ && rawSerialLogDownlink_) {
+                const auto sentry_cmd_raw = std::bit_cast<std::uint32_t>(data.SentryCmd);
+                std::ostringstream extra;
+                extra << "reason=" << (reason ? reason : "control")
+                      << " firecode_raw=" << static_cast<unsigned>(FireCodeRaw(data.FireCode))
+                      << " sentry_cmd_raw=" << sentry_cmd_raw;
+                WriteRawSerialLogLine("tx", "control", data, extra.str());
+            }
+
+            if (rawSerialTopicEnable_ && rawSerialTopicDownlink_) {
+                PublishRawTxTopic(data);
+            }
         }
 
         static gimbal_driver::msg::RfidStatus ToRfidStatusMsg(
@@ -352,6 +658,7 @@ namespace
                 DeviceError = true;
                 return;
             }
+            LogDownlinkRaw(tx, "posture_repeat");
             controlShadow_ = tx;
 
             posturePendingRepeat_--;
@@ -901,6 +1208,7 @@ namespace
         {
             Device.LoopRead(DeviceError, [this](const TypedMessage<sizeof(GimbalData)>& m)
             {
+                LogUplinkRaw(m);
                 switch (m.TypeID)
                 {
                     case GimbalData::TypeID:
@@ -976,7 +1284,11 @@ namespace
                 {
                     controlShadow_ = data;
                     if (DeviceError) return;
-                    if (!Device.Write(data)) DeviceError = true;
+                    if (!Device.Write(data)) {
+                        DeviceError = true;
+                        return;
+                    }
+                    LogDownlinkRaw(data, "control_callback");
                 }
         }
         {
@@ -1006,6 +1318,17 @@ namespace
             int postureRepeatIntervalMs = static_cast<int>(postureTxInterval_.count());
             int firecodePartialHoldMs = static_cast<int>(firecodePartialHold_.count());
             double velocityRawToMps = velocityRawToMps_;
+            bool rawSerialLogEnable = rawSerialLogEnable_;
+            bool rawSerialLogUplink = rawSerialLogUplink_;
+            bool rawSerialLogDownlink = rawSerialLogDownlink_;
+            bool rawSerialLogScreen = rawSerialLogScreen_;
+            bool rawSerialLogFlush = rawSerialLogFlush_;
+            std::string rawSerialLogDir = rawSerialLogDir_;
+            std::string rawSerialLogTypeIds = rawSerialLogTypeIds_;
+            bool rawSerialTopicEnable = rawSerialTopicEnable_;
+            bool rawSerialTopicUplink = rawSerialTopicUplink_;
+            bool rawSerialTopicDownlink = rawSerialTopicDownlink_;
+            std::string rawSerialTopicTypeIds = rawSerialTopicTypeIds_;
             getParamCompat(
                 "io_config/posture_repeat_count",
                 "io_config.posture_repeat_count",
@@ -1026,6 +1349,61 @@ namespace
                 "io_config.velocity_raw_to_mps",
                 velocityRawToMps,
                 velocityRawToMps);
+            getParamCompat(
+                "io_config/raw_serial_log_enable",
+                "io_config.raw_serial_log_enable",
+                rawSerialLogEnable,
+                rawSerialLogEnable);
+            getParamCompat(
+                "io_config/raw_serial_log_uplink",
+                "io_config.raw_serial_log_uplink",
+                rawSerialLogUplink,
+                rawSerialLogUplink);
+            getParamCompat(
+                "io_config/raw_serial_log_downlink",
+                "io_config.raw_serial_log_downlink",
+                rawSerialLogDownlink,
+                rawSerialLogDownlink);
+            getParamCompat(
+                "io_config/raw_serial_log_screen",
+                "io_config.raw_serial_log_screen",
+                rawSerialLogScreen,
+                rawSerialLogScreen);
+            getParamCompat(
+                "io_config/raw_serial_log_flush",
+                "io_config.raw_serial_log_flush",
+                rawSerialLogFlush,
+                rawSerialLogFlush);
+            getParamCompat(
+                "io_config/raw_serial_log_dir",
+                "io_config.raw_serial_log_dir",
+                rawSerialLogDir,
+                rawSerialLogDir);
+            getParamCompat(
+                "io_config/raw_serial_log_type_ids",
+                "io_config.raw_serial_log_type_ids",
+                rawSerialLogTypeIds,
+                rawSerialLogTypeIds);
+            getParamCompat(
+                "io_config/raw_serial_topic_enable",
+                "io_config.raw_serial_topic_enable",
+                rawSerialTopicEnable,
+                rawSerialTopicEnable);
+            getParamCompat(
+                "io_config/raw_serial_topic_uplink",
+                "io_config.raw_serial_topic_uplink",
+                rawSerialTopicUplink,
+                rawSerialTopicUplink);
+            getParamCompat(
+                "io_config/raw_serial_topic_downlink",
+                "io_config.raw_serial_topic_downlink",
+                rawSerialTopicDownlink,
+                rawSerialTopicDownlink);
+            getParamCompat(
+                "io_config/raw_serial_topic_type_ids",
+                "io_config.raw_serial_topic_type_ids",
+                rawSerialTopicTypeIds,
+                rawSerialTopicTypeIds);
 
             if (postureRepeatCount <= 0) {
                 roslog::warn("Invalid posture_repeat_count=%d, fallback to 3", postureRepeatCount);
@@ -1049,12 +1427,37 @@ namespace
             postureTxInterval_ = std::chrono::milliseconds(postureRepeatIntervalMs);
             firecodePartialHold_ = std::chrono::milliseconds(firecodePartialHoldMs);
             velocityRawToMps_ = static_cast<float>(velocityRawToMps);
+            ConfigureRawSerialLog(
+                rawSerialLogEnable,
+                rawSerialLogUplink,
+                rawSerialLogDownlink,
+                rawSerialLogScreen,
+                rawSerialLogFlush,
+                rawSerialLogDir,
+                rawSerialLogTypeIds);
+            ConfigureRawSerialTopic(
+                rawSerialTopicEnable,
+                rawSerialTopicUplink,
+                rawSerialTopicDownlink,
+                rawSerialTopicTypeIds);
             roslog::warn("posture_tx merged mode: repeat_count=%d repeat_interval_ms=%d",
                          postureTxRepeatCount_,
                          static_cast<int>(postureTxInterval_.count()));
             roslog::warn("semantic control: firecode_partial_hold_ms=%d velocity_raw_to_mps=%.4f",
                          static_cast<int>(firecodePartialHold_.count()),
                          static_cast<double>(velocityRawToMps_));
+            roslog::warn("gimbal raw serial log: enable=%s uplink=%s downlink=%s screen=%s dir=%s type_ids=%s",
+                         rawSerialLogEnable_ ? "true" : "false",
+                         rawSerialLogUplink_ ? "true" : "false",
+                         rawSerialLogDownlink_ ? "true" : "false",
+                         rawSerialLogScreen_ ? "true" : "false",
+                         rawSerialLogDir_.c_str(),
+                         rawSerialLogTypeIds_.c_str());
+            roslog::warn("gimbal raw serial topic: enable=%s uplink=%s downlink=%s type_ids=%s",
+                         rawSerialTopicEnable_ ? "true" : "false",
+                         rawSerialTopicUplink_ ? "true" : "false",
+                         rawSerialTopicDownlink_ ? "true" : "false",
+                         rawSerialTopicTypeIds_.c_str());
 
             while (rclcpp::ok())
             {

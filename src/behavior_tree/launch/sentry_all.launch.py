@@ -178,6 +178,17 @@ def generate_launch_description():
     league_referee_stale_timeout_ms = LaunchConfiguration("league_referee_stale_timeout_ms")
     firecode_partial_hold_ms = LaunchConfiguration("firecode_partial_hold_ms")
     velocity_raw_to_mps = LaunchConfiguration("velocity_raw_to_mps")
+    gimbal_raw_log_enable = LaunchConfiguration("gimbal_raw_log_enable")
+    gimbal_raw_log_uplink = LaunchConfiguration("gimbal_raw_log_uplink")
+    gimbal_raw_log_downlink = LaunchConfiguration("gimbal_raw_log_downlink")
+    gimbal_raw_log_screen = LaunchConfiguration("gimbal_raw_log_screen")
+    gimbal_raw_log_flush = LaunchConfiguration("gimbal_raw_log_flush")
+    gimbal_raw_log_dir = LaunchConfiguration("gimbal_raw_log_dir")
+    gimbal_raw_log_type_ids = LaunchConfiguration("gimbal_raw_log_type_ids")
+    gimbal_raw_topic_enable = LaunchConfiguration("gimbal_raw_topic_enable")
+    gimbal_raw_topic_uplink = LaunchConfiguration("gimbal_raw_topic_uplink")
+    gimbal_raw_topic_downlink = LaunchConfiguration("gimbal_raw_topic_downlink")
+    gimbal_raw_topic_type_ids = LaunchConfiguration("gimbal_raw_topic_type_ids")
     aim_timer_log_enable = LaunchConfiguration("aim_timer_log_enable")
     aim_timer_log_dir = LaunchConfiguration("aim_timer_log_dir")
     decision_trace_enabled = LaunchConfiguration("decision_trace_enabled")
@@ -306,6 +317,61 @@ def generate_launch_description():
             description="gimbal_driver scale from lower raw int8 velocity to m/s.",
         ),
         DeclareLaunchArgument(
+            "gimbal_raw_log_enable",
+            default_value="false",
+            description="Enable gimbal_driver raw serial rx/tx file log.",
+        ),
+        DeclareLaunchArgument(
+            "gimbal_raw_log_uplink",
+            default_value="true",
+            description="Log lower -> upper TypedMessage raw frames when gimbal_raw_log_enable is true.",
+        ),
+        DeclareLaunchArgument(
+            "gimbal_raw_log_downlink",
+            default_value="true",
+            description="Log upper -> lower GimbalControlData raw frames when gimbal_raw_log_enable is true.",
+        ),
+        DeclareLaunchArgument(
+            "gimbal_raw_log_screen",
+            default_value="false",
+            description="Also print raw serial log lines to ROS screen output.",
+        ),
+        DeclareLaunchArgument(
+            "gimbal_raw_log_flush",
+            default_value="true",
+            description="Flush gimbal raw serial log file after each line.",
+        ),
+        DeclareLaunchArgument(
+            "gimbal_raw_log_dir",
+            default_value="~/Log/GimbalRaw",
+            description="Directory for gimbal_driver raw serial log files.",
+        ),
+        DeclareLaunchArgument(
+            "gimbal_raw_log_type_ids",
+            default_value="all",
+            description="Comma-separated uplink TypeID list, or all. Downlink is a single control frame.",
+        ),
+        DeclareLaunchArgument(
+            "gimbal_raw_topic_enable",
+            default_value="false",
+            description="Enable binary gimbal_driver raw serial ROS2 topics.",
+        ),
+        DeclareLaunchArgument(
+            "gimbal_raw_topic_uplink",
+            default_value="true",
+            description="Publish lower -> upper raw TypeID frames to /ly/log/gimbal_raw_rx.",
+        ),
+        DeclareLaunchArgument(
+            "gimbal_raw_topic_downlink",
+            default_value="true",
+            description="Publish upper -> lower raw control frames to /ly/log/gimbal_raw_tx.",
+        ),
+        DeclareLaunchArgument(
+            "gimbal_raw_topic_type_ids",
+            default_value="all",
+            description="Comma-separated uplink TypeID list for raw ROS2 topic, or all.",
+        ),
+        DeclareLaunchArgument(
             "aim_timer_log_enable",
             default_value="false",
             description="Enable tracker_solver/predictor AimTimer file diagnostics.",
@@ -421,6 +487,17 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] league_referee_stale_timeout_ms: ", league_referee_stale_timeout_ms]),
         LogInfo(msg=["[sentry_all] firecode_partial_hold_ms: ", firecode_partial_hold_ms]),
         LogInfo(msg=["[sentry_all] velocity_raw_to_mps: ", velocity_raw_to_mps]),
+        LogInfo(msg=["[sentry_all] gimbal_raw_log_enable: ", gimbal_raw_log_enable]),
+        LogInfo(msg=["[sentry_all] gimbal_raw_log_uplink: ", gimbal_raw_log_uplink]),
+        LogInfo(msg=["[sentry_all] gimbal_raw_log_downlink: ", gimbal_raw_log_downlink]),
+        LogInfo(msg=["[sentry_all] gimbal_raw_log_screen: ", gimbal_raw_log_screen]),
+        LogInfo(msg=["[sentry_all] gimbal_raw_log_flush: ", gimbal_raw_log_flush]),
+        LogInfo(msg=["[sentry_all] gimbal_raw_log_dir: ", gimbal_raw_log_dir]),
+        LogInfo(msg=["[sentry_all] gimbal_raw_log_type_ids: ", gimbal_raw_log_type_ids]),
+        LogInfo(msg=["[sentry_all] gimbal_raw_topic_enable: ", gimbal_raw_topic_enable]),
+        LogInfo(msg=["[sentry_all] gimbal_raw_topic_uplink: ", gimbal_raw_topic_uplink]),
+        LogInfo(msg=["[sentry_all] gimbal_raw_topic_downlink: ", gimbal_raw_topic_downlink]),
+        LogInfo(msg=["[sentry_all] gimbal_raw_topic_type_ids: ", gimbal_raw_topic_type_ids]),
         LogInfo(msg=["[sentry_all] aim_timer_log_enable: ", aim_timer_log_enable]),
         LogInfo(msg=["[sentry_all] aim_timer_log_dir: ", aim_timer_log_dir]),
         LogInfo(msg=["[sentry_all] rosbag_play_enable: ", rosbag_play_enable]),
@@ -487,6 +564,72 @@ def generate_launch_description():
                             "io_config.velocity_raw_to_mps": ParameterValue(
                                 velocity_raw_to_mps, value_type=float
                             ),
+                            "io_config/raw_serial_log_enable": ParameterValue(
+                                gimbal_raw_log_enable, value_type=bool
+                            ),
+                            "io_config.raw_serial_log_enable": ParameterValue(
+                                gimbal_raw_log_enable, value_type=bool
+                            ),
+                            "io_config/raw_serial_log_uplink": ParameterValue(
+                                gimbal_raw_log_uplink, value_type=bool
+                            ),
+                            "io_config.raw_serial_log_uplink": ParameterValue(
+                                gimbal_raw_log_uplink, value_type=bool
+                            ),
+                            "io_config/raw_serial_log_downlink": ParameterValue(
+                                gimbal_raw_log_downlink, value_type=bool
+                            ),
+                            "io_config.raw_serial_log_downlink": ParameterValue(
+                                gimbal_raw_log_downlink, value_type=bool
+                            ),
+                            "io_config/raw_serial_log_screen": ParameterValue(
+                                gimbal_raw_log_screen, value_type=bool
+                            ),
+                            "io_config.raw_serial_log_screen": ParameterValue(
+                                gimbal_raw_log_screen, value_type=bool
+                            ),
+                            "io_config/raw_serial_log_flush": ParameterValue(
+                                gimbal_raw_log_flush, value_type=bool
+                            ),
+                            "io_config.raw_serial_log_flush": ParameterValue(
+                                gimbal_raw_log_flush, value_type=bool
+                            ),
+                            "io_config/raw_serial_log_dir": ParameterValue(
+                                gimbal_raw_log_dir, value_type=str
+                            ),
+                            "io_config.raw_serial_log_dir": ParameterValue(
+                                gimbal_raw_log_dir, value_type=str
+                            ),
+                            "io_config/raw_serial_log_type_ids": ParameterValue(
+                                gimbal_raw_log_type_ids, value_type=str
+                            ),
+                            "io_config.raw_serial_log_type_ids": ParameterValue(
+                                gimbal_raw_log_type_ids, value_type=str
+                            ),
+                            "io_config/raw_serial_topic_enable": ParameterValue(
+                                gimbal_raw_topic_enable, value_type=bool
+                            ),
+                            "io_config.raw_serial_topic_enable": ParameterValue(
+                                gimbal_raw_topic_enable, value_type=bool
+                            ),
+                            "io_config/raw_serial_topic_uplink": ParameterValue(
+                                gimbal_raw_topic_uplink, value_type=bool
+                            ),
+                            "io_config.raw_serial_topic_uplink": ParameterValue(
+                                gimbal_raw_topic_uplink, value_type=bool
+                            ),
+                            "io_config/raw_serial_topic_downlink": ParameterValue(
+                                gimbal_raw_topic_downlink, value_type=bool
+                            ),
+                            "io_config.raw_serial_topic_downlink": ParameterValue(
+                                gimbal_raw_topic_downlink, value_type=bool
+                            ),
+                            "io_config/raw_serial_topic_type_ids": ParameterValue(
+                                gimbal_raw_topic_type_ids, value_type=str
+                            ),
+                            "io_config.raw_serial_topic_type_ids": ParameterValue(
+                                gimbal_raw_topic_type_ids, value_type=str
+                            ),
                         },
                     ],
                     on_exit=Shutdown(reason="gimbal_driver exited"),
@@ -514,6 +657,72 @@ def generate_launch_description():
                             ),
                             "io_config.velocity_raw_to_mps": ParameterValue(
                                 velocity_raw_to_mps, value_type=float
+                            ),
+                            "io_config/raw_serial_log_enable": ParameterValue(
+                                gimbal_raw_log_enable, value_type=bool
+                            ),
+                            "io_config.raw_serial_log_enable": ParameterValue(
+                                gimbal_raw_log_enable, value_type=bool
+                            ),
+                            "io_config/raw_serial_log_uplink": ParameterValue(
+                                gimbal_raw_log_uplink, value_type=bool
+                            ),
+                            "io_config.raw_serial_log_uplink": ParameterValue(
+                                gimbal_raw_log_uplink, value_type=bool
+                            ),
+                            "io_config/raw_serial_log_downlink": ParameterValue(
+                                gimbal_raw_log_downlink, value_type=bool
+                            ),
+                            "io_config.raw_serial_log_downlink": ParameterValue(
+                                gimbal_raw_log_downlink, value_type=bool
+                            ),
+                            "io_config/raw_serial_log_screen": ParameterValue(
+                                gimbal_raw_log_screen, value_type=bool
+                            ),
+                            "io_config.raw_serial_log_screen": ParameterValue(
+                                gimbal_raw_log_screen, value_type=bool
+                            ),
+                            "io_config/raw_serial_log_flush": ParameterValue(
+                                gimbal_raw_log_flush, value_type=bool
+                            ),
+                            "io_config.raw_serial_log_flush": ParameterValue(
+                                gimbal_raw_log_flush, value_type=bool
+                            ),
+                            "io_config/raw_serial_log_dir": ParameterValue(
+                                gimbal_raw_log_dir, value_type=str
+                            ),
+                            "io_config.raw_serial_log_dir": ParameterValue(
+                                gimbal_raw_log_dir, value_type=str
+                            ),
+                            "io_config/raw_serial_log_type_ids": ParameterValue(
+                                gimbal_raw_log_type_ids, value_type=str
+                            ),
+                            "io_config.raw_serial_log_type_ids": ParameterValue(
+                                gimbal_raw_log_type_ids, value_type=str
+                            ),
+                            "io_config/raw_serial_topic_enable": ParameterValue(
+                                gimbal_raw_topic_enable, value_type=bool
+                            ),
+                            "io_config.raw_serial_topic_enable": ParameterValue(
+                                gimbal_raw_topic_enable, value_type=bool
+                            ),
+                            "io_config/raw_serial_topic_uplink": ParameterValue(
+                                gimbal_raw_topic_uplink, value_type=bool
+                            ),
+                            "io_config.raw_serial_topic_uplink": ParameterValue(
+                                gimbal_raw_topic_uplink, value_type=bool
+                            ),
+                            "io_config/raw_serial_topic_downlink": ParameterValue(
+                                gimbal_raw_topic_downlink, value_type=bool
+                            ),
+                            "io_config.raw_serial_topic_downlink": ParameterValue(
+                                gimbal_raw_topic_downlink, value_type=bool
+                            ),
+                            "io_config/raw_serial_topic_type_ids": ParameterValue(
+                                gimbal_raw_topic_type_ids, value_type=str
+                            ),
+                            "io_config.raw_serial_topic_type_ids": ParameterValue(
+                                gimbal_raw_topic_type_ids, value_type=str
                             ),
                         },
                     ],

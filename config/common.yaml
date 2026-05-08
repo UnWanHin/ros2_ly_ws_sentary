@@ -15,3 +15,23 @@ rosbag_path: ~/Log/rosbag
 # start_sentry_all.sh reads these and passes them as ROS parameters.
 firecode_partial_hold_ms: 100
 velocity_raw_to_mps: 0.025
+
+# gimbal_driver raw serial diagnostics.
+# Both channels are disabled by default.
+gimbal_raw:
+  # File log writes hex text to disk. Use only for short hardware debugging.
+  file:
+    enable: false
+    uplink: true
+    downlink: true
+    screen: false
+    flush: true
+    dir: ~/Log/GimbalRaw
+    type_ids: all
+
+  # Topic log publishes binary bytes without hex/string conversion.
+  topic:
+    enable: false
+    uplink: true
+    downlink: true
+    type_ids: all
