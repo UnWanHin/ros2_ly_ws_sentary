@@ -1,6 +1,6 @@
 # Vision / Task / Patrol Mode Flow
 
-Updated: 2026-05-06
+Updated: 2026-05-09
 
 本文說明目前 `regional` 鏈路裡幾個容易混淆的「模式」：`/ly/vision/mode`、BT JSON 的 `Task`、雲台巡邏、區域巡邏、`FollowMode`、`FaceMode`。這些不是同一層東西，不能混着改。
 
@@ -298,6 +298,7 @@ BT 目前實際使用：
 - `self_base_gain_point_status`
 - `raw` 會同步到 blackboard / trace
 - `EventManager` 會把上述字段和其他裁判/視覺/導航狀態整理成 `EventSnapshot`，但 `EventSnapshot` 本身不直接發導航或火控。
+- RegionalDefense 會在 event data 新鮮且 `self_fortress_gain_point_status == 2 / 3` 時，把己方堡壘增益點視為有敵方占領；此時不去 `Castle`，只在四個 Castle 邊點裡按自身位置選最近點搜索。若己方 Base 大區內新鮮敵方位置數達到 `RegionalDefense.FortressStandEnemyCountMin`，且普通裝甲目標已鎖定並允許開火，才原地停車並把小陀螺調到最高檔；沒有鎖到目標時繼續搜索，不站樁。
 
 打符任務中，BT 在 event data 新鮮時看：
 

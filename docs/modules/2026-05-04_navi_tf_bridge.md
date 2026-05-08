@@ -85,9 +85,9 @@ FaceMode 默认：
 | `scripts/navi/map_aim_point_attach.sh` | 已有 stack 上只附加 FaceMode 节点 |
 | `scripts/debug/goal_pos_test.sh` | 稳定 debug wrapper，实际转到 `scripts/navi/navitomap.sh` |
 
-`navi_calib` / `navi_calib_simple` 標定工具默認單位鏈路是 `official_map(m) -> map(m) -> raw_goal_transform_matrix(m)`。如果使用官方地圖 cm 點位，要在 YAML 或命令行顯式寫 `source_unit: cm` / `--source-unit cm`；工具內部會先把 source/target 換到 `output_unit` 後再解矩陣。目前給 `tf_config.yaml` 使用時 `output_unit` 應保持 `m`。兩個工具都會在 `--help` 和互動輸入時顯示 `source_unit -> target_unit -> output_unit` 鏈路。
+`kabsch_calib` / `affine_calib` / `navi_calib_simple` 標定工具默認單位鏈路是 `official_map(m) -> map(m) -> raw_goal_transform_matrix(m)`。如果使用官方地圖 cm 點位，要在 YAML 或命令行顯式寫 `source_unit: cm` / `--source-unit cm`；工具內部會先把 source/target 換到 `output_unit` 後再解矩陣。目前給 `tf_config.yaml` 使用時 `output_unit` 應保持 `m`。工具都會在 `--help` 和互動輸入時顯示 `source_unit -> target_unit -> output_unit` 鏈路。
 
-`navi_calib` 的默認可編輯點表是 `src/navi_tf_bridge/config/navi_calib.yaml`。直接運行 `python3 src/navi_tf_bridge/script/navi_calib.py` 後，在 `pair[1]` 直接回車會使用這份 YAML；輸入任意點則會用新輸入的點重新標定。
+`kabsch_calib` 和 `affine_calib` 的默認可編輯點表都是 `src/navi_tf_bridge/config/navi_calib.yaml`。直接運行 `python3 src/navi_tf_bridge/script/kabsch_calib.py` 或 `python3 src/navi_tf_bridge/script/affine_calib.py` 後，在 `pair[1]` 直接回車會使用這份 YAML；輸入任意點則會用新輸入的點重新標定。
 
 ## 维护注意
 

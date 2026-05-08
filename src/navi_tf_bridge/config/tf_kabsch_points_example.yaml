@@ -1,6 +1,6 @@
 source_frame: official_map
 target_frame: map
-# Unit mapping for navi_calib/raw_goal_transform_matrix:
+# Unit mapping for kabsch_calib/raw_goal_transform_matrix:
 #   official_map source points are stored as cm.
 #   navi/map target points are stored as m.
 #   solved matrix/output is stored as m.

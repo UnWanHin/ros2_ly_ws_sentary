@@ -1,6 +1,6 @@
 # 哨兵决策行为说明（纯行为版）
 
-Updated: 2026-05-06
+Updated: 2026-05-09
 
 > 目的：只描述“机器人会怎么做”，不讲实现细节。
 
@@ -61,6 +61,8 @@ Updated: 2026-05-06
 - `CompetitionProfile=league` 时只走 `LeagueSimple`。
 - `CompetitionProfile=regional` 时固定进入 `Regional`，不再使用旧单策略点表。
 - Regional 的无事件行为由 Default 大区域任务和 AreaManager 状态机决定；战术层只保留 RegionalDefense、Buff/Outpost 任务站位和导航 watchdog 这类明确 overlay。
+- `/ly/game/event_data` 显示己方堡垒增益点状态为 `2` 或 `3` 时，RegionalDefense 不进 `Castle`，会在四个 Castle 边点里选最近点搜索敌方；默认继续边走边搜/打。若己方 Base 大区内新鲜敌方位置数达到 `RegionalDefense.FortressStandEnemyCountMin`，且当前普通装甲目标已锁定并允许开火，则原地停速度、小陀螺切最高档开火。
+- 如果堡垒增益点长期保持 `2/3`，但连续 `RegionalDefense.FortressNoContactDegradeSec` 秒既没有己方 Base 大区敌方位置，也没有普通装甲视觉目标，则临时降级忽略该事件 `RegionalDefense.FortressDegradeCooldownSec` 秒，避免假占点事件一直拖住默认决策。
 - 如果这些层都没有输出，Finalizer 只同步策略层 blackboard，不再做旧点表兜底。
 
 ---

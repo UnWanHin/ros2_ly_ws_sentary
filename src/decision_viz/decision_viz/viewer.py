@@ -942,6 +942,15 @@ class Viewer:
             ("Topic", record.output.topic_text()),
             ("Publish", record.output.publish_text()),
         ], rect.width - 36)
+        y = self.draw_section(x, y, "Decision Intent", [
+            ("Layer", record.decision_intent.layer),
+            ("Reason", record.decision_intent.reason),
+            ("BaseGoal", str(record.decision_intent.base_goal_id)),
+            ("Resolved", str(record.decision_intent.resolved_goal_id)),
+            ("Team", record.decision_intent.goal_team),
+            ("Priority", str(record.decision_intent.priority)),
+            ("Detail", record.decision_intent.detail),
+        ], rect.width - 36)
         y = self.draw_section(x, y, "ROS Output", self.ros_output_rows(record), rect.width - 36)
         y = self.draw_section(x, y, "Posture", [
             ("Command", record.posture_command),

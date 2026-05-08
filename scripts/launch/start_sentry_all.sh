@@ -496,6 +496,8 @@ else
   for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == velocity_raw_to_mps:=* ]] && echo "[INFO] override velocity_raw_to_mps=${arg#velocity_raw_to_mps:=}"; done
 fi
 
+add_common_bool_launch_arg "predictor.publish_on_tracker_callback" "predictor_publish_on_tracker_callback"
+
 add_common_bool_launch_arg "gimbal_raw.file.enable" "gimbal_raw_log_enable" "gimbal_raw_log_enable"
 add_common_bool_launch_arg "gimbal_raw.file.uplink" "gimbal_raw_log_uplink" "gimbal_raw_log_uplink"
 add_common_bool_launch_arg "gimbal_raw.file.downlink" "gimbal_raw_log_downlink" "gimbal_raw_log_downlink"

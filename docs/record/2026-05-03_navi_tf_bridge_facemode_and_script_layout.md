@@ -59,10 +59,11 @@
 
 - `navitomap_input_node`
 - `navi_calib_simple`
-- `navi_calib`
+- `kabsch_calib`
+- `affine_calib`
 - `mock_gimbal_state_node`
 
-旧名 `manual_goal_input_node`、`solve_static_tf_from_points`、`fit_static_tf_kabsch` 不再作为新的入口使用。
+旧名 `manual_goal_input_node`、`solve_static_tf_from_points`、`fit_static_tf_kabsch`、`navi_calib` 不再作为新的入口使用。
 
 ## navitomap 链路
 

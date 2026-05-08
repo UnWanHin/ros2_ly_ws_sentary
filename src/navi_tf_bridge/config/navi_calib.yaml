@@ -1,8 +1,9 @@
-# Default editable input for navi_calib.py.
+# Default editable input for kabsch_calib.py and affine_calib.py.
 #
 # Usage:
 #   cd src/navi_tf_bridge/script
-#   python3 navi_calib.py
+#   python3 kabsch_calib.py
+#   python3 affine_calib.py
 #   # Press Enter at pair[1] to solve from this YAML.
 #
 # If you type any pair in interactive mode, typed pairs replace this point list

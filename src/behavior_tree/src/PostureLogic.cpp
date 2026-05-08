@@ -118,6 +118,19 @@ SentryPosture Application::SelectDesiredPosture(const bool has_target) const {
     }
 
     const auto& runtime = postureManager_.Runtime();
+    const auto now = std::chrono::steady_clock::now();
+    const int target_keep_ms = std::max(0, config.PostureSettings.TargetKeepMs);
+    const bool outpost_target_recent =
+        (outpostAimData.Fresh && outpostAimData.Valid) ||
+        (outpostAimData.HasLatchedAngles &&
+         outpostAimData.LastValidTime.time_since_epoch().count() != 0 &&
+         target_keep_ms > 0 &&
+         now - outpostAimData.LastValidTime <= std::chrono::milliseconds(target_keep_ms));
+    const bool outpost_attack_ready =
+        aimMode == AimMode::Outpost &&
+        targetArmor.Type == ArmorType::Outpost &&
+        IsBaseGoalArrived(LangYa::BuffOutpost.ID, team, true) &&
+        outpost_target_recent;
     PostureScore score{};
 
     // 1) 基础策略加权
@@ -162,6 +175,12 @@ SentryPosture Application::SelectDesiredPosture(const bool has_target) const {
 
     if (under_fire_burst) {
         return SentryPosture::Defense;
+    }
+    if (outpost_attack_ready) {
+        if (very_low_health || low_health) {
+            return SentryPosture::Defense;
+        }
+        return SentryPosture::Attack;
     }
 
     if (low_energy) {

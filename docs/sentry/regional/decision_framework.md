@@ -1,6 +1,6 @@
 # Regional 決策框架說明
 
-Updated: 2026-05-08
+Updated: 2026-05-09
 
 本文記錄目前 `behavior_tree` 裡 regional 決策的區域狀態機框架：它會做哪些任務、怎麼啟動、怎麼判斷到達、會輸出什麼控制，以及哪些階段會被高優先級邏輯打斷。
 
@@ -29,6 +29,42 @@ Updated: 2026-05-08
 - `src/behavior_tree/src/StrategyManager.cpp`
 - `src/behavior_tree/src/GameLoop.cpp`
 - `src/behavior_tree/module/Area.hpp`
+
+## Regional 邏輯總覽
+
+本節只列程式裡已存在的 regional 邏輯，不代表當前 YAML 一定全部開啟。
+
+Regional 不是單一點表，而是分層策略：
+
+- `Hard`：最高優先級，先處理低血/低彈回 `Recovery`，以及 Roadland 強綁定穿越段。
+- `Default`：沒有事件、沒有任務、沒有 Buff/Outpost 時，按大區域候選分數選 `MyBase / MyHighland / MyRoadland / CommonCentral`。
+- `Task`：持續 tick 已啟動的大區域任務、Highland 兼容過渡和導航 watchdog。
+- `Tactical`：處理 Buff、RegionalDefense、Outpost 和 watchdog fallback。
+- `Finalizer`：只做策略層狀態同步，不再做舊點表 fallback。
+
+Regional 目前已有的主要邏輯：
+
+- 回補/回基地：低血或低彈優先去 `Recovery`；這層高於 RegionalDefense。非 league regional 下，已在 `Recovery` 且血量未回到門檻時會繼續守住 Recovery。
+- Default 大區域任務：候選包含 `MyBase`、`MyHighland`、`MyRoadland`、`CommonCentral`；評分會看血量/彈量新鮮度、資源門檻、距離、目前區域、上一個區域、任務冷卻和失敗重試。
+- `MyBase` 任務：在己方堡壘邊點巡邏，路線是 `CastleLeft1 -> CastleLeft2 -> CastleRight2 -> CastleRight1`，啟動時按自身位置選最近點。
+- `MyHighland` 任務：`Highland` approach -> `Highland` hold -> `BuffShoot` -> `BuffShoot` hold -> `HoleRoad` 離開；approach/leave 階段會用 `FollowMode / FaceMode` 並停火。
+- `MyRoadland` 任務：`CentralToBase -> BaseToCentral -> BaseToCentral hold -> CentralToBase return`；穿越段是強綁定控制，會 `FollowMode + FaceMode + suppress fire`，不能被普通高優先級邏輯直接打斷。
+- `CommonCentral` 任務：中場巡邏路線是 `my OutpostArea -> my RightShoot -> my BuffAround2 -> my LeftShoot -> my OutpostShoot -> enemy RightShoot -> enemy OccupyArea -> enemy OutpostShoot`，啟動時也按自身位置選最近點。
+- RegionalDefense：用官方敵方位置和 `event_data` 做戰術防守；敵方進我方 Base/Highland/Roadland/CommonCentral 或己方堡壘增益點 `2/3` 都可觸發。
+- 己方堡壘增益點 `2/3`：不去 `Castle`，只在 `CastleLeft1 / CastleLeft2 / CastleRight1 / CastleRight2` 搜索；若 Base 大區敵方數達門檻且普通裝甲目標已鎖定並允許開火，才原地停車、最高小陀螺開火；長時間無官方敵方位置且無視覺目標會退化忽略一段時間。
+- Buff：由能量機關裁判狀態、sentry info、timer、damage abort 和 timeout 決定是否進 `AimMode::Buff`；戰術站位使用 `BuffOutpost`，FaceMode 對己方目標側。
+- Outpost：由敵方前哨血量、血量/彈藥門檻、時間窗、普通裝甲目標可見性、damage abort 和目標不可達狀態決定是否進 `AimMode::Outpost`；戰術站位同樣使用 `BuffOutpost`，FaceMode 對敵方側。
+- Navi progress watchdog：檢測 goal 不可達或長時間無位移，按當前目標區域選 fallback 點。
+- Regional idle patrol：預留空閒巡邏，默認候選是 `HoleRoad / Castle / CastleRight2 / CastleRight1 / CastleLeft1 / CastleLeft2`。
+
+Regional 裡常見控制語義：
+
+- `AimMode::RotateScan`：普通裝甲搜索/打車。
+- `AimMode::Buff`：打符視覺鏈路。
+- `AimMode::Outpost`：前哨視覺鏈路。
+- `FollowMode`：停小陀螺、停巡邏掃描、停新的開火翻轉，常用於過渡和強綁定穿越。
+- `FaceMode`：雲台朝固定區域/點接管，可按配置停火；它本身不等於停小陀螺。
+- Chase：鎖到目標後可發布追擊目標或速度；是否使用取決於配置，但鏈路已存在。
 
 ## Strategy 分層
 
@@ -155,17 +191,18 @@ DefaultPolicy 的當前選區規則：
 
 ## RegionalDefense
 
-RegionalDefense 是事件驅動戰術層，優先級高於 Default。敵方位置判斷只使用 `/ly/position/data` 寫入的官方場地坐標，不使用 map/odom 坐標混判；AreaManager 用 `Area.hpp` 官方點位區域邊界判斷敵方是否進入我方 Base/Highland/Roadland 或公共 Central。
+RegionalDefense 是事件驅動戰術層，優先級高於 Default。敵方位置判斷只使用 `/ly/position/data` 寫入的官方場地坐標，不使用 map/odom 坐標混判；AreaManager 用 `Area.hpp` 官方點位區域邊界判斷敵方是否進入我方 Base/Highland/Roadland 或公共 Central。另有一個裁判事件來源：`/ly/game/event_data.self_fortress_gain_point_status == 2/3` 時，視為己方堡壘增益點有敵方占領，進入硬防守搜索。
 
 當前防守搜索規則：
 
 - 敵方進入我方 Base：優先去 `Castle`，再 fallback 到左右 Castle 點。
+- `/ly/game/event_data` 顯示己方堡壘增益點被對方或雙方占領：不進 `Castle`，只在 `CastleLeft1 / CastleLeft2 / CastleRight1 / CastleRight2` 裡按自身位置選最近點搜索。默認仍沿用普通裝甲模式邊走邊打；若己方 Base 大區的新鮮官方敵方位置數達到 `RegionalDefense.FortressStandEnemyCountMin`，且普通裝甲目標已鎖定並允許開火，則把底盤速度壓為 0、小陀螺覆蓋到最高檔站樁開火。
 - 我方 Highland 和 Roadland 同時有敵方：優先去 `Castle`。
 - 敵方進入我方 Roadland：去 `CastleRight2 -> CastleRight1 -> Castle` 搜索。
 - 敵方進入我方 Highland：去 `HoleRoad -> Highland -> Castle` 搜索，先利用 HoleRoad 視野，再進 Highland。
 - 敵方在公共 Central：去 `HoleRoad -> Castle` 搜索。
 
-搜索點會尊重 area scope，但不啟動 Base/Highland/Roadland 的 AreaManager 區域任務；它只做 scope 檢查、必要的 Highland transition，然後直接下導航點。`RegionalDefense.SearchHoldSec` 和 `RegionalDefense.SearchNoTargetSec` 控制「一直找不到」後切下一個搜索點；找不到的判斷使用 autoaim 最近有效目標時間，不混用 buff/outpost 目標。
+搜索點會尊重 area scope，但不啟動 Base/Highland/Roadland 的 AreaManager 區域任務；它只做 scope 檢查、必要的 Highland transition，然後直接下導航點。`RegionalDefense.SearchHoldSec` 和 `RegionalDefense.SearchNoTargetSec` 控制「一直找不到」後切下一個搜索點；找不到的判斷使用 autoaim 最近有效目標時間，不混用 buff/outpost 目標。堡壘增益點事件還有退化保護：若連續 `RegionalDefense.FortressNoContactDegradeSec` 秒沒有己方 Base 大區官方敵方位置、也沒有普通裝甲視覺目標，會在 `RegionalDefense.FortressDegradeCooldownSec` 秒內暫時不把 `2/3` 當硬威脅。
 
 ## 各區域任務
 

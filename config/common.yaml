@@ -5,6 +5,10 @@ bt_log_dir: ~/Log/BT
 aim_timer_log_enable: false
 aim_timer_log_dir: ~/Log/AimTimer
 
+# Predictor aiming output path. true uses ROS1-style immediate tracker callback output.
+predictor:
+  publish_on_tracker_callback: true
+
 # Rosbag replay for sentry_all launch wrapper.
 # When enabled, sentry_all starts `ros2 bag play <rosbag_path>`, forces virtual gimbal IO,
 # and switches detector input to detector_config.use_ros_bag=true.

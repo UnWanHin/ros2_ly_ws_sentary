@@ -847,7 +847,11 @@ namespace {
             if (use_video && video_cap.isOpened()) {
                 return video_cap.read(image);
             } else if (!use_video && !use_ros_bag) {
-                return camera.GetImage(image);
+                if (!camera.GetImage(image)) {
+                    return false;
+                }
+                cv::cvtColor(image, image, cv::COLOR_RGB2BGR);
+                return true;
             }
             return false;
         }

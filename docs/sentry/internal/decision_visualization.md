@@ -1,6 +1,6 @@
 # Decision Visualization Trace And Viewer
 
-Updated: 2026-05-07
+Updated: 2026-05-09
 
 ## Purpose
 
@@ -213,6 +213,7 @@ Each line is one JSON object. Important top-level fields:
 - `aim_mode`, `target_armor`, `target_state`
 - `events`: EventManager semantic snapshot, including Buff/Outpost/RegionalDefense/resource/damage/navigation event flags
 - `decision_output`: stable viewer-facing output model; includes final output kind, topic, goal ID, `goal_pos_cm`, publish flags, and bridge hints
+- `decision_intent`: typed decision metadata for why the current output was selected; includes layer, reason, base goal ID, resolved goal ID, goal team, team-offset flag, priority, and detail
 - `navi_goal`: ID, base ID, side, speed, publish flags, and `position_cm`
 - `navi_relative_target`: chase/bridge relative target, including x/y/z, distance, yaw/pitch error, armor type, and aim mode
 - `posture`: command, state, runtime desired/current/pending, reason

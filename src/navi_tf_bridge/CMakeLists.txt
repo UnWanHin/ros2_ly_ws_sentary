@@ -76,9 +76,15 @@ install(PROGRAMS
 )
 
 install(PROGRAMS
-  script/navi_calib.py
+  script/kabsch_calib.py
   DESTINATION lib/${PROJECT_NAME}
-  RENAME navi_calib
+  RENAME kabsch_calib
+)
+
+install(PROGRAMS
+  script/affine_calib.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME affine_calib
 )
 
 install(PROGRAMS

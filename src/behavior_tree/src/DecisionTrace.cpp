@@ -407,6 +407,16 @@ void Application::WriteDecisionTrace(const std::string_view event) {
             {"y", static_cast<int>(naviGoalPosition.y)},
         }},
     };
+    record["decision_intent"] = {
+        {"layer", DecisionLayerToString(lastDecisionIntent_.Layer)},
+        {"reason", DecisionReasonToString(lastDecisionIntent_.Reason)},
+        {"base_goal_id", static_cast<int>(lastDecisionIntent_.BaseGoalId)},
+        {"resolved_goal_id", static_cast<int>(lastDecisionIntent_.ResolvedGoalId)},
+        {"goal_team", UnitTeamToString(lastDecisionIntent_.GoalTeam)},
+        {"apply_team_offset", lastDecisionIntent_.ApplyTeamOffset},
+        {"priority", lastDecisionIntent_.Priority},
+        {"detail", lastDecisionIntent_.Detail},
+    };
 
     record["navi_goal"] = {
         {"id", static_cast<int>(naviCommandGoal)},

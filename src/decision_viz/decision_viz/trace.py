@@ -5,7 +5,7 @@ import math
 from pathlib import Path
 from typing import Any
 
-from .model import DecisionOutput, TraceRecord, UnitRecord
+from .model import DecisionIntent, DecisionOutput, TraceRecord, UnitRecord
 
 
 LOCATION_COUNT = 50
@@ -174,6 +174,20 @@ def normalize_output(raw: dict[str, Any], navi: dict[str, Any], team: str, goal_
     )
 
 
+def normalize_decision_intent(raw: dict[str, Any], output: DecisionOutput) -> DecisionIntent:
+    intent = as_dict(raw.get("decision_intent"))
+    return DecisionIntent(
+        layer=str(intent.get("layer", "unknown")),
+        reason=str(intent.get("reason", "unknown")),
+        base_goal_id=integer(intent.get("base_goal_id"), output.goal_base_id),
+        resolved_goal_id=integer(intent.get("resolved_goal_id"), output.goal_id),
+        goal_team=str(intent.get("goal_team", output.goal_side)),
+        apply_team_offset=optional_bool(intent.get("apply_team_offset")),
+        priority=integer(intent.get("priority"), 0),
+        detail=str(intent.get("detail", intent.get("reason", "-"))),
+    )
+
+
 def normalize_record(raw: dict[str, Any], index: int, goal_names: dict[int, str]) -> TraceRecord:
     navi = as_dict(raw.get("navi_goal"))
     posture = as_dict(raw.get("posture"))
@@ -186,6 +200,7 @@ def normalize_record(raw: dict[str, Any], index: int, goal_names: dict[int, str]
         team = "red"
 
     output = normalize_output(raw, navi, team, goal_names)
+    decision_intent = normalize_decision_intent(raw, output)
 
     return TraceRecord(
         raw=raw,
@@ -198,6 +213,7 @@ def normalize_record(raw: dict[str, Any], index: int, goal_names: dict[int, str]
         aim=str(raw.get("aim_mode", "-")),
         target=compact_label(target, str(raw.get("target_armor", "-"))),
         output=output,
+        decision_intent=decision_intent,
         goal_id=output.goal_id,
         goal_base_id=output.goal_base_id,
         goal_name=output.goal_name,

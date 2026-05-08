@@ -34,19 +34,21 @@
 
 ### 2.1 当前结构
 
-`predictor_node` 现在分成两段：
+`predictor_node` 当前默认走回调即发布，保留 timer 模式作为回退：
 
 1. `predictor_callback()`
    - 收 `/ly/tracker/results`
-   - 只更新内部模型
-2. `publish_timer_callback()`
+   - 立即调用 `controller->control(...)`
+   - 发布 `/ly/predictor/target`
+   - 再更新内部模型和 debug/vis 输出，保持接近 ROS1 参考版的响应路径
+2. `publish_timer_callback()`（`config/common.yaml` 中 `predictor.publish_on_tracker_callback=false` 时使用）
    - 固定 `10ms` 定时
    - 调 `controller->control(...)`
    - 发布 `/ly/predictor/target`
 
 关键文件：
 
-- [predictor_node.cpp](/home/unwanhin/ros2_ly_ws_sentary/src/predictor/predictor_node.cpp)
+- [predictor_node.cpp](/home/unwanhin/ros2_ly_ws_sentry/src/predictor/predictor_node.cpp)
 
 ### 2.2 `Target` 的生成
 

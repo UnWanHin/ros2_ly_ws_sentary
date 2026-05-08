@@ -643,6 +643,9 @@ namespace LangYa {
         rd.SoftHoldSec = j.value("SoftHoldSec", rd.SoftHoldSec);
         rd.SearchHoldSec = j.value("SearchHoldSec", rd.SearchHoldSec);
         rd.SearchNoTargetSec = j.value("SearchNoTargetSec", rd.SearchNoTargetSec);
+        rd.FortressStandEnemyCountMin = j.value("FortressStandEnemyCountMin", rd.FortressStandEnemyCountMin);
+        rd.FortressNoContactDegradeSec = j.value("FortressNoContactDegradeSec", rd.FortressNoContactDegradeSec);
+        rd.FortressDegradeCooldownSec = j.value("FortressDegradeCooldownSec", rd.FortressDegradeCooldownSec);
         rd.StrongHealthMin = j.value("StrongHealthMin", rd.StrongHealthMin);
         rd.StrongAmmoMin = j.value("StrongAmmoMin", rd.StrongAmmoMin);
         rd.MultiEnemyBaseCount = j.value("MultiEnemyBaseCount", rd.MultiEnemyBaseCount);
@@ -1573,6 +1576,9 @@ namespace BehaviorTree {
         LoggerPtr->Debug("SoftHoldSec: {}", config.RegionalDefenseSettings.SoftHoldSec);
         LoggerPtr->Debug("SearchHoldSec: {}", config.RegionalDefenseSettings.SearchHoldSec);
         LoggerPtr->Debug("SearchNoTargetSec: {}", config.RegionalDefenseSettings.SearchNoTargetSec);
+        LoggerPtr->Debug("FortressStandEnemyCountMin: {}", config.RegionalDefenseSettings.FortressStandEnemyCountMin);
+        LoggerPtr->Debug("FortressNoContactDegradeSec: {}", config.RegionalDefenseSettings.FortressNoContactDegradeSec);
+        LoggerPtr->Debug("FortressDegradeCooldownSec: {}", config.RegionalDefenseSettings.FortressDegradeCooldownSec);
         LoggerPtr->Debug("StrongHealthMin: {}", config.RegionalDefenseSettings.StrongHealthMin);
         LoggerPtr->Debug("StrongAmmoMin: {}", config.RegionalDefenseSettings.StrongAmmoMin);
         LoggerPtr->Debug("MultiEnemyBaseCount: {}", config.RegionalDefenseSettings.MultiEnemyBaseCount);
@@ -1936,6 +1942,21 @@ namespace BehaviorTree {
             LoggerPtr->Warning("Invalid RegionalDefense.SearchNoTargetSec={}, fallback to 4.",
                                config.RegionalDefenseSettings.SearchNoTargetSec);
             config.RegionalDefenseSettings.SearchNoTargetSec = 4;
+        }
+        if (config.RegionalDefenseSettings.FortressStandEnemyCountMin <= 0) {
+            LoggerPtr->Warning("Invalid RegionalDefense.FortressStandEnemyCountMin={}, fallback to 2.",
+                               config.RegionalDefenseSettings.FortressStandEnemyCountMin);
+            config.RegionalDefenseSettings.FortressStandEnemyCountMin = 2;
+        }
+        if (config.RegionalDefenseSettings.FortressNoContactDegradeSec <= 0) {
+            LoggerPtr->Warning("Invalid RegionalDefense.FortressNoContactDegradeSec={}, fallback to 8.",
+                               config.RegionalDefenseSettings.FortressNoContactDegradeSec);
+            config.RegionalDefenseSettings.FortressNoContactDegradeSec = 8;
+        }
+        if (config.RegionalDefenseSettings.FortressDegradeCooldownSec <= 0) {
+            LoggerPtr->Warning("Invalid RegionalDefense.FortressDegradeCooldownSec={}, fallback to 6.",
+                               config.RegionalDefenseSettings.FortressDegradeCooldownSec);
+            config.RegionalDefenseSettings.FortressDegradeCooldownSec = 6;
         }
         if (config.RegionalDefenseSettings.MultiEnemyBaseCount <= 0) {
             LoggerPtr->Warning("Invalid RegionalDefense.MultiEnemyBaseCount={}, fallback to 2.",

@@ -61,6 +61,18 @@ class UnitRecord:
 
 
 @dataclass(frozen=True)
+class DecisionIntent:
+    layer: str
+    reason: str
+    base_goal_id: int
+    resolved_goal_id: int
+    goal_team: str
+    apply_team_offset: bool | None
+    priority: int
+    detail: str
+
+
+@dataclass(frozen=True)
 class TraceRecord:
     raw: dict[str, Any]
     index: int
@@ -72,6 +84,7 @@ class TraceRecord:
     aim: str
     target: str
     output: DecisionOutput
+    decision_intent: DecisionIntent
     goal_id: int
     goal_base_id: int
     goal_name: str

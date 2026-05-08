@@ -10,6 +10,7 @@
 #include <cmath>
 #include <limits>
 #include <optional>
+#include <utility>
 
 using namespace LangYa;
 
@@ -102,6 +103,12 @@ namespace BehaviorTree {
         return x > 0 && y > 0 && x <= kOfficialFieldWidthCm && y <= kOfficialFieldHeightCm;
     }
 
+    std::uint8_t BaseGoalIdFromResolvedGoal(const std::uint8_t goal_id) noexcept {
+        return goal_id >= LangYa::TeamedLocation::LocationCount
+            ? static_cast<std::uint8_t>(goal_id - LangYa::TeamedLocation::LocationCount)
+            : goal_id;
+    }
+
     Area::Point<std::uint16_t> BuildOfficialChaseGoal(
         const int self_x,
         const int self_y,
@@ -155,11 +162,36 @@ namespace BehaviorTree {
             case RegionalDefenseSearchKind::OwnHighlandRoadland: return "own_highland_roadland";
             case RegionalDefenseSearchKind::CommonCentral: return "common_central";
             case RegionalDefenseSearchKind::EnemySideSoft: return "enemy_side_soft";
+            case RegionalDefenseSearchKind::OwnFortressGainPoint: return "own_fortress_gain_point";
             default: return "none";
         }
     }
 
     }  // namespace
+
+    DecisionIntent Application::MakeDecisionIntent(
+        const DecisionReason reason,
+        const std::uint8_t base_goal_id,
+        const UnitTeam goal_team,
+        const bool apply_team_offset,
+        const char* detail) const {
+        DecisionIntent intent{};
+        intent.Layer = DecisionLayerForReason(reason);
+        intent.Reason = reason;
+        intent.BaseGoalId = base_goal_id;
+        intent.ResolvedGoalId = ResolveGoalId(base_goal_id, goal_team, apply_team_offset);
+        intent.GoalTeam = goal_team;
+        intent.ApplyTeamOffset = apply_team_offset;
+        intent.Priority = DecisionPriorityForReason(reason);
+        intent.Detail = detail != nullptr && detail[0] != '\0'
+            ? detail
+            : DecisionReasonToString(reason);
+        return intent;
+    }
+
+    void Application::RecordDecisionIntent(DecisionIntent intent) {
+        lastDecisionIntent_ = std::move(intent);
+    }
 
      /**
      * @brief 更新黑板数据 \n
@@ -250,6 +282,20 @@ namespace BehaviorTree {
         GlobalBlackboard_->set<float>("GimbalYawVelDegPerSec", gimbalYawVelDegPerSec);
         GlobalBlackboard_->set<std::int16_t>("GimbalYawAngleRaw", gimbalYawAngleRaw);
         GlobalBlackboard_->set<float>("GimbalYawAngleDeg", gimbalYawAngleDeg);
+        GlobalBlackboard_->set<std::string>("DecisionIntentLayer", DecisionLayerToString(lastDecisionIntent_.Layer));
+        GlobalBlackboard_->set<std::string>("DecisionIntentReason", DecisionReasonToString(lastDecisionIntent_.Reason));
+        GlobalBlackboard_->set<std::uint8_t>("DecisionIntentBaseGoal", lastDecisionIntent_.BaseGoalId);
+        GlobalBlackboard_->set<std::uint8_t>("DecisionIntentResolvedGoal", lastDecisionIntent_.ResolvedGoalId);
+        GlobalBlackboard_->set<int>("DecisionIntentPriority", lastDecisionIntent_.Priority);
+        GlobalBlackboard_->set<std::string>("DecisionIntentDetail", lastDecisionIntent_.Detail);
+        if (TickBlackboard_) {
+            TickBlackboard_->set<std::string>("DecisionIntentLayer", DecisionLayerToString(lastDecisionIntent_.Layer));
+            TickBlackboard_->set<std::string>("DecisionIntentReason", DecisionReasonToString(lastDecisionIntent_.Reason));
+            TickBlackboard_->set<std::uint8_t>("DecisionIntentBaseGoal", lastDecisionIntent_.BaseGoalId);
+            TickBlackboard_->set<std::uint8_t>("DecisionIntentResolvedGoal", lastDecisionIntent_.ResolvedGoalId);
+            TickBlackboard_->set<int>("DecisionIntentPriority", lastDecisionIntent_.Priority);
+            TickBlackboard_->set<std::string>("DecisionIntentDetail", lastDecisionIntent_.Detail);
+        }
 
         if (now - lastUpdateBlackboardLogTime_ > std::chrono::seconds(2)) {
             LoggerPtr->Debug("Blackboard updated: TimeLeft={}, SelfHealth={}, AmmoLeft={}, EnemyOutpostHealth={}, SelfOutpostHealth={}",
@@ -453,6 +499,34 @@ namespace BehaviorTree {
         }
         if (follow_mode_active) {
             gimbalControlData.FireCode.Rotate = 0;
+        }
+        const int regional_referee_fresh_ms = std::max(
+            std::max(0, config.TaskSettings.BuffConfirm.RefereeFreshTimeoutMs),
+            std::max(0, config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs));
+        const auto current_base_goal_id = BaseGoalIdFromResolvedGoal(naviCommandGoal);
+        const bool fortress_defense_search_active =
+            regionalDefenseSearchKind_ == RegionalDefenseSearchKind::OwnFortressGainPoint &&
+            current_base_goal_id != LangYa::Recovery.ID;
+        const bool fortress_defense_control_allowed =
+            !follow_mode_active &&
+            !(areaManager_.HighlandTransitionActive() &&
+              config.DecisionAutonomySettings.NaviGoal.HighlandCompatDisableRotate);
+        const bool fortress_defense_target_locked =
+            aimMode != AimMode::Buff &&
+            aimMode != AimMode::Outpost &&
+            fortress_defense_search_active &&
+            IsFortressGainPointEnemyOccupiedEventFresh(regional_referee_fresh_ms) &&
+            isFindTargetAtomic.load(std::memory_order_relaxed);
+        const bool fortress_defense_stand_still =
+            fortress_defense_target_locked &&
+            fortress_defense_control_allowed &&
+            !config.AimDebugSettings.StopFire &&
+            fortressGainPointEnemyCount_ >=
+                std::max(1, config.RegionalDefenseSettings.FortressStandEnemyCountMin);
+        if (fortress_defense_stand_still &&
+            !config.AimDebugSettings.StopRotate &&
+            fortress_defense_control_allowed) {
+            gimbalControlData.FireCode.Rotate = 3;
         }
 
         static auto last_rotate_log = std::chrono::steady_clock::time_point{};
@@ -878,6 +952,18 @@ namespace BehaviorTree {
                             static_cast<std::uint8_t>(targetArmor.Type);
                     }
                 }
+            }
+        }
+
+        if (fortress_defense_stand_still) {
+            nextVelocity = VelocityType{0, 0};
+            static auto last_fortress_stand_log = std::chrono::steady_clock::time_point{};
+            if (now - last_fortress_stand_log > std::chrono::seconds(2)) {
+                LoggerPtr->Info(
+                    "Fortress defense stand-fire: enemy_count={} threshold={}, lock=1, fire_enabled=1.",
+                    fortressGainPointEnemyCount_,
+                    config.RegionalDefenseSettings.FortressStandEnemyCountMin);
+                last_fortress_stand_log = now;
             }
         }
 
@@ -2406,6 +2492,24 @@ namespace BehaviorTree {
         return areaManager_.IsRegionalDefenseAimSuppressActive(std::chrono::steady_clock::now());
     }
 
+    bool Application::IsFortressGainPointEnemyOccupiedEventRawFresh(const int referee_fresh_ms) const noexcept {
+        return hasReceivedEventData_ &&
+            lastEventDataRxTime_.time_since_epoch().count() != 0 &&
+            std::chrono::steady_clock::now() - lastEventDataRxTime_ <=
+                std::chrono::milliseconds(std::max(0, referee_fresh_ms)) &&
+            (eventSelfFortressGainPointStatus_ == 2U ||
+             eventSelfFortressGainPointStatus_ == 3U);
+    }
+
+    bool Application::IsFortressGainPointEnemyOccupiedEventFresh(const int referee_fresh_ms) const noexcept {
+        const auto now = std::chrono::steady_clock::now();
+        if (fortressGainPointDegradedUntil_.time_since_epoch().count() != 0 &&
+            now < fortressGainPointDegradedUntil_) {
+            return false;
+        }
+        return IsFortressGainPointEnemyOccupiedEventRawFresh(referee_fresh_ms);
+    }
+
     bool Application::IsEnemyPositionFresh(
         const UnitType unit_type,
         const int fresh_ms) const {
@@ -2444,11 +2548,19 @@ namespace BehaviorTree {
             fresh_enemies.push_back(RegionalDefenseEnemyPosition{.X = enemy_x, .Y = enemy_y});
         }
 
-        const auto threat = areaManager_.AnalyzeRegionalDefenseThreat(
+        auto threat = areaManager_.AnalyzeRegionalDefenseThreat(
             my_team,
             enemy_team,
             defense.EnableSoftEnemySideThreat,
             fresh_enemies);
+
+        const int referee_fresh_ms = std::max(
+            std::max(0, config.TaskSettings.BuffConfirm.RefereeFreshTimeoutMs),
+            std::max(0, config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs));
+        if (IsFortressGainPointEnemyOccupiedEventFresh(referee_fresh_ms)) {
+            threat.OwnFortressGainPointEnemyOccupied = true;
+            threat.HardThreat = true;
+        }
 
         if (!threat.HardThreat && !threat.SoftEnemySideThreat) {
             return std::nullopt;
@@ -2462,6 +2574,24 @@ namespace BehaviorTree {
         const auto& defense = config.RegionalDefenseSettings;
         const auto maybe_threat = EvaluateRegionalDefenseThreat(my_team, enemy_team);
         if (!maybe_threat.has_value()) {
+            const int referee_fresh_ms = std::max(
+                std::max(0, config.TaskSettings.BuffConfirm.RefereeFreshTimeoutMs),
+                std::max(0, config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs));
+            const auto now = std::chrono::steady_clock::now();
+            const bool raw_fortress_event =
+                IsFortressGainPointEnemyOccupiedEventRawFresh(referee_fresh_ms);
+            const bool visual_contact_recent =
+                isFindTargetAtomic.load(std::memory_order_relaxed) ||
+                (lastTargetSeenTime.time_since_epoch().count() != 0 &&
+                 now - lastTargetSeenTime <=
+                    std::chrono::seconds(std::max(1, defense.SearchNoTargetSec)));
+            if (!raw_fortress_event) {
+                fortressGainPointNoContactSince_ = {};
+                fortressGainPointDegradedUntil_ = {};
+            } else if (visual_contact_recent) {
+                fortressGainPointDegradedUntil_ = {};
+            }
+            fortressGainPointEnemyCount_ = 0;
             regionalDefenseSearchKind_ = RegionalDefenseSearchKind::None;
             regionalDefenseSearchIndex_ = 0U;
             regionalDefenseSearchBaseGoal_ = LangYa::Home.ID;
@@ -2469,6 +2599,55 @@ namespace BehaviorTree {
             return false;
         }
         const auto threat = *maybe_threat;
+        const auto now = std::chrono::steady_clock::now();
+        const int referee_fresh_ms = std::max(
+            std::max(0, config.TaskSettings.BuffConfirm.RefereeFreshTimeoutMs),
+            std::max(0, config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs));
+        if (!threat.OwnFortressGainPointEnemyOccupied &&
+            threat.OwnBaseCount > 0 &&
+            IsFortressGainPointEnemyOccupiedEventRawFresh(referee_fresh_ms)) {
+            fortressGainPointDegradedUntil_ = {};
+        }
+
+        if (threat.OwnFortressGainPointEnemyOccupied) {
+            fortressGainPointEnemyCount_ = threat.OwnBaseCount;
+            const bool visual_contact_recent =
+                isFindTargetAtomic.load(std::memory_order_relaxed) ||
+                (lastTargetSeenTime.time_since_epoch().count() != 0 &&
+                 now - lastTargetSeenTime <=
+                    std::chrono::seconds(std::max(1, defense.SearchNoTargetSec)));
+            const bool has_fortress_contact =
+                threat.OwnBaseCount > 0 ||
+                visual_contact_recent;
+            if (has_fortress_contact) {
+                fortressGainPointNoContactSince_ = {};
+            } else {
+                if (fortressGainPointNoContactSince_.time_since_epoch().count() == 0) {
+                    fortressGainPointNoContactSince_ = now;
+                } else if (now - fortressGainPointNoContactSince_ >=
+                           std::chrono::seconds(std::max(1, defense.FortressNoContactDegradeSec))) {
+                    fortressGainPointDegradedUntil_ =
+                        now + std::chrono::seconds(std::max(1, defense.FortressDegradeCooldownSec));
+                    fortressGainPointNoContactSince_ = {};
+                    fortressGainPointEnemyCount_ = 0;
+                    regionalDefenseSearchKind_ = RegionalDefenseSearchKind::None;
+                    regionalDefenseSearchIndex_ = 0U;
+                    regionalDefenseSearchBaseGoal_ = LangYa::Home.ID;
+                    regionalDefenseSearchStartTime_ = {};
+                    if (LoggerPtr) {
+                        LoggerPtr->Warning(
+                            "Fortress gain-point event degraded: status={} no own-base enemy position and no visual target for {}s; cooldown={}s.",
+                            static_cast<int>(eventSelfFortressGainPointStatus_),
+                            std::max(1, defense.FortressNoContactDegradeSec),
+                            std::max(1, defense.FortressDegradeCooldownSec));
+                    }
+                    return false;
+                }
+            }
+        } else {
+            fortressGainPointEnemyCount_ = 0;
+            fortressGainPointNoContactSince_ = {};
+        }
 
         if (!threat.HardThreat) {
             if (aimMode == AimMode::Buff || aimMode == AimMode::Outpost ||
@@ -2477,7 +2656,6 @@ namespace BehaviorTree {
             }
         }
 
-        const auto now = std::chrono::steady_clock::now();
         const bool strong_resource =
             myselfHealth >= defense.StrongHealthMin &&
             ammoLeft >= defense.StrongAmmoMin;
@@ -2486,9 +2664,47 @@ namespace BehaviorTree {
         const char* reason = "regional_defense";
         int hold_sec = defense.HardHoldSec;
         std::vector<std::uint8_t> candidates;
+        auto order_nearest_base_candidates = [&](std::vector<std::uint8_t> goals) {
+            const bool self_position_fresh =
+                hasReceivedSentryPosition_ &&
+                lastSentryPositionRxTime_.time_since_epoch().count() != 0 &&
+                now - lastSentryPositionRxTime_ <= std::chrono::seconds(2);
+            const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
+            const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
+            if (!self_position_fresh || self_x <= 0 || self_y <= 0) {
+                return goals;
+            }
+            std::stable_sort(
+                goals.begin(),
+                goals.end(),
+                [&](const std::uint8_t lhs, const std::uint8_t rhs) {
+                    const auto lhs_point = AreaManager::GoalPointByBaseId(lhs, my_team);
+                    const auto rhs_point = AreaManager::GoalPointByBaseId(rhs, my_team);
+                    return AreaManager::DistanceSq(
+                        self_x,
+                        self_y,
+                        static_cast<int>(lhs_point.x),
+                        static_cast<int>(lhs_point.y)) <
+                        AreaManager::DistanceSq(
+                            self_x,
+                            self_y,
+                            static_cast<int>(rhs_point.x),
+                            static_cast<int>(rhs_point.y));
+                });
+            return goals;
+        };
 
         if (threat.HardThreat) {
-            if (threat.OwnBaseCount > 0) {
+            if (threat.OwnFortressGainPointEnemyOccupied) {
+                search_kind = RegionalDefenseSearchKind::OwnFortressGainPoint;
+                reason = "own_fortress_gain_point_enemy";
+                candidates = order_nearest_base_candidates({
+                    LangYa::CastleLeft1.ID,
+                    LangYa::CastleLeft2.ID,
+                    LangYa::CastleRight1.ID,
+                    LangYa::CastleRight2.ID
+                });
+            } else if (threat.OwnBaseCount > 0) {
                 search_kind = RegionalDefenseSearchKind::OwnBase;
                 reason = threat.OwnBaseCount >= defense.MultiEnemyBaseCount
                     ? "own_base_multi"
@@ -2604,15 +2820,23 @@ namespace BehaviorTree {
             if (!TryStartNaviAreaTransition(goal_id, my_team, my_team, true, reason)) {
                 SetPositionByBaseGoal(goal_id, my_team, true);
             }
+            RecordDecisionIntent(MakeDecisionIntent(
+                DecisionReasonFromString(reason),
+                goal_id,
+                my_team,
+                true,
+                reason));
             naviCommandIntervalClock.reset(Seconds{std::max(1, hold_sec)});
             speedLevel = 1;
             if (LoggerPtr) {
                 LoggerPtr->Info(
-                    "Regional defense {} kind={} search_index={} goal={} own_base={} own_highland={} own_roadland={} common_central={} enemy_highland={} enemy_roadland={}",
+                    "Regional defense {} kind={} search_index={} goal={} own_fortress_gain_point_enemy={} fortress_enemy_count={} own_base={} own_highland={} own_roadland={} common_central={} enemy_highland={} enemy_roadland={}",
                     reason,
                     RegionalDefenseSearchKindToString(search_kind),
                     regionalDefenseSearchIndex_,
                     static_cast<int>(naviCommandGoal),
+                    threat.OwnFortressGainPointEnemyOccupied ? 1 : 0,
+                    fortressGainPointEnemyCount_,
                     threat.OwnBaseCount,
                     threat.OwnHighlandCount,
                     threat.OwnRoadlandCount,
@@ -2881,8 +3105,17 @@ namespace BehaviorTree {
         const UnitTeam enemy_team,
         const bool apply_team_offset,
         const char* reason) {
+        const auto intent_reason = reason != nullptr
+            ? DecisionReasonFromString(reason)
+            : DecisionReason::Unknown;
         if (!IsNaviGoalAllowedByAreaScope(base_goal_id, goal_team, my_team, enemy_team)) {
             naviGoalPublishAllowed_ = false;
+            RecordDecisionIntent(MakeDecisionIntent(
+                DecisionReason::AreaScopeBlocked,
+                base_goal_id,
+                goal_team,
+                apply_team_offset,
+                reason));
             if (LoggerPtr) {
                 LoggerPtr->Info(
                     "DecisionAutonomy[navi_goal_area]: block goal={} team={} reason={}",
@@ -2894,14 +3127,32 @@ namespace BehaviorTree {
         }
 
         if (TryStartRegionalAreaTaskForGoal(base_goal_id, goal_team, my_team, apply_team_offset, reason)) {
+            RecordDecisionIntent(MakeDecisionIntent(
+                intent_reason,
+                base_goal_id,
+                goal_team,
+                apply_team_offset,
+                reason));
             return true;
         }
 
         if (TryStartNaviAreaTransition(base_goal_id, goal_team, my_team, apply_team_offset, reason)) {
+            RecordDecisionIntent(MakeDecisionIntent(
+                intent_reason,
+                base_goal_id,
+                goal_team,
+                apply_team_offset,
+                reason));
             return true;
         }
 
         SetPositionByBaseGoal(base_goal_id, goal_team, apply_team_offset);
+        RecordDecisionIntent(MakeDecisionIntent(
+            intent_reason,
+            base_goal_id,
+            goal_team,
+            apply_team_offset,
+            reason));
         return true;
     }
 

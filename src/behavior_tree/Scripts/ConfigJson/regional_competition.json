@@ -43,6 +43,9 @@
         "SoftHoldSec": 8,
         "SearchHoldSec": 4,
         "SearchNoTargetSec": 4,
+        "FortressStandEnemyCountMin": 2,
+        "FortressNoContactDegradeSec": 8,
+        "FortressDegradeCooldownSec": 6,
         "StrongHealthMin": 250,
         "StrongAmmoMin": 40,
         "MultiEnemyBaseCount": 2

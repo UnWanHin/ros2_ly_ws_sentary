@@ -47,6 +47,7 @@
 #include "Robot.hpp"
 #include "AreaManager.hpp"
 #include "DefaultStrategyManager.hpp"
+#include "DecisionIntent.hpp"
 #include "EventManager.hpp"
 #include "FaceModeManager.hpp"
 #include "PostureManager.hpp"
@@ -100,7 +101,8 @@ enum class RegionalDefenseSearchKind : std::uint8_t {
     OwnRoadland = 3,
     OwnHighlandRoadland = 4,
     CommonCentral = 5,
-    EnemySideSoft = 6
+    EnemySideSoft = 6,
+    OwnFortressGainPoint = 7
 };
 
     #define SET_POSITION(area, team) \
@@ -340,6 +342,7 @@ private:
     Config config{}; // 配置文件
     AreaManager areaManager_{};
     DefaultStrategyManager defaultStrategyManager_{};
+    DecisionIntent lastDecisionIntent_{};
     EventManager eventManager_{};
     EventSnapshot eventSnapshot_{};
     PostureManager postureManager_{};
@@ -348,6 +351,9 @@ private:
     std::size_t regionalDefenseSearchIndex_{0};
     std::uint8_t regionalDefenseSearchBaseGoal_{LangYa::Home.ID};
     std::chrono::steady_clock::time_point regionalDefenseSearchStartTime_{};
+    int fortressGainPointEnemyCount_{0};
+    std::chrono::steady_clock::time_point fortressGainPointNoContactSince_{};
+    std::chrono::steady_clock::time_point fortressGainPointDegradedUntil_{};
     FaceModeManager faceModeManager_{};
     std::chrono::steady_clock::time_point lastUpdateBlackboardLogTime_{};
     std::chrono::steady_clock::time_point lastTreeTickLogTime_{};
@@ -424,6 +430,13 @@ private:
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_bt_target_;
 
     void RecordDamageSample(std::chrono::steady_clock::time_point now, std::uint16_t damage);
+    DecisionIntent MakeDecisionIntent(
+        DecisionReason reason,
+        std::uint8_t base_goal_id,
+        UnitTeam goal_team,
+        bool apply_team_offset,
+        const char* detail = nullptr) const;
+    void RecordDecisionIntent(DecisionIntent intent);
 
 
 public:
@@ -547,6 +560,8 @@ public:
         bool apply_team_offset,
         const char* reason);
     bool IsRegionalDefenseAimSuppressActive() const noexcept;
+    bool IsFortressGainPointEnemyOccupiedEventRawFresh(int referee_fresh_ms) const noexcept;
+    bool IsFortressGainPointEnemyOccupiedEventFresh(int referee_fresh_ms) const noexcept;
     bool IsEnemyPositionFresh(UnitType unit_type, int fresh_ms) const;
     std::optional<RegionalDefenseThreat> EvaluateRegionalDefenseThreat(
         UnitTeam my_team,
@@ -557,6 +572,7 @@ public:
     bool TrySetDefaultRegionalGoal(UnitTeam my_team, UnitTeam enemy_team);
     bool TrySetDefaultRegionalAreaTaskGoal(UnitTeam my_team, UnitTeam enemy_team);
     bool TrySetRegionalIdlePatrolGoal(UnitTeam my_team, UnitTeam enemy_team);
+    const DecisionIntent& LastDecisionIntent() const noexcept { return lastDecisionIntent_; }
     void UpdateNaviProgressWatchdogGoal(
         std::uint8_t base_goal_id,
         UnitTeam goal_team,

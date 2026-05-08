@@ -173,6 +173,7 @@ def generate_launch_description():
     bt_tree_file = LaunchConfiguration("bt_tree_file")
     debug_bypass_is_start = LaunchConfiguration("debug_bypass_is_start")
     runtime_rearm_start_gate = LaunchConfiguration("runtime_rearm_start_gate")
+    predictor_publish_on_tracker_callback = LaunchConfiguration("predictor_publish_on_tracker_callback")
     publish_navi_goal = LaunchConfiguration("publish_navi_goal")
     wait_for_game_start_timeout_sec = LaunchConfiguration("wait_for_game_start_timeout_sec")
     league_referee_stale_timeout_ms = LaunchConfiguration("league_referee_stale_timeout_ms")
@@ -250,6 +251,11 @@ def generate_launch_description():
             "predictor_config_file",
             default_value=default_predictor_config_file,
             description="Predictor/tracker module YAML.",
+        ),
+        DeclareLaunchArgument(
+            "predictor_publish_on_tracker_callback",
+            default_value="true",
+            description="Publish /ly/predictor/target immediately from /ly/tracker/results callback.",
         ),
         DeclareLaunchArgument(
             "outpost_config_file",
@@ -470,6 +476,7 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] task_config: ", task_config_file]),
         LogInfo(msg=["[sentry_all] detector_config: ", detector_config_file]),
         LogInfo(msg=["[sentry_all] predictor_config: ", predictor_config_file]),
+        LogInfo(msg=["[sentry_all] predictor_publish_on_tracker_callback: ", predictor_publish_on_tracker_callback]),
         LogInfo(msg=["[sentry_all] outpost_config: ", outpost_config_file]),
         LogInfo(msg=["[sentry_all] buff_config: ", buff_config_file]),
         LogInfo(msg=["[sentry_all] output: ", output]),
@@ -817,6 +824,12 @@ def generate_launch_description():
                     "aim_timer_log/enable": ParameterValue(aim_timer_log_enable, value_type=bool),
                     "aim_timer_log.dir": ParameterValue(aim_timer_log_dir, value_type=str),
                     "aim_timer_log/dir": ParameterValue(aim_timer_log_dir, value_type=str),
+                    "predictor_config.publish_on_tracker_callback": ParameterValue(
+                        predictor_publish_on_tracker_callback,
+                        value_type=bool),
+                    "predictor_config/publish_on_tracker_callback": ParameterValue(
+                        predictor_publish_on_tracker_callback,
+                        value_type=bool),
                 },
             ],
             on_exit=Shutdown(reason="predictor_node exited"),
