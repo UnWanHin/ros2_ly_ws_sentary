@@ -6,6 +6,10 @@ Example YAML:
 
 source_frame: official_map
 target_frame: map
+# Unit mapping:
+#   source official-map points are stored as cm.
+#   target navi/map points are stored as m.
+#   solved raw_goal_transform_matrix is emitted in m.
 source_unit: cm
 target_unit: m
 output_unit: m
@@ -21,7 +25,9 @@ points:
     target: [5.72997, -7.84072, 0.0]
 
 The solved matrix maps source points to target points in output_unit.
-For navi_tf_bridge raw_goal_transform_matrix, use output_unit=m.
+For navi_tf_bridge raw_goal_transform_matrix, the default is official_map source cm,
+map target m, and output_unit=m. Source official-map values are converted to meters
+before solving the matrix.
 """
 
 from __future__ import annotations
@@ -145,15 +151,33 @@ def _parse_point_text(text: str, index: int) -> PointPair3D:
     )
 
 
-def _prompt_pairs(min_points: int) -> List[PointPair3D]:
+def _prompt_pairs(
+    min_points: int,
+    source_frame: str,
+    target_frame: str,
+    source_unit: str,
+    target_unit: str,
+    output_unit: str,
+) -> List[PointPair3D]:
     print("No --input and no --point provided, entering interactive mode.")
-    print("Input one pair per line: sx sy [sz] tx ty [tz]  or  sx,sy[,sz]:tx,ty[,tz]")
+    print(
+        f"Unit mapping: {source_frame}({source_unit}) -> "
+        f"{target_frame}({target_unit}); matrix/output={output_unit}"
+    )
+    print(
+        f"Input one pair per line: source {source_frame} in {source_unit}, "
+        f"then target {target_frame} in {target_unit}."
+    )
+    print("Format: sx sy [sz] tx ty [tz]  or  sx,sy[,sz]:tx,ty[,tz]")
+    print("Example for official cm -> map m: 1093 366 0 0.413 -9.622 0")
     print(f"Need at least {min_points} pairs. Empty line finishes.")
 
     pairs: List[PointPair3D] = []
     while True:
         try:
-            line = input(f"pair[{len(pairs) + 1}]> ").strip()
+            line = input(
+                f"pair[{len(pairs) + 1}] {source_unit}->{target_unit}> "
+            ).strip()
         except EOFError:
             break
         except KeyboardInterrupt:
@@ -346,7 +370,10 @@ def _flatten_row_major(matrix: "np.ndarray") -> List[float]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Fit source->target static transform with multi-point Kabsch."
+        description=(
+            "Fit source->target static transform with multi-point Kabsch. "
+            "Default unit flow: official_map(cm) -> map(m), matrix/output=m."
+        )
     )
     parser.add_argument("--input", default="", help="Input point YAML path.")
     parser.add_argument("--output", default="", help="Optional output YAML path.")
@@ -358,12 +385,20 @@ def main() -> int:
     )
     parser.add_argument("--source-frame", default="", help="Override source_frame.")
     parser.add_argument("--target-frame", default="", help="Override target_frame.")
-    parser.add_argument("--source-unit", default="", help="Override source point unit: m/cm/mm.")
-    parser.add_argument("--target-unit", default="", help="Override target point unit: m/cm/mm.")
+    parser.add_argument(
+        "--source-unit",
+        default="",
+        help="Override source point unit: m/cm/mm. Default: cm for official_map.",
+    )
+    parser.add_argument(
+        "--target-unit",
+        default="",
+        help="Override target point unit: m/cm/mm. Default: m for navi/map.",
+    )
     parser.add_argument(
         "--output-unit",
         default="",
-        help="Unit used by the solved matrix. Use m for raw_goal_transform_matrix.",
+        help="Unit used by the solved matrix. Default: m for raw_goal_transform_matrix.",
     )
     parser.add_argument("--min-points", type=int, default=3, help="Minimum point pairs.")
     parser.add_argument(
@@ -391,11 +426,12 @@ def main() -> int:
             print(f"[ERROR] Failed to read input YAML: {ex}", file=sys.stderr)
             return 2
 
-    source_frame = str(args.source_frame or cfg.get("source_frame", "source_map"))
-    target_frame = str(args.target_frame or cfg.get("target_frame", "target_map"))
-    source_unit = str(args.source_unit or cfg.get("source_unit", cfg.get("unit", "cm")))
-    target_unit = str(args.target_unit or cfg.get("target_unit", cfg.get("unit", source_unit)))
-    output_unit = str(args.output_unit or cfg.get("output_unit", target_unit))
+    source_frame = str(args.source_frame or cfg.get("source_frame", "official_map"))
+    target_frame = str(args.target_frame or cfg.get("target_frame", "map"))
+    legacy_unit = cfg.get("unit")
+    source_unit = str(args.source_unit or cfg.get("source_unit", legacy_unit or "cm"))
+    target_unit = str(args.target_unit or cfg.get("target_unit", legacy_unit or "m"))
+    output_unit = str(args.output_unit or cfg.get("output_unit", target_unit if legacy_unit else "m"))
 
     try:
         _unit_scale_to_m(source_unit)
@@ -414,7 +450,14 @@ def main() -> int:
                 raise ValueError("'points' must be a list")
             raw_pairs = [_parse_yaml_pair(raw, i) for i, raw in enumerate(points_raw)]
         else:
-            raw_pairs = _prompt_pairs(max(args.min_points, 3))
+            raw_pairs = _prompt_pairs(
+                max(args.min_points, 3),
+                source_frame,
+                target_frame,
+                source_unit,
+                target_unit,
+                output_unit,
+            )
         pairs = _convert_pairs_to_output_unit(raw_pairs, source_unit, target_unit, output_unit)
         _validate_pairs(pairs, max(args.min_points, 3))
         r, t, singular_values = _kabsch(pairs, args.allow_reflection, args.snap_epsilon)
@@ -433,6 +476,11 @@ def main() -> int:
         "source_unit": source_unit,
         "target_unit": target_unit,
         "output_unit": output_unit,
+        "unit_mapping": {
+            "source": f"{source_frame}({source_unit})",
+            "target": f"{target_frame}({target_unit})",
+            "matrix": f"output({output_unit})",
+        },
         "num_points": len(pairs),
         "rotation_det": float(np.linalg.det(r)),
         "singular_values": [float(v) for v in singular_values],
@@ -471,6 +519,10 @@ def main() -> int:
 
     print("Kabsch solve completed.")
     print(f"source_frame={source_frame}, target_frame={target_frame}, points={len(pairs)}")
+    print(
+        f"unit mapping: {source_frame}({source_unit}) -> "
+        f"{target_frame}({target_unit}); matrix/output={output_unit}"
+    )
     print(f"units: source={source_unit}, target={target_unit}, matrix={output_unit}")
     print(f"rotation_det={float(np.linalg.det(r)):.9f}")
     print(

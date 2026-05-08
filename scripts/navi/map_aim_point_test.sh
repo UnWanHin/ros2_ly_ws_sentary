@@ -9,13 +9,14 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT_NAME="$(basename "$0")"
 
-# FaceMode 坐标写这里：单位 cm。
+# FaceMode 坐标写这里：默认单位 cm，可用 OFFICIAL_MAP_UNIT=m 或 --unit m 改为米。
 # X/Y 是官方二维地图坐标，会按 navi_tf_bridge/config/tf_config.yaml 的 4x4
 # 走和 /ly/navi/goal_pos_raw -> /goal_pose 一样的平面转换，默认把结果当 map 点使用。
-# Z 已经是 map 系高度，只作为瞄准高度，不参与官方二维地图 X/Y 转换。
+# Z 已经是 map 系高度，只作为瞄准高度，不参与官方二维地图 X/Y 转换，单位跟 OFFICIAL_MAP_UNIT 一致。
 OFFICIAL_MAP_X="${OFFICIAL_MAP_X:-}"
 OFFICIAL_MAP_Y="${OFFICIAL_MAP_Y:-}"
 MAP_Z="${MAP_Z:-}"
+OFFICIAL_MAP_UNIT="${OFFICIAL_MAP_UNIT:-cm}"
 TARGET_FRAME="${TARGET_FRAME:-official_map}"
 USE_RAW_GOAL_STATIC_CALIBRATION="${USE_RAW_GOAL_STATIC_CALIBRATION:-true}"
 RAW_GOAL_TARGET_FRAME="${RAW_GOAL_TARGET_FRAME:-map}"
@@ -62,7 +63,7 @@ source "${ROOT_DIR}/scripts/lib/ros_launch_common.sh"
 usage() {
   cat <<EOF
 Usage:
-  ${SCRIPT_NAME} [--bench] [--no-gimbal] [--with-tf-tree] [--mock-map-origin] [--mock-gimbal-state] [--no-firecode] [-- <launch_args...>]
+  ${SCRIPT_NAME} [--unit m|cm] [--bench] [--no-gimbal] [--with-tf-tree] [--mock-map-origin] [--mock-gimbal-state] [--no-firecode] [-- <launch_args...>]
 
 Purpose:
   FaceMode: keep gimbal facing one fixed map/official-map point.
@@ -72,10 +73,11 @@ Purpose:
   For a bench-only map origin pose, use --mock-map-origin or use_mock_map_to_base:=true.
   For a no-hardware closed-loop smoke test, use --bench.
 
-Required point parameters, unit cm:
+Required point parameters:
   OFFICIAL_MAP_X=${OFFICIAL_MAP_X}
   OFFICIAL_MAP_Y=${OFFICIAL_MAP_Y}
   MAP_Z=${MAP_Z}
+  OFFICIAL_MAP_UNIT=${OFFICIAL_MAP_UNIT}  # m or cm; launch node still receives cm internally
 
 Edit those variables near the top of this script or pass them as launch args/env vars.
 
@@ -104,6 +106,8 @@ Other defaults:
 
 Examples:
   OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME} --with-tf-tree
+  OFFICIAL_MAP_UNIT=m OFFICIAL_MAP_X=10.93 OFFICIAL_MAP_Y=3.66 MAP_Z=1.00 ./${SCRIPT_NAME} --with-tf-tree
+  ./${SCRIPT_NAME} --unit cm -- official_map_x:=1093 official_map_y:=366 map_z:=100
   OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME} --bench
   OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME} --mock-map-origin --with-tf-tree
   ./${SCRIPT_NAME} -- official_map_x:=1093 official_map_y:=366 map_z:=100
@@ -137,6 +141,68 @@ launch_arg_value() {
   printf '%s\n' "${default_value}"
 }
 
+normalize_face_mode_unit() {
+  local unit="$1"
+  case "${unit}" in
+    m|M)
+      printf 'm\n'
+      ;;
+    cm|CM)
+      printf 'cm\n'
+      ;;
+    *)
+      echo "[ERROR] FaceMode official-map input unit must be m or cm, got '${unit}'." >&2
+      exit 2
+      ;;
+  esac
+}
+
+to_centimeter_value() {
+  local unit="$1"
+  local value="$2"
+  python3 - "${unit}" "${value}" <<'PY'
+import math
+import sys
+
+unit, value_text = sys.argv[1:3]
+try:
+    value = float(value_text)
+except ValueError as exc:
+    print(f"[ERROR] invalid FaceMode coordinate '{value_text}': {exc}", file=sys.stderr)
+    raise SystemExit(2)
+
+if not math.isfinite(value):
+    print(f"[ERROR] invalid FaceMode coordinate '{value_text}': not finite", file=sys.stderr)
+    raise SystemExit(2)
+
+if unit == "m":
+    value *= 100.0
+elif unit != "cm":
+    print(f"[ERROR] invalid FaceMode unit '{unit}'", file=sys.stderr)
+    raise SystemExit(2)
+
+print(f"{value:.9f}".rstrip("0").rstrip("."))
+PY
+}
+
+normalize_point_launch_args_to_cm() {
+  local -a normalized=()
+  local arg key value
+  for arg in "${LAUNCH_ARGS[@]}"; do
+    case "${arg}" in
+      official_map_x:=*|official_map_y:=*|map_z:=*)
+        key="${arg%%:=*}"
+        value="${arg#*:=}"
+        normalized+=("${key}:=$(to_centimeter_value "${OFFICIAL_MAP_UNIT}" "${value}")")
+        ;;
+      *)
+        normalized+=("${arg}")
+        ;;
+    esac
+  done
+  LAUNCH_ARGS=("${normalized[@]}")
+}
+
 require_face_mode_point_args() {
   local -a missing=()
   if ! has_launch_arg_key "official_map_x" && [[ -z "${OFFICIAL_MAP_X}" ]]; then
@@ -149,15 +215,24 @@ require_face_mode_point_args() {
     missing+=("map_z/MAP_Z")
   fi
   if (( ${#missing[@]} > 0 )); then
-    echo "[ERROR] FaceMode requires point parameters in cm: ${missing[*]}" >&2
+    echo "[ERROR] FaceMode requires point parameters: ${missing[*]} (unit=${OFFICIAL_MAP_UNIT}, use --unit m|cm or OFFICIAL_MAP_UNIT=m|cm)" >&2
     echo "        Example: OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME} --with-tf-tree" >&2
-    echo "        Or: ./${SCRIPT_NAME} -- official_map_x:=1093 official_map_y:=366 map_z:=100" >&2
+    echo "        Example: OFFICIAL_MAP_UNIT=m OFFICIAL_MAP_X=10.93 OFFICIAL_MAP_Y=3.66 MAP_Z=1.0 ./${SCRIPT_NAME} --with-tf-tree" >&2
+    echo "        Or: ./${SCRIPT_NAME} --unit cm -- official_map_x:=1093 official_map_y:=366 map_z:=100" >&2
     exit 2
   fi
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --unit|--input-unit|--official-unit)
+      if (( $# < 2 )); then
+        echo "[ERROR] $1 requires m or cm." >&2
+        exit 2
+      fi
+      OFFICIAL_MAP_UNIT="${2:-}"
+      shift 2
+      ;;
     --bench|--mock-all)
       USE_GIMBAL="false"
       USE_TF_TREE="true"
@@ -206,7 +281,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+OFFICIAL_MAP_UNIT="$(normalize_face_mode_unit "${OFFICIAL_MAP_UNIT}")"
 require_face_mode_point_args
+normalize_point_launch_args_to_cm
 source_ros_workspace "${ROOT_DIR}"
 cleanup_existing_launch_tree \
   "1" \
@@ -231,13 +308,13 @@ cleanup_existing_stack \
   "ros2 launch navi_tf_bridge map_aim_point\\.launch\\.py"
 
 if ! has_launch_arg_key "official_map_x"; then
-  LAUNCH_ARGS=("official_map_x:=${OFFICIAL_MAP_X}" "${LAUNCH_ARGS[@]}")
+  LAUNCH_ARGS=("official_map_x:=$(to_centimeter_value "${OFFICIAL_MAP_UNIT}" "${OFFICIAL_MAP_X}")" "${LAUNCH_ARGS[@]}")
 fi
 if ! has_launch_arg_key "official_map_y"; then
-  LAUNCH_ARGS=("official_map_y:=${OFFICIAL_MAP_Y}" "${LAUNCH_ARGS[@]}")
+  LAUNCH_ARGS=("official_map_y:=$(to_centimeter_value "${OFFICIAL_MAP_UNIT}" "${OFFICIAL_MAP_Y}")" "${LAUNCH_ARGS[@]}")
 fi
 if ! has_launch_arg_key "map_z"; then
-  LAUNCH_ARGS=("map_z:=${MAP_Z}" "${LAUNCH_ARGS[@]}")
+  LAUNCH_ARGS=("map_z:=$(to_centimeter_value "${OFFICIAL_MAP_UNIT}" "${MAP_Z}")" "${LAUNCH_ARGS[@]}")
 fi
 if ! has_launch_arg_key "target_frame"; then
   LAUNCH_ARGS=("target_frame:=${TARGET_FRAME}" "${LAUNCH_ARGS[@]}")
@@ -358,6 +435,7 @@ PREVIEW_OFFICIAL_MAP_Y="$(launch_arg_value "official_map_y" "${OFFICIAL_MAP_Y}")
 PREVIEW_MAP_Z="$(launch_arg_value "map_z" "${MAP_Z}")"
 PREVIEW_USE_RAW_GOAL_STATIC_CALIBRATION="$(launch_arg_value "use_raw_goal_static_calibration" "${USE_RAW_GOAL_STATIC_CALIBRATION}")"
 PREVIEW_RAW_GOAL_TARGET_FRAME="$(launch_arg_value "raw_goal_target_frame" "${RAW_GOAL_TARGET_FRAME}")"
+echo "[INFO] FaceMode point input unit=${OFFICIAL_MAP_UNIT}; node target params are cm: official_map=(${PREVIEW_OFFICIAL_MAP_X}, ${PREVIEW_OFFICIAL_MAP_Y}), map_z=${PREVIEW_MAP_Z}" >&2
 print_raw_goal_map_preview \
   "${PREVIEW_BRIDGE_CONFIG_FILE}" \
   "${PREVIEW_OFFICIAL_MAP_X}" \

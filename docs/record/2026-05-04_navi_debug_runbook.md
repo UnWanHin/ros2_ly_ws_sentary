@@ -127,6 +127,8 @@
 
 ```bash
 OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./scripts/navi/map_aim_point_test.sh --with-tf-tree
+# 或用米输入：
+OFFICIAL_MAP_UNIT=m OFFICIAL_MAP_X=10.93 OFFICIAL_MAP_Y=3.66 MAP_Z=1.00 ./scripts/navi/map_aim_point_test.sh --with-tf-tree
 ```
 
 这个脚本只控制云台 `/ly/control/angles`，不发布底盘速度。

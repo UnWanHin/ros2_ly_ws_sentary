@@ -33,7 +33,7 @@
 
 - `scripts/navi/navitomap.sh`：手动把官方地图二维点 `/ly/navi/goal_pos_raw` 经 `navi_tf_bridge` 的 4x4 矩阵转成 `/goal_pose`。
 - `scripts/navi/facemode.sh`：FaceMode 简短入口；位置参数为 `official_map_x official_map_y map_z`，单位 cm；`--bt-output` 输出到 `/ly/face_mode/angles` 给 BT 区域任务使用。
-- `scripts/navi/map_aim_point_test.sh`：FaceMode 固定点朝向测试；给 `[official_map_x, official_map_y, map_z]`，X/Y 走 `tf_config.yaml` 的 raw-goal 矩阵，Z 直接按 map 高度使用。
+- `scripts/navi/map_aim_point_test.sh`：FaceMode 固定点朝向测试；给 `[official_map_x, official_map_y, map_z]`，默认输入 cm，可用 `--unit m`；X/Y 走 `tf_config.yaml` 的 raw-goal 矩阵，Z 直接按 map 高度使用。
 - `scripts/navi/map_aim_point_attach.sh`：在已有 stack 上只附加 FaceMode/map_aim_point_node。
 
 FaceMode 的独立测试节点默认直接发布 `/ly/control/angles`，可选发布 `/ly/control/firecode`，不发布底盘速度，默认 `yaw_sign=-1.0`。给 BT 使用时必须走 `/ly/face_mode/angles`，由 BT 统一发布 `/ly/control/angles` 和 firecode。BT 需要运行时切换固定朝向目标时，会发布 `/ly/face_mode/target_raw`，格式为 `[official_map_x, official_map_y, map_z]`，单位 cm。

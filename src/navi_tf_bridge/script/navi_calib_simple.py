@@ -8,20 +8,26 @@
 
 Input YAML format example:
 
-source_frame: lower_map
-target_frame: radar_map
-unit: cm
-tz: 0
+source_frame: official_map
+target_frame: map
+# Unit mapping:
+#   source official-map points are stored as cm.
+#   target navi/map points are stored as m.
+#   solved matrix/output is stored as m.
+source_unit: cm
+target_unit: m
+output_unit: m
+tz: 0.0
 points:
   - name: p1
-    source: [100, 100]
-    target: [120, 130]
+    source: [1093, 366]
+    target: [0.413, -9.622]
   - name: p2
-    source: [700, 100]
-    target: [715, 135]
+    source: [574, 1206]
+    target: [8.815, -4.252]
   - name: p3
-    source: [100, 500]
-    target: [122, 530]
+    source: [1043, 329]
+    target: [-0.042, -9.657]
 """
 
 from __future__ import annotations
@@ -78,15 +84,63 @@ def _parse_point_pair_text(text: str, index: int) -> PointPair2D:
     return PointPair2D(name=f"p{index + 1}", sx=sx, sy=sy, tx=tx, ty=ty)
 
 
-def _prompt_points_interactive(min_points: int) -> List[PointPair2D]:
+def _unit_scale_to_m(unit: str) -> float:
+    normalized = unit.strip().lower()
+    if normalized in ("m", "meter", "meters"):
+        return 1.0
+    if normalized in ("cm", "centimeter", "centimeters"):
+        return 0.01
+    if normalized in ("mm", "millimeter", "millimeters"):
+        return 0.001
+    raise ValueError(f"unsupported unit '{unit}', expected m/cm/mm")
+
+
+def _convert_pairs_to_output_unit(
+    pairs: List[PointPair2D],
+    source_unit: str,
+    target_unit: str,
+    output_unit: str,
+) -> List[PointPair2D]:
+    output_scale = _unit_scale_to_m(output_unit)
+    source_scale = _unit_scale_to_m(source_unit) / output_scale
+    target_scale = _unit_scale_to_m(target_unit) / output_scale
+    return [
+        PointPair2D(
+            name=p.name,
+            sx=p.sx * source_scale,
+            sy=p.sy * source_scale,
+            tx=p.tx * target_scale,
+            ty=p.ty * target_scale,
+        )
+        for p in pairs
+    ]
+
+
+def _prompt_points_interactive(
+    min_points: int,
+    source_frame: str,
+    target_frame: str,
+    source_unit: str,
+    target_unit: str,
+    output_unit: str,
+) -> List[PointPair2D]:
     print("No --input and no --point provided, entering interactive mode.")
-    print("Input one pair per line: sx sy tx ty  (or sx,sy:tx,ty)")
+    print(
+        f"Unit mapping: {source_frame}({source_unit}) -> "
+        f"{target_frame}({target_unit}); matrix/output={output_unit}"
+    )
+    print(
+        f"Input one pair per line: source {source_frame} in {source_unit}, "
+        f"then target {target_frame} in {target_unit}."
+    )
+    print("Format: sx sy tx ty  (or sx,sy:tx,ty)")
+    print("Example for official cm -> map m: 1093 366 0.413 -9.622")
     print(f"Need at least {min_points} pairs. Press Enter on empty line to finish.")
 
     pairs: List[PointPair2D] = []
     while True:
         try:
-            line = input(f"pair[{len(pairs) + 1}]> ").strip()
+            line = input(f"pair[{len(pairs) + 1}] {source_unit}->{target_unit}> ").strip()
         except EOFError:
             break
         except KeyboardInterrupt:
@@ -256,7 +310,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Solve 2D rigid transform from paired points and output 4x4 matrix "
-            "(source -> target)."
+            "(source -> target). Default unit flow: official_map(cm) -> map(m), "
+            "matrix/output=m. This is the simple 2D solver."
         )
     )
     parser.add_argument("--input", default="", help="Optional input YAML path.")
@@ -272,7 +327,26 @@ def main() -> int:
     )
     parser.add_argument("--source-frame", default="", help="Override source_frame.")
     parser.add_argument("--target-frame", default="", help="Override target_frame.")
-    parser.add_argument("--unit", default="", help="Override unit: cm or m.")
+    parser.add_argument(
+        "--unit",
+        default="",
+        help="Legacy same-unit override for source/target/output: m/cm/mm.",
+    )
+    parser.add_argument(
+        "--source-unit",
+        default="",
+        help="Override source point unit: m/cm/mm. Default: cm for official_map.",
+    )
+    parser.add_argument(
+        "--target-unit",
+        default="",
+        help="Override target point unit: m/cm/mm. Default: m for navi/map.",
+    )
+    parser.add_argument(
+        "--output-unit",
+        default="",
+        help="Unit used by the solved matrix. Default: m for raw_goal_transform_matrix.",
+    )
     parser.add_argument(
         "--min-points",
         type=int,
@@ -283,7 +357,7 @@ def main() -> int:
         "--tz",
         type=float,
         default=None,
-        help="Optional z translation in the same unit as points (override YAML tz).",
+        help="Optional z translation in output_unit (legacy --unit keeps old same-unit behavior).",
     )
     args = parser.parse_args()
 
@@ -310,17 +384,26 @@ def main() -> int:
             print("[ERROR] Input YAML root must be a map/object.", file=sys.stderr)
             return 2
 
-    source_frame = str(args.source_frame or cfg.get("source_frame", "source_map"))
-    target_frame = str(args.target_frame or cfg.get("target_frame", "target_map"))
-    unit = str(args.unit or cfg.get("unit", "cm")).strip().lower()
-    if unit not in ("cm", "m"):
-        print(f"[ERROR] Unsupported unit '{unit}', expected 'cm' or 'm'.", file=sys.stderr)
+    source_frame = str(args.source_frame or cfg.get("source_frame", "official_map"))
+    target_frame = str(args.target_frame or cfg.get("target_frame", "map"))
+    legacy_unit = args.unit or cfg.get("unit")
+    source_unit = str(args.source_unit or cfg.get("source_unit", legacy_unit or "cm")).strip().lower()
+    target_unit = str(args.target_unit or cfg.get("target_unit", legacy_unit or "m")).strip().lower()
+    output_unit = str(
+        args.output_unit or cfg.get("output_unit", legacy_unit or "m")
+    ).strip().lower()
+    try:
+        output_unit_scale_to_m = _unit_scale_to_m(output_unit)
+        _unit_scale_to_m(source_unit)
+        _unit_scale_to_m(target_unit)
+    except Exception as ex:
+        print(f"[ERROR] {ex}", file=sys.stderr)
         return 2
 
-    pairs: List[PointPair2D] = []
+    raw_pairs: List[PointPair2D] = []
     if args.point:
         try:
-            pairs = [_parse_point_pair_text(text, i) for i, text in enumerate(args.point)]
+            raw_pairs = [_parse_point_pair_text(text, i) for i, text in enumerate(args.point)]
         except Exception as ex:
             print(f"[ERROR] Failed to parse --point: {ex}", file=sys.stderr)
             return 2
@@ -330,19 +413,28 @@ def main() -> int:
             print("[ERROR] 'points' must be a list.", file=sys.stderr)
             return 2
         try:
-            pairs = [_parse_pair(raw, i) for i, raw in enumerate(points_raw)]
+            raw_pairs = [_parse_pair(raw, i) for i, raw in enumerate(points_raw)]
         except Exception as ex:
             print(f"[ERROR] Failed to parse YAML points: {ex}", file=sys.stderr)
             return 2
     else:
-        pairs = _prompt_points_interactive(max(args.min_points, 2))
-        if len(pairs) < max(args.min_points, 2):
+        raw_pairs = _prompt_points_interactive(
+            max(args.min_points, 2),
+            source_frame,
+            target_frame,
+            source_unit,
+            target_unit,
+            output_unit,
+        )
+        if len(raw_pairs) < max(args.min_points, 2):
             print(
                 "[ERROR] Not enough point pairs. Use --input or repeat --point, or provide "
                 "enough pairs in interactive mode.",
                 file=sys.stderr,
             )
             return 2
+
+    pairs = _convert_pairs_to_output_unit(raw_pairs, source_unit, target_unit, output_unit)
 
     try:
         _validate_geometry(pairs, max(args.min_points, 2))
@@ -354,12 +446,11 @@ def main() -> int:
     tz = float(args.tz if args.tz is not None else cfg.get("tz", 0.0))
     rmse, max_err, per_point = _residuals(pairs, c, s, tx, ty)
 
-    unit_to_meter = 0.01 if unit == "cm" else 1.0
-    tx_m = tx * unit_to_meter
-    ty_m = ty * unit_to_meter
-    tz_m = tz * unit_to_meter
-    rmse_m = rmse * unit_to_meter
-    max_err_m = max_err * unit_to_meter
+    tx_m = tx * output_unit_scale_to_m
+    ty_m = ty * output_unit_scale_to_m
+    tz_m = tz * output_unit_scale_to_m
+    rmse_m = rmse * output_unit_scale_to_m
+    max_err_m = max_err * output_unit_scale_to_m
 
     qx = 0.0
     qy = 0.0
@@ -372,18 +463,26 @@ def main() -> int:
     result = {
         "source_frame": source_frame,
         "target_frame": target_frame,
-        "unit": unit,
+        "source_unit": source_unit,
+        "target_unit": target_unit,
+        "output_unit": output_unit,
+        "unit": output_unit,
+        "unit_mapping": {
+            "source": f"{source_frame}({source_unit})",
+            "target": f"{target_frame}({target_unit})",
+            "matrix": f"output({output_unit})",
+        },
         "num_points": len(pairs),
         "yaw_rad": yaw,
         "yaw_deg": math.degrees(yaw),
-        "translation": {"x": tx, "y": ty, "z": tz, "unit": unit},
+        "translation": {"x": tx, "y": ty, "z": tz, "unit": output_unit},
         "translation_m": {"x": tx_m, "y": ty_m, "z": tz_m},
         "matrix_4x4": matrix,
         "inverse_matrix_4x4": matrix_inv,
         "residual": {
             "rmse": rmse,
             "max": max_err,
-            "unit": unit,
+            "unit": output_unit,
             "rmse_m": rmse_m,
             "max_m": max_err_m,
             "per_point": per_point,
@@ -401,9 +500,9 @@ def main() -> int:
             ),
             "target_to_source_static_tf_cmd": (
                 "ros2 run tf2_ros static_transform_publisher "
-                f"{_format_float(matrix_inv[0][3] * unit_to_meter)} "
-                f"{_format_float(matrix_inv[1][3] * unit_to_meter)} "
-                f"{_format_float(matrix_inv[2][3] * unit_to_meter)} "
+                f"{_format_float(matrix_inv[0][3] * output_unit_scale_to_m)} "
+                f"{_format_float(matrix_inv[1][3] * output_unit_scale_to_m)} "
+                f"{_format_float(matrix_inv[2][3] * output_unit_scale_to_m)} "
                 f"{_format_float(qx)} {_format_float(qy)} {_format_float(-qz)} {_format_float(qw)} "
                 f"{source_frame} {target_frame}"
             ),
@@ -420,12 +519,23 @@ def main() -> int:
 
     print("Solve completed.")
     print(f"source_frame={source_frame}, target_frame={target_frame}, points={len(pairs)}")
+    print(
+        f"unit mapping: {source_frame}({source_unit}) -> "
+        f"{target_frame}({target_unit}); matrix/output={output_unit}"
+    )
     print(f"yaw_deg={math.degrees(yaw):.6f}")
     print(
-        f"translation_{unit}=(x={tx:.6f}, y={ty:.6f}, z={tz:.6f}), "
-        f"translation_m=(x={tx_m:.6f}, y={ty_m:.6f}, z={tz_m:.6f})"
+        f"translation_{output_unit}=(x={tx:.6f}, y={ty:.6f}, z={tz:.6f})"
+        + (
+            ""
+            if output_unit == "m"
+            else f", translation_m=(x={tx_m:.6f}, y={ty_m:.6f}, z={tz_m:.6f})"
+        )
     )
-    print(f"residual_rmse_{unit}={rmse:.6f}, residual_max_{unit}={max_err:.6f}")
+    print(
+        f"residual_rmse_{output_unit}={rmse:.6f}, "
+        f"residual_max_{output_unit}={max_err:.6f}"
+    )
     print("source_to_target_4x4:")
     for row in matrix:
         print("  " + " ".join(f"{v: .9f}" for v in row))

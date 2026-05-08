@@ -7,6 +7,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT_NAME="$(basename "$0")"
+OFFICIAL_MAP_UNIT="${OFFICIAL_MAP_UNIT:-cm}"
 
 usage() {
   cat <<EOF
@@ -35,6 +36,7 @@ if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
 fi
 
 if [[ "${1:-}" == "--" ]]; then
+  export OFFICIAL_MAP_UNIT
   exec "${ROOT_DIR}/scripts/navi/map_aim_point_test.sh" "$@"
 fi
 
@@ -52,6 +54,7 @@ fi
 export OFFICIAL_MAP_X="$1"
 export OFFICIAL_MAP_Y="$2"
 export MAP_Z="$3"
+export OFFICIAL_MAP_UNIT
 shift 3
 
 if [[ "${BT_OUTPUT}" == "true" ]]; then

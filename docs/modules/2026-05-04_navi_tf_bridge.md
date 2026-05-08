@@ -78,10 +78,14 @@ FaceMode 默认：
 | 脚本 | 作用 |
 |---|---|
 | `scripts/navi/navitomap.sh` | 手动发官方地图点并预览转换结果 |
+| `scripts/navi/OfficialToNavi.sh` | 纯静态换算 official map -> navi/map，默认 official 输入 cm、navi 输出 m |
+| `scripts/navi/NaviToOfficial.sh` | 纯静态反向换算 navi/map -> official map，默认 navi 输入 m、official 输出 cm |
 | `scripts/navi/facemode.sh` | FaceMode 简短入口：位置参数为 `official_map_x official_map_y map_z`，单位 cm；`--bt-output` 输出到 `/ly/face_mode/angles` 给 BT 使用 |
-| `scripts/navi/map_aim_point_test.sh` | 拉起 FaceMode 测试栈，可选拉 `gimbal_driver` / `tf_tree` |
+| `scripts/navi/map_aim_point_test.sh` | 拉起 FaceMode 测试栈，可选拉 `gimbal_driver` / `tf_tree`；输入默认 cm，可用 `--unit m` |
 | `scripts/navi/map_aim_point_attach.sh` | 已有 stack 上只附加 FaceMode 节点 |
 | `scripts/debug/goal_pos_test.sh` | 稳定 debug wrapper，实际转到 `scripts/navi/navitomap.sh` |
+
+`navi_calib` 的標定單位鏈路是 `official_map(cm) -> map(m) -> raw_goal_transform_matrix(m)`。也就是官方地圖點按 cm 存，navi/map 點按 m 存，工具內部會先把 source/target 換到 `output_unit` 後再解矩陣；目前給 `tf_config.yaml` 使用時 `output_unit` 應保持 `m`。`navi_calib_simple` 是簡化 2D rigid 版本，也會在 `--help` 和互動輸入時顯示同樣的 `source_unit -> target_unit -> output_unit` 鏈路。
 
 ## 维护注意
 

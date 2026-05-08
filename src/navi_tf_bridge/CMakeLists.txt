@@ -70,9 +70,9 @@ install(PROGRAMS
 )
 
 install(PROGRAMS
-  script/tf_matrix.py
+  script/navi_calib_simple.py
   DESTINATION lib/${PROJECT_NAME}
-  RENAME tf_matrix
+  RENAME navi_calib_simple
 )
 
 install(PROGRAMS

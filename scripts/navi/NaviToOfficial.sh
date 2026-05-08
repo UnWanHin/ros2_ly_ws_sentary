@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# Pure static official-map pointer conversion.
-# Reads navi_tf_bridge/config/tf_config.yaml and prints converted coordinates only.
+# Pure static navigation-map -> official-map pointer conversion.
+# Reads navi_tf_bridge/config/tf_config.yaml and applies the inverse raw-goal matrix.
 
 set -euo pipefail
 
@@ -9,22 +9,22 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT_NAME="$(basename "$0")"
 
 CONFIG_FILE="${ROOT_DIR}/src/navi_tf_bridge/config/tf_config.yaml"
-INPUT_UNIT="cm"
-OUTPUT_UNIT="m"
+INPUT_UNIT="m"
+OUTPUT_UNIT="cm"
 
 usage() {
   cat <<EOF
 Usage:
-  ${SCRIPT_NAME} [options] <official_map_x> <official_map_y> [map_z]
+  ${SCRIPT_NAME} [options] <navi_map_x> <navi_map_y> [map_z]
 
 Options:
   --config <path>        tf_config.yaml path (default: src/navi_tf_bridge/config/tf_config.yaml)
-  --input-unit cm|m      input unit for x/y/z (default: cm)
-  --output-unit m|cm     output unit (default: m)
+  --input-unit m|cm      input unit for x/y/z (default: m)
+  --output-unit cm|m     output unit (default: cm)
   --help
 
 Output:
-  Converted coordinates only. If z is omitted, prints: x y
+  Converted official-map coordinates only. If z is omitted, prints: x y
   If z is provided, prints: x y z
 EOF
 }
@@ -71,11 +71,11 @@ if [[ -z "${CONFIG_FILE}" || ! -f "${CONFIG_FILE}" ]]; then
   exit 1
 fi
 if [[ "${INPUT_UNIT}" != "cm" && "${INPUT_UNIT}" != "m" ]]; then
-  echo "[ERROR] --input-unit must be cm or m." >&2
+  echo "[ERROR] --input-unit must be m or cm." >&2
   exit 2
 fi
 if [[ "${OUTPUT_UNIT}" != "cm" && "${OUTPUT_UNIT}" != "m" ]]; then
-  echo "[ERROR] --output-unit must be m or cm." >&2
+  echo "[ERROR] --output-unit must be cm or m." >&2
   exit 2
 fi
 
@@ -162,7 +162,7 @@ if use_static:
     model = str(params.get("raw_goal_calibration_model", "matrix"))
     if model not in {"matrix", "MATRIX", "matrix_4x4"}:
         print(
-            f"[ERROR] static_pointer.sh currently supports raw_goal_calibration_model=matrix only, got {model}",
+            f"[ERROR] NaviToOfficial.sh currently supports raw_goal_calibration_model=matrix only, got {model}",
             file=sys.stderr,
         )
         raise SystemExit(1)
@@ -190,14 +190,27 @@ if use_static:
         )
         raise SystemExit(1)
 
-    out_x_m = m[0] * x_m + m[1] * y_m + m[3] * matrix_unit_scale
-    out_y_m = m[4] * x_m + m[5] * y_m + m[7] * matrix_unit_scale
+    a00 = m[0]
+    a01 = m[1]
+    a10 = m[4]
+    a11 = m[5]
+    tx_m = m[3] * matrix_unit_scale
+    ty_m = m[7] * matrix_unit_scale
+    det = a00 * a11 - a01 * a10
+    if abs(det) <= 1e-12:
+        print("[ERROR] raw_goal_transform_matrix XY part is singular.", file=sys.stderr)
+        raise SystemExit(1)
+
+    dx = x_m - tx_m
+    dy = y_m - ty_m
+    out_x_m = (a11 * dx - a01 * dy) / det
+    out_y_m = (-a10 * dx + a00 * dy) / det
 else:
     raw_frame = str(params.get("goal_pos_raw_frame", "map"))
     map_frame = str(params.get("map_frame", "map"))
     if raw_frame != map_frame:
         print(
-            f"[ERROR] static calibration is disabled and {raw_frame}->{map_frame} needs TF.",
+            f"[ERROR] static calibration is disabled and {map_frame}->{raw_frame} needs TF.",
             file=sys.stderr,
         )
         raise SystemExit(1)

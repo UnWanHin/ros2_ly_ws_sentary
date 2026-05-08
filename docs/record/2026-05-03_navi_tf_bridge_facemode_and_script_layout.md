@@ -58,7 +58,7 @@
 安装后的脚本/工具名：
 
 - `navitomap_input_node`
-- `tf_matrix`
+- `navi_calib_simple`
 - `navi_calib`
 - `mock_gimbal_state_node`
 
@@ -101,6 +101,8 @@
 
 ```bash
 OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./scripts/navi/map_aim_point_test.sh --with-tf-tree
+# 或用米输入：
+OFFICIAL_MAP_UNIT=m OFFICIAL_MAP_X=10.93 OFFICIAL_MAP_Y=3.66 MAP_Z=1.00 ./scripts/navi/map_aim_point_test.sh --with-tf-tree
 ```
 
 附加到已运行 stack：

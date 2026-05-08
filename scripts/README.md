@@ -35,7 +35,7 @@ scripts/
 ├── start/                   # 启动类分类脚本
 ├── debug/                   # 调试类分类脚本
 ├── selfcheck/               # 自检类分类脚本
-├── launch/                  # 完整/决策 stack 启动实现
+├── launch/                  # 完整/决策 stack 启动实现；少量旧入口兼容 wrapper
 ├── aim/                     # 辅瞄/识别测试 wrapper
 ├── navi/                    # 导航/TF/固定朝向工具 wrapper
 ├── areatest/                # regional 单区域 AreaManager 实链路测试 wrapper
@@ -48,7 +48,7 @@ scripts/
 
 - `scripts/start/`、`scripts/debug/`、`scripts/selfcheck/` 是你平时真正需要打开的分类入口。
 - `scripts/debug/` 是有意暴露出来的稳定调试接口；即使里面有 wrapper，也保留给人直接找命令用。
-- `scripts/launch/` 只保留完整/决策 stack；辅瞄、导航、标定分别在 `scripts/aim/`、`scripts/navi/`、`scripts/tools/`。
+- `scripts/launch/` 只保留完整/决策 stack；少量历史命令只做兼容转发。辅瞄、导航、标定分别在 `scripts/aim/`、`scripts/navi/`、`scripts/tools/`。
 - 根层 `config/` 只放全局共享配置，例如 `base_config.yaml`、`override_config.yaml`、`common.yaml`。
 - `behavior_tree` 自己的状态机/任务开关配置放在 `src/behavior_tree/config/`，例如 `AreaManager.yaml`、`Task.yaml`。
 - 功能测试配置放在 `scripts/feature_test/config/`。
@@ -207,9 +207,14 @@ python3 ./scripts/python/start.py --keep-to-navi
 | 脚本 | 用途 |
 | --- | --- |
 | `scripts/navi/navitomap.sh` | 手动官方地图点转 `/goal_pose` |
+| `scripts/navi/OfficialToNavi.sh` | 纯静态换算：official map 点 -> navi/map 点，默认 official 输入 cm、navi 输出 m |
+| `scripts/navi/NaviToOfficial.sh` | 纯静态反向换算：navi/map 点 -> official map 点，默认 navi 输入 m、official 输出 cm |
 | `scripts/navi/facemode.sh` | FaceMode 简短入口：`facemode.sh official_map_x official_map_y map_z`，单位 cm |
-| `scripts/navi/map_aim_point_test.sh` | FaceMode 完整测试入口，可拉 `gimbal_driver` / `tf_tree` |
+| `scripts/navi/map_aim_point_test.sh` | FaceMode 完整测试入口，可拉 `gimbal_driver` / `tf_tree`，支持 `--unit m\|cm`，默认 cm |
 | `scripts/navi/map_aim_point_attach.sh` | 已有 stack 上只附加 FaceMode 节点 |
+
+`navi_calib` 標定工具的默认单位链路是 `official_map(cm) -> map(m) -> raw_goal_transform_matrix(m)`；官方地图点按 cm 存，map/navi 点按 m 存，矩阵输出给 `tf_config.yaml` 时保持 m。`navi_calib_simple` 是简化 2D rigid 版本，也会在 `--help` 和互动输入时显示单位链路。
+
 ### Area Test
 
 | 脚本 | 用途 |
