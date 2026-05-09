@@ -158,7 +158,7 @@ public:
     RCLCPP_INFO(
       this->get_logger(),
       "FaceMode started: raw_target=(%.3f, %.3f, %.3f)m@%s active_target=(%.3f, %.3f, %.3f)m@%s "
-      "solve_mode=%s solve_frame=%s camera_frame=%s -> %s, gimbal=%s, firecode=%s, "
+      "solve_mode=%s solve_frame=%s aim_frame=%s camera_frame=%s -> %s, gimbal=%s, firecode=%s, "
       "use_gimbal_stamp_for_tf=%s, command_filter_alpha=%.2f",
       official_map_x_m_,
       official_map_y_m_,
@@ -170,6 +170,7 @@ public:
       active_target_frame_.c_str(),
       solve_mode_.c_str(),
       solve_frame_.c_str(),
+      aim_frame_.c_str(),
       camera_frame_.c_str(),
       control_topic.c_str(),
       gimbal_topic.c_str(),
@@ -443,6 +444,65 @@ private:
     return SolvedCommand{yaw_cmd_deg, pitch_cmd_deg, *target, detail.str()};
   }
 
+  std::optional<SolvedCommand> solveRelativeGeometryAngles(
+    const rclcpp::Time & lookup_time,
+    const double current_yaw_deg,
+    const double current_pitch_deg)
+  {
+    const auto target = lookupTargetInFrame(
+      solve_frame_,
+      lookup_time,
+      "; frame '" + solve_frame_ +
+      "' is absent. Start localization/TF and make sure the gimbal TF chain is connected to map");
+    if (!target) {
+      return std::nullopt;
+    }
+
+    const double horizontal = std::hypot(target->x, target->y);
+    const double distance = std::hypot(horizontal, target->z);
+    if (distance < min_distance_m_) {
+      warnThrottled(
+        "target too close in " + solve_frame_ + ": (" + std::to_string(target->x) + ", " +
+        std::to_string(target->y) + ", " + std::to_string(target->z) + ")m");
+      return std::nullopt;
+    }
+    if (max_target_distance_m_ > 0.0 && distance > max_target_distance_m_) {
+      warnThrottled(
+        "target distance in " + solve_frame_ + " is unreasonable (" +
+        std::to_string(distance) + "m); skip map aim command. Check odom/localization TF.");
+      return std::nullopt;
+    }
+
+    const double sign = yaw_sign_ < 0.0 ? -1.0 : 1.0;
+    const double current_forward_rad = sign * current_yaw_deg * M_PI / 180.0;
+    const double forward_x = std::cos(current_forward_rad);
+    const double forward_y = std::sin(current_forward_rad);
+    const double dot = forward_x * target->x + forward_y * target->y;
+    const double cross = forward_x * target->y - forward_y * target->x;
+    double yaw_error_rad = std::atan2(cross, dot);
+    if (dot < 0.0 && std::abs(cross) < 1e-6) {
+      double turn_sign = 1.0;
+      if (last_yaw_cmd_deg_) {
+        const double last_delta = std::remainder(*last_yaw_cmd_deg_ - current_yaw_deg, 360.0);
+        if (std::abs(last_delta) > 1e-3) {
+          turn_sign = last_delta < 0.0 ? -1.0 : 1.0;
+        }
+      }
+      yaw_error_rad = turn_sign * M_PI;
+    }
+    const double yaw_error_deg = sign * yaw_error_rad * 180.0 / M_PI + yaw_bias_deg_;
+    const double yaw_cmd_deg = normalizeNear(current_yaw_deg + yaw_error_deg, current_yaw_deg);
+    const double pitch_cmd_deg =
+      pitch_sign_ * std::atan2(target->z, horizontal) * 180.0 / M_PI + pitch_bias_deg_;
+
+    std::ostringstream detail;
+    detail << "target_in_" << solve_frame_ << "=(" << target->x << "," << target->y << ","
+           << target->z << ")m err_yaw=" << yaw_error_deg
+           << " dot=" << dot << " cross=" << cross << " target_pitch=" << pitch_cmd_deg;
+    (void)current_pitch_deg;
+    return SolvedCommand{yaw_cmd_deg, pitch_cmd_deg, *target, detail.str()};
+  }
+
   std::optional<SolvedCommand> solveCameraProjectionAngles(
     const rclcpp::Time & lookup_time,
     const double current_yaw_deg,
@@ -525,10 +585,16 @@ private:
     std::optional<SolvedCommand> solved;
     if (solve_mode_ == "camera" || solve_mode_ == "camera_projection" || solve_mode_ == "gx_camera") {
       solved = solveCameraProjectionAngles(lookup_time, current_yaw_deg, current_pitch_deg);
+    } else if (solve_mode_ == "relative" || solve_mode_ == "relative_geometry" ||
+      solve_mode_ == "gimbal_relative")
+    {
+      solved = solveRelativeGeometryAngles(lookup_time, current_yaw_deg, current_pitch_deg);
     } else if (solve_mode_ == "base" || solve_mode_ == "base_link" || solve_mode_ == "absolute") {
       solved = solveBaseLinkAngles(lookup_time, current_yaw_deg, current_pitch_deg);
     } else {
-      warnThrottled("unknown solve_mode '" + solve_mode_ + "'; use camera_projection or base_link");
+      warnThrottled(
+        "unknown solve_mode '" + solve_mode_ +
+        "'; use camera_projection, relative_geometry, or base_link");
       return;
     }
     if (!solved) {
