@@ -251,7 +251,7 @@ namespace LangYa
         std::uint16_t ProjectileAllowance42mm;       // 0x0208 offset 2
         std::uint16_t RemainingGoldCoin;             // 0x0208 offset 4
         std::uint16_t ProjectileAllowanceFortress;   // 0x0208 offset 6
-        std::uint8_t RfidStatus2;                    // 0x0209 offset 4
+        std::uint8_t RfidStatus2;                  // 0x0209 offset 4
     };
     static_assert(sizeof(BulletDataAndRfid2) == sizeof(GimbalData), "TypeID=8 payload must stay 12B");
 

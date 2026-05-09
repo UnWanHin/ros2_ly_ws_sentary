@@ -163,6 +163,9 @@ private:
     RfidMatchState rfidMatchState{};
     bool hasReceivedRfidStatus_{false};
     std::chrono::steady_clock::time_point lastRfidStatusRxTime_{};
+    gimbal_driver::msg::BulletInfo bulletInfo{};
+    bool hasReceivedBulletInfo_{false};
+    std::chrono::steady_clock::time_point lastBulletInfoRxTime_{};
     std::uint32_t extEventData{};
     bool hasReceivedEventData_{false};
     std::uint8_t eventSelfSmallEnergyStatus_{0};

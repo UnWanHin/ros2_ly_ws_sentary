@@ -900,7 +900,7 @@ namespace
         }
 
         void PublishRfidStatus(const rclcpp::Time& stamp) {
-            if (!hasRfidStatusRaw_) {
+            if (!hasRfidStatusRaw_ && !hasRfidStatus2_) {
                 return;
             }
             using topic = ly_game_rfid;

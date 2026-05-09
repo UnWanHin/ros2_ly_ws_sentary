@@ -266,6 +266,7 @@ void TreeTick() {
 | `/ly/friend/base_hp` | `selfBaseHealth` | 我方基地血量 |
 | `/ly/team/buff` | `teamBuff` | 增益狀態 |
 | `/ly/game/rfid` | `rfidStatus`, `rfidStatus2`, `rfidMatchState` | 裁判 RFID bit 語義和 BT 內部區域匹配狀態；1s 內未更新則 `RfidFresh=false` |
+| `/ly/game/bullet` | `bulletInfo` | TypeID 7/8 合并出的弹速、发射事件、允许发弹量、金币；当前只缓存，不参与正式决策 |
 | `/ly/friend/uwb_pos` | `friendRobots[Sentry].position_` | 雷達/UWB 自身坐標，優先級高於 `/ly/position/data` 的自身 friend slot |
 | `/ly/position/data` | `friendRobots`, `enemyRobots`（更新position） | 通用位置；`friendcarid == Sentry` 只在 `/ly/friend/uwb_pos` 超過 2s 未更新時覆蓋自身坐標 |
 | `/ly/gimbal/angles` | `gimbalAngles` | 當前雲台角 |

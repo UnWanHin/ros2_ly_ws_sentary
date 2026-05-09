@@ -645,9 +645,10 @@ struct BulletDataAndRfid2 {
 `/ly/game/bullet`，并通过 `has_initial_speed`、`has_shoot_data`、
 `has_projectile_allowance` 标记当前消息中哪些部分已经收到。
 
-`TypeID=8` 的 `rfid_status_2` 会合并到现有 `/ly/game/rfid`。如果 TypeID=8 先于 TypeID=4
-到达，上位机会先缓存 `rfid_status_2`，等 TypeID=4 的低 32 位 `rfid_status` 到达后再发布完整
-`/ly/game/rfid`。
+`TypeID=8` 的 `rfid_status_2` 会合并到现有 `/ly/game/rfid`。`gimbal_driver` 对
+TypeID=4 的低 32 位 `rfid_status` 和 TypeID=8 的 `rfid_status_2` 分别维护 shadow；
+任一侧到达都会用“新的这一半 + 旧的另一半”发布完整 `/ly/game/rfid`。如果 TypeID=8
+先于 TypeID=4 到达，低 32 位暂按默认 0 发布，并标记 `has_rfid_status_2=true`。
 
 ---
 

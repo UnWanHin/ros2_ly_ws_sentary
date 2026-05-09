@@ -262,6 +262,14 @@ namespace BehaviorTree{
             app.lastRfidStatusRxTime_ = std::chrono::steady_clock::now();
         });
 
+        // ly_game_bullet
+        // 先缓存 TypeID 7/8 合并后的弹速/发射事件/允许发弹量状态；当前决策仍使用旧 ammo/speed 输入。
+        GenSub<ly_game_bullet>([](Application& app, auto msg) {
+            app.bulletInfo = *msg;
+            app.hasReceivedBulletInfo_ = true;
+            app.lastBulletInfoRxTime_ = std::chrono::steady_clock::now();
+        });
+
         // ly_navi_position
         // Navigation/TF-derived self position in official-map centimeters: [x, y].
         GenSub<ly_navi_position>([](Application& app, auto msg) {

@@ -58,6 +58,7 @@
 #include "gimbal_driver/msg/uwb_pos.hpp"
 #include "gimbal_driver/msg/vel.hpp"
 #include "gimbal_driver/msg/buff_data.hpp"
+#include "gimbal_driver/msg/bullet_info.hpp"
 #include "gimbal_driver/msg/position_data.hpp"
 
 
@@ -123,6 +124,7 @@ namespace BehaviorTree {
 
     LY_DEF_ROS_TOPIC(ly_team_buff, "/ly/team/buff", gimbal_driver::msg::BuffData);
     LY_DEF_ROS_TOPIC(ly_game_rfid, "/ly/game/rfid", gimbal_driver::msg::RfidStatus);
+    LY_DEF_ROS_TOPIC(ly_game_bullet, "/ly/game/bullet", gimbal_driver::msg::BulletInfo);
     LY_DEF_ROS_TOPIC(ly_position_data, "/ly/position/data", gimbal_driver::msg::PositionData);
 
 }
