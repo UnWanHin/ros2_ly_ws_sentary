@@ -198,6 +198,7 @@ python3 ./scripts/python/start.py --keep-to-navi
 | `scripts/debug/rotate_level.sh` | Rotate 档位循环与回读测试 | 脚本内置发布/回读逻辑 |
 | `scripts/debug/move_rotate.sh` | 小陀螺 + 正弦平移联动测试 | `scripts/feature_test/standalone/modes/chassis_spin_sine_translate_mode.sh` |
 | `scripts/debug/posture_test.sh` | 姿态切换循环与回读测试 | 脚本内置发布/回读逻辑 |
+| `scripts/debug/sentry_cmd_downlink_test.sh` | 启动 `gimbal_driver` 并验证 `SentryCmd` raw 下行帧/上行回读 | 脚本内置发布、`/ly/log/gimbal_raw_tx`、`/ly/log/gimbal_raw_rx` 和 RFID/姿态观察逻辑 |
 | `scripts/debug/chase_only.sh` | 纯追击联调（无门控，默认连下位机） | `scripts/launch/start_sentry_chase_only.sh` |
 | `scripts/debug/outpost_target_test.sh` | 发 `/ly/outpost/target` yaw 序列，验证前哨桥接 | 脚本内置发布逻辑 |
 | `scripts/debug/goal_pos_test.sh` | 仅用于静态点位 `/ly/navi/goal_pos_raw` 转换测试，预览后确认才发 `geometry_msgs/PoseStamped /goal_pose`；不是追击测试 | `scripts/navi/navitomap.sh` |
@@ -287,9 +288,10 @@ python3 ./scripts/python/start.py --keep-to-navi
 10. `rotate_level`
 11. `move_rotate`
 12. `posture-test`
-13. `chase-only`
-14. `outpost-target-test`
-15. `goal-pos-test`
+13. `sentry-cmd-downlink`
+14. `chase-only`
+15. `outpost-target-test`
+16. `goal-pos-test`
 
 ### `./scripts/selfcheck.sh`
 

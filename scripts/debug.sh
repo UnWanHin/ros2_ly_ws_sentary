@@ -26,6 +26,7 @@ Entries:
   rotate_level          /ly/control/firecode rotate level cycle test.
   move_rotate           Rotate + /ly/control/vel sine-translate test.
   posture-test          /ly/control/posture cycle test and /ly/gimbal/posture watch.
+  sentry-cmd-downlink   Launch gimbal_driver and verify SentryCmd raw downlink.
   chase-only            No-gate pure chase test (lower-machine online by default).
   outpost-target-test   Publish /ly/outpost/target yaw sequence 45/60/75 for bridge test.
   goal-pos-test         Static calibration-only /goal_pose test with y/n confirm.
@@ -77,13 +78,16 @@ run_entry() {
     12|posture-test|posture_test|posture)
       exec "${ROOT_DIR}/debug/posture_test.sh" "$@"
       ;;
-    13|chase-only|chase_only|chase)
+    13|sentry-cmd-downlink|sentry_cmd_downlink|sentry-cmd|sentry_cmd)
+      exec "${ROOT_DIR}/debug/sentry_cmd_downlink_test.sh" "$@"
+      ;;
+    14|chase-only|chase_only|chase)
       exec "${ROOT_DIR}/debug/chase_only.sh" "$@"
       ;;
-    14|outpost-target-test|outpost_target_test|outpost-target|outpost_target)
+    15|outpost-target-test|outpost_target_test|outpost-target|outpost_target)
       exec "${ROOT_DIR}/debug/outpost_target_test.sh" "$@"
       ;;
-    15|goal-pos-test|goal_pos_test|goal-pos|goal_pos)
+    16|goal-pos-test|goal_pos_test|goal-pos|goal_pos)
       exec "${ROOT_DIR}/debug/goal_pos_test.sh" "$@"
       ;;
     ""|menu)
@@ -118,9 +122,10 @@ echo "  9) control-angles-test"
 echo " 10) rotate_level"
 echo " 11) move_rotate"
 echo " 12) posture-test"
-echo " 13) chase-only"
-echo " 14) outpost-target-test"
-echo " 15) goal-pos-test"
-read -r -p "Input 1-15 [default: 1]: " choice
+echo " 13) sentry-cmd-downlink"
+echo " 14) chase-only"
+echo " 15) outpost-target-test"
+echo " 16) goal-pos-test"
+read -r -p "Input 1-16 [default: 1]: " choice
 choice="${choice:-1}"
 run_entry "${choice}"
