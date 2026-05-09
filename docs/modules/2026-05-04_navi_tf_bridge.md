@@ -25,7 +25,7 @@
 | `decision_chase.launch.py` | 追击决策测试时把 `/ly/navi/target_rel` 转导航目标 |
 | `target_rel_to_goal_pos.launch.py` | bridge 节点通用 launch |
 | `map_aim_point.launch.py` | FaceMode 固定点朝向测试 |
-| `map_aim_point_node` | 直接发布 `/ly/control/angles`，可选发布 `/ly/control/firecode` |
+| `map_aim_point_node` | FaceMode 固定点朝向 solver；可独立发布 `/ly/control/angles`，正式 BT 链路发布 `/ly/face_mode/angles` |
 
 ## Topic
 
@@ -38,7 +38,8 @@
 | 发布 | `/ly/navi/goal_pos` | legacy/direct-XY 兼容输出，默认关闭 |
 | 发布 | `/ly/navi/target_map` | debug target map，按配置可开关 |
 | 发布 | `/ly/navi/position` | `map_frame <- base_frame` 反解出的自身官方地图坐标，`[x_cm, y_cm]` |
-| 发布 | `/ly/control/angles` | FaceMode 固定点朝向输出 |
+| 发布 | `/ly/control/angles` | FaceMode 独立测试/直接控制输出 |
+| 发布 | `/ly/face_mode/angles` | 正式 BT 链路的 FaceMode solver 输出 |
 | 发布 | `/ly/control/firecode` | FaceMode 可选 firecode 输出 |
 
 ## 关键参数
@@ -66,12 +67,16 @@ FaceMode launch 必填：
 - `official_map_y`
 - `map_z`
 
+`map_aim_point_node` 也支持 `require_initial_target=false`：节点启动后不发布角度，直到收到 `/ly/face_mode/target_raw`。`sentry_all.launch.py` 的正式 BT 链路使用这个模式，由 BT 动态下发 `[official_map_x, official_map_y, map_z]`。
+
 FaceMode 默认：
 
 - `yaw_sign=-1.0`
 - `solve_mode=camera_projection`
 - `aim_frame=gimbal_world`
 - `camera_frame=gx_camera`
+
+正式 `sentry_all` 中的 BT FaceMode solver 使用 `solve_mode=relative_geometry`、`solve_frame=gimbal_barrel_joint`、`yaw_sign=1.0`，即按 TF 相对几何直接算朝向，不依赖相机投影看到目标。
 
 ## 脚本入口
 
@@ -94,8 +99,9 @@ FaceMode 默认：
 - 旧的 `tf_point_pairs.yaml` 不再作为静态配置维护；点对导出是运行时 debug/export 行为。
 - `navitomap` 是官方地图点到 `/goal_pose` 的工具，不是追击测试。
 - FaceMode 直接控制云台，不发布底盘速度；和正式 `behavior_tree` 同时跑时要确认 `/ly/control/angles` 只有预期发布者。
-- 区域任务要使用 FaceMode 时，运行 `scripts/navi/facemode.sh --bt-output ...`，避免和 BT 同时抢 `/ly/control/angles`。
-- 区域任务需要切换固定朝向点时，由 BT 发布 `/ly/face_mode/target_raw`；`facemode.sh --bt-output official_map_x official_map_y map_z` 只负责提供启动初始目标。
+- `sentry_all.launch.py` 默认已拉起 BT 用的 FaceMode solver，输出到 `/ly/face_mode/angles`，不会直接抢 `/ly/control/angles`。
+- 单独调试区域任务 FaceMode 时，运行 `scripts/navi/facemode.sh --bt-output ...`，避免和 BT 同时抢 `/ly/control/angles`。
+- 区域任务需要切换固定朝向点时，由 BT 发布 `/ly/face_mode/target_raw`；格式为 `[official_map_x, official_map_y, map_z]` cm。
 - `/ly/navi/position` 依赖 raw-goal static calibration；如果 `tf_config.yaml` 的 4x4 没准备好，节点不会发布这个补充位置。
 - FaceMode 默认 `yaw_sign=-1.0`；`camera_projection` 下目标在 `gx_camera` 后方时会用几何 yaw/pitch fallback 先转向正面，再继续投影微调。
 - 详细变更记录见 [navi_tf_bridge / FaceMode / scripts 入口整理记录](../record/2026-05-03_navi_tf_bridge_facemode_and_script_layout.md)。

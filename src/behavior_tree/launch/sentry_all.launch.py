@@ -148,11 +148,17 @@ def generate_launch_description():
         "launch",
         "target_rel_to_goal_pos.launch.py",
     ])
+    face_mode_solver_bridge_config_file = PathJoinSubstitution([
+        FindPackageShare("navi_tf_bridge"),
+        "config",
+        "tf_config.yaml",
+    ])
     default_tf_tree_params_file = os.path.join(tf_tree_share, "config", "tf_tree.yaml")
     default_base_config_file = os.path.join(behavior_tree_config_root, "base_config.yaml")
     default_override_config_file = os.path.join(behavior_tree_config_root, "override_config.yaml")
     default_area_manager_config_file = os.path.join(behavior_tree_config_root, "AreaManager.yaml")
     default_task_config_file = os.path.join(behavior_tree_config_root, "Task.yaml")
+    default_navi_rotate_config_file = os.path.join(behavior_tree_config_root, "NaviRotateControl.yaml")
     default_detector_config_file = os.path.join(detector_share, "config", "detector_config.yaml")
     default_predictor_config_file = os.path.join(predictor_share, "config", "predictor_config.yaml")
     default_outpost_config_file = os.path.join(outpost_share, "config", "outpost_config.yaml")
@@ -162,6 +168,7 @@ def generate_launch_description():
     config_file = LaunchConfiguration("config_file")
     area_manager_config_file = LaunchConfiguration("area_manager_config_file")
     task_config_file = LaunchConfiguration("task_config_file")
+    navi_rotate_config_file = LaunchConfiguration("navi_rotate_config_file")
     base_config_file = LaunchConfiguration("base_config_file")
     detector_config_file = LaunchConfiguration("detector_config_file")
     predictor_config_file = LaunchConfiguration("predictor_config_file")
@@ -208,6 +215,7 @@ def generate_launch_description():
     use_behavior_tree = LaunchConfiguration("use_behavior_tree")
     use_tf_tree = LaunchConfiguration("use_tf_tree")
     use_navi_tf_bridge = LaunchConfiguration("use_navi_tf_bridge")
+    use_face_mode_solver = LaunchConfiguration("use_face_mode_solver")
     resolved_use_navi_tf_bridge = LaunchConfiguration("resolved_use_navi_tf_bridge")
     tf_tree_params_file = LaunchConfiguration("tf_tree_params_file")
     resolved_tf_tree_params_file = LaunchConfiguration("resolved_tf_tree_params_file")
@@ -241,6 +249,11 @@ def generate_launch_description():
             "task_config_file",
             default_value=default_task_config_file,
             description="Task YAML for behavior_tree Buff/Outpost enable switches.",
+        ),
+        DeclareLaunchArgument(
+            "navi_rotate_config_file",
+            default_value=default_navi_rotate_config_file,
+            description="External navigation rotate/follow compatibility YAML for behavior_tree.",
         ),
         DeclareLaunchArgument(
             "detector_config_file",
@@ -430,6 +443,11 @@ def generate_launch_description():
             description="Optional override. Empty means load NaviSetting.ToNavi from bt_config_file.",
         ),
         DeclareLaunchArgument(
+            "use_face_mode_solver",
+            default_value="true",
+            description="Launch map_aim_point_node in BT FaceMode mode: /ly/face_mode/target_raw -> /ly/face_mode/angles.",
+        ),
+        DeclareLaunchArgument(
             "tf_tree_params_file",
             default_value="",
             description="Optional tf_tree params YAML path. Empty uses package default.",
@@ -474,6 +492,7 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] base_config: ", base_config_file]),
         LogInfo(msg=["[sentry_all] area_manager_config: ", area_manager_config_file]),
         LogInfo(msg=["[sentry_all] task_config: ", task_config_file]),
+        LogInfo(msg=["[sentry_all] navi_rotate_config: ", navi_rotate_config_file]),
         LogInfo(msg=["[sentry_all] detector_config: ", detector_config_file]),
         LogInfo(msg=["[sentry_all] predictor_config: ", predictor_config_file]),
         LogInfo(msg=["[sentry_all] predictor_publish_on_tracker_callback: ", predictor_publish_on_tracker_callback]),
@@ -515,6 +534,7 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] decision_trace_every_n_ticks: ", decision_trace_every_n_ticks]),
         LogInfo(msg=["[sentry_all] use_tf_tree: ", use_tf_tree]),
         LogInfo(msg=["[sentry_all] use_navi_tf_bridge: ", use_navi_tf_bridge]),
+        LogInfo(msg=["[sentry_all] use_face_mode_solver: ", use_face_mode_solver]),
         LogInfo(msg=["[sentry_all] resolved_use_navi_tf_bridge: ", resolved_use_navi_tf_bridge]),
         LogInfo(msg=["[sentry_all] tf_tree_params_file: ", tf_tree_params_file]),
         LogInfo(msg=["[sentry_all] resolved_tf_tree_params_file: ", resolved_tf_tree_params_file]),
@@ -540,6 +560,43 @@ def generate_launch_description():
                 "enable_goal_pos_raw_bridge": "true",
                 "goal_pos_raw_frame": "map",
             }.items(),
+        ),
+        Node(
+            package="navi_tf_bridge",
+            executable="map_aim_point_node",
+            name="map_aim_point_node",
+            output=output,
+            parameters=[{
+                "require_initial_target": False,
+                "target_frame": "official_map",
+                "aim_frame": "gimbal_world",
+                "camera_frame": "gx_camera",
+                "solve_mode": "relative_geometry",
+                "solve_frame": "gimbal_barrel_joint",
+                "gimbal_angles_topic": "/ly/gimbal/angles",
+                "control_angles_topic": "/ly/face_mode/angles",
+                "control_firecode_topic": "/ly/control/firecode",
+                "face_target_topic": "/ly/face_mode/target_raw",
+                "publish_firecode": False,
+                "aim_mode": True,
+                "bridge_config_file": ParameterValue(face_mode_solver_bridge_config_file, value_type=str),
+                "use_raw_goal_static_calibration": True,
+                "raw_goal_target_frame": "map",
+                "publish_hz": 30.0,
+                "tf_timeout_sec": 0.05,
+                "use_gimbal_stamp_for_tf": False,
+                "max_gimbal_stamp_age_sec": 0.50,
+                "min_distance_m": 0.10,
+                "max_target_distance_m": 100.0,
+                "command_filter_alpha": 1.0,
+                "yaw_sign": 1.0,
+                "pitch_sign": 1.0,
+                "yaw_bias_deg": 0.0,
+                "pitch_bias_deg": 0.0,
+                "max_yaw_step_deg": 0.0,
+                "max_pitch_step_deg": 0.0,
+            }],
+            condition=IfCondition(use_face_mode_solver),
         ),
         ExecuteProcess(
             cmd=["ros2", "bag", "play", resolved_rosbag_path],
@@ -862,6 +919,7 @@ def generate_launch_description():
             parameters=[
                 area_manager_config_file,
                 task_config_file,
+                navi_rotate_config_file,
                 {
                     "competition_profile": resolved_competition_profile,
                     "bt_config_file": resolved_bt_config_file,

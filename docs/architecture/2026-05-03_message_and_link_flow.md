@@ -224,6 +224,7 @@ if(control_result.valid){
 - `/ly/buff/target` - 能量機關目標 (buff 模式)
 - `/ly/navi/reached` - 導航當前目標是否已到達，`true` 表示到達
 - `/ly/navi/reachable` - 導航當前目標是否可達，`false` 表示無有效路徑
+- `/ly/navi/is_rotate` - 外部导航区域兼容控制，`true` 恢复 BT 正常小陀螺/巡逻，`false` 关闭小陀螺并请求 `FollowMode`
 - `/ly/face_mode/angles` - FaceMode 角度输入；区域任务开启固定朝向时由 BT 消费
 - `/ly/navi/position` - 导航 TF 反解出的自身官方地图坐标，`UInt16MultiArray [x_cm, y_cm]`
 
@@ -479,7 +480,7 @@ float32 pitch
 - `rotate`
 - `raw`
 
-`FollowMode=1` 时，`behavior_tree` 会停小陀螺、停巡逻扫描、停止新的开火翻转，并保持当前云台角。FaceMode 区域接管只停云台巡逻/开火并使用固定点角度，不会单独停小陀螺。
+`FollowMode=1` 时，`behavior_tree` 会停小陀螺、停巡逻扫描、停止新的开火翻转，并保持当前云台角。FaceMode 区域接管只停云台巡逻/开火并使用固定点角度，不会单独停小陀螺。启用 `NaviRotateControl.yaml` 后，外部导航可用 `/ly/navi/is_rotate=false` 临时请求 `FollowMode+Rotate=0`，再用新鲜 `true` 恢复 BT 正常巡逻输出；默认只清 regional 区域兼容 FaceMode，不影响 Buff/Outpost AimMode 自己的固定朝向。
 
 ---
 
@@ -601,6 +602,7 @@ ros2 topic hz /ly/predictor/target
 3. **導航状态**:
    - `/ly/navi/reached` - 当前目标是否到达
    - `/ly/navi/reachable` - 当前目标是否可达
+   - `/ly/navi/is_rotate` - 外部导航区域兼容旋转控制
 
 ### 決策模塊需要發布的 Topic
 

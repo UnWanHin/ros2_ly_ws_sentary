@@ -1,0 +1,14 @@
+behavior_tree:
+  ros__parameters:
+    NaviRotateControl:
+      # External navigation publishes /ly/navi/is_rotate.
+      # true: return to BT's normal rotate and patrol policy.
+      # false: request FollowMode and stop chassis rotate.
+      # ClearRegionalFaceModeWhenTrue affects regional area-task FaceMode only.
+      Enable: true
+      FreshTimeoutMs: 500
+      DefaultIsRotate: true
+      ForceFollowModeWhenFalse: true
+      ClearFollowModeWhenTrue: true
+      ClearRegionalFaceModeWhenTrue: true
+      StopRotateWhenFalse: true

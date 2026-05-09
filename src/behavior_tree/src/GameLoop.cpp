@@ -430,6 +430,35 @@ namespace BehaviorTree {
         static constexpr auto kTwoPi = 6.2831853071795864769f;
         static constexpr int kDamageScanBoostWindowMs = 1300;
         static constexpr int kDamageScanYawPhaseMs = 160;
+        const auto follow_mode_before_navi_rotate_control =
+            gimbalControlData.FireCode.FollowMode;
+        bool navi_rotate_control_stop_request = false;
+        bool navi_rotate_control_release_request = false;
+        bool navi_rotate_control_follow_override = false;
+        if (config.NaviRotateControlSettings.Enable) {
+            bool external_is_rotate = config.NaviRotateControlSettings.DefaultIsRotate;
+            const auto rotate_control_now = std::chrono::steady_clock::now();
+            const bool external_is_rotate_fresh =
+                hasReceivedNaviIsRotate_ &&
+                lastNaviIsRotateRxTime_.time_since_epoch().count() != 0 &&
+                rotate_control_now - lastNaviIsRotateRxTime_ <=
+                    std::chrono::milliseconds(config.NaviRotateControlSettings.FreshTimeoutMs);
+            if (external_is_rotate_fresh) {
+                external_is_rotate = naviIsRotate;
+            }
+            navi_rotate_control_stop_request = !external_is_rotate;
+            navi_rotate_control_release_request =
+                external_is_rotate_fresh &&
+                external_is_rotate &&
+                config.NaviRotateControlSettings.ClearFollowModeWhenTrue;
+            if (navi_rotate_control_release_request) {
+                gimbalControlData.FireCode.FollowMode = 0;
+            } else if (navi_rotate_control_stop_request &&
+                config.NaviRotateControlSettings.ForceFollowModeWhenFalse) {
+                gimbalControlData.FireCode.FollowMode = 1;
+                navi_rotate_control_follow_override = true;
+            }
+        }
         const bool follow_mode_active = gimbalControlData.FireCode.FollowMode != 0;
 
         
@@ -493,8 +522,11 @@ namespace BehaviorTree {
             // StopRotate=true means disable chassis spin output.
             gimbalControlData.FireCode.Rotate = 0;
         }
-        if (areaManager_.HighlandTransitionActive() &&
-            config.DecisionAutonomySettings.NaviGoal.HighlandCompatDisableRotate) {
+        const bool highland_compat_disable_rotate_active =
+            areaManager_.HighlandTransitionActive() &&
+            config.DecisionAutonomySettings.NaviGoal.HighlandCompatDisableRotate &&
+            !navi_rotate_control_release_request;
+        if (highland_compat_disable_rotate_active) {
             gimbalControlData.FireCode.Rotate = 0;
         }
         if (follow_mode_active) {
@@ -509,8 +541,7 @@ namespace BehaviorTree {
             current_base_goal_id != LangYa::Recovery.ID;
         const bool fortress_defense_control_allowed =
             !follow_mode_active &&
-            !(areaManager_.HighlandTransitionActive() &&
-              config.DecisionAutonomySettings.NaviGoal.HighlandCompatDisableRotate);
+            !highland_compat_disable_rotate_active;
         const bool fortress_defense_target_locked =
             aimMode != AimMode::Buff &&
             aimMode != AimMode::Outpost &&
@@ -527,6 +558,10 @@ namespace BehaviorTree {
             !config.AimDebugSettings.StopRotate &&
             fortress_defense_control_allowed) {
             gimbalControlData.FireCode.Rotate = 3;
+        }
+        if (navi_rotate_control_stop_request &&
+            config.NaviRotateControlSettings.StopRotateWhenFalse) {
+            gimbalControlData.FireCode.Rotate = 0;
         }
 
         static auto last_rotate_log = std::chrono::steady_clock::time_point{};
@@ -569,8 +604,13 @@ namespace BehaviorTree {
         const bool has_target_for_angles = find_target || has_recent_latched_target;
         const bool visual_target_has_face_priority =
             has_target_for_angles && (aimMode == AimMode::Buff || aimMode == AimMode::Outpost);
+        const bool navi_rotate_control_clear_regional_face_mode =
+            navi_rotate_control_release_request &&
+            config.NaviRotateControlSettings.ClearRegionalFaceModeWhenTrue &&
+            faceModeManager_.Control().Phase != RegionalAreaTaskPhase::Idle;
         const bool face_mode_active =
-            faceModeManager_.Active(config.FaceModeSettings, visual_target_has_face_priority);
+            faceModeManager_.Active(config.FaceModeSettings, visual_target_has_face_priority) &&
+            !navi_rotate_control_clear_regional_face_mode;
         const auto chase_mode_enabled = [&]() -> bool {
             if (!config.ChaseSettings.Enable || !config.ChaseSettings.FollowAimTarget) {
                 return false;
@@ -977,6 +1017,9 @@ namespace BehaviorTree {
         naviVelocity = nextVelocity;
 
         PublishMessageAll();
+        if (navi_rotate_control_follow_override) {
+            gimbalControlData.FireCode.FollowMode = follow_mode_before_navi_rotate_control;
+        }
         autoAimData.Fresh = false;
         buffAimData.Fresh = false;
         outpostAimData.Fresh = false;

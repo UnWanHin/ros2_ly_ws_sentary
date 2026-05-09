@@ -41,6 +41,7 @@ def generate_launch_description():
         DeclareLaunchArgument("official_map_x"),
         DeclareLaunchArgument("official_map_y"),
         DeclareLaunchArgument("map_z"),
+        DeclareLaunchArgument("require_initial_target", default_value="true"),
         DeclareLaunchArgument("target_frame", default_value="official_map"),
         DeclareLaunchArgument("aim_frame", default_value="gimbal_world"),
         DeclareLaunchArgument("camera_frame", default_value="gx_camera"),
@@ -185,6 +186,8 @@ def generate_launch_description():
                 "official_map_x": ParameterValue(official_map_x, value_type=float),
                 "official_map_y": ParameterValue(official_map_y, value_type=float),
                 "map_z": ParameterValue(map_z, value_type=float),
+                "require_initial_target": ParameterValue(
+                    LaunchConfiguration("require_initial_target"), value_type=bool),
                 "target_frame": ParameterValue(target_frame, value_type=str),
                 "aim_frame": ParameterValue(aim_frame, value_type=str),
                 "camera_frame": ParameterValue(camera_frame, value_type=str),

@@ -242,6 +242,13 @@ namespace BehaviorTree{
             app.lastNaviReachableRxTime_ = std::chrono::steady_clock::now();
         });
 
+        // ly_navi_is_rotate
+        GenSub<ly_navi_is_rotate>([](Application& app, auto msg) {
+            app.naviIsRotate = msg->data;
+            app.hasReceivedNaviIsRotate_ = true;
+            app.lastNaviIsRotateRxTime_ = std::chrono::steady_clock::now();
+        });
+
         // ly_team_buff
         GenSub<ly_team_buff>([](Application& app, auto msg) {
             app.teamBuff.RecoveryBuff = msg->recoverybuff;

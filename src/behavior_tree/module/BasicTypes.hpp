@@ -497,6 +497,16 @@ namespace LangYa
         bool SuppressFire{true};
     };
 
+    struct NaviRotateControlSetting {
+        bool Enable{false};
+        int FreshTimeoutMs{500};
+        bool DefaultIsRotate{true};
+        bool ForceFollowModeWhenFalse{true};
+        bool ClearFollowModeWhenTrue{true};
+        bool ClearRegionalFaceModeWhenTrue{true};
+        bool StopRotateWhenFalse{true};
+    };
+
     struct LeagueStrategySetting {
         bool EnableRouteCompat{true};
         bool UseHealthRecovery{true};
@@ -770,6 +780,7 @@ namespace LangYa
         DamageOpenGateSetting DamageOpenGateSettings{};
         NaviSetting NaviSettings{};
         FaceModeSetting FaceModeSettings{};
+        NaviRotateControlSetting NaviRotateControlSettings{};
         LeagueStrategySetting LeagueStrategySettings{};
         ShowcasePatrolSetting ShowcasePatrolSettings{};
         NaviDebugSetting NaviDebugSettings{};

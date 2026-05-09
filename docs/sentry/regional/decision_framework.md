@@ -108,6 +108,7 @@ Regional 任務主要使用這些導航/定位輸入：
 
 - `/ly/navi/reached`：當前 goal 是否已到達，主到達判斷。
 - `/ly/navi/reachable`：當前 goal 是否有有效路徑，主不可達判斷。
+- `/ly/navi/is_rotate`：外部導航區域兼容控制；`true` 恢復 BT 正常小陀螺/巡邏，`false` 關小陀螺並請求 `FollowMode`。
 - `/ly/friend/uwb_pos`：雷達/UWB 推出的己方哨兵自身官方地圖坐標，單位 cm。
 - `/ly/navi/position`：導航/TF 推出的自身官方地圖坐標，單位 cm。
 - `/ly/position/data`：官方/雷達定位坐標。
@@ -391,6 +392,7 @@ Area task 使用既有 BT 控制鏈路輸出：
 
 - 通過 `SetPositionByBaseGoal()` 發導航目標；
 - 通過 `FireCode.FollowMode` 控 FollowMode；
+- 若啟用 `NaviRotateControl.yaml`，新鮮 `/ly/navi/is_rotate` 會覆蓋區域兼容用的 FollowMode/小陀螺/regional FaceMode 輸出；
 - 需要固定朝向時，通過 `/ly/face_mode/target_raw` 發 FaceMode 目標；
 - 需要停火時，覆蓋本輪 fire 狀態。
 

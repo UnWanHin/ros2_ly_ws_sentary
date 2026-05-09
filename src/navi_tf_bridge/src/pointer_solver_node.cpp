@@ -86,9 +86,18 @@ public:
     tf_buffer_(this->get_clock()),
     tf_listener_(tf_buffer_)
   {
-    official_map_x_m_ = declareRequiredCentimeterParameter("official_map_x");
-    official_map_y_m_ = declareRequiredCentimeterParameter("official_map_y");
-    map_z_m_ = declareRequiredCentimeterParameter("map_z");
+    require_initial_target_ = this->declare_parameter<bool>("require_initial_target", true);
+    if (require_initial_target_) {
+      official_map_x_m_ = declareRequiredCentimeterParameter("official_map_x");
+      official_map_y_m_ = declareRequiredCentimeterParameter("official_map_y");
+      map_z_m_ = declareRequiredCentimeterParameter("map_z");
+      has_active_target_ = true;
+    } else {
+      official_map_x_m_ = declareOptionalCentimeterParameter("official_map_x", 0.0);
+      official_map_y_m_ = declareOptionalCentimeterParameter("official_map_y", 0.0);
+      map_z_m_ = declareOptionalCentimeterParameter("map_z", 0.0);
+      has_active_target_ = false;
+    }
     target_frame_ = this->declare_parameter<std::string>("target_frame", "official_map");
     aim_frame_ = this->declare_parameter<std::string>("aim_frame", "gimbal_world");
     camera_frame_ = this->declare_parameter<std::string>("camera_frame", "gx_camera");
@@ -134,9 +143,11 @@ public:
     max_pitch_step_deg_ =
       std::max(0.0, this->declare_parameter<double>("max_pitch_step_deg", 0.0));
 
-    refreshActiveTargetFromOfficial("initial");
     if (use_static_calibration) {
       loadRawGoalStaticCalibration(bridge_config_file);
+    }
+    if (has_active_target_) {
+      refreshActiveTargetFromOfficial("initial");
     }
 
     pub_angles_ = this->create_publisher<gimbal_driver::msg::GimbalAngles>(control_topic, 10);
@@ -157,9 +168,11 @@ public:
 
     RCLCPP_INFO(
       this->get_logger(),
-      "FaceMode started: raw_target=(%.3f, %.3f, %.3f)m@%s active_target=(%.3f, %.3f, %.3f)m@%s "
+      "FaceMode started: initial_target=%s raw_target=(%.3f, %.3f, %.3f)m@%s "
+      "active_target=(%.3f, %.3f, %.3f)m@%s "
       "solve_mode=%s solve_frame=%s aim_frame=%s camera_frame=%s -> %s, gimbal=%s, firecode=%s, "
       "use_gimbal_stamp_for_tf=%s, command_filter_alpha=%.2f",
+      has_active_target_ ? "ready" : "waiting_for_face_target_raw",
       official_map_x_m_,
       official_map_y_m_,
       map_z_m_,
@@ -188,6 +201,16 @@ private:
       throw std::runtime_error(
         "FaceMode requires parameter '" + name +
         "' in cm. Pass official_map_x:=... official_map_y:=... map_z:=...");
+    } catch (const rclcpp::exceptions::InvalidParameterTypeException & ex) {
+      throw std::runtime_error(
+        "FaceMode parameter '" + name + "' must be a number in cm: " + ex.what());
+    }
+  }
+
+  double declareOptionalCentimeterParameter(const std::string & name, const double default_cm)
+  {
+    try {
+      return this->declare_parameter<double>(name, default_cm) * 0.01;
     } catch (const rclcpp::exceptions::InvalidParameterTypeException & ex) {
       throw std::runtime_error(
         "FaceMode parameter '" + name + "' must be a number in cm: " + ex.what());
@@ -247,7 +270,6 @@ private:
 
     raw_goal_static_calibration_ready_ = true;
     raw_goal_configured_target_frame_ = configured_target_frame;
-    refreshActiveTargetFromOfficial("raw-goal static calibration loaded");
   }
 
   void refreshActiveTargetFromOfficial(const std::string & reason)
@@ -293,7 +315,8 @@ private:
     const double next_x_m = static_cast<double>(msg->data[0]) * 0.01;
     const double next_y_m = static_cast<double>(msg->data[1]) * 0.01;
     const double next_z_m = static_cast<double>(msg->data[2]) * 0.01;
-    if (std::abs(next_x_m - official_map_x_m_) < 1e-9 &&
+    if (has_active_target_ &&
+        std::abs(next_x_m - official_map_x_m_) < 1e-9 &&
         std::abs(next_y_m - official_map_y_m_) < 1e-9 &&
         std::abs(next_z_m - map_z_m_) < 1e-9) {
       return;
@@ -301,6 +324,7 @@ private:
     official_map_x_m_ = next_x_m;
     official_map_y_m_ = next_y_m;
     map_z_m_ = next_z_m;
+    has_active_target_ = true;
     refreshActiveTargetFromOfficial("topic /ly/face_mode/target_raw");
   }
 
@@ -552,6 +576,10 @@ private:
 
   void onTimer()
   {
+    if (!has_active_target_) {
+      warnThrottled("waiting for /ly/face_mode/target_raw before publishing map aim command");
+      return;
+    }
     if (!current_angles_) {
       warnThrottled("waiting for /ly/gimbal/angles before publishing map aim command");
       return;
@@ -655,6 +683,8 @@ private:
 
   bool publish_firecode_{true};
   bool aim_mode_{true};
+  bool require_initial_target_{true};
+  bool has_active_target_{false};
   rclcpp::Duration tf_timeout_{0, 0};
   bool use_gimbal_stamp_for_tf_{false};
   double max_gimbal_stamp_age_sec_{0.50};

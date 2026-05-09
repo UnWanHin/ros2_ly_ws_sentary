@@ -20,6 +20,7 @@ DEFAULT_BUFF_CONFIG_FILE="${ROOT_DIR}/src/buff_hitter/config/buff_config.yaml"
 DEFAULT_OVERRIDE_CONFIG_FILE="${ROOT_DIR}/config/override_config.yaml"
 DEFAULT_AREA_MANAGER_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/AreaManager.yaml"
 DEFAULT_TASK_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/Task.yaml"
+DEFAULT_NAVI_ROTATE_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/NaviRotateControl.yaml"
 DEFAULT_COMMON_CONFIG_FILE="${ROOT_DIR}/config/common.yaml"
 
 STACK_LAUNCH_REGEX="ros2 launch behavior_tree sentry_all.launch.py"
@@ -441,6 +442,13 @@ if ! has_launch_arg_key "task_config_file"; then
   echo "[INFO] default task_config_file=${DEFAULT_TASK_CONFIG_FILE}"
 else
   for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == task_config_file:=* ]] && echo "[INFO] override task_config_file=${arg#task_config_file:=}"; done
+fi
+
+if ! has_launch_arg_key "navi_rotate_config_file"; then
+  LAUNCH_ARGS=("navi_rotate_config_file:=${DEFAULT_NAVI_ROTATE_CONFIG_FILE}" "${LAUNCH_ARGS[@]}")
+  echo "[INFO] default navi_rotate_config_file=${DEFAULT_NAVI_ROTATE_CONFIG_FILE}"
+else
+  for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == navi_rotate_config_file:=* ]] && echo "[INFO] override navi_rotate_config_file=${arg#navi_rotate_config_file:=}"; done
 fi
 
 if ! has_launch_arg_key "detector_config_file"; then

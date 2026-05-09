@@ -36,7 +36,7 @@
 - `scripts/navi/map_aim_point_test.sh`：FaceMode 固定点朝向测试；给 `[official_map_x, official_map_y, map_z]`，默认输入 cm，可用 `--unit m`；X/Y 走 `tf_config.yaml` 的 raw-goal 矩阵，Z 直接按 map 高度使用。
 - `scripts/navi/map_aim_point_attach.sh`：在已有 stack 上只附加 FaceMode/map_aim_point_node。
 
-FaceMode 的独立测试节点默认直接发布 `/ly/control/angles`，可选发布 `/ly/control/firecode`，不发布底盘速度，默认 `yaw_sign=-1.0`。给 BT 使用时必须走 `/ly/face_mode/angles`，由 BT 统一发布 `/ly/control/angles` 和 firecode。BT 需要运行时切换固定朝向目标时，会发布 `/ly/face_mode/target_raw`，格式为 `[official_map_x, official_map_y, map_z]`，单位 cm。
+FaceMode 的独立测试节点默认直接发布 `/ly/control/angles`，可选发布 `/ly/control/firecode`，不发布底盘速度。正式 `sentry_all` 已把 `map_aim_point_node` 以 BT 模式拉起：等待 `/ly/face_mode/target_raw`，用 TF 相对几何输出 `/ly/face_mode/angles`，再由 BT 统一发布 `/ly/control/angles` 和 firecode。BT 需要运行时切换固定朝向目标时，会发布 `/ly/face_mode/target_raw`，格式为 `[official_map_x, official_map_y, map_z]`，单位 cm。
 
 `config/AreaManager.yaml` 放区域启用状态和区域任务参数；区域状态机内置的固定朝向目标通过 `/ly/face_mode/target_raw` 动态下发。`/ly/face_mode/angles` 本身仍然是角度 topic，不携带官方地图坐标。
 

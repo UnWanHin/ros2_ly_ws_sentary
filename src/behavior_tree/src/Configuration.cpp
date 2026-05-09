@@ -496,6 +496,17 @@ namespace LangYa {
         fs.SuppressFire = j.value("SuppressFire", fs.SuppressFire);
     }
 
+    void from_json(const json& j, NaviRotateControlSetting& nr) {
+        nr.Enable = j.value("Enable", nr.Enable);
+        nr.FreshTimeoutMs = j.value("FreshTimeoutMs", nr.FreshTimeoutMs);
+        nr.DefaultIsRotate = j.value("DefaultIsRotate", nr.DefaultIsRotate);
+        nr.ForceFollowModeWhenFalse = j.value("ForceFollowModeWhenFalse", nr.ForceFollowModeWhenFalse);
+        nr.ClearFollowModeWhenTrue = j.value("ClearFollowModeWhenTrue", nr.ClearFollowModeWhenTrue);
+        nr.ClearRegionalFaceModeWhenTrue =
+            j.value("ClearRegionalFaceModeWhenTrue", nr.ClearRegionalFaceModeWhenTrue);
+        nr.StopRotateWhenFalse = j.value("StopRotateWhenFalse", nr.StopRotateWhenFalse);
+    }
+
     void from_json(const json& j, LeagueStrategySetting& ls) {
         ls.EnableRouteCompat = j.value("EnableRouteCompat", ls.EnableRouteCompat);
         ls.UseHealthRecovery = j.value("UseHealthRecovery", ls.UseHealthRecovery);
@@ -858,6 +869,9 @@ namespace LangYa {
         if (j.contains("FaceMode")) {
             j.at("FaceMode").get_to(c.FaceModeSettings);
         }
+        if (j.contains("NaviRotateControl")) {
+            j.at("NaviRotateControl").get_to(c.NaviRotateControlSettings);
+        }
         if (j.contains("LeagueStrategy")) {
             j.at("LeagueStrategy").get_to(c.LeagueStrategySettings);
         }
@@ -1085,6 +1099,59 @@ namespace BehaviorTree {
                 "Task/OutpostConfirm/DamageAbortHoldMs"
             },
             config.TaskSettings.OutpostConfirm.DamageAbortHoldMs);
+    }
+
+    void Application::ApplyNaviRotateControlParameterOverrides() {
+        auto& setting = config.NaviRotateControlSettings;
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "NaviRotateControl.Enable",
+                "NaviRotateControl/Enable"
+            },
+            setting.Enable);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "NaviRotateControl.FreshTimeoutMs",
+                "NaviRotateControl/FreshTimeoutMs"
+            },
+            setting.FreshTimeoutMs);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "NaviRotateControl.DefaultIsRotate",
+                "NaviRotateControl/DefaultIsRotate"
+            },
+            setting.DefaultIsRotate);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "NaviRotateControl.ForceFollowModeWhenFalse",
+                "NaviRotateControl/ForceFollowModeWhenFalse"
+            },
+            setting.ForceFollowModeWhenFalse);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "NaviRotateControl.ClearFollowModeWhenTrue",
+                "NaviRotateControl/ClearFollowModeWhenTrue"
+            },
+            setting.ClearFollowModeWhenTrue);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "NaviRotateControl.ClearRegionalFaceModeWhenTrue",
+                "NaviRotateControl/ClearRegionalFaceModeWhenTrue"
+            },
+            setting.ClearRegionalFaceModeWhenTrue);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "NaviRotateControl.StopRotateWhenFalse",
+                "NaviRotateControl/StopRotateWhenFalse"
+            },
+            setting.StopRotateWhenFalse);
     }
 
     void Application::ApplyAreaManagerParameterOverrides() {
@@ -1527,6 +1594,7 @@ namespace BehaviorTree {
         config = j.get<Config>();
         ApplyTaskParameterOverrides();
         ApplyAreaManagerParameterOverrides();
+        ApplyNaviRotateControlParameterOverrides();
         LoggerPtr->Debug("Switch_Point: {}", config.SwitchPoint);
         LoggerPtr->Debug("------ AimDebug ------");
         LoggerPtr->Debug("StopFire: {}", config.AimDebugSettings.StopFire);
@@ -1588,6 +1656,14 @@ namespace BehaviorTree {
         LoggerPtr->Debug("Enable: {}", config.FaceModeSettings.Enable);
         LoggerPtr->Debug("LostTargetHoldMs: {}", config.FaceModeSettings.LostTargetHoldMs);
         LoggerPtr->Debug("SuppressFire: {}", config.FaceModeSettings.SuppressFire);
+        LoggerPtr->Debug("------ NaviRotateControl ------");
+        LoggerPtr->Debug("Enable: {}", config.NaviRotateControlSettings.Enable);
+        LoggerPtr->Debug("FreshTimeoutMs: {}", config.NaviRotateControlSettings.FreshTimeoutMs);
+        LoggerPtr->Debug("DefaultIsRotate: {}", config.NaviRotateControlSettings.DefaultIsRotate);
+        LoggerPtr->Debug("ForceFollowModeWhenFalse: {}", config.NaviRotateControlSettings.ForceFollowModeWhenFalse);
+        LoggerPtr->Debug("ClearFollowModeWhenTrue: {}", config.NaviRotateControlSettings.ClearFollowModeWhenTrue);
+        LoggerPtr->Debug("ClearRegionalFaceModeWhenTrue: {}", config.NaviRotateControlSettings.ClearRegionalFaceModeWhenTrue);
+        LoggerPtr->Debug("StopRotateWhenFalse: {}", config.NaviRotateControlSettings.StopRotateWhenFalse);
         LoggerPtr->Debug("------ LeagueStrategy ------");
         LoggerPtr->Debug("EnableRouteCompat: {}", config.LeagueStrategySettings.EnableRouteCompat);
         LoggerPtr->Debug("UseHealthRecovery: {}", config.LeagueStrategySettings.UseHealthRecovery);
@@ -1913,6 +1989,12 @@ namespace BehaviorTree {
                 "Invalid FaceMode.LostTargetHoldMs={}, fallback to 300.",
                 config.FaceModeSettings.LostTargetHoldMs);
             config.FaceModeSettings.LostTargetHoldMs = 300;
+        }
+        if (config.NaviRotateControlSettings.FreshTimeoutMs <= 0) {
+            LoggerPtr->Warning(
+                "Invalid NaviRotateControl.FreshTimeoutMs={}, fallback to 500.",
+                config.NaviRotateControlSettings.FreshTimeoutMs);
+            config.NaviRotateControlSettings.FreshTimeoutMs = 500;
         }
         if (!IsValidBaseGoal(config.LeagueStrategySettings.MainGoal)) {
             LoggerPtr->Warning(

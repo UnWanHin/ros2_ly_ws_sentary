@@ -250,11 +250,14 @@ private:
     VelocityType naviVelocity{0, 0}; /// 定义回调，接收导航的速度控制数据
     bool naviReach{false}; // /ly/navi/reached: 当前导航目标是否已到达
     bool naviReachable{true}; // /ly/navi/reachable: 当前导航目标是否有有效路径
+    bool naviIsRotate{true}; // /ly/navi/is_rotate: 外部导航是否允许正常小陀螺
     bool hasReceivedNaviReach_{false};
     bool hasReceivedNaviReachable_{false};
+    bool hasReceivedNaviIsRotate_{false};
     bool naviExternalStatusGoalInitialized_{false};
     std::chrono::steady_clock::time_point lastNaviReachRxTime_{};
     std::chrono::steady_clock::time_point lastNaviReachableRxTime_{};
+    std::chrono::steady_clock::time_point lastNaviIsRotateRxTime_{};
     std::chrono::steady_clock::time_point naviExternalStatusGoalStartTime_{};
     std::uint8_t naviExternalStatusGoalId_{0};
     Area::Point<std::uint16_t> naviExternalStatusGoalPosition_{};
@@ -631,6 +634,7 @@ public:
     bool ConfigurationInit();
     void ApplyTaskParameterOverrides();
     void ApplyAreaManagerParameterOverrides();
+    void ApplyNaviRotateControlParameterOverrides();
     bool InitDecisionTrace();
     void WriteDecisionTrace(std::string_view event);
     void CloseDecisionTrace();

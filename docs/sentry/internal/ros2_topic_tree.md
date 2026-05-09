@@ -152,7 +152,7 @@ Updated: 2026-05-08
 └── angles     : gimbal_driver/msg/GimbalAngles     [Internal] FaceMode solver -> BT/控制角
 ```
 
-当前 `pointer_solver_node` 也可以直接发布到 `/ly/control/angles`，并可选发布 `/ly/control/firecode`。BT 封装 FaceMode 时使用 `/ly/face_mode/target_raw` 输入目标，激活后再接管角度链路。
+当前 `pointer_solver_node` 也可以直接发布到 `/ly/control/angles`，并可选发布 `/ly/control/firecode`。正式 `sentry_all` 默认以 BT 模式启动 `map_aim_point_node`：等待 `/ly/face_mode/target_raw` 后，用 TF 相对几何输出 `/ly/face_mode/angles`，BT 激活 FaceMode 后再接管角度链路。
 
 ### `/ly/navi` and `/goal_pose`
 
@@ -168,6 +168,7 @@ Updated: 2026-05-08
 ├── lower_head    : std_msgs/msg/UInt8              [External] 导航兼容低头状态
 ├── reached       : std_msgs/msg/Bool               [External] 导航 -> BT，当前 goal 是否到达
 ├── reachable     : std_msgs/msg/Bool               [External] 导航 -> BT，当前 goal 是否可达
+├── is_rotate     : std_msgs/msg/Bool               [External] 导航 -> BT，true 恢复正常巡逻，false 停小陀螺并请求 FollowMode
 └── vel           : gimbal_driver/msg/Vel           [External] 兼容/调试速度链路
 
 /goal_pose : geometry_msgs/msg/PoseStamped  [External] navi_tf_bridge -> 外部导航最终目标

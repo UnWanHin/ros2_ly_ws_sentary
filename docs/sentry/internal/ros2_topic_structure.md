@@ -110,7 +110,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/buff/target` | `auto_aim_common/msg/Target` | buff_hitter -> `behavior_tree` | 打符目标角和可击打状态。 |
 | `/ly/outpost/target` | `auto_aim_common/msg/Target` | outpost_hitter -> `behavior_tree` | 打前哨目标角和可击打状态。 |
 | `/ly/face_mode/target_raw` | `std_msgs/msg/UInt16MultiArray` | `behavior_tree` -> FaceMode solver | `[official_map_x, official_map_y, map_z]`，x/y 为官方地图 cm，z 为 map 系高度。 |
-| `/ly/face_mode/angles` | `gimbal_driver/msg/GimbalAngles` | FaceMode solver -> `behavior_tree` | 固定点朝向解算出的 yaw/pitch。BT 在 FaceMode 激活时转发到 `/ly/control/angles`。 |
+| `/ly/face_mode/angles` | `gimbal_driver/msg/GimbalAngles` | FaceMode solver -> `behavior_tree` | 固定点朝向解算出的 yaw/pitch。正式 `sentry_all` 默认由 `map_aim_point_node` 用 TF 相对几何输出，BT 在 FaceMode 激活时转发到 `/ly/control/angles`。 |
 
 ## 5. External Navigation And TF Bridge
 
@@ -127,6 +127,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/goal_pose` | `geometry_msgs/msg/PoseStamped` | `navi_tf_bridge` -> external navigation | 最终导航目标。 |
 | `/ly/navi/reached` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree` | 当前目标是否到达；true=到达，false=路上。 |
 | `/ly/navi/reachable` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree` | 当前目标是否有有效路径；true=可达，false=不可达。 |
+| `/ly/navi/is_rotate` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree` | 区域兼容旋转控制；true=恢复 BT 正常小陀螺/巡逻，false=关闭小陀螺并请求 `FollowMode`。 |
 | `/ly/navi/speed_level` | `std_msgs/msg/UInt8` | `behavior_tree` -> navigation/兼容 | 导航速度档位。 |
 | `/ly/navi/lower_head` | `std_msgs/msg/UInt8` | navigation/兼容 -> `behavior_tree` | 低头/通过特定路径时的兼容状态。 |
 | `/ly/navi/vel` | `gimbal_driver/msg/Vel` | 兼容/调试 | 当前 BT 代码保留 publisher，但主控制速度走 `/ly/control/vel`。 |
@@ -137,6 +138,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 
 - `/ly/navi/reached` 和 `/ly/navi/reachable` 必须在当前 goal 发布后收到并保持新鲜。
 - 状态缺失或超时时，BT 回退到自身位置和目标点距离判断。
+- `/ly/navi/is_rotate` 的新鲜度由 `NaviRotateControl.FreshTimeoutMs` 控制；新鲜 `true` 默认会清掉 `FollowMode` 和 regional 区域兼容 FaceMode，默认超时后按允许旋转处理但不继续保留旧 `false`。
 - topic 名是 `/ly/navi/reached`，不是 `/ly/navi/reach`。
 
 ## 6. Key Message Structures

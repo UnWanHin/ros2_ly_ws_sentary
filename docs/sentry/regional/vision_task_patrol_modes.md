@@ -459,6 +459,8 @@ Roadland 強綁定穿越時，`FollowMode + FaceMode + 停火` 會保持到到�
 /ly/face_mode/angles
 ```
 
+正式 `sentry_all` 會啟動 `map_aim_point_node` 作為 solver；它等待 BT 發 `/ly/face_mode/target_raw` 後，用 `gimbal_barrel_joint` 的 TF 相對幾何算 yaw/pitch，不要求相機先看到目標。
+
 BT 再轉發到：
 
 ```text
