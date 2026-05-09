@@ -13,7 +13,7 @@ TARGET_FRAME="${TARGET_FRAME:-map}"
 USE_RAW_GOAL_STATIC_CALIBRATION="${USE_RAW_GOAL_STATIC_CALIBRATION:-false}"
 RAW_GOAL_TARGET_FRAME="${RAW_GOAL_TARGET_FRAME:-map}"
 SOLVE_MODE="${SOLVE_MODE:-relative_geometry}"
-SOLVE_FRAME="${SOLVE_FRAME:-gimbal_small_yaw}"
+SOLVE_FRAME="${SOLVE_FRAME:-gimbal_barrel_joint}"
 YAW_SIGN="${YAW_SIGN:-1.0}"
 
 usage() {
@@ -25,8 +25,8 @@ Usage:
 Purpose:
   FaceMode map-frame direct input.
   X/Y/Z are used directly in target_frame=map; no tf_config.yaml matrix is applied.
-  It uses TF relative geometry by default: map -> gimbal_small_yaw, no camera projection required.
-  Default yaw command is current_yaw + yaw_error, with yaw_sign=+1.0.
+  It uses TF relative geometry by default: map -> gimbal_barrel_joint, no camera projection required.
+  Default yaw command is current_yaw + atan2(target_y, target_x), with yaw_sign=+1.0.
   Default input unit is m, matching navigation/map coordinates. Pass --unit cm for centimeters.
   --bt-output publishes angles to /ly/face_mode/angles and disables FaceMode firecode output.
 

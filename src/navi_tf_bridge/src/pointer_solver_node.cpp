@@ -473,32 +473,16 @@ private:
       return std::nullopt;
     }
 
-    const double sign = yaw_sign_ < 0.0 ? -1.0 : 1.0;
-    const double current_forward_rad = sign * current_yaw_deg * M_PI / 180.0;
-    const double forward_x = std::cos(current_forward_rad);
-    const double forward_y = std::sin(current_forward_rad);
-    const double dot = forward_x * target->x + forward_y * target->y;
-    const double cross = forward_x * target->y - forward_y * target->x;
-    double yaw_error_rad = std::atan2(cross, dot);
-    if (dot < 0.0 && std::abs(cross) < 1e-6) {
-      double turn_sign = 1.0;
-      if (last_yaw_cmd_deg_) {
-        const double last_delta = std::remainder(*last_yaw_cmd_deg_ - current_yaw_deg, 360.0);
-        if (std::abs(last_delta) > 1e-3) {
-          turn_sign = last_delta < 0.0 ? -1.0 : 1.0;
-        }
-      }
-      yaw_error_rad = turn_sign * M_PI;
-    }
-    const double yaw_error_deg = sign * yaw_error_rad * 180.0 / M_PI + yaw_bias_deg_;
-    const double yaw_cmd_deg = normalizeNear(current_yaw_deg + yaw_error_deg, current_yaw_deg);
+    const double yaw_delta_deg =
+      yaw_sign_ * std::atan2(target->y, target->x) * 180.0 / M_PI + yaw_bias_deg_;
+    const double yaw_cmd_deg = normalizeNear(current_yaw_deg + yaw_delta_deg, current_yaw_deg);
     const double pitch_cmd_deg =
       pitch_sign_ * std::atan2(target->z, horizontal) * 180.0 / M_PI + pitch_bias_deg_;
 
     std::ostringstream detail;
     detail << "target_in_" << solve_frame_ << "=(" << target->x << "," << target->y << ","
-           << target->z << ")m err_yaw=" << yaw_error_deg
-           << " dot=" << dot << " cross=" << cross << " target_pitch=" << pitch_cmd_deg;
+           << target->z << ")m yaw_delta=" << yaw_delta_deg
+           << " target_pitch=" << pitch_cmd_deg;
     (void)current_pitch_deg;
     return SolvedCommand{yaw_cmd_deg, pitch_cmd_deg, *target, detail.str()};
   }
