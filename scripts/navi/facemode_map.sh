@@ -14,6 +14,7 @@ USE_RAW_GOAL_STATIC_CALIBRATION="${USE_RAW_GOAL_STATIC_CALIBRATION:-false}"
 RAW_GOAL_TARGET_FRAME="${RAW_GOAL_TARGET_FRAME:-map}"
 SOLVE_MODE="${SOLVE_MODE:-base_link}"
 SOLVE_FRAME="${SOLVE_FRAME:-gimbal_small_yaw}"
+YAW_SIGN="${YAW_SIGN:-1.0}"
 
 usage() {
   cat <<EOF
@@ -25,6 +26,7 @@ Purpose:
   FaceMode map-frame direct input.
   X/Y/Z are used directly in target_frame=map; no tf_config.yaml matrix is applied.
   It uses TF geometry by default: map -> gimbal_small_yaw, no camera projection required.
+  Default yaw_sign is +1.0 for the map-frame geometry path.
   Default input unit is m, matching navigation/map coordinates. Pass --unit cm for centimeters.
   --bt-output publishes angles to /ly/face_mode/angles and disables FaceMode firecode output.
 
@@ -62,6 +64,7 @@ while [[ $# -gt 0 ]]; do
       export RAW_GOAL_TARGET_FRAME
       export SOLVE_MODE
       export SOLVE_FRAME
+      export YAW_SIGN
       exec "${ROOT_DIR}/scripts/navi/map_aim_point_test.sh" "$@"
       ;;
     --*)
@@ -86,6 +89,7 @@ export USE_RAW_GOAL_STATIC_CALIBRATION
 export RAW_GOAL_TARGET_FRAME
 export SOLVE_MODE
 export SOLVE_FRAME
+export YAW_SIGN
 export OFFICIAL_MAP_X="$1"
 export OFFICIAL_MAP_Y="$2"
 export MAP_Z="$3"
