@@ -210,7 +210,10 @@ python3 ./scripts/python/start.py --keep-to-navi
 | `scripts/navi/navitomap.sh` | 手动官方地图点转 `/goal_pose` |
 | `scripts/navi/OfficialToNavi.sh` | 纯静态换算：official map 点 -> navi/map 点，默认 official 输入 cm、navi 输出 m |
 | `scripts/navi/NaviToOfficial.sh` | 纯静态反向换算：navi/map 点 -> official map 点，默认 navi 输入 m、official 输出 cm |
-| `scripts/navi/facemode.sh` | FaceMode 简短入口：`facemode.sh official_map_x official_map_y map_z`，单位 cm |
+| `scripts/navi/facemode.sh` | 兼容旧入口，等同 `facemode_cross_matrix.sh` |
+| `scripts/navi/facemode_cross_matrix.sh` | FaceMode 官方 X/Y 经 `tf_config.yaml` 矩阵转 map，默认输入 cm |
+| `scripts/navi/facemode_map.sh` | FaceMode 直接使用导航 `map` 系 X/Y/Z，不过矩阵，默认输入 m |
+| `scripts/navi/facemode_official.sh` | FaceMode 直接使用 `official_map` frame，不过矩阵，默认输入 cm，需要 TF 中有 official_map 链路 |
 | `scripts/navi/position.sh` | 一键查看 `/ly/navi/position`，默认只输出 `data: [official_map_x_cm, official_map_y_cm]` |
 | `scripts/navi/map_aim_point_test.sh` | FaceMode 完整测试入口，可拉 `gimbal_driver` / `tf_tree`，支持 `--unit m\|cm`，默认 cm |
 | `scripts/navi/map_aim_point_attach.sh` | 已有 stack 上只附加 FaceMode 节点 |
