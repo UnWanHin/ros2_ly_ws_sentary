@@ -456,6 +456,8 @@ namespace LangYa {
         os.VisualScoutWithoutHp = j.value("VisualScoutWithoutHp", os.VisualScoutWithoutHp);
         os.VisualScoutHoldMs = j.value("VisualScoutHoldMs", os.VisualScoutHoldMs);
         os.VisualScoutCooldownMs = j.value("VisualScoutCooldownMs", os.VisualScoutCooldownMs);
+        os.VisualScoutFaceDistanceCm = j.value("VisualScoutFaceDistanceCm", os.VisualScoutFaceDistanceCm);
+        os.ArmorInterruptMaxDistanceCm = j.value("ArmorInterruptMaxDistanceCm", os.ArmorInterruptMaxDistanceCm);
         os.DamageAbortThreshold = j.value("DamageAbortThreshold", os.DamageAbortThreshold);
         os.DamageAbortWindowMs = j.value("DamageAbortWindowMs", os.DamageAbortWindowMs);
         os.DamageAbortHoldMs = j.value("DamageAbortHoldMs", os.DamageAbortHoldMs);
@@ -1051,6 +1053,20 @@ namespace BehaviorTree {
         ReadOptionalIntParam(
             node_,
             {
+                "Task.OutpostConfirm.VisualScoutFaceDistanceCm",
+                "Task/OutpostConfirm/VisualScoutFaceDistanceCm"
+            },
+            config.TaskSettings.OutpostConfirm.VisualScoutFaceDistanceCm);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.OutpostConfirm.ArmorInterruptMaxDistanceCm",
+                "Task/OutpostConfirm/ArmorInterruptMaxDistanceCm"
+            },
+            config.TaskSettings.OutpostConfirm.ArmorInterruptMaxDistanceCm);
+        ReadOptionalIntParam(
+            node_,
+            {
                 "Task.OutpostConfirm.DamageAbortThreshold",
                 "Task/OutpostConfirm/DamageAbortThreshold"
             },
@@ -1549,7 +1565,7 @@ namespace BehaviorTree {
             config.TaskSettings.BuffConfirm.DamageAbortWindowMs,
             config.TaskSettings.BuffConfirm.DamageAbortHoldMs);
         LoggerPtr->Debug(
-            "OutpostConfirm: referee_fresh_ms={} max_game_time_sec={} min_self_hp={} min_ammo={} visual_scout_without_hp={} visual_scout_hold_ms={} visual_scout_cooldown_ms={} damage_abort_threshold={} damage_abort_window_ms={} damage_abort_hold_ms={}",
+            "OutpostConfirm: referee_fresh_ms={} max_game_time_sec={} min_self_hp={} min_ammo={} visual_scout_without_hp={} visual_scout_hold_ms={} visual_scout_cooldown_ms={} visual_scout_face_distance_cm={} armor_interrupt_max_distance_cm={} damage_abort_threshold={} damage_abort_window_ms={} damage_abort_hold_ms={}",
             config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs,
             config.TaskSettings.OutpostConfirm.MaxGameTimeSec,
             config.TaskSettings.OutpostConfirm.MinSelfHp,
@@ -1557,6 +1573,8 @@ namespace BehaviorTree {
             config.TaskSettings.OutpostConfirm.VisualScoutWithoutHp ? 1 : 0,
             config.TaskSettings.OutpostConfirm.VisualScoutHoldMs,
             config.TaskSettings.OutpostConfirm.VisualScoutCooldownMs,
+            config.TaskSettings.OutpostConfirm.VisualScoutFaceDistanceCm,
+            config.TaskSettings.OutpostConfirm.ArmorInterruptMaxDistanceCm,
             config.TaskSettings.OutpostConfirm.DamageAbortThreshold,
             config.TaskSettings.OutpostConfirm.DamageAbortWindowMs,
             config.TaskSettings.OutpostConfirm.DamageAbortHoldMs);
@@ -1859,6 +1877,18 @@ namespace BehaviorTree {
                 "Invalid Task.OutpostConfirm.VisualScoutCooldownMs={}, fallback to 15000.",
                 outpost_confirm.VisualScoutCooldownMs);
             outpost_confirm.VisualScoutCooldownMs = 15000;
+        }
+        if (outpost_confirm.VisualScoutFaceDistanceCm < 0) {
+            LoggerPtr->Warning(
+                "Invalid Task.OutpostConfirm.VisualScoutFaceDistanceCm={}, fallback to 300.",
+                outpost_confirm.VisualScoutFaceDistanceCm);
+            outpost_confirm.VisualScoutFaceDistanceCm = 300;
+        }
+        if (outpost_confirm.ArmorInterruptMaxDistanceCm < 0) {
+            LoggerPtr->Warning(
+                "Invalid Task.OutpostConfirm.ArmorInterruptMaxDistanceCm={}, fallback to 1000.",
+                outpost_confirm.ArmorInterruptMaxDistanceCm);
+            outpost_confirm.ArmorInterruptMaxDistanceCm = 1000;
         }
         if (outpost_confirm.DamageAbortThreshold < 0) {
             LoggerPtr->Warning(

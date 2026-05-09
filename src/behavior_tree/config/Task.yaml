@@ -17,6 +17,10 @@ behavior_tree:
         VisualScoutWithoutHp: true
         VisualScoutHoldMs: 8000
         VisualScoutCooldownMs: 15000
+        # 距 BuffOutpost 300cm 內才開始開前哨 FaceMode/視覺；到點後才開始 no-target timeout。
+        VisualScoutFaceDistanceCm: 300
+        # 路上普通敵人距離不超過此值才打斷前哨偵查；0 表示只看 predictor 是否有效。
+        ArmorInterruptMaxDistanceCm: 1000
         # 前哨任務可被受擊打斷；與 Buff 不同，打前哨之後可再回來打。
         DamageAbortThreshold: 30
         DamageAbortWindowMs: 1000

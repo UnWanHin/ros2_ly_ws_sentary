@@ -553,7 +553,9 @@ namespace BehaviorTree {
         }
         GimbalAnglesType nextAngles = gimbalAngles;
         VelocityType nextVelocity = naviVelocityInput;
-        const bool find_target = isFindTargetAtomic.load(std::memory_order_relaxed);
+        const bool find_target_callback = isFindTargetAtomic.load(std::memory_order_relaxed);
+        const bool find_target =
+            find_target_callback && activeAimData->Fresh && activeAimData->Valid;
         const bool has_recent_latched_target = [&]() {
             if (find_target || !config.AimDebugSettings.ReuseLatchedAnglesOnNoTarget ||
                 !activeAimData->HasLatchedAngles ||
@@ -1151,6 +1153,7 @@ namespace BehaviorTree {
         int now_time = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - gameStartTime).count();
         LoggerPtr->Info("SetAimMode - now_time: {}", now_time);
         if(config.TaskSettings.Buff) { // 打符
+            outpostVisualScoutNavigationActive_ = false;
             const auto now = std::chrono::steady_clock::now();
             const int referee_fresh_ms =
                 std::max(0, config.TaskSettings.BuffConfirm.RefereeFreshTimeoutMs);
@@ -1301,6 +1304,7 @@ namespace BehaviorTree {
             }
         }else if(config.TaskSettings.Outpost) { // 打前哨站
             if (IsRegionalDefenseAimSuppressActive()) {
+                outpostVisualScoutNavigationActive_ = false;
                 aimMode = AimMode::RotateScan;
                 LoggerPtr->Info("Regional defense active: suppress Outpost aim mode.");
                 return;
@@ -1308,6 +1312,7 @@ namespace BehaviorTree {
             if (areaManager_.RegionalAreaTaskActive() &&
                 areaManager_.RegionalAreaTask().Type == RegionalAreaTaskType::MyRoadland &&
                 !areaManager_.RegionalAreaTaskCanYieldToHigherPriority()) {
+                outpostVisualScoutNavigationActive_ = false;
                 aimMode = AimMode::RotateScan;
                 LoggerPtr->Info("Roadland hard crossing active: suppress Outpost aim mode.");
                 return;
@@ -1338,7 +1343,38 @@ namespace BehaviorTree {
                 IsBaseGoalExternallyUnreachable(LangYa::BuffOutpost.ID, team, true);
             const bool outpost_visual_scout_point_reached =
                 IsBaseGoalArrived(LangYa::BuffOutpost.ID, team, true);
-            const bool armor_target_visible = autoAimData.Fresh && autoAimData.Valid;
+            const int visual_scout_face_distance_cm =
+                std::max(0, outpost_confirm.VisualScoutFaceDistanceCm);
+            const bool outpost_visual_scout_face_ready =
+                outpost_visual_scout_point_reached ||
+                IsBaseGoalWithinDistance(
+                    LangYa::BuffOutpost.ID,
+                    team,
+                    visual_scout_face_distance_cm);
+            const int armor_interrupt_max_distance_cm =
+                std::max(0, outpost_confirm.ArmorInterruptMaxDistanceCm);
+            const auto nearest_armor_distance_cm = [&]() -> std::optional<double> {
+                std::optional<double> nearest;
+                for (const auto& armor : armorList) {
+                    if (armor.Type == ArmorType::UnKnown ||
+                        armor.Type == ArmorType::Outpost ||
+                        !std::isfinite(armor.Distance) ||
+                        armor.Distance <= 0.0F) {
+                        continue;
+                    }
+                    const double distance_cm = static_cast<double>(armor.Distance) * 100.0;
+                    if (!nearest.has_value() || distance_cm < *nearest) {
+                        nearest = distance_cm;
+                    }
+                }
+                return nearest;
+            }();
+            const bool armor_target_too_far =
+                nearest_armor_distance_cm.has_value() &&
+                armor_interrupt_max_distance_cm > 0 &&
+                *nearest_armor_distance_cm > static_cast<double>(armor_interrupt_max_distance_cm);
+            const bool armor_target_visible =
+                autoAimData.Fresh && autoAimData.Valid && !armor_target_too_far;
             const int damage_abort_threshold = std::max(0, outpost_confirm.DamageAbortThreshold);
             const int damage_abort_window_ms = std::max(0, outpost_confirm.DamageAbortWindowMs);
             const int damage_abort_hold_ms = std::max(0, outpost_confirm.DamageAbortHoldMs);
@@ -1368,13 +1404,31 @@ namespace BehaviorTree {
                     std::chrono::milliseconds(std::max(0, config.AimDebugSettings.LatchedTargetHoldMs));
             const int visual_scout_hold_ms = std::max(0, outpost_confirm.VisualScoutHoldMs);
             const int visual_scout_cooldown_ms = std::max(0, outpost_confirm.VisualScoutCooldownMs);
+            const bool outpost_visual_scout_cooling_down =
+                outpostVisualScoutCooldownUntil_.time_since_epoch().count() != 0 &&
+                now < outpostVisualScoutCooldownUntil_;
+            const bool outpost_visual_scout_available =
+                outpost_confirm.VisualScoutWithoutHp &&
+                visual_scout_hold_ms > 0 &&
+                !outpost_visual_scout_cooling_down;
+            const bool outpost_visual_scout_candidate_allowed =
+                self_hp_ready &&
+                ammo_ready &&
+                in_time_window &&
+                !outpost_goal_unreachable &&
+                !(enemy_outpost_hp_fresh && enemyOutpostHealth == 0) &&
+                ((enemy_outpost_hp_fresh && enemyOutpostHealth > 0) ||
+                 outpost_visual_recent ||
+                 outpost_visual_scout_available);
             auto clear_outpost_visual_scout_attempt = [&]() {
                 outpostVisualScoutStartTime_ = {};
             };
             auto reset_outpost_visual_scout_state = [&]() {
                 outpostVisualScoutStartTime_ = {};
                 outpostVisualScoutCooldownUntil_ = {};
+                outpostVisualScoutNavigationActive_ = false;
             };
+            outpostVisualScoutNavigationActive_ = false;
 
             if (recent_damage_abort) {
                 clear_outpost_visual_scout_attempt();
@@ -1389,8 +1443,13 @@ namespace BehaviorTree {
                 aimMode = AimMode::RotateScan;
             } else if (armor_target_visible) {
                 clear_outpost_visual_scout_attempt();
+                outpostVisualScoutNavigationActive_ = outpost_visual_scout_candidate_allowed;
                 aimMode = AimMode::RotateScan;
-                LoggerPtr->Info("Armor target visible: interrupt Outpost aim mode.");
+                LoggerPtr->Info(
+                    "Armor target visible: interrupt Outpost aim mode. nearest_cm={} max_cm={} keep_scout_nav={}.",
+                    nearest_armor_distance_cm.value_or(-1.0),
+                    armor_interrupt_max_distance_cm,
+                    outpostVisualScoutNavigationActive_ ? 1 : 0);
             } else if (!self_hp_ready || !ammo_ready) {
                 clear_outpost_visual_scout_attempt();
                 aimMode = AimMode::RotateScan;
@@ -1420,27 +1479,40 @@ namespace BehaviorTree {
             } else if (enemy_outpost_hp_fresh && enemyOutpostHealth > 0) {
                 reset_outpost_visual_scout_state();
                 LoggerPtr->Info("Enemy Outpost HP interface says alive: {}", enemyOutpostHealth);
-                aimMode = AimMode::Outpost;
+                outpostVisualScoutNavigationActive_ = true;
+                aimMode = outpost_visual_scout_face_ready ? AimMode::Outpost : AimMode::RotateScan;
+                LoggerPtr->Info(
+                    "Outpost HP alive: face_ready={} face_distance_cm={} point_reached={}.",
+                    outpost_visual_scout_face_ready ? 1 : 0,
+                    visual_scout_face_distance_cm,
+                    outpost_visual_scout_point_reached ? 1 : 0);
             } else if (outpost_visual_recent) {
                 reset_outpost_visual_scout_state();
+                outpostVisualScoutNavigationActive_ = true;
                 LoggerPtr->Info(
                     "Keep Outpost task by recent visual target.");
                 aimMode = AimMode::Outpost;
             } else if (outpost_confirm.VisualScoutWithoutHp &&
                        visual_scout_hold_ms > 0) {
-                if (outpostVisualScoutCooldownUntil_.time_since_epoch().count() != 0 &&
-                    now < outpostVisualScoutCooldownUntil_) {
+                if (outpost_visual_scout_cooling_down) {
                     aimMode = AimMode::RotateScan;
                     LoggerPtr->Info(
                         "Outpost visual scout cooling down: cooldown_left_ms={}.",
                         std::chrono::duration_cast<std::chrono::milliseconds>(
                             outpostVisualScoutCooldownUntil_ - now).count());
                 } else {
-                    if (!outpost_visual_scout_point_reached) {
+                    outpostVisualScoutNavigationActive_ = true;
+                    if (!outpost_visual_scout_face_ready) {
+                        outpostVisualScoutStartTime_ = {};
+                        aimMode = AimMode::RotateScan;
+                        LoggerPtr->Info(
+                            "Outpost visual scout travel: go to BuffOutpost in armor mode before face distance. face_distance_cm={}",
+                            visual_scout_face_distance_cm);
+                    } else if (!outpost_visual_scout_point_reached) {
                         outpostVisualScoutStartTime_ = {};
                         aimMode = AimMode::Outpost;
                         LoggerPtr->Info(
-                            "Outpost visual scout: go to BuffOutpost before starting no-target timeout.");
+                            "Outpost visual scout approach: within face distance, enable Outpost vision/FaceMode before timeout.");
                     } else if (outpostVisualScoutStartTime_.time_since_epoch().count() == 0) {
                         outpostVisualScoutStartTime_ = now;
                         LoggerPtr->Info(
@@ -1457,6 +1529,7 @@ namespace BehaviorTree {
                             outpostVisualScoutStartTime_ = {};
                             outpostVisualScoutCooldownUntil_ =
                                 now + std::chrono::milliseconds(visual_scout_cooldown_ms);
+                            outpostVisualScoutNavigationActive_ = false;
                             aimMode = AimMode::RotateScan;
                             LoggerPtr->Warning(
                                 "Outpost visual scout timeout without target: hold_ms={} cooldown_ms={}.",
@@ -1474,6 +1547,7 @@ namespace BehaviorTree {
                     enemyOutpostHealth);
             }
         }else { // 普通模式
+            outpostVisualScoutNavigationActive_ = false;
             if (IsRegionalDefenseAimSuppressActive()) {
                 LoggerPtr->Info("Regional defense active: keep armor vision mode.");
             } else {
@@ -2117,6 +2191,34 @@ namespace BehaviorTree {
             static_cast<double>(arrive_distance) * static_cast<double>(arrive_distance);
     }
 
+    bool Application::IsBaseGoalWithinDistance(
+        const std::uint8_t base_goal_id,
+        const UnitTeam goal_team,
+        const int distance_cm) const {
+        if (!AreaManager::IsValidBaseGoalId(base_goal_id) || distance_cm <= 0) {
+            return false;
+        }
+        if (!hasReceivedSentryPosition_) {
+            return false;
+        }
+        if (lastSentryPositionRxTime_.time_since_epoch().count() == 0 ||
+            std::chrono::steady_clock::now() - lastSentryPositionRxTime_ > std::chrono::seconds(2)) {
+            return false;
+        }
+        const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
+        const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
+        if (self_x <= 0 || self_y <= 0) {
+            return false;
+        }
+        const auto goal_point = AreaManager::GoalPointByBaseId(base_goal_id, goal_team);
+        return AreaManager::DistanceSq(
+            self_x,
+            self_y,
+            static_cast<int>(goal_point.x),
+            static_cast<int>(goal_point.y)) <=
+            static_cast<double>(distance_cm) * static_cast<double>(distance_cm);
+    }
+
     bool Application::IsBaseGoalExternallyUnreachable(
         const std::uint8_t base_goal_id,
         const UnitTeam goal_team,
@@ -2162,6 +2264,26 @@ namespace BehaviorTree {
             reason);
         const auto face_target_team = aimMode == AimMode::Outpost ? enemy_team : my_team;
         ApplyAimModeFaceTarget(face_target_team);
+        naviCommandIntervalClock.reset(Seconds{2});
+        speedLevel = 1;
+        return true;
+    }
+
+    bool Application::TrySetOutpostVisualScoutTravelGoal(
+        const UnitTeam my_team,
+        const UnitTeam enemy_team,
+        const char* reason) {
+        if (!outpostVisualScoutNavigationActive_) {
+            return false;
+        }
+
+        TrySetScopedPositionByBaseGoal(
+            LangYa::BuffOutpost.ID,
+            my_team,
+            my_team,
+            enemy_team,
+            true,
+            reason);
         naviCommandIntervalClock.reset(Seconds{2});
         speedLevel = 1;
         return true;
@@ -2943,6 +3065,20 @@ namespace BehaviorTree {
         const auto& watchdog = config.NaviProgressWatchdogSettings;
         const auto now = std::chrono::steady_clock::now();
         const auto& runtime = areaManager_.ProgressWatchdogRuntime();
+        if (outpostVisualScoutNavigationActive_) {
+            const auto buff_outpost_goal_id =
+                ResolveGoalId(LangYa::BuffOutpost.ID, my_team, true);
+            const auto buff_outpost_goal_position =
+                AreaManager::GoalPointByBaseId(LangYa::BuffOutpost.ID, my_team);
+            const bool watchdog_matches_outpost_goal =
+                runtime.Active &&
+                runtime.GoalId == buff_outpost_goal_id &&
+                runtime.GoalPosition.x == buff_outpost_goal_position.x &&
+                runtime.GoalPosition.y == buff_outpost_goal_position.y;
+            if (!watchdog_matches_outpost_goal) {
+                return false;
+            }
+        }
         const bool self_position_fresh =
             hasReceivedSentryPosition_ &&
             lastSentryPositionRxTime_.time_since_epoch().count() != 0 &&
@@ -3008,7 +3144,8 @@ namespace BehaviorTree {
         if (!patrol.Enable || IsLeagueProfile() || IsShowcasePatrolEnabled()) {
             return false;
         }
-        if (aimMode == AimMode::Buff || aimMode == AimMode::Outpost) {
+        if (aimMode == AimMode::Buff || aimMode == AimMode::Outpost ||
+            outpostVisualScoutNavigationActive_) {
             return false;
         }
         if (patrol.Goals.empty()) {
@@ -3067,6 +3204,7 @@ namespace BehaviorTree {
             GetStrategyMode() == StrategyMode::Regional &&
             aimMode != AimMode::Buff &&
             aimMode != AimMode::Outpost &&
+            !outpostVisualScoutNavigationActive_ &&
             !areaManager_.RegionalAreaTaskActive() &&
             !areaManager_.HighlandTransitionActive() &&
             !EvaluateRegionalDefenseThreat(my_team, enemy_team).has_value();
@@ -3080,7 +3218,8 @@ namespace BehaviorTree {
             IsLeagueProfile() ||
             IsShowcasePatrolEnabled() ||
             aimMode == AimMode::Buff ||
-            aimMode == AimMode::Outpost) {
+            aimMode == AimMode::Outpost ||
+            outpostVisualScoutNavigationActive_) {
             return false;
         }
 

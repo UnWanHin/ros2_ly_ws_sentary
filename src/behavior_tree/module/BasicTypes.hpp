@@ -463,6 +463,8 @@ namespace LangYa
         bool VisualScoutWithoutHp{true};
         int VisualScoutHoldMs{8000};
         int VisualScoutCooldownMs{15000};
+        int VisualScoutFaceDistanceCm{300};
+        int ArmorInterruptMaxDistanceCm{1000};
         int DamageAbortThreshold{30};
         int DamageAbortWindowMs{1000};
         int DamageAbortHoldMs{3000};

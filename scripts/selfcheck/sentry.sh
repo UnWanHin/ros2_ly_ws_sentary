@@ -685,6 +685,7 @@ if (( RUNTIME_ONLY == 0 )); then
   check_file_exists "${ROOT_DIR}/scripts/feature_test/standalone/modes/navi_patrol_mode.sh"
   check_file_exists "${ROOT_DIR}/scripts/navi/navitomap.sh"
   check_file_exists "${ROOT_DIR}/scripts/navi/facemode.sh"
+  check_file_exists "${ROOT_DIR}/scripts/navi/position.sh"
   check_file_exists "${ROOT_DIR}/scripts/navi/map_aim_point_test.sh"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/include/BTNodes.hpp"
 
@@ -707,6 +708,7 @@ if (( RUNTIME_ONLY == 0 )); then
   check_executable_file "${ROOT_DIR}/scripts/feature_test/standalone/modes/navi_patrol_mode.sh"
   check_executable_file "${ROOT_DIR}/scripts/navi/navitomap.sh"
   check_executable_file "${ROOT_DIR}/scripts/navi/facemode.sh"
+  check_executable_file "${ROOT_DIR}/scripts/navi/position.sh"
   check_executable_file "${ROOT_DIR}/scripts/navi/map_aim_point_test.sh"
 
   check_bash_syntax "${ROOT_DIR}/scripts/start.sh"
@@ -728,6 +730,7 @@ if (( RUNTIME_ONLY == 0 )); then
   check_bash_syntax "${ROOT_DIR}/scripts/feature_test/standalone/modes/navi_patrol_mode.sh"
   check_bash_syntax "${ROOT_DIR}/scripts/navi/navitomap.sh"
   check_bash_syntax "${ROOT_DIR}/scripts/navi/facemode.sh"
+  check_bash_syntax "${ROOT_DIR}/scripts/navi/position.sh"
   check_bash_syntax "${ROOT_DIR}/scripts/navi/map_aim_point_test.sh"
 
   check_camera_sn_config "${ROOT_DIR}/config/base_config.yaml"

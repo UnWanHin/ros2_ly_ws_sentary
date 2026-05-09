@@ -240,6 +240,7 @@ private:
     std::chrono::steady_clock::time_point outpostTaskDamageAbortUntil_{};
     std::chrono::steady_clock::time_point outpostVisualScoutStartTime_{};
     std::chrono::steady_clock::time_point outpostVisualScoutCooldownUntil_{};
+    bool outpostVisualScoutNavigationActive_{false};
 
     std::uint8_t naviCommandGoal{0}; // 导航目标
     Area::Point<std::uint16_t> naviGoalPosition{}; // 导航定位目标
@@ -541,6 +542,10 @@ public:
         std::uint8_t base_goal_id,
         UnitTeam goal_team,
         bool apply_team_offset = true) const;
+    bool IsBaseGoalWithinDistance(
+        std::uint8_t base_goal_id,
+        UnitTeam goal_team,
+        int distance_cm) const;
     bool IsBaseGoalExternallyUnreachable(
         std::uint8_t base_goal_id,
         UnitTeam goal_team,
@@ -549,6 +554,8 @@ public:
     void ResetRegionalAreaControlOverride() noexcept;
     void ApplyAimModeFaceTarget(UnitTeam target_team);
     bool TrySetAimModeTaskGoal(UnitTeam my_team, UnitTeam enemy_team, const char* reason);
+    bool IsOutpostVisualScoutNavigationActive() const noexcept { return outpostVisualScoutNavigationActive_; }
+    bool TrySetOutpostVisualScoutTravelGoal(UnitTeam my_team, UnitTeam enemy_team, const char* reason);
     void ApplyRegionalAreaTaskControl(const RegionalAreaTaskTickResult& result);
     bool RequestRoadlandSafeReturn(const char* reason);
     bool TickRegionalAreaTask(UnitTeam my_team, UnitTeam enemy_team);

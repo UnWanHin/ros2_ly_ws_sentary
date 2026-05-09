@@ -218,8 +218,8 @@ void TreeTick() {
 |------|------|
 | `Task.Buff=true` 且 now_time<25 且 buff次數≤15 | `AimMode::Buff` |
 | 能量機關已激活（event_data 狀態或 legacy buff 狀態） | `AimMode::RotateScan`（Buff進了就切回掃描） |
-| `Task.Outpost=true` 且敵方前哨血量新鮮、大於 0、now_time<90 | `AimMode::Outpost` |
-| `Task.Outpost=true` 且 `VisualScoutWithoutHp=true`、資源/時間/不可達 gate 通過 | 不依賴 `op_hp`，去 `BuffOutpost` 開前哨視覺偵查；到點後仍沒有 `/ly/outpost/target` 才退出並 cooldown |
+| `Task.Outpost=true` 且敵方前哨血量新鮮、大於 0、now_time<90 | 去 `BuffOutpost`；距點小於 `VisualScoutFaceDistanceCm` 後才切 `AimMode::Outpost` |
+| `Task.Outpost=true` 且 `VisualScoutWithoutHp=true`、資源/時間/不可達 gate 通過 | 不依賴 `op_hp`，先以普通裝甲模式去 `BuffOutpost`；進入 `VisualScoutFaceDistanceCm` 後開前哨視覺/FaceMode，到點後仍沒有 `/ly/outpost/target` 才退出並 cooldown |
 | `AimDebug.ForceBuff=true` / `AimDebug.ForceOutpost=true` | 調試覆蓋到 `AimMode::Buff` / `AimMode::Outpost` |
 | 其他 | `AimMode::RotateScan` |
 
@@ -435,7 +435,7 @@ SET_POSITION(BuffShoot, MyTeam);  // 設置導航目標為打符點位
 
 `Area.CommonArea.Central.Task.CommonCentral` 管 Central 公共区域的健康巡逻任务：上游选中 Central 大区点且自身血量/弹量数据新鲜并达到阈值时，从当前坐标最近的巡逻点插入循环。循环顺序为 `my OutpostArea -> my RightShoot -> my BuffAround2 -> my LeftShoot -> my OutpostShoot -> enemy RightShoot -> enemy OccupyArea -> enemy OutpostShoot -> my OutpostArea`。拿不到自身坐标时从 `my OutpostArea` 开始；到达/不可达仍复用 `/ly/navi/reached`、`/ly/navi/reachable`。
 
-区域状态机参数集中在 `src/behavior_tree/config/AreaManager.yaml`：`AreaManager.Switch_Point` 默认 `false`，设为 `true` 时只交换 `Area.hpp` 中红/蓝官方点位和区域边界查找结果，不交换 `team` 语义和导航 goal ID。`Task.Buff/Outpost` 开关集中在 `src/behavior_tree/config/Task.yaml`，会覆盖 JSON 同名字段。`Task.OutpostConfirm.VisualScoutWithoutHp` 讓前哨任務不依賴 `op_hp`，而是短時去 `BuffOutpost` 開前哨視覺偵查，`VisualScoutHoldMs/CooldownMs` 控制偵查窗口和冷卻；若 `op_hp` 接口有資料，仍可用來提前判斷前哨已毀。默认 YAML 不写 `Area.MyArea/EnemyArea/CommonArea` 区域开关，避免覆盖不同 `bt_config_file` 的区域选择；正式 regional 和单区域 areatest 的可选区域仍由 `ConfigJson` 里的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 控制。`AreaManager.RegionalAreaTask.MyHighland/MyBase/MyRoadland/CommonCentral` 管各自区域任务时序，`AreaManager.DefaultPolicy` 管 Default 层的血量/弹量门槛、区域权重、距离惩罚、冷却和重试。RegionalDefense 使用 `/ly/position/data` 的官方场地坐标判定敌方区域，高优先级搜索 Base/Highland/Roadland/Central 威胁，不用 map/odom 坐标混判。区域任务需要动态切换 FaceMode 目标时，BT 发布 `/ly/face_mode/target_raw`，格式为 `[official_map_x, official_map_y, map_z]` cm。正式 regional 不再使用旧单策略点表兜底。
+区域状态机参数集中在 `src/behavior_tree/config/AreaManager.yaml`：`AreaManager.Switch_Point` 默认 `false`，设为 `true` 时只交换 `Area.hpp` 中红/蓝官方点位和区域边界查找结果，不交换 `team` 语义和导航 goal ID。`Task.Buff/Outpost` 开关集中在 `src/behavior_tree/config/Task.yaml`，会覆盖 JSON 同名字段。`Task.OutpostConfirm.VisualScoutWithoutHp` 讓前哨任務不依賴 `op_hp`，而是先用普通裝甲模式去 `BuffOutpost`，進入 `VisualScoutFaceDistanceCm` 後才開前哨視覺和 FaceMode；`VisualScoutHoldMs/CooldownMs` 控制到點後的偵查窗口和冷卻，`ArmorInterruptMaxDistanceCm` 控制行進中普通裝甲目標可打斷前哨任務的最遠距離；若 `op_hp` 接口有資料，仍可用來提前判斷前哨已毀。默认 YAML 不写 `Area.MyArea/EnemyArea/CommonArea` 区域开关，避免覆盖不同 `bt_config_file` 的区域选择；正式 regional 和单区域 areatest 的可选区域仍由 `ConfigJson` 里的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 控制。`AreaManager.RegionalAreaTask.MyHighland/MyBase/MyRoadland/CommonCentral` 管各自区域任务时序，`AreaManager.DefaultPolicy` 管 Default 层的血量/弹量门槛、区域权重、距离惩罚、冷却和重试。RegionalDefense 使用 `/ly/position/data` 的官方场地坐标判定敌方区域，高优先级搜索 Base/Highland/Roadland/Central 威胁，不用 map/odom 坐标混判。区域任务需要动态切换 FaceMode 目标时，BT 发布 `/ly/face_mode/target_raw`，格式为 `[official_map_x, official_map_y, map_z]` cm。正式 regional 不再使用旧单策略点表兜底。
 
 ---
 

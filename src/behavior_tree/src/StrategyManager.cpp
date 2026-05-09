@@ -141,6 +141,17 @@ bool StrategyManager::RunTactical(Application& app) {
         return true;
     }
 
+    if (app.IsOutpostVisualScoutNavigationActive() && app.aimMode != AimMode::Outpost) {
+        if (app.naviCommandIntervalClock.trigger()) {
+            app.TrySetOutpostVisualScoutTravelGoal(
+                my_team,
+                enemy_team,
+                "regional_tactical_outpost_scout_travel");
+        }
+        MarkHandled(app, StrategyLayer::Tactical);
+        return true;
+    }
+
     if (app.aimMode == AimMode::Outpost) {
         if (app.naviCommandIntervalClock.trigger()) {
             app.TrySetAimModeTaskGoal(my_team, enemy_team, "regional_tactical_aim_mode");
