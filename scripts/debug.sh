@@ -26,7 +26,7 @@ Entries:
   rotate_level          /ly/control/firecode rotate level cycle test.
   move_rotate           Rotate + /ly/control/vel sine-translate test.
   posture-test          /ly/control/posture cycle test and /ly/gimbal/posture watch.
-  sentry-cmd-downlink   Launch gimbal_driver and verify SentryCmd raw downlink.
+  sentry-cmd-downlink   Launch gimbal_driver, cycle posture 1/2/3, and monitor SentryCmd/RFID links.
   chase-only            No-gate pure chase test (lower-machine online by default).
   outpost-target-test   Publish /ly/outpost/target yaw sequence 45/60/75 for bridge test.
   goal-pos-test         Static calibration-only /goal_pose test with y/n confirm.

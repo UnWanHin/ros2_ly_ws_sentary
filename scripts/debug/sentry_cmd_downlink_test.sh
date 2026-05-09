@@ -9,7 +9,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT_NAME="$(basename "$0")"
 
-MODE="noop"
+MODE="cycle"
 POSTURE="2"
 TX_TOPIC="/ly/control/sentry_cmd"
 POSTURE_TOPIC="/ly/control/posture"
@@ -18,6 +18,8 @@ RAW_RX_TOPIC="/ly/log/gimbal_raw_rx"
 LAUNCH_GIMBAL=1
 WAIT_SEC=3
 WATCH_SEC=5
+LOOP=0
+INTERVAL_SEC=5
 USE_VIRTUAL_DEVICE="false"
 OUTPUT_MODE="screen"
 CONFIG_FILE="${ROOT_DIR}/config/base_config.yaml"
@@ -37,10 +39,12 @@ source "${ROOT_DIR}/scripts/lib/ros_launch_common.sh"
 usage() {
   cat <<EOF
 Usage:
-  ${SCRIPT_NAME} [noop|posture|bridge-posture|sentry-posture|energy-pulse|watch|uplink] [options]
+  ${SCRIPT_NAME} [cycle|noop|posture|bridge-posture|sentry-posture|energy-pulse|watch|uplink] [options]
 
 Modes:
-  noop            Publish a zero SentryCmd snapshot to ${TX_TOPIC}. Default, no motion command.
+  cycle           Default. Launch gimbal_driver, relay ${POSTURE_TOPIC} -> ${TX_TOPIC},
+                  publish posture 1 -> 2 -> 3 every ${INTERVAL_SEC}s, and monitor downlink/uplink.
+  noop            Publish a zero SentryCmd snapshot to ${TX_TOPIC}. No motion command.
   posture         Publish posture through ${POSTURE_TOPIC}; verifies posture -> sentry_cmd bit21-22.
   bridge-posture  Start a temporary ${POSTURE_TOPIC} -> ${TX_TOPIC} relay, then publish posture.
   sentry-posture  Publish posture through ${TX_TOPIC}; verifies full SentryCmd topic path.
@@ -55,6 +59,8 @@ Options:
   --raw-topic TOPIC     Raw downlink debug topic. Default: ${RAW_TX_TOPIC}
   --raw-rx-topic TOPIC  Raw uplink debug topic. Default: ${RAW_RX_TOPIC}
   --watch-sec SEC       Seconds to keep raw echo after publish. Default: ${WATCH_SEC}
+  --loop                Publish repeatedly until Ctrl+C.
+  --interval SEC        Publish interval for cycle/--loop. Default: ${INTERVAL_SEC}
   --raw-echo / --no-raw-echo
                        Whether to echo raw TX frames during publish. Default: echo.
   --uplink-echo / --no-uplink-echo
@@ -105,7 +111,7 @@ trap cleanup EXIT INT TERM
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    noop|posture|bridge-posture|bridge_posture|sentry-posture|sentry_posture|energy-pulse|energy_pulse|watch|uplink)
+    cycle|noop|posture|bridge-posture|bridge_posture|sentry-posture|sentry_posture|energy-pulse|energy_pulse|watch|uplink)
       MODE="${1//_/-}"
       shift
       ;;
@@ -131,6 +137,18 @@ while [[ $# -gt 0 ]]; do
       ;;
     --watch-sec)
       WATCH_SEC="$2"
+      shift 2
+      ;;
+    --loop)
+      LOOP=1
+      shift
+      ;;
+    --once)
+      LOOP=0
+      shift
+      ;;
+    --interval)
+      INTERVAL_SEC="$2"
       shift 2
       ;;
     --raw-echo)
@@ -234,7 +252,11 @@ start_raw_echo() {
   fi
 
   echo "[SENTRY-CMD-DOWNLINK][INFO] Echoing raw downlink frames from ${RAW_TX_TOPIC}" >&2
-  timeout "${WATCH_SEC}" ros2 topic echo "${RAW_TX_TOPIC}" &
+  if (( LOOP == 1 )); then
+    ros2 topic echo "${RAW_TX_TOPIC}" &
+  else
+    timeout "${WATCH_SEC}" ros2 topic echo "${RAW_TX_TOPIC}" &
+  fi
   RAW_ECHO_PID="$!"
   sleep 1
 }
@@ -257,11 +279,19 @@ start_uplink_echo() {
   echo "[SENTRY-CMD-DOWNLINK][INFO] Echoing uplink topics for ${WATCH_SEC}s" >&2
   for topic in "${UPLINK_TOPICS[@]}"; do
     echo "[SENTRY-CMD-DOWNLINK][INFO]   ${topic}" >&2
-    timeout "${WATCH_SEC}" ros2 topic echo "${topic}" &
+    if (( LOOP == 1 )); then
+      ros2 topic echo "${topic}" &
+    else
+      timeout "${WATCH_SEC}" ros2 topic echo "${topic}" &
+    fi
     UPLINK_ECHO_PIDS+=("$!")
   done
   echo "[SENTRY-CMD-DOWNLINK][INFO]   ${RAW_RX_TOPIC}" >&2
-  timeout "${WATCH_SEC}" ros2 topic echo "${RAW_RX_TOPIC}" &
+  if (( LOOP == 1 )); then
+    ros2 topic echo "${RAW_RX_TOPIC}" &
+  else
+    timeout "${WATCH_SEC}" ros2 topic echo "${RAW_RX_TOPIC}" &
+  fi
   UPLINK_ECHO_PIDS+=("$!")
   sleep 1
 }
@@ -364,9 +394,252 @@ publish_energy_pulse() {
     "{field_mask: 64, confirm_energy_activate: false}" -1 >/dev/null
 }
 
+run_publish() {
+  local publish_func="$1"
+
+  if (( LOOP == 0 )); then
+    "${publish_func}"
+    return 0
+  fi
+
+  echo "[SENTRY-CMD-DOWNLINK][INFO] Continuous publish enabled; press Ctrl+C to stop. interval=${INTERVAL_SEC}s" >&2
+  while true; do
+    "${publish_func}"
+    sleep "${INTERVAL_SEC}"
+  done
+}
+
+run_cycle_monitor() {
+  validate_posture
+  echo "[SENTRY-CMD-DOWNLINK][INFO] Default cycle mode:" >&2
+  echo "[SENTRY-CMD-DOWNLINK][INFO]   publish ${POSTURE_TOPIC}: posture 1 -> 2 -> 3 every ${INTERVAL_SEC}s" >&2
+  echo "[SENTRY-CMD-DOWNLINK][INFO]   relay ${POSTURE_TOPIC} -> ${TX_TOPIC}" >&2
+  echo "[SENTRY-CMD-DOWNLINK][INFO]   monitor ${TX_TOPIC}, ${RAW_TX_TOPIC}, ${RAW_RX_TOPIC}, RFID, posture feedback, sentry info" >&2
+  echo "[SENTRY-CMD-DOWNLINK][INFO] Press Ctrl+C to stop." >&2
+
+  python3 - "${POSTURE_TOPIC}" "${TX_TOPIC}" "${RAW_TX_TOPIC}" "${RAW_RX_TOPIC}" "${INTERVAL_SEC}" <<'PY'
+import sys
+import time
+
+import rclpy
+from rclpy.node import Node
+
+from gimbal_driver.msg import GimbalRawFrame, RfidStatus, SentryCmd, SentryInfo
+from std_msgs.msg import UInt8
+
+
+POSTURE_NAMES = {
+    0: "Reserved",
+    1: "Attack",
+    2: "Defense",
+    3: "Move",
+}
+
+RAW_RX_TYPE_NAMES = {
+    0: "GimbalData",
+    1: "GameData",
+    2: "HealthMyselfData",
+    3: "HealthEnemyData",
+    4: "RFIDAndBuffData",
+    5: "PositionData",
+    6: "ChassisData",
+    7: "SentryData",
+    8: "RfidStatus2",
+}
+
+RFID_FLAG_NAMES = [
+    "friend_base",
+    "friend_central",
+    "enemy_central",
+    "friend_highland",
+    "enemy_highland",
+    "friend_flyroad_front",
+    "friend_flyroad_back",
+    "enemy_flyroad_front",
+    "enemy_flyroad_back",
+    "friend_central_under",
+    "friend_central_high",
+    "enemy_central_under",
+    "enemy_central_high",
+    "friend_roadland_under",
+    "friend_roadland_high",
+    "enemy_roadland_under",
+    "enemy_roadland_high",
+    "friend_bastion",
+    "friend_outpost",
+    "friend_supply_noremix",
+    "friend_supply_remix",
+    "friend_armor",
+    "enemy_armor",
+    "central_rmul",
+    "enemy_bastion",
+    "enemy_outpost",
+    "friend_tunnel_roadland_down",
+    "friend_tunnel_roadland_mid",
+    "friend_tunnel_roadland_up",
+    "friend_tunnel_highland_low",
+    "friend_tunnel_highland_mid",
+    "friend_tunnel_highland_high",
+    "enemy_tunnel_roadland_down",
+    "enemy_tunnel_roadland_mid",
+    "enemy_tunnel_roadland_up",
+    "enemy_tunnel_highland_low",
+    "enemy_tunnel_highland_mid",
+    "enemy_tunnel_highland_high",
+]
+
+
+def stamp() -> str:
+    return time.strftime("%H:%M:%S")
+
+
+def posture_name(value: int) -> str:
+    return POSTURE_NAMES.get(int(value), f"Unknown({int(value)})")
+
+
+def data_hex(data) -> str:
+    return bytes(data).hex(" ")
+
+
+class SentryCmdCycleMonitor(Node):
+    def __init__(self, posture_topic: str, sentry_cmd_topic: str, raw_tx_topic: str, raw_rx_topic: str, interval: float) -> None:
+        super().__init__("sentry_cmd_downlink_cycle_monitor")
+        self.posture_topic = posture_topic
+        self.sentry_cmd_topic = sentry_cmd_topic
+        self.values = [1, 2, 3]
+        self.index = 0
+
+        self.posture_pub = self.create_publisher(SentryCmd, posture_topic, 10)
+        self.sentry_cmd_pub = self.create_publisher(SentryCmd, sentry_cmd_topic, 10)
+
+        self.create_subscription(SentryCmd, posture_topic, self.on_posture_cmd, 10)
+        self.create_subscription(SentryCmd, sentry_cmd_topic, self.on_sentry_cmd, 10)
+        self.create_subscription(GimbalRawFrame, raw_tx_topic, self.on_raw_tx, 10)
+        self.create_subscription(GimbalRawFrame, raw_rx_topic, self.on_raw_rx, 10)
+        self.create_subscription(UInt8, "/ly/gimbal/posture", self.on_posture_feedback, 10)
+        self.create_subscription(RfidStatus, "/ly/game/rfid", self.on_rfid, 10)
+        self.create_subscription(SentryInfo, "/ly/game/sentry/info", self.on_sentry_info, 10)
+
+        self.create_timer(max(interval, 0.1), self.publish_next_posture)
+        self.log("READY", f"interval={interval:.3f}s")
+
+    def log(self, tag: str, message: str) -> None:
+        print(f"[{stamp()}][{tag}] {message}", flush=True)
+
+    def publish_next_posture(self) -> None:
+        value = self.values[self.index]
+        self.index = (self.index + 1) % len(self.values)
+
+        msg = SentryCmd()
+        msg.field_mask = SentryCmd.FIELD_POSTURE
+        msg.posture = value
+        msg.raw = int(value) << 21
+        self.posture_pub.publish(msg)
+        self.log(
+            "TX /ly/control/posture",
+            f"posture={value}({posture_name(value)}) expected_sentry_cmd_raw={msg.raw}",
+        )
+
+    def on_posture_cmd(self, msg: SentryCmd) -> None:
+        has_posture = msg.field_mask == 0 or (msg.field_mask & SentryCmd.FIELD_POSTURE) != 0
+        if not has_posture:
+            self.log("RELAY SKIP", f"field_mask={msg.field_mask} missing FIELD_POSTURE")
+            return
+        if msg.posture > 3:
+            self.log("RELAY SKIP", f"invalid posture={msg.posture}")
+            return
+
+        out = SentryCmd()
+        out.header = msg.header
+        out.field_mask = SentryCmd.FIELD_POSTURE
+        out.posture = msg.posture
+        out.raw = int(msg.posture) << 21
+        self.sentry_cmd_pub.publish(out)
+        self.log(
+            "RELAY posture->sentry_cmd",
+            f"posture={msg.posture}({posture_name(msg.posture)}) raw={out.raw}",
+        )
+
+    def on_sentry_cmd(self, msg: SentryCmd) -> None:
+        fields = []
+        if msg.field_mask == 0 or (msg.field_mask & SentryCmd.FIELD_POSTURE) != 0:
+            fields.append(f"posture={msg.posture}({posture_name(msg.posture)})")
+        if msg.field_mask == 0 or (msg.field_mask & SentryCmd.FIELD_CONFIRM_ENERGY_ACTIVATE) != 0:
+            fields.append(f"energy={int(msg.confirm_energy_activate)}")
+        if not fields:
+            fields.append(f"field_mask={msg.field_mask}")
+        self.log("CMD /ly/control/sentry_cmd", " ".join(fields))
+
+    def on_raw_tx(self, msg: GimbalRawFrame) -> None:
+        posture = (int(msg.sentry_cmd_raw) >> 21) & 0x3
+        energy = (int(msg.sentry_cmd_raw) >> 23) & 0x1
+        self.log(
+            "RAW TX",
+            f"type_id={msg.type_id} sentry_cmd_raw={msg.sentry_cmd_raw} posture_bits={posture}({posture_name(posture)}) energy={energy} data=[{data_hex(msg.data)}]",
+        )
+
+    def on_raw_rx(self, msg: GimbalRawFrame) -> None:
+        type_name = RAW_RX_TYPE_NAMES.get(int(msg.type_id), "Unknown")
+        self.log("RAW RX", f"type_id={msg.type_id}({type_name}) data=[{data_hex(msg.data)}]")
+
+    def on_posture_feedback(self, msg: UInt8) -> None:
+        self.log("FB /ly/gimbal/posture", f"posture={msg.data}({posture_name(msg.data)})")
+
+    def on_rfid(self, msg: RfidStatus) -> None:
+        active = [name for name in RFID_FLAG_NAMES if getattr(msg, name, False)]
+        if len(active) > 8:
+            active_text = ",".join(active[:8]) + f",...(+{len(active) - 8})"
+        else:
+            active_text = ",".join(active) if active else "none"
+        self.log(
+            "RFID /ly/game/rfid",
+            f"raw=0x{int(msg.raw):08x} active={active_text} rfid2={int(msg.rfid_status_2_raw)} has_rfid2={int(msg.has_rfid_status_2)}",
+        )
+
+    def on_sentry_info(self, msg: SentryInfo) -> None:
+        self.log(
+            "SENTRY /ly/game/sentry/info",
+            " ".join([
+                f"info=0x{int(msg.sentry_info_raw):08x}",
+                f"info2=0x{int(msg.sentry_info_2_raw):04x}",
+                f"posture={msg.posture}({posture_name(msg.posture)})",
+                f"can_energy={int(msg.can_activate_energy_mechanism)}",
+                f"out_of_combat={int(msg.out_of_combat)}",
+                f"remote_projectile_count={int(msg.remote_projectile_exchange_count)}",
+                f"remote_hp_count={int(msg.remote_hp_exchange_count)}",
+            ]),
+        )
+
+
+def main() -> None:
+    posture_topic, sentry_cmd_topic, raw_tx_topic, raw_rx_topic, interval_text = sys.argv[1:6]
+    try:
+        interval = float(interval_text)
+    except ValueError:
+        interval = 5.0
+
+    rclpy.init()
+    node = SentryCmdCycleMonitor(posture_topic, sentry_cmd_topic, raw_tx_topic, raw_rx_topic, interval)
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()
+PY
+}
+
 launch_gimbal_driver
 
 case "${MODE}" in
+  cycle)
+    run_cycle_monitor
+    ;;
   watch)
     ros2 topic echo "${RAW_TX_TOPIC}"
     ;;
@@ -378,14 +651,14 @@ case "${MODE}" in
   noop)
     start_raw_echo
     start_uplink_echo
-    publish_noop
+    run_publish publish_noop
     wait_raw_echo
     wait_uplink_echo
     ;;
   posture)
     start_raw_echo
     start_uplink_echo
-    publish_posture_topic
+    run_publish publish_posture_topic
     wait_raw_echo
     wait_uplink_echo
     ;;
@@ -393,21 +666,21 @@ case "${MODE}" in
     start_posture_bridge
     start_raw_echo
     start_uplink_echo
-    publish_posture_topic
+    run_publish publish_posture_topic
     wait_raw_echo
     wait_uplink_echo
     ;;
   sentry-posture)
     start_raw_echo
     start_uplink_echo
-    publish_sentry_posture
+    run_publish publish_sentry_posture
     wait_raw_echo
     wait_uplink_echo
     ;;
   energy-pulse)
     start_raw_echo
     start_uplink_echo
-    publish_energy_pulse
+    run_publish publish_energy_pulse
     wait_raw_echo
     wait_uplink_echo
     ;;
