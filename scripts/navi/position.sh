@@ -219,7 +219,7 @@ fi
 if (( START_CHAIN == 0 && ${#START_EXTRA_ARGS[@]} > 0 )); then
   echo "[WARN] Extra launch args after -- are ignored unless --start-chain is set." >&2
 fi
-if (( START_CHAIN == 1 && -z "${START_LOG}" )); then
+if (( START_CHAIN == 1 )) && [[ -z "${START_LOG}" ]]; then
   echo "[ERROR] --start-log cannot be empty." >&2
   exit 2
 fi
