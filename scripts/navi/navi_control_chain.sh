@@ -1,46 +1,30 @@
 #!/usr/bin/env bash
 
-# Navigation lower-machine control chain:
-#   /ly/navi/vel -> navi_vel_control_bridge -> /ly/control/vel -> gimbal_driver
-# Optional:
-#   rotate=true -> publish /ly/control/firecode rotate field
-#   scan=true   -> publish /ly/control/angles patrol scan
+# Formal navigation control chain:
+#   /ly/navi/vel -> behavior_tree -> /ly/control/vel -> gimbal_driver
+# Uses the same BT path as armor_patrol_test: no firing, rotate enabled, PatrolScan enabled.
 
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT_NAME="$(basename "$0")"
 
+USE_NOGATE=1
+OFFLINE_MODE=0
 CLEANUP_EXISTING=1
-START_GIMBAL=1
-ALLOW_WITH_BT=0
-USE_VIRTUAL_DEVICE="${USE_VIRTUAL_DEVICE:-false}"
-CONFIG_FILE="${CONFIG_FILE:-${ROOT_DIR}/config/base_config.yaml}"
-OUTPUT="${OUTPUT:-screen}"
-
-INPUT_TOPIC="${INPUT_TOPIC:-/ly/navi/vel}"
-CONTROL_VEL_TOPIC="${CONTROL_VEL_TOPIC:-/ly/control/vel}"
-CONTROL_ANGLES_TOPIC="${CONTROL_ANGLES_TOPIC:-/ly/control/angles}"
-CONTROL_FIRECODE_TOPIC="${CONTROL_FIRECODE_TOPIC:-/ly/control/firecode}"
-STALE_TIMEOUT_SEC="${STALE_TIMEOUT_SEC:-0.5}"
-WAIT_GIMBAL_ANGLES="${WAIT_GIMBAL_ANGLES:-true}"
-PUBLISH_INITIAL_ZERO="${PUBLISH_INITIAL_ZERO:-true}"
-VELOCITY_RAW_TO_MPS="${VELOCITY_RAW_TO_MPS:-0.025}"
-
 ROTATE_ENABLED="${ROTATE_ENABLED:-true}"
-ROTATE_LEVEL="${ROTATE_LEVEL:-1}"
-ROTATE_HZ="${ROTATE_HZ:-20}"
-
 SCAN_ENABLED="${SCAN_ENABLED:-true}"
 SCAN_MODE="${SCAN_MODE:-2}"
-SCAN_YAW_MIN="${SCAN_YAW_MIN:--15.0}"
-SCAN_YAW_MAX="${SCAN_YAW_MAX:-15.0}"
-SCAN_PITCH="${SCAN_PITCH:-8.0}"
-SCAN_STEP_DEG="${SCAN_STEP_DEG:-1.0}"
-SCAN_HZ="${SCAN_HZ:-20.0}"
+WITH_VISION=0
+OUTPUT="${OUTPUT:-screen}"
+LAUNCH_ARGS=()
+TEMP_BT_CONFIG=""
 
-EXTRA_BRIDGE_ARGS=()
-PIDS=()
+DEFAULT_BASE_CONFIG_FILE="${ROOT_DIR}/config/base_config.yaml"
+DEFAULT_DETECTOR_CONFIG_FILE="${ROOT_DIR}/src/detector/config/detector_config.yaml"
+DEFAULT_PREDICTOR_CONFIG_FILE="${ROOT_DIR}/src/predictor/config/predictor_config.yaml"
+DEFAULT_OVERRIDE_CONFIG_FILE="${ROOT_DIR}/config/override_config.yaml"
+DEFAULT_BT_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/Scripts/ConfigJson/regional/debug/armor_patrol_test.json"
 
 # shellcheck disable=SC1091
 source "${ROOT_DIR}/scripts/lib/ros_launch_common.sh"
@@ -48,43 +32,39 @@ source "${ROOT_DIR}/scripts/lib/ros_launch_common.sh"
 usage() {
   cat <<EOF
 Usage:
-  ${SCRIPT_NAME} [options] [-- <extra bridge ros args>]
+  ${SCRIPT_NAME} [options] [-- <launch_args...>]
 
 Purpose:
-  Start a navigation-only lower-machine chain for external navigation tests.
-  It forwards /ly/navi/vel to /ly/control/vel and waits for navigation velocity.
-  It does not start behavior_tree, detector, tracker, predictor, buff/outpost, or FaceMode.
+  Start a formal behavior_tree navigation-control chain, like armor_patrol_test:
+  - no firing
+  - /ly/navi/vel is handled by behavior_tree and forwarded to /ly/control/vel
+  - rotate and PatrolScan are controlled by behavior_tree, not external test publishers
+  - detector/tracker/predictor are disabled by default so gimbal scan is not interrupted
 
 Options:
-  --rotate [true|false]       Enable chassis rotate publisher. Default: ${ROTATE_ENABLED}
-  --scan [true|false]         Enable gimbal scan publisher. Default: ${SCAN_ENABLED}
-  --rotate-level <0..3>       Rotate level when rotate=true. Default: ${ROTATE_LEVEL}
-  --rotate-hz <hz>            Rotate firecode publish rate. Default: ${ROTATE_HZ}
-  --scan-mode <1|2>           Gimbal scan mode. Default: ${SCAN_MODE}
-  --scan-yaw-min <deg>        Scan yaw min. Default: ${SCAN_YAW_MIN}
-  --scan-yaw-max <deg>        Scan yaw max. Default: ${SCAN_YAW_MAX}
-  --scan-pitch <deg>          Scan pitch. Default: ${SCAN_PITCH}
-  --scan-step-deg <deg>       Scan yaw step per tick. Default: ${SCAN_STEP_DEG}
-  --scan-hz <hz>              Scan publish rate. Default: ${SCAN_HZ}
-
-  --no-gimbal                 Do not launch gimbal_driver; only run publishers/bridge.
-  --virtual-device            Launch gimbal_driver with use_virtual_device:=true.
-  --config-file <path>        gimbal_driver config file. Default: ${CONFIG_FILE}
-  --input-topic <topic>       Default: ${INPUT_TOPIC}
-  --control-vel-topic <topic> Default: ${CONTROL_VEL_TOPIC}
-  --stale-timeout <sec>       Publish zero velocity after timeout. Default: ${STALE_TIMEOUT_SEC}
-  --allow-no-gimbal-angle     Do not wait for /ly/gimbal/angles before forwarding velocity.
-  --no-initial-zero           Do not publish initial zero velocity.
-  --allow-with-bt             Allow running while /behavior_tree exists.
-  --no-cleanup-existing       Do not clean old bridge/gimbal/test processes.
+  --rotate [true|false]       Enable BT rotate output. Default: ${ROTATE_ENABLED}
+  --scan [true|false]         Enable BT gimbal patrol scan. Default: ${SCAN_ENABLED}
+  --scan-mode <1|2>           PatrolScan.Mode. Default: ${SCAN_MODE}
+  --with-vision               Also start detector/tracker/predictor, matching armor_test closer.
+  --no-vision                 Do not start detector/tracker/predictor. Default.
+  --nogate                    Bypass /ly/game/is_start. Default.
+  --with-gate                 Wait for /ly/game/is_start.
+  --online                    Use real gimbal device config. Default.
+  --offline|--virtual-device  Force offline virtual-device launch behavior.
+  --config-file <path>        Global override YAML. Default: ${DEFAULT_OVERRIDE_CONFIG_FILE}
+  --base-config-file <path>   Base config YAML. Default: ${DEFAULT_BASE_CONFIG_FILE}
+  --detector-config-file <p>  Detector config YAML. Default: ${DEFAULT_DETECTOR_CONFIG_FILE}
+  --predictor-config-file <p> Predictor config YAML. Default: ${DEFAULT_PREDICTOR_CONFIG_FILE}
+  --bt-config-file <path>     Source BT JSON. Default: armor_patrol_test.json
+  --output screen|log         Launch output mode. Default: ${OUTPUT}
+  --no-cleanup-existing       Do not clean old sentry/BT/driver processes.
 
 Examples:
   ./scripts/navi/${SCRIPT_NAME}
-  ./scripts/navi/${SCRIPT_NAME} --rotate true
-  ./scripts/navi/${SCRIPT_NAME} --scan true --scan-mode 2
-  ./scripts/navi/${SCRIPT_NAME} --rotate true --scan true --rotate-level 1
-  ./scripts/navi/${SCRIPT_NAME} --rotate false --scan false
-  ./scripts/navi/${SCRIPT_NAME} rotate=true scan=true
+  ./scripts/navi/${SCRIPT_NAME} --scan-mode 1
+  ./scripts/navi/${SCRIPT_NAME} --rotate false --scan true
+  ./scripts/navi/${SCRIPT_NAME} --with-vision
+  ./scripts/navi/${SCRIPT_NAME} scanmode=2 rotate=true scan=true
 EOF
 }
 
@@ -134,10 +114,22 @@ optional_bool_shift() {
   fi
 }
 
-validate_rotate_level() {
-  if ! [[ "${ROTATE_LEVEL}" =~ ^[0-3]$ ]]; then
-    echo "[ERROR] --rotate-level must be 0..3, got: ${ROTATE_LEVEL}" >&2
-    exit 2
+has_launch_arg_key() {
+  local key="$1"
+  local arg
+  for arg in "${LAUNCH_ARGS[@]}"; do
+    if [[ "${arg}" == "${key}:="* ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+append_launch_arg_if_missing() {
+  local key="$1"
+  local value="$2"
+  if ! has_launch_arg_key "${key}"; then
+    LAUNCH_ARGS=("${key}:=${value}" "${LAUNCH_ARGS[@]}")
   fi
 }
 
@@ -148,24 +140,49 @@ validate_scan_mode() {
   fi
 }
 
-cleanup() {
-  local pid
-  for pid in "${PIDS[@]}"; do
-    if kill -0 "${pid}" 2>/dev/null; then
-      kill -INT "${pid}" 2>/dev/null || true
-    fi
-  done
-  sleep 0.3
-  for pid in "${PIDS[@]}"; do
-    if kill -0 "${pid}" 2>/dev/null; then
-      kill -TERM "${pid}" 2>/dev/null || true
-    fi
-  done
+make_bt_config() {
+  TEMP_BT_CONFIG="$(mktemp /tmp/ly_navi_control_bt_XXXXXX.json)"
+  python3 - "${DEFAULT_BT_CONFIG_FILE}" "${TEMP_BT_CONFIG}" "${ROTATE_ENABLED}" "${SCAN_ENABLED}" "${SCAN_MODE}" <<'PY'
+import json
+import sys
+
+src, dst, rotate_raw, scan_raw, scan_mode_raw = sys.argv[1:6]
+
+def as_bool(value: str) -> bool:
+    return value.lower() in ("true", "1", "yes", "on")
+
+with open(src, "r", encoding="utf-8") as f:
+    data = json.load(f)
+
+rotate_enabled = as_bool(rotate_raw)
+scan_enabled = as_bool(scan_raw)
+scan_mode = int(scan_mode_raw)
+
+aim_debug = data.setdefault("AimDebug", {})
+aim_debug["StopFire"] = True
+aim_debug["StopRotate"] = not rotate_enabled
+aim_debug["StopScan"] = not scan_enabled
+aim_debug["HitCar"] = False
+aim_debug["FireRequireTargetStatus"] = True
+
+data.setdefault("PatrolScan", {})["Mode"] = scan_mode
+
+navi = data.setdefault("NaviSetting", {})
+navi["UseXY"] = False
+navi["ToNavi"] = True
+
+data.setdefault("Rate", {})["NaviCommandRate"] = 1
+
+with open(dst, "w", encoding="utf-8") as f:
+    json.dump(data, f, indent=4, ensure_ascii=False)
+    f.write("\n")
+PY
 }
 
-has_node() {
-  local node_name="$1"
-  ros2 node list 2>/dev/null | awk -v node="${node_name}" '$0 == node { found = 1 } END { exit found ? 0 : 1 }'
+cleanup() {
+  if [[ -n "${TEMP_BT_CONFIG}" && -f "${TEMP_BT_CONFIG}" ]]; then
+    rm -f "${TEMP_BT_CONFIG}"
+  fi
 }
 
 while [[ $# -gt 0 ]]; do
@@ -210,68 +227,28 @@ while [[ $# -gt 0 ]]; do
       SCAN_MODE="${1#*=}"
       shift
       ;;
-    --rotate-level)
-      if (( $# < 2 )); then
-        echo "[ERROR] --rotate-level requires a value." >&2
-        exit 2
-      fi
-      ROTATE_LEVEL="$2"
-      shift 2
-      ;;
-    --rotate-hz)
-      if (( $# < 2 )); then
-        echo "[ERROR] --rotate-hz requires a value." >&2
-        exit 2
-      fi
-      ROTATE_HZ="$2"
-      shift 2
-      ;;
-    --scan-yaw-min)
-      if (( $# < 2 )); then
-        echo "[ERROR] --scan-yaw-min requires a value." >&2
-        exit 2
-      fi
-      SCAN_YAW_MIN="$2"
-      shift 2
-      ;;
-    --scan-yaw-max)
-      if (( $# < 2 )); then
-        echo "[ERROR] --scan-yaw-max requires a value." >&2
-        exit 2
-      fi
-      SCAN_YAW_MAX="$2"
-      shift 2
-      ;;
-    --scan-pitch)
-      if (( $# < 2 )); then
-        echo "[ERROR] --scan-pitch requires a value." >&2
-        exit 2
-      fi
-      SCAN_PITCH="$2"
-      shift 2
-      ;;
-    --scan-step-deg)
-      if (( $# < 2 )); then
-        echo "[ERROR] --scan-step-deg requires a value." >&2
-        exit 2
-      fi
-      SCAN_STEP_DEG="$2"
-      shift 2
-      ;;
-    --scan-hz)
-      if (( $# < 2 )); then
-        echo "[ERROR] --scan-hz requires a value." >&2
-        exit 2
-      fi
-      SCAN_HZ="$2"
-      shift 2
-      ;;
-    --no-gimbal)
-      START_GIMBAL=0
+    --with-vision)
+      WITH_VISION=1
       shift
       ;;
-    --virtual-device)
-      USE_VIRTUAL_DEVICE="true"
+    --no-vision)
+      WITH_VISION=0
+      shift
+      ;;
+    --nogate)
+      USE_NOGATE=1
+      shift
+      ;;
+    --with-gate)
+      USE_NOGATE=0
+      shift
+      ;;
+    --online)
+      OFFLINE_MODE=0
+      shift
+      ;;
+    --offline|--virtual-device)
+      OFFLINE_MODE=1
       shift
       ;;
     --config-file)
@@ -279,44 +256,48 @@ while [[ $# -gt 0 ]]; do
         echo "[ERROR] --config-file requires a path." >&2
         exit 2
       fi
-      CONFIG_FILE="$2"
+      DEFAULT_OVERRIDE_CONFIG_FILE="$2"
       shift 2
       ;;
-    --input-topic)
+    --base-config-file)
       if (( $# < 2 )); then
-        echo "[ERROR] --input-topic requires a topic." >&2
+        echo "[ERROR] --base-config-file requires a path." >&2
         exit 2
       fi
-      INPUT_TOPIC="$2"
+      DEFAULT_BASE_CONFIG_FILE="$2"
       shift 2
       ;;
-    --control-vel-topic)
+    --detector-config-file)
       if (( $# < 2 )); then
-        echo "[ERROR] --control-vel-topic requires a topic." >&2
+        echo "[ERROR] --detector-config-file requires a path." >&2
         exit 2
       fi
-      CONTROL_VEL_TOPIC="$2"
+      DEFAULT_DETECTOR_CONFIG_FILE="$2"
       shift 2
       ;;
-    --stale-timeout)
+    --predictor-config-file)
       if (( $# < 2 )); then
-        echo "[ERROR] --stale-timeout requires seconds." >&2
+        echo "[ERROR] --predictor-config-file requires a path." >&2
         exit 2
       fi
-      STALE_TIMEOUT_SEC="$2"
+      DEFAULT_PREDICTOR_CONFIG_FILE="$2"
       shift 2
       ;;
-    --allow-no-gimbal-angle)
-      WAIT_GIMBAL_ANGLES="false"
-      shift
+    --bt-config-file)
+      if (( $# < 2 )); then
+        echo "[ERROR] --bt-config-file requires a path." >&2
+        exit 2
+      fi
+      DEFAULT_BT_CONFIG_FILE="$2"
+      shift 2
       ;;
-    --no-initial-zero)
-      PUBLISH_INITIAL_ZERO="false"
-      shift
-      ;;
-    --allow-with-bt)
-      ALLOW_WITH_BT=1
-      shift
+    --output)
+      if (( $# < 2 )); then
+        echo "[ERROR] --output requires screen or log." >&2
+        exit 2
+      fi
+      OUTPUT="$2"
+      shift 2
       ;;
     --cleanup-existing)
       CLEANUP_EXISTING=1
@@ -332,112 +313,48 @@ while [[ $# -gt 0 ]]; do
       ;;
     --)
       shift
-      EXTRA_BRIDGE_ARGS=("$@")
+      LAUNCH_ARGS+=("$@")
       break
       ;;
     *)
-      echo "[ERROR] Unknown option: $1" >&2
-      usage >&2
-      exit 2
+      LAUNCH_ARGS+=("$1")
+      shift
       ;;
   esac
 done
 
-validate_rotate_level
 validate_scan_mode
+trap cleanup EXIT
+
 source_ros_workspace "${ROOT_DIR}"
+cleanup_existing_stack \
+  "${CLEANUP_EXISTING}" \
+  "/(gimbal_driver_node|detector_node|tracker_solver_node|predictor_node|outpost_hitter_node|buff_hitter_node|behavior_tree_node|navi_vel_control_bridge|scan_gimbal_test|chassis_spin_test)([[:space:]]|$)|scripts/navi/navi_vel_chain\\.py|scripts/feature_test/(scan_gimbal_test|chassis_spin_test)\\.py" \
+  "ros2 launch behavior_tree (armor_patrol_test|competition_autoaim|sentry_all|chase_only|showcase|navi_debug)\\.launch\\.py|ros2 launch gimbal_driver gimbal_driver\\.launch\\.py"
 
-if (( ALLOW_WITH_BT == 0 )) && has_node "/behavior_tree"; then
-  echo "[ERROR] /behavior_tree is already running. This navigation-only chain would conflict with BT /ly/control/* publishers." >&2
-  echo "        Stop sentry_all first, or pass --allow-with-bt if you really want to test graph conflicts." >&2
-  exit 2
+make_bt_config
+
+append_launch_arg_if_missing "base_config_file" "${DEFAULT_BASE_CONFIG_FILE}"
+append_launch_arg_if_missing "config_file" "${DEFAULT_OVERRIDE_CONFIG_FILE}"
+append_launch_arg_if_missing "detector_config_file" "${DEFAULT_DETECTOR_CONFIG_FILE}"
+append_launch_arg_if_missing "predictor_config_file" "${DEFAULT_PREDICTOR_CONFIG_FILE}"
+append_launch_arg_if_missing "bt_config_file" "${TEMP_BT_CONFIG}"
+append_launch_arg_if_missing "debug_bypass_is_start" "$([[ "${USE_NOGATE}" == "1" ]] && printf true || printf false)"
+append_launch_arg_if_missing "wait_for_game_start_timeout_sec" "0"
+append_launch_arg_if_missing "publish_navi_goal" "false"
+append_launch_arg_if_missing "use_outpost" "false"
+append_launch_arg_if_missing "use_buff" "false"
+append_launch_arg_if_missing "use_detector" "$([[ "${WITH_VISION}" == "1" ]] && printf true || printf false)"
+append_launch_arg_if_missing "use_tracker" "$([[ "${WITH_VISION}" == "1" ]] && printf true || printf false)"
+append_launch_arg_if_missing "use_predictor" "$([[ "${WITH_VISION}" == "1" ]] && printf true || printf false)"
+append_launch_arg_if_missing "output" "${OUTPUT}"
+
+if (( OFFLINE_MODE == 1 )); then
+  append_launch_arg_if_missing "offline" "true"
 fi
 
-BRIDGE_NODE_REGEX="/(navi_vel_control_bridge|scan_gimbal_test|chassis_spin_test)([[:space:]]|$)|scripts/navi/navi_vel_chain\\.py|scripts/feature_test/(scan_gimbal_test|chassis_spin_test)\\.py"
-GIMBAL_NODE_REGEX="/(gimbal_driver)([[:space:]]|$)|ros2 launch gimbal_driver gimbal_driver\\.launch\\.py"
-if (( START_GIMBAL == 1 )); then
-  cleanup_existing_stack "${CLEANUP_EXISTING}" "${BRIDGE_NODE_REGEX}|${GIMBAL_NODE_REGEX}" "ros2 launch gimbal_driver gimbal_driver\\.launch\\.py"
-else
-  cleanup_existing_stack "${CLEANUP_EXISTING}" "${BRIDGE_NODE_REGEX}" "scripts/navi/navi_vel_chain\\.py"
-fi
+echo "[INFO] formal navi control chain: /ly/navi/vel -> behavior_tree -> /ly/control/vel -> gimbal_driver" >&2
+echo "[INFO] fire=false rotate=${ROTATE_ENABLED} scan=${SCAN_ENABLED} scan_mode=${SCAN_MODE} vision=${WITH_VISION}" >&2
+echo "[INFO] generated bt_config=${TEMP_BT_CONFIG}" >&2
 
-trap cleanup EXIT INT TERM
-
-if [[ "${SCAN_ENABLED}" == "true" ]]; then
-  PUBLISH_HOLD_ANGLES="false"
-else
-  PUBLISH_HOLD_ANGLES="true"
-fi
-
-if [[ "${SCAN_ENABLED}" == "true" || "${ROTATE_ENABLED}" == "true" ]]; then
-  PUBLISH_SAFE_FIRECODE="false"
-else
-  PUBLISH_SAFE_FIRECODE="true"
-fi
-
-if (( START_GIMBAL == 1 )); then
-  echo "[INFO] starting gimbal_driver only; config=${CONFIG_FILE}, virtual=${USE_VIRTUAL_DEVICE}" >&2
-  ros2 launch gimbal_driver gimbal_driver.launch.py \
-    "config_file:=${CONFIG_FILE}" \
-    "use_virtual_device:=${USE_VIRTUAL_DEVICE}" \
-    "output:=${OUTPUT}" &
-  PIDS+=("$!")
-fi
-
-echo "[INFO] starting navi velocity bridge: ${INPUT_TOPIC} -> ${CONTROL_VEL_TOPIC}" >&2
-python3 "${ROOT_DIR}/scripts/navi/navi_vel_chain.py" \
-  --ros-args \
-  -p "input_topic:=${INPUT_TOPIC}" \
-  -p "control_vel_topic:=${CONTROL_VEL_TOPIC}" \
-  -p "control_angles_topic:=${CONTROL_ANGLES_TOPIC}" \
-  -p "control_firecode_topic:=${CONTROL_FIRECODE_TOPIC}" \
-  -p "stale_timeout_sec:=${STALE_TIMEOUT_SEC}" \
-  -p "wait_for_gimbal_angles:=${WAIT_GIMBAL_ANGLES}" \
-  -p "publish_hold_angles:=${PUBLISH_HOLD_ANGLES}" \
-  -p "publish_safe_firecode:=${PUBLISH_SAFE_FIRECODE}" \
-  -p "publish_initial_zero:=${PUBLISH_INITIAL_ZERO}" \
-  -p "velocity_raw_to_mps:=${VELOCITY_RAW_TO_MPS}" \
-  "${EXTRA_BRIDGE_ARGS[@]}" &
-PIDS+=("$!")
-
-if [[ "${SCAN_ENABLED}" == "true" ]]; then
-  SCAN_FIRECODE_ARGS=(--safe-firecode 0)
-  if [[ "${ROTATE_ENABLED}" == "true" ]]; then
-    SCAN_FIRECODE_ARGS=(--no-firecode)
-  fi
-  echo "[INFO] starting gimbal scan: mode=${SCAN_MODE} yaw=[${SCAN_YAW_MIN},${SCAN_YAW_MAX}] pitch=${SCAN_PITCH} rotate=${ROTATE_ENABLED} level=${ROTATE_LEVEL}" >&2
-  python3 "${ROOT_DIR}/scripts/feature_test/scan_gimbal_test.py" \
-    --scan-mode "${SCAN_MODE}" \
-    --yaw-min "${SCAN_YAW_MIN}" \
-    --yaw-max "${SCAN_YAW_MAX}" \
-    --pitch "${SCAN_PITCH}" \
-    --step-deg "${SCAN_STEP_DEG}" \
-    --hz "${SCAN_HZ}" \
-    --angles-topic "${CONTROL_ANGLES_TOPIC}" \
-    --firecode-topic "${CONTROL_FIRECODE_TOPIC}" \
-    "${SCAN_FIRECODE_ARGS[@]}" &
-  PIDS+=("$!")
-fi
-
-if [[ "${ROTATE_ENABLED}" == "true" ]]; then
-  echo "[INFO] starting chassis rotate publisher: level=${ROTATE_LEVEL} hz=${ROTATE_HZ}" >&2
-  python3 "${ROOT_DIR}/scripts/feature_test/chassis_spin_test.py" \
-    --rotate-level "${ROTATE_LEVEL}" \
-    --hz "${ROTATE_HZ}" \
-    --topic "${CONTROL_FIRECODE_TOPIC}" &
-  PIDS+=("$!")
-fi
-
-if [[ "${SCAN_ENABLED}" != "true" && "${ROTATE_ENABLED}" != "true" ]]; then
-  echo "[INFO] rotate=false scan=false; bridge publishes hold angles and safe firecode=0." >&2
-fi
-
-echo "[INFO] waiting for external navigation on ${INPUT_TOPIC}. Press Ctrl-C to stop." >&2
-
-set +e
-wait -n "${PIDS[@]}"
-STATUS=$?
-set -e
-
-echo "[INFO] one child process exited; shutting down navigation control chain." >&2
-exit "${STATUS}"
+ros2 launch behavior_tree armor_patrol_test.launch.py "${LAUNCH_ARGS[@]}"
