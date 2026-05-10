@@ -32,6 +32,7 @@ ROTATE_LEVEL="${ROTATE_LEVEL:-1}"
 ROTATE_HZ="${ROTATE_HZ:-20}"
 
 SCAN_ENABLED="${SCAN_ENABLED:-true}"
+SCAN_MODE="${SCAN_MODE:-2}"
 SCAN_YAW_MIN="${SCAN_YAW_MIN:--15.0}"
 SCAN_YAW_MAX="${SCAN_YAW_MAX:-15.0}"
 SCAN_PITCH="${SCAN_PITCH:-8.0}"
@@ -59,6 +60,7 @@ Options:
   --scan [true|false]         Enable gimbal scan publisher. Default: ${SCAN_ENABLED}
   --rotate-level <0..3>       Rotate level when rotate=true. Default: ${ROTATE_LEVEL}
   --rotate-hz <hz>            Rotate firecode publish rate. Default: ${ROTATE_HZ}
+  --scan-mode <1|2>           Gimbal scan mode. Default: ${SCAN_MODE}
   --scan-yaw-min <deg>        Scan yaw min. Default: ${SCAN_YAW_MIN}
   --scan-yaw-max <deg>        Scan yaw max. Default: ${SCAN_YAW_MAX}
   --scan-pitch <deg>          Scan pitch. Default: ${SCAN_PITCH}
@@ -79,7 +81,7 @@ Options:
 Examples:
   ./scripts/navi/${SCRIPT_NAME}
   ./scripts/navi/${SCRIPT_NAME} --rotate true
-  ./scripts/navi/${SCRIPT_NAME} --scan true
+  ./scripts/navi/${SCRIPT_NAME} --scan true --scan-mode 2
   ./scripts/navi/${SCRIPT_NAME} --rotate true --scan true --rotate-level 1
   ./scripts/navi/${SCRIPT_NAME} --rotate false --scan false
   ./scripts/navi/${SCRIPT_NAME} rotate=true scan=true
@@ -139,6 +141,13 @@ validate_rotate_level() {
   fi
 }
 
+validate_scan_mode() {
+  if ! [[ "${SCAN_MODE}" =~ ^[12]$ ]]; then
+    echo "[ERROR] --scan-mode must be 1 or 2, got: ${SCAN_MODE}" >&2
+    exit 2
+  fi
+}
+
 cleanup() {
   local pid
   for pid in "${PIDS[@]}"; do
@@ -183,6 +192,22 @@ while [[ $# -gt 0 ]]; do
       ;;
     scan=*)
       SCAN_ENABLED="$(parse_bool "${1#*=}")"
+      shift
+      ;;
+    --scan-mode)
+      if (( $# < 2 )); then
+        echo "[ERROR] --scan-mode requires 1 or 2." >&2
+        exit 2
+      fi
+      SCAN_MODE="$2"
+      shift 2
+      ;;
+    --scan-mode=*)
+      SCAN_MODE="${1#*=}"
+      shift
+      ;;
+    scanmode=*|scan_mode=*)
+      SCAN_MODE="${1#*=}"
       shift
       ;;
     --rotate-level)
@@ -319,6 +344,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 validate_rotate_level
+validate_scan_mode
 source_ros_workspace "${ROOT_DIR}"
 
 if (( ALLOW_WITH_BT == 0 )) && has_node "/behavior_tree"; then
@@ -375,13 +401,13 @@ python3 "${ROOT_DIR}/scripts/navi/navi_vel_chain.py" \
 PIDS+=("$!")
 
 if [[ "${SCAN_ENABLED}" == "true" ]]; then
+  SCAN_FIRECODE_ARGS=(--safe-firecode 0)
   if [[ "${ROTATE_ENABLED}" == "true" ]]; then
-    SAFE_FIRECODE=$(( ROTATE_LEVEL << 6 ))
-  else
-    SAFE_FIRECODE=0
+    SCAN_FIRECODE_ARGS=(--no-firecode)
   fi
-  echo "[INFO] starting gimbal scan: yaw=[${SCAN_YAW_MIN},${SCAN_YAW_MAX}] pitch=${SCAN_PITCH} rotate=${ROTATE_ENABLED} level=${ROTATE_LEVEL}" >&2
+  echo "[INFO] starting gimbal scan: mode=${SCAN_MODE} yaw=[${SCAN_YAW_MIN},${SCAN_YAW_MAX}] pitch=${SCAN_PITCH} rotate=${ROTATE_ENABLED} level=${ROTATE_LEVEL}" >&2
   python3 "${ROOT_DIR}/scripts/feature_test/scan_gimbal_test.py" \
+    --scan-mode "${SCAN_MODE}" \
     --yaw-min "${SCAN_YAW_MIN}" \
     --yaw-max "${SCAN_YAW_MAX}" \
     --pitch "${SCAN_PITCH}" \
@@ -389,16 +415,20 @@ if [[ "${SCAN_ENABLED}" == "true" ]]; then
     --hz "${SCAN_HZ}" \
     --angles-topic "${CONTROL_ANGLES_TOPIC}" \
     --firecode-topic "${CONTROL_FIRECODE_TOPIC}" \
-    --safe-firecode "${SAFE_FIRECODE}" &
+    "${SCAN_FIRECODE_ARGS[@]}" &
   PIDS+=("$!")
-elif [[ "${ROTATE_ENABLED}" == "true" ]]; then
+fi
+
+if [[ "${ROTATE_ENABLED}" == "true" ]]; then
   echo "[INFO] starting chassis rotate publisher: level=${ROTATE_LEVEL} hz=${ROTATE_HZ}" >&2
   python3 "${ROOT_DIR}/scripts/feature_test/chassis_spin_test.py" \
     --rotate-level "${ROTATE_LEVEL}" \
     --hz "${ROTATE_HZ}" \
     --topic "${CONTROL_FIRECODE_TOPIC}" &
   PIDS+=("$!")
-else
+fi
+
+if [[ "${SCAN_ENABLED}" != "true" && "${ROTATE_ENABLED}" != "true" ]]; then
   echo "[INFO] rotate=false scan=false; bridge publishes hold angles and safe firecode=0." >&2
 fi
 

@@ -216,7 +216,7 @@ python3 ./scripts/python/start.py --keep-to-navi
 | `scripts/navi/facemode_map.sh` | FaceMode 直接使用导航 `map` 系 X/Y/Z，不过矩阵；默认用 `target -> gimbal_barrel_joint` TF 相对几何算朝向，不走相机，输入 m |
 | `scripts/navi/facemode_official.sh` | FaceMode 直接使用 `official_map` frame，不过矩阵；默认用 `target -> gimbal_barrel_joint` TF 相对几何算朝向，不走相机，输入 cm，需要 TF 中有 official_map 链路 |
 | `scripts/navi/navi_vel_chain.sh` | 导航专用速度链路：只拉 `gimbal_driver` 和 `/ly/navi/vel -> /ly/control/vel` 桥，不启动 BT/视觉/FaceMode/小陀螺 |
-| `scripts/navi/navi_control_chain.sh` | 导航下位机链路：转发 `/ly/navi/vel -> /ly/control/vel`，默认开小陀螺和云台巡逻，可用 `--rotate false` / `--scan false` 关闭，不启动 BT/视觉/FaceMode |
+| `scripts/navi/navi_control_chain.sh` | 导航下位机链路：转发 `/ly/navi/vel -> /ly/control/vel`，默认开小陀螺和云台巡逻，默认 `--scan-mode 2`，可用 `--rotate false` / `--scan false` 关闭，不启动 BT/视觉/FaceMode |
 | `scripts/navi/position.sh` | 一键查看 `/ly/navi/position`，默认只输出 `data: [official_map_x_cm, official_map_y_cm]` |
 | `scripts/navi/map_aim_point_test.sh` | FaceMode 完整测试入口，可拉 `gimbal_driver` / `tf_tree`，支持 `--unit m\|cm`，默认 cm |
 | `scripts/navi/map_aim_point_attach.sh` | 已有 stack 上只附加 FaceMode 节点 |

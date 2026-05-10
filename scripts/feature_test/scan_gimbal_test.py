@@ -5,6 +5,7 @@
 # Keep behavior and interface changes synchronized with related modules.
 
 import argparse
+import math
 
 import rclpy
 from rclpy.executors import ExternalShutdownException
@@ -24,28 +25,35 @@ class ScanGimbalNode(Node):
         angles_topic: str,
         firecode_topic: str,
         safe_firecode: int,
+        scan_mode: int,
+        publish_firecode: bool,
     ) -> None:
         super().__init__("scan_gimbal_test")
         if yaw_min > yaw_max:
             yaw_min, yaw_max = yaw_max, yaw_min
 
+        self.scan_mode = 2 if scan_mode == 2 else 1
         self.yaw_min = yaw_min
         self.yaw_max = yaw_max
         self.pitch = pitch
         self.step_deg = abs(step_deg) if abs(step_deg) > 0.01 else 0.5
         self.yaw = yaw_min
         self.direction = 1.0
+        self.center_yaw = (yaw_min + yaw_max) * 0.5
+        self.half_range = max((yaw_max - yaw_min) * 0.5, 1.0)
+        self.phase = -math.pi * 0.5
         self.safe_firecode = max(0, min(255, safe_firecode))
+        self.publish_firecode = publish_firecode
 
         self.angles_pub = self.create_publisher(GimbalAngles, angles_topic, 10)
-        self.firecode_pub = self.create_publisher(FireCode, firecode_topic, 10)
+        self.firecode_pub = self.create_publisher(FireCode, firecode_topic, 10) if publish_firecode else None
         period = 1.0 / max(1.0, hz)
         self.timer = self.create_timer(period, self._on_timer)
 
         self.get_logger().info(
-            f"scan started: yaw=[{self.yaw_min:.2f},{self.yaw_max:.2f}] "
+            f"scan started: mode={self.scan_mode} yaw=[{self.yaw_min:.2f},{self.yaw_max:.2f}] "
             f"pitch={self.pitch:.2f} step={self.step_deg:.2f} "
-            f"angles_topic={angles_topic} firecode_topic={firecode_topic}"
+            f"angles_topic={angles_topic} publish_firecode={self.publish_firecode}"
         )
 
     def _on_timer(self) -> None:
@@ -55,16 +63,24 @@ class ScanGimbalNode(Node):
         msg.pitch = float(self.pitch)
         self.angles_pub.publish(msg)
 
-        fire_msg = FireCode()
-        fire_msg.header.stamp = msg.header.stamp
-        fire_msg.field_mask = FireCode.FIELD_ALL
-        fire_msg.fire_status = self.safe_firecode & 0x03
-        fire_msg.cap_state = (self.safe_firecode >> 2) & 0x03
-        fire_msg.follow_mode = ((self.safe_firecode >> 4) & 0x01) != 0
-        fire_msg.aim_mode = ((self.safe_firecode >> 5) & 0x01) != 0
-        fire_msg.rotate = (self.safe_firecode >> 6) & 0x03
-        fire_msg.raw = self.safe_firecode
-        self.firecode_pub.publish(fire_msg)
+        if self.firecode_pub is not None:
+            fire_msg = FireCode()
+            fire_msg.header.stamp = msg.header.stamp
+            fire_msg.field_mask = FireCode.FIELD_ALL
+            fire_msg.fire_status = self.safe_firecode & 0x03
+            fire_msg.cap_state = (self.safe_firecode >> 2) & 0x03
+            fire_msg.follow_mode = ((self.safe_firecode >> 4) & 0x01) != 0
+            fire_msg.aim_mode = ((self.safe_firecode >> 5) & 0x01) != 0
+            fire_msg.rotate = (self.safe_firecode >> 6) & 0x03
+            fire_msg.raw = self.safe_firecode
+            self.firecode_pub.publish(fire_msg)
+
+        if self.scan_mode == 2:
+            self.phase += self.step_deg / self.half_range
+            if self.phase > math.pi * 1.5:
+                self.phase -= math.pi * 2.0
+            self.yaw = self.center_yaw + self.half_range * math.sin(self.phase)
+            return
 
         self.yaw += self.direction * self.step_deg
         if self.yaw >= self.yaw_max:
@@ -85,6 +101,8 @@ def main() -> None:
     parser.add_argument("--angles-topic", type=str, default="/ly/control/angles")
     parser.add_argument("--firecode-topic", type=str, default="/ly/control/firecode")
     parser.add_argument("--safe-firecode", type=int, default=0)
+    parser.add_argument("--scan-mode", type=int, choices=(1, 2), default=1)
+    parser.add_argument("--no-firecode", action="store_true")
     cli_args = parser.parse_args()
 
     rclpy.init()
@@ -97,6 +115,8 @@ def main() -> None:
         angles_topic=cli_args.angles_topic,
         firecode_topic=cli_args.firecode_topic,
         safe_firecode=cli_args.safe_firecode,
+        scan_mode=cli_args.scan_mode,
+        publish_firecode=not cli_args.no_firecode,
     )
 
     try:
