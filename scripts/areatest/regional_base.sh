@@ -3,4 +3,4 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-exec "${ROOT_DIR}/scripts/areatest/regional_area_test.sh" base "$@"
+exec "${ROOT_DIR}/scripts/areatest/regional_area_test.sh" base "$@" --ros-args -r /goal_pose:=/my_goal_pose
