@@ -34,8 +34,8 @@ USE_GIMBAL_STAMP_FOR_TF="${USE_GIMBAL_STAMP_FOR_TF:-false}"
 MAX_GIMBAL_STAMP_AGE_SEC="${MAX_GIMBAL_STAMP_AGE_SEC:-0.50}"
 MAX_TARGET_DISTANCE_M="${MAX_TARGET_DISTANCE_M:-100.0}"
 COMMAND_FILTER_ALPHA="${COMMAND_FILTER_ALPHA:-1.0}"
-MAX_YAW_STEP_DEG="${MAX_YAW_STEP_DEG:-0.0}"
-MAX_PITCH_STEP_DEG="${MAX_PITCH_STEP_DEG:-0.0}"
+MAX_YAW_STEP_DEG="${MAX_YAW_STEP_DEG:-}"
+MAX_PITCH_STEP_DEG="${MAX_PITCH_STEP_DEG:-}"
 YAW_SIGN="${YAW_SIGN:--1.0}"
 PITCH_SIGN="${PITCH_SIGN:-1.0}"
 YAW_BIAS_DEG="${YAW_BIAS_DEG:-0.0}"
@@ -47,6 +47,14 @@ EXTRA_PARAMS=()
 
 # shellcheck disable=SC1091
 source "${ROOT_DIR}/scripts/lib/ros_launch_common.sh"
+
+COMMON_CONFIG_FILE="${ROOT_DIR}/config/common.yaml"
+if [[ -z "${MAX_YAW_STEP_DEG}" ]]; then
+  MAX_YAW_STEP_DEG="$(read_yaml_path_scalar "${COMMON_CONFIG_FILE}" "face_mode.max_yaw_step_deg" || printf '0.0\n')"
+fi
+if [[ -z "${MAX_PITCH_STEP_DEG}" ]]; then
+  MAX_PITCH_STEP_DEG="$(read_yaml_path_scalar "${COMMON_CONFIG_FILE}" "face_mode.max_pitch_step_deg" || printf '0.0\n')"
+fi
 
 usage() {
   cat <<EOF

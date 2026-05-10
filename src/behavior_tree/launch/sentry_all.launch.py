@@ -174,8 +174,13 @@ def generate_launch_description():
     navi_publish_goal_pose = LaunchConfiguration("navi_publish_goal_pose")
     wait_for_game_start_timeout_sec = LaunchConfiguration("wait_for_game_start_timeout_sec")
     league_referee_stale_timeout_ms = LaunchConfiguration("league_referee_stale_timeout_ms")
+    start_gate_allow_gimbal_patrol_before_start = LaunchConfiguration(
+        "start_gate_allow_gimbal_patrol_before_start"
+    )
     firecode_partial_hold_ms = LaunchConfiguration("firecode_partial_hold_ms")
     velocity_raw_to_mps = LaunchConfiguration("velocity_raw_to_mps")
+    face_mode_max_yaw_step_deg = LaunchConfiguration("face_mode_max_yaw_step_deg")
+    face_mode_max_pitch_step_deg = LaunchConfiguration("face_mode_max_pitch_step_deg")
     gimbal_raw_log_enable = LaunchConfiguration("gimbal_raw_log_enable")
     gimbal_raw_log_uplink = LaunchConfiguration("gimbal_raw_log_uplink")
     gimbal_raw_log_downlink = LaunchConfiguration("gimbal_raw_log_downlink")
@@ -289,6 +294,11 @@ def generate_launch_description():
             description="0 disables stale-check. >0 enables league referee freshness guard for HP/Ammo recovery.",
         ),
         DeclareLaunchArgument(
+            "start_gate_allow_gimbal_patrol_before_start",
+            default_value="true",
+            description="Allow gimbal patrol scan while gated before /ly/game/is_start=true.",
+        ),
+        DeclareLaunchArgument(
             "firecode_partial_hold_ms",
             default_value="100",
             description="gimbal_driver FireCode partial-field hold time before stale fields degrade to 0.",
@@ -297,6 +307,16 @@ def generate_launch_description():
             "velocity_raw_to_mps",
             default_value="0.025",
             description="gimbal_driver scale from lower raw int8 velocity to m/s.",
+        ),
+        DeclareLaunchArgument(
+            "face_mode_max_yaw_step_deg",
+            default_value="40.0",
+            description="FaceMode max yaw command change per publish. 0 disables step limiting.",
+        ),
+        DeclareLaunchArgument(
+            "face_mode_max_pitch_step_deg",
+            default_value="0.0",
+            description="FaceMode max pitch command change per publish. 0 disables step limiting.",
         ),
         DeclareLaunchArgument(
             "gimbal_raw_log_enable",
@@ -451,8 +471,14 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] navi_publish_goal_pose: ", navi_publish_goal_pose]),
         LogInfo(msg=["[sentry_all] wait_for_game_start_timeout_sec: ", wait_for_game_start_timeout_sec]),
         LogInfo(msg=["[sentry_all] league_referee_stale_timeout_ms: ", league_referee_stale_timeout_ms]),
+        LogInfo(msg=[
+            "[sentry_all] start_gate_allow_gimbal_patrol_before_start: ",
+            start_gate_allow_gimbal_patrol_before_start,
+        ]),
         LogInfo(msg=["[sentry_all] firecode_partial_hold_ms: ", firecode_partial_hold_ms]),
         LogInfo(msg=["[sentry_all] velocity_raw_to_mps: ", velocity_raw_to_mps]),
+        LogInfo(msg=["[sentry_all] face_mode_max_yaw_step_deg: ", face_mode_max_yaw_step_deg]),
+        LogInfo(msg=["[sentry_all] face_mode_max_pitch_step_deg: ", face_mode_max_pitch_step_deg]),
         LogInfo(msg=["[sentry_all] gimbal_raw_log_enable: ", gimbal_raw_log_enable]),
         LogInfo(msg=["[sentry_all] gimbal_raw_log_uplink: ", gimbal_raw_log_uplink]),
         LogInfo(msg=["[sentry_all] gimbal_raw_log_downlink: ", gimbal_raw_log_downlink]),
@@ -531,8 +557,10 @@ def generate_launch_description():
                 "pitch_sign": 1.0,
                 "yaw_bias_deg": 0.0,
                 "pitch_bias_deg": 0.0,
-                "max_yaw_step_deg": 0.0,
-                "max_pitch_step_deg": 0.0,
+                "max_yaw_step_deg": ParameterValue(
+                    face_mode_max_yaw_step_deg, value_type=float),
+                "max_pitch_step_deg": ParameterValue(
+                    face_mode_max_pitch_step_deg, value_type=float),
             }],
             condition=IfCondition(use_face_mode_solver),
         ),
@@ -753,6 +781,10 @@ def generate_launch_description():
                     "publish_navi_goal": publish_navi_goal,
                     "wait_for_game_start_timeout_sec": wait_for_game_start_timeout_sec,
                     "league_referee_stale_timeout_ms": league_referee_stale_timeout_ms,
+                    "StartGate.AllowGimbalPatrolBeforeStart": ParameterValue(
+                        start_gate_allow_gimbal_patrol_before_start, value_type=bool),
+                    "StartGate/AllowGimbalPatrolBeforeStart": ParameterValue(
+                        start_gate_allow_gimbal_patrol_before_start, value_type=bool),
                     "ExternalAim.Enable": True,
                     "ExternalAim/Enable": True,
                     "decision_trace_enabled": decision_trace_enabled,

@@ -2,6 +2,7 @@ behavior_tree:
   ros__parameters:
     StartGate:
       # Gate mode rule: before /ly/game/is_start=true, keep chassis velocity and rotate at zero.
+      # This fallback is overridden by config/common.yaml when using scripts/start.sh.
       # This switch only allows gimbal patrol scan while waiting for game start.
       AllowGimbalPatrolBeforeStart: true
     Task:

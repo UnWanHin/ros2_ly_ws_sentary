@@ -423,6 +423,10 @@ else
   for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == velocity_raw_to_mps:=* ]] && echo "[INFO] override velocity_raw_to_mps=${arg#velocity_raw_to_mps:=}"; done
 fi
 
+add_common_bool_launch_arg "start_gate.allow_gimbal_patrol_before_start" "start_gate_allow_gimbal_patrol_before_start"
+add_common_scalar_launch_arg "face_mode.max_yaw_step_deg" "face_mode_max_yaw_step_deg"
+add_common_scalar_launch_arg "face_mode.max_pitch_step_deg" "face_mode_max_pitch_step_deg"
+
 add_common_bool_launch_arg "gimbal_raw.file.enable" "gimbal_raw_log_enable" "gimbal_raw_log_enable"
 add_common_bool_launch_arg "gimbal_raw.file.uplink" "gimbal_raw_log_uplink" "gimbal_raw_log_uplink"
 add_common_bool_launch_arg "gimbal_raw.file.downlink" "gimbal_raw_log_downlink" "gimbal_raw_log_downlink"

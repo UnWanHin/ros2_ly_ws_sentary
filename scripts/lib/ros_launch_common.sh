@@ -152,6 +152,66 @@ cleanup_existing_launch_tree() {
   fi
 }
 
+read_yaml_path_scalar() {
+  local config_file="$1"
+  local path="$2"
+  [[ -f "${config_file}" ]] || return 1
+
+  python3 - "${config_file}" "${path}" <<'PY'
+import sys
+
+config_file = sys.argv[1]
+parts = sys.argv[2].split(".")
+stack = []
+
+def strip_inline_comment(line: str) -> str:
+    out = []
+    in_single = False
+    in_double = False
+    for ch in line:
+        if ch == "'" and not in_double:
+            in_single = not in_single
+        elif ch == '"' and not in_single:
+            in_double = not in_double
+        elif ch == "#" and not in_single and not in_double:
+            break
+        out.append(ch)
+    return "".join(out).rstrip()
+
+with open(config_file, encoding="utf-8") as fh:
+    for raw in fh:
+        line = strip_inline_comment(raw.rstrip("\n"))
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        text = line.strip()
+        if ":" not in text:
+            continue
+        key, value = text.split(":", 1)
+        key = key.strip().strip("'\"")
+        value = value.strip()
+
+        while stack and stack[-1][0] >= indent:
+            stack.pop()
+        current = [item[1] for item in stack] + [key]
+
+        if not value:
+            stack.append((indent, key))
+            continue
+
+        if (value.startswith('"') and value.endswith('"')) or (
+            value.startswith("'") and value.endswith("'")
+        ):
+            value = value[1:-1]
+
+        if current == parts:
+            print(value)
+            sys.exit(0)
+
+sys.exit(1)
+PY
+}
+
 print_raw_goal_map_preview() {
   local config_file="$1"
   local target_x_cm="$2"

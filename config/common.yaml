@@ -20,6 +20,17 @@ rosbag_path: ~/Log/rosbag
 firecode_partial_hold_ms: 100
 velocity_raw_to_mps: 0.025
 
+# Start gate behavior for `./scripts/start.sh gate ...`.
+# Chassis remains gated before /ly/game/is_start=true; this only permits gimbal patrol.
+start_gate:
+  allow_gimbal_patrol_before_start: true
+
+# FaceMode command shaping.
+# 0 disables the step limit. Keep yaw below the lower-controller jump guard.
+face_mode:
+  max_yaw_step_deg: 40.0
+  max_pitch_step_deg: 0.0
+
 # gimbal_driver raw serial diagnostics.
 # Both channels are disabled by default.
 gimbal_raw:
