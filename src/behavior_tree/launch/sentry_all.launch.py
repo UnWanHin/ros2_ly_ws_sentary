@@ -8,8 +8,8 @@
 哨兵整链路启动入口（比赛/联调主入口）。
 
 职责：
-- 拉起 gimbal_driver / detector / tracker_solver / predictor / outpost_hitter / buff_hitter / behavior_tree。
-- use_external_aim=true 时不启动内部相机/辅瞄链，只保留决策与外部 aim 接口。
+- 拉起 gimbal_driver / tf_tree / navi_tf_bridge / FaceMode / behavior_tree。
+- 外部 aim 通过 /ly/aim/* 接入；本 launch 不再启动内部相机/辅瞄链。
 - 支持通过 offline 参数统一覆盖“虚拟串口 + 视频回放”。
 
 注意：
@@ -137,10 +137,6 @@ def generate_launch_description():
     # 分层配置默认入口：
     #   base + module + optional global override(config_file)
     behavior_tree_share = get_package_share_directory("behavior_tree")
-    detector_share = get_package_share_directory("detector")
-    predictor_share = get_package_share_directory("predictor")
-    outpost_share = get_package_share_directory("outpost_hitter")
-    buff_share = get_package_share_directory("buff_hitter")
     tf_tree_share = get_package_share_directory("tf_tree")
     behavior_tree_config_root = os.path.join(behavior_tree_share, "config")
     tf_tree_launch_file = os.path.join(tf_tree_share, "launch", "tf_tree.launch.py")
@@ -160,10 +156,6 @@ def generate_launch_description():
     default_area_manager_config_file = os.path.join(behavior_tree_config_root, "AreaManager.yaml")
     default_task_config_file = os.path.join(behavior_tree_config_root, "Task.yaml")
     default_navi_rotate_config_file = os.path.join(behavior_tree_config_root, "NaviRotateControl.yaml")
-    default_detector_config_file = os.path.join(detector_share, "config", "detector_config.yaml")
-    default_predictor_config_file = os.path.join(predictor_share, "config", "predictor_config.yaml")
-    default_outpost_config_file = os.path.join(outpost_share, "config", "outpost_config.yaml")
-    default_buff_config_file = os.path.join(buff_share, "config", "buff_config.yaml")
 
     mode = LaunchConfiguration("mode")
     config_file = LaunchConfiguration("config_file")
@@ -171,17 +163,12 @@ def generate_launch_description():
     task_config_file = LaunchConfiguration("task_config_file")
     navi_rotate_config_file = LaunchConfiguration("navi_rotate_config_file")
     base_config_file = LaunchConfiguration("base_config_file")
-    detector_config_file = LaunchConfiguration("detector_config_file")
-    predictor_config_file = LaunchConfiguration("predictor_config_file")
-    outpost_config_file = LaunchConfiguration("outpost_config_file")
-    buff_config_file = LaunchConfiguration("buff_config_file")
     output = LaunchConfiguration("output")
     competition_profile = LaunchConfiguration("competition_profile")
     bt_config_file = LaunchConfiguration("bt_config_file")
     bt_tree_file = LaunchConfiguration("bt_tree_file")
     debug_bypass_is_start = LaunchConfiguration("debug_bypass_is_start")
     runtime_rearm_start_gate = LaunchConfiguration("runtime_rearm_start_gate")
-    predictor_publish_on_tracker_callback = LaunchConfiguration("predictor_publish_on_tracker_callback")
     publish_navi_goal = LaunchConfiguration("publish_navi_goal")
     navi_publish_goal_pose = LaunchConfiguration("navi_publish_goal_pose")
     wait_for_game_start_timeout_sec = LaunchConfiguration("wait_for_game_start_timeout_sec")
@@ -199,8 +186,6 @@ def generate_launch_description():
     gimbal_raw_topic_uplink = LaunchConfiguration("gimbal_raw_topic_uplink")
     gimbal_raw_topic_downlink = LaunchConfiguration("gimbal_raw_topic_downlink")
     gimbal_raw_topic_type_ids = LaunchConfiguration("gimbal_raw_topic_type_ids")
-    aim_timer_log_enable = LaunchConfiguration("aim_timer_log_enable")
-    aim_timer_log_dir = LaunchConfiguration("aim_timer_log_dir")
     decision_trace_enabled = LaunchConfiguration("decision_trace_enabled")
     decision_trace_file = LaunchConfiguration("decision_trace_file")
     decision_trace_every_n_ticks = LaunchConfiguration("decision_trace_every_n_ticks")
@@ -209,12 +194,6 @@ def generate_launch_description():
     resolved_rosbag_path = LaunchConfiguration("resolved_rosbag_path")
 
     use_gimbal = LaunchConfiguration("use_gimbal")
-    use_external_aim = LaunchConfiguration("use_external_aim")
-    use_detector = LaunchConfiguration("use_detector")
-    use_tracker = LaunchConfiguration("use_tracker")
-    use_predictor = LaunchConfiguration("use_predictor")
-    use_outpost = LaunchConfiguration("use_outpost")
-    use_buff = LaunchConfiguration("use_buff")
     use_behavior_tree = LaunchConfiguration("use_behavior_tree")
     use_tf_tree = LaunchConfiguration("use_tf_tree")
     use_navi_tf_bridge = LaunchConfiguration("use_navi_tf_bridge")
@@ -241,7 +220,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "base_config_file",
             default_value=default_base_config_file,
-            description="Base shared YAML for camera/solver/io.",
+            description="Base shared YAML for gimbal/io/shared geometry.",
         ),
         DeclareLaunchArgument(
             "area_manager_config_file",
@@ -257,31 +236,6 @@ def generate_launch_description():
             "navi_rotate_config_file",
             default_value=default_navi_rotate_config_file,
             description="External navigation rotate/follow compatibility YAML for behavior_tree.",
-        ),
-        DeclareLaunchArgument(
-            "detector_config_file",
-            default_value=default_detector_config_file,
-            description="Detector module YAML.",
-        ),
-        DeclareLaunchArgument(
-            "predictor_config_file",
-            default_value=default_predictor_config_file,
-            description="Predictor/tracker module YAML.",
-        ),
-        DeclareLaunchArgument(
-            "predictor_publish_on_tracker_callback",
-            default_value="true",
-            description="Publish /ly/predictor/target immediately from /ly/tracker/results callback.",
-        ),
-        DeclareLaunchArgument(
-            "outpost_config_file",
-            default_value=default_outpost_config_file,
-            description="Outpost module YAML.",
-        ),
-        DeclareLaunchArgument(
-            "buff_config_file",
-            default_value=default_buff_config_file,
-            description="Buff module YAML.",
         ),
         DeclareLaunchArgument(
             "output",
@@ -399,19 +353,9 @@ def generate_launch_description():
             description="Comma-separated uplink TypeID list for raw ROS2 topic, or all.",
         ),
         DeclareLaunchArgument(
-            "aim_timer_log_enable",
-            default_value="false",
-            description="Enable tracker_solver/predictor AimTimer file diagnostics.",
-        ),
-        DeclareLaunchArgument(
-            "aim_timer_log_dir",
-            default_value="~/Log/AimTimer",
-            description="AimTimer diagnostics output directory.",
-        ),
-        DeclareLaunchArgument(
             "rosbag_play_enable",
             default_value="false",
-            description="When true, launch ros2 bag play and switch detector to rosbag input.",
+            description="When true, launch ros2 bag play for replaying external inputs.",
         ),
         DeclareLaunchArgument(
             "rosbag_path",
@@ -434,16 +378,6 @@ def generate_launch_description():
             description="Write one decision trace record every N behavior_tree ticks when tracing is enabled.",
         ),
         DeclareLaunchArgument("use_gimbal", default_value="true"),
-        DeclareLaunchArgument(
-            "use_external_aim",
-            default_value="false",
-            description="Use external sentry_msgs aim interface and do not launch internal camera/aim chain.",
-        ),
-        DeclareLaunchArgument("use_detector", default_value="true"),
-        DeclareLaunchArgument("use_tracker", default_value="true"),
-        DeclareLaunchArgument("use_predictor", default_value="true"),
-        DeclareLaunchArgument("use_outpost", default_value="true"),
-        DeclareLaunchArgument("use_buff", default_value="true"),
         DeclareLaunchArgument("use_behavior_tree", default_value="true"),
         DeclareLaunchArgument(
             "use_tf_tree",
@@ -494,31 +428,6 @@ def generate_launch_description():
         "'", offline, "'.lower() in ", truthy_values,
         " or '", rosbag_play_enable, "'.lower() in ", truthy_values
     ])
-    offline_video_expr = PythonExpression([
-        "'", offline, "'.lower() in ", truthy_values,
-        " and '", rosbag_play_enable, "'.lower() not in ", truthy_values
-    ])
-    internal_detector_expr = PythonExpression([
-        "'", use_detector, "'.lower() in ", truthy_values,
-        " and '", use_external_aim, "'.lower() not in ", truthy_values
-    ])
-    internal_tracker_expr = PythonExpression([
-        "'", use_tracker, "'.lower() in ", truthy_values,
-        " and '", use_external_aim, "'.lower() not in ", truthy_values
-    ])
-    internal_predictor_expr = PythonExpression([
-        "'", use_predictor, "'.lower() in ", truthy_values,
-        " and '", use_external_aim, "'.lower() not in ", truthy_values
-    ])
-    internal_outpost_expr = PythonExpression([
-        "'", use_outpost, "'.lower() in ", truthy_values,
-        " and '", use_external_aim, "'.lower() not in ", truthy_values
-    ])
-    internal_buff_expr = PythonExpression([
-        "'", use_buff, "'.lower() in ", truthy_values,
-        " and '", use_external_aim, "'.lower() not in ", truthy_values
-    ])
-
     info_logs = [
         LogInfo(msg=["[sentry_all] mode: ", mode]),
         LogInfo(msg=["[sentry_all] config: ", config_file]),
@@ -526,14 +435,9 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] area_manager_config: ", area_manager_config_file]),
         LogInfo(msg=["[sentry_all] task_config: ", task_config_file]),
         LogInfo(msg=["[sentry_all] navi_rotate_config: ", navi_rotate_config_file]),
-        LogInfo(msg=["[sentry_all] detector_config: ", detector_config_file]),
-        LogInfo(msg=["[sentry_all] predictor_config: ", predictor_config_file]),
-        LogInfo(msg=["[sentry_all] predictor_publish_on_tracker_callback: ", predictor_publish_on_tracker_callback]),
-        LogInfo(msg=["[sentry_all] outpost_config: ", outpost_config_file]),
-        LogInfo(msg=["[sentry_all] buff_config: ", buff_config_file]),
         LogInfo(msg=["[sentry_all] output: ", output]),
         LogInfo(msg=["[sentry_all] offline: ", offline]),
-        LogInfo(msg=["[sentry_all] use_external_aim: ", use_external_aim]),
+        LogInfo(msg=["[sentry_all] external aim: required (/ly/aim/*)"]),
         LogInfo(msg=["[sentry_all] competition_profile: ", competition_profile]),
         LogInfo(msg=["[sentry_all] bt_config_file: ", bt_config_file]),
         LogInfo(msg=["[sentry_all] resolved_mode: ", resolved_mode_kind]),
@@ -559,8 +463,6 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] gimbal_raw_topic_uplink: ", gimbal_raw_topic_uplink]),
         LogInfo(msg=["[sentry_all] gimbal_raw_topic_downlink: ", gimbal_raw_topic_downlink]),
         LogInfo(msg=["[sentry_all] gimbal_raw_topic_type_ids: ", gimbal_raw_topic_type_ids]),
-        LogInfo(msg=["[sentry_all] aim_timer_log_enable: ", aim_timer_log_enable]),
-        LogInfo(msg=["[sentry_all] aim_timer_log_dir: ", aim_timer_log_dir]),
         LogInfo(msg=["[sentry_all] rosbag_play_enable: ", rosbag_play_enable]),
         LogInfo(msg=["[sentry_all] rosbag_path: ", rosbag_path]),
         LogInfo(msg=["[sentry_all] resolved_rosbag_path: ", resolved_rosbag_path]),
@@ -831,120 +733,6 @@ def generate_launch_description():
             ],
             condition=IfCondition(use_gimbal),
         ),
-        # detector: offline=true uses video replay; rosbag replay uses the compressed image topic.
-        GroupAction(
-            actions=[
-                Node(
-                    package="detector",
-                    executable="detector_node",
-                    name="detector",
-                    output=output,
-                    parameters=[base_config_file, detector_config_file, config_file],
-                    on_exit=Shutdown(reason="detector exited"),
-                    condition=IfCondition(hardware_io_expr),
-                ),
-                Node(
-                    package="detector",
-                    executable="detector_node",
-                    name="detector",
-                    output=output,
-                    parameters=[
-                        base_config_file,
-                        detector_config_file,
-                        config_file,
-                        {
-                            "detector_config/use_video": True,
-                            "detector_config.use_video": True,
-                        },
-                    ],
-                    on_exit=Shutdown(reason="detector exited"),
-                    condition=IfCondition(offline_video_expr),
-                ),
-                Node(
-                    package="detector",
-                    executable="detector_node",
-                    name="detector",
-                    output=output,
-                    parameters=[
-                        base_config_file,
-                        detector_config_file,
-                        config_file,
-                        {
-                            "detector_config/use_video": False,
-                            "detector_config.use_video": False,
-                            "detector_config/use_ros_bag": True,
-                            "detector_config.use_ros_bag": True,
-                        },
-                    ],
-                    on_exit=Shutdown(reason="detector exited"),
-                    condition=IfCondition(rosbag_enabled_expr),
-                ),
-            ],
-            condition=IfCondition(internal_detector_expr),
-        ),
-        # 下游链路节点
-        Node(
-            package="tracker_solver",
-            executable="tracker_solver_node",
-            name="tracker_solver",
-            output=output,
-            parameters=[
-                base_config_file,
-                predictor_config_file,
-                config_file,
-                {
-                    "aim_timer_log.enable": ParameterValue(aim_timer_log_enable, value_type=bool),
-                    "aim_timer_log/enable": ParameterValue(aim_timer_log_enable, value_type=bool),
-                    "aim_timer_log.dir": ParameterValue(aim_timer_log_dir, value_type=str),
-                    "aim_timer_log/dir": ParameterValue(aim_timer_log_dir, value_type=str),
-                },
-            ],
-            on_exit=Shutdown(reason="tracker_solver exited"),
-            condition=IfCondition(internal_tracker_expr),
-        ),
-        Node(
-            package="predictor",
-            executable="predictor_node",
-            name="predictor_node",
-            output=output,
-            parameters=[
-                base_config_file,
-                predictor_config_file,
-                config_file,
-                {
-                    "aim_timer_log.enable": ParameterValue(aim_timer_log_enable, value_type=bool),
-                    "aim_timer_log/enable": ParameterValue(aim_timer_log_enable, value_type=bool),
-                    "aim_timer_log.dir": ParameterValue(aim_timer_log_dir, value_type=str),
-                    "aim_timer_log/dir": ParameterValue(aim_timer_log_dir, value_type=str),
-                    "predictor_config.publish_on_tracker_callback": ParameterValue(
-                        predictor_publish_on_tracker_callback,
-                        value_type=bool),
-                    "predictor_config/publish_on_tracker_callback": ParameterValue(
-                        predictor_publish_on_tracker_callback,
-                        value_type=bool),
-                },
-            ],
-            on_exit=Shutdown(reason="predictor_node exited"),
-            condition=IfCondition(internal_predictor_expr),
-        ),
-        Node(
-            package="outpost_hitter",
-            executable="outpost_hitter_node",
-            name="outpost_hitter",
-            output=output,
-            parameters=[base_config_file, outpost_config_file, config_file],
-            on_exit=Shutdown(reason="outpost_hitter exited"),
-            condition=IfCondition(internal_outpost_expr),
-        ),
-        Node(
-            package="buff_hitter",
-            executable="buff_hitter_node",
-            name="buff_hitter",
-            output=output,
-            parameters=[base_config_file, buff_config_file, config_file],
-            on_exit=Shutdown(reason="buff_hitter exited"),
-            condition=IfCondition(internal_buff_expr),
-        ),
         # 最后启动 behavior_tree（决策接管）
         Node(
             package="behavior_tree",
@@ -964,8 +752,8 @@ def generate_launch_description():
                     "publish_navi_goal": publish_navi_goal,
                     "wait_for_game_start_timeout_sec": wait_for_game_start_timeout_sec,
                     "league_referee_stale_timeout_ms": league_referee_stale_timeout_ms,
-                    "ExternalAim.Enable": ParameterValue(use_external_aim, value_type=bool),
-                    "ExternalAim/Enable": ParameterValue(use_external_aim, value_type=bool),
+                    "ExternalAim.Enable": True,
+                    "ExternalAim/Enable": True,
                     "decision_trace_enabled": decision_trace_enabled,
                     "decision_trace_file": decision_trace_file,
                     "decision_trace_every_n_ticks": decision_trace_every_n_ticks,

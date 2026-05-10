@@ -63,7 +63,7 @@ Examples:
   ./${SCRIPT_NAME} --runtime-only --launch
 
   # 自動啟動 + 自定義 launch 參數
-  ./${SCRIPT_NAME} --launch -- --config_file:=/abs/path/override_config.yaml use_buff:=false
+  ./${SCRIPT_NAME} --launch -- --config_file:=/abs/path/override_config.yaml use_gimbal:=false
 
 Options:
   --launch               自動啟動 sentry_all.launch.py，檢查結束後自動停止
@@ -230,6 +230,15 @@ check_file_exists() {
   fi
 }
 
+check_ros_interface() {
+  local interface_name="$1"
+  if timeout "${CMD_TIMEOUT}s" ros2 interface show "${interface_name}" >/dev/null 2>&1; then
+    pass "ROS interface available: ${interface_name}"
+  else
+    fail "ROS interface missing: ${interface_name}"
+  fi
+}
+
 check_executable_file() {
   local path="$1"
   if [[ -x "${path}" ]]; then
@@ -352,34 +361,21 @@ check_legacy_hardcoded_camera_sn() {
 
 check_launch_mode_hints() {
   local default_base_yaml="${ROOT_DIR}/config/base_config.yaml"
-  local default_detector_yaml="${ROOT_DIR}/src/detector/config/detector_config.yaml"
-  local base_cfg_arg detector_cfg_arg
+  local base_cfg_arg
   base_cfg_arg="$(launch_arg_value "base_config_file" "")"
-  detector_cfg_arg="$(launch_arg_value "detector_config_file" "")"
   local base_yaml="${base_cfg_arg:-${default_base_yaml}}"
-  local detector_yaml="${detector_cfg_arg:-${default_detector_yaml}}"
 
-  if [[ ! -f "${base_yaml}" || ! -f "${detector_yaml}" ]]; then
-    warn "Launch mode hint skipped: base/detector config file missing: base=${base_yaml}, detector=${detector_yaml}"
+  if [[ ! -f "${base_yaml}" ]]; then
+    warn "Launch mode hint skipped: base config file missing: base=${base_yaml}"
     return
   fi
-  info "Launch mode hints based on base=${base_yaml}, detector=${detector_yaml}"
+  info "Launch mode hints based on base=${base_yaml}"
   if (( OFFLINE_MODE == 1 )); then
-    pass "Offline mode enabled: launch will enforce virtual IO + video replay overrides."
+    pass "Offline mode enabled: launch will enforce virtual IO overrides."
   fi
 
-  local use_video
   local use_virtual
-  use_video="$(extract_yaml_quoted_key_value "${detector_yaml}" 'detector_config/use_video')"
   use_virtual="$(extract_yaml_quoted_key_value "${base_yaml}" 'io_config/use_virtual_device')"
-
-  if (( OFFLINE_MODE == 1 )); then
-    pass "Offline launch override: detector_config/use_video will be forced to true."
-  elif [[ "${use_video}" == "false" ]]; then
-    warn "Current config requires real camera (detector_config/use_video=false). If offline, set true."
-  else
-    pass "Current config uses video input (detector_config/use_video=true)."
-  fi
 
   if (( OFFLINE_MODE == 1 )); then
     pass "Offline launch override: io_config/use_virtual_device will be forced to true."
@@ -410,7 +406,7 @@ print_launch_diagnosis() {
   fi
 
   if grep -Eq 'Failed to initialize camera|camera.*not found|camera.*open failed' "${LAUNCH_LOG}"; then
-    warn "Detected camera initialization failure. Confirm camera connection or switch detector_config/use_video=true for offline replay."
+    warn "Detected camera initialization failure. sentry_all no longer starts the internal camera; check external aim stack or custom launch args."
   fi
 
   if grep -Eq 'IODevice::MakeDevice|ttyACM|ttyUSB|open serial|No such file or directory' "${LAUNCH_LOG}"; then
@@ -494,6 +490,16 @@ check_node_online() {
     pass "Node online: ${node}"
   else
     fail "Node missing: ${node}"
+  fi
+}
+
+check_node_absent() {
+  local node="$1"
+  local node_list="$2"
+  if grep -Fxq "${node}" <<< "${node_list}"; then
+    fail "Unexpected node online: ${node}"
+  else
+    pass "Node absent as expected: ${node}"
   fi
 }
 
@@ -662,10 +668,6 @@ if (( RUNTIME_ONLY == 0 )); then
   check_file_exists "${ROOT_DIR}/src/behavior_tree/launch/sentry_all.launch.py"
   check_file_exists "${ROOT_DIR}/config/base_config.yaml"
   check_file_exists "${ROOT_DIR}/config/override_config.yaml"
-  check_file_exists "${ROOT_DIR}/src/detector/config/detector_config.yaml"
-  check_file_exists "${ROOT_DIR}/src/predictor/config/predictor_config.yaml"
-  check_file_exists "${ROOT_DIR}/src/outpost_hitter/config/outpost_config.yaml"
-  check_file_exists "${ROOT_DIR}/src/buff_hitter/config/buff_config.yaml"
   check_file_exists "${ROOT_DIR}/scripts/start.sh"
   check_file_exists "${ROOT_DIR}/scripts/debug.sh"
   check_file_exists "${ROOT_DIR}/scripts/selfcheck.sh"
@@ -745,6 +747,10 @@ if (( RUNTIME_ONLY == 0 )); then
   check_camera_sn_config "${ROOT_DIR}/config/base_config.yaml"
   check_legacy_hardcoded_camera_sn
 
+  check_ros_interface "sentry_msgs/msg/AimTarget"
+  check_ros_interface "sentry_msgs/msg/AimTargetArray"
+  check_ros_interface "sentry_msgs/msg/AimResult"
+
   if grep -Fq 'BTCPP_format="4"' "${ROOT_DIR}/src/behavior_tree/Scripts/main.xml"; then
     pass "BT XML format is v4"
   else
@@ -794,18 +800,18 @@ if (( STATIC_ONLY == 0 )); then
     GRAPH_AVAILABLE=0
   else
     pass "ROS2 graph has active nodes"
-    OUTPOST_NODE="$(resolve_node_alias "/outpost_hitter,/outpost_hitter_node" "${NODE_LIST}" || true)"
-    BUFF_NODE="$(resolve_node_alias "/buff_hitter,/ra_hitter,/buff_hitter_node" "${NODE_LIST}" || true)"
   fi
 
   if (( GRAPH_AVAILABLE == 1 )); then
   check_node_online "/gimbal_driver" "${NODE_LIST}"
-  check_node_online "/detector" "${NODE_LIST}"
-  check_node_online "/tracker_solver" "${NODE_LIST}"
-  check_node_online "/predictor_node" "${NODE_LIST}"
-  check_node_online_alias "outpost_hitter" "/outpost_hitter,/outpost_hitter_node" "${NODE_LIST}"
-  check_node_online_alias "buff_hitter" "/buff_hitter,/ra_hitter,/buff_hitter_node" "${NODE_LIST}"
   check_node_online "/behavior_tree" "${NODE_LIST}"
+  check_node_absent "/detector" "${NODE_LIST}"
+  check_node_absent "/tracker_solver" "${NODE_LIST}"
+  check_node_absent "/predictor_node" "${NODE_LIST}"
+  check_node_absent "/outpost_hitter" "${NODE_LIST}"
+  check_node_absent "/outpost_hitter_node" "${NODE_LIST}"
+  check_node_absent "/buff_hitter" "${NODE_LIST}"
+  check_node_absent "/buff_hitter_node" "${NODE_LIST}"
 
   print_section "Node Contracts"
   # gimbal_driver
@@ -815,40 +821,14 @@ if (( STATIC_ONLY == 0 )); then
   check_node_sub "/gimbal_driver" "/ly/control/posture" hard
   check_node_sub "/gimbal_driver" "/ly/control/sentry_cmd" hard
 
-  # detector
-  check_node_sub "/detector" "/ly/vision/mode" hard
-  check_node_sub "/detector" "/ly/bt/target" hard
-  check_node_sub "/detector" "/ly/gimbal/angles" hard
-  check_node_sub "/detector" "/ly/friend/is_team_red" hard
-
-  # tracker/predictor
-  check_node_sub "/tracker_solver" "/ly/detector/armors" hard
-  check_node_sub "/predictor_node" "/ly/tracker/results" hard
-  check_node_sub "/predictor_node" "/ly/bt/target" hard
-  check_node_sub "/predictor_node" "/ly/bullet/speed" hard
-
-  # outpost/buff
-  if [[ -n "${OUTPOST_NODE}" ]]; then
-    check_node_sub "${OUTPOST_NODE}" "/ly/outpost/armors" hard
-  else
-    warn "Skip outpost subscriber contract checks: node offline"
-  fi
-  if [[ -n "${BUFF_NODE}" ]]; then
-    check_node_sub "${BUFF_NODE}" "/ly/vision/mode" hard
-    check_node_sub "${BUFF_NODE}" "/ly/ra/angle_image" hard
-  else
-    warn "Skip buff subscriber contract checks: node offline"
-  fi
-
   # behavior_tree inputs
   check_node_sub "/behavior_tree" "/ly/gimbal/angles" hard
   check_node_sub "/behavior_tree" "/ly/gimbal/posture" hard
   check_node_sub "/behavior_tree" "/ly/game/is_start" hard
   check_node_sub "/behavior_tree" "/ly/game/time_left" hard
   check_node_sub "/behavior_tree" "/ly/friend/is_team_red" hard
-  check_node_sub "/behavior_tree" "/ly/predictor/target" hard
-  check_node_sub "/behavior_tree" "/ly/buff/target" hard
-  check_node_sub "/behavior_tree" "/ly/outpost/target" hard
+  check_node_sub "/behavior_tree" "/ly/aim/armor_targets" hard
+  check_node_sub "/behavior_tree" "/ly/aim/result" hard
 
   # behavior_tree outputs
   check_node_pub "/behavior_tree" "/ly/control/angles" hard
@@ -856,6 +836,7 @@ if (( STATIC_ONLY == 0 )); then
   check_node_pub "/behavior_tree" "/ly/control/posture" hard
   check_node_pub "/behavior_tree" "/ly/vision/mode" hard
   check_node_pub "/behavior_tree" "/ly/bt/target" hard
+  check_node_pub "/behavior_tree" "/ly/aim/select_target" hard
   check_node_pub "/behavior_tree" "/ly/navi/vel" hard
 
   print_section "Critical Topic Links"
@@ -866,19 +847,13 @@ if (( STATIC_ONLY == 0 )); then
   # 兼容鏈路檢查：電控側仍訂閱 /ly/control/vel，若沒有發布者視為缺口
   check_topic_link "/ly/control/vel" "gimbal_driver/msg/ControlVelocity" "/behavior_tree" "/gimbal_driver" hard
 
-  check_topic_link "/ly/bt/target" "std_msgs/msg/UInt8" "/behavior_tree" "/detector,/predictor_node" hard
-  check_topic_link "/ly/vision/mode" "std_msgs/msg/UInt8" "/behavior_tree" "/detector,${BUFF_NODE:-/buff_hitter}" hard
+  check_topic_link "/ly/aim/select_target" "sentry_msgs/msg/AimTarget" "/behavior_tree" "" hard
+  check_topic_link "/ly/aim/armor_targets" "sentry_msgs/msg/AimTargetArray" "" "/behavior_tree" hard
+  check_topic_link "/ly/aim/result" "sentry_msgs/msg/AimResult" "" "/behavior_tree" hard
 
   print_section "Conditional Topics (Data-Dependent)"
-  check_topic_link "/ly/gimbal/angles" "gimbal_driver/msg/GimbalAngles" "/gimbal_driver" "/behavior_tree,/detector" warn
-  check_topic_link "/ly/detector/armors" "auto_aim_common/msg/Armors" "/detector" "/tracker_solver,/behavior_tree" warn
-  check_topic_link "/ly/tracker/results" "auto_aim_common/msg/Trackers" "/tracker_solver" "/predictor_node" warn
-  check_topic_link "/ly/predictor/target" "auto_aim_common/msg/Target" "/predictor_node" "/behavior_tree" warn
+  check_topic_link "/ly/gimbal/angles" "gimbal_driver/msg/GimbalAngles" "/gimbal_driver" "/behavior_tree" warn
   check_topic_link "/ly/gimbal/posture" "std_msgs/msg/UInt8" "/gimbal_driver" "/behavior_tree" warn
-  check_topic_link "/ly/ra/angle_image" "auto_aim_common/msg/AngleImage" "/detector" "${BUFF_NODE:-/buff_hitter}" warn
-  check_topic_link "/ly/buff/target" "auto_aim_common/msg/Target" "${BUFF_NODE:-/buff_hitter}" "/behavior_tree" warn
-  check_topic_link "/ly/outpost/armors" "auto_aim_common/msg/Armors" "/detector" "${OUTPOST_NODE:-/outpost_hitter}" warn
-  check_topic_link "/ly/outpost/target" "auto_aim_common/msg/Target" "${OUTPOST_NODE:-/outpost_hitter}" "/behavior_tree" warn
 
   if (( SKIP_HZ == 0 )); then
     print_section "Frequency Checks"
@@ -886,7 +861,7 @@ if (( STATIC_ONLY == 0 )); then
     check_topic_hz "/ly/control/firecode" 5 hard
     check_topic_hz "/ly/navi/vel" 1 warn
     check_topic_hz "/ly/gimbal/angles" 1 warn
-    check_topic_hz "/ly/detector/armors" 1 warn
+    check_topic_hz "/ly/aim/result" 1 warn
   fi
   else
     warn "Runtime graph checks skipped because no ROS2 nodes are active"

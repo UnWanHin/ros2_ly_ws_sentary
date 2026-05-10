@@ -3,27 +3,42 @@
 ## 📋 文檔說明
 
 本文檔梳理現有系統的消息通訊鏈路，從數據獲取到發送下位機的完整流程。
-**注意**: 当前實際主鏈路包含 `behavior_tree`，若不啟動決策節點需使用橋接節點把 `Target` 類消息轉成 `/ly/control/*`。
+**Behavion 更新**: 正式主鏈路已切成 decision-only。相機、檢測、追蹤、彈道和 fire 判斷由外部 `sentry.aim` 提供；本倉 `sentry_all` 只啟動 `gimbal_driver`、`tf_tree`、導航/FaceMode bridge 和 `behavior_tree`，不再啟動內部 `detector/tracker_solver/predictor/outpost_hitter/buff_hitter`。
 
 ---
 
-## 🎯 三種工作模式
+## 🎯 正式工作模式
 
-系統支持三種工作模式，每種模式有獨立的消息鏈路：
+正式鏈路保留 BT 內的三種 aim mode 決策，但角度和開火門控都走同一條外部 aim topic：
 
-1. **自瞄模式 (Auto-Aim)** - 裝甲板識別與追蹤
-2. **前哨模式 (Outpost)** - 前哨站打擊
-3. **能量機關模式 (Buff)** - 能量機關打擊
+```text
+[sentry.aim] → /ly/aim/armor_targets (sentry_msgs/AimTargetArray)
+      ↓
+[behavior_tree] 根據 regional/task/posture/血量/目標優先級選 target
+      ↓ /ly/aim/select_target (sentry_msgs/AimTarget)
+[sentry.aim] → /ly/aim/result (sentry_msgs/AimResult: yaw, pitch, fire)
+      ↓
+[behavior_tree] → /ly/control/angles + /ly/control/firecode + /ly/control/vel/posture/sentry_cmd
+      ↓
+[gimbal_driver] → 下位機
+```
+
+`AimResult.fire` 是正式開火門控：`true` 時 BT 翻轉一次 `FireCode.FireStatus`，`false` 時只轉角不開火。這條鏈路不再經過 `/ly/predictor/target`。
+`/ly/aim/armor_targets` 由外部 decider 以 `SensorDataQoS` 發布，BT 也用 `SensorDataQoS` 訂閱，避免 QoS 不匹配。
 
 另有两个辅助/调试链路：
 
 - **导航 TF bridge**：`/ly/navi/goal_pos_raw` 或 `/ly/navi/target_rel` 经 `navi_tf_bridge` 转 `/goal_pose`。
 - **FaceMode 固定点朝向**：`map_aim_point_node` 根据 `[official_map_x, official_map_y, map_z]` 解算 yaw/pitch；独立测试默认直接发布 `/ly/control/angles`，给 BT 区域任务使用时输出 `/ly/face_mode/angles`，由 BT 统一发布控制。区域状态机需要切换目标时发布 `/ly/face_mode/target_raw`，格式为 `[official_map_x, official_map_y, map_z]` cm。FaceMode 只接管云台巡逻/角度/停火，不清零底盘小陀螺 `Rotate`；需要停小陀螺时由 `FollowMode` 控制。
-- **ExternalAim 外部辅瞄接口**：当 `ExternalAim.Enable=true` 且 `behavior_tree` 编译时找到了 `sentry_msgs`，BT 订阅 `/ly/aim/armor_targets` 和 `/ly/aim/result`，发布 `/ly/aim/select_target`。外部 aim 只提供可打目标、yaw/pitch 和 `fire` 门控，最终 `/ly/control/angles`、`/ly/control/firecode` 仍由 BT 统一发布；外部 `armor_controller_node` 不应再发布 legacy `/ly/control/*`。
+- **ExternalAim 外部辅瞄接口**：`sentry_msgs` 是 `behavior_tree` 的正式依赖；BT 订阅 `/ly/aim/armor_targets` 和 `/ly/aim/result`，发布 `/ly/aim/select_target`。外部 aim 只提供可打目标、yaw/pitch 和 `fire` 门控，最终 `/ly/control/angles`、`/ly/control/firecode` 仍由 BT 统一发布；外部 `armor_controller_node` 必須關閉 legacy `/ly/control/*`。
 
 ---
 
-## 🔄 模式 1: 自瞄模式 (Auto-Aim)
+## 🔄 Legacy Internal Auto-Aim
+
+以下 `detector -> tracker_solver -> predictor -> /ly/predictor/target` 是舊內部輔瞄鏈路，只保留作為歷史/調試說明；`Behavion` 的正式 `sentry_all` 不再啟動它。
+
+## 模式 1: 自瞄模式 (Auto-Aim)
 
 ### 數據流向圖
 
@@ -54,7 +69,7 @@
 下位機 (串口通訊)
 ```
 
-`ExternalAim.Enable=true` 时，普通 `/ly/predictor/target` 可由外部链路替代：
+`Behavion` 正式链路中，普通 `/ly/predictor/target` 已由外部 `/ly/aim/*` 取代：
 
 ```
 [sentry.aim] → /ly/aim/armor_targets (sentry_msgs/AimTargetArray)

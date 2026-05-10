@@ -497,7 +497,9 @@ namespace LangYa {
     }
 
     void from_json(const json& j, ExternalAimSetting& ea) {
-        ea.Enable = j.value("Enable", ea.Enable);
+        // Behavion branch: external aim is the only official aim chain.
+        // Keep the Enable field in old JSON files as documentation only.
+        ea.Enable = true;
         ea.ResultFreshTimeoutMs = j.value("ResultFreshTimeoutMs", ea.ResultFreshTimeoutMs);
         ea.TargetFreshTimeoutMs = j.value("TargetFreshTimeoutMs", ea.TargetFreshTimeoutMs);
         ea.UseTargetArrayAsArmorList =
@@ -1168,14 +1170,7 @@ namespace BehaviorTree {
 
     void Application::ApplyExternalAimParameterOverrides() {
         auto& setting = config.ExternalAimSettings;
-        ReadOptionalBoolParam(
-            node_,
-            {
-                "ExternalAim.Enable",
-                "ExternalAim/Enable",
-                "external_aim_enable"
-            },
-            setting.Enable);
+        setting.Enable = true;
         ReadOptionalIntParam(
             node_,
             {
@@ -2061,13 +2056,6 @@ namespace BehaviorTree {
                 config.ExternalAimSettings.TargetFreshTimeoutMs);
             config.ExternalAimSettings.TargetFreshTimeoutMs = 500;
         }
-#ifndef LY_ENABLE_SENTRY_MSGS
-        if (config.ExternalAimSettings.Enable) {
-            LoggerPtr->Warning(
-                "ExternalAim.Enable=true but sentry_msgs was not found when behavior_tree was built; disable ExternalAim.");
-            config.ExternalAimSettings.Enable = false;
-        }
-#endif
         if (config.NaviRotateControlSettings.FreshTimeoutMs <= 0) {
             LoggerPtr->Warning(
                 "Invalid NaviRotateControl.FreshTimeoutMs={}, fallback to 500.",

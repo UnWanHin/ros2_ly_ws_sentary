@@ -202,15 +202,11 @@ namespace BehaviorTree {
 
         std::uint16_t SelfHealth = myselfHealth;
         ResetRegionalAreaControlOverride();
-        // 三路目标源统一折叠成一个 IsFindTarget，供 BT 和姿态模块复用。
+        // 外部 aim 现在是正式视觉目标源；内部 predictor/buff/outpost target 不再驱动决策。
         // 注意这里是“本拍是否有新鲜目标”，不是长期跟踪状态。
-        const bool has_auto_target = autoAimData.Fresh && autoAimData.Valid;
         const bool has_external_target =
             config.ExternalAimSettings.Enable && externalAimData.Fresh && externalAimData.Valid;
-        const bool has_buff_target = buffAimData.Fresh && buffAimData.Valid && buffAimData.BuffFollow;
-        const bool has_outpost_target = outpostAimData.Fresh && outpostAimData.Valid;
-        const bool IsFindTarget =
-            has_auto_target || has_external_target || has_buff_target || has_outpost_target;
+        const bool IsFindTarget = has_external_target;
         const auto now = std::chrono::steady_clock::now();
         rfidMatchState.Fresh =
             hasReceivedRfidStatus_ &&
@@ -583,8 +579,7 @@ namespace BehaviorTree {
 
         /*----------云台----------*/
         auto now = std::chrono::steady_clock::now();
-        const bool external_aim_active =
-            config.ExternalAimSettings.Enable && aimMode != AimMode::Buff;
+        const bool external_aim_active = config.ExternalAimSettings.Enable;
         if (external_aim_active &&
             externalAimData.LastValidTime.time_since_epoch().count() != 0 &&
             now - externalAimData.LastValidTime >
@@ -594,14 +589,13 @@ namespace BehaviorTree {
             externalAimData.FireStatus = false;
             externalAimData.HasLatchedAngles = false;
         }
-        const AimData* activeAimData = &autoAimData;
-        if (external_aim_active) {
-            activeAimData = &externalAimData;
-        }
-        if (aimMode == AimMode::Buff) {
-            activeAimData = &buffAimData;
-        } else if (aimMode == AimMode::Outpost && !external_aim_active) {
-            activeAimData = &outpostAimData;
+        const AimData* activeAimData = external_aim_active ? &externalAimData : &autoAimData;
+        if (!external_aim_active) {
+            if (aimMode == AimMode::Buff) {
+                activeAimData = &buffAimData;
+            } else if (aimMode == AimMode::Outpost) {
+                activeAimData = &outpostAimData;
+            }
         }
         GimbalAnglesType nextAngles = gimbalAngles;
         VelocityType nextVelocity = naviVelocityInput;
@@ -727,6 +721,7 @@ namespace BehaviorTree {
                         RecFireCode.FlipFireStatus();
                         gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
                         buffAimData.FireStatus = false;
+                        externalAimData.FireStatus = false;
                         buff_shoot_count++;
                     } else {
                         gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
@@ -758,8 +753,8 @@ namespace BehaviorTree {
             if (aimMode != AimMode::Buff && aimMode != AimMode::Outpost) {
                 LoggerPtr->Debug(
                     "AutoAim Angles -> Pitch: {}, Yaw: {}",
-                    autoAimData.Angles.Pitch,
-                    autoAimData.Angles.Yaw);
+                    activeAimData->Angles.Pitch,
+                    activeAimData->Angles.Yaw);
             }
         }
         else { // 未识别到目标
@@ -873,8 +868,8 @@ namespace BehaviorTree {
                     }
                     nextAngles.Pitch = 19.0f;
                 }else {
-                    nextAngles = (buffAimData.Fresh && buffAimData.Valid && buffAimData.BuffFollow)
-                        ? buffAimData.Angles
+                    nextAngles = (activeAimData->Fresh && activeAimData->Valid)
+                        ? activeAimData->Angles
                         : gimbalAngles;
                 }
             }
@@ -1442,8 +1437,15 @@ namespace BehaviorTree {
                 nearest_armor_distance_cm.has_value() &&
                 armor_interrupt_max_distance_cm > 0 &&
                 *nearest_armor_distance_cm > static_cast<double>(armor_interrupt_max_distance_cm);
+            const bool external_target_list_fresh =
+                hasExternalAimTargets_ &&
+                lastExternalAimTargetsRxTime_.time_since_epoch().count() != 0 &&
+                now - lastExternalAimTargetsRxTime_ <=
+                    std::chrono::milliseconds(std::max(1, config.ExternalAimSettings.TargetFreshTimeoutMs));
             const bool armor_target_visible =
-                autoAimData.Fresh && autoAimData.Valid && !armor_target_too_far;
+                external_target_list_fresh &&
+                nearest_armor_distance_cm.has_value() &&
+                !armor_target_too_far;
             const int damage_abort_threshold = std::max(0, outpost_confirm.DamageAbortThreshold);
             const int damage_abort_window_ms = std::max(0, outpost_confirm.DamageAbortWindowMs);
             const int damage_abort_hold_ms = std::max(0, outpost_confirm.DamageAbortHoldMs);
@@ -1467,9 +1469,10 @@ namespace BehaviorTree {
                 return false;
             }();
             const bool outpost_visual_recent =
-                outpostAimData.HasLatchedAngles &&
-                outpostAimData.LastValidTime.time_since_epoch().count() != 0 &&
-                now - outpostAimData.LastValidTime <=
+                targetArmor.Type == ArmorType::Outpost &&
+                externalAimData.HasLatchedAngles &&
+                externalAimData.LastValidTime.time_since_epoch().count() != 0 &&
+                now - externalAimData.LastValidTime <=
                     std::chrono::milliseconds(std::max(0, config.AimDebugSettings.LatchedTargetHoldMs));
             const int visual_scout_hold_ms = std::max(0, outpost_confirm.VisualScoutHoldMs);
             const int visual_scout_cooldown_ms = std::max(0, outpost_confirm.VisualScoutCooldownMs);
@@ -1712,7 +1715,14 @@ namespace BehaviorTree {
                 SetAimTargetNormal();
             }
         }else if(aimMode == AimMode::Outpost) { // 打前哨站
-            if(BehaviorTree::Area::BuffOutpost.near(nowx, nowy, 100, MyTeam) &&
+            const int outpost_select_distance_cm = std::max(
+                100,
+                std::max(0, config.TaskSettings.OutpostConfirm.VisualScoutFaceDistanceCm));
+            if((IsBaseGoalArrived(LangYa::BuffOutpost.ID, MyTeam, true) ||
+                IsBaseGoalWithinDistance(
+                    LangYa::BuffOutpost.ID,
+                    MyTeam,
+                    outpost_select_distance_cm)) &&
                !is_ignored_armor(ArmorType::Outpost)) {
                 targetArmor.Type = ArmorType::Outpost;
             } else {

@@ -399,12 +399,19 @@ private:
     // [ROS 2] 訂閱生成器 — 接受兩參數 lambda: [](Application& app, MsgSharedPtr msg){}
     template<typename TTopic>
     void GenSub(std::function<void(Application&, typename TTopic::CallbackArg)> callback) {
+        GenSubWithQoS<TTopic>(rclcpp::QoS(10), std::move(callback));
+    }
+
+    template<typename TTopic>
+    void GenSubWithQoS(
+        const rclcpp::QoS& qos,
+        std::function<void(Application&, typename TTopic::CallbackArg)> callback) {
         using MsgType = typename TTopic::Msg;
         std::string topic_name = TTopic::Name;
 
         auto sub = node_->create_subscription<MsgType>(
             topic_name,
-            rclcpp::QoS(10),
+            qos,
             [this, callback](const typename MsgType::SharedPtr msg) {
                 callback(*this, msg);
             }

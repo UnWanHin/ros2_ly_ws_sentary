@@ -13,10 +13,6 @@ OFFLINE_MODE=0
 MODE_ARG=""
 LAUNCH_ARGS=()
 DEFAULT_BASE_CONFIG_FILE="${ROOT_DIR}/config/base_config.yaml"
-DEFAULT_DETECTOR_CONFIG_FILE="${ROOT_DIR}/src/detector/config/detector_config.yaml"
-DEFAULT_PREDICTOR_CONFIG_FILE="${ROOT_DIR}/src/predictor/config/predictor_config.yaml"
-DEFAULT_OUTPOST_CONFIG_FILE="${ROOT_DIR}/src/outpost_hitter/config/outpost_config.yaml"
-DEFAULT_BUFF_CONFIG_FILE="${ROOT_DIR}/src/buff_hitter/config/buff_config.yaml"
 DEFAULT_OVERRIDE_CONFIG_FILE="${ROOT_DIR}/config/override_config.yaml"
 DEFAULT_AREA_MANAGER_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/AreaManager.yaml"
 DEFAULT_TASK_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/Task.yaml"
@@ -41,8 +37,7 @@ Examples:
   ./${SCRIPT_NAME} --mode regional --no-prompt
   ./${SCRIPT_NAME} --mode regional_simple --no-prompt
   ./${SCRIPT_NAME} --mode 3 --no-prompt
-  ./${SCRIPT_NAME} -- use_buff:=false use_outpost:=false
-  ./${SCRIPT_NAME} -- use_external_aim:=true
+  ./${SCRIPT_NAME} -- use_gimbal:=false
 EOF2
 }
 
@@ -81,32 +76,6 @@ read_common_bt_file_log_enable() {
   local value=""
   value="$(read_common_scalar "${config_file}" "bt_file_log_enable")" || return 1
   read_common_bool_value "${value}"
-}
-
-read_common_aim_timer_log_enable() {
-  local config_file="$1"
-  [[ -f "${config_file}" ]] || return 1
-
-  local value=""
-  value="$(read_common_scalar "${config_file}" "aim_timer_log_enable")" || return 1
-  read_common_bool_value "${value}"
-}
-
-read_common_aim_timer_log_dir() {
-  local config_file="$1"
-  [[ -f "${config_file}" ]] || return 1
-
-  local value=""
-  value="$(read_common_scalar "${config_file}" "aim_timer_log_dir")" || return 1
-  [[ -n "${value}" ]] || return 1
-
-  if [[ "${value}" == "~" ]]; then
-    value="${HOME}"
-  elif [[ "${value}" == "~/"* ]]; then
-    value="${HOME}/${value#"~/"}"
-  fi
-
-  printf '%s\n' "${value}"
 }
 
 read_common_rosbag_play_enable() {
@@ -360,29 +329,6 @@ if [[ "${BT_APP_FILE_LOG_ENABLE}" != "0" ]]; then
   mkdir -p "${BT_LOG_DIR}"
 fi
 
-if ! has_launch_arg_key "aim_timer_log_enable"; then
-  if AIM_TIMER_LOG_ENABLE_FROM_COMMON="$(read_common_aim_timer_log_enable "${DEFAULT_COMMON_CONFIG_FILE}")"; then
-    if [[ "${AIM_TIMER_LOG_ENABLE_FROM_COMMON}" == "0" ]]; then
-      AIM_TIMER_LOG_ENABLE_LAUNCH="false"
-    else
-      AIM_TIMER_LOG_ENABLE_LAUNCH="true"
-    fi
-    LAUNCH_ARGS=("aim_timer_log_enable:=${AIM_TIMER_LOG_ENABLE_LAUNCH}" "${LAUNCH_ARGS[@]}")
-    echo "[INFO] default aim_timer_log_enable=${AIM_TIMER_LOG_ENABLE_LAUNCH} (from ${DEFAULT_COMMON_CONFIG_FILE})"
-  fi
-else
-  for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == aim_timer_log_enable:=* ]] && echo "[INFO] override aim_timer_log_enable=${arg#aim_timer_log_enable:=}"; done
-fi
-
-if ! has_launch_arg_key "aim_timer_log_dir"; then
-  if AIM_TIMER_LOG_DIR_FROM_COMMON="$(read_common_aim_timer_log_dir "${DEFAULT_COMMON_CONFIG_FILE}")"; then
-    LAUNCH_ARGS=("aim_timer_log_dir:=${AIM_TIMER_LOG_DIR_FROM_COMMON}" "${LAUNCH_ARGS[@]}")
-    echo "[INFO] default aim_timer_log_dir=${AIM_TIMER_LOG_DIR_FROM_COMMON} (from ${DEFAULT_COMMON_CONFIG_FILE})"
-  fi
-else
-  for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == aim_timer_log_dir:=* ]] && echo "[INFO] override aim_timer_log_dir=${arg#aim_timer_log_dir:=}"; done
-fi
-
 ROSBAG_PLAY_ENABLE_LAUNCH=""
 if ! has_launch_arg_key "rosbag_play_enable"; then
   if ROSBAG_PLAY_ENABLE_FROM_COMMON="$(read_common_rosbag_play_enable "${DEFAULT_COMMON_CONFIG_FILE}")"; then
@@ -452,34 +398,6 @@ else
   for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == navi_rotate_config_file:=* ]] && echo "[INFO] override navi_rotate_config_file=${arg#navi_rotate_config_file:=}"; done
 fi
 
-if ! has_launch_arg_key "detector_config_file"; then
-  LAUNCH_ARGS=("detector_config_file:=${DEFAULT_DETECTOR_CONFIG_FILE}" "${LAUNCH_ARGS[@]}")
-  echo "[INFO] default detector_config_file=${DEFAULT_DETECTOR_CONFIG_FILE}"
-else
-  for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == detector_config_file:=* ]] && echo "[INFO] override detector_config_file=${arg#detector_config_file:=}"; done
-fi
-
-if ! has_launch_arg_key "predictor_config_file"; then
-  LAUNCH_ARGS=("predictor_config_file:=${DEFAULT_PREDICTOR_CONFIG_FILE}" "${LAUNCH_ARGS[@]}")
-  echo "[INFO] default predictor_config_file=${DEFAULT_PREDICTOR_CONFIG_FILE}"
-else
-  for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == predictor_config_file:=* ]] && echo "[INFO] override predictor_config_file=${arg#predictor_config_file:=}"; done
-fi
-
-if ! has_launch_arg_key "outpost_config_file"; then
-  LAUNCH_ARGS=("outpost_config_file:=${DEFAULT_OUTPOST_CONFIG_FILE}" "${LAUNCH_ARGS[@]}")
-  echo "[INFO] default outpost_config_file=${DEFAULT_OUTPOST_CONFIG_FILE}"
-else
-  for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == outpost_config_file:=* ]] && echo "[INFO] override outpost_config_file=${arg#outpost_config_file:=}"; done
-fi
-
-if ! has_launch_arg_key "buff_config_file"; then
-  LAUNCH_ARGS=("buff_config_file:=${DEFAULT_BUFF_CONFIG_FILE}" "${LAUNCH_ARGS[@]}")
-  echo "[INFO] default buff_config_file=${DEFAULT_BUFF_CONFIG_FILE}"
-else
-  for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == buff_config_file:=* ]] && echo "[INFO] override buff_config_file=${arg#buff_config_file:=}"; done
-fi
-
 if ! has_launch_arg_key "config_file"; then
   LAUNCH_ARGS=("config_file:=${DEFAULT_OVERRIDE_CONFIG_FILE}" "${LAUNCH_ARGS[@]}")
   echo "[INFO] default config_file(override)=${DEFAULT_OVERRIDE_CONFIG_FILE}"
@@ -504,8 +422,6 @@ if ! has_launch_arg_key "velocity_raw_to_mps"; then
 else
   for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == velocity_raw_to_mps:=* ]] && echo "[INFO] override velocity_raw_to_mps=${arg#velocity_raw_to_mps:=}"; done
 fi
-
-add_common_bool_launch_arg "predictor.publish_on_tracker_callback" "predictor_publish_on_tracker_callback"
 
 add_common_bool_launch_arg "gimbal_raw.file.enable" "gimbal_raw_log_enable" "gimbal_raw_log_enable"
 add_common_bool_launch_arg "gimbal_raw.file.uplink" "gimbal_raw_log_uplink" "gimbal_raw_log_uplink"

@@ -158,12 +158,7 @@ find_package(ament_index_cpp REQUIRED)  # 用於相對路徑
 # 自定義消息包
 find_package(auto_aim_common REQUIRED)
 find_package(gimbal_driver REQUIRED)
-find_package(sentry_msgs QUIET)
-if(sentry_msgs_FOUND)
-  message(STATUS "behavior_tree: sentry_msgs found, external aim interface enabled at build time")
-else()
-  message(STATUS "behavior_tree: sentry_msgs not found, external aim interface disabled at build time")
-endif()
+find_package(sentry_msgs REQUIRED)
 
 # 系統庫 (與 ROS 1 保持一致)
 find_package(fmt REQUIRED)
@@ -196,9 +191,7 @@ if(BTCPP_IS_PINNED AND EXISTS "${BTCPP_V4_ROOT}/lib")
   )
 endif()
 
-if(sentry_msgs_FOUND)
-  target_compile_definitions(${PROJECT_NAME}_node PRIVATE LY_ENABLE_SENTRY_MSGS=1)
-endif()
+target_compile_definitions(${PROJECT_NAME}_node PRIVATE LY_ENABLE_SENTRY_MSGS=1)
 
 # 設置頭文件路徑
 target_include_directories(${PROJECT_NAME}_node PUBLIC
@@ -231,9 +224,7 @@ ament_target_dependencies(${PROJECT_NAME}_node
   ament_index_cpp
 )
 
-if(sentry_msgs_FOUND)
-  ament_target_dependencies(${PROJECT_NAME}_node sentry_msgs)
-endif()
+ament_target_dependencies(${PROJECT_NAME}_node sentry_msgs)
 
 # =========================================
 # 5. 安裝規則 (Install Rules)

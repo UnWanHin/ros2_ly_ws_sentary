@@ -2,7 +2,7 @@
 
 Updated: 2026-05-10
 
-本文記錄本倉從「內部輔瞄鏈 + 決策」切到「只做決策，外部 aim 提供目標/角度/開火門控」之前的重大變化分析。後續大改動應先按本文確認接口邊界，再在新分支 `Behavion` 上完全對接。
+本文記錄本倉從「內部輔瞄鏈 + 決策」切到「只做決策，外部 aim 提供目標/角度/開火門控」的重大變化分析與 `Behavion` 分支落地狀態。
 
 ## 目標
 
@@ -48,6 +48,10 @@ AimTargetArray:
 | `/ly/aim/select_target` | `sentry_msgs/msg/AimTarget` | BT -> external aim | BT 選中的目標 id；外部 decider 目前主要使用 `id`。 |
 | `/ly/aim/result` | `sentry_msgs/msg/AimResult` | external aim -> BT | yaw/pitch 與 fire 門控。 |
 
+`sentry.aim` 的 `aim_armor_decider_node` 目前用 `SensorDataQoS` 發 `/ly/aim/armor_targets`、訂閱
+`/ly/aim/select_target`。BT 因此對 `/ly/aim/armor_targets` 使用 `SensorDataQoS` 訂閱，避免 reliable
+subscriber 對 best-effort publisher 不匹配而收不到候選目標。
+
 `AimResult` 是在 BT 發出 `/ly/aim/select_target` 後，外部 aim 根據選中目標輸出的結果。它不是 detector/predictor 的直接替代消息，不能無條件映射成 `/ly/predictor/target`。
 
 ## 不能走 AimResult -> /ly/predictor/target
@@ -83,7 +87,7 @@ BT final control
 - 不啟動 `outpost_hitter`
 - 不啟動 `buff_hitter`
 
-目前臨時接口已加入 `use_external_aim:=true`，啟動時會關閉上述內部節點，並把 BT 的 `ExternalAim.Enable` 打開。完整對接分支應保留這個 launch 邊界，並把它做成主入口語義。
+`Behavion` 中已不再保留官方 `use_external_aim` 開關：外部 aim 是唯一正式鏈路，`sentry_all` 不啟動上述內部節點，BT 內部強制 `ExternalAim.Enable=true`。
 
 ## TF 所有權
 
@@ -112,21 +116,22 @@ BT 現在多處依賴內部 `/ly/detector/armors` 生成的 `armorList/hitableTa
 外部模式下沒有內部 `/ly/detector/armors`。因此 `/ly/aim/armor_targets` 必須成為 BT 的可擊打目標來源：
 
 - `AimTargetArray.aim_targets[].id` 映射到 `ArmorType`。
-- `position` 用來計算距離，並作為 Chase 的相對目標/官方目標補充來源。
+- `position` 目前只用來計算距離；Chase 的相對目標仍由 yaw/pitch 誤差和距離近似，官方坐標仍走 `/ly/position/data`。
 - 若長時間沒有當前 target id 的 candidate，BT 應視為未鎖定目標，不接受新的 `AimResult` 開火。
 
-臨時版已做最小替代：`ExternalAim.Enable=true && UseTargetArrayAsArmorList=true` 時，BT 用 `/ly/aim/armor_targets` 填 `armorList`，讓現有 target selection 能繼續工作。完整對接應把這部分從「兼容 armorList」升級成清晰的 external target model。
+落地版保留現有 `armorList/hitableTargets/targetArmor` 決策資料結構，但資料源改成 `/ly/aim/armor_targets`。這樣可以不重寫 regional/Task/Posture 的選目標邏輯，同時確保正式鏈路不再依賴內部 detector。
 
-## Chase 需要重做的部分
+## Chase 對接狀態
 
-目前 Chase 是圍繞內部 autoaim 的 `activeAimData` 和 `targetArmor.Distance` 設計的。外部模式下要重新定義 Chase 的 target source：
+Chase 保留原本 BT 內的追擊輸出策略，但資料源已改成外部 aim：
 
 - 角度源：`AimResult.yaw/pitch`。
-- 距離源：優先使用 `/ly/aim/armor_targets` 裡當前 id 的 `position` 距離。
-- 相對目標源：若 `position` 是機體/相機/世界某 frame 下的點，必須明確 frame；否則只能用 yaw/pitch + distance 近似。
-- 官方坐標源：如果外部 aim 不提供官方地圖坐標，仍可沿用 `/ly/position/data` 的敵方位置；但要保持 freshness gate。
+- 距離源：`/ly/aim/armor_targets` 裡當前 id 的 `position` 長度，沿用 `targetArmor.Distance`，單位按外部 aim 的世界/相機幾何輸出視為 m。
+- `/ly/navi/target_rel`：仍由 BT 用 yaw/pitch 誤差與距離近似相對目標，不直接把 `AimTarget.position` 當導航坐標。
+- 官方坐標追擊：仍沿用 `/ly/position/data` 的敵方/自身官方坐標，帶 freshness gate；外部 aim 不需要提供官方地圖坐標。
 
-完整對接前要確認 `AimTarget.position` 的 frame_id 和單位。如果外部 position 是 camera/barrel/base_link 坐標，BT 需要明確轉成 Chase 使用的相對目標；如果只是外部內部用，不可靠，就不能拿來直接導航。
+所以外部 aim 必須保證 `AimTarget.id` 和本倉 `ArmorType` 數值一致，`position` 至少能提供合理距離。若外部 position
+改成非米制或非相對原點，BT 的追擊距離判斷需要同步調整。
 
 ## Fire 和角度語義
 
@@ -140,64 +145,30 @@ BT 現在多處依賴內部 `/ly/detector/armors` 生成的 `armorList/hitableTa
 
 外部 `armor_controller_node` 有 `publish_legacy_control_topics`，它可能直接發布 `/ly/control/angles` 和舊型別 `/ly/control/firecode`。完整對接必須關掉這個 legacy 發布，否則會和 BT 搶控制 owner，且 firecode 型別也與本倉 `gimbal_driver/msg/FireCode` 不一致。
 
-## 建議大改動步驟
+## 已落地的大改動
 
-1. 建新分支 `Behavion`。
-2. 先只做接口整理，不刪決策：
-   - `behavior_tree` 明確依賴 `sentry_msgs`，或保留可選依賴但外部模式必須檢查已編進接口。
-   - 保留 `use_external_aim`，並讓 external 模式成為決策-only 主入口。
-3. 拆掉內部輔瞄 launch 所有權：
-   - external 模式不啟動 detector/tracker/predictor/outpost/buff。
-   - 後續如果 branch 完全不需要內部輔瞄，可以再移除相關 launch 預設、配置和文檔入口。
-4. 在 BT 內建立正式 external target model：
-   - `ExternalAimTarget{id, position, distance, frame, last_seen}`
-   - target selection 直接吃 external target list，不再偽裝成 `/ly/detector/armors`。
-5. 改 GameLoop target source：
-   - internal aim mode 使用 `autoAimData`
-   - external aim mode 使用 `externalAimData`
-   - buff/outpost 是否仍保留需重新決策；如果外部 aim 也提供這些，BT 不應再啟動本倉 hitter。
-6. 重做 Chase 的 target source：
-   - 明確 position frame 和 freshness
-   - 不能從外部 aim 可靠拿到距離時，Chase 降級只用官方敵方位置或關閉追擊
-7. 加 runbook：
-   - 如何 source/build `sentry.common`
-   - 如何啟動外部 aim 且不啟動外部 TF legacy control
-   - 如何啟動本倉 decision-only stack
-8. 驗證：
-   - `colcon build --packages-select behavior_tree`
-   - `./scripts/selfcheck.sh sentry --static-only`
-   - launch show-args 檢查 `use_external_aim`
-   - runtime topic contract：
-     - `/ly/aim/armor_targets` 有 publisher，BT 有 subscriber
-     - `/ly/aim/select_target` BT 有 publisher，external aim 有 subscriber
-     - `/ly/aim/result` external aim 有 publisher，BT 有 subscriber
-     - `/ly/control/angles`、`/ly/control/firecode` 只有 BT 發布
-     - detector/tracker/predictor/outpost_hitter/buff_hitter 沒有啟動
+1. `behavior_tree` 改為正式依賴 `sentry_msgs`，找不到外部消息包時不再靜默降級。
+2. `ExternalAim.Enable` 在 BT 內強制為 `true`，舊 JSON 裡的 `Enable` 只保留為文檔字段。
+3. `sentry_all.launch.py` 移除 detector/tracker/predictor/outpost/buff 節點和相關開關；官方 wrapper launch 也不再查找這些包。
+4. `scripts/launch/start_sentry_all.sh` 不再注入內部輔瞄配置或 `use_*` 開關。
+5. `AimResult.fire` 直接驅動 BT 最終火控；`AimResult.fire=false` 時只跟角不打彈。
+6. 普通、前哨、打符 aim mode 的角度源都統一用外部 `AimResult`；內部 `/ly/predictor/target`、`/ly/buff/target`、`/ly/outpost/target` 在正式外部模式下被忽略。
+7. 前哨任務在距 `BuffOutpost` `VisualScoutFaceDistanceCm` 半徑內就會選擇 `ArmorType::Outpost` 並發 `/ly/aim/select_target`，不用等到原本 100cm 近點。
+8. BT 對 `/ly/aim/armor_targets` 使用 `SensorDataQoS`，兼容外部 decider 的 best-effort 發布。
+9. `scripts/launch/start_sentry_all.sh`、showcase、navi_debug、chase wrapper 不再自動注入內部輔瞄配置。
+10. `selfcheck.sh sentry` 的 runtime graph 改成檢查 BT `/ly/aim/*` 契約，並確認內部輔瞄節點沒有出現在正式鏈路。
 
-## 當前臨時改動狀態
+## Build/Run 前置
 
-目前工作區已做的臨時對接屬於「接口先接通」：
-
-- `behavior_tree` 增加 `ExternalAim` config。
-- 找到 `sentry_msgs` 時編譯 `/ly/aim/*` topic；找不到時保持原 workspace 可 build。
-- `sentry_all.launch.py` 增加 `use_external_aim`，打開時不啟動內部相機/輔瞄鏈。
-- BT 可發布 `/ly/aim/select_target`，接收 `/ly/aim/armor_targets` 和 `/ly/aim/result`。
-- 外部 `AimResult.fire` 已直接控制開火翻轉，不走 `/ly/predictor/target`。
-- 文檔已在 message flow 和 topic structure 裡補了外部 aim topic。
-
-這還不是「完全對接」：
-
-- `sentry_msgs` 在當前 shell 未 source/build，因此本倉 build 目前是 external aim 可選接口關閉狀態。
-- external target model 還是先兼容填 `armorList`，未徹底從內部 detector data model 中抽離。
-- Chase 還沒有完整改成外部 target list/position 的一等數據源。
-- TF owner 和外部 launch 方式仍需在真機/完整工作區上確認。
-
-## 分支注意
-
-本次沙盒環境 `.git` 是 read-only，無法直接建立 `Behavion`。在真機工作區應先執行：
+`sentry_msgs` 來自外部 `sentry.common`。正式構建前需要先 build/source 外部消息包，例如：
 
 ```bash
-git switch -c Behavion
+cd ~/sentry.common
+colcon build --packages-select sentry_msgs
+source install/setup.bash
+
+cd ~/ros2_ly_ws_sentry
+colcon build --packages-select behavior_tree
 ```
 
-再把本計劃中的完全對接改動落到該分支。
+外部 `sentry.aim` 啟動時要關掉 `armor_controller_node.publish_legacy_control_topics`，避免它直接發布 `/ly/control/angles` 或舊型別 `/ly/control/firecode` 與 BT 搶 owner。

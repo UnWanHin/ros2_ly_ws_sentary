@@ -508,7 +508,7 @@ namespace LangYa
     };
 
     struct ExternalAimSetting {
-        bool Enable{false};
+        bool Enable{true};
         int ResultFreshTimeoutMs{300};
         int TargetFreshTimeoutMs{500};
         bool UseTargetArrayAsArmorList{true};

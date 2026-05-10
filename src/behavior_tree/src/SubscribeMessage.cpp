@@ -377,8 +377,7 @@ namespace BehaviorTree{
 
         // ly_detector_armors
         GenSub<ly_detector_armors>([](Application& app, auto msg) {
-            if (app.config.ExternalAimSettings.Enable &&
-                app.config.ExternalAimSettings.UseTargetArrayAsArmorList) {
+            if (app.config.ExternalAimSettings.Enable) {
                 return;
             }
             auto &armorList = app.armorList;
@@ -395,7 +394,7 @@ namespace BehaviorTree{
 
 #ifdef LY_ENABLE_SENTRY_MSGS
         // ly_aim_armor_targets: external sentry.aim target candidates.
-        GenSub<ly_aim_armor_targets>([](Application& app, auto msg) {
+        GenSubWithQoS<ly_aim_armor_targets>(rclcpp::SensorDataQoS(), [](Application& app, auto msg) {
             if (!app.config.ExternalAimSettings.Enable) {
                 return;
             }
@@ -483,6 +482,9 @@ namespace BehaviorTree{
 
         // ly_predictor_target
         GenSub<ly_predictor_target>([](Application& app, auto msg) {
+            if (app.config.ExternalAimSettings.Enable) {
+                return;
+            }
             auto &obj = app;
             const bool target_valid = msg->status;
             obj.autoAimData.Angles = GimbalAnglesType{
@@ -508,6 +510,9 @@ namespace BehaviorTree{
 
         // ly_buff_target
         GenSub<ly_buff_target>([](Application& app, auto msg) { 
+            if (app.config.ExternalAimSettings.Enable) {
+                return;
+            }
             auto  &obj = app;
             obj.buffAimData.Angles = GimbalAnglesType{
                 static_cast<AngleType>(msg->yaw),
@@ -526,6 +531,9 @@ namespace BehaviorTree{
 
         // ly_outpost_target
         GenSub<ly_outpost_target>([](Application& app, auto msg) {
+            if (app.config.ExternalAimSettings.Enable) {
+                return;
+            }
             auto &obj = app;
             const bool target_valid = msg->status;
             obj.outpostAimData.Angles = GimbalAnglesType{

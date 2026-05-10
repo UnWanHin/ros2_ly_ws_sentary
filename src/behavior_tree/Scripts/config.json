@@ -33,7 +33,7 @@
         "SuppressFire": true
     },
     "ExternalAim": {
-        "Enable": false,
+        "Enable": true,
         "ResultFreshTimeoutMs": 300,
         "TargetFreshTimeoutMs": 500,
         "UseTargetArrayAsArmorList": true,
