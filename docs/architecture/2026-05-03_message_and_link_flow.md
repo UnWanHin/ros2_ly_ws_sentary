@@ -496,7 +496,7 @@ float32 pitch
 关键约定：
 
 - `raw_goal_transform_matrix`：官方地图二维点到 map-frame 的 4x4 矩阵。
-- `target_rel_default_frame: gx_camera`：追击相对目标没带 frame 时的来源坐标系。
+- `target_rel_default_frame: gimbal_world`：追击目标点没带 frame 时的来源坐标系。
 - `/goal_pose` 是当前 TF bridge 的最终导航目标。
 
 ### 火控语义

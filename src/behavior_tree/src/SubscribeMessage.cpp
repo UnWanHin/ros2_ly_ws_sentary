@@ -418,10 +418,13 @@ namespace BehaviorTree{
                 if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) {
                     continue;
                 }
-                const std::string frame_id =
+                std::string frame_id =
                     !target.header.frame_id.empty()
                         ? target.header.frame_id
                         : msg->header.frame_id;
+                if (frame_id.empty()) {
+                    frame_id = app.config.ExternalAimSettings.TargetDefaultFrame;
+                }
                 const float distance = std::hypot(x, y, z);
                 app.externalAimTargets_[target_id] = ExternalAimTargetCache{
                     .Valid = true,

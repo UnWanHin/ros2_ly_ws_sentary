@@ -4,10 +4,25 @@
 
 #include "../include/Application.hpp"
 #include <algorithm>
+#include <cmath>
 
 using namespace LangYa;
 
 namespace BehaviorTree {
+    namespace {
+    constexpr float kGatePatrolTwoPi = 6.2831853071795864769f;
+    constexpr float kGatePatrolScanYawStepDeg = 9.0f;
+    constexpr float kGatePatrolSwingYawStepDeg = 1.0f;
+    constexpr float kGatePatrolSwingHalfRangeDeg = 30.0f;
+    constexpr float kGatePatrolPitchCenterDeg = 0.0f;
+    constexpr float kGatePatrolPitchHalfRangeDeg = 12.0f;
+    constexpr float kGatePatrolPitchPeriodMs = 500.0f;
+
+    float NormalizeGatePatrolAngleNear(const float angle, const float reference) {
+        return reference + static_cast<float>(std::remainder(angle - reference, 360.0f));
+    }
+    }  // namespace
+
     /**
      * @brief 等待比赛开始前的预操作 \n
      * @brief 1. 等待云台数据 \n
@@ -22,6 +37,7 @@ namespace BehaviorTree {
         gimbalControlData.GimbalAngles.Pitch = AngleType{0};
         gimbalControlData.FireCode.FireStatus = 0;
         gimbalControlData.FireCode.Rotate = 0;
+        gimbalControlData.FireCode.FollowMode = 0;
         gimbalControlData.FireCode.AimMode = 0;
         naviVelocityInput = VelocityType{0, 0};
         naviVelocity = VelocityType{0, 0};
@@ -32,7 +48,15 @@ namespace BehaviorTree {
         const auto wait_begin = std::chrono::steady_clock::now();
         auto last_wait_log = wait_begin;
         auto last_damage_gate_log = wait_begin;
+        auto last_gate_patrol_log = wait_begin;
+        bool gate_patrol_center_initialized = false;
+        float gate_patrol_center_yaw = 0.0f;
+        float gate_patrol_last_yaw = 0.0f;
+        float gate_patrol_phase_rad = 0.0f;
         bool bypass_logged = false;
+        const bool gate_gimbal_patrol_enabled =
+            config.StartGateSettings.AllowGimbalPatrolBeforeStart &&
+            !config.AimDebugSettings.StopScan;
         const bool damage_open_gate_enabled = config.DamageOpenGateSettings.Enable;
         const std::uint16_t damage_open_gate_threshold =
             std::max<std::uint16_t>(1, config.DamageOpenGateSettings.HealthDropThreshold);
@@ -43,6 +67,10 @@ namespace BehaviorTree {
             LoggerPtr->Info(
                 "Damage start gate enabled: open by health drop >= {}.",
                 static_cast<int>(damage_open_gate_threshold));
+        }
+        if (gate_gimbal_patrol_enabled) {
+            LoggerPtr->Info(
+                "Start gate gimbal patrol enabled: chassis velocity/rotate stay zero before game start.");
         }
 
         // [ROS 2] 不再依賴文件系統判斷，直接等待 is_game_begin 標誌
@@ -69,6 +97,62 @@ namespace BehaviorTree {
             naviVelocityInput.Y = 0;
             naviVelocity.X = 0;
             naviVelocity.Y = 0;
+            gimbalControlData.FireCode.FireStatus = 0;
+            gimbalControlData.FireCode.Rotate = 0;
+            gimbalControlData.FireCode.FollowMode = 0;
+            gimbalControlData.FireCode.AimMode = 0;
+            if (gate_gimbal_patrol_enabled && !debugBypassGameStart_) {
+                if (!gate_patrol_center_initialized) {
+                    gate_patrol_center_initialized = true;
+                    gate_patrol_center_yaw = gimbalAngles.Yaw;
+                    gate_patrol_last_yaw = gimbalAngles.Yaw;
+                }
+
+                const int patrol_mode = config.PatrolScanSettings.Mode;
+                float next_yaw = gate_patrol_last_yaw;
+                if (patrol_mode == 2) {
+                    const float phase_step =
+                        kGatePatrolSwingYawStepDeg / std::max(kGatePatrolSwingHalfRangeDeg, 1.0f);
+                    gate_patrol_phase_rad = std::fmod(gate_patrol_phase_rad + phase_step, kGatePatrolTwoPi);
+                    if (gate_patrol_phase_rad < 0.0f) {
+                        gate_patrol_phase_rad += kGatePatrolTwoPi;
+                    }
+                    next_yaw = NormalizeGatePatrolAngleNear(
+                        gate_patrol_center_yaw +
+                            kGatePatrolSwingHalfRangeDeg * std::sin(gate_patrol_phase_rad),
+                        gimbalAngles.Yaw);
+                } else {
+                    next_yaw = NormalizeGatePatrolAngleNear(
+                        gate_patrol_last_yaw + kGatePatrolScanYawStepDeg,
+                        gimbalAngles.Yaw);
+                }
+                gate_patrol_last_yaw = next_yaw;
+
+                const float pitch_elapsed_ms = static_cast<float>(
+                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                        now_steady - wait_begin).count());
+                const float next_pitch =
+                    kGatePatrolPitchCenterDeg +
+                    kGatePatrolPitchHalfRangeDeg *
+                        std::sin(
+                            pitch_elapsed_ms * kGatePatrolTwoPi /
+                            std::max(kGatePatrolPitchPeriodMs, 1.0f));
+                gimbalControlData.GimbalAngles = GimbalAnglesType{
+                    static_cast<AngleType>(next_yaw),
+                    static_cast<AngleType>(next_pitch)};
+
+                if (now_steady - last_gate_patrol_log > std::chrono::seconds(2)) {
+                    LoggerPtr->Debug(
+                        "Start gate gimbal patrol: mode={} yaw={} pitch={}.",
+                        patrol_mode,
+                        gimbalControlData.GimbalAngles.Yaw,
+                        gimbalControlData.GimbalAngles.Pitch);
+                    last_gate_patrol_log = now_steady;
+                }
+            } else {
+                gimbalControlData.GimbalAngles.Yaw = gimbalAngles.Yaw;
+                gimbalControlData.GimbalAngles.Pitch = AngleType{0};
+            }
             PubNaviControlData();
             PubGimbalControlData();
 

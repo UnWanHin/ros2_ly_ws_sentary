@@ -40,7 +40,8 @@
         "ResultFreshTimeoutMs": 300,
         "TargetFreshTimeoutMs": 500,
         "UseTargetArrayAsArmorList": true,
-        "PublishSelectTarget": true
+        "PublishSelectTarget": true,
+        "TargetDefaultFrame": "gimbal_world"
     },
     "RegionalDefense": {
         "Enable": true,
@@ -133,6 +134,8 @@
         "Enable": false,
         "FollowAimTarget": true,
         "ToNavi": true,
+        "UseOfficialPositionSource": true,
+        "PreferOfficialPositionSource": false,
         "EnableInAutoAim": true,
         "EnableInRotateScan": true,
         "EnableInOutpostMode": false,

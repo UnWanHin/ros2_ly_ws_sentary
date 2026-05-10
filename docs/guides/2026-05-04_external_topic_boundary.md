@@ -55,8 +55,9 @@ FaceMode 的独立测试节点默认直接发布 `/ly/control/angles`，可选�
 
 - `behavior_tree` 已恢复速度桥接：`/ly/navi/vel -> /ly/control/vel`。  
   即：导航回传速度先进入 BT，再由 BT 转发给 gimbal_driver。
-- 当 `Chase.ToNavi=true` 时，BT 不再执行本地追击速度闭环。追击输入有两源：
-  `/ly/position/data` 官方坐标新鲜时发布 `/ly/navi/goal_pos_raw`，否则发布视觉 `/ly/navi/target_rel`。
+- 当 `Chase.ToNavi=true` 时，BT 不再执行本地追击速度闭环。追击优先使用 `/ly/aim/TargetList`
+  中当前选中目标的 point，按其 `header.frame_id`（默认 `gimbal_world`）发布 `/ly/navi/target_rel`，
+  由 `navi_tf_bridge` 转成 `/goal_pose`；官方坐标源只作 TargetList 追击点不可用时的退化来源。
 - 当 `NaviSetting.ToNavi=true` 时，BT 发布的是 `/ly/navi/goal_pos_raw`，再由 `navi_tf_bridge` 转 `/goal_pose`；`false` 时不会走这条 4x4 静态转换链。
 - 姿态 topic `/ly/control/posture` 已并入主控制幀字段 `GimbalControlData.Posture`（单通道下发）。
 - 下发全量规格见：`docs/sentry/embedded/downlink_control_frame.md`。

@@ -52,7 +52,7 @@ public:
       this->declare_parameter<std::string>("fallback_base_frame", "baselink");
     const bool use_msg_frame_id = this->declare_parameter<bool>("use_msg_frame_id", true);
     const std::string target_rel_default_frame =
-      this->declare_parameter<std::string>("target_rel_default_frame", "gx_camera");
+      this->declare_parameter<std::string>("target_rel_default_frame", "gimbal_world");
 
     const bool publish_target_map = this->declare_parameter<bool>("publish_target_map", true);
     const bool publish_navi_position =

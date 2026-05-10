@@ -35,6 +35,14 @@
         "LostTargetHoldMs": 300,
         "SuppressFire": true
     },
+    "ExternalAim": {
+        "Enable": true,
+        "ResultFreshTimeoutMs": 300,
+        "TargetFreshTimeoutMs": 500,
+        "UseTargetArrayAsArmorList": true,
+        "PublishSelectTarget": true,
+        "TargetDefaultFrame": "gimbal_world"
+    },
     "RegionalDefense": {
         "Enable": false,
         "EnableSoftEnemySideThreat": false,
@@ -113,6 +121,8 @@
         "Enable": true,
         "FollowAimTarget": true,
         "ToNavi": true,
+        "UseOfficialPositionSource": true,
+        "PreferOfficialPositionSource": false,
         "EnableInAutoAim": true,
         "EnableInRotateScan": true,
         "EnableInOutpostMode": false,

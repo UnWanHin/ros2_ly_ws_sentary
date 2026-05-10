@@ -494,6 +494,10 @@ namespace LangYa
         std::uint16_t HealthDropThreshold{30};
     };
 
+    struct StartGateSetting {
+        bool AllowGimbalPatrolBeforeStart{false};
+    };
+
     struct NaviSetting {
         bool UseXY{true};
         // UseXY=true 时：
@@ -514,6 +518,7 @@ namespace LangYa
         int TargetFreshTimeoutMs{500};
         bool UseTargetArrayAsArmorList{true};
         bool PublishSelectTarget{true};
+        std::string TargetDefaultFrame{"gimbal_world"};
     };
 
     struct NaviRotateControlSetting {
@@ -571,7 +576,7 @@ namespace LangYa
         bool FollowAimTarget{true};
         bool ToNavi{false}; // true: publish /ly/navi/target_rel and let navi own speed control
         bool UseOfficialPositionSource{true}; // true: chase can use /ly/position/data official-map target positions
-        bool PreferOfficialPositionSource{true}; // true: fresh official target overrides camera-relative target_rel
+        bool PreferOfficialPositionSource{false}; // false: AimTargetArray/target_rel is preferred, official position is fallback
         int OfficialPositionFreshMs{500};
         bool EnableInAutoAim{true};
         bool EnableInRotateScan{true};
@@ -797,6 +802,7 @@ namespace LangYa
         bool SwitchPoint{false};
         TaskSetting TaskSettings{};
         DamageOpenGateSetting DamageOpenGateSettings{};
+        StartGateSetting StartGateSettings{};
         NaviSetting NaviSettings{};
         FaceModeSetting FaceModeSettings{};
         ExternalAimSetting ExternalAimSettings{};

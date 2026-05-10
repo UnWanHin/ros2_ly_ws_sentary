@@ -30,6 +30,14 @@
         "UseXY": false,
         "ToNavi": true
     },
+    "ExternalAim": {
+        "Enable": true,
+        "ResultFreshTimeoutMs": 300,
+        "TargetFreshTimeoutMs": 500,
+        "UseTargetArrayAsArmorList": true,
+        "PublishSelectTarget": true,
+        "TargetDefaultFrame": "gimbal_world"
+    },
     "AimTargetPriority": [
         1,
         3,
@@ -71,6 +79,8 @@
         "Enable": false,
         "FollowAimTarget": true,
         "ToNavi": true,
+        "UseOfficialPositionSource": true,
+        "PreferOfficialPositionSource": false,
         "EnableInAutoAim": true,
         "EnableInRotateScan": true,
         "EnableInOutpostMode": false,

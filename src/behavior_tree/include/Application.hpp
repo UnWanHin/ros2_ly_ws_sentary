@@ -651,6 +651,7 @@ public:
     bool ConfigurationInit();
     void ApplyTaskParameterOverrides();
     void ApplyAreaManagerParameterOverrides();
+    void ApplyStartGateParameterOverrides();
     void ApplyNaviRotateControlParameterOverrides();
     void ApplyExternalAimParameterOverrides();
     bool InitDecisionTrace();

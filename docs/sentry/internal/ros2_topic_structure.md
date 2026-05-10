@@ -130,7 +130,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/navi/goal` | `std_msgs/msg/UInt8` | `behavior_tree` -> navigation/兼容 | 点位 ID 模式。 |
 | `/ly/navi/goal_pos_raw` | `std_msgs/msg/UInt16MultiArray` | `behavior_tree` -> `navi_tf_bridge` | 官方地图坐标 `[x_cm, y_cm]`；经 `tf_config.yaml` 静态矩阵转导航坐标。固定点位和官方坐标追击源都走这条链路。 |
 | `/ly/navi/goal_pos` | `std_msgs/msg/UInt16MultiArray` | `behavior_tree` 或 bridge -> navigation/兼容 | 已处理坐标输出；`ToNavi=true` 时通常不作为最终导航目标。 |
-| `/ly/navi/target_rel` | `auto_aim_common/msg/RelativeTarget` | `behavior_tree` -> `navi_tf_bridge` | 追击相对目标，默认 `gx_camera` frame，字段含 `x/y/z`, `distance_m`, `yaw_error_deg`, `pitch_error_deg`, `armor_type`, `aim_mode`。 |
+| `/ly/navi/target_rel` | `auto_aim_common/msg/RelativeTarget` | `behavior_tree` -> `navi_tf_bridge` | 追击目标点，默认 `gimbal_world` frame，字段含 `x/y/z`, `distance_m`, `yaw_error_deg`, `pitch_error_deg`, `armor_type`, `aim_mode`。 |
 | `/ly/navi/target_map` | `geometry_msgs/msg/PointStamped` | `navi_tf_bridge` -> debug | 追击目标转换到 map/导航 frame 后的点。 |
 | `/ly/navi/position` | `std_msgs/msg/UInt16MultiArray` | `navi_tf_bridge` -> `behavior_tree` | TF 导出的自身位置，再逆变换为官方地图 cm `[x, y]`，用于区域判断辅助。 |
 | `/goal_pose` | `geometry_msgs/msg/PoseStamped` | `navi_tf_bridge` -> external navigation | 最终导航目标。 |
@@ -141,7 +141,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/navi/lower_head` | `std_msgs/msg/UInt8` | navigation/兼容 -> `behavior_tree` | 低头/通过特定路径时的兼容状态。 |
 | `/ly/navi/vel` | `gimbal_driver/msg/Vel` | 兼容/调试 | 当前 BT 代码保留 publisher，但主控制速度走 `/ly/control/vel`。 |
 
-追击多源退化顺序：`Chase.ToNavi=true` 且 `/ly/position/data` 中目标敌方坐标和自身坐标都新鲜时，BT 优先发布 `/ly/navi/goal_pos_raw`；任一条件不满足时退回 `/ly/navi/target_rel`。两条链路不会在同一 tick 同时作为有效追击目标发布。
+追击多源退化顺序：`Chase.ToNavi=true` 时，BT 优先使用 `/ly/aim/TargetList` 里当前选中目标的 point 发布 `/ly/navi/target_rel`，消息携带来源 frame（默认 `gimbal_world`），由 `navi_tf_bridge` 转成 `/goal_pose`。只有 TargetList 追击点不可用时，才退化到 `/ly/position/data` 官方坐标源并发布 `/ly/navi/goal_pos_raw`。两条链路不会在同一 tick 同时作为有效追击目标发布。
 
 导航状态保护：
 

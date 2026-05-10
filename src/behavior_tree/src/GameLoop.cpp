@@ -877,11 +877,36 @@ namespace BehaviorTree {
             gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
         }
 
+        bool has_external_target_point = false;
+        ExternalAimTargetCache external_target_point{};
+        if (config.ExternalAimSettings.Enable &&
+            hasExternalAimTargets_ &&
+            targetArmor.Type != ArmorType::UnKnown) {
+            const auto target_index = static_cast<std::size_t>(targetArmor.Type);
+            const int fresh_ms = std::max(1, config.ExternalAimSettings.TargetFreshTimeoutMs);
+            if (target_index < externalAimTargets_.size()) {
+                const auto& cached = externalAimTargets_[target_index];
+                has_external_target_point =
+                    cached.Valid &&
+                    cached.LastSeen.time_since_epoch().count() != 0 &&
+                    now - cached.LastSeen <= std::chrono::milliseconds(fresh_ms) &&
+                    std::isfinite(cached.X) &&
+                    std::isfinite(cached.Y) &&
+                    std::isfinite(cached.Z) &&
+                    std::isfinite(cached.Distance) &&
+                    cached.Distance > 0.0f &&
+                    !cached.FrameId.empty();
+                if (has_external_target_point) {
+                    external_target_point = cached;
+                }
+            }
+        }
+
         if (!follow_mode_active && chase_mode_enabled) {
             const bool chase_to_navi = config.ChaseSettings.ToNavi;
             const bool navi_to_navi =
                 config.NaviSettings.UseXY && config.NaviSettings.ToNavi;
-            bool has_chase_target = has_target_for_angles;
+            bool has_chase_target = has_target_for_angles || has_external_target_point;
             if (!has_chase_target &&
                 config.ChaseSettings.LostTargetHoldMs > 0 &&
                 activeAimData->HasLatchedAngles &&
@@ -892,7 +917,12 @@ namespace BehaviorTree {
 
             bool chase_distance_valid = false;
             float distance_cm = 0.0f;
-            if (std::isfinite(targetArmor.Distance) && targetArmor.Distance > 0.0f) {
+            if (has_external_target_point) {
+                distance_cm = external_target_point.Distance * 100.0f;
+                chase_distance_valid =
+                    distance_cm >= static_cast<float>(config.ChaseSettings.MinValidDistanceCm) &&
+                    distance_cm <= static_cast<float>(config.ChaseSettings.MaxValidDistanceCm);
+            } else if (std::isfinite(targetArmor.Distance) && targetArmor.Distance > 0.0f) {
                 distance_cm = targetArmor.Distance * 100.0f;
                 chase_distance_valid =
                     distance_cm >= static_cast<float>(config.ChaseSettings.MinValidDistanceCm) &&
@@ -911,28 +941,6 @@ namespace BehaviorTree {
                 const double yaw_rad = yaw_error_deg * kDegToRad;
                 const double pitch_rad = pitch_error_deg * kDegToRad;
                 const double cos_pitch = std::cos(pitch_rad);
-                bool has_external_target_point = false;
-                ExternalAimTargetCache external_target_point{};
-                if (config.ExternalAimSettings.Enable && hasExternalAimTargets_) {
-                    const auto target_index = static_cast<std::size_t>(targetArmor.Type);
-                    const int fresh_ms = std::max(1, config.ExternalAimSettings.TargetFreshTimeoutMs);
-                    if (target_index < externalAimTargets_.size()) {
-                        const auto& cached = externalAimTargets_[target_index];
-                        has_external_target_point =
-                            cached.Valid &&
-                            cached.LastSeen.time_since_epoch().count() != 0 &&
-                            now - cached.LastSeen <= std::chrono::milliseconds(fresh_ms) &&
-                            std::isfinite(cached.X) &&
-                            std::isfinite(cached.Y) &&
-                            std::isfinite(cached.Z) &&
-                            std::isfinite(cached.Distance) &&
-                            cached.Distance > 0.0f &&
-                            !cached.FrameId.empty();
-                        if (has_external_target_point) {
-                            external_target_point = cached;
-                        }
-                    }
-                }
 
                 naviRelativeTargetValid = true;
                 if (has_external_target_point) {
@@ -1014,7 +1022,8 @@ namespace BehaviorTree {
 
             if (chase_to_navi && config.ChaseSettings.UseOfficialPositionSource) {
                 const bool should_try_official =
-                    config.ChaseSettings.PreferOfficialPositionSource || !naviRelativeTargetValid;
+                    !has_external_target_point &&
+                    (config.ChaseSettings.PreferOfficialPositionSource || !naviRelativeTargetValid);
                 const auto maybe_target_unit = UnitTypeFromArmorType(targetArmor.Type);
                 const auto sentry_index = static_cast<std::size_t>(UnitType::Sentry);
                 const bool self_position_fresh =

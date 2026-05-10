@@ -481,6 +481,11 @@ namespace LangYa {
         dog.HealthDropThreshold = j.value("HealthDropThreshold", dog.HealthDropThreshold);
     }
 
+    void from_json(const json& j, StartGateSetting& sg) {
+        sg.AllowGimbalPatrolBeforeStart =
+            j.value("AllowGimbalPatrolBeforeStart", sg.AllowGimbalPatrolBeforeStart);
+    }
+
     void from_json(const json& j, NaviSetting& ns) {
         ns.UseXY = j.value("UseXY", ns.UseXY);
         if (j.contains("ToNavi")) {
@@ -505,6 +510,7 @@ namespace LangYa {
         ea.UseTargetArrayAsArmorList =
             j.value("UseTargetArrayAsArmorList", ea.UseTargetArrayAsArmorList);
         ea.PublishSelectTarget = j.value("PublishSelectTarget", ea.PublishSelectTarget);
+        ea.TargetDefaultFrame = j.value("TargetDefaultFrame", ea.TargetDefaultFrame);
     }
 
     void from_json(const json& j, NaviRotateControlSetting& nr) {
@@ -873,6 +879,9 @@ namespace LangYa {
         if (j.contains("DamageOpenGate")) {
             j.at("DamageOpenGate").get_to(c.DamageOpenGateSettings);
         }
+        if (j.contains("StartGate")) {
+            j.at("StartGate").get_to(c.StartGateSettings);
+        }
         c.ScanCounter = j.value("ScanCounter", c.ScanCounter);
         if (j.contains("NaviSetting")) {
             j.at("NaviSetting").get_to(c.NaviSettings);
@@ -1166,6 +1175,17 @@ namespace BehaviorTree {
                 "NaviRotateControl/StopRotateWhenFalse"
             },
             setting.StopRotateWhenFalse);
+    }
+
+    void Application::ApplyStartGateParameterOverrides() {
+        auto& setting = config.StartGateSettings;
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "StartGate.AllowGimbalPatrolBeforeStart",
+                "StartGate/AllowGimbalPatrolBeforeStart"
+            },
+            setting.AllowGimbalPatrolBeforeStart);
     }
 
     void Application::ApplyExternalAimParameterOverrides() {
@@ -1641,6 +1661,7 @@ namespace BehaviorTree {
         config = j.get<Config>();
         ApplyTaskParameterOverrides();
         ApplyAreaManagerParameterOverrides();
+        ApplyStartGateParameterOverrides();
         ApplyNaviRotateControlParameterOverrides();
         ApplyExternalAimParameterOverrides();
         LoggerPtr->Debug("Switch_Point: {}", config.SwitchPoint);
@@ -1661,6 +1682,10 @@ namespace BehaviorTree {
         LoggerPtr->Debug("TickRate: {}", config.RateSettings.TreeTickRate);
         LoggerPtr->Debug("NaviCommandRate: {}", config.RateSettings.NaviCommandRate);
         LoggerPtr->Debug("ScanCounter: {}", config.ScanCounter);
+        LoggerPtr->Debug("------ StartGate ------");
+        LoggerPtr->Debug(
+            "AllowGimbalPatrolBeforeStart: {}",
+            config.StartGateSettings.AllowGimbalPatrolBeforeStart);
         LoggerPtr->Debug("------ Task ------");
         LoggerPtr->Debug("Buff: {}", config.TaskSettings.Buff);
         LoggerPtr->Debug("Outpost: {}", config.TaskSettings.Outpost);
@@ -1710,6 +1735,7 @@ namespace BehaviorTree {
         LoggerPtr->Debug("TargetFreshTimeoutMs: {}", config.ExternalAimSettings.TargetFreshTimeoutMs);
         LoggerPtr->Debug("UseTargetArrayAsArmorList: {}", config.ExternalAimSettings.UseTargetArrayAsArmorList);
         LoggerPtr->Debug("PublishSelectTarget: {}", config.ExternalAimSettings.PublishSelectTarget);
+        LoggerPtr->Debug("TargetDefaultFrame: {}", config.ExternalAimSettings.TargetDefaultFrame);
         LoggerPtr->Debug("------ NaviRotateControl ------");
         LoggerPtr->Debug("Enable: {}", config.NaviRotateControlSettings.Enable);
         LoggerPtr->Debug("FreshTimeoutMs: {}", config.NaviRotateControlSettings.FreshTimeoutMs);
@@ -2055,6 +2081,10 @@ namespace BehaviorTree {
                 "Invalid ExternalAim.TargetFreshTimeoutMs={}, fallback to 500.",
                 config.ExternalAimSettings.TargetFreshTimeoutMs);
             config.ExternalAimSettings.TargetFreshTimeoutMs = 500;
+        }
+        if (config.ExternalAimSettings.TargetDefaultFrame.empty()) {
+            LoggerPtr->Warning("ExternalAim.TargetDefaultFrame is empty, fallback to gimbal_world.");
+            config.ExternalAimSettings.TargetDefaultFrame = "gimbal_world";
         }
         if (config.NaviRotateControlSettings.FreshTimeoutMs <= 0) {
             LoggerPtr->Warning(

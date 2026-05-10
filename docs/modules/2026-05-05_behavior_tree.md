@@ -330,6 +330,8 @@ void TreeTick() {
   - 0=禁用超時（默認）；>0 時超時後跳過 `is_start` 門控（調試用）
 - `debug_bypass_is_start:=false`
   - true=直接跳過 `is_start` 門控（調試用，默認 false）
+- `StartGate.AllowGimbalPatrolBeforeStart`
+  - YAML 開關在 `src/behavior_tree/config/Task.yaml`；`true` 時 gated 啟動等待 `/ly/game/is_start=true` 期間只壓零底盤速度/小陀螺，雲台仍按 `PatrolScan.Mode` 掃描
 - `league_referee_stale_timeout_ms:=0`
   - 0=禁用新鮮度檢查（默認）；>0 時聯盟賽回補會檢查 hp/ammo 回傳是否過期
 
@@ -377,7 +379,7 @@ void TreeTick() {
   - `Enable`：總開關
   - `ToNavi`：改由 BT 發布導航追擊輸入，導航側負責速度閉環
   - `UseOfficialPositionSource`：允許用 `/ly/position/data` 的敵方官方坐標作追擊源
-  - `PreferOfficialPositionSource`：官方坐標新鮮且可匹配目標時，優先走 `/ly/navi/goal_pos_raw -> /goal_pose`；否則退回 `/ly/navi/target_rel`
+  - `PreferOfficialPositionSource`：默認 `false`；TargetList 追擊點優先走 `/ly/navi/target_rel -> /goal_pose`，官方坐標只作退化來源
   - `OfficialPositionFreshMs`：敵方/自身官方坐標最大有效時間；超時不使用官方源
   - `PreferredDistanceCm`：與目標保持的最適距離（cm）
   - `DistanceDeadbandCm`：距離死區（cm）
@@ -387,8 +389,8 @@ void TreeTick() {
 
 `Chase.ToNavi=true` 時現在是多源輸出：
 
-- 官方坐標源有效：`targetArmor -> enemyRobots[unit].position_`，結合自身官方坐標按 `PreferredDistanceCm` 留距後，發布 `/ly/navi/goal_pos_raw`，由 `navi_tf_bridge` 的 4x4 靜態矩陣轉 `/goal_pose`。
-- 官方坐標缺失、超時、越界或自身坐標不可用：保留原視覺追擊，發布 `/ly/navi/target_rel`，默認按 `gx_camera -> map` TF 轉 `/goal_pose`。
+- TargetList 追擊點有效：使用 `/ly/aim/TargetList` 中當前選中目標的 point，帶來源 frame（默認 `gimbal_world`）發布 `/ly/navi/target_rel`，由 `navi_tf_bridge` TF 轉 `/goal_pose`。
+- TargetList 追擊點不可用且官方坐標源有效：`targetArmor -> enemyRobots[unit].position_`，結合自身官方坐標按 `PreferredDistanceCm` 留距後，發布 `/ly/navi/goal_pos_raw`，由 `navi_tf_bridge` 的 4x4 靜態矩陣轉 `/goal_pose`。
 - `Chase.ToNavi=false` 仍是 BT 內部速度追擊，只使用視覺角度/距離計算 `/ly/gimbal/vel`。
 
 ### 黑板結構（兩種賽制一致）
