@@ -194,6 +194,7 @@ python3 ./scripts/python/start.py --keep-to-navi
 | `scripts/debug/ballistic_error_log.sh` | 过滤弹道/锁敌日志 | `scripts/tools/monitor_ballistic_errors.sh` |
 | `scripts/debug/shooting_table_calib.sh` | 射表标定 | `scripts/tools/shooting_table_calib.sh` |
 | `scripts/debug/buff_shooting_table_calib.sh` | 打符射表标定 | `scripts/tools/buff_shooting_table_calib.sh` |
+| `scripts/debug/control_sink.sh` | 乾跑接收 `/ly/control/angles`、`/ly/control/firecode` 等控制 topic，不启动 `gimbal_driver`，不下发硬件 | `scripts/debug/control_sink.py` |
 | `scripts/debug/control_angles_test.sh` | 直接发 `/ly/control/angles` 角度命令 | 脚本内置发布逻辑 |
 | `scripts/debug/rotate_level.sh` | Rotate 档位循环与回读测试 | 脚本内置发布/回读逻辑 |
 | `scripts/debug/move_rotate.sh` | 小陀螺 + 正弦平移联动测试 | `scripts/feature_test/standalone/modes/chassis_spin_sine_translate_mode.sh` |
@@ -215,6 +216,7 @@ python3 ./scripts/python/start.py --keep-to-navi
 | `scripts/navi/facemode_map.sh` | FaceMode 直接使用导航 `map` 系 X/Y/Z，不过矩阵；默认用 `target -> gimbal_barrel_joint` TF 相对几何算朝向，不走相机，输入 m |
 | `scripts/navi/facemode_official.sh` | FaceMode 直接使用 `official_map` frame，不过矩阵；默认用 `target -> gimbal_barrel_joint` TF 相对几何算朝向，不走相机，输入 cm，需要 TF 中有 official_map 链路 |
 | `scripts/navi/navi_vel_chain.sh` | 导航专用速度链路：只拉 `gimbal_driver` 和 `/ly/navi/vel -> /ly/control/vel` 桥，不启动 BT/视觉/FaceMode/小陀螺 |
+| `scripts/navi/navi_control_chain.sh` | 导航下位机链路：转发 `/ly/navi/vel -> /ly/control/vel`，默认开小陀螺和云台巡逻，可用 `--rotate false` / `--scan false` 关闭，不启动 BT/视觉/FaceMode |
 | `scripts/navi/position.sh` | 一键查看 `/ly/navi/position`，默认只输出 `data: [official_map_x_cm, official_map_y_cm]` |
 | `scripts/navi/map_aim_point_test.sh` | FaceMode 完整测试入口，可拉 `gimbal_driver` / `tf_tree`，支持 `--unit m\|cm`，默认 cm |
 | `scripts/navi/map_aim_point_attach.sh` | 已有 stack 上只附加 FaceMode 节点 |

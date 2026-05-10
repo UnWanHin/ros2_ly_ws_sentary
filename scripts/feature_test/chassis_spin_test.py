@@ -7,6 +7,7 @@
 import argparse
 
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from gimbal_driver.msg import FireCode
 
@@ -45,11 +46,12 @@ def main() -> None:
     node = ChassisSpinNode(args.rotate_level, args.hz, args.topic)
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         node.get_logger().info("chassis_spin_test interrupted")
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == "__main__":
