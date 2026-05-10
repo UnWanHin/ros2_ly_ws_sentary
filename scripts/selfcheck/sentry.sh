@@ -812,6 +812,11 @@ if (( STATIC_ONLY == 0 )); then
   check_node_absent "/outpost_hitter_node" "${NODE_LIST}"
   check_node_absent "/buff_hitter" "${NODE_LIST}"
   check_node_absent "/buff_hitter_node" "${NODE_LIST}"
+  if grep -Fxq "/tf_tree_node" <<< "${NODE_LIST}" && grep -Fxq "/sentry_tf_node" <<< "${NODE_LIST}"; then
+    fail "Duplicate gimbal TF owners online: /tf_tree_node and /sentry_tf_node"
+  else
+    pass "No duplicate local/external gimbal TF owner detected"
+  fi
 
   print_section "Node Contracts"
   # gimbal_driver
@@ -827,8 +832,8 @@ if (( STATIC_ONLY == 0 )); then
   check_node_sub "/behavior_tree" "/ly/game/is_start" hard
   check_node_sub "/behavior_tree" "/ly/game/time_left" hard
   check_node_sub "/behavior_tree" "/ly/friend/is_team_red" hard
-  check_node_sub "/behavior_tree" "/ly/aim/armor_targets" hard
-  check_node_sub "/behavior_tree" "/ly/aim/result" hard
+  check_node_sub "/behavior_tree" "/ly/aim/TargetList" hard
+  check_node_sub "/behavior_tree" "/ly/aim/Result" hard
 
   # behavior_tree outputs
   check_node_pub "/behavior_tree" "/ly/control/angles" hard
@@ -836,7 +841,7 @@ if (( STATIC_ONLY == 0 )); then
   check_node_pub "/behavior_tree" "/ly/control/posture" hard
   check_node_pub "/behavior_tree" "/ly/vision/mode" hard
   check_node_pub "/behavior_tree" "/ly/bt/target" hard
-  check_node_pub "/behavior_tree" "/ly/aim/select_target" hard
+  check_node_pub "/behavior_tree" "/ly/aim/SelectTarget" hard
   check_node_pub "/behavior_tree" "/ly/navi/vel" hard
 
   print_section "Critical Topic Links"
@@ -847,9 +852,9 @@ if (( STATIC_ONLY == 0 )); then
   # 兼容鏈路檢查：電控側仍訂閱 /ly/control/vel，若沒有發布者視為缺口
   check_topic_link "/ly/control/vel" "gimbal_driver/msg/ControlVelocity" "/behavior_tree" "/gimbal_driver" hard
 
-  check_topic_link "/ly/aim/select_target" "sentry_msgs/msg/AimTarget" "/behavior_tree" "" hard
-  check_topic_link "/ly/aim/armor_targets" "sentry_msgs/msg/AimTargetArray" "" "/behavior_tree" hard
-  check_topic_link "/ly/aim/result" "sentry_msgs/msg/AimResult" "" "/behavior_tree" hard
+  check_topic_link "/ly/aim/SelectTarget" "sentry_msgs/msg/AimTarget" "/behavior_tree" "" hard
+  check_topic_link "/ly/aim/TargetList" "sentry_msgs/msg/AimTargetArray" "" "/behavior_tree" hard
+  check_topic_link "/ly/aim/Result" "sentry_msgs/msg/AimResult" "" "/behavior_tree" hard
 
   print_section "Conditional Topics (Data-Dependent)"
   check_topic_link "/ly/gimbal/angles" "gimbal_driver/msg/GimbalAngles" "/gimbal_driver" "/behavior_tree" warn
@@ -861,7 +866,7 @@ if (( STATIC_ONLY == 0 )); then
     check_topic_hz "/ly/control/firecode" 5 hard
     check_topic_hz "/ly/navi/vel" 1 warn
     check_topic_hz "/ly/gimbal/angles" 1 warn
-    check_topic_hz "/ly/aim/result" 1 warn
+    check_topic_hz "/ly/aim/Result" 1 warn
   fi
   else
     warn "Runtime graph checks skipped because no ROS2 nodes are active"

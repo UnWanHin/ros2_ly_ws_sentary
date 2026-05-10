@@ -5,7 +5,7 @@ Updated: 2026-05-10
 本文记录当前哨兵上位机 ROS2 topic 结构，按接口边界分为：
 
 - Internal：本仓内部节点之间的语义链路。
-- External：外部导航/TF/导航状态提供方参与的接口。
+- External：外部 aim、TF、导航/导航状态提供方参与的接口。
 - Embedded-facing：ROS topic 终点是 `gimbal_driver`，再由串口进入下位机或由下位机回传。
 
 源码准入口：
@@ -25,6 +25,7 @@ Updated: 2026-05-10
 | `/ly/friend/*`, `/ly/enemy/*`, `/ly/team/*` | Embedded-facing | 我方/敌方血量、弹量、队伍增益等语义状态。 |
 | `/ly/log/*` | Internal/Debug | 可选 raw 诊断 topic，默认关闭，不参与决策。 |
 | `/ly/aim/*` | External | 外部 `sentry.aim` 和 BT 的正式辅瞄接口。 |
+| `/tf`, `/tf_static` | External | 正式链路由外部 `sentry_tf` 发布 gimbal TF；本仓 `tf_tree` 只作 fallback，不能和外部 `sentry_tf` 同时发布同一套 frame。 |
 | `/ly/vision/*`, `/ly/bt/*`, `/ly/detector/*`, `/ly/predictor/*`, `/ly/buff/*`, `/ly/outpost/*` | Internal/Legacy | 视觉、预测、任务模式和舊 BT 内部协作；正式 `Behavion` 链路不启动内部视觉。 |
 | `/ly/face_mode/*` | Internal | FaceMode 固定点朝向链路。 |
 | `/ly/navi/*`, `/goal_pose` | External | 导航目标、导航桥、导航状态和 TF 导出的定位接口。 |
@@ -108,10 +109,10 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | Topic | Type | Direction | 结构/语义 |
 |---|---|---|---|
 | `/ly/vision/mode` | `std_msgs/msg/UInt8` | `behavior_tree` -> legacy tools | `0=disabled`, `1=armor`, `2=buff`, `3=outpost`；正式鏈路不再用它啟動內部視覺。 |
-| `/ly/bt/target` | `std_msgs/msg/UInt8` | `behavior_tree` -> legacy tools/debug | 当前 BT 选择的装甲板目标类型；正式選目標同時發布 `/ly/aim/select_target`。 |
-| `/ly/aim/armor_targets` | `sentry_msgs/msg/AimTargetArray` | external aim -> `behavior_tree` | 外部辅瞄输出的可打目标列表；BT 用它生成 `hitableTargets` 和目標距離。 |
-| `/ly/aim/select_target` | `sentry_msgs/msg/AimTarget` | `behavior_tree` -> external aim | BT 选择的目标 `id`，`position` 尽量填最近一次 `/ly/aim/armor_targets` 中同 id 的位置。 |
-| `/ly/aim/result` | `sentry_msgs/msg/AimResult` | external aim -> `behavior_tree` | 外部辅瞄最终 yaw/pitch 和 `fire` 门控；BT 直接用于 `/ly/control/angles` 和 `/ly/control/firecode`，不再绕到 `/ly/predictor/target`。 |
+| `/ly/bt/target` | `std_msgs/msg/UInt8` | `behavior_tree` -> legacy tools/debug | 当前 BT 选择的装甲板目标类型；正式選目標同時發布 `/ly/aim/SelectTarget`。 |
+| `/ly/aim/TargetList` | `sentry_msgs/msg/AimTargetArray` | external aim -> `behavior_tree` | 外部辅瞄输出的可打目标列表；数组元素是 `AimTarget.msg`，BT 用它生成 `hitableTargets`、目標距離和 Chase 相對 point。 |
+| `/ly/aim/SelectTarget` | `sentry_msgs/msg/AimTarget` | `behavior_tree` -> external aim | BT 选择的目标 `id`，`header.stamp` 为当前发布时间，`position` 尽量填最近一次 `/ly/aim/TargetList` 中同 id 的位置。 |
+| `/ly/aim/Result` | `sentry_msgs/msg/AimResult` | external aim -> `behavior_tree` | 外部辅瞄最终 yaw/pitch 和 `fire` 门控；BT 直接用于 `/ly/control/angles` 和 `/ly/control/firecode`，不再绕到 `/ly/predictor/target`。 |
 | `/ly/detector/armors` | `auto_aim_common/msg/Armors` | legacy detector -> legacy tracker/predictor | 舊內部輔瞄鏈路，正式 `sentry_all` 不啟動。 |
 | `/ly/predictor/target` | `auto_aim_common/msg/Target` | legacy predictor -> `behavior_tree` | 舊普通輔瞄結果；`Behavion` 正式配置會忽略。 |
 | `/ly/back_cam/target` | `auto_aim_common/msg/Target` | legacy/debug | 后置相机目标结果。 |
@@ -167,8 +168,8 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `gimbal_driver/msg/SentryInfo` | `sentry_info_raw`, `sentry_info_2_raw`, exchange/revive/out_of_combat/posture/energy fields | 裁判 `0x020D` 哨兵状态。 |
 | `gimbal_driver/msg/BulletInfo` | `initial_speed`, shoot data, projectile allowance, remaining coin | TypeID 7/8 弹丸与资源状态。 |
 | `gimbal_driver/msg/GimbalRawFrame` | `header`, `direction`, `type_id`, `data`, `firecode_raw`, `sentry_cmd_raw` | 可选 raw 串口诊断 topic。 |
-| `sentry_msgs/msg/AimTargetArray` | `header`, `aim_targets[]` | 外部 aim 可打目标列表；`/ly/aim/armor_targets` 使用 `SensorDataQoS`。 |
-| `sentry_msgs/msg/AimTarget` | `header`, `position`, `id` | BT 发给外部 aim 的目标选择；`id` 对齐 `ArmorType`。 |
+| `sentry_msgs/msg/AimTargetArray` | `header`, `aim_targets[]` | 外部 aim 可打目标列表；`/ly/aim/TargetList` 使用 `SensorDataQoS`。 |
+| `sentry_msgs/msg/AimTarget` | `header`, `position`, `id` | 外部 aim 候选目标和 BT 目标选择共用结构；`id` 对齐 `ArmorType`，`position` 为米制 point，`header.frame_id` 非空时才作为 Chase 真值点参与 TF 转换。 |
 | `sentry_msgs/msg/AimResult` | `header`, `fire`, `pitch`, `yaw` | 外部 aim 的最终角度与开火门控。 |
 | `auto_aim_common/msg/Target` | `header`, `status`, `buff_follow`, `yaw`, `pitch` | predictor/buff/outpost 角度目标。 |
 | `auto_aim_common/msg/RelativeTarget` | `header`, `valid`, `x`, `y`, `z`, `distance_m`, `yaw_error_deg`, `pitch_error_deg`, `armor_type`, `aim_mode` | 追击相对目标。 |

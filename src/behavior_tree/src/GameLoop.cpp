@@ -648,6 +648,7 @@ namespace BehaviorTree {
         naviRelativeTargetPitchErrorDeg = 0.0F;
         naviRelativeTargetArmorType = 0U;
         naviRelativeTargetAimMode = static_cast<std::uint8_t>(aimMode);
+        naviRelativeTargetFrameId.clear();
         naviChaseOfficialTargetValid = false;
         naviChaseOfficialTargetArmorType = 0U;
         auto reset_patrol_scan_state = [this]() {
@@ -910,12 +911,43 @@ namespace BehaviorTree {
                 const double yaw_rad = yaw_error_deg * kDegToRad;
                 const double pitch_rad = pitch_error_deg * kDegToRad;
                 const double cos_pitch = std::cos(pitch_rad);
+                bool has_external_target_point = false;
+                ExternalAimTargetCache external_target_point{};
+                if (config.ExternalAimSettings.Enable && hasExternalAimTargets_) {
+                    const auto target_index = static_cast<std::size_t>(targetArmor.Type);
+                    const int fresh_ms = std::max(1, config.ExternalAimSettings.TargetFreshTimeoutMs);
+                    if (target_index < externalAimTargets_.size()) {
+                        const auto& cached = externalAimTargets_[target_index];
+                        has_external_target_point =
+                            cached.Valid &&
+                            cached.LastSeen.time_since_epoch().count() != 0 &&
+                            now - cached.LastSeen <= std::chrono::milliseconds(fresh_ms) &&
+                            std::isfinite(cached.X) &&
+                            std::isfinite(cached.Y) &&
+                            std::isfinite(cached.Z) &&
+                            std::isfinite(cached.Distance) &&
+                            cached.Distance > 0.0f &&
+                            !cached.FrameId.empty();
+                        if (has_external_target_point) {
+                            external_target_point = cached;
+                        }
+                    }
+                }
 
                 naviRelativeTargetValid = true;
-                naviRelativeTargetX = static_cast<float>(distance_m * cos_pitch * std::cos(yaw_rad));
-                naviRelativeTargetY = static_cast<float>(distance_m * cos_pitch * std::sin(yaw_rad));
-                naviRelativeTargetZ = static_cast<float>(distance_m * std::sin(pitch_rad));
-                naviRelativeTargetDistance = static_cast<float>(distance_m);
+                if (has_external_target_point) {
+                    naviRelativeTargetX = external_target_point.X;
+                    naviRelativeTargetY = external_target_point.Y;
+                    naviRelativeTargetZ = external_target_point.Z;
+                    naviRelativeTargetDistance = external_target_point.Distance;
+                    naviRelativeTargetFrameId = external_target_point.FrameId;
+                } else {
+                    naviRelativeTargetX = static_cast<float>(distance_m * cos_pitch * std::cos(yaw_rad));
+                    naviRelativeTargetY = static_cast<float>(distance_m * cos_pitch * std::sin(yaw_rad));
+                    naviRelativeTargetZ = static_cast<float>(distance_m * std::sin(pitch_rad));
+                    naviRelativeTargetDistance = static_cast<float>(distance_m);
+                    naviRelativeTargetFrameId.clear();
+                }
                 naviRelativeTargetYawErrorDeg = static_cast<float>(yaw_error_deg);
                 naviRelativeTargetPitchErrorDeg = static_cast<float>(pitch_error_deg);
                 naviRelativeTargetArmorType = static_cast<std::uint8_t>(targetArmor.Type);
@@ -2370,7 +2402,9 @@ namespace BehaviorTree {
 
     void Application::ApplyRegionalAreaTaskControl(const RegionalAreaTaskTickResult& result) {
         faceModeManager_.ApplyRegionalTaskResult(result, pub_face_mode_target_raw_);
-        gimbalControlData.FireCode.FollowMode = result.FollowMode ? 1 : 0;
+        if (!config.NaviRotateControlSettings.Enable) {
+            gimbalControlData.FireCode.FollowMode = result.FollowMode ? 1 : 0;
+        }
         if (result.SuppressFire) {
             gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
             buffAimData.FireStatus = false;
@@ -2411,7 +2445,7 @@ namespace BehaviorTree {
         const bool can_yield_to_higher_priority = areaManager_.RegionalAreaTaskCanYieldToHigherPriority();
         if (active_low_priority_task && (aimMode == AimMode::Buff || aimMode == AimMode::Outpost)) {
             if (!can_yield_to_higher_priority) {
-                // Roadland crossing is a bound control segment; do not release FollowMode/FaceMode
+                // Roadland crossing is a bound control segment; do not release regional control
                 // until the far endpoint or timeout protection completes it.
             } else if (active_roadland_task) {
                 RequestRoadlandSafeReturn("aim mode has higher priority");

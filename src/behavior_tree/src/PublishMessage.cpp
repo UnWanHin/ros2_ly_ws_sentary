@@ -224,6 +224,7 @@ namespace BehaviorTree {
                 cached.LastSeen.time_since_epoch().count() != 0 &&
                 now - cached.LastSeen <= std::chrono::milliseconds(fresh_ms);
             if (fresh) {
+                msg.header.frame_id = cached.FrameId;
                 msg.position.x = cached.X;
                 msg.position.y = cached.Y;
                 msg.position.z = cached.Z;
@@ -259,6 +260,7 @@ namespace BehaviorTree {
         }
         auto_aim_common::msg::RelativeTarget msg;
         msg.header.stamp = node_->now();
+        msg.header.frame_id = naviRelativeTargetFrameId;
         msg.valid = naviRelativeTargetValid;
         msg.x = naviRelativeTargetX;
         msg.y = naviRelativeTargetY;

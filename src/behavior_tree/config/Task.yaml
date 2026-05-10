@@ -13,7 +13,7 @@ behavior_tree:
         MinAmmo: 30
         # op_hp 不能作為哨兵正式 gate；保留 op_hp 接口，但默認靠前哨視覺確認是否可打。
         # 未收到 op_hp 時會短時切到外部 aim 前哨目標去 BuffOutpost 偵查。
-        # 若沒有收到 /ly/aim/result 的有效前哨結果，超時後退出並冷卻，避免長時間卡前哨任務。
+        # 若沒有收到 /ly/aim/Result 的有效前哨結果，超時後退出並冷卻，避免長時間卡前哨任務。
         VisualScoutWithoutHp: true
         VisualScoutHoldMs: 8000
         VisualScoutCooldownMs: 15000

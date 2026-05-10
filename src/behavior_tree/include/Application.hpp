@@ -275,6 +275,7 @@ private:
     float naviRelativeTargetPitchErrorDeg{0.0F};
     std::uint8_t naviRelativeTargetArmorType{0U};
     std::uint8_t naviRelativeTargetAimMode{0U};
+    std::string naviRelativeTargetFrameId{};
     bool naviChaseOfficialTargetValid{false};
     std::uint8_t naviChaseOfficialTargetArmorType{0U};
     TimerClock naviCommandIntervalClock{Seconds{10}}, recoveryClock{Seconds{90}}; // 控制间隔，回家时间 

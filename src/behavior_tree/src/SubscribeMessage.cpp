@@ -393,8 +393,8 @@ namespace BehaviorTree{
         });
 
 #ifdef LY_ENABLE_SENTRY_MSGS
-        // ly_aim_armor_targets: external sentry.aim target candidates.
-        GenSubWithQoS<ly_aim_armor_targets>(rclcpp::SensorDataQoS(), [](Application& app, auto msg) {
+        // ly_aim_target_list: external sentry.aim target candidates.
+        GenSubWithQoS<ly_aim_target_list>(rclcpp::SensorDataQoS(), [](Application& app, auto msg) {
             if (!app.config.ExternalAimSettings.Enable) {
                 return;
             }
@@ -418,6 +418,10 @@ namespace BehaviorTree{
                 if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) {
                     continue;
                 }
+                const std::string frame_id =
+                    !target.header.frame_id.empty()
+                        ? target.header.frame_id
+                        : msg->header.frame_id;
                 const float distance = std::hypot(x, y, z);
                 app.externalAimTargets_[target_id] = ExternalAimTargetCache{
                     .Valid = true,
@@ -425,6 +429,7 @@ namespace BehaviorTree{
                     .Y = y,
                     .Z = z,
                     .Distance = std::isfinite(distance) && distance > 0.0f ? distance : 30.0f,
+                    .FrameId = frame_id,
                     .LastSeen = now
                 };
                 if (app.config.ExternalAimSettings.UseTargetArrayAsArmorList &&

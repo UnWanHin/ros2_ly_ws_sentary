@@ -10,7 +10,7 @@ behavior_tree:
           CommandHoldSec: 1
         MyHighland:
           Enable: true
-          UseFaceMode: true
+          UseFaceMode: false
           ApproachTimeoutSec: 8
           HighlandPatrolHoldSec: 2
           BuffShootTravelTimeoutSec: 8
@@ -18,7 +18,7 @@ behavior_tree:
           LeaveTimeoutSec: 8
         MyRoadland:
           Enable: true
-          UseFaceMode: true
+          UseFaceMode: false
           TravelTimeoutSec: 12
           CrossTimeoutSec: 8
           CommandHoldSec: 1

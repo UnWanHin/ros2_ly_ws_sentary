@@ -35,7 +35,7 @@ def generate_launch_description():
         DeclareLaunchArgument("bt_tree_file", default_value=""),
         DeclareLaunchArgument("use_gimbal", default_value="true"),
         DeclareLaunchArgument("use_behavior_tree", default_value="true"),
-        DeclareLaunchArgument("use_tf_tree", default_value="true"),
+        DeclareLaunchArgument("use_tf_tree", default_value="false"),
         DeclareLaunchArgument("tf_tree_params_file", default_value=""),
     ]
 

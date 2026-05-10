@@ -8,7 +8,8 @@
 哨兵整链路启动入口（比赛/联调主入口）。
 
 职责：
-- 拉起 gimbal_driver / tf_tree / navi_tf_bridge / FaceMode / behavior_tree。
+- 拉起 gimbal_driver / navi_tf_bridge / FaceMode / behavior_tree。
+- TF 默認由外部 sentry_tf 提供；需要本倉 fallback 時可設 use_tf_tree:=true。
 - 外部 aim 通过 /ly/aim/* 接入；本 launch 不再启动内部相机/辅瞄链。
 - 支持通过 offline 参数统一覆盖“虚拟串口 + 视频回放”。
 
@@ -381,8 +382,8 @@ def generate_launch_description():
         DeclareLaunchArgument("use_behavior_tree", default_value="true"),
         DeclareLaunchArgument(
             "use_tf_tree",
-            default_value="true",
-            description="Whether to launch tf_tree TF broadcaster chain.",
+            default_value="false",
+            description="Whether to launch local tf_tree fallback. Keep false when external sentry_tf is running.",
         ),
         DeclareLaunchArgument(
             "use_navi_tf_bridge",

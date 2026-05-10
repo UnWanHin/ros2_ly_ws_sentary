@@ -407,6 +407,7 @@ namespace LangYa
         float Y{0.0f};
         float Z{0.0f};
         float Distance{30.0f};
+        std::string FrameId{};
         std::chrono::steady_clock::time_point LastSeen{};
     };
 

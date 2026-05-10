@@ -44,15 +44,15 @@ AimTargetArray:
 
 | Topic | Type | Direction | 語義 |
 |---|---|---|---|
-| `/ly/aim/armor_targets` | `sentry_msgs/msg/AimTargetArray` | external aim -> BT | 可擊打目標列表。 |
-| `/ly/aim/select_target` | `sentry_msgs/msg/AimTarget` | BT -> external aim | BT 選中的目標 id；外部 decider 目前主要使用 `id`。 |
-| `/ly/aim/result` | `sentry_msgs/msg/AimResult` | external aim -> BT | yaw/pitch 與 fire 門控。 |
+| `/ly/aim/TargetList` | `sentry_msgs/msg/AimTargetArray` | external aim -> BT | 可擊打目標列表，元素是 `AimTarget.msg`。 |
+| `/ly/aim/SelectTarget` | `sentry_msgs/msg/AimTarget` | BT -> external aim | BT 選中的目標 id，帶 `std_msgs/Header.stamp`。 |
+| `/ly/aim/Result` | `sentry_msgs/msg/AimResult` | external aim -> BT | yaw/pitch 與 fire 門控。 |
 
-`sentry.aim` 的 `aim_armor_decider_node` 目前用 `SensorDataQoS` 發 `/ly/aim/armor_targets`、訂閱
-`/ly/aim/select_target`。BT 因此對 `/ly/aim/armor_targets` 使用 `SensorDataQoS` 訂閱，避免 reliable
+`sentry.aim` 的 `aim_armor_decider_node` 需要用 `SensorDataQoS` 發 `/ly/aim/TargetList`、訂閱
+`/ly/aim/SelectTarget`。BT 因此對 `/ly/aim/TargetList` 使用 `SensorDataQoS` 訂閱，避免 reliable
 subscriber 對 best-effort publisher 不匹配而收不到候選目標。
 
-`AimResult` 是在 BT 發出 `/ly/aim/select_target` 後，外部 aim 根據選中目標輸出的結果。它不是 detector/predictor 的直接替代消息，不能無條件映射成 `/ly/predictor/target`。
+`AimResult` 是在 BT 發出 `/ly/aim/SelectTarget` 後，外部 aim 根據選中目標輸出的結果。它不是 detector/predictor 的直接替代消息，不能無條件映射成 `/ly/predictor/target`。
 
 ## 不能走 AimResult -> /ly/predictor/target
 
@@ -67,9 +67,9 @@ subscriber 對 best-effort publisher 不匹配而收不到候選目標。
 
 ```text
 BT target decision
-  -> /ly/aim/select_target
+  -> /ly/aim/SelectTarget
 external aim
-  -> /ly/aim/result(yaw, pitch, fire)
+  -> /ly/aim/Result(yaw, pitch, fire)
 BT final control
   -> /ly/control/angles
   -> /ly/control/firecode
@@ -101,9 +101,10 @@ gimbal_barrel -> gx_camera
 
 完整對接時必須保證 TF 只有一個 owner：
 
-- 若本倉保留導航、FaceMode、regional 決策，建議繼續由本倉 `tf_tree` 做 TF owner。
-- 外部 aim 不應用會重複發布 TF 的全量 launch；應只啟動相機/aim/decider/controller 相關節點，或把外部 TF 發布關掉。
-- 如果決定由外部 TF 做 owner，就要同步檢查本倉 `navi_tf_bridge`、FaceMode、定位反算依賴的 frame 和外參，避免與現有地圖/導航鏈路不一致。
+- `Behavion` 正式對接改為由外部 `sentry_tf` 做 TF owner，因為外部工程還有其他功能依賴它。
+- 本倉 `sentry_all` 默認 `use_tf_tree=false`，不再自動拉起本地 `tf_tree`，避免和外部 `sentry_tf` 重複發布同一組 child frame。
+- 本倉 `tf_tree` 保留作為 fallback；只有在不拉外部 `sentry_tf` 的獨立調試場景才設 `use_tf_tree:=true`。
+- 外部 TF 必須提供本倉 `navi_tf_bridge`、FaceMode、定位反算依賴的 frame，尤其是 `base_link`、`gimbal_big_yaw`、`gimbal_small_yaw`、`gimbal_world`、`gimbal_barrel_joint`、`gimbal_barrel`、`gx_camera`。
 
 ## Target List 對 BT 的影響
 
@@ -113,25 +114,25 @@ BT 現在多處依賴內部 `/ly/detector/armors` 生成的 `armorList/hitableTa
 - `SetAimTarget()` / `TrySetAimTargetByAutonomy()` 用 `hitableTargets`、敵方血量、距離和優先級選目標。
 - `Chase` 用 `targetArmor.Distance`、`nextAngles - gimbalAngles`、官方敵方位置去生成 `/ly/navi/target_rel` 或追擊速度。
 
-外部模式下沒有內部 `/ly/detector/armors`。因此 `/ly/aim/armor_targets` 必須成為 BT 的可擊打目標來源：
+外部模式下沒有內部 `/ly/detector/armors`。因此 `/ly/aim/TargetList` 必須成為 BT 的可擊打目標來源：
 
 - `AimTargetArray.aim_targets[].id` 映射到 `ArmorType`。
-- `position` 目前只用來計算距離；Chase 的相對目標仍由 yaw/pitch 誤差和距離近似，官方坐標仍走 `/ly/position/data`。
+- `position` 會被缓存为当前目标的相对/局部点；Chase 只有在该 point 新鲜且 `header.frame_id` 非空时才直接发布到 `/ly/navi/target_rel`，否则退回 yaw/pitch 誤差和距離近似。官方坐标追击仍可走 `/ly/position/data`。
 - 若長時間沒有當前 target id 的 candidate，BT 應視為未鎖定目標，不接受新的 `AimResult` 開火。
 
-落地版保留現有 `armorList/hitableTargets/targetArmor` 決策資料結構，但資料源改成 `/ly/aim/armor_targets`。這樣可以不重寫 regional/Task/Posture 的選目標邏輯，同時確保正式鏈路不再依賴內部 detector。
+落地版保留現有 `armorList/hitableTargets/targetArmor` 決策資料結構，但資料源改成 `/ly/aim/TargetList`。這樣可以不重寫 regional/Task/Posture 的選目標邏輯，同時確保正式鏈路不再依賴內部 detector。
 
 ## Chase 對接狀態
 
 Chase 保留原本 BT 內的追擊輸出策略，但資料源已改成外部 aim：
 
 - 角度源：`AimResult.yaw/pitch`。
-- 距離源：`/ly/aim/armor_targets` 裡當前 id 的 `position` 長度，沿用 `targetArmor.Distance`，單位按外部 aim 的世界/相機幾何輸出視為 m。
-- `/ly/navi/target_rel`：仍由 BT 用 yaw/pitch 誤差與距離近似相對目標，不直接把 `AimTarget.position` 當導航坐標。
+- 距離源：`/ly/aim/TargetList` 裡當前 id 的 `position` 長度，沿用 `targetArmor.Distance`，單位按外部 aim 的世界/相機幾何輸出視為 m。
+- `/ly/navi/target_rel`：有新鮮且帶 `frame_id` 的 `AimTarget.position` 時直接用該 xyz，並把 `AimTarget.header.frame_id` 帶給 `navi_tf_bridge`；沒有新鮮 point 或 frame_id 缺失時退回 BT 用 yaw/pitch 誤差與距離近似的相對目標。
 - 官方坐標追擊：仍沿用 `/ly/position/data` 的敵方/自身官方坐標，帶 freshness gate；外部 aim 不需要提供官方地圖坐標。
 
-所以外部 aim 必須保證 `AimTarget.id` 和本倉 `ArmorType` 數值一致，`position` 至少能提供合理距離。若外部 position
-改成非米制或非相對原點，BT 的追擊距離判斷需要同步調整。
+所以外部 aim 必須保證 `AimTarget.id` 和本倉 `ArmorType` 數值一致，`position` 是米制點，且 `header.frame_id`
+能被 `navi_tf_bridge` 走 TF 轉到 `map`。如果 frame_id 为空，BT 不把该 point 当成 Chase 真值使用。
 
 ## Fire 和角度語義
 
@@ -153,8 +154,8 @@ Chase 保留原本 BT 內的追擊輸出策略，但資料源已改成外部 aim
 4. `scripts/launch/start_sentry_all.sh` 不再注入內部輔瞄配置或 `use_*` 開關。
 5. `AimResult.fire` 直接驅動 BT 最終火控；`AimResult.fire=false` 時只跟角不打彈。
 6. 普通、前哨、打符 aim mode 的角度源都統一用外部 `AimResult`；內部 `/ly/predictor/target`、`/ly/buff/target`、`/ly/outpost/target` 在正式外部模式下被忽略。
-7. 前哨任務在距 `BuffOutpost` `VisualScoutFaceDistanceCm` 半徑內就會選擇 `ArmorType::Outpost` 並發 `/ly/aim/select_target`，不用等到原本 100cm 近點。
-8. BT 對 `/ly/aim/armor_targets` 使用 `SensorDataQoS`，兼容外部 decider 的 best-effort 發布。
+7. 前哨任務在距 `BuffOutpost` `VisualScoutFaceDistanceCm` 半徑內就會選擇 `ArmorType::Outpost` 並發 `/ly/aim/SelectTarget`，不用等到原本 100cm 近點。
+8. BT 對 `/ly/aim/TargetList` 使用 `SensorDataQoS`，兼容外部 decider 的 best-effort 發布。
 9. `scripts/launch/start_sentry_all.sh`、showcase、navi_debug、chase wrapper 不再自動注入內部輔瞄配置。
 10. `selfcheck.sh sentry` 的 runtime graph 改成檢查 BT `/ly/aim/*` 契約，並確認內部輔瞄節點沒有出現在正式鏈路。
 
