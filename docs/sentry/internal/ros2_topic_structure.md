@@ -141,7 +141,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/navi/lower_head` | `std_msgs/msg/UInt8` | navigation/兼容 -> `behavior_tree` | 低头/通过特定路径时的兼容状态。 |
 | `/ly/navi/vel` | `gimbal_driver/msg/Vel` | 兼容/调试 | 当前 BT 代码保留 publisher，但主控制速度走 `/ly/control/vel`。 |
 
-追击多源退化顺序：`Chase.ToNavi=true` 时，BT 优先使用 `/ly/aim/TargetList` 里当前选中目标的 point 发布 `/ly/navi/target_rel`，消息携带来源 frame（默认 `gimbal_world`），由 `navi_tf_bridge` 转成 `/goal_pose`。只有 TargetList 追击点不可用时，才退化到 `/ly/position/data` 官方坐标源并发布 `/ly/navi/goal_pos_raw`。两条链路不会在同一 tick 同时作为有效追击目标发布。
+追击多源退化顺序：`Chase.ToNavi=true` 时，BT 优先使用 `/ly/aim/TargetList` 里当前选中目标的 point 发布 `/ly/navi/target_rel`，消息携带来源 frame（默认 `gimbal_world`），由 `navi_tf_bridge` 转成 `/goal_pose`。`Chase.AreaLimit` 来自 BT JSON：TargetList 路径由 `navi_tf_bridge` 限制追击 `/goal_pose`，官方坐标 fallback 路径由 BT 在发布 `/ly/navi/goal_pos_raw` 前限制目标点；两者语义都是限制在自身当前大区域边界内侧，避免跨大区域追击。该限制不关闭云台跟踪/开火。只有 TargetList 追击点不可用时，才退化到 `/ly/position/data` 官方坐标源。两条链路不会在同一 tick 同时作为有效追击目标发布。
 
 导航状态保护：
 

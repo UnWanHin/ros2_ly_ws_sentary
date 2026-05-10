@@ -38,7 +38,7 @@ target_rel_to_goal_pos_node:
     goal_pos_uint16_encode_x_offset_cm: 0.0
     goal_pos_uint16_encode_y_offset_cm: 0.0
 
-    preferred_distance_cm: 100
+    preferred_distance_cm: 300
     distance_deadband_cm: 50
     stop_when_no_target: true
     allow_reverse_goal: false

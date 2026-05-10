@@ -137,6 +137,179 @@ namespace BehaviorTree {
             static_cast<std::uint16_t>(goal_y)};
     }
 
+    struct OfficialChaseAreaLimitResult {
+        Area::Point<std::uint16_t> Goal{};
+        bool Limited{false};
+        bool Held{false};
+        const char* Status{"disabled"};
+        const char* AreaName{"unknown"};
+    };
+
+    struct MainAreaBoundaryView {
+        const char* Name;
+        const std::vector<Area::Point<int>>* Boundary;
+    };
+
+    std::array<MainAreaBoundaryView, 7> MainAreaBoundaries() {
+        return {{
+            {"red_base", &Area::MainAreaBoundary(UnitTeam::Red, Area::MainAreaKind::Base)},
+            {"red_highland", &Area::MainAreaBoundary(UnitTeam::Red, Area::MainAreaKind::Highland)},
+            {"red_roadland", &Area::MainAreaBoundary(UnitTeam::Red, Area::MainAreaKind::Roadland)},
+            {"common_central", &Area::MainAreaBoundary(UnitTeam::Red, Area::MainAreaKind::Central)},
+            {"blue_base", &Area::MainAreaBoundary(UnitTeam::Blue, Area::MainAreaKind::Base)},
+            {"blue_highland", &Area::MainAreaBoundary(UnitTeam::Blue, Area::MainAreaKind::Highland)},
+            {"blue_roadland", &Area::MainAreaBoundary(UnitTeam::Blue, Area::MainAreaKind::Roadland)},
+        }};
+    }
+
+    const MainAreaBoundaryView* FindContainingMainArea(const int x, const int y) {
+        static const auto boundaries = MainAreaBoundaries();
+        for (const auto& boundary : boundaries) {
+            if (boundary.Boundary != nullptr &&
+                Area::IsPointInsideMainAreaBoundary(*boundary.Boundary, x, y)) {
+                return &boundary;
+            }
+        }
+        return nullptr;
+    }
+
+    double Cross2d(
+        const double ax,
+        const double ay,
+        const double bx,
+        const double by) {
+        return ax * by - ay * bx;
+    }
+
+    bool SegmentIntersectionT(
+        const double start_x,
+        const double start_y,
+        const double end_x,
+        const double end_y,
+        const Area::Point<int>& edge_start,
+        const Area::Point<int>& edge_end,
+        double& t_out) {
+        constexpr double kEpsilon = 1e-9;
+        const double rx = end_x - start_x;
+        const double ry = end_y - start_y;
+        const double sx = static_cast<double>(edge_end.x - edge_start.x);
+        const double sy = static_cast<double>(edge_end.y - edge_start.y);
+        const double denom = Cross2d(rx, ry, sx, sy);
+        if (std::abs(denom) < kEpsilon) {
+            return false;
+        }
+
+        const double qpx = static_cast<double>(edge_start.x) - start_x;
+        const double qpy = static_cast<double>(edge_start.y) - start_y;
+        const double t = Cross2d(qpx, qpy, sx, sy) / denom;
+        const double u = Cross2d(qpx, qpy, rx, ry) / denom;
+        if (t < -kEpsilon || t > 1.0 + kEpsilon || u < -kEpsilon || u > 1.0 + kEpsilon) {
+            return false;
+        }
+        t_out = std::clamp(t, 0.0, 1.0);
+        return true;
+    }
+
+    bool FirstBoundaryIntersectionT(
+        const std::vector<Area::Point<int>>& boundary,
+        const double start_x,
+        const double start_y,
+        const double end_x,
+        const double end_y,
+        double& t_out) {
+        if (boundary.size() < 3) {
+            return false;
+        }
+
+        constexpr double kEpsilon = 1e-9;
+        double best_t = std::numeric_limits<double>::infinity();
+        for (std::size_t i = 0, j = boundary.size() - 1; i < boundary.size(); j = i++) {
+            double t = 0.0;
+            if (SegmentIntersectionT(start_x, start_y, end_x, end_y, boundary[j], boundary[i], t) &&
+                t > kEpsilon) {
+                best_t = std::min(best_t, t);
+            }
+        }
+
+        if (!std::isfinite(best_t)) {
+            return false;
+        }
+        t_out = best_t;
+        return true;
+    }
+
+    OfficialChaseAreaLimitResult ApplyOfficialChaseAreaLimit(
+        const int self_x,
+        const int self_y,
+        const Area::Point<std::uint16_t>& goal,
+        const ChaseAreaLimitSetting& config) {
+        OfficialChaseAreaLimitResult result{.Goal = goal};
+        if (!config.Enable) {
+            return result;
+        }
+
+        const auto* self_area = FindContainingMainArea(self_x, self_y);
+        if (self_area == nullptr || self_area->Boundary == nullptr) {
+            result.Status = "unknown_area";
+            if (config.HoldWhenUnknownArea) {
+                result.Goal = Area::Point<std::uint16_t>{
+                    static_cast<std::uint16_t>(std::clamp(self_x, 0, kOfficialFieldWidthCm)),
+                    static_cast<std::uint16_t>(std::clamp(self_y, 0, kOfficialFieldHeightCm))};
+                result.Held = true;
+            }
+            return result;
+        }
+
+        result.AreaName = self_area->Name;
+        const int goal_x = static_cast<int>(goal.x);
+        const int goal_y = static_cast<int>(goal.y);
+        if (Area::IsPointInsideMainAreaBoundary(*self_area->Boundary, goal_x, goal_y)) {
+            result.Status = "inside";
+            return result;
+        }
+
+        double t_hit = 0.0;
+        if (!FirstBoundaryIntersectionT(
+                *self_area->Boundary,
+                static_cast<double>(self_x),
+                static_cast<double>(self_y),
+                static_cast<double>(goal_x),
+                static_cast<double>(goal_y),
+                t_hit)) {
+            result.Status = "no_intersection";
+            if (config.HoldWhenNoIntersection) {
+                result.Goal = Area::Point<std::uint16_t>{
+                    static_cast<std::uint16_t>(std::clamp(self_x, 0, kOfficialFieldWidthCm)),
+                    static_cast<std::uint16_t>(std::clamp(self_y, 0, kOfficialFieldHeightCm))};
+                result.Held = true;
+            }
+            return result;
+        }
+
+        const double dx = static_cast<double>(goal_x - self_x);
+        const double dy = static_cast<double>(goal_y - self_y);
+        const double length_cm = std::hypot(dx, dy);
+        double t_limit = t_hit;
+        if (length_cm > 1e-6 && config.BoundaryMarginCm > 0) {
+            t_limit = std::max(0.0, t_hit - static_cast<double>(config.BoundaryMarginCm) / length_cm);
+        }
+
+        const int limited_x = std::clamp(
+            static_cast<int>(std::lround(static_cast<double>(self_x) + dx * t_limit)),
+            0,
+            kOfficialFieldWidthCm);
+        const int limited_y = std::clamp(
+            static_cast<int>(std::lround(static_cast<double>(self_y) + dy * t_limit)),
+            0,
+            kOfficialFieldHeightCm);
+        result.Goal = Area::Point<std::uint16_t>{
+            static_cast<std::uint16_t>(limited_x),
+            static_cast<std::uint16_t>(limited_y)};
+        result.Limited = true;
+        result.Status = "clamped";
+        return result;
+    }
+
     std::string NormalizeDecisionModule(std::string_view module) {
         std::string normalized(module);
         std::transform(normalized.begin(), normalized.end(), normalized.begin(),
@@ -1043,13 +1216,33 @@ namespace BehaviorTree {
                     if (IsOfficialFieldPointValid(target_x, target_y) &&
                         self_position_fresh &&
                         IsOfficialFieldPointValid(self_x, self_y)) {
-                        naviGoalPosition = BuildOfficialChaseGoal(
+                        const auto official_chase_goal = BuildOfficialChaseGoal(
                             self_x,
                             self_y,
                             target_x,
                             target_y,
                             config.ChaseSettings.PreferredDistanceCm,
                             config.ChaseSettings.DistanceDeadbandCm);
+                        const auto limited_chase_goal = ApplyOfficialChaseAreaLimit(
+                            self_x,
+                            self_y,
+                            official_chase_goal,
+                            config.ChaseSettings.AreaLimit);
+                        naviGoalPosition = limited_chase_goal.Goal;
+                        if ((limited_chase_goal.Limited || limited_chase_goal.Held) &&
+                            now - lastOfficialChaseAreaLimitLogTime_ > std::chrono::seconds(2)) {
+                            LoggerPtr->Info(
+                                "Official chase area limit {} area={} self=({}, {}) raw_goal=({}, {}) limited=({}, {}).",
+                                limited_chase_goal.Status,
+                                limited_chase_goal.AreaName,
+                                self_x,
+                                self_y,
+                                static_cast<int>(official_chase_goal.x),
+                                static_cast<int>(official_chase_goal.y),
+                                static_cast<int>(naviGoalPosition.x),
+                                static_cast<int>(naviGoalPosition.y));
+                            lastOfficialChaseAreaLimitLogTime_ = now;
+                        }
                         naviChaseOfficialTargetValid = true;
                         naviChaseOfficialTargetArmorType =
                             static_cast<std::uint8_t>(targetArmor.Type);
@@ -1748,6 +1941,25 @@ namespace BehaviorTree {
         const auto is_ignored_armor = [this](const ArmorType armor_type) -> bool {
             return IsIgnoredArmorType(config.AimTargetIgnore, armor_type);
         };
+        const auto fresh_external_target = [this](const ArmorType armor_type)
+            -> const ExternalAimTargetCache* {
+            if (!config.ExternalAimSettings.Enable || !hasExternalAimTargets_) {
+                return nullptr;
+            }
+            const auto target_index = static_cast<std::size_t>(armor_type);
+            if (target_index >= externalAimTargets_.size()) {
+                return nullptr;
+            }
+            const auto& cached = externalAimTargets_[target_index];
+            const auto now = std::chrono::steady_clock::now();
+            const int fresh_ms = std::max(1, config.ExternalAimSettings.TargetFreshTimeoutMs);
+            if (!cached.Valid ||
+                cached.LastSeen.time_since_epoch().count() == 0 ||
+                now - cached.LastSeen > std::chrono::milliseconds(fresh_ms)) {
+                return nullptr;
+            }
+            return &cached;
+        };
         if(aimMode == AimMode::Buff) { // 打符，修改为默认值
             if(BehaviorTree::Area::BuffOutpost.near(nowx, nowy, 100, MyTeam) &&
                !is_ignored_armor(ArmorType::Hero)) {
@@ -1759,7 +1971,11 @@ namespace BehaviorTree {
             const int outpost_select_distance_cm = std::max(
                 100,
                 std::max(0, config.TaskSettings.OutpostConfirm.VisualScoutFaceDistanceCm));
-            if((IsBaseGoalArrived(LangYa::BuffOutpost.ID, MyTeam, true) ||
+            const auto* outpost_target = fresh_external_target(ArmorType::Outpost);
+            if (!is_ignored_armor(ArmorType::Outpost) && outpost_target != nullptr) {
+                targetArmor.Type = ArmorType::Outpost;
+                targetArmor.Distance = outpost_target->Distance;
+            } else if((IsBaseGoalArrived(LangYa::BuffOutpost.ID, MyTeam, true) ||
                 IsBaseGoalWithinDistance(
                     LangYa::BuffOutpost.ID,
                     MyTeam,

@@ -16,6 +16,7 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 
 add_executable(target_rel_to_goal_pos_node
+  src/chase_area_limiter.cpp
   src/chase_pointer.cpp
   src/goal_output.cpp
   src/map_pointer.cpp

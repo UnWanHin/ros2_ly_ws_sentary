@@ -60,6 +60,13 @@
   - 当前默认直接使用 4x4 矩阵。
 - `raw_goal_transform_matrix`
   - row-major 4x4，输入点先从 cm 解码到 m，再应用矩阵。
+- `Chase.AreaLimit.Enable: true`
+  - 正式 BT 链路从 behavior_tree 的 `bt_config_file` 读取 `Chase.AreaLimit` 并传给 bridge；`tf_config.yaml` 不重复保存策略开关。
+  - 追击 `/ly/navi/target_rel -> /goal_pose` 时，先把自身和候选追击点反算到官方地图 cm 坐标；如果候选点跨出当前所在大区域，就把 `/goal_pose` 截到当前大区域边界内侧。
+  - 官方坐标 fallback 追击走 `/ly/navi/goal_pos_raw`，由 BT 在发布前按同一个 `Chase.AreaLimit` 限制；bridge 不会把该限制套到普通固定点位 `/ly/navi/goal_pos_raw`。
+  - 大区域边界从 `src/behavior_tree/module/Area.hpp` 的 `RedMainArea*Points` / `BlueMainArea*Points` / `CommonMainAreaCentralPoints` 解析，避免在 YAML 里重复维护点位。
+  - `BoundaryMarginCm` 控制离边界保留的安全距离；`HoldWhenUnknownArea` 表示自身不在任何已知大区域时保持当前点。
+  - 该限制只约束底盘追击目标，不关闭云台跟踪和开火；目标丢失或 Chase 退出后仍回到 BT 原决策链路。
 
 FaceMode launch 必填：
 

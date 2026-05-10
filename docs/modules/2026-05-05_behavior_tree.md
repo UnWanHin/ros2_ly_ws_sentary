@@ -383,14 +383,15 @@ void TreeTick() {
   - `OfficialPositionFreshMs`：敵方/自身官方坐標最大有效時間；超時不使用官方源
   - `PreferredDistanceCm`：與目標保持的最適距離（cm）
   - `DistanceDeadbandCm`：距離死區（cm）
+  - `AreaLimit`：`ToNavi=true` 的追擊區域限制；`Enable=true` 時把追擊目標限制在自身當前所在大區域內，`BoundaryMarginCm` 控制離邊界保留距離，`HoldWhenUnknownArea` 表示自身不在任何已知大區域時保持當前點。
   - `DistanceKp` / `MaxForwardSpeed` / `MaxBackwardSpeed`：前後追擊控制
   - `UseYawStrafe` / `YawKp` / `YawDeadbandDeg` / `MaxStrafeSpeed`：側向跟隨控制
   - `LostTargetHoldMs` / `StopWhenNoTarget`：丟目標回退策略
 
 `Chase.ToNavi=true` 時現在是多源輸出：
 
-- TargetList 追擊點有效：使用 `/ly/aim/TargetList` 中當前選中目標的 point，帶來源 frame（默認 `gimbal_world`）發布 `/ly/navi/target_rel`，由 `navi_tf_bridge` TF 轉 `/goal_pose`。
-- TargetList 追擊點不可用且官方坐標源有效：`targetArmor -> enemyRobots[unit].position_`，結合自身官方坐標按 `PreferredDistanceCm` 留距後，發布 `/ly/navi/goal_pos_raw`，由 `navi_tf_bridge` 的 4x4 靜態矩陣轉 `/goal_pose`。
+- TargetList 追擊點有效：使用 `/ly/aim/TargetList` 中當前選中目標的 point，帶來源 frame（默認 `gimbal_world`）發布 `/ly/navi/target_rel`，由 `navi_tf_bridge` TF 轉 `/goal_pose`；bridge 會按 `Chase.AreaLimit` 做當前大區域邊界限制。
+- TargetList 追擊點不可用且官方坐標源有效：`targetArmor -> enemyRobots[unit].position_`，結合自身官方坐標按 `PreferredDistanceCm` 留距後，BT 先按同一個 `Chase.AreaLimit` 限制到當前大區域內，再發布 `/ly/navi/goal_pos_raw`，由 `navi_tf_bridge` 的 4x4 靜態矩陣轉 `/goal_pose`。
 - `Chase.ToNavi=false` 仍是 BT 內部速度追擊，只使用視覺角度/距離計算 `/ly/gimbal/vel`。
 
 ### 黑板結構（兩種賽制一致）

@@ -71,6 +71,10 @@ def _resolve_bridge_chase_params(context, behavior_tree_share: str):
     resolved_distance_deadband_cm = "50"
     resolved_stop_when_no_target = "true"
     resolved_to_navi = "true"
+    resolved_area_limit_enable = "false"
+    resolved_area_limit_boundary_margin_cm = "30.0"
+    resolved_area_limit_hold_when_unknown_area = "false"
+    resolved_area_limit_hold_when_no_intersection = "true"
 
     bt_config_file_value = LaunchConfiguration("bt_config_file").perform(context).strip()
     bt_config_path = _resolve_bt_config_path(behavior_tree_share, bt_config_file_value)
@@ -89,6 +93,24 @@ def _resolve_bridge_chase_params(context, behavior_tree_share: str):
                 resolved_stop_when_no_target = (
                     "true" if bool(chase_cfg.get("StopWhenNoTarget", True)) else "false"
                 )
+                area_limit_cfg = chase_cfg.get("AreaLimit", {})
+                if isinstance(area_limit_cfg, dict):
+                    resolved_area_limit_enable = (
+                        "true" if bool(area_limit_cfg.get("Enable", False)) else "false"
+                    )
+                    resolved_area_limit_boundary_margin_cm = str(
+                        float(area_limit_cfg.get("BoundaryMarginCm", 30.0))
+                    )
+                    resolved_area_limit_hold_when_unknown_area = (
+                        "true"
+                        if bool(area_limit_cfg.get("HoldWhenUnknownArea", False))
+                        else "false"
+                    )
+                    resolved_area_limit_hold_when_no_intersection = (
+                        "true"
+                        if bool(area_limit_cfg.get("HoldWhenNoIntersection", True))
+                        else "false"
+                    )
             navi_cfg = config_root.get("NaviSetting", {})
             if isinstance(navi_cfg, dict):
                 to_navi = navi_cfg.get("ToNavi", navi_cfg.get("UseTfGoalBridge", True))
@@ -137,6 +159,19 @@ def _resolve_bridge_chase_params(context, behavior_tree_share: str):
         ),
         SetLaunchConfiguration("resolved_to_navi", resolved_to_navi),
         SetLaunchConfiguration("resolved_bridge_allow_reverse_goal", allow_reverse_goal),
+        SetLaunchConfiguration("resolved_chase_area_limit_enable", resolved_area_limit_enable),
+        SetLaunchConfiguration(
+            "resolved_chase_area_limit_boundary_margin_cm",
+            resolved_area_limit_boundary_margin_cm,
+        ),
+        SetLaunchConfiguration(
+            "resolved_chase_area_limit_hold_when_unknown_area",
+            resolved_area_limit_hold_when_unknown_area,
+        ),
+        SetLaunchConfiguration(
+            "resolved_chase_area_limit_hold_when_no_intersection",
+            resolved_area_limit_hold_when_no_intersection,
+        ),
     ]
 
 
@@ -169,6 +204,12 @@ def generate_launch_description():
     )
     bridge_defaults = _load_bridge_defaults(default_bridge_param_file)
     get_bridge_default = lambda key, fallback: bridge_defaults.get(key, fallback)
+    chase_area_limit_defaults = bridge_defaults.get("chase_area_limit", {})
+    if not isinstance(chase_area_limit_defaults, dict):
+        chase_area_limit_defaults = {}
+    get_chase_area_limit_default = lambda key, fallback: chase_area_limit_defaults.get(
+        key, fallback
+    )
 
     launch_args = [
         DeclareLaunchArgument("mode", default_value="league"),
@@ -301,6 +342,17 @@ def generate_launch_description():
             "allow_reverse_goal",
             default_value=_bool_default(get_bridge_default("allow_reverse_goal", False)),
             description="Whether the bridge may output a reverse chase goal when already too close to the target.",
+        ),
+        DeclareLaunchArgument("resolved_chase_area_limit_enable", default_value="false"),
+        DeclareLaunchArgument("resolved_chase_area_limit_boundary_margin_cm", default_value="30.0"),
+        DeclareLaunchArgument("resolved_chase_area_limit_hold_when_unknown_area", default_value="false"),
+        DeclareLaunchArgument("resolved_chase_area_limit_hold_when_no_intersection", default_value="true"),
+        DeclareLaunchArgument(
+            "chase_area_limit_area_header_file",
+            default_value=str(
+                get_chase_area_limit_default("area_header_file", default_area_header_file)
+                or default_area_header_file
+            ),
         ),
         DeclareLaunchArgument(
             "enable_goal_pos_raw_bridge",
@@ -483,6 +535,24 @@ def generate_launch_description():
                 ),
                 "allow_reverse_goal": ParameterValue(
                     LaunchConfiguration("resolved_bridge_allow_reverse_goal"), value_type=bool
+                ),
+                "chase_area_limit.enable": ParameterValue(
+                    LaunchConfiguration("resolved_chase_area_limit_enable"), value_type=bool
+                ),
+                "chase_area_limit.area_header_file": LaunchConfiguration(
+                    "chase_area_limit_area_header_file"
+                ),
+                "chase_area_limit.boundary_margin_cm": ParameterValue(
+                    LaunchConfiguration("resolved_chase_area_limit_boundary_margin_cm"),
+                    value_type=float,
+                ),
+                "chase_area_limit.hold_when_unknown_area": ParameterValue(
+                    LaunchConfiguration("resolved_chase_area_limit_hold_when_unknown_area"),
+                    value_type=bool,
+                ),
+                "chase_area_limit.hold_when_no_intersection": ParameterValue(
+                    LaunchConfiguration("resolved_chase_area_limit_hold_when_no_intersection"),
+                    value_type=bool,
                 ),
                 "enable_goal_pos_raw_bridge": ParameterValue(
                     LaunchConfiguration("enable_goal_pos_raw_bridge"), value_type=bool

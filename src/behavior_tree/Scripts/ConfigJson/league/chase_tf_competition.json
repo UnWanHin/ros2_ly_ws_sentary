@@ -60,8 +60,14 @@
         "EnableInBuffMode": false,
         "StopWhenNoTarget": true,
         "LostTargetHoldMs": 200,
-        "PreferredDistanceCm": 100,
+        "PreferredDistanceCm": 300,
         "DistanceDeadbandCm": 50,
+        "AreaLimit": {
+            "Enable": true,
+            "BoundaryMarginCm": 30,
+            "HoldWhenUnknownArea": true,
+            "HoldWhenNoIntersection": true
+        },
         "MinValidDistanceCm": 80,
         "MaxValidDistanceCm": 1200,
         "DistanceKp": 0.06,

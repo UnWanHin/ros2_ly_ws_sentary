@@ -105,12 +105,11 @@ def generate_launch_description():
         use_navi_tf_bridge_override = _normalize_bool(
             LaunchConfiguration("use_navi_tf_bridge").perform(context)
         )
-        if use_navi_tf_bridge_override:
-            return [
-                SetLaunchConfiguration("resolved_use_navi_tf_bridge", use_navi_tf_bridge_override),
-            ]
-
         resolved_use_navi_tf_bridge = "true"
+        resolved_chase_area_limit_enable = "false"
+        resolved_chase_area_limit_boundary_margin_cm = "30.0"
+        resolved_chase_area_limit_hold_when_unknown_area = "false"
+        resolved_chase_area_limit_hold_when_no_intersection = "true"
         bt_config_file_raw = LaunchConfiguration("resolved_bt_config_file").perform(context).strip()
         bt_config_path = Path(bt_config_file_raw)
         if bt_config_file_raw and not bt_config_path.is_absolute():
@@ -125,14 +124,49 @@ def generate_launch_description():
                     resolved_use_navi_tf_bridge = (
                         "true" if bool(to_navi) else "false"
                     )
+                chase_cfg = root.get("Chase", {})
+                if isinstance(chase_cfg, dict):
+                    area_limit_cfg = chase_cfg.get("AreaLimit", {})
+                    if isinstance(area_limit_cfg, dict):
+                        resolved_chase_area_limit_enable = (
+                            "true" if bool(area_limit_cfg.get("Enable", False)) else "false"
+                        )
+                        resolved_chase_area_limit_boundary_margin_cm = str(
+                            float(area_limit_cfg.get("BoundaryMarginCm", 30.0))
+                        )
+                        resolved_chase_area_limit_hold_when_unknown_area = (
+                            "true"
+                            if bool(area_limit_cfg.get("HoldWhenUnknownArea", False))
+                            else "false"
+                        )
+                        resolved_chase_area_limit_hold_when_no_intersection = (
+                            "true"
+                            if bool(area_limit_cfg.get("HoldWhenNoIntersection", True))
+                            else "false"
+                        )
             except Exception as ex:
                 print(
                     f"[sentry_all] failed to parse bt_config_file '{bt_config_path}': {ex}. "
                     "navi_tf_bridge falls back to enabled."
                 )
+        if use_navi_tf_bridge_override:
+            resolved_use_navi_tf_bridge = use_navi_tf_bridge_override
 
         return [
             SetLaunchConfiguration("resolved_use_navi_tf_bridge", resolved_use_navi_tf_bridge),
+            SetLaunchConfiguration("resolved_chase_area_limit_enable", resolved_chase_area_limit_enable),
+            SetLaunchConfiguration(
+                "resolved_chase_area_limit_boundary_margin_cm",
+                resolved_chase_area_limit_boundary_margin_cm,
+            ),
+            SetLaunchConfiguration(
+                "resolved_chase_area_limit_hold_when_unknown_area",
+                resolved_chase_area_limit_hold_when_unknown_area,
+            ),
+            SetLaunchConfiguration(
+                "resolved_chase_area_limit_hold_when_no_intersection",
+                resolved_chase_area_limit_hold_when_no_intersection,
+            ),
         ]
 
     # 分层配置默认入口：
@@ -205,6 +239,16 @@ def generate_launch_description():
     use_navi_tf_bridge = LaunchConfiguration("use_navi_tf_bridge")
     use_face_mode_solver = LaunchConfiguration("use_face_mode_solver")
     resolved_use_navi_tf_bridge = LaunchConfiguration("resolved_use_navi_tf_bridge")
+    resolved_chase_area_limit_enable = LaunchConfiguration("resolved_chase_area_limit_enable")
+    resolved_chase_area_limit_boundary_margin_cm = LaunchConfiguration(
+        "resolved_chase_area_limit_boundary_margin_cm"
+    )
+    resolved_chase_area_limit_hold_when_unknown_area = LaunchConfiguration(
+        "resolved_chase_area_limit_hold_when_unknown_area"
+    )
+    resolved_chase_area_limit_hold_when_no_intersection = LaunchConfiguration(
+        "resolved_chase_area_limit_hold_when_no_intersection"
+    )
     tf_tree_params_file = LaunchConfiguration("tf_tree_params_file")
     resolved_tf_tree_params_file = LaunchConfiguration("resolved_tf_tree_params_file")
     offline = LaunchConfiguration("offline")
@@ -431,6 +475,10 @@ def generate_launch_description():
         DeclareLaunchArgument("resolved_tf_tree_params_file", default_value=""),
         DeclareLaunchArgument("resolved_rosbag_path", default_value=""),
         DeclareLaunchArgument("resolved_use_navi_tf_bridge", default_value="true"),
+        DeclareLaunchArgument("resolved_chase_area_limit_enable", default_value="false"),
+        DeclareLaunchArgument("resolved_chase_area_limit_boundary_margin_cm", default_value="30.0"),
+        DeclareLaunchArgument("resolved_chase_area_limit_hold_when_unknown_area", default_value="false"),
+        DeclareLaunchArgument("resolved_chase_area_limit_hold_when_no_intersection", default_value="true"),
         OpaqueFunction(function=resolve_mode_defaults),
         OpaqueFunction(function=resolve_tf_tree_defaults),
         OpaqueFunction(function=resolve_rosbag_defaults),
@@ -500,6 +548,19 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] use_navi_tf_bridge: ", use_navi_tf_bridge]),
         LogInfo(msg=["[sentry_all] use_face_mode_solver: ", use_face_mode_solver]),
         LogInfo(msg=["[sentry_all] resolved_use_navi_tf_bridge: ", resolved_use_navi_tf_bridge]),
+        LogInfo(msg=["[sentry_all] chase_area_limit_enable: ", resolved_chase_area_limit_enable]),
+        LogInfo(msg=[
+            "[sentry_all] chase_area_limit_boundary_margin_cm: ",
+            resolved_chase_area_limit_boundary_margin_cm,
+        ]),
+        LogInfo(msg=[
+            "[sentry_all] chase_area_limit_hold_when_unknown_area: ",
+            resolved_chase_area_limit_hold_when_unknown_area,
+        ]),
+        LogInfo(msg=[
+            "[sentry_all] chase_area_limit_hold_when_no_intersection: ",
+            resolved_chase_area_limit_hold_when_no_intersection,
+        ]),
         LogInfo(msg=["[sentry_all] tf_tree_params_file: ", tf_tree_params_file]),
         LogInfo(msg=["[sentry_all] resolved_tf_tree_params_file: ", resolved_tf_tree_params_file]),
     ]
@@ -523,6 +584,14 @@ def generate_launch_description():
                 "publish_goal_pos": "false",
                 "enable_goal_pos_raw_bridge": "true",
                 "goal_pos_raw_frame": "map",
+                "chase_area_limit_enable": resolved_chase_area_limit_enable,
+                "chase_area_limit_boundary_margin_cm": resolved_chase_area_limit_boundary_margin_cm,
+                "chase_area_limit_hold_when_unknown_area": (
+                    resolved_chase_area_limit_hold_when_unknown_area
+                ),
+                "chase_area_limit_hold_when_no_intersection": (
+                    resolved_chase_area_limit_hold_when_no_intersection
+                ),
             }.items(),
         ),
         Node(

@@ -570,6 +570,13 @@ namespace LangYa
         std::uint8_t SpeedLevel{1};
     };
 
+    struct ChaseAreaLimitSetting {
+        bool Enable{false};
+        int BoundaryMarginCm{30};
+        bool HoldWhenUnknownArea{false};
+        bool HoldWhenNoIntersection{true};
+    };
+
     // 底盘追击配置
     struct ChaseSetting {
         bool Enable{false};
@@ -588,6 +595,7 @@ namespace LangYa
         // 与目标保持的最佳距离（单位：cm）
         int PreferredDistanceCm{100};
         int DistanceDeadbandCm{5};
+        ChaseAreaLimitSetting AreaLimit{};
         int MinValidDistanceCm{80};
         int MaxValidDistanceCm{1200};
 

@@ -57,6 +57,12 @@ def generate_launch_description():
     )
     bridge_defaults = _load_bridge_defaults(default_bridge_param_file)
     get_default = lambda key, fallback: bridge_defaults.get(key, fallback)
+    chase_area_limit_defaults = bridge_defaults.get("chase_area_limit", {})
+    if not isinstance(chase_area_limit_defaults, dict):
+        chase_area_limit_defaults = {}
+    get_chase_area_limit_default = lambda key, fallback: chase_area_limit_defaults.get(
+        key, fallback
+    )
 
     launch_args = [
         DeclareLaunchArgument(
@@ -161,6 +167,33 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "allow_reverse_goal",
             default_value=_bool_default(get_default("allow_reverse_goal", False)),
+        ),
+        DeclareLaunchArgument(
+            "chase_area_limit_enable",
+            default_value=_bool_default(get_chase_area_limit_default("enable", False)),
+        ),
+        DeclareLaunchArgument(
+            "chase_area_limit_area_header_file",
+            default_value=str(
+                get_chase_area_limit_default("area_header_file", default_area_header_file)
+                or default_area_header_file
+            ),
+        ),
+        DeclareLaunchArgument(
+            "chase_area_limit_boundary_margin_cm",
+            default_value=str(float(get_chase_area_limit_default("boundary_margin_cm", 30.0))),
+        ),
+        DeclareLaunchArgument(
+            "chase_area_limit_hold_when_unknown_area",
+            default_value=_bool_default(
+                get_chase_area_limit_default("hold_when_unknown_area", False)
+            ),
+        ),
+        DeclareLaunchArgument(
+            "chase_area_limit_hold_when_no_intersection",
+            default_value=_bool_default(
+                get_chase_area_limit_default("hold_when_no_intersection", True)
+            ),
         ),
         DeclareLaunchArgument(
             "enable_goal_pos_raw_bridge",
@@ -291,6 +324,24 @@ def generate_launch_description():
                         ),
                         "allow_reverse_goal": ParameterValue(
                             LaunchConfiguration("allow_reverse_goal"), value_type=bool
+                        ),
+                        "chase_area_limit.enable": ParameterValue(
+                            LaunchConfiguration("chase_area_limit_enable"), value_type=bool
+                        ),
+                        "chase_area_limit.area_header_file": LaunchConfiguration(
+                            "chase_area_limit_area_header_file"
+                        ),
+                        "chase_area_limit.boundary_margin_cm": ParameterValue(
+                            LaunchConfiguration("chase_area_limit_boundary_margin_cm"),
+                            value_type=float,
+                        ),
+                        "chase_area_limit.hold_when_unknown_area": ParameterValue(
+                            LaunchConfiguration("chase_area_limit_hold_when_unknown_area"),
+                            value_type=bool,
+                        ),
+                        "chase_area_limit.hold_when_no_intersection": ParameterValue(
+                            LaunchConfiguration("chase_area_limit_hold_when_no_intersection"),
+                            value_type=bool,
                         ),
                         "enable_goal_pos_raw_bridge": ParameterValue(
                             LaunchConfiguration("enable_goal_pos_raw_bridge"), value_type=bool

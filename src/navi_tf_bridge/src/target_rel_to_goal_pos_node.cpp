@@ -1,10 +1,14 @@
 #include <chrono>
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <fstream>
 #include <functional>
 #include <memory>
+#include <regex>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "auto_aim_common/msg/relative_target.hpp"
@@ -12,6 +16,7 @@
 #include "geometry_msgs/msg/point_stamped.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
+#include "navi_tf_bridge/chase_area_limiter.hpp"
 #include "navi_tf_bridge/chase_pointer.hpp"
 #include "navi_tf_bridge/goal_output.hpp"
 #include "navi_tf_bridge/map_pointer.hpp"
@@ -82,6 +87,19 @@ public:
       this->declare_parameter<bool>("stop_when_no_target", true);
     const bool allow_reverse_goal =
       this->declare_parameter<bool>("allow_reverse_goal", false);
+    const bool chase_area_limit_enable =
+      this->declare_parameter<bool>("chase_area_limit.enable", false);
+    const std::string chase_area_limit_area_header_file =
+      this->declare_parameter<std::string>("chase_area_limit.area_header_file", "");
+    const double chase_area_limit_boundary_margin_cm =
+      this->declare_parameter<double>("chase_area_limit.boundary_margin_cm", 30.0);
+    const bool chase_area_limit_hold_when_unknown_area =
+      this->declare_parameter<bool>("chase_area_limit.hold_when_unknown_area", false);
+    const bool chase_area_limit_hold_when_no_intersection =
+      this->declare_parameter<bool>("chase_area_limit.hold_when_no_intersection", true);
+    const std::vector<std::string> chase_area_limit_area_names =
+      this->declare_parameter<std::vector<std::string>>(
+      "chase_area_limit.area_names", std::vector<std::string>{});
 
     const bool enable_goal_pos_raw_bridge =
       this->declare_parameter<bool>("enable_goal_pos_raw_bridge", true);
@@ -127,6 +145,43 @@ public:
       .distance_deadband_cm = distance_deadband_cm,
       .stop_when_no_target = stop_when_no_target,
       .allow_reverse_goal = allow_reverse_goal});
+
+    ChaseAreaLimiter::Config chase_area_limit_config{
+      .enabled = chase_area_limit_enable,
+      .area_header_file = chase_area_limit_area_header_file,
+      .boundary_margin_cm = chase_area_limit_boundary_margin_cm,
+      .hold_when_unknown_area = chase_area_limit_hold_when_unknown_area,
+      .hold_when_no_intersection = chase_area_limit_hold_when_no_intersection,
+      .areas = {}};
+    if (!chase_area_limit_area_header_file.empty()) {
+      chase_area_limit_config.areas =
+        loadChaseAreasFromAreaHeader(chase_area_limit_area_header_file);
+    }
+    if (chase_area_limit_config.areas.empty()) {
+      for (const auto & area_name : chase_area_limit_area_names) {
+        const auto coords = this->declare_parameter<std::vector<std::int64_t>>(
+          "chase_area_limit.areas." + area_name, std::vector<std::int64_t>{});
+        if (coords.size() < 6 || coords.size() % 2 != 0) {
+          RCLCPP_WARN(
+            this->get_logger(),
+            "Ignore invalid chase area '%s': need even [x1,y1,...] with at least 3 points, got %zu values.",
+            area_name.c_str(),
+            coords.size());
+          continue;
+        }
+        ChaseAreaLimiter::Area area;
+        area.name = area_name;
+        area.boundary.reserve(coords.size() / 2);
+        for (std::size_t i = 0; i + 1 < coords.size(); i += 2) {
+          area.boundary.push_back(
+            ChaseAreaLimiter::PointCm{
+              static_cast<double>(coords[i]),
+              static_cast<double>(coords[i + 1])});
+        }
+        chase_area_limit_config.areas.push_back(std::move(area));
+      }
+    }
+    chase_area_limiter_.setConfig(std::move(chase_area_limit_config));
 
     goal_output_.setConfig(GoalOutput::Config{
       .map_frame = map_frame,
@@ -232,6 +287,7 @@ private:
       "fallback_base_frame=%s target_rel_default_frame=%s raw_goal_in=%s raw_goal_frame=%s invert_y_axis=%s y_axis_max_cm=%d preferred_distance_cm=%d "
       "goal_u16_encode=%s enc=[[%.6f,0,%.3f],[0,%.6f,%.3f]] dec=[[%.6f,0,%.3f],[0,%.6f,%.3f]] "
       "distance_deadband_cm=%d stop_when_no_target=%s allow_reverse_goal=%s "
+      "chase_area_limit=%s area_header=%s area_count=%zu boundary_margin_cm=%.1f hold_unknown=%s hold_no_intersection=%s "
       "use_raw_goal_static_calibration=%s model=%s source_frame=%s target_frame=%s",
       input_topic_.c_str(),
       output_goal_pos_topic_.c_str(),
@@ -259,10 +315,101 @@ private:
       chase.distance_deadband_cm,
       chase.stop_when_no_target ? "true" : "false",
       chase.allow_reverse_goal ? "true" : "false",
+      chase_area_limiter_.config().enabled ? "true" : "false",
+      chase_area_limiter_.config().area_header_file.empty() ?
+      "<empty>" : chase_area_limiter_.config().area_header_file.c_str(),
+      chase_area_limiter_.config().areas.size(),
+      chase_area_limiter_.config().boundary_margin_cm,
+      chase_area_limiter_.config().hold_when_unknown_area ? "true" : "false",
+      chase_area_limiter_.config().hold_when_no_intersection ? "true" : "false",
       map.use_static_calibration ? "true" : "false",
       solver.model.c_str(),
       solver.source_frame.c_str(),
       solver.target_frame.c_str());
+  }
+
+  std::vector<ChaseAreaLimiter::Area> loadChaseAreasFromAreaHeader(
+    const std::string & area_header_file) const
+  {
+    std::vector<ChaseAreaLimiter::Area> areas;
+    if (area_header_file.empty()) {
+      return areas;
+    }
+
+    std::ifstream ifs(area_header_file);
+    if (!ifs.is_open()) {
+      RCLCPP_WARN(
+        this->get_logger(),
+        "Chase area limit: cannot open Area.hpp: %s",
+        area_header_file.c_str());
+      return areas;
+    }
+
+    std::stringstream buffer;
+    buffer << ifs.rdbuf();
+    const std::string content = buffer.str();
+
+    const std::vector<std::pair<std::string, std::string>> expected_areas{
+      {"RedMainAreaBasePoints", "red_base"},
+      {"RedMainAreaHighlandPoints", "red_highland"},
+      {"RedMainAreaRoadlandPoints", "red_roadland"},
+      {"CommonMainAreaCentralPoints", "common_central"},
+      {"BlueMainAreaBasePoints", "blue_base"},
+      {"BlueMainAreaHighlandPoints", "blue_highland"},
+      {"BlueMainAreaRoadlandPoints", "blue_roadland"},
+    };
+
+    const std::regex vector_pattern(
+      R"(static\s+const\s+std::vector<\s*Point<\s*int\s*>\s*>\s*([A-Za-z0-9_]+)\s*=\s*\{([\s\S]*?)\};)");
+    const std::regex point_pattern(R"(\{\s*(-?[0-9]+)\s*,\s*(-?[0-9]+)\s*\})");
+
+    for (const auto & [cpp_name, area_name] : expected_areas) {
+      std::vector<ChaseAreaLimiter::PointCm> boundary;
+      std::sregex_iterator it(content.begin(), content.end(), vector_pattern);
+      std::sregex_iterator end;
+      for (; it != end; ++it) {
+        const auto & vector_match = *it;
+        if (vector_match[1].str() != cpp_name) {
+          continue;
+        }
+        const std::string body = vector_match[2].str();
+        std::sregex_iterator point_it(body.begin(), body.end(), point_pattern);
+        for (; point_it != end; ++point_it) {
+          boundary.push_back(
+            ChaseAreaLimiter::PointCm{
+              static_cast<double>(std::stoi((*point_it)[1].str())),
+              static_cast<double>(std::stoi((*point_it)[2].str()))});
+        }
+        break;
+      }
+
+      if (boundary.size() < 3) {
+        RCLCPP_WARN(
+          this->get_logger(),
+          "Chase area limit: Area.hpp missing or invalid %s in %s.",
+          cpp_name.c_str(),
+          area_header_file.c_str());
+        continue;
+      }
+      areas.push_back(
+        ChaseAreaLimiter::Area{
+          .name = area_name,
+          .boundary = std::move(boundary)});
+    }
+
+    if (areas.empty()) {
+      RCLCPP_WARN(
+        this->get_logger(),
+        "Chase area limit: no main-area boundaries parsed from %s.",
+        area_header_file.c_str());
+    } else {
+      RCLCPP_INFO(
+        this->get_logger(),
+        "Chase area limit: parsed %zu main-area boundaries from %s.",
+        areas.size(),
+        area_header_file.c_str());
+    }
+    return areas;
   }
 
   void onDebugExportTimer()
@@ -276,15 +423,13 @@ private:
     }
   }
 
-  void onNaviPositionTimer()
+  bool lookupBaseMapPoint(
+    geometry_msgs::msg::Point & point_map,
+    std::string & resolved_source_frame,
+    std::string & last_tf_error)
   {
-    if (!pub_navi_position_) {
-      return;
-    }
-
-    geometry_msgs::msg::Point point_map;
-    std::string resolved_source_frame;
-    std::string last_tf_error;
+    resolved_source_frame.clear();
+    last_tf_error.clear();
     for (const auto & source_frame :
       {chase_pointer_.config().base_frame, chase_pointer_.config().fallback_base_frame})
     {
@@ -302,15 +447,26 @@ private:
         point_map.y = tf_map_base.transform.translation.y;
         point_map.z = tf_map_base.transform.translation.z;
         resolved_source_frame = source_frame;
-        break;
+        return true;
       } catch (const tf2::TransformException & ex) {
         last_tf_error =
           "lookup " + chase_pointer_.config().map_frame + " <- " + source_frame +
           " failed: " + ex.what();
       }
     }
+    return false;
+  }
 
-    if (resolved_source_frame.empty()) {
+  void onNaviPositionTimer()
+  {
+    if (!pub_navi_position_) {
+      return;
+    }
+
+    geometry_msgs::msg::Point point_map;
+    std::string resolved_source_frame;
+    std::string last_tf_error;
+    if (!lookupBaseMapPoint(point_map, resolved_source_frame, last_tf_error)) {
       RCLCPP_WARN_THROTTLE(
         this->get_logger(),
         *this->get_clock(),
@@ -337,6 +493,131 @@ private:
       static_cast<std::uint16_t>(std::clamp(std::lround(raw_y_cm), 0L, 65535L))
     };
     pub_navi_position_->publish(msg);
+  }
+
+  bool rawCentimetersToMapPoint(
+    const double raw_x_cm,
+    const double raw_y_cm,
+    const rclcpp::Time & stamp,
+    geometry_msgs::msg::PointStamped & point_map,
+    std::string & source_name)
+  {
+    if (!std::isfinite(raw_x_cm) || !std::isfinite(raw_y_cm)) {
+      return false;
+    }
+
+    std_msgs::msg::UInt16MultiArray raw_msg;
+    raw_msg.data = {
+      static_cast<std::uint16_t>(std::clamp(std::lround(raw_x_cm), 0L, 65535L)),
+      static_cast<std::uint16_t>(std::clamp(std::lround(raw_y_cm), 0L, 65535L))
+    };
+    if (!map_pointer_.toMap(raw_msg, tf_buffer_, *this, point_map, source_name)) {
+      return false;
+    }
+    point_map.header.frame_id = chase_pointer_.config().map_frame;
+    point_map.header.stamp = stamp;
+    return true;
+  }
+
+  bool applyChaseAreaLimit(
+    geometry_msgs::msg::PointStamped & point_map,
+    const rclcpp::Time & stamp)
+  {
+    if (!chase_area_limiter_.config().enabled) {
+      return true;
+    }
+
+    geometry_msgs::msg::Point self_map;
+    std::string resolved_source_frame;
+    std::string last_tf_error;
+    if (!lookupBaseMapPoint(self_map, resolved_source_frame, last_tf_error)) {
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(),
+        *this->get_clock(),
+        2000,
+        "Chase area limit skipped: cannot resolve current base map point: %s",
+        last_tf_error.c_str());
+      return true;
+    }
+
+    double self_raw_x_cm = 0.0;
+    double self_raw_y_cm = 0.0;
+    double goal_raw_x_cm = 0.0;
+    double goal_raw_y_cm = 0.0;
+    if (!map_pointer_.mapToRawCentimeters(self_map, self_raw_x_cm, self_raw_y_cm) ||
+        !map_pointer_.mapToRawCentimeters(point_map.point, goal_raw_x_cm, goal_raw_y_cm))
+    {
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(),
+        *this->get_clock(),
+        2000,
+        "Chase area limit skipped: raw-goal static calibration is not ready.");
+      return true;
+    }
+
+    const auto result = chase_area_limiter_.limit(
+      ChaseAreaLimiter::PointCm{self_raw_x_cm, self_raw_y_cm},
+      ChaseAreaLimiter::PointCm{goal_raw_x_cm, goal_raw_y_cm});
+    if (!result.publish) {
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(),
+        *this->get_clock(),
+        2000,
+        "Chase area limit dropped goal: status=%s.",
+        ChaseAreaLimiter::statusName(result.status));
+      return false;
+    }
+
+    if (!result.clamped && !result.hold_current) {
+      if (result.status == ChaseAreaLimiter::Status::UnknownArea ||
+          result.status == ChaseAreaLimiter::Status::EmptyConfig)
+      {
+        RCLCPP_WARN_THROTTLE(
+          this->get_logger(),
+          *this->get_clock(),
+          2000,
+          "Chase area limit pass-through: status=%s self=(%.1f, %.1f) goal=(%.1f, %.1f).",
+          ChaseAreaLimiter::statusName(result.status),
+          self_raw_x_cm,
+          self_raw_y_cm,
+          goal_raw_x_cm,
+          goal_raw_y_cm);
+      }
+      return true;
+    }
+
+    geometry_msgs::msg::PointStamped limited_map;
+    std::string source_name;
+    if (!rawCentimetersToMapPoint(result.point.x, result.point.y, stamp, limited_map, source_name)) {
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(),
+        *this->get_clock(),
+        2000,
+        "Chase area limit failed to convert limited official point to map: status=%s point=(%.1f, %.1f).",
+        ChaseAreaLimiter::statusName(result.status),
+        result.point.x,
+        result.point.y);
+      return false;
+    }
+
+    point_map.point = limited_map.point;
+    point_map.header.frame_id = limited_map.header.frame_id;
+    point_map.header.stamp = limited_map.header.stamp;
+
+    RCLCPP_INFO_THROTTLE(
+      this->get_logger(),
+      *this->get_clock(),
+      2000,
+      "Chase area limit %s area=%s self=(%.1f, %.1f) raw_goal=(%.1f, %.1f) limited=(%.1f, %.1f).",
+      ChaseAreaLimiter::statusName(result.status),
+      result.area_name.empty() ? "<none>" : result.area_name.c_str(),
+      self_raw_x_cm,
+      self_raw_y_cm,
+      goal_raw_x_cm,
+      goal_raw_y_cm,
+      result.point.x,
+      result.point.y);
+    return true;
   }
 
   void goalPosRawCallback(const std_msgs::msg::UInt16MultiArray::SharedPtr msg)
@@ -408,6 +689,10 @@ private:
     point_map.header.stamp =
       (transform_time.nanoseconds() == 0) ? this->now() : transform_time;
 
+    if (!applyChaseAreaLimit(point_map, point_map.header.stamp)) {
+      return;
+    }
+
     if (goal_output_.config().publish_target_map && pub_target_map_) {
       pub_target_map_->publish(point_map);
     }
@@ -427,6 +712,7 @@ private:
   std::string output_navi_position_topic_;
 
   ChasePointer chase_pointer_;
+  ChaseAreaLimiter chase_area_limiter_;
   MapPointer map_pointer_;
   GoalOutput goal_output_;
   PointerDebug pointer_debug_;

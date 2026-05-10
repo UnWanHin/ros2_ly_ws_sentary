@@ -570,6 +570,13 @@ namespace LangYa {
         }
     }
 
+    void from_json(const json& j, ChaseAreaLimitSetting& ca) {
+        ca.Enable = j.value("Enable", ca.Enable);
+        ca.BoundaryMarginCm = j.value("BoundaryMarginCm", ca.BoundaryMarginCm);
+        ca.HoldWhenUnknownArea = j.value("HoldWhenUnknownArea", ca.HoldWhenUnknownArea);
+        ca.HoldWhenNoIntersection = j.value("HoldWhenNoIntersection", ca.HoldWhenNoIntersection);
+    }
+
     void from_json(const json& j, ChaseSetting& cs) {
         cs.Enable = j.value("Enable", cs.Enable);
         cs.FollowAimTarget = j.value("FollowAimTarget", cs.FollowAimTarget);
@@ -589,6 +596,9 @@ namespace LangYa {
         cs.LostTargetHoldMs = j.value("LostTargetHoldMs", cs.LostTargetHoldMs);
         cs.PreferredDistanceCm = j.value("PreferredDistanceCm", cs.PreferredDistanceCm);
         cs.DistanceDeadbandCm = j.value("DistanceDeadbandCm", cs.DistanceDeadbandCm);
+        if (j.contains("AreaLimit") && j.at("AreaLimit").is_object()) {
+            j.at("AreaLimit").get_to(cs.AreaLimit);
+        }
         cs.MinValidDistanceCm = j.value("MinValidDistanceCm", cs.MinValidDistanceCm);
         cs.MaxValidDistanceCm = j.value("MaxValidDistanceCm", cs.MaxValidDistanceCm);
         cs.DistanceKp = j.value("DistanceKp", cs.DistanceKp);
@@ -1901,6 +1911,12 @@ namespace BehaviorTree {
         LoggerPtr->Debug("LostTargetHoldMs: {}", config.ChaseSettings.LostTargetHoldMs);
         LoggerPtr->Debug("PreferredDistanceCm: {}", config.ChaseSettings.PreferredDistanceCm);
         LoggerPtr->Debug("DistanceDeadbandCm: {}", config.ChaseSettings.DistanceDeadbandCm);
+        LoggerPtr->Debug(
+            "AreaLimit: Enable={} BoundaryMarginCm={} HoldWhenUnknownArea={} HoldWhenNoIntersection={}",
+            config.ChaseSettings.AreaLimit.Enable,
+            config.ChaseSettings.AreaLimit.BoundaryMarginCm,
+            config.ChaseSettings.AreaLimit.HoldWhenUnknownArea,
+            config.ChaseSettings.AreaLimit.HoldWhenNoIntersection);
         LoggerPtr->Debug("MinValidDistanceCm: {}", config.ChaseSettings.MinValidDistanceCm);
         LoggerPtr->Debug("MaxValidDistanceCm: {}", config.ChaseSettings.MaxValidDistanceCm);
         LoggerPtr->Debug("DistanceKp: {}", config.ChaseSettings.DistanceKp);
@@ -2653,6 +2669,11 @@ namespace BehaviorTree {
             LoggerPtr->Warning("Invalid Chase.DistanceDeadbandCm={}, fallback to 0.",
                                config.ChaseSettings.DistanceDeadbandCm);
             config.ChaseSettings.DistanceDeadbandCm = 0;
+        }
+        if (config.ChaseSettings.AreaLimit.BoundaryMarginCm < 0) {
+            LoggerPtr->Warning("Invalid Chase.AreaLimit.BoundaryMarginCm={}, fallback to 0.",
+                               config.ChaseSettings.AreaLimit.BoundaryMarginCm);
+            config.ChaseSettings.AreaLimit.BoundaryMarginCm = 0;
         }
         if (config.ChaseSettings.MinValidDistanceCm < 0) {
             LoggerPtr->Warning("Invalid Chase.MinValidDistanceCm={}, fallback to 0.",
