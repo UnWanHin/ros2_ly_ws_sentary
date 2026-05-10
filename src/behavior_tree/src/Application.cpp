@@ -218,6 +218,10 @@ std::string DefaultConfigPathForProfile(const std::string& pkg_path, const std::
         pub_navi_speed_level_= node_->create_publisher<std_msgs::msg::UInt8>(ly_navi_speed_level::Name, 10);
         pub_navi_lower_head_ = node_->create_publisher<std_msgs::msg::UInt8>(ly_navi_lower_head::Name, 10);
         pub_bt_target_       = node_->create_publisher<std_msgs::msg::UInt8>(ly_bt_target::Name, 10);
+#ifdef LY_ENABLE_SENTRY_MSGS
+        pub_external_aim_select_target_ =
+            node_->create_publisher<sentry_msgs::msg::AimTarget>(ly_aim_select_target::Name, 10);
+#endif
         BT_DIAG_LOG("[BT_DIAG] publishers ready\n");
 
         ConfigurationInit();    // 讀取 config.json

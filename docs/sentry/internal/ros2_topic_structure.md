@@ -109,6 +109,9 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/back_cam/target` | `auto_aim_common/msg/Target` | back camera -> `behavior_tree` | 后置相机目标结果。 |
 | `/ly/buff/target` | `auto_aim_common/msg/Target` | buff_hitter -> `behavior_tree` | 打符目标角和可击打状态。 |
 | `/ly/outpost/target` | `auto_aim_common/msg/Target` | outpost_hitter -> `behavior_tree` | 打前哨目标角和可击打状态。 |
+| `/ly/aim/armor_targets` | `sentry_msgs/msg/AimTargetArray` | external aim -> `behavior_tree` | 外部辅瞄输出的可打目标列表；`ExternalAim.Enable=true` 时 BT 可用它替代 `/ly/detector/armors` 生成 `hitableTargets`。 |
+| `/ly/aim/select_target` | `sentry_msgs/msg/AimTarget` | `behavior_tree` -> external aim | BT 选择的目标 `id`，`position` 尽量填最近一次 `/ly/aim/armor_targets` 中同 id 的位置。 |
+| `/ly/aim/result` | `sentry_msgs/msg/AimResult` | external aim -> `behavior_tree` | 外部辅瞄最终 yaw/pitch 和 `fire` 门控；BT 直接用于 `/ly/control/angles` 和 `/ly/control/firecode`，不再绕到 `/ly/predictor/target`。 |
 | `/ly/face_mode/target_raw` | `std_msgs/msg/UInt16MultiArray` | `behavior_tree` -> FaceMode solver | `[official_map_x, official_map_y, map_z]`，x/y 为官方地图 cm，z 为 map 系高度。 |
 | `/ly/face_mode/angles` | `gimbal_driver/msg/GimbalAngles` | FaceMode solver -> `behavior_tree` | 固定点朝向解算出的 yaw/pitch。正式 `sentry_all` 默认由 `map_aim_point_node` 用 TF 相对几何输出，BT 在 FaceMode 激活时转发到 `/ly/control/angles`。 |
 

@@ -35,6 +35,13 @@
         "LostTargetHoldMs": 300,
         "SuppressFire": true
     },
+    "ExternalAim": {
+        "Enable": false,
+        "ResultFreshTimeoutMs": 300,
+        "TargetFreshTimeoutMs": 500,
+        "UseTargetArrayAsArmorList": true,
+        "PublishSelectTarget": true
+    },
     "RegionalDefense": {
         "Enable": true,
         "EnableSoftEnemySideThreat": true,

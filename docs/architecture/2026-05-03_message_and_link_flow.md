@@ -19,6 +19,7 @@
 
 - **导航 TF bridge**：`/ly/navi/goal_pos_raw` 或 `/ly/navi/target_rel` 经 `navi_tf_bridge` 转 `/goal_pose`。
 - **FaceMode 固定点朝向**：`map_aim_point_node` 根据 `[official_map_x, official_map_y, map_z]` 解算 yaw/pitch；独立测试默认直接发布 `/ly/control/angles`，给 BT 区域任务使用时输出 `/ly/face_mode/angles`，由 BT 统一发布控制。区域状态机需要切换目标时发布 `/ly/face_mode/target_raw`，格式为 `[official_map_x, official_map_y, map_z]` cm。FaceMode 只接管云台巡逻/角度/停火，不清零底盘小陀螺 `Rotate`；需要停小陀螺时由 `FollowMode` 控制。
+- **ExternalAim 外部辅瞄接口**：当 `ExternalAim.Enable=true` 且 `behavior_tree` 编译时找到了 `sentry_msgs`，BT 订阅 `/ly/aim/armor_targets` 和 `/ly/aim/result`，发布 `/ly/aim/select_target`。外部 aim 只提供可打目标、yaw/pitch 和 `fire` 门控，最终 `/ly/control/angles`、`/ly/control/firecode` 仍由 BT 统一发布；外部 `armor_controller_node` 不应再发布 legacy `/ly/control/*`。
 
 ---
 
@@ -52,6 +53,20 @@
    ↓
 下位機 (串口通訊)
 ```
+
+`ExternalAim.Enable=true` 时，普通 `/ly/predictor/target` 可由外部链路替代：
+
+```
+[sentry.aim] → /ly/aim/armor_targets (sentry_msgs/AimTargetArray)
+      ↓
+[behavior_tree] 选择 targetArmor
+      ↓ /ly/aim/select_target (sentry_msgs/AimTarget)
+[sentry.aim] → /ly/aim/result (sentry_msgs/AimResult: yaw, pitch, fire)
+      ↓
+[behavior_tree] → /ly/control/angles + /ly/control/firecode
+```
+
+这里不走 `AimResult -> /ly/predictor/target`，因为旧 `/ly/predictor/target.status` 只能表示 target valid，BT 会按自身 fire rate 翻转开火，不能表达外部 `AimResult.fire=false` 时“继续给角度但不击发”的语义。
 
 ### 詳細消息鏈路
 

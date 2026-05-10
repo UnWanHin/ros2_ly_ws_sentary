@@ -42,6 +42,7 @@ Examples:
   ./${SCRIPT_NAME} --mode regional_simple --no-prompt
   ./${SCRIPT_NAME} --mode 3 --no-prompt
   ./${SCRIPT_NAME} -- use_buff:=false use_outpost:=false
+  ./${SCRIPT_NAME} -- use_external_aim:=true
 EOF2
 }
 

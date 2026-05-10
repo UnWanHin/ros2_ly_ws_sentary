@@ -9,6 +9,7 @@
 
 职责：
 - 拉起 gimbal_driver / detector / tracker_solver / predictor / outpost_hitter / buff_hitter / behavior_tree。
+- use_external_aim=true 时不启动内部相机/辅瞄链，只保留决策与外部 aim 接口。
 - 支持通过 offline 参数统一覆盖“虚拟串口 + 视频回放”。
 
 注意：
@@ -208,6 +209,7 @@ def generate_launch_description():
     resolved_rosbag_path = LaunchConfiguration("resolved_rosbag_path")
 
     use_gimbal = LaunchConfiguration("use_gimbal")
+    use_external_aim = LaunchConfiguration("use_external_aim")
     use_detector = LaunchConfiguration("use_detector")
     use_tracker = LaunchConfiguration("use_tracker")
     use_predictor = LaunchConfiguration("use_predictor")
@@ -432,6 +434,11 @@ def generate_launch_description():
             description="Write one decision trace record every N behavior_tree ticks when tracing is enabled.",
         ),
         DeclareLaunchArgument("use_gimbal", default_value="true"),
+        DeclareLaunchArgument(
+            "use_external_aim",
+            default_value="false",
+            description="Use external sentry_msgs aim interface and do not launch internal camera/aim chain.",
+        ),
         DeclareLaunchArgument("use_detector", default_value="true"),
         DeclareLaunchArgument("use_tracker", default_value="true"),
         DeclareLaunchArgument("use_predictor", default_value="true"),
@@ -491,6 +498,26 @@ def generate_launch_description():
         "'", offline, "'.lower() in ", truthy_values,
         " and '", rosbag_play_enable, "'.lower() not in ", truthy_values
     ])
+    internal_detector_expr = PythonExpression([
+        "'", use_detector, "'.lower() in ", truthy_values,
+        " and '", use_external_aim, "'.lower() not in ", truthy_values
+    ])
+    internal_tracker_expr = PythonExpression([
+        "'", use_tracker, "'.lower() in ", truthy_values,
+        " and '", use_external_aim, "'.lower() not in ", truthy_values
+    ])
+    internal_predictor_expr = PythonExpression([
+        "'", use_predictor, "'.lower() in ", truthy_values,
+        " and '", use_external_aim, "'.lower() not in ", truthy_values
+    ])
+    internal_outpost_expr = PythonExpression([
+        "'", use_outpost, "'.lower() in ", truthy_values,
+        " and '", use_external_aim, "'.lower() not in ", truthy_values
+    ])
+    internal_buff_expr = PythonExpression([
+        "'", use_buff, "'.lower() in ", truthy_values,
+        " and '", use_external_aim, "'.lower() not in ", truthy_values
+    ])
 
     info_logs = [
         LogInfo(msg=["[sentry_all] mode: ", mode]),
@@ -506,6 +533,7 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] buff_config: ", buff_config_file]),
         LogInfo(msg=["[sentry_all] output: ", output]),
         LogInfo(msg=["[sentry_all] offline: ", offline]),
+        LogInfo(msg=["[sentry_all] use_external_aim: ", use_external_aim]),
         LogInfo(msg=["[sentry_all] competition_profile: ", competition_profile]),
         LogInfo(msg=["[sentry_all] bt_config_file: ", bt_config_file]),
         LogInfo(msg=["[sentry_all] resolved_mode: ", resolved_mode_kind]),
@@ -852,7 +880,7 @@ def generate_launch_description():
                     condition=IfCondition(rosbag_enabled_expr),
                 ),
             ],
-            condition=IfCondition(use_detector),
+            condition=IfCondition(internal_detector_expr),
         ),
         # 下游链路节点
         Node(
@@ -872,7 +900,7 @@ def generate_launch_description():
                 },
             ],
             on_exit=Shutdown(reason="tracker_solver exited"),
-            condition=IfCondition(use_tracker),
+            condition=IfCondition(internal_tracker_expr),
         ),
         Node(
             package="predictor",
@@ -897,7 +925,7 @@ def generate_launch_description():
                 },
             ],
             on_exit=Shutdown(reason="predictor_node exited"),
-            condition=IfCondition(use_predictor),
+            condition=IfCondition(internal_predictor_expr),
         ),
         Node(
             package="outpost_hitter",
@@ -906,7 +934,7 @@ def generate_launch_description():
             output=output,
             parameters=[base_config_file, outpost_config_file, config_file],
             on_exit=Shutdown(reason="outpost_hitter exited"),
-            condition=IfCondition(use_outpost),
+            condition=IfCondition(internal_outpost_expr),
         ),
         Node(
             package="buff_hitter",
@@ -915,7 +943,7 @@ def generate_launch_description():
             output=output,
             parameters=[base_config_file, buff_config_file, config_file],
             on_exit=Shutdown(reason="buff_hitter exited"),
-            condition=IfCondition(use_buff),
+            condition=IfCondition(internal_buff_expr),
         ),
         # 最后启动 behavior_tree（决策接管）
         Node(
@@ -936,6 +964,8 @@ def generate_launch_description():
                     "publish_navi_goal": publish_navi_goal,
                     "wait_for_game_start_timeout_sec": wait_for_game_start_timeout_sec,
                     "league_referee_stale_timeout_ms": league_referee_stale_timeout_ms,
+                    "ExternalAim.Enable": ParameterValue(use_external_aim, value_type=bool),
+                    "ExternalAim/Enable": ParameterValue(use_external_aim, value_type=bool),
                     "decision_trace_enabled": decision_trace_enabled,
                     "decision_trace_file": decision_trace_file,
                     "decision_trace_every_n_ticks": decision_trace_every_n_ticks,

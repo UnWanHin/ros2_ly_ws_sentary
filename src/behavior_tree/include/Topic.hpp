@@ -61,6 +61,11 @@
 #include "gimbal_driver/msg/bullet_info.hpp"
 #include "gimbal_driver/msg/position_data.hpp"
 
+#ifdef LY_ENABLE_SENTRY_MSGS
+#include "sentry_msgs/msg/aim_result.hpp"
+#include "sentry_msgs/msg/aim_target.hpp"
+#include "sentry_msgs/msg/aim_target_array.hpp"
+#endif
 
 #include "../module/ROSTools.hpp"
 
@@ -110,6 +115,12 @@ namespace BehaviorTree {
     LY_DEF_ROS_TOPIC(ly_outpost_target, "/ly/outpost/target", auto_aim_common::msg::Target); // 打前哨站云台数据
     LY_DEF_ROS_TOPIC(ly_face_mode_angles, "/ly/face_mode/angles", gimbal_driver::msg::GimbalAngles);
     LY_DEF_ROS_TOPIC(ly_face_mode_target_raw, "/ly/face_mode/target_raw", std_msgs::msg::UInt16MultiArray);
+
+#ifdef LY_ENABLE_SENTRY_MSGS
+    LY_DEF_ROS_TOPIC(ly_aim_armor_targets, "/ly/aim/armor_targets", sentry_msgs::msg::AimTargetArray);
+    LY_DEF_ROS_TOPIC(ly_aim_select_target, "/ly/aim/select_target", sentry_msgs::msg::AimTarget);
+    LY_DEF_ROS_TOPIC(ly_aim_result, "/ly/aim/result", sentry_msgs::msg::AimResult);
+#endif
     
     LY_DEF_ROS_TOPIC(ly_navi_vel, "/ly/navi/vel", gimbal_driver::msg::Vel);
     LY_DEF_ROS_TOPIC(ly_navi_target_rel, "/ly/navi/target_rel", auto_aim_common::msg::RelativeTarget);

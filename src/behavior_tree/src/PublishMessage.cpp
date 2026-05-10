@@ -199,6 +199,38 @@ namespace BehaviorTree {
             msg.data = static_cast<uint8_t>(targetArmor.Type);
             pub_bt_target_->publish(msg);
         }
+        PubExternalAimTargetData();
+    }
+
+    void Application::PubExternalAimTargetData() {
+#ifdef LY_ENABLE_SENTRY_MSGS
+        if (!config.ExternalAimSettings.Enable ||
+            !config.ExternalAimSettings.PublishSelectTarget ||
+            !pub_external_aim_select_target_) {
+            return;
+        }
+        const auto target_id = static_cast<std::uint8_t>(targetArmor.Type);
+        sentry_msgs::msg::AimTarget msg;
+        msg.header.stamp = node_->now();
+        msg.id = target_id;
+
+        const auto target_index = static_cast<std::size_t>(target_id);
+        const auto now = std::chrono::steady_clock::now();
+        const int fresh_ms = std::max(1, config.ExternalAimSettings.TargetFreshTimeoutMs);
+        if (target_index < externalAimTargets_.size()) {
+            const auto& cached = externalAimTargets_[target_index];
+            const bool fresh =
+                cached.Valid &&
+                cached.LastSeen.time_since_epoch().count() != 0 &&
+                now - cached.LastSeen <= std::chrono::milliseconds(fresh_ms);
+            if (fresh) {
+                msg.position.x = cached.X;
+                msg.position.y = cached.Y;
+                msg.position.z = cached.Z;
+            }
+        }
+        pub_external_aim_select_target_->publish(msg);
+#endif
     }
 
     /**

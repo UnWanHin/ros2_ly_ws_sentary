@@ -205,9 +205,12 @@ namespace BehaviorTree {
         // 三路目标源统一折叠成一个 IsFindTarget，供 BT 和姿态模块复用。
         // 注意这里是“本拍是否有新鲜目标”，不是长期跟踪状态。
         const bool has_auto_target = autoAimData.Fresh && autoAimData.Valid;
+        const bool has_external_target =
+            config.ExternalAimSettings.Enable && externalAimData.Fresh && externalAimData.Valid;
         const bool has_buff_target = buffAimData.Fresh && buffAimData.Valid && buffAimData.BuffFollow;
         const bool has_outpost_target = outpostAimData.Fresh && outpostAimData.Valid;
-        const bool IsFindTarget = has_auto_target || has_buff_target || has_outpost_target;
+        const bool IsFindTarget =
+            has_auto_target || has_external_target || has_buff_target || has_outpost_target;
         const auto now = std::chrono::steady_clock::now();
         rfidMatchState.Fresh =
             hasReceivedRfidStatus_ &&
@@ -580,10 +583,24 @@ namespace BehaviorTree {
 
         /*----------云台----------*/
         auto now = std::chrono::steady_clock::now();
+        const bool external_aim_active =
+            config.ExternalAimSettings.Enable && aimMode != AimMode::Buff;
+        if (external_aim_active &&
+            externalAimData.LastValidTime.time_since_epoch().count() != 0 &&
+            now - externalAimData.LastValidTime >
+                std::chrono::milliseconds(std::max(1, config.ExternalAimSettings.ResultFreshTimeoutMs))) {
+            externalAimData.Valid = false;
+            externalAimData.Fresh = false;
+            externalAimData.FireStatus = false;
+            externalAimData.HasLatchedAngles = false;
+        }
         const AimData* activeAimData = &autoAimData;
+        if (external_aim_active) {
+            activeAimData = &externalAimData;
+        }
         if (aimMode == AimMode::Buff) {
             activeAimData = &buffAimData;
-        } else if (aimMode == AimMode::Outpost) {
+        } else if (aimMode == AimMode::Outpost && !external_aim_active) {
             activeAimData = &outpostAimData;
         }
         GimbalAnglesType nextAngles = gimbalAngles;
@@ -711,6 +728,14 @@ namespace BehaviorTree {
                         gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
                         buffAimData.FireStatus = false;
                         buff_shoot_count++;
+                    } else {
+                        gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
+                    }
+                } else if (external_aim_active) {
+                    if (activeAimData->FireStatus) {
+                        RecFireCode.FlipFireStatus();
+                        gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
+                        externalAimData.FireStatus = false;
                     } else {
                         gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
                     }
@@ -1021,6 +1046,7 @@ namespace BehaviorTree {
             gimbalControlData.FireCode.FollowMode = follow_mode_before_navi_rotate_control;
         }
         autoAimData.Fresh = false;
+        externalAimData.Fresh = false;
         buffAimData.Fresh = false;
         outpostAimData.Fresh = false;
         faceModeData.Fresh = false;

@@ -212,6 +212,7 @@ private:
     // ArmorType targetArmor{ArmorType::Hero}; // 目标装甲板
     ArmorData targetArmor{}; // 目标装甲板，包括距离
     AimData autoAimData{}; // 定义回调，接收的辅瞄云台角度数据
+    AimData externalAimData{}; // 接收外部 sentry_msgs/AimResult 角度与开火门控
     AimData buffAimData{}; // 定义回调，接收的打符云台角度数据
     AimData outpostAimData{}; // 定义回调，接收的打哨站云台角度数据
     AimData faceModeData{}; // 接收 FaceMode 解算出来的固定点朝向角
@@ -241,6 +242,10 @@ private:
     std::chrono::steady_clock::time_point outpostVisualScoutStartTime_{};
     std::chrono::steady_clock::time_point outpostVisualScoutCooldownUntil_{};
     bool outpostVisualScoutNavigationActive_{false};
+    std::array<ExternalAimTargetCache, 9> externalAimTargets_{};
+    bool hasExternalAimTargets_{false};
+    std::chrono::steady_clock::time_point lastExternalAimTargetsRxTime_{};
+    std::chrono::steady_clock::time_point lastExternalAimResultRxTime_{};
 
     std::uint8_t naviCommandGoal{0}; // 导航目标
     Area::Point<std::uint16_t> naviGoalPosition{}; // 导航定位目标
@@ -427,6 +432,9 @@ private:
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_gimbal_capV_;
 
     rclcpp::Publisher<auto_aim_common::msg::Target>::SharedPtr pub_predictor_target_;
+#ifdef LY_ENABLE_SENTRY_MSGS
+    rclcpp::Publisher<sentry_msgs::msg::AimTarget>::SharedPtr pub_external_aim_select_target_;
+#endif
     
     rclcpp::Publisher<gimbal_driver::msg::Vel>::SharedPtr pub_navi_vel_;
     rclcpp::Publisher<auto_aim_common::msg::RelativeTarget>::SharedPtr pub_navi_target_rel_;
@@ -461,6 +469,7 @@ public:
     void PubEnergyActivateConfirmData(bool confirm);
     void UpdateEnergyActivateConfirmCommand(bool should_confirm);
     void PubAimTargetData();
+    void PubExternalAimTargetData();
     void PubNaviControlData();
     void PubNaviRelativeTarget();
     void PubNaviGoal();
@@ -635,6 +644,7 @@ public:
     void ApplyTaskParameterOverrides();
     void ApplyAreaManagerParameterOverrides();
     void ApplyNaviRotateControlParameterOverrides();
+    void ApplyExternalAimParameterOverrides();
     bool InitDecisionTrace();
     void WriteDecisionTrace(std::string_view event);
     void CloseDecisionTrace();

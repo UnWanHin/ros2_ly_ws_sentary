@@ -377,6 +377,10 @@ namespace BehaviorTree{
 
         // ly_detector_armors
         GenSub<ly_detector_armors>([](Application& app, auto msg) {
+            if (app.config.ExternalAimSettings.Enable &&
+                app.config.ExternalAimSettings.UseTargetArrayAsArmorList) {
+                return;
+            }
             auto &armorList = app.armorList;
             std::fill(armorList.begin(), armorList.end(), ArmorData{ArmorType::UnKnown, 30});
             const auto &armors = msg->armors;
@@ -388,6 +392,94 @@ namespace BehaviorTree{
                 };
             }
         });
+
+#ifdef LY_ENABLE_SENTRY_MSGS
+        // ly_aim_armor_targets: external sentry.aim target candidates.
+        GenSub<ly_aim_armor_targets>([](Application& app, auto msg) {
+            if (!app.config.ExternalAimSettings.Enable) {
+                return;
+            }
+            const auto now = std::chrono::steady_clock::now();
+            std::fill(app.externalAimTargets_.begin(),
+                      app.externalAimTargets_.end(),
+                      ExternalAimTargetCache{});
+            if (app.config.ExternalAimSettings.UseTargetArrayAsArmorList) {
+                std::fill(app.armorList.begin(), app.armorList.end(), ArmorData{ArmorType::UnKnown, 30});
+            }
+
+            std::size_t armor_index = 0;
+            for (const auto& target : msg->aim_targets) {
+                const auto target_id = static_cast<std::size_t>(target.id);
+                if (target_id >= app.externalAimTargets_.size()) {
+                    continue;
+                }
+                const auto x = static_cast<float>(target.position.x);
+                const auto y = static_cast<float>(target.position.y);
+                const auto z = static_cast<float>(target.position.z);
+                if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) {
+                    continue;
+                }
+                const float distance = std::hypot(x, y, z);
+                app.externalAimTargets_[target_id] = ExternalAimTargetCache{
+                    .Valid = true,
+                    .X = x,
+                    .Y = y,
+                    .Z = z,
+                    .Distance = std::isfinite(distance) && distance > 0.0f ? distance : 30.0f,
+                    .LastSeen = now
+                };
+                if (app.config.ExternalAimSettings.UseTargetArrayAsArmorList &&
+                    armor_index < app.armorList.size()) {
+                    app.armorList[armor_index++] = ArmorData{
+                        static_cast<ArmorType>(target.id),
+                        app.externalAimTargets_[target_id].Distance
+                    };
+                }
+            }
+            app.hasExternalAimTargets_ = true;
+            app.lastExternalAimTargetsRxTime_ = now;
+        });
+
+        // ly_aim_result: external sentry.aim final yaw/pitch plus fire gate.
+        GenSub<ly_aim_result>([](Application& app, auto msg) {
+            if (!app.config.ExternalAimSettings.Enable) {
+                return;
+            }
+            const auto yaw = static_cast<AngleType>(msg->yaw);
+            const auto pitch = static_cast<AngleType>(msg->pitch);
+            const bool finite_angles = std::isfinite(yaw) && std::isfinite(pitch);
+            const auto now = std::chrono::steady_clock::now();
+            bool target_context_valid = true;
+            if (app.config.ExternalAimSettings.UseTargetArrayAsArmorList) {
+                target_context_valid = false;
+                const auto target_id = static_cast<std::size_t>(app.targetArmor.Type);
+                const int fresh_ms = std::max(1, app.config.ExternalAimSettings.TargetFreshTimeoutMs);
+                if (target_id < app.externalAimTargets_.size()) {
+                    const auto& cached = app.externalAimTargets_[target_id];
+                    target_context_valid =
+                        cached.Valid &&
+                        cached.LastSeen.time_since_epoch().count() != 0 &&
+                        now - cached.LastSeen <= std::chrono::milliseconds(fresh_ms);
+                }
+            }
+            const bool result_valid = finite_angles && target_context_valid;
+            app.externalAimData.Angles = GimbalAnglesType{yaw, pitch};
+            app.externalAimData.BuffFollow = false;
+            app.externalAimData.FireStatus = result_valid && msg->fire;
+            app.externalAimData.Valid = result_valid;
+            app.externalAimData.Fresh = result_valid;
+            app.lastExternalAimResultRxTime_ = now;
+            if (result_valid) {
+                app.externalAimData.HasLatchedAngles = true;
+                app.externalAimData.LastValidTime = now;
+                app.isFindTargetAtomic = true;
+                app.lastTargetSeenTime = now;
+            } else {
+                app.externalAimData.FireStatus = false;
+                app.externalAimData.HasLatchedAngles = false;
+            }
+        });
+#endif
 
         // ly_predictor_target
         GenSub<ly_predictor_target>([](Application& app, auto msg) {

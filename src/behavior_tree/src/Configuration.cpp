@@ -496,6 +496,15 @@ namespace LangYa {
         fs.SuppressFire = j.value("SuppressFire", fs.SuppressFire);
     }
 
+    void from_json(const json& j, ExternalAimSetting& ea) {
+        ea.Enable = j.value("Enable", ea.Enable);
+        ea.ResultFreshTimeoutMs = j.value("ResultFreshTimeoutMs", ea.ResultFreshTimeoutMs);
+        ea.TargetFreshTimeoutMs = j.value("TargetFreshTimeoutMs", ea.TargetFreshTimeoutMs);
+        ea.UseTargetArrayAsArmorList =
+            j.value("UseTargetArrayAsArmorList", ea.UseTargetArrayAsArmorList);
+        ea.PublishSelectTarget = j.value("PublishSelectTarget", ea.PublishSelectTarget);
+    }
+
     void from_json(const json& j, NaviRotateControlSetting& nr) {
         nr.Enable = j.value("Enable", nr.Enable);
         nr.FreshTimeoutMs = j.value("FreshTimeoutMs", nr.FreshTimeoutMs);
@@ -869,6 +878,9 @@ namespace LangYa {
         if (j.contains("FaceMode")) {
             j.at("FaceMode").get_to(c.FaceModeSettings);
         }
+        if (j.contains("ExternalAim")) {
+            j.at("ExternalAim").get_to(c.ExternalAimSettings);
+        }
         if (j.contains("NaviRotateControl")) {
             j.at("NaviRotateControl").get_to(c.NaviRotateControlSettings);
         }
@@ -1152,6 +1164,46 @@ namespace BehaviorTree {
                 "NaviRotateControl/StopRotateWhenFalse"
             },
             setting.StopRotateWhenFalse);
+    }
+
+    void Application::ApplyExternalAimParameterOverrides() {
+        auto& setting = config.ExternalAimSettings;
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "ExternalAim.Enable",
+                "ExternalAim/Enable",
+                "external_aim_enable"
+            },
+            setting.Enable);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "ExternalAim.ResultFreshTimeoutMs",
+                "ExternalAim/ResultFreshTimeoutMs"
+            },
+            setting.ResultFreshTimeoutMs);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "ExternalAim.TargetFreshTimeoutMs",
+                "ExternalAim/TargetFreshTimeoutMs"
+            },
+            setting.TargetFreshTimeoutMs);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "ExternalAim.UseTargetArrayAsArmorList",
+                "ExternalAim/UseTargetArrayAsArmorList"
+            },
+            setting.UseTargetArrayAsArmorList);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "ExternalAim.PublishSelectTarget",
+                "ExternalAim/PublishSelectTarget"
+            },
+            setting.PublishSelectTarget);
     }
 
     void Application::ApplyAreaManagerParameterOverrides() {
@@ -1595,6 +1647,7 @@ namespace BehaviorTree {
         ApplyTaskParameterOverrides();
         ApplyAreaManagerParameterOverrides();
         ApplyNaviRotateControlParameterOverrides();
+        ApplyExternalAimParameterOverrides();
         LoggerPtr->Debug("Switch_Point: {}", config.SwitchPoint);
         LoggerPtr->Debug("------ AimDebug ------");
         LoggerPtr->Debug("StopFire: {}", config.AimDebugSettings.StopFire);
@@ -1656,6 +1709,12 @@ namespace BehaviorTree {
         LoggerPtr->Debug("Enable: {}", config.FaceModeSettings.Enable);
         LoggerPtr->Debug("LostTargetHoldMs: {}", config.FaceModeSettings.LostTargetHoldMs);
         LoggerPtr->Debug("SuppressFire: {}", config.FaceModeSettings.SuppressFire);
+        LoggerPtr->Debug("------ ExternalAim ------");
+        LoggerPtr->Debug("Enable: {}", config.ExternalAimSettings.Enable);
+        LoggerPtr->Debug("ResultFreshTimeoutMs: {}", config.ExternalAimSettings.ResultFreshTimeoutMs);
+        LoggerPtr->Debug("TargetFreshTimeoutMs: {}", config.ExternalAimSettings.TargetFreshTimeoutMs);
+        LoggerPtr->Debug("UseTargetArrayAsArmorList: {}", config.ExternalAimSettings.UseTargetArrayAsArmorList);
+        LoggerPtr->Debug("PublishSelectTarget: {}", config.ExternalAimSettings.PublishSelectTarget);
         LoggerPtr->Debug("------ NaviRotateControl ------");
         LoggerPtr->Debug("Enable: {}", config.NaviRotateControlSettings.Enable);
         LoggerPtr->Debug("FreshTimeoutMs: {}", config.NaviRotateControlSettings.FreshTimeoutMs);
@@ -1990,6 +2049,25 @@ namespace BehaviorTree {
                 config.FaceModeSettings.LostTargetHoldMs);
             config.FaceModeSettings.LostTargetHoldMs = 300;
         }
+        if (config.ExternalAimSettings.ResultFreshTimeoutMs <= 0) {
+            LoggerPtr->Warning(
+                "Invalid ExternalAim.ResultFreshTimeoutMs={}, fallback to 300.",
+                config.ExternalAimSettings.ResultFreshTimeoutMs);
+            config.ExternalAimSettings.ResultFreshTimeoutMs = 300;
+        }
+        if (config.ExternalAimSettings.TargetFreshTimeoutMs <= 0) {
+            LoggerPtr->Warning(
+                "Invalid ExternalAim.TargetFreshTimeoutMs={}, fallback to 500.",
+                config.ExternalAimSettings.TargetFreshTimeoutMs);
+            config.ExternalAimSettings.TargetFreshTimeoutMs = 500;
+        }
+#ifndef LY_ENABLE_SENTRY_MSGS
+        if (config.ExternalAimSettings.Enable) {
+            LoggerPtr->Warning(
+                "ExternalAim.Enable=true but sentry_msgs was not found when behavior_tree was built; disable ExternalAim.");
+            config.ExternalAimSettings.Enable = false;
+        }
+#endif
         if (config.NaviRotateControlSettings.FreshTimeoutMs <= 0) {
             LoggerPtr->Warning(
                 "Invalid NaviRotateControl.FreshTimeoutMs={}, fallback to 500.",

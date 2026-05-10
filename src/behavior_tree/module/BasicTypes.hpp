@@ -400,6 +400,16 @@ namespace LangYa
         std::chrono::steady_clock::time_point LastValidTime{}; // 上一次收到有效锁角的时间
         GimbalAnglesType Angles; // 云台的控制角度
     };
+
+    struct ExternalAimTargetCache {
+        bool Valid{false};
+        float X{0.0f};
+        float Y{0.0f};
+        float Z{0.0f};
+        float Distance{30.0f};
+        std::chrono::steady_clock::time_point LastSeen{};
+    };
+
     enum class AimMode : std::uint8_t { // 瞄准模式
         None = 0,
         AutoAim = 1,
@@ -495,6 +505,14 @@ namespace LangYa
         bool Enable{false};
         int LostTargetHoldMs{300};
         bool SuppressFire{true};
+    };
+
+    struct ExternalAimSetting {
+        bool Enable{false};
+        int ResultFreshTimeoutMs{300};
+        int TargetFreshTimeoutMs{500};
+        bool UseTargetArrayAsArmorList{true};
+        bool PublishSelectTarget{true};
     };
 
     struct NaviRotateControlSetting {
@@ -780,6 +798,7 @@ namespace LangYa
         DamageOpenGateSetting DamageOpenGateSettings{};
         NaviSetting NaviSettings{};
         FaceModeSetting FaceModeSettings{};
+        ExternalAimSetting ExternalAimSettings{};
         NaviRotateControlSetting NaviRotateControlSettings{};
         LeagueStrategySetting LeagueStrategySettings{};
         ShowcasePatrolSetting ShowcasePatrolSettings{};
