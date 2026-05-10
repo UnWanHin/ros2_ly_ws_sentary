@@ -623,10 +623,8 @@ private:
         *last_pitch_cmd_deg_ + command_filter_alpha_ * (pitch_cmd_deg - *last_pitch_cmd_deg_);
     }
 
-    const double yaw_step_ref = last_yaw_cmd_deg_.value_or(current_yaw_deg);
-    const double pitch_step_ref = last_pitch_cmd_deg_.value_or(current_pitch_deg);
-    yaw_cmd_deg = limitStep(yaw_cmd_deg, yaw_step_ref, max_yaw_step_deg_);
-    pitch_cmd_deg = limitStep(pitch_cmd_deg, pitch_step_ref, max_pitch_step_deg_);
+    yaw_cmd_deg = limitStep(yaw_cmd_deg, current_yaw_deg, max_yaw_step_deg_);
+    pitch_cmd_deg = limitStep(pitch_cmd_deg, current_pitch_deg, max_pitch_step_deg_);
 
     const auto stamp = this->now();
     gimbal_driver::msg::GimbalAngles angle_msg;
