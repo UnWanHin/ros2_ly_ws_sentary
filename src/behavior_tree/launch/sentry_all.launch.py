@@ -182,6 +182,7 @@ def generate_launch_description():
     runtime_rearm_start_gate = LaunchConfiguration("runtime_rearm_start_gate")
     predictor_publish_on_tracker_callback = LaunchConfiguration("predictor_publish_on_tracker_callback")
     publish_navi_goal = LaunchConfiguration("publish_navi_goal")
+    navi_publish_goal_pose = LaunchConfiguration("navi_publish_goal_pose")
     wait_for_game_start_timeout_sec = LaunchConfiguration("wait_for_game_start_timeout_sec")
     league_referee_stale_timeout_ms = LaunchConfiguration("league_referee_stale_timeout_ms")
     firecode_partial_hold_ms = LaunchConfiguration("firecode_partial_hold_ms")
@@ -314,6 +315,11 @@ def generate_launch_description():
             "publish_navi_goal",
             default_value="true",
             description="Whether behavior_tree publishes navigation goal inputs; tf bridge outputs /goal_pose when enabled.",
+        ),
+        DeclareLaunchArgument(
+            "navi_publish_goal_pose",
+            default_value="true",
+            description="Whether navi_tf_bridge publishes geometry_msgs/PoseStamped to /goal_pose.",
         ),
         DeclareLaunchArgument(
             "wait_for_game_start_timeout_sec",
@@ -509,6 +515,7 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] debug_bypass_is_start: ", debug_bypass_is_start]),
         LogInfo(msg=["[sentry_all] runtime_rearm_start_gate: ", runtime_rearm_start_gate]),
         LogInfo(msg=["[sentry_all] publish_navi_goal: ", publish_navi_goal]),
+        LogInfo(msg=["[sentry_all] navi_publish_goal_pose: ", navi_publish_goal_pose]),
         LogInfo(msg=["[sentry_all] wait_for_game_start_timeout_sec: ", wait_for_game_start_timeout_sec]),
         LogInfo(msg=["[sentry_all] league_referee_stale_timeout_ms: ", league_referee_stale_timeout_ms]),
         LogInfo(msg=["[sentry_all] firecode_partial_hold_ms: ", firecode_partial_hold_ms]),
@@ -554,8 +561,8 @@ def generate_launch_description():
             launch_arguments={
                 "input_topic": "/ly/navi/target_rel",
                 "input_goal_pos_raw_topic": "/ly/navi/goal_pos_raw",
-                "output_goal_pose_topic": "/goal_pose",
-                "publish_goal_pose": "true",
+                "output_goal_pose_topic": "/goal_pose_debug",
+                "publish_goal_pose": navi_publish_goal_pose,
                 "publish_goal_pos": "false",
                 "enable_goal_pos_raw_bridge": "true",
                 "goal_pos_raw_frame": "map",

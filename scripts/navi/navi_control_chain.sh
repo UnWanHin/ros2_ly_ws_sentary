@@ -2,32 +2,31 @@
 
 # Formal navigation control chain:
 #   /ly/navi/vel -> behavior_tree -> /ly/control/vel -> gimbal_driver
-# Uses the same BT path as armor_patrol_test: no firing, rotate enabled, PatrolScan enabled.
+# Based on regional area --pure presets, with /goal_pose disabled.
 
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT_NAME="$(basename "$0")"
 
+AREA="${AREA:-central}"
 USE_NOGATE=1
 OFFLINE_MODE=0
-CLEANUP_EXISTING=1
 ROTATE_ENABLED="${ROTATE_ENABLED:-true}"
 SCAN_ENABLED="${SCAN_ENABLED:-true}"
 SCAN_MODE="${SCAN_MODE:-2}"
 WITH_VISION=0
 OUTPUT="${OUTPUT:-screen}"
 LAUNCH_ARGS=()
+START_ARGS=(--mode regional --no-prompt)
 TEMP_BT_CONFIG=""
+BT_CONFIG_SOURCE=""
 
+CONFIG_DIR="${ROOT_DIR}/src/behavior_tree/Scripts/ConfigJson/regional/test"
 DEFAULT_BASE_CONFIG_FILE="${ROOT_DIR}/config/base_config.yaml"
 DEFAULT_DETECTOR_CONFIG_FILE="${ROOT_DIR}/src/detector/config/detector_config.yaml"
 DEFAULT_PREDICTOR_CONFIG_FILE="${ROOT_DIR}/src/predictor/config/predictor_config.yaml"
 DEFAULT_OVERRIDE_CONFIG_FILE="${ROOT_DIR}/config/override_config.yaml"
-DEFAULT_BT_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/Scripts/ConfigJson/regional/debug/armor_patrol_test.json"
-
-# shellcheck disable=SC1091
-source "${ROOT_DIR}/scripts/lib/ros_launch_common.sh"
 
 usage() {
   cat <<EOF
@@ -35,35 +34,37 @@ Usage:
   ${SCRIPT_NAME} [options] [-- <launch_args...>]
 
 Purpose:
-  Start a formal behavior_tree navigation-control chain, like armor_patrol_test:
-  - no firing
-  - /ly/navi/vel is handled by behavior_tree and forwarded to /ly/control/vel
-  - rotate and PatrolScan are controlled by behavior_tree, not external test publishers
-  - detector/tracker/predictor are disabled by default so gimbal scan is not interrupted
+  Start the same formal sentry_all/regional chain used by area_test --pure,
+  but keep /goal_pose disabled. External navigation can still send /ly/navi/vel,
+  and behavior_tree forwards it to /ly/control/vel.
+
+Defaults:
+  area=central, fire=false, rotate=true, scan=true, scan_mode=2, vision=false.
 
 Options:
+  --area <base|highland|roadland|central>
   --rotate [true|false]       Enable BT rotate output. Default: ${ROTATE_ENABLED}
   --scan [true|false]         Enable BT gimbal patrol scan. Default: ${SCAN_ENABLED}
   --scan-mode <1|2>           PatrolScan.Mode. Default: ${SCAN_MODE}
-  --with-vision               Also start detector/tracker/predictor, matching armor_test closer.
+  --with-vision               Start detector/tracker/predictor.
   --no-vision                 Do not start detector/tracker/predictor. Default.
   --nogate                    Bypass /ly/game/is_start. Default.
   --with-gate                 Wait for /ly/game/is_start.
   --online                    Use real gimbal device config. Default.
-  --offline|--virtual-device  Force offline virtual-device launch behavior.
+  --offline|--virtual-device  Pass offline:=true to sentry_all.
   --config-file <path>        Global override YAML. Default: ${DEFAULT_OVERRIDE_CONFIG_FILE}
   --base-config-file <path>   Base config YAML. Default: ${DEFAULT_BASE_CONFIG_FILE}
   --detector-config-file <p>  Detector config YAML. Default: ${DEFAULT_DETECTOR_CONFIG_FILE}
   --predictor-config-file <p> Predictor config YAML. Default: ${DEFAULT_PREDICTOR_CONFIG_FILE}
-  --bt-config-file <path>     Source BT JSON. Default: armor_patrol_test.json
+  --bt-config-file <path>     Source pure BT JSON instead of area preset.
   --output screen|log         Launch output mode. Default: ${OUTPUT}
-  --no-cleanup-existing       Do not clean old sentry/BT/driver processes.
+  --cleanup-existing          Let start_sentry_all clean old stack. Default.
+  --no-cleanup-existing       Keep old stack processes.
 
 Examples:
   ./scripts/navi/${SCRIPT_NAME}
-  ./scripts/navi/${SCRIPT_NAME} --scan-mode 1
+  ./scripts/navi/${SCRIPT_NAME} --area roadland --scan-mode 1
   ./scripts/navi/${SCRIPT_NAME} --rotate false --scan true
-  ./scripts/navi/${SCRIPT_NAME} --with-vision
   ./scripts/navi/${SCRIPT_NAME} scanmode=2 rotate=true scan=true
 EOF
 }
@@ -125,12 +126,37 @@ has_launch_arg_key() {
   return 1
 }
 
-append_launch_arg_if_missing() {
+add_launch_arg_if_missing() {
   local key="$1"
   local value="$2"
   if ! has_launch_arg_key "${key}"; then
     LAUNCH_ARGS=("${key}:=${value}" "${LAUNCH_ARGS[@]}")
   fi
+}
+
+select_area_config() {
+  case "${AREA}" in
+    base|my_base)
+      AREA="base"
+      BT_CONFIG_SOURCE="${CONFIG_DIR}/regional_area_my_base_pure.json"
+      ;;
+    highland|my_highland)
+      AREA="highland"
+      BT_CONFIG_SOURCE="${CONFIG_DIR}/regional_area_my_highland_pure.json"
+      ;;
+    roadland|my_roadland)
+      AREA="roadland"
+      BT_CONFIG_SOURCE="${CONFIG_DIR}/regional_area_my_roadland_pure.json"
+      ;;
+    central|common_central)
+      AREA="central"
+      BT_CONFIG_SOURCE="${CONFIG_DIR}/regional_area_common_central_pure.json"
+      ;;
+    *)
+      echo "[ERROR] Unknown area '${AREA}'. Expected base/highland/roadland/central." >&2
+      exit 2
+      ;;
+  esac
 }
 
 validate_scan_mode() {
@@ -141,8 +167,8 @@ validate_scan_mode() {
 }
 
 make_bt_config() {
-  TEMP_BT_CONFIG="$(mktemp /tmp/ly_navi_control_bt_XXXXXX.json)"
-  python3 - "${DEFAULT_BT_CONFIG_FILE}" "${TEMP_BT_CONFIG}" "${ROTATE_ENABLED}" "${SCAN_ENABLED}" "${SCAN_MODE}" <<'PY'
+  TEMP_BT_CONFIG="$(mktemp /tmp/ly_navi_control_area_pure_XXXXXX.json)"
+  python3 - "${BT_CONFIG_SOURCE}" "${TEMP_BT_CONFIG}" "${ROTATE_ENABLED}" "${SCAN_ENABLED}" "${SCAN_MODE}" <<'PY'
 import json
 import sys
 
@@ -166,11 +192,9 @@ aim_debug["HitCar"] = False
 aim_debug["FireRequireTargetStatus"] = True
 
 data.setdefault("PatrolScan", {})["Mode"] = scan_mode
-
-navi = data.setdefault("NaviSetting", {})
-navi["UseXY"] = False
-navi["ToNavi"] = True
-
+data.setdefault("RegionalAreaTask", {})["IgnoreRecovery"] = True
+data.setdefault("Chase", {})["Enable"] = False
+data.setdefault("Posture", {})["Enable"] = False
 data.setdefault("Rate", {})["NaviCommandRate"] = 1
 
 with open(dst, "w", encoding="utf-8") as f:
@@ -187,6 +211,22 @@ cleanup() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --area)
+      if (( $# < 2 )); then
+        echo "[ERROR] --area requires base/highland/roadland/central." >&2
+        exit 2
+      fi
+      AREA="$2"
+      shift 2
+      ;;
+    --area=*)
+      AREA="${1#*=}"
+      shift
+      ;;
+    area=*)
+      AREA="${1#*=}"
+      shift
+      ;;
     --rotate)
       ROTATE_ENABLED="$(take_optional_bool "${2:-}")"
       shift "$(optional_bool_shift "${2:-}")"
@@ -288,7 +328,7 @@ while [[ $# -gt 0 ]]; do
         echo "[ERROR] --bt-config-file requires a path." >&2
         exit 2
       fi
-      DEFAULT_BT_CONFIG_FILE="$2"
+      BT_CONFIG_SOURCE="$2"
       shift 2
       ;;
     --output)
@@ -299,12 +339,8 @@ while [[ $# -gt 0 ]]; do
       OUTPUT="$2"
       shift 2
       ;;
-    --cleanup-existing)
-      CLEANUP_EXISTING=1
-      shift
-      ;;
-    --no-cleanup-existing)
-      CLEANUP_EXISTING=0
+    --cleanup-existing|--no-cleanup-existing)
+      START_ARGS+=("$1")
       shift
       ;;
     --help|-h)
@@ -323,38 +359,44 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ -z "${BT_CONFIG_SOURCE}" ]]; then
+  select_area_config
+fi
 validate_scan_mode
-trap cleanup EXIT
 
-source_ros_workspace "${ROOT_DIR}"
-cleanup_existing_stack \
-  "${CLEANUP_EXISTING}" \
-  "/(gimbal_driver_node|detector_node|tracker_solver_node|predictor_node|outpost_hitter_node|buff_hitter_node|behavior_tree_node|navi_vel_control_bridge|scan_gimbal_test|chassis_spin_test)([[:space:]]|$)|scripts/navi/navi_vel_chain\\.py|scripts/feature_test/(scan_gimbal_test|chassis_spin_test)\\.py" \
-  "ros2 launch behavior_tree (armor_patrol_test|competition_autoaim|sentry_all|chase_only|showcase|navi_debug)\\.launch\\.py|ros2 launch gimbal_driver gimbal_driver\\.launch\\.py"
-
-make_bt_config
-
-append_launch_arg_if_missing "base_config_file" "${DEFAULT_BASE_CONFIG_FILE}"
-append_launch_arg_if_missing "config_file" "${DEFAULT_OVERRIDE_CONFIG_FILE}"
-append_launch_arg_if_missing "detector_config_file" "${DEFAULT_DETECTOR_CONFIG_FILE}"
-append_launch_arg_if_missing "predictor_config_file" "${DEFAULT_PREDICTOR_CONFIG_FILE}"
-append_launch_arg_if_missing "bt_config_file" "${TEMP_BT_CONFIG}"
-append_launch_arg_if_missing "debug_bypass_is_start" "$([[ "${USE_NOGATE}" == "1" ]] && printf true || printf false)"
-append_launch_arg_if_missing "wait_for_game_start_timeout_sec" "0"
-append_launch_arg_if_missing "publish_navi_goal" "false"
-append_launch_arg_if_missing "use_outpost" "false"
-append_launch_arg_if_missing "use_buff" "false"
-append_launch_arg_if_missing "use_detector" "$([[ "${WITH_VISION}" == "1" ]] && printf true || printf false)"
-append_launch_arg_if_missing "use_tracker" "$([[ "${WITH_VISION}" == "1" ]] && printf true || printf false)"
-append_launch_arg_if_missing "use_predictor" "$([[ "${WITH_VISION}" == "1" ]] && printf true || printf false)"
-append_launch_arg_if_missing "output" "${OUTPUT}"
-
-if (( OFFLINE_MODE == 1 )); then
-  append_launch_arg_if_missing "offline" "true"
+if [[ ! -f "${BT_CONFIG_SOURCE}" ]]; then
+  echo "[ERROR] BT config not found: ${BT_CONFIG_SOURCE}" >&2
+  exit 1
 fi
 
-echo "[INFO] formal navi control chain: /ly/navi/vel -> behavior_tree -> /ly/control/vel -> gimbal_driver" >&2
+trap cleanup EXIT
+make_bt_config
+
+add_launch_arg_if_missing "bt_config_file" "${TEMP_BT_CONFIG}"
+add_launch_arg_if_missing "debug_bypass_is_start" "$([[ "${USE_NOGATE}" == "1" ]] && printf true || printf false)"
+add_launch_arg_if_missing "wait_for_game_start_timeout_sec" "0"
+add_launch_arg_if_missing "competition_profile" "regional"
+add_launch_arg_if_missing "publish_navi_goal" "true"
+add_launch_arg_if_missing "navi_publish_goal_pose" "false"
+add_launch_arg_if_missing "base_config_file" "${DEFAULT_BASE_CONFIG_FILE}"
+add_launch_arg_if_missing "config_file" "${DEFAULT_OVERRIDE_CONFIG_FILE}"
+add_launch_arg_if_missing "detector_config_file" "${DEFAULT_DETECTOR_CONFIG_FILE}"
+add_launch_arg_if_missing "predictor_config_file" "${DEFAULT_PREDICTOR_CONFIG_FILE}"
+add_launch_arg_if_missing "use_detector" "$([[ "${WITH_VISION}" == "1" ]] && printf true || printf false)"
+add_launch_arg_if_missing "use_tracker" "$([[ "${WITH_VISION}" == "1" ]] && printf true || printf false)"
+add_launch_arg_if_missing "use_predictor" "$([[ "${WITH_VISION}" == "1" ]] && printf true || printf false)"
+add_launch_arg_if_missing "use_outpost" "false"
+add_launch_arg_if_missing "use_buff" "false"
+add_launch_arg_if_missing "output" "${OUTPUT}"
+
+if (( OFFLINE_MODE == 1 )); then
+  START_ARGS+=(--offline)
+fi
+
+echo "[INFO] navi control uses area_test --pure style: area=${AREA}" >&2
+echo "[INFO] /goal_pose disabled: publish_navi_goal=true, navi_publish_goal_pose=false" >&2
 echo "[INFO] fire=false rotate=${ROTATE_ENABLED} scan=${SCAN_ENABLED} scan_mode=${SCAN_MODE} vision=${WITH_VISION}" >&2
+echo "[INFO] source bt_config=${BT_CONFIG_SOURCE}" >&2
 echo "[INFO] generated bt_config=${TEMP_BT_CONFIG}" >&2
 
-ros2 launch behavior_tree armor_patrol_test.launch.py "${LAUNCH_ARGS[@]}"
+"${ROOT_DIR}/scripts/launch/start_sentry_all.sh" "${START_ARGS[@]}" -- "${LAUNCH_ARGS[@]}"
