@@ -18,6 +18,7 @@
 """
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 
 from launch import LaunchDescription
@@ -96,8 +97,14 @@ def generate_launch_description():
 
     def resolve_rosbag_defaults(context):
         rosbag_path_raw = LaunchConfiguration("rosbag_path").perform(context).strip()
-        resolved_rosbag_path = os.path.expanduser(rosbag_path_raw or "~/Log/rosbag")
+        rosbag_base_dir = os.path.expanduser(rosbag_path_raw or "~/Log/rosbag")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        resolved_rosbag_path = os.path.join(
+            rosbag_base_dir,
+            f"sentry_all_{timestamp}_{os.getpid()}",
+        )
         return [
+            SetLaunchConfiguration("resolved_rosbag_base_dir", rosbag_base_dir),
             SetLaunchConfiguration("resolved_rosbag_path", resolved_rosbag_path),
         ]
 
@@ -229,7 +236,7 @@ def generate_launch_description():
     decision_trace_enabled = LaunchConfiguration("decision_trace_enabled")
     decision_trace_file = LaunchConfiguration("decision_trace_file")
     decision_trace_every_n_ticks = LaunchConfiguration("decision_trace_every_n_ticks")
-    rosbag_play_enable = LaunchConfiguration("rosbag_play_enable")
+    rosbag = LaunchConfiguration("rosbag")
     rosbag_path = LaunchConfiguration("rosbag_path")
     resolved_rosbag_path = LaunchConfiguration("resolved_rosbag_path")
 
@@ -418,14 +425,14 @@ def generate_launch_description():
             description="Comma-separated uplink TypeID list for raw ROS2 topic, or all.",
         ),
         DeclareLaunchArgument(
-            "rosbag_play_enable",
+            "rosbag",
             default_value="false",
-            description="When true, launch ros2 bag play for replaying external inputs.",
+            description="When true, launch ros2 bag record -a for recording all topics.",
         ),
         DeclareLaunchArgument(
             "rosbag_path",
             default_value="~/Log/rosbag",
-            description="Rosbag directory passed to `ros2 bag play` when rosbag_play_enable is true.",
+            description="Base directory for timestamped rosbag recordings when rosbag is true.",
         ),
         DeclareLaunchArgument(
             "decision_trace_enabled",
@@ -473,6 +480,7 @@ def generate_launch_description():
         DeclareLaunchArgument("resolved_competition_profile", default_value=""),
         DeclareLaunchArgument("resolved_bt_config_file", default_value=""),
         DeclareLaunchArgument("resolved_tf_tree_params_file", default_value=""),
+        DeclareLaunchArgument("resolved_rosbag_base_dir", default_value=""),
         DeclareLaunchArgument("resolved_rosbag_path", default_value=""),
         DeclareLaunchArgument("resolved_use_navi_tf_bridge", default_value="true"),
         DeclareLaunchArgument("resolved_chase_area_limit_enable", default_value="false"),
@@ -487,15 +495,13 @@ def generate_launch_description():
 
     truthy_values = "['true', '1', 'yes', 'on']"
     rosbag_enabled_expr = PythonExpression([
-        "'", rosbag_play_enable, "'.lower() in ", truthy_values
+        "'", rosbag, "'.lower() in ", truthy_values
     ])
     hardware_io_expr = PythonExpression([
-        "'", offline, "'.lower() not in ", truthy_values,
-        " and '", rosbag_play_enable, "'.lower() not in ", truthy_values
+        "'", offline, "'.lower() not in ", truthy_values
     ])
     virtual_io_expr = PythonExpression([
-        "'", offline, "'.lower() in ", truthy_values,
-        " or '", rosbag_play_enable, "'.lower() in ", truthy_values
+        "'", offline, "'.lower() in ", truthy_values
     ])
     info_logs = [
         LogInfo(msg=["[sentry_all] mode: ", mode]),
@@ -538,7 +544,7 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] gimbal_raw_topic_uplink: ", gimbal_raw_topic_uplink]),
         LogInfo(msg=["[sentry_all] gimbal_raw_topic_downlink: ", gimbal_raw_topic_downlink]),
         LogInfo(msg=["[sentry_all] gimbal_raw_topic_type_ids: ", gimbal_raw_topic_type_ids]),
-        LogInfo(msg=["[sentry_all] rosbag_play_enable: ", rosbag_play_enable]),
+        LogInfo(msg=["[sentry_all] rosbag: ", rosbag]),
         LogInfo(msg=["[sentry_all] rosbag_path: ", rosbag_path]),
         LogInfo(msg=["[sentry_all] resolved_rosbag_path: ", resolved_rosbag_path]),
         LogInfo(msg=["[sentry_all] decision_trace_enabled: ", decision_trace_enabled]),
@@ -634,12 +640,18 @@ def generate_launch_description():
             condition=IfCondition(use_face_mode_solver),
         ),
         ExecuteProcess(
-            cmd=["ros2", "bag", "play", resolved_rosbag_path],
+            cmd=[
+                "bash",
+                "-lc",
+                "mkdir -p \"$1\" && exec ros2 bag record -a -o \"$2\"",
+                "rosbag_record",
+                LaunchConfiguration("resolved_rosbag_base_dir"),
+                resolved_rosbag_path,
+            ],
             output=output,
-            on_exit=[Shutdown(reason="rosbag playback exited")],
             condition=IfCondition(rosbag_enabled_expr),
         ),
-        # gimbal_driver: offline=true or rosbag replay force use_virtual_device.
+        # gimbal_driver: offline=true forces use_virtual_device.
         GroupAction(
             actions=[
                 Node(

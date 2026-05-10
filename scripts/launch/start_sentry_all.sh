@@ -78,12 +78,12 @@ read_common_bt_file_log_enable() {
   read_common_bool_value "${value}"
 }
 
-read_common_rosbag_play_enable() {
+read_common_rosbag() {
   local config_file="$1"
   [[ -f "${config_file}" ]] || return 1
 
   local value=""
-  value="$(read_common_scalar "${config_file}" "rosbag_play_enable")" || return 1
+  value="$(read_common_scalar "${config_file}" "rosbag")" || return 1
   read_common_bool_value "${value}"
 }
 
@@ -329,29 +329,29 @@ if [[ "${BT_APP_FILE_LOG_ENABLE}" != "0" ]]; then
   mkdir -p "${BT_LOG_DIR}"
 fi
 
-ROSBAG_PLAY_ENABLE_LAUNCH=""
-if ! has_launch_arg_key "rosbag_play_enable"; then
-  if ROSBAG_PLAY_ENABLE_FROM_COMMON="$(read_common_rosbag_play_enable "${DEFAULT_COMMON_CONFIG_FILE}")"; then
-    if [[ "${ROSBAG_PLAY_ENABLE_FROM_COMMON}" == "0" ]]; then
-      ROSBAG_PLAY_ENABLE_LAUNCH="false"
+ROSBAG_LAUNCH=""
+if ! has_launch_arg_key "rosbag"; then
+  if ROSBAG_FROM_COMMON="$(read_common_rosbag "${DEFAULT_COMMON_CONFIG_FILE}")"; then
+    if [[ "${ROSBAG_FROM_COMMON}" == "0" ]]; then
+      ROSBAG_LAUNCH="false"
     else
-      ROSBAG_PLAY_ENABLE_LAUNCH="true"
+      ROSBAG_LAUNCH="true"
     fi
-    LAUNCH_ARGS=("rosbag_play_enable:=${ROSBAG_PLAY_ENABLE_LAUNCH}" "${LAUNCH_ARGS[@]}")
-    echo "[INFO] default rosbag_play_enable=${ROSBAG_PLAY_ENABLE_LAUNCH} (from ${DEFAULT_COMMON_CONFIG_FILE})"
+    LAUNCH_ARGS=("rosbag:=${ROSBAG_LAUNCH}" "${LAUNCH_ARGS[@]}")
+    echo "[INFO] default rosbag=${ROSBAG_LAUNCH} (from ${DEFAULT_COMMON_CONFIG_FILE})"
   fi
 else
   for arg in "${LAUNCH_ARGS[@]}"; do
-    if [[ "${arg}" == rosbag_play_enable:=* ]]; then
-      ROSBAG_PLAY_ENABLE_LAUNCH="${arg#rosbag_play_enable:=}"
-      if ROSBAG_PLAY_ENABLE_NORMALIZED="$(read_common_bool_value "${ROSBAG_PLAY_ENABLE_LAUNCH}")"; then
-        if [[ "${ROSBAG_PLAY_ENABLE_NORMALIZED}" == "0" ]]; then
-          ROSBAG_PLAY_ENABLE_LAUNCH="false"
+    if [[ "${arg}" == rosbag:=* ]]; then
+      ROSBAG_LAUNCH="${arg#rosbag:=}"
+      if ROSBAG_NORMALIZED="$(read_common_bool_value "${ROSBAG_LAUNCH}")"; then
+        if [[ "${ROSBAG_NORMALIZED}" == "0" ]]; then
+          ROSBAG_LAUNCH="false"
         else
-          ROSBAG_PLAY_ENABLE_LAUNCH="true"
+          ROSBAG_LAUNCH="true"
         fi
       fi
-      echo "[INFO] override rosbag_play_enable=${ROSBAG_PLAY_ENABLE_LAUNCH}"
+      echo "[INFO] override rosbag=${ROSBAG_LAUNCH}"
     fi
   done
 fi
@@ -363,11 +363,6 @@ if ! has_launch_arg_key "rosbag_path"; then
   fi
 else
   for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == rosbag_path:=* ]] && echo "[INFO] override rosbag_path=${arg#rosbag_path:=}"; done
-fi
-
-if [[ "${ROSBAG_PLAY_ENABLE_LAUNCH}" == "true" ]] && ! has_launch_arg_key "offline" && (( OFFLINE_MODE == 0 )); then
-  LAUNCH_ARGS=("offline:=true" "${LAUNCH_ARGS[@]}")
-  echo "[INFO] rosbag replay enabled: default offline=true to keep hardware IO virtual"
 fi
 
 if ! has_launch_arg_key "base_config_file"; then
