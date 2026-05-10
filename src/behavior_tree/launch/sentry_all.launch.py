@@ -561,8 +561,8 @@ def generate_launch_description():
             launch_arguments={
                 "input_topic": "/ly/navi/target_rel",
                 "input_goal_pos_raw_topic": "/ly/navi/goal_pos_raw",
-                "output_goal_pose_topic": "/goal_pose_debug",
-                "publish_goal_pose": navi_publish_goal_pose,
+                "output_goal_pose_topic": "/goal_pose", #"output_goal_pose_topic": "/goal_pose_debug"
+                "publish_goal_pose": "true", #"publish_goal_pose": navi_publish_goal_pose,
                 "publish_goal_pos": "false",
                 "enable_goal_pos_raw_bridge": "true",
                 "goal_pos_raw_frame": "map",
