@@ -141,6 +141,11 @@ bool StrategyManager::RunTactical(Application& app) {
         return true;
     }
 
+    if (app.TrySetProtectHeroGoal(my_team, enemy_team)) {
+        MarkHandled(app, StrategyLayer::Tactical);
+        return true;
+    }
+
     if (app.IsOutpostVisualScoutNavigationActive() && app.aimMode != AimMode::Outpost) {
         if (app.naviCommandIntervalClock.trigger()) {
             app.TrySetOutpostVisualScoutTravelGoal(

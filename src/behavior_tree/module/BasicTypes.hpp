@@ -677,6 +677,15 @@ namespace LangYa
         int MultiEnemyBaseCount{2};
     };
 
+    struct HeroProtectionSetting {
+        bool Enable{true};
+        int StartElapsedSec{120};
+        int HoldSec{30};
+        int FriendPositionFreshMs{2500};
+        int FriendHealthFreshMs{2500};
+        std::uint8_t GoalBaseId{Highland.ID};
+    };
+
     struct NaviProgressWatchdogSetting {
         bool Enable{false};
         int ArriveDistanceCm{140};
@@ -836,6 +845,7 @@ namespace LangYa
         ShowcasePatrolSetting ShowcasePatrolSettings{};
         NaviDebugSetting NaviDebugSettings{};
         RegionalDefenseSetting RegionalDefenseSettings{};
+        HeroProtectionSetting HeroProtectionSettings{};
         NaviProgressWatchdogSetting NaviProgressWatchdogSettings{};
         RegionalIdlePatrolSetting RegionalIdlePatrolSettings{};
         RegionalAreaTaskSetting RegionalAreaTaskSettings{};

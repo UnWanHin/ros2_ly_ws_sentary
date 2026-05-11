@@ -744,6 +744,16 @@ namespace LangYa {
         rd.MultiEnemyBaseCount = j.value("MultiEnemyBaseCount", rd.MultiEnemyBaseCount);
     }
 
+    void from_json(const json& j, HeroProtectionSetting& hp) {
+        hp.Enable = j.value("Enable", hp.Enable);
+        hp.StartElapsedSec = j.value("StartElapsedSec", hp.StartElapsedSec);
+        hp.HoldSec = j.value("HoldSec", hp.HoldSec);
+        hp.FriendPositionFreshMs = j.value("FriendPositionFreshMs", hp.FriendPositionFreshMs);
+        hp.FriendHealthFreshMs = j.value("FriendHealthFreshMs", hp.FriendHealthFreshMs);
+        const int goal_base_id = j.value("GoalBaseId", static_cast<int>(hp.GoalBaseId));
+        hp.GoalBaseId = static_cast<std::uint8_t>(std::clamp(goal_base_id, 0, 255));
+    }
+
     void from_json(const json& j, NaviProgressWatchdogSetting& np) {
         np.Enable = j.value("Enable", np.Enable);
         np.ArriveDistanceCm = j.value("ArriveDistanceCm", np.ArriveDistanceCm);
@@ -969,6 +979,9 @@ namespace LangYa {
         }
         if (j.contains("RegionalDefense")) {
             j.at("RegionalDefense").get_to(c.RegionalDefenseSettings);
+        }
+        if (j.contains("HeroProtection")) {
+            j.at("HeroProtection").get_to(c.HeroProtectionSettings);
         }
         if (j.contains("NaviProgressWatchdog")) {
             j.at("NaviProgressWatchdog").get_to(c.NaviProgressWatchdogSettings);
@@ -1901,6 +1914,13 @@ namespace BehaviorTree {
         LoggerPtr->Debug("StrongHealthMin: {}", config.RegionalDefenseSettings.StrongHealthMin);
         LoggerPtr->Debug("StrongAmmoMin: {}", config.RegionalDefenseSettings.StrongAmmoMin);
         LoggerPtr->Debug("MultiEnemyBaseCount: {}", config.RegionalDefenseSettings.MultiEnemyBaseCount);
+        LoggerPtr->Debug("------ HeroProtection ------");
+        LoggerPtr->Debug("Enable: {}", config.HeroProtectionSettings.Enable);
+        LoggerPtr->Debug("StartElapsedSec: {}", config.HeroProtectionSettings.StartElapsedSec);
+        LoggerPtr->Debug("HoldSec: {}", config.HeroProtectionSettings.HoldSec);
+        LoggerPtr->Debug("FriendPositionFreshMs: {}", config.HeroProtectionSettings.FriendPositionFreshMs);
+        LoggerPtr->Debug("FriendHealthFreshMs: {}", config.HeroProtectionSettings.FriendHealthFreshMs);
+        LoggerPtr->Debug("GoalBaseId: {}", static_cast<int>(config.HeroProtectionSettings.GoalBaseId));
         LoggerPtr->Debug("------ NaviProgressWatchdog ------");
         LoggerPtr->Debug("Enable: {}", config.NaviProgressWatchdogSettings.Enable);
         LoggerPtr->Debug("ArriveDistanceCm: {}", config.NaviProgressWatchdogSettings.ArriveDistanceCm);
@@ -2370,6 +2390,31 @@ namespace BehaviorTree {
             LoggerPtr->Warning("Invalid RegionalDefense.MultiEnemyBaseCount={}, fallback to 2.",
                                config.RegionalDefenseSettings.MultiEnemyBaseCount);
             config.RegionalDefenseSettings.MultiEnemyBaseCount = 2;
+        }
+        if (config.HeroProtectionSettings.StartElapsedSec < 0) {
+            LoggerPtr->Warning("Invalid HeroProtection.StartElapsedSec={}, fallback to 120.",
+                               config.HeroProtectionSettings.StartElapsedSec);
+            config.HeroProtectionSettings.StartElapsedSec = 120;
+        }
+        if (config.HeroProtectionSettings.HoldSec <= 0) {
+            LoggerPtr->Warning("Invalid HeroProtection.HoldSec={}, fallback to 30.",
+                               config.HeroProtectionSettings.HoldSec);
+            config.HeroProtectionSettings.HoldSec = 30;
+        }
+        if (config.HeroProtectionSettings.FriendPositionFreshMs <= 0) {
+            LoggerPtr->Warning("Invalid HeroProtection.FriendPositionFreshMs={}, fallback to 2500.",
+                               config.HeroProtectionSettings.FriendPositionFreshMs);
+            config.HeroProtectionSettings.FriendPositionFreshMs = 2500;
+        }
+        if (config.HeroProtectionSettings.FriendHealthFreshMs <= 0) {
+            LoggerPtr->Warning("Invalid HeroProtection.FriendHealthFreshMs={}, fallback to 2500.",
+                               config.HeroProtectionSettings.FriendHealthFreshMs);
+            config.HeroProtectionSettings.FriendHealthFreshMs = 2500;
+        }
+        if (!AreaManager::IsValidBaseGoalId(config.HeroProtectionSettings.GoalBaseId)) {
+            LoggerPtr->Warning("Invalid HeroProtection.GoalBaseId={}, fallback to Highland.",
+                               static_cast<int>(config.HeroProtectionSettings.GoalBaseId));
+            config.HeroProtectionSettings.GoalBaseId = LangYa::Highland.ID;
         }
         if (config.NaviProgressWatchdogSettings.ArriveDistanceCm <= 0) {
             LoggerPtr->Warning("Invalid NaviProgressWatchdog.ArriveDistanceCm={}, fallback to 140.",

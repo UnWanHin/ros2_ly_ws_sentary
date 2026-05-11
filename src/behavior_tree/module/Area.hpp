@@ -343,6 +343,20 @@ namespace Area {
         { 2056, 423 }
     };
 
+    static const std::vector<Point<int>> RedProtectHeroPoints = {
+        { 315, 1219 },
+        { 579, 1217 },
+        { 577, 1079 },
+        { 311, 1070 }
+    };
+
+    static const std::vector<Point<int>> BlueProtectHeroPoints = {
+        { 2485, 281 },
+        { 2221, 283 },
+        { 2223, 421 },
+        { 2489, 430 }
+    };
+
     static const std::vector<Point<int>> RedMainAreaBasePoints = {
         { 38, 997 },
         { 765, 1010 },
@@ -513,6 +527,22 @@ namespace Area {
             return false;
         }
         return IsPointInsideMainAreaBoundary(MainAreaBoundary(team, kind), x, y);
+    }
+
+    inline const std::vector<Point<int>>& ProtectHeroBoundary(const UnitTeam team) {
+        return PointLookupTeam(team) == UnitTeam::Blue
+            ? BlueProtectHeroPoints
+            : RedProtectHeroPoints;
+    }
+
+    inline bool IsPointInsideProtectHeroArea(
+        const UnitTeam team,
+        const int x,
+        const int y) {
+        if (team != UnitTeam::Red && team != UnitTeam::Blue) {
+            return false;
+        }
+        return IsPointInsideMainAreaBoundary(ProtectHeroBoundary(team), x, y);
     }
 
     inline const std::vector<Point<int>>& RoadlandFollowModeBoundary(const UnitTeam team) {

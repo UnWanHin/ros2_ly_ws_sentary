@@ -44,7 +44,8 @@ enum class DecisionReason : std::uint8_t {
     AreaTask = 17,
     NaviTransition = 18,
     Start = 19,
-    OwnFortressGainPointEnemy = 20
+    OwnFortressGainPointEnemy = 20,
+    ProtectHero = 21
 };
 
 struct DecisionIntent {
@@ -94,6 +95,7 @@ inline const char* DecisionReasonToString(const DecisionReason reason) noexcept 
         case DecisionReason::NaviTransition: return "navi_transition";
         case DecisionReason::Start: return "start";
         case DecisionReason::OwnFortressGainPointEnemy: return "own_fortress_gain_point_enemy";
+        case DecisionReason::ProtectHero: return "protect_hero";
         default: return "unknown";
     }
 }
@@ -119,6 +121,7 @@ inline DecisionReason DecisionReasonFromString(const std::string_view reason) no
     if (reason == "navi_transition") return DecisionReason::NaviTransition;
     if (reason == "start") return DecisionReason::Start;
     if (reason == "own_fortress_gain_point_enemy") return DecisionReason::OwnFortressGainPointEnemy;
+    if (reason == "protect_hero") return DecisionReason::ProtectHero;
     return DecisionReason::Unknown;
 }
 
@@ -149,6 +152,7 @@ inline DecisionLayer DecisionLayerForReason(const DecisionReason reason) noexcep
         case DecisionReason::NaviTransition:
             return DecisionLayer::Task;
         case DecisionReason::AreaScopeBlocked:
+        case DecisionReason::ProtectHero:
             return DecisionLayer::Tactical;
         default:
             return DecisionLayer::Unknown;

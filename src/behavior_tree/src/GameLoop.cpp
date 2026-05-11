@@ -2080,6 +2080,22 @@ namespace BehaviorTree {
         // 处理距离和无敌状态的数据
         hitableTargets.clear();
         const auto& aim_target_setting = config.DecisionAutonomySettings.AimTarget;
+        const auto has_fresh_external_target = [&](const ArmorType armor_type) {
+            if (!config.ExternalAimSettings.Enable ||
+                !config.ExternalAimSettings.UseTargetArrayAsArmorList ||
+                !hasExternalAimTargets_) {
+                return false;
+            }
+            const auto target_index = static_cast<std::size_t>(armor_type);
+            if (target_index >= externalAimTargets_.size()) {
+                return false;
+            }
+            const auto& cached = externalAimTargets_[target_index];
+            const int fresh_ms = std::max(1, config.ExternalAimSettings.TargetFreshTimeoutMs);
+            return cached.Valid &&
+                cached.LastSeen.time_since_epoch().count() != 0 &&
+                now - cached.LastSeen <= std::chrono::milliseconds(fresh_ms);
+        };
         const auto is_confirmed_dead_hold = [&](const UnitType unit_type) {
             const auto index = static_cast<std::size_t>(unit_type);
             if (index >= enemyHealthConfirmedDead_.size()) {
@@ -2100,6 +2116,10 @@ namespace BehaviorTree {
             int hold_seconds = aim_target_setting.RespawnInvulnerableSec;
             if (unit_type == UnitType::Sentry) {
                 hold_seconds = aim_target_setting.SentryRespawnInvulnerableSec;
+            }
+            const auto armor_type = ArmorTypeFromUnitType(unit_type);
+            if (armor_type.has_value() && has_fresh_external_target(*armor_type)) {
+                return false;
             }
             return is_confirmed_dead_hold(unit_type) ||
                 enemyRobots[unit_type].isInvulnerable(hold_seconds);
@@ -3208,6 +3228,36 @@ namespace BehaviorTree {
         return IsFortressGainPointEnemyOccupiedEventRawFresh(referee_fresh_ms);
     }
 
+    bool Application::IsFriendPositionFresh(
+        const UnitType unit_type,
+        const int fresh_ms) const {
+        const auto index = static_cast<std::size_t>(unit_type);
+        if (index >= lastFriendPositionRxTime_.size()) {
+            return false;
+        }
+        const auto& last_rx = lastFriendPositionRxTime_[index];
+        if (last_rx.time_since_epoch().count() == 0) {
+            return false;
+        }
+        return std::chrono::steady_clock::now() - last_rx <=
+            std::chrono::milliseconds(std::max(1, fresh_ms));
+    }
+
+    bool Application::IsFriendHealthFresh(
+        const UnitType unit_type,
+        const int fresh_ms) const {
+        const auto index = static_cast<std::size_t>(unit_type);
+        if (index >= lastFriendHealthRxTime_.size()) {
+            return false;
+        }
+        const auto& last_rx = lastFriendHealthRxTime_[index];
+        if (last_rx.time_since_epoch().count() == 0) {
+            return false;
+        }
+        return std::chrono::steady_clock::now() - last_rx <=
+            std::chrono::milliseconds(std::max(1, fresh_ms));
+    }
+
     bool Application::IsEnemyPositionFresh(
         const UnitType unit_type,
         const int fresh_ms) const {
@@ -3553,6 +3603,78 @@ namespace BehaviorTree {
         }
 
         return false;
+    }
+
+    bool Application::TrySetProtectHeroGoal(
+        const UnitTeam my_team,
+        const UnitTeam enemy_team) {
+        const auto& protection = config.HeroProtectionSettings;
+        if (!protection.Enable ||
+            IsLeagueProfile() ||
+            IsShowcasePatrolEnabled() ||
+            ElapsedSeconds() < protection.StartElapsedSec) {
+            return false;
+        }
+
+        constexpr UnitType hero_unit = UnitType::Hero;
+        if (!IsFriendPositionFresh(hero_unit, protection.FriendPositionFreshMs)) {
+            return false;
+        }
+        const int hero_x = static_cast<int>(friendRobots[hero_unit].position_.X);
+        const int hero_y = static_cast<int>(friendRobots[hero_unit].position_.Y);
+        if (!IsOfficialFieldPointValid(hero_x, hero_y) ||
+            !Area::IsPointInsideProtectHeroArea(my_team, hero_x, hero_y)) {
+            return false;
+        }
+
+        if (IsFriendHealthFresh(hero_unit, protection.FriendHealthFreshMs) &&
+            friendRobots[hero_unit].currentHealth_ == 0) {
+            return false;
+        }
+
+        const std::uint8_t goal_base_id = AreaManager::IsValidBaseGoalId(protection.GoalBaseId)
+            ? protection.GoalBaseId
+            : LangYa::Highland.ID;
+        constexpr bool apply_team_offset = true;
+        const char* reason = "protect_hero";
+        if (!IsNaviGoalAllowedByAreaScope(goal_base_id, my_team, my_team, enemy_team)) {
+            naviGoalPublishAllowed_ = false;
+            RecordDecisionIntent(MakeDecisionIntent(
+                DecisionReason::AreaScopeBlocked,
+                goal_base_id,
+                my_team,
+                apply_team_offset,
+                reason));
+            return false;
+        }
+
+        const auto resolved_goal_id = ResolveGoalId(goal_base_id, my_team, apply_team_offset);
+        if (naviCommandGoal == resolved_goal_id && !naviCommandIntervalClock.trigger()) {
+            speedLevel = 1;
+            return true;
+        }
+
+        if (!TryStartNaviAreaTransition(goal_base_id, my_team, my_team, apply_team_offset, reason)) {
+            SetPositionByBaseGoal(goal_base_id, my_team, apply_team_offset);
+        }
+        RecordDecisionIntent(MakeDecisionIntent(
+            DecisionReason::ProtectHero,
+            goal_base_id,
+            my_team,
+            apply_team_offset,
+            reason));
+        naviCommandIntervalClock.reset(Seconds{std::max(1, protection.HoldSec)});
+        speedLevel = 1;
+        if (LoggerPtr) {
+            LoggerPtr->Info(
+                "ProtectHero: elapsed={}s hero=({}, {}) goal={} hold={}s.",
+                ElapsedSeconds(),
+                hero_x,
+                hero_y,
+                static_cast<int>(naviCommandGoal),
+                std::max(1, protection.HoldSec));
+        }
+        return true;
     }
 
     void Application::UpdateNaviProgressWatchdogGoal(

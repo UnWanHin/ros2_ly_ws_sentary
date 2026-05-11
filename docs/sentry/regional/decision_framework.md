@@ -1,6 +1,6 @@
 # Regional 決策框架說明
 
-Updated: 2026-05-11
+Updated: 2026-05-12
 
 本文記錄目前 `behavior_tree` 裡 regional 決策的區域狀態機框架：它會做哪些任務、怎麼啟動、怎麼判斷到達、會輸出什麼控制，以及哪些階段會被高優先級邏輯打斷。
 
@@ -39,7 +39,7 @@ Regional 不是單一點表，而是分層策略：
 - `Hard`：最高優先級，先處理低血/低彈回 `Recovery`，以及 Roadland 強綁定穿越段。
 - `Default`：沒有事件、沒有任務、沒有 Buff/Outpost 時，按大區域候選分數選 `MyBase / MyHighland / MyRoadland / CommonCentral`。
 - `Task`：持續 tick 已啟動的大區域任務、Highland 兼容過渡和導航 watchdog。
-- `Tactical`：處理 Buff、RegionalDefense、Outpost 和 watchdog fallback。
+- `Tactical`：處理 Buff、RegionalDefense、ProtectHero、Outpost 和 watchdog fallback。
 - `Finalizer`：只做策略層狀態同步，不再做舊點表 fallback。
 
 Regional 目前已有的主要邏輯：
@@ -80,7 +80,7 @@ EvaluateEvents -> Hard -> Default -> Task -> Tactical -> Finalizer
 - `Hard`：最高優先級保護，處理 recovery/補血補彈和 Roadland 強綁定穿越段。Roadland 強綁定段在這層 hard lock，避免被戰術層中途搶走。
 - `Default`：無特別事件時的底層決策，現在按 `AreaManager.DefaultPolicy` 對已啟用的大區域做資源門檻、距離、目前區域、上次任務結果、冷卻和重試評分，再啟動 AreaManager 任務；沒有可用區域時不再 fallback 到任何舊點表。`RegionalIdlePatrol` 點表不再是正式 regional 的 Default 入口。
 - `Task`：已啟動的 AreaManager 任務繼續 tick，包含 Highland/Base/Roadland/Central 任務、Highland 兼容過渡和導航 watchdog。
-- `Tactical`：regional 只保留明確戰術 overlay：`RegionalDefense`、Buff/Outpost 任務站位和導航 watchdog；不再調用舊單策略點表。`LeagueSimple` 只在 `CompetitionProfile=league` 時使用，Showcase 只在明確 showcase 配置時使用。
+- `Tactical`：regional 只保留明確戰術 overlay：`RegionalDefense`、ProtectHero、Buff/Outpost 任務站位和導航 watchdog；不再調用舊單策略點表。`LeagueSimple` 只在 `CompetitionProfile=league` 時使用，Showcase 只在明確 showcase 配置時使用。
 - `Finalizer`：只做本 tick 策略層完成標記和黑板同步；regional 不再 fallback 到舊點表。
 
 分層狀態會寫入 BT blackboard：
@@ -261,6 +261,10 @@ RegionalDefense 是事件驅動戰術層，優先級高於 Default。敵方位�
 - 敵方在公共 Central：去 `HoleRoad -> Castle` 搜索。
 
 搜索點會尊重 area scope，但不啟動 Base/Highland/Roadland 的 AreaManager 區域任務；它只做 scope 檢查、必要的 Highland transition，然後直接下導航點。`RegionalDefense.SearchHoldSec` 和 `RegionalDefense.SearchNoTargetSec` 控制「一直找不到」後切下一個搜索點；找不到的判斷使用 autoaim 最近有效目標時間，不混用 buff/outpost 目標。堡壘增益點事件還有退化保護：若連續 `RegionalDefense.FortressNoContactDegradeSec` 秒沒有己方 Base 大區官方敵方位置、也沒有普通裝甲視覺目標，會在 `RegionalDefense.FortressDegradeCooldownSec` 秒內暫時不把 `2/3` 當硬威脅。
+
+## ProtectHero
+
+ProtectHero 是 Tactical 層的己方英雄保護點位。`Area.hpp` 裡的 `ProtectHero` 子區域位於己方 Highland 內；比賽開始 `HeroProtection.StartElapsedSec` 秒後，如果己方 Hero 的官方坐標新鮮且落在該子區域內，BT 直接下發 `HeroProtection.GoalBaseId`，默認為 `Highland`，並用 `HeroProtection.HoldSec` 控制駐守重發週期。已知 Hero 血量為 0 時不觸發。它排在 RegionalDefense 之後，所以敵方進入我方 Base/Roadland 等正式回防威脅時，仍由 RegionalDefense 優先接管。
 
 ## 各區域任務
 

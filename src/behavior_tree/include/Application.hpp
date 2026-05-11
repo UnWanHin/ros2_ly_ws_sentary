@@ -624,11 +624,14 @@ public:
     bool IsRegionalDefenseAimSuppressActive() const noexcept;
     bool IsFortressGainPointEnemyOccupiedEventRawFresh(int referee_fresh_ms) const noexcept;
     bool IsFortressGainPointEnemyOccupiedEventFresh(int referee_fresh_ms) const noexcept;
+    bool IsFriendPositionFresh(UnitType unit_type, int fresh_ms) const;
+    bool IsFriendHealthFresh(UnitType unit_type, int fresh_ms) const;
     bool IsEnemyPositionFresh(UnitType unit_type, int fresh_ms) const;
     std::optional<RegionalDefenseThreat> EvaluateRegionalDefenseThreat(
         UnitTeam my_team,
         UnitTeam enemy_team) const;
     bool TrySetRegionalDefenseGoal(UnitTeam my_team, UnitTeam enemy_team);
+    bool TrySetProtectHeroGoal(UnitTeam my_team, UnitTeam enemy_team);
     bool TickNaviProgressWatchdog(UnitTeam my_team, UnitTeam enemy_team);
     bool IsDefaultRegionalDecisionReady(UnitTeam my_team, UnitTeam enemy_team) const;
     bool TrySetDefaultRegionalGoal(UnitTeam my_team, UnitTeam enemy_team);
