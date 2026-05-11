@@ -404,8 +404,8 @@ namespace BehaviorTree{
         });
 
 #ifdef LY_ENABLE_SENTRY_MSGS
-        // ly_aim_armor_target: external sentry.aim target candidates.
-        GenSubWithQoS<ly_aim_armor_target>(rclcpp::SensorDataQoS(), [](Application& app, auto msg) {
+        // ly_aim_armor_targets: external sentry.aim target candidates.
+        GenSubWithQoS<ly_aim_armor_targets>(rclcpp::SensorDataQoS(), [](Application& app, auto msg) {
             if (!app.config.ExternalAimSettings.Enable) {
                 return;
             }
@@ -467,20 +467,7 @@ namespace BehaviorTree{
             const auto pitch = static_cast<AngleType>(msg->pitch);
             const bool finite_angles = std::isfinite(yaw) && std::isfinite(pitch);
             const auto now = std::chrono::steady_clock::now();
-            bool target_context_valid = true;
-            if (app.config.ExternalAimSettings.UseTargetArrayAsArmorList) {
-                target_context_valid = false;
-                const auto target_id = static_cast<std::size_t>(app.targetArmor.Type);
-                const int fresh_ms = std::max(1, app.config.ExternalAimSettings.TargetFreshTimeoutMs);
-                if (target_id < app.externalAimTargets_.size()) {
-                    const auto& cached = app.externalAimTargets_[target_id];
-                    target_context_valid =
-                        cached.Valid &&
-                        cached.LastSeen.time_since_epoch().count() != 0 &&
-                        now - cached.LastSeen <= std::chrono::milliseconds(fresh_ms);
-                }
-            }
-            const bool result_valid = finite_angles && target_context_valid;
+            const bool result_valid = finite_angles;
             app.externalAimData.Angles = GimbalAnglesType{yaw, pitch};
             app.externalAimData.BuffFollow = false;
             app.externalAimData.FireStatus = result_valid && msg->fire;

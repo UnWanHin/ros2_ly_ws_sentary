@@ -27,7 +27,7 @@ Usage:
 Purpose:
   Formal external-aim armor-only debug wrapper.
   - keeps behavior_tree online (for /ly/control/angles chain debugging)
-  - uses external /ly/aim/armor_target + /ly/aim/result as the aim input
+  - uses external /ly/aim/armor_targets + /ly/aim/result as the aim input
   - disables patrol-style scan via bt_config_file=Scripts/ConfigJson/regional/debug/armor_only_test.json
   - fire enabled (same as armor_test style)
 EOF

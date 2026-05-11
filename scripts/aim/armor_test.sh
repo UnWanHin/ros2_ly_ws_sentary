@@ -25,7 +25,7 @@ Usage:
 Purpose:
   Formal external-aim armor test wrapper.
   Starts behavior_tree/sentry_all via competition_autoaim.launch.py and waits for
-  external /ly/aim/armor_target + /ly/aim/result.
+  external /ly/aim/armor_targets + /ly/aim/result.
 EOF
 }
 

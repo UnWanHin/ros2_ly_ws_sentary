@@ -110,8 +110,8 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 |---|---|---|---|
 | `/ly/vision/mode` | `std_msgs/msg/UInt8` | `behavior_tree` -> legacy tools | `0=disabled`, `1=armor`, `2=buff`, `3=outpost`；正式鏈路不再用它啟動內部視覺。 |
 | `/ly/bt/target` | `std_msgs/msg/UInt8` | `behavior_tree` -> legacy tools/debug | 当前 BT 选择的装甲板目标类型；正式選目標同時發布 `/ly/aim/select_target`。 |
-| `/ly/aim/armor_target` | `sentry_msgs/msg/AimTargetArray` | external aim -> `behavior_tree` | 外部辅瞄输出的可打目标列表；数组元素是 `AimTarget.msg`，BT 用它生成 `hitableTargets`、目標距離和 Chase 相對 point。 |
-| `/ly/aim/select_target` | `sentry_msgs/msg/AimTarget` | `behavior_tree` -> external aim | BT 选择的目标 `id`，`header.stamp` 为当前发布时间，`position` 尽量填最近一次 `/ly/aim/armor_target` 中同 id 的位置。 |
+| `/ly/aim/armor_targets` | `sentry_msgs/msg/AimTargetArray` | external aim -> `behavior_tree` | 外部辅瞄输出的可打目标列表；数组元素是 `AimTarget.msg`，BT 用它生成 `hitableTargets`、目標距離和 Chase 相對 point。 |
+| `/ly/aim/select_target` | `sentry_msgs/msg/AimTarget` | `behavior_tree` -> external aim | BT 选择的目标 `id`，`header.stamp` 为当前发布时间，`position` 尽量填最近一次 `/ly/aim/armor_targets` 中同 id 的位置。 |
 | `/ly/aim/result` | `sentry_msgs/msg/AimResult` | external aim -> `behavior_tree` | 外部辅瞄最终 yaw/pitch 和 `fire` 门控；BT 直接用于 `/ly/control/angles` 和 `/ly/control/firecode`，不再绕到 `/ly/predictor/target`。 |
 | `/ly/detector/armors` | `auto_aim_common/msg/Armors` | legacy detector -> legacy tracker/predictor | 舊內部輔瞄鏈路，正式 `sentry_all` 不啟動。 |
 | `/ly/predictor/target` | `auto_aim_common/msg/Target` | legacy predictor -> `behavior_tree` | 舊普通輔瞄結果；`Behavion` 正式配置會忽略。 |
@@ -141,7 +141,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/navi/lower_head` | `std_msgs/msg/UInt8` | navigation/兼容 -> `behavior_tree` | 低头/通过特定路径时的兼容状态。 |
 | `/ly/navi/vel` | `gimbal_driver/msg/Vel` | 兼容/调试 | 当前 BT 代码保留 publisher，但主控制速度走 `/ly/control/vel`。 |
 
-追击多源退化顺序：`Chase.ToNavi=true` 时，BT 优先使用 `/ly/aim/armor_target` 里当前选中目标的 point 发布 `/ly/navi/target_rel`，消息携带来源 frame（默认 `gimbal_world`），由 `navi_tf_bridge` 转成 `/goal_pose`。`Chase.AreaLimit` 来自 BT JSON：`/ly/aim/armor_target` 路径由 `navi_tf_bridge` 限制追击 `/goal_pose`，官方坐标 fallback 路径由 BT 在发布 `/ly/navi/goal_pos_raw` 前限制目标点。`ChaseEnableCrossArea=false` 时限制在自身当前大区域边界内侧；`true` 时可追到 `DecisionAutonomy.NaviGoal` 已开启的大区域，未开启区域仍不允许。该限制不关闭云台跟踪/开火。只有 `/ly/aim/armor_target` 追击点不可用时，才退化到 `/ly/position/data` 官方坐标源。两条链路不会在同一 tick 同时作为有效追击目标发布。
+追击多源退化顺序：`Chase.ToNavi=true` 时，BT 优先使用 `/ly/aim/armor_targets` 里当前选中目标的 point 发布 `/ly/navi/target_rel`，消息携带来源 frame（默认 `gimbal_world`），由 `navi_tf_bridge` 转成 `/goal_pose`。`Chase.AreaLimit` 来自 BT JSON：`/ly/aim/armor_targets` 路径由 `navi_tf_bridge` 限制追击 `/goal_pose`，官方坐标 fallback 路径由 BT 在发布 `/ly/navi/goal_pos_raw` 前限制目标点。`ChaseEnableCrossArea=false` 时限制在自身当前大区域边界内侧；`true` 时可追到 `DecisionAutonomy.NaviGoal` 已开启的大区域，未开启区域仍不允许。该限制不关闭云台跟踪/开火。只有 `/ly/aim/armor_targets` 追击点不可用时，才退化到 `/ly/position/data` 官方坐标源。两条链路不会在同一 tick 同时作为有效追击目标发布。
 
 导航状态保护：
 
@@ -168,7 +168,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `gimbal_driver/msg/SentryInfo` | `sentry_info_raw`, `sentry_info_2_raw`, exchange/revive/out_of_combat/posture/energy fields | 裁判 `0x020D` 哨兵状态。 |
 | `gimbal_driver/msg/BulletInfo` | `initial_speed`, shoot data, projectile allowance, remaining coin | TypeID 7/8 弹丸与资源状态。 |
 | `gimbal_driver/msg/GimbalRawFrame` | `header`, `direction`, `type_id`, `data`, `firecode_raw`, `sentry_cmd_raw` | 可选 raw 串口诊断 topic。 |
-| `sentry_msgs/msg/AimTargetArray` | `header`, `aim_targets[]` | 外部 aim 可打目标列表；`/ly/aim/armor_target` 使用 `SensorDataQoS`。 |
+| `sentry_msgs/msg/AimTargetArray` | `header`, `aim_targets[]` | 外部 aim 可打目标列表；`/ly/aim/armor_targets` 使用 `SensorDataQoS`。 |
 | `sentry_msgs/msg/AimTarget` | `header`, `position`, `id` | 外部 aim 候选目标和 BT 目标选择共用结构；`id` 对齐 `ArmorType`，`position` 为米制 point，`header.frame_id` 非空时才作为 Chase 真值点参与 TF 转换。 |
 | `sentry_msgs/msg/AimResult` | `header`, `fire`, `pitch`, `yaw` | 外部 aim 的最终角度与开火门控。 |
 | `auto_aim_common/msg/Target` | `header`, `status`, `buff_follow`, `yaw`, `pitch` | predictor/buff/outpost 角度目标。 |
