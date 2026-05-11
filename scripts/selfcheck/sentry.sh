@@ -872,7 +872,7 @@ if (( STATIC_ONLY == 0 )); then
   check_node_sub "/behavior_tree" "/ly/game/is_start" hard
   check_node_sub "/behavior_tree" "/ly/game/time_left" hard
   check_node_sub "/behavior_tree" "/ly/friend/is_team_red" hard
-  check_node_sub "/behavior_tree" "/ly/aim/armor_target" hard
+  check_node_sub "/behavior_tree" "/ly/aim/armor_targets" hard
   check_node_sub "/behavior_tree" "/ly/aim/result" hard
 
   # behavior_tree outputs
@@ -893,7 +893,7 @@ if (( STATIC_ONLY == 0 )); then
   check_topic_link "/ly/control/vel" "gimbal_driver/msg/ControlVelocity" "/behavior_tree" "/gimbal_driver" hard
 
   check_topic_link "/ly/aim/select_target" "sentry_msgs/msg/AimTarget" "/behavior_tree" "" hard
-  check_topic_link "/ly/aim/armor_target" "sentry_msgs/msg/AimTargetArray" "" "/behavior_tree" hard
+  check_topic_link "/ly/aim/armor_targets" "sentry_msgs/msg/AimTargetArray" "" "/behavior_tree" hard
   check_topic_link "/ly/aim/result" "sentry_msgs/msg/AimResult" "" "/behavior_tree" hard
 
   print_section "Conditional Topics (Data-Dependent)"

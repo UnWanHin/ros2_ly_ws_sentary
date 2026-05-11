@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Formal chase test chain:
-#   external /ly/aim/armor_target + /ly/aim/result -> behavior_tree
+#   external /ly/aim/armor_targets + /ly/aim/result -> behavior_tree
 #   behavior_tree -> /ly/navi/target_rel -> navi_tf_bridge -> /goal_pose
 # It keeps gimbal lock/patrol and chassis rotate enabled by default, and
 # disables Chase.AreaLimit so this script only checks whether chase works.
@@ -40,7 +40,7 @@ Usage:
 Purpose:
   Start the formal sentry_all/regional chain for chase testing.
   It waits for external aim topics:
-    /ly/aim/armor_target   sentry_msgs/msg/AimTargetArray
+    /ly/aim/armor_targets   sentry_msgs/msg/AimTargetArray
     /ly/aim/result       sentry_msgs/msg/AimResult
   BT publishes:
     /ly/aim/select_target -> external aim
@@ -436,7 +436,7 @@ if (( OFFLINE_MODE == 1 )); then
 fi
 
 echo "[INFO] formal chase test via sentry_all/regional" >&2
-echo "[INFO] external aim input: /ly/aim/armor_target + /ly/aim/result" >&2
+echo "[INFO] external aim input: /ly/aim/armor_targets + /ly/aim/result" >&2
 echo "[INFO] chase output: /ly/navi/target_rel -> /goal_pose" >&2
 echo "[INFO] fire=${FIRE_ENABLED} rotate=${ROTATE_ENABLED} scan=${SCAN_ENABLED} scan_mode=${SCAN_MODE} area_limit=${AREA_LIMIT_ENABLED}" >&2
 echo "[INFO] respect_is_rotate=${RESPECT_IS_ROTATE} source_bt_config=${SOURCE_BT_CONFIG}" >&2

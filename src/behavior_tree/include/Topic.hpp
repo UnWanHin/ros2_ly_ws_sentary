@@ -119,7 +119,7 @@ namespace BehaviorTree {
     LY_DEF_ROS_TOPIC(ly_face_mode_target_raw, "/ly/face_mode/target_raw", std_msgs::msg::UInt16MultiArray);
 
 #ifdef LY_ENABLE_SENTRY_MSGS
-    LY_DEF_ROS_TOPIC(ly_aim_armor_target, "/ly/aim/armor_target", sentry_msgs::msg::AimTargetArray);
+    LY_DEF_ROS_TOPIC(ly_aim_armor_target, "/ly/aim/armor_targets", sentry_msgs::msg::AimTargetArray);
     LY_DEF_ROS_TOPIC(ly_aim_select_target, "/ly/aim/select_target", sentry_msgs::msg::AimTarget);
     LY_DEF_ROS_TOPIC(ly_aim_result, "/ly/aim/result", sentry_msgs::msg::AimResult);
 #endif
