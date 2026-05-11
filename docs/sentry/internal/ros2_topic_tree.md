@@ -163,7 +163,7 @@ Updated: 2026-05-08
 ├── goal_pos      : std_msgs/msg/UInt16MultiArray   [External] 已处理导航点兼容输出
 ├── target_rel    : auto_aim_common/msg/RelativeTarget [External] BT -> navi_tf_bridge，相机系/目标相对点
 ├── target_map    : geometry_msgs/msg/PointStamped  [External] navi_tf_bridge debug，目标转换后的 map/odom 点
-├── position      : gimbal_driver/msg/StampedUInt16MultiArray [External] navi_tf_bridge -> BT，自身官方坐标 [x, y]，带 header.stamp
+├── position      : gimbal_driver/msg/StampedUInt16MultiArray [External] navi_tf_bridge -> BT，自身官方坐标 data=[x, y]，另带 map_point/map_frame/source_frame
 ├── speed_level   : std_msgs/msg/UInt8              [External] BT -> 导航速度档
 ├── lower_head    : std_msgs/msg/UInt8              [External] 导航兼容低头状态
 ├── reached       : std_msgs/msg/Bool               [External] 导航 -> BT，当前 goal 是否到达
@@ -593,7 +593,7 @@ TypeID 8 BulletDataAndRfid2
 - `behavior_tree` 消费 `/ly/position/data` 时会做 `Y = 1500 - raw_y` 的官方地图方向转换。
 - `/ly/friend/uwb_pos` 和 `/ly/navi/position` 使用 `gimbal_driver/msg/StampedUInt16MultiArray`，`data=[x, y]`，`header.stamp` 是各自发布节点打的源时间戳。
 - `behavior_tree` 通过 `AreaManager.SentryPositionFusion` 融合 `/ly/friend/uwb_pos`、`/ly/position/data` 的 sentry friend slot 和 `/ly/navi/position`，再写入 `friendRobots[Sentry].position_`。
-- `/ly/navi/position` 是 `navi_tf_bridge` 从 TF 算出位置后再逆变换成官方地图 cm 的 `[x, y]`，给区域判断辅助用。
+- `/ly/navi/position` 是 `navi_tf_bridge` 从 TF 算出位置后再逆变换成官方地图 cm 的 `data=[x, y]`，给区域判断辅助用；同包的 `map_point` 保留 map 系 m 坐标，BT 当前不消费它。
 
 ### 下行：ROS -> `gimbal_driver` -> 下位机
 

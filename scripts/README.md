@@ -218,7 +218,7 @@ python3 ./scripts/python/start.py --keep-to-navi
 | `scripts/navi/navi_vel_chain.sh` | 导航专用速度链路：只拉 `gimbal_driver` 和 `/ly/navi/vel -> /ly/control/vel` 桥，不启动 BT/视觉/FaceMode/小陀螺 |
 | `scripts/navi/navi_control_chain.sh` | area_test `--pure` 风格的正式 BT 导航下位机链路：`/ly/navi/vel -> behavior_tree -> /ly/control/vel -> gimbal_driver`，不打弹，默认开小陀螺和 `PatrolScan.Mode=2`，只禁用 navi_tf_bridge 的 `/goal_pose` 输出 |
 | `scripts/navi/chase.sh` | 正式 `sentry_all` 追击测试链路：外部 `/ly/aim/TargetList` + `/ly/aim/Result` 进 BT，默认不打弹、开小陀螺和 `PatrolScan.Mode=2`，关闭 Chase 区域边界限制，只看 `/ly/navi/target_rel -> /goal_pose` 能否追击 |
-| `scripts/navi/position.sh` | 一键查看 `/ly/navi/position`，默认只输出 `data: [official_map_x_cm, official_map_y_cm]` |
+| `scripts/navi/position.sh` | 一键查看 `/ly/navi/position`，默认只输出 `data: [official_map_x_cm, official_map_y_cm]`；`--full` 可看 `header.stamp` 和 map 系 `map_point` |
 | `scripts/navi/map_aim_point_test.sh` | FaceMode 完整测试入口，可拉 `gimbal_driver` / `tf_tree`，支持 `--unit m\|cm`，默认 cm |
 | `scripts/navi/map_aim_point_attach.sh` | 已有 stack 上只附加 FaceMode 节点 |
 

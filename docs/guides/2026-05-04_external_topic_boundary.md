@@ -40,7 +40,7 @@ FaceMode 的独立测试节点默认直接发布 `/ly/control/angles`，可选�
 
 `config/AreaManager.yaml` 放区域启用状态和区域任务参数；区域状态机内置的固定朝向目标通过 `/ly/face_mode/target_raw` 动态下发。`/ly/face_mode/angles` 本身仍然是角度 topic，不携带官方地图坐标。
 
-`navi_tf_bridge` 还会按 `map_frame <- base_frame` 查询 TF，并用同一套 raw-goal 4x4 矩阵反解成官方地图厘米坐标发布 `/ly/navi/position`。BT 会把它作为 `/ly/friend` 官方坐标之外的补充自身位置来源。
+`navi_tf_bridge` 还会按 `map_frame <- base_frame` 查询 TF，并用同一套 raw-goal 4x4 矩阵反解成官方地图厘米坐标发布 `/ly/navi/position`。BT 会把 `data[0:2]` 作为 `/ly/friend` 官方坐标之外的补充自身位置来源；同包的 `map_point` 保留 map 系米制坐标供调试或新订阅者使用。
 
 ### 下位机串口接口（由 gimbal_driver 对接）
 

@@ -276,7 +276,7 @@ void TreeTick() {
 | `/ly/outpost/target` | `outpostAimData`, `isFindTargetAtomic` | 前哨瞄準角度；当前同样按老链路语义视为可开火 |
 | `/ly/buff/target` | `buffAimData`, `isFindTargetAtomic` | 打符瞄準角度 |
 | `/ly/face_mode/angles` | `faceModeData` | FaceMode 角度输入；正式 `sentry_all` 中由 `map_aim_point_node` 输出到这个 topic |
-| `/ly/navi/position` | `SentryPositionFusion` source | 导航 TF 反解出的自身官方地图厘米坐标，`StampedUInt16MultiArray data=[x,y]` 带 `header.stamp` |
+| `/ly/navi/position` | `SentryPositionFusion` source | 导航 TF 反解出的自身位置；BT 只消费 `StampedUInt16MultiArray data=[official_x_cm,official_y_cm]`，消息另带 `header.stamp` 和 map 系 `map_point` |
 | `/ly/navi/reached` | `naviReach` | 導航當前目標是否已到達；外部狀態新鮮且匹配當前目標時優先使用 |
 | `/ly/navi/reachable` | `naviReachable` | 導航當前目標是否有有效路徑；超時/未收到/不匹配當前目標時退回內部距離判斷 |
 | `/ly/navi/is_rotate` | `naviIsRotate` | 外部导航区域兼容旋转控制；true 恢复正常巡逻，false 关闭小陀螺并请求 FollowMode |

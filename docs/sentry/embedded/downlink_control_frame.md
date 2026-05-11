@@ -1,6 +1,6 @@
 # 上位机下发协议总览（给下位机）
 
-Updated: 2026-05-07
+Updated: 2026-05-11
 
 ## 1. 目的与范围
 
@@ -69,8 +69,7 @@ Updated: 2026-05-07
 | 5 | `AimMode` | 辅瞄/巡逻模式 |
 | 6-7 | `Rotate` | 小陀螺档位 |
 
-上位机 `behavior_tree` 当前约定：`FollowMode=1` 时仍下发 bit4，同时强制 `Rotate=0`、
-`AimMode=0`，不再翻转 `FireStatus`，并保持当前云台角度以停用巡逻扫描。
+上位机 `behavior_tree` 发布 `FollowMode=1` 时，只改 bit4 本身；不会因为该 bit 自动强制 `Rotate=0`、`AimMode=0`、停止 `FireStatus` 翻转或停用云台巡逻扫描。`/ly/navi/is_rotate=false` 仍可按配置额外把 `Rotate=0`，FaceMode/停火也由各自独立控制。
 
 下位机建议：不要把 `FireStatus==1` 当作“持续开火”，按翻转沿触发。
 

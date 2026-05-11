@@ -256,7 +256,7 @@ if(control_result.valid){
 - `/ly/navi/reachable` - 導航當前目標是否可達，`false` 表示無有效路徑
 - `/ly/navi/is_rotate` - 外部导航区域兼容控制，`true` 恢复 BT 正常小陀螺/巡逻，`false` 关闭小陀螺并请求 `FollowMode`
 - `/ly/face_mode/angles` - FaceMode 角度输入；区域任务开启固定朝向时由 BT 消费
-- `/ly/navi/position` - 导航 TF 反解出的自身官方地图坐标，`StampedUInt16MultiArray data=[x_cm, y_cm]`，带 `header.stamp`，进入 BT 的 `AreaManager.SentryPositionFusion`
+- `/ly/navi/position` - 导航 TF 反解出的自身位置，`StampedUInt16MultiArray data=[official_x_cm, official_y_cm]` 进入 BT 的 `AreaManager.SentryPositionFusion`，`header.stamp` 使用 TF source stamp，`map_point` 保留 map 系 m 坐标
 
 **behavior_tree 發布**:
 - `/ly/control/angles`

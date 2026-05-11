@@ -1,6 +1,6 @@
 # Vision / Task / Patrol Mode Flow
 
-Updated: 2026-05-09
+Updated: 2026-05-11
 
 本文說明目前 `regional` 鏈路裡幾個容易混淆的「模式」：`/ly/vision/mode`、BT JSON 的 `Task`、雲台巡邏、區域巡邏、`FollowMode`、`FaceMode`。這些不是同一層東西，不能混着改。
 
@@ -13,7 +13,7 @@ Updated: 2026-05-09
 | `AimMode` | BT 內部狀態 | `behavior_tree` | 把任務轉成當前視覺模式、目標選擇、開火/角度鏈路 |
 | 雲台巡邏掃描 | BT 內部控制 | `behavior_tree` | 沒看到目標時自己算 `/ly/control/angles` 掃描 |
 | 區域巡邏 | BT 區域狀態機 | `AreaManager` | Base/Highland/Roadland/Central 導航任務 |
-| `FollowMode` | firecode 語義位 | `behavior_tree` 發，下位機收 | 停小陀螺、停雲台巡邏、停火，保持跟隨/穿越語義 |
+| `FollowMode` | firecode 語義位 | `behavior_tree` 發，下位機收 | 只下發跟隨/穿越語義 bit；不再由 BT 用它停小陀螺、停巡邏或停火 |
 | `FaceMode` | BT + `navi_tf_bridge` | `behavior_tree` + `map_aim_point_node` | 朝向固定地圖點，輸出 `/ly/face_mode/angles` 再由 BT 轉 `/ly/control/angles` |
 
 ## `/ly/vision/mode`
@@ -430,17 +430,17 @@ StopScan=false
 
 目前語義：
 
-- 停底盤小陀螺。
-- 停雲台巡邏。
-- 停火。
-- 保持特殊穿越/跟隨控制語義。
+- 下發 `FireCode.FollowMode` bit。
+- 保持特殊穿越/跟隨語義給下位機或外部控制鏈路。
+- 不再讓 BT 內部自動停底盤小陀螺、停雲台巡邏或停火。
+- 需要停小陀螺時改 `FireCode.Rotate`；需要固定朝向或停火時用 FaceMode、`SuppressFire` 或原本開火邏輯。
 
 典型使用：
 
 - Highland 進入/離開階段。
 - Roadland 強綁定穿越階段。
 
-Roadland 強綁定穿越時，`FollowMode + FaceMode + 停火` 會保持到到達終點、不可達或超時，不會因普通目標/防守事件中途釋放。
+Roadland 強綁定穿越時，任務調度 hard lock 會保持到到達終點、不可達或超時；`FollowMode`、FaceMode、停火現在是分開的輸出控制。
 
 ## FaceMode
 

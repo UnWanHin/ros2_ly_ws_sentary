@@ -62,7 +62,7 @@ Regional 裡常見控制語義：
 - `AimMode::RotateScan`：普通裝甲搜索/打車。
 - `AimMode::Buff`：打符視覺鏈路。
 - `AimMode::Outpost`：前哨視覺鏈路。
-- `FollowMode`：停小陀螺、停巡邏掃描、停新的開火翻轉，常用於過渡和強綁定穿越。
+- `FollowMode`：只表示下發到 `FireCode.FollowMode` 的語義位；BT 不再因這個 bit 自動停小陀螺、停巡邏或停開火。
 - `FaceMode`：雲台朝固定區域/點接管，可按配置停火；它本身不等於停小陀螺。
 - Chase：鎖到目標後可發布追擊目標或速度；是否使用取決於配置，但鏈路已存在。
 
@@ -130,7 +130,7 @@ Regional 任務主要使用這些導航/定位輸入：
 - `Enable=true` 時啟用這條外部控制鏈。
 - `FreshTimeoutMs=500`，超過這個時間沒有新消息時按 `DefaultIsRotate=true` 處理，避免舊的 `false` 長時間卡住底盤。
 - `DefaultIsRotate=true` 表示沒有新鮮信號時回到 BT 正常小陀螺/雲台巡邏策略。
-- `ForceFollowModeWhenFalse=true`：收到新鮮 `false` 時，本輪強制 `FollowMode=1`。
+- `ForceFollowModeWhenFalse=true`：收到新鮮 `false` 時，只在最終下發 `FireCode` 前臨時合併 `FollowMode=1`；這個 bit 不會觸發 BT 停火/停巡航分支。
 - `StopRotateWhenFalse=true`：收到新鮮 `false` 時，本輪強制 `Rotate=0`。
 - `ClearFollowModeWhenTrue=true`：收到新鮮 `true` 時，釋放 `FollowMode`，回到 BT 正常 rotate 策略。
 - `ClearRegionalFaceModeWhenTrue=true`：收到新鮮 `true` 時，清掉 regional area-task 兼容用的 FaceMode；Buff/Outpost 自己的固定朝向不靠這個開關清。
@@ -140,26 +140,18 @@ Regional 任務主要使用這些導航/定位輸入：
 ```text
 is_rotate=false
   -> 外部導航認為當前處在不適合小陀螺的地形/區段
-  -> 當 ForceFollowModeWhenFalse=true 時，BT 本輪下發 FollowMode=1, Rotate=0
-  -> 停小陀螺、停雲台巡邏掃描、保持當前雲台角，且不翻轉 FireStatus
+  -> 當 ForceFollowModeWhenFalse=true 時，最終下發 FireCode.FollowMode=1
+  -> 當 StopRotateWhenFalse=true 時，最終下發 Rotate=0
+  -> BT 仍按當前 AimMode 做雲台巡邏、鎖敵和開火
 
 is_rotate=true
   -> 外部導航認為已離開兼容區段
-  -> BT 釋放 FollowMode
+  -> BT 不再合併外部 FollowMode bit；若 ClearFollowModeWhenTrue=true，會清除殘留 FollowMode
   -> 小陀螺回到普通策略：平時 1 檔，受擊後可升檔
   -> 雲台巡邏/鎖敵/開火回到當前任務本來的狀態
 ```
 
-所以正式當前配置下，`is_rotate=false` 不是「一邊走一邊正常巡航開火」，而是「跟隨/穩定通過」：`rotate_level=0`，同時 `FollowMode=1` 壓住雲台巡邏和新的開火翻轉。如果只想讓外部導航關小陀螺，但仍允許 BT 正常雲台巡邏、鎖敵和開火，可以把 `ForceFollowModeWhenFalse` 改成 `false`，保留 `StopRotateWhenFalse=true`：
-
-```yaml
-NaviRotateControl:
-  Enable: true
-  ForceFollowModeWhenFalse: false
-  StopRotateWhenFalse: true
-```
-
-這種配置下，新鮮 `is_rotate=false` 只會把 `FireCode.Rotate` 壓成 0；因為不進 `FollowMode` 分支，BT 仍會按當前 `AimMode` 做雲台巡邏、目標鎖定和開火。是否要這樣用，取決於該地形區段是只需要「不要小陀螺」，還是需要「穩定通過、不要開火/掃描」。
+所以正式當前配置下，`is_rotate=false` 表示「外部導航請求下位機 FollowMode bit + 關小陀螺檔位」。BT 仍會該巡航就巡航，該鎖敵開火就開火；`FollowMode` bit 本身只進最終 firecode 字段，不再觸發 BT 停火/停巡航分支。
 
 它和 `MyRoadland` 強鎖不是同一層：
 
@@ -279,15 +271,15 @@ RegionalDefense 是事件驅動戰術層，優先級高於 Default。敵方位�
 任務路線：
 
 ```text
-Highland(FollowMode + FaceMode，停火)
+Highland(FollowMode bit + optional FaceMode + explicit stop-fire)
   -> Highland 短暫巡邏/停留
   -> BuffShoot
   -> BuffShoot 駐守
-  -> HoleRoad(FollowMode + FaceMode，停火)
+  -> HoleRoad(FollowMode bit + optional FaceMode + explicit stop-fire)
   -> 完成
 ```
 
-上面的 `FollowMode + FaceMode` 是 AreaTask 的兼容 phase 語義。正式配置裡 `NaviRotateControl.Enable=true` 且 `MyHighland.UseFaceMode=false`，所以進出 Highland 時實際是否停小陀螺/開 FollowMode 主要由外部導航的 `/ly/navi/is_rotate` 決定。
+上面的 `FollowMode bit / FaceMode / stop-fire` 是三個獨立輸出。正式配置裡 `NaviRotateControl.Enable=true` 時，進出 Highland 時實際是否停小陀螺主要由外部導航的 `/ly/navi/is_rotate` 決定。
 
 進入 Highland 和離開 Highland 時：
 
@@ -334,7 +326,7 @@ CentralToBase
 - 先正常去 `CentralToBase`。
 - 到點、不可達或超時後，進入去 `BaseToCentral` 的強綁定穿越段。
 - 強綁定穿越段中，任務調度 hard lock 生效；正式配置下是否 `FollowMode=1 / Rotate=0` 由 `/ly/navi/is_rotate=false` 決定。
-- 是否穩定停火取決於控制分支：`FollowMode=1` 或 active regional FaceMode 會壓住新的 `FireStatus` 翻轉；如果 `is_rotate=true` 且 `MyRoadland.UseFaceMode=false`，BT 會回到普通巡航/鎖敵/開火邏輯。
+- 是否穩定停火取決於獨立控制：active regional FaceMode 或任務結果明確 `SuppressFire` 才會壓住新的 `FireStatus` 翻轉；`FollowMode=1` 本身不再停火。
 - 到 `BaseToCentral` 後，恢復普通巡邏、小陀螺、開火控制。
 - 如果血量/彈量新鮮數據低於門檻，開始安全返回 `CentralToBase`。
 - 如果非強綁定階段遇到更高優先級請求，也不是直接取消，而是請求安全返回。
@@ -420,9 +412,9 @@ Roadland 非強綁定階段通常不直接取消，而是請求安全返回：
 - regional defense 不會取消它；
 - recovery 不會直接取消它；
 - 任務會保持穿越控制權；
-- `FollowMode / Rotate=0` 是否輸出由 `/ly/navi/is_rotate` 的新鮮值決定；
+- `FollowMode / Rotate=0` 是否輸出由 `/ly/navi/is_rotate` 的新鮮值或任務本身的獨立字段決定；
 - regional FaceMode 只有在對應 AreaTask `UseFaceMode=true` 時才會輸出；
-- 若當前沒有 `FollowMode` 且沒有 active FaceMode，普通裝甲鏈路仍可巡航、鎖敵和開火。
+- 普通裝甲鏈路是否巡航、鎖敵和開火不再由 `FollowMode` bit 決定。
 
 強綁定穿越段只會因為以下條件結束：
 
@@ -462,7 +454,7 @@ Hero -> Infantry1 -> Infantry2 -> Sentry -> Engineer
 Area task 使用既有 BT 控制鏈路輸出：
 
 - 通過 `SetPositionByBaseGoal()` 發導航目標；
-- 通過 `FireCode.FollowMode` 控 FollowMode；
+- 通過 `FireCode.FollowMode` 控 FollowMode bit；
 - 若啟用 `NaviRotateControl.yaml`，新鮮 `/ly/navi/is_rotate` 會接管區域兼容用的 FollowMode/小陀螺/regional FaceMode 釋放；
 - 需要固定朝向時，通過 `/ly/face_mode/target_raw` 發 FaceMode 目標；
 - 需要停火時，覆蓋本輪 fire 狀態。
@@ -473,7 +465,7 @@ FaceMode 目標格式：
 [official_map_x, official_map_y, map_z]  # cm
 ```
 
-FaceMode 負責固定點朝向和接管雲台角度。FollowMode 是更強的模式，會同時用 firecode 語義停底盤小陀螺、停雲台巡邏並停火。
+FaceMode 負責固定點朝向和接管雲台角度。FollowMode 只負責下發 firecode 語義位；小陀螺、雲台巡邏和停火分別由 `Rotate`、FaceMode、`SuppressFire`/開火邏輯控制。
 
 ## League / Regional 邊界
 

@@ -1,6 +1,6 @@
 # 串口上下行数据映射总表
 
-Updated: 2026-05-08
+Updated: 2026-05-11
 
 ## 1. 说明
 
@@ -149,7 +149,7 @@ struct GimbalControlData
 | 5 | `AimMode` | 瞄准模式 |
 | 6~7 | `Rotate` | 小陀螺档位 |
 
-`behavior_tree` 发布 `FollowMode=1` 时，会同时把 `Rotate` 压到 `0`、关闭 `AimMode`、停止新的 `FireStatus` 翻转，并保持当前云台角度，不再进入巡逻扫描。FaceMode 是上位机内部云台接管语义：停止云台巡逻并按配置停火，但不会单独把 `Rotate` 压到 `0`。
+`behavior_tree` 发布 `FollowMode=1` 时，现在只改 `FireCode.FollowMode` 这个 bit；不会因为该 bit 自动把 `Rotate` 压到 `0`、关闭 `AimMode`、停止新的 `FireStatus` 翻转或保持当前云台角度。小陀螺、FaceMode 和停火分别由 `Rotate`、FaceMode、`SuppressFire`/开火逻辑独立控制。
 
 ### 3.1.4 `SentryCmd` 位定义
 

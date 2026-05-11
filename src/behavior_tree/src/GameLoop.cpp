@@ -804,11 +804,9 @@ namespace BehaviorTree {
         static constexpr auto kTwoPi = 6.2831853071795864769f;
         static constexpr int kDamageScanBoostWindowMs = 1300;
         static constexpr int kDamageScanYawPhaseMs = 160;
-        const auto follow_mode_before_navi_rotate_control =
-            gimbalControlData.FireCode.FollowMode;
         bool navi_rotate_control_stop_request = false;
         bool navi_rotate_control_release_request = false;
-        bool navi_rotate_control_follow_override = false;
+        bool navi_rotate_control_follow_output = false;
         if (config.NaviRotateControlSettings.Enable) {
             bool external_is_rotate = config.NaviRotateControlSettings.DefaultIsRotate;
             const auto rotate_control_now = std::chrono::steady_clock::now();
@@ -829,12 +827,9 @@ namespace BehaviorTree {
                 gimbalControlData.FireCode.FollowMode = 0;
             } else if (navi_rotate_control_stop_request &&
                 config.NaviRotateControlSettings.ForceFollowModeWhenFalse) {
-                gimbalControlData.FireCode.FollowMode = 1;
-                navi_rotate_control_follow_override = true;
+                navi_rotate_control_follow_output = true;
             }
         }
-        const bool follow_mode_active = gimbalControlData.FireCode.FollowMode != 0;
-
         
         // 小陀螺策略（老设计）：
         // 1) 受击后按 1 -> 2 -> 3 递进换档；
@@ -903,9 +898,6 @@ namespace BehaviorTree {
         if (highland_compat_disable_rotate_active) {
             gimbalControlData.FireCode.Rotate = 0;
         }
-        if (follow_mode_active) {
-            gimbalControlData.FireCode.Rotate = 0;
-        }
         const int regional_referee_fresh_ms = std::max(
             std::max(0, config.TaskSettings.BuffConfirm.RefereeFreshTimeoutMs),
             std::max(0, config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs));
@@ -914,7 +906,6 @@ namespace BehaviorTree {
             regionalDefenseSearchKind_ == RegionalDefenseSearchKind::OwnFortressGainPoint &&
             current_base_goal_id != LangYa::Recovery.ID;
         const bool fortress_defense_control_allowed =
-            !follow_mode_active &&
             !highland_compat_disable_rotate_active;
         const bool fortress_defense_target_locked =
             aimMode != AimMode::Buff &&
@@ -1048,24 +1039,10 @@ namespace BehaviorTree {
             static auto last_face_mode_log = std::chrono::steady_clock::time_point{};
             if (now - last_face_mode_log > std::chrono::seconds(2)) {
                 LoggerPtr->Debug(
-                    "FaceMode active: {}, stop patrol scan, {} gimbal angles, suppress_fire={}",
-                    follow_mode_active ? "follow mode controls rotate" : "keep rotate",
+                    "FaceMode active: keep rotate policy, stop patrol scan, {} gimbal angles, suppress_fire={}",
                     face_angles.has_value() ? "use FaceMode" : "hold current",
                     config.FaceModeSettings.SuppressFire ? 1 : 0);
                 last_face_mode_log = now;
-            }
-        } else if (follow_mode_active) {
-            reset_patrol_scan_state();
-            gimbalControlData.FireCode.AimMode = 0;
-            gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
-            buffAimData.FireStatus = false;
-            nextAngles = gimbalAngles;
-
-            static auto last_follow_mode_log = std::chrono::steady_clock::time_point{};
-            if (now - last_follow_mode_log > std::chrono::seconds(2)) {
-                LoggerPtr->Debug(
-                    "FollowMode active: stop rotate, stop patrol scan, hold current gimbal angles, suppress fire");
-                last_follow_mode_log = now;
             }
         } else if (has_target_for_angles) {
             reset_patrol_scan_state();
@@ -1277,7 +1254,7 @@ namespace BehaviorTree {
             }
         }
 
-        if (!follow_mode_active && chase_mode_enabled) {
+        if (chase_mode_enabled) {
             const bool chase_to_navi = config.ChaseSettings.ToNavi;
             const bool navi_to_navi =
                 config.NaviSettings.UseXY && config.NaviSettings.ToNavi;
@@ -1469,16 +1446,20 @@ namespace BehaviorTree {
         }
 
         // lower_head 只在未锁目标时生效，并且整对角一起切换，避免混用旧 yaw/new pitch。
-        if(!follow_mode_active && naviLowerHead && !has_target_for_angles) {
+        if(naviLowerHead && !has_target_for_angles) {
             nextAngles = GimbalAnglesType{gimbalAngles.Yaw, -15.0f}; //-22.5 - 26.0
         }
         gimbalControlData.GimbalAngles = nextAngles;
         naviVelocity = nextVelocity;
 
-        PublishMessageAll();
-        if (navi_rotate_control_follow_override) {
-            gimbalControlData.FireCode.FollowMode = follow_mode_before_navi_rotate_control;
+        const auto follow_mode_before_navi_rotate_control_publish =
+            gimbalControlData.FireCode.FollowMode;
+        if (navi_rotate_control_follow_output) {
+            gimbalControlData.FireCode.FollowMode = 1;
         }
+        PublishMessageAll();
+        gimbalControlData.FireCode.FollowMode =
+            follow_mode_before_navi_rotate_control_publish;
         autoAimData.Fresh = false;
         externalAimData.Fresh = false;
         buffAimData.Fresh = false;

@@ -542,10 +542,14 @@ private:
   bool lookupBaseMapPoint(
     geometry_msgs::msg::Point & point_map,
     std::string & resolved_source_frame,
-    std::string & last_tf_error)
+    std::string & last_tf_error,
+    rclcpp::Time * source_stamp = nullptr)
   {
     resolved_source_frame.clear();
     last_tf_error.clear();
+    if (source_stamp) {
+      *source_stamp = this->now();
+    }
     for (const auto & source_frame :
       {chase_pointer_.config().base_frame, chase_pointer_.config().fallback_base_frame})
     {
@@ -563,6 +567,12 @@ private:
         point_map.y = tf_map_base.transform.translation.y;
         point_map.z = tf_map_base.transform.translation.z;
         resolved_source_frame = source_frame;
+        if (source_stamp) {
+          const rclcpp::Time tf_stamp(
+            tf_map_base.header.stamp,
+            this->get_clock()->get_clock_type());
+          *source_stamp = (tf_stamp.nanoseconds() == 0) ? this->now() : tf_stamp;
+        }
         return true;
       } catch (const tf2::TransformException & ex) {
         last_tf_error =
@@ -582,7 +592,8 @@ private:
     geometry_msgs::msg::Point point_map;
     std::string resolved_source_frame;
     std::string last_tf_error;
-    if (!lookupBaseMapPoint(point_map, resolved_source_frame, last_tf_error)) {
+    rclcpp::Time source_stamp = this->now();
+    if (!lookupBaseMapPoint(point_map, resolved_source_frame, last_tf_error, &source_stamp)) {
       RCLCPP_WARN_THROTTLE(
         this->get_logger(),
         *this->get_clock(),
@@ -604,12 +615,15 @@ private:
     }
 
     gimbal_driver::msg::StampedUInt16MultiArray msg;
-    msg.header.stamp = this->now();
+    msg.header.stamp = source_stamp;
     msg.header.frame_id = navi_position_frame_;
     msg.data = {
       static_cast<std::uint16_t>(std::clamp(std::lround(raw_x_cm), 0L, 65535L)),
       static_cast<std::uint16_t>(std::clamp(std::lround(raw_y_cm), 0L, 65535L))
     };
+    msg.map_point = point_map;
+    msg.map_frame = chase_pointer_.config().map_frame;
+    msg.source_frame = resolved_source_frame;
     pub_navi_position_->publish(msg);
   }
 

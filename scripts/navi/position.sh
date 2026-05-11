@@ -39,6 +39,7 @@ Usage:
 Purpose:
   Source the workspace and echo /ly/navi/position.
   Default output is only the data field: [official_map_x_cm, official_map_y_cm].
+  Use --full to also show header.stamp plus map_point/map_frame/source_frame.
 
 Options:
   --topic <topic>       Topic to echo. Default: /ly/navi/position

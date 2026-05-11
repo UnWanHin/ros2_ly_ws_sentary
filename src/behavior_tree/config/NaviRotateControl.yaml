@@ -3,7 +3,8 @@ behavior_tree:
     NaviRotateControl:
       # External navigation publishes /ly/navi/is_rotate.
       # true: return to BT's normal rotate and patrol policy.
-      # false: request FollowMode and stop chassis rotate.
+      # false: merge FollowMode bit into the final FireCode and stop chassis rotate level.
+      # It does not make BT enter the internal FollowMode branch; patrol/fire continue normally.
       # ClearRegionalFaceModeWhenTrue affects regional area-task FaceMode only.
       Enable: true
       FreshTimeoutMs: 500

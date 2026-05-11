@@ -132,7 +132,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/navi/goal_pos` | `std_msgs/msg/UInt16MultiArray` | `behavior_tree` 或 bridge -> navigation/兼容 | 已处理坐标输出；`ToNavi=true` 时通常不作为最终导航目标。 |
 | `/ly/navi/target_rel` | `auto_aim_common/msg/RelativeTarget` | `behavior_tree` -> `navi_tf_bridge` | 追击目标点，默认 `gimbal_world` frame，字段含 `x/y/z`, `distance_m`, `yaw_error_deg`, `pitch_error_deg`, `armor_type`, `aim_mode`。 |
 | `/ly/navi/target_map` | `geometry_msgs/msg/PointStamped` | `navi_tf_bridge` -> debug | 追击目标转换到 map/导航 frame 后的点。 |
-| `/ly/navi/position` | `gimbal_driver/msg/StampedUInt16MultiArray` | `navi_tf_bridge` -> `behavior_tree` | TF 导出的自身位置，再逆变换为官方地图 cm `data=[x, y]`，作为自身坐标融合源；`header.stamp` 为 bridge 发布时间。 |
+| `/ly/navi/position` | `gimbal_driver/msg/StampedUInt16MultiArray` | `navi_tf_bridge` -> `behavior_tree` | TF 导出的自身位置；`data=[official_x_cm, official_y_cm]` 为逆变换后的官方地图 cm，作为 BT 自身坐标融合源；`header.stamp` 为 TF source stamp；`map_point` 为 map 系 m 坐标，附带 `map_frame/source_frame`。 |
 | `/goal_pose` | `geometry_msgs/msg/PoseStamped` | `navi_tf_bridge` -> external navigation | 最终导航目标。 |
 | `/ly/navi/reached` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree` | 当前目标是否到达；true=到达，false=路上。 |
 | `/ly/navi/reachable` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree` | 当前目标是否有有效路径；true=可达，false=不可达。 |
