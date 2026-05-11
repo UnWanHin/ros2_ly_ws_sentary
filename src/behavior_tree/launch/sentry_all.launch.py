@@ -127,6 +127,9 @@ def generate_launch_description():
             LaunchConfiguration("use_navi_tf_bridge").perform(context)
         )
         resolved_use_navi_tf_bridge = "true"
+        resolved_chase_preferred_distance_cm = "300"
+        resolved_chase_distance_deadband_cm = "50"
+        resolved_chase_stop_when_no_target = "true"
         resolved_chase_area_limit_enable = "false"
         resolved_chase_area_limit_boundary_margin_cm = "30.0"
         resolved_chase_area_limit_chase_enable_cross_area = "false"
@@ -151,6 +154,15 @@ def generate_launch_description():
                     )
                 chase_cfg = root.get("Chase", {})
                 if isinstance(chase_cfg, dict):
+                    resolved_chase_preferred_distance_cm = str(
+                        int(chase_cfg.get("PreferredDistanceCm", int(resolved_chase_preferred_distance_cm)))
+                    )
+                    resolved_chase_distance_deadband_cm = str(
+                        int(chase_cfg.get("DistanceDeadbandCm", int(resolved_chase_distance_deadband_cm)))
+                    )
+                    resolved_chase_stop_when_no_target = (
+                        "true" if bool(chase_cfg.get("StopWhenNoTarget", True)) else "false"
+                    )
                     area_limit_cfg = chase_cfg.get("AreaLimit", {})
                     if isinstance(area_limit_cfg, dict):
                         resolved_chase_area_limit_enable = (
@@ -195,6 +207,18 @@ def generate_launch_description():
 
         return [
             SetLaunchConfiguration("resolved_use_navi_tf_bridge", resolved_use_navi_tf_bridge),
+            SetLaunchConfiguration(
+                "resolved_chase_preferred_distance_cm",
+                resolved_chase_preferred_distance_cm,
+            ),
+            SetLaunchConfiguration(
+                "resolved_chase_distance_deadband_cm",
+                resolved_chase_distance_deadband_cm,
+            ),
+            SetLaunchConfiguration(
+                "resolved_chase_stop_when_no_target",
+                resolved_chase_stop_when_no_target,
+            ),
             SetLaunchConfiguration("resolved_chase_area_limit_enable", resolved_chase_area_limit_enable),
             SetLaunchConfiguration(
                 "resolved_chase_area_limit_boundary_margin_cm",
@@ -296,6 +320,15 @@ def generate_launch_description():
     use_navi_tf_bridge = LaunchConfiguration("use_navi_tf_bridge")
     use_face_mode_solver = LaunchConfiguration("use_face_mode_solver")
     resolved_use_navi_tf_bridge = LaunchConfiguration("resolved_use_navi_tf_bridge")
+    resolved_chase_preferred_distance_cm = LaunchConfiguration(
+        "resolved_chase_preferred_distance_cm"
+    )
+    resolved_chase_distance_deadband_cm = LaunchConfiguration(
+        "resolved_chase_distance_deadband_cm"
+    )
+    resolved_chase_stop_when_no_target = LaunchConfiguration(
+        "resolved_chase_stop_when_no_target"
+    )
     resolved_chase_area_limit_enable = LaunchConfiguration("resolved_chase_area_limit_enable")
     resolved_chase_area_limit_boundary_margin_cm = LaunchConfiguration(
         "resolved_chase_area_limit_boundary_margin_cm"
@@ -545,6 +578,9 @@ def generate_launch_description():
         DeclareLaunchArgument("resolved_rosbag_base_dir", default_value=""),
         DeclareLaunchArgument("resolved_rosbag_path", default_value=""),
         DeclareLaunchArgument("resolved_use_navi_tf_bridge", default_value="true"),
+        DeclareLaunchArgument("resolved_chase_preferred_distance_cm", default_value="300"),
+        DeclareLaunchArgument("resolved_chase_distance_deadband_cm", default_value="50"),
+        DeclareLaunchArgument("resolved_chase_stop_when_no_target", default_value="true"),
         DeclareLaunchArgument("resolved_chase_area_limit_enable", default_value="false"),
         DeclareLaunchArgument("resolved_chase_area_limit_boundary_margin_cm", default_value="30.0"),
         DeclareLaunchArgument("resolved_chase_area_limit_chase_enable_cross_area", default_value="false"),
@@ -620,6 +656,18 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] use_navi_tf_bridge: ", use_navi_tf_bridge]),
         LogInfo(msg=["[sentry_all] use_face_mode_solver: ", use_face_mode_solver]),
         LogInfo(msg=["[sentry_all] resolved_use_navi_tf_bridge: ", resolved_use_navi_tf_bridge]),
+        LogInfo(msg=[
+            "[sentry_all] chase_preferred_distance_cm: ",
+            resolved_chase_preferred_distance_cm,
+        ]),
+        LogInfo(msg=[
+            "[sentry_all] chase_distance_deadband_cm: ",
+            resolved_chase_distance_deadband_cm,
+        ]),
+        LogInfo(msg=[
+            "[sentry_all] chase_stop_when_no_target: ",
+            resolved_chase_stop_when_no_target,
+        ]),
         LogInfo(msg=["[sentry_all] chase_area_limit_enable: ", resolved_chase_area_limit_enable]),
         LogInfo(msg=[
             "[sentry_all] chase_area_limit_boundary_margin_cm: ",
@@ -672,6 +720,9 @@ def generate_launch_description():
                 "publish_goal_pos": "false",
                 "enable_goal_pos_raw_bridge": "true",
                 "goal_pos_raw_frame": "map",
+                "preferred_distance_cm": resolved_chase_preferred_distance_cm,
+                "distance_deadband_cm": resolved_chase_distance_deadband_cm,
+                "stop_when_no_target": resolved_chase_stop_when_no_target,
                 "chase_area_limit_enable": resolved_chase_area_limit_enable,
                 "chase_area_limit_boundary_margin_cm": resolved_chase_area_limit_boundary_margin_cm,
                 "chase_area_limit_chase_enable_cross_area": (
