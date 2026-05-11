@@ -69,7 +69,7 @@ Updated: 2026-05-11
 | 5 | `AimMode` | 辅瞄/巡逻模式 |
 | 6-7 | `Rotate` | 小陀螺档位 |
 
-上位机 `behavior_tree` 发布 `FollowMode=1` 时，只改 bit4 本身；不会因为该 bit 自动强制 `Rotate=0`、`AimMode=0`、停止 `FireStatus` 翻转或停用云台巡逻扫描。`/ly/navi/is_rotate=false` 仍可按配置额外把 `Rotate=0`，FaceMode/停火也由各自独立控制。
+上位机 `behavior_tree` 发布 `FollowMode=1` 时，只改 bit4 本身；不会因为该 bit 自动强制 `Rotate=0`、`AimMode=0`、停止 `FireStatus` 翻转或停用云台巡逻扫描。`/ly/navi/should_rotate=false` 仍可按配置额外把 `Rotate=0`，FaceMode/停火也由各自独立控制。
 
 下位机建议：不要把 `FireStatus==1` 当作“持续开火”，按翻转沿触发。
 

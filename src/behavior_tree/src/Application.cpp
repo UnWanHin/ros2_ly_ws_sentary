@@ -4,6 +4,7 @@
 
 #include "../include/Application.hpp"
 #include <algorithm>
+#include <array>
 #include <filesystem>
 #include <fstream>
 #include <cctype>
@@ -17,6 +18,20 @@ using namespace BehaviorTree;
 namespace BehaviorTree {
 
 namespace {
+
+struct UnitHealthDefault {
+    UnitType Unit;
+    std::uint16_t Health;
+};
+
+// 2026 super confrontation defaults: hero remote-priority, infantry health-priority, auto sentry.
+constexpr std::array<UnitHealthDefault, 5> kSuperConfrontationEnemyInitialHealth{{
+    {UnitType::Hero, 150},
+    {UnitType::Engineer, 250},
+    {UnitType::Infantry1, 200},
+    {UnitType::Infantry2, 200},
+    {UnitType::Sentry, 400}
+}};
 
 std::string NormalizeProfile(std::string value) {
     std::transform(value.begin(), value.end(), value.begin(),
@@ -227,6 +242,15 @@ std::string DefaultConfigPathForProfile(const std::string& pkg_path, const std::
         BT_DIAG_LOG("[BT_DIAG] publishers ready\n");
 
         ConfigurationInit();    // 讀取 config.json
+        if (!IsLeagueProfile()) {
+            for (const auto& item : kSuperConfrontationEnemyInitialHealth) {
+                auto& robot = enemyRobots[item.Unit];
+                robot.maxHealth_ = item.Health;
+                robot.setCurrentHealth(item.Health, false);
+            }
+            LoggerPtr->Info(
+                "Enemy HP initialized from 2026 super confrontation rules: hero=150, engineer=250, infantry=200, sentry=400.");
+        }
         BT_DIAG_LOG("[BT_DIAG] config ready\n");
 
         // 6. 註冊與加載行為樹

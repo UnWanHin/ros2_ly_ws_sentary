@@ -131,7 +131,7 @@
         }
     },
     "Chase": {
-        "Enable": false,
+        "Enable": true,
         "FollowAimTarget": true,
         "ToNavi": true,
         "UseOfficialPositionSource": true,

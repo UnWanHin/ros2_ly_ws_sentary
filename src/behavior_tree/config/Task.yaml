@@ -7,10 +7,13 @@ behavior_tree:
       AllowGimbalPatrolBeforeStart: true
     Task:
       Buff: false
-      Outpost: false
+      Outpost: true
       OutpostConfirm:
         # 敵方前哨血量、自己血量/彈量等裁判資料超過這個時間未更新時，不主動進前哨任務。
         RefereeFreshTimeoutMs: 2000
+        # false: 不把下位機刷來的 /ly/enemy/op_hp 當前哨存活/已毀 gate。
+        # 這樣 op_hp=0 只當 unknown，前哨能靠 /ly/aim 目標和 visual scout 繼續進任務。
+        TrustEnemyOutpostHp: false
         # 兼容原有邏輯：開局 90 秒內才主動打前哨；設 0 可關閉時間窗口。
         MaxGameTimeSec: 90
         # 低於這些資源門檻時不主動打前哨，讓 Hard Recovery 優先。
@@ -30,6 +33,10 @@ behavior_tree:
         DamageAbortThreshold: 30
         DamageAbortWindowMs: 1000
         DamageAbortHoldMs: 3000
+        # true: 開局 MaxGameTimeSec 內，前哨任務優先壓過普通 regional/protect 類導航任務。
+        OpeningHighPriority: true
+        # true: 前哨任務導航/偵查未結束時，看到車體仍可打，但不發布 chase 追車。
+        SuppressChaseWhileActive: true
       BuffTimer:
         # false: 以裁判 0x020D sentry_info_2.bit14 can_activate 為準，能激活才去打。
         # true: 兼容定時窗口；窗口內進 Buff，仍只在到點且視覺鎖定後下發確認。
@@ -48,3 +55,6 @@ behavior_tree:
         DamageAbortThreshold: 30
         DamageAbortWindowMs: 1000
         DamageAbortHoldMs: 5000
+    FaceMode:
+      # true: 若 BT 已請求 FaceMode 但拿不到 /ly/face_mode/angles，改用 PatrolScan mode 2 掃描。
+      FallbackToPatrolScanMode2: true

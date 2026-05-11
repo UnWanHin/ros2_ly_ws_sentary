@@ -12,7 +12,7 @@ predictor:
 # Rosbag recording for sentry_all launch wrapper.
 # When enabled, sentry_all starts `ros2 bag record -a` under rosbag_path.
 # Recording does not switch hardware IO to virtual; use --offline separately when needed.
-rosbag: false
+rosbag: true
 rosbag_path: ~/Log/rosbag
 
 # gimbal_driver semantic control tuning.

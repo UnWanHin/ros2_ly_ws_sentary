@@ -47,8 +47,8 @@ Regional 目前已有的主要邏輯：
 - 回補/回基地：低血或低彈優先去 `Recovery`；這層高於 RegionalDefense。非 league regional 下，已在 `Recovery` 且血量未回到門檻時會繼續守住 Recovery。
 - Default 大區域任務：候選包含 `MyBase`、`MyHighland`、`MyRoadland`、`CommonCentral`；評分會看血量/彈量新鮮度、資源門檻、距離、目前區域、上一個區域、任務冷卻和失敗重試。
 - `MyBase` 任務：在己方堡壘邊點巡邏，路線是 `CastleLeft1 -> CastleLeft2 -> CastleRight2 -> CastleRight1`，啟動時按自身位置選最近點。
-- `MyHighland` 任務：`Highland` approach -> `Highland` hold -> `BuffShoot` -> `BuffShoot` hold -> `HoleRoad` 離開；approach/leave 仍是地形兼容階段，但正式配置下 Follow/Rotate 兼容交給 `/ly/navi/is_rotate`。
-- `MyRoadland` 任務：`CentralToBase -> BaseToCentral -> BaseToCentral hold -> CentralToBase return`；穿越段仍是強綁定調度段，不能被普通高優先級邏輯直接打斷。正式配置下它不再靠 AreaTask 自己長時間開 `FollowMode / FaceMode` 做地形兼容，Follow/Rotate 由 `/ly/navi/is_rotate` 接管。
+- `MyHighland` 任務：`Highland` approach -> `Highland` hold -> `BuffShoot` -> `BuffShoot` hold -> `HoleRoad` 離開；approach/leave 仍是地形兼容階段，但正式配置下 Follow/Rotate 兼容交給 `/ly/navi/should_rotate`。
+- `MyRoadland` 任務：`CentralToBase -> BaseToCentral -> BaseToCentral hold -> CentralToBase return`；穿越段仍是強綁定調度段，不能被普通高優先級邏輯直接打斷。正式配置下它不再靠 AreaTask 自己長時間開 `FollowMode / FaceMode` 做地形兼容，Follow/Rotate 由 `/ly/navi/should_rotate` 接管。
 - `CommonCentral` 任務：中場巡邏路線是 `my OutpostArea -> my RightShoot -> my BuffAround2 -> my LeftShoot -> my OutpostShoot -> enemy RightShoot -> enemy OccupyArea -> enemy OutpostShoot`，啟動時也按自身位置選最近點。
 - RegionalDefense：用官方敵方位置和 `event_data` 做戰術防守；敵方進我方 Base/Highland/Roadland/CommonCentral 或己方堡壘增益點 `2/3` 都可觸發。
 - 己方堡壘增益點 `2/3`：不去 `Castle`，只在 `CastleLeft1 / CastleLeft2 / CastleRight1 / CastleRight2` 搜索；若 Base 大區敵方數達門檻且普通裝甲目標已鎖定並允許開火，才原地停車、最高小陀螺開火；長時間無官方敵方位置且無視覺目標會退化忽略一段時間。
@@ -108,7 +108,7 @@ Regional 任務主要使用這些導航/定位輸入：
 
 - `/ly/navi/reached`：當前 goal 是否已到達，主到達判斷。
 - `/ly/navi/reachable`：當前 goal 是否有有效路徑，主不可達判斷。
-- `/ly/navi/is_rotate`：外部導航區域兼容控制；`true` 恢復 BT 正常小陀螺/巡邏，`false` 關小陀螺並請求 `FollowMode`。
+- `/ly/navi/should_rotate`：外部導航區域兼容控制；`true` 恢復 BT 正常小陀螺/巡邏，`false` 關小陀螺並請求 `FollowMode`。
 - `/ly/friend/uwb_pos`：雷達/UWB 推出的己方哨兵自身官方地圖坐標，單位 cm。
 - `/ly/navi/position`：導航/TF 推出的自身官方地圖坐標，單位 cm。
 - `/ly/position/data`：官方/雷達定位坐標。
@@ -121,9 +121,9 @@ Regional 任務主要使用這些導航/定位輸入：
 
 也就是說，只要 `/ly/navi/reached` 和 `/ly/navi/reachable` 是新鮮有效的，到沒到點還是以它們為主，不靠 `/ly/navi/position` 硬判。
 
-## `/ly/navi/is_rotate` 的作用
+## `/ly/navi/should_rotate` 的作用
 
-`/ly/navi/is_rotate` 是外部導航給 BT 的地形兼容控制信號，類型是 `std_msgs/msg/Bool`。這裡的 `Rotate` 指 `FireCode.Rotate`，也就是下發給下位機的小陀螺檔位/rotate level，不是雲台 yaw 角速度。它只管本輪火控裡的 `FollowMode`、小陀螺 `Rotate` 和 regional 區域兼容用的 FaceMode 釋放，不負責選導航點，也不負責啟動、取消或推進任何 AreaManager task。
+`/ly/navi/should_rotate` 是外部導航給 BT 的地形兼容控制信號，類型是 `std_msgs/msg/Bool`。這裡的 `Rotate` 指 `FireCode.Rotate`，也就是下發給下位機的小陀螺檔位/rotate level，不是雲台 yaw 角速度。它只管本輪火控裡的 `FollowMode`、小陀螺 `Rotate` 和 regional 區域兼容用的 FaceMode 釋放，不負責選導航點，也不負責啟動、取消或推進任何 AreaManager task。
 
 配置入口是 `src/behavior_tree/config/NaviRotateControl.yaml`：
 
@@ -138,27 +138,27 @@ Regional 任務主要使用這些導航/定位輸入：
 語義可以理解成：
 
 ```text
-is_rotate=false
+should_rotate=false
   -> 外部導航認為當前處在不適合小陀螺的地形/區段
   -> 當 ForceFollowModeWhenFalse=true 時，最終下發 FireCode.FollowMode=1
   -> 當 StopRotateWhenFalse=true 時，最終下發 Rotate=0
   -> BT 仍按當前 AimMode 做雲台巡邏、鎖敵和開火
 
-is_rotate=true
+should_rotate=true
   -> 外部導航認為已離開兼容區段
   -> BT 不再合併外部 FollowMode bit；若 ClearFollowModeWhenTrue=true，會清除殘留 FollowMode
   -> 小陀螺回到普通策略：平時 1 檔，受擊後可升檔
   -> 雲台巡邏/鎖敵/開火回到當前任務本來的狀態
 ```
 
-所以正式當前配置下，`is_rotate=false` 表示「外部導航請求下位機 FollowMode bit + 關小陀螺檔位」。BT 仍會該巡航就巡航，該鎖敵開火就開火；`FollowMode` bit 本身只進最終 firecode 字段，不再觸發 BT 停火/停巡航分支。
+所以正式當前配置下，`should_rotate=false` 表示「外部導航請求下位機 FollowMode bit + 關小陀螺檔位」。BT 仍會該巡航就巡航，該鎖敵開火就開火；`FollowMode` bit 本身只進最終 firecode 字段，不再觸發 BT 停火/停巡航分支。
 
 它和 `MyRoadland` 強鎖不是同一層：
 
 - `MyRoadland` 強鎖是任務調度保護：在 `RoadlandCrossToBaseToCentral`、`RoadlandCrossToCentralToBase` 兩個 phase 裡，Buff/Outpost、RegionalDefense、Recovery 不會直接取消這個穿越段，要等到達、不可達或超時。
-- `/ly/navi/is_rotate` 是控制輸出兼容：告訴 BT 這一段要不要停小陀螺、開 FollowMode。它不會讓 Roadland task 進入或退出強鎖，也不會改變 Roadland phase。
+- `/ly/navi/should_rotate` 是控制輸出兼容：告訴 BT 這一段要不要停小陀螺、開 FollowMode。它不會讓 Roadland task 進入或退出強鎖，也不會改變 Roadland phase。
 
-因此現在的責任邊界是：AreaManager 決定「我要不要做 MyRoadland，以及是不是處於不可讓出的 crossing phase」；外部導航通過 `/ly/navi/is_rotate` 決定「此刻底盤是否允許正常小陀螺」。這樣 Castle、Roadland、Highland 等地形細節可以放在導航側維護，BT 只保留任務優先級和戰術語義。
+因此現在的責任邊界是：AreaManager 決定「我要不要做 MyRoadland，以及是不是處於不可讓出的 crossing phase」；外部導航通過 `/ly/navi/should_rotate` 決定「此刻底盤是否允許正常小陀螺」。這樣 Castle、Roadland、Highland 等地形細節可以放在導航側維護，BT 只保留任務優先級和戰術語義。
 
 ## 入口鏈路
 
@@ -249,7 +249,7 @@ DefaultPolicy 的當前選區規則：
 
 ## RegionalDefense
 
-RegionalDefense 是事件驅動戰術層，優先級高於 Default。敵方位置判斷只使用 `/ly/position/data` 寫入的官方場地坐標，不使用 map/odom 坐標混判；AreaManager 用 `Area.hpp` 官方點位區域邊界判斷敵方是否進入我方 Base/Highland/Roadland 或公共 Central。另有一個裁判事件來源：`/ly/game/event_data.self_fortress_gain_point_status == 2/3` 時，視為己方堡壘增益點有敵方占領，進入硬防守搜索。
+RegionalDefense 是事件驅動戰術層，優先級高於 Default。敵方位置判斷只使用 `/ly/position/data` 寫入的官方場地坐標，不使用 map/odom 坐標混判；AreaManager 用 `Area.hpp` 官方點位區域邊界判斷敵方是否進入我方 Base/Highland/Roadland 或公共 Central。另有一個裁判事件來源：`/ly/game/event_data.self_fortress_gain_point_status == 2/3` 時，視為己方堡壘增益點有敵方占領，進入硬防守搜索。ProtectHero 的英雄保護條件會在 RegionalDefense 之前檢查；只有未命中英雄保護時，普通 RegionalDefense 才接管。
 
 當前防守搜索規則：
 
@@ -264,7 +264,9 @@ RegionalDefense 是事件驅動戰術層，優先級高於 Default。敵方位�
 
 ## ProtectHero
 
-ProtectHero 是 Tactical 層的己方英雄保護點位。`Area.hpp` 裡的 `ProtectHero` 子區域位於己方 Highland 內；比賽開始 `HeroProtection.StartElapsedSec` 秒後，如果己方 Hero 的官方坐標新鮮且落在該子區域內，BT 直接下發 `HeroProtection.GoalBaseId`，默認為 `Highland`，並用 `HeroProtection.HoldSec` 控制駐守重發週期。已知 Hero 血量為 0 時不觸發。它排在 RegionalDefense 之後，所以敵方進入我方 Base/Roadland 等正式回防威脅時，仍由 RegionalDefense 優先接管。
+ProtectHero 是 Tactical 層的己方英雄保護點位。比賽開始 `HeroProtection.StartElapsedSec` 秒後，如果己方 Hero 的官方坐標新鮮、血量不是已知 0，且落在己方 Highland 大區或 `ProtectHero` 子區域內，BT 會評估 RegionalDefense 威脅。當我方 Base 和我方 Highland 同時有新鮮敵方官方坐標時，ProtectHero 會優先於普通 RegionalDefense 下發 `HeroProtection.GoalBaseId`，默認為 `Highland`，並用 `HeroProtection.HoldSec` 控制駐守重發週期。
+
+ProtectHero 觸發後會保持保護狀態；只要仍有 RegionalDefense 敵情就刷新保護保持時間。當連續 `HeroProtection.NoEnemyReleaseSec` 秒沒有 RegionalDefense 敵情時，保護狀態釋放，後續 tick 交回普通 RegionalDefense、Buff/Outpost、watchdog 或 Default 區域任務。
 
 ## 各區域任務
 
@@ -283,12 +285,12 @@ Highland(FollowMode bit + optional FaceMode + explicit stop-fire)
   -> 完成
 ```
 
-上面的 `FollowMode bit / FaceMode / stop-fire` 是三個獨立輸出。正式配置裡 `NaviRotateControl.Enable=true` 時，進出 Highland 時實際是否停小陀螺主要由外部導航的 `/ly/navi/is_rotate` 決定。
+上面的 `FollowMode bit / FaceMode / stop-fire` 是三個獨立輸出。正式配置裡 `NaviRotateControl.Enable=true` 時，進出 Highland 時實際是否停小陀螺主要由外部導航的 `/ly/navi/should_rotate` 決定。
 
 進入 Highland 和離開 Highland 時：
 
 - 若未啟用 `NaviRotateControl`，AreaTask 可按結果寫 `FollowMode`；
-- 若啟用 `NaviRotateControl`，AreaTask 不直接寫 `FollowMode`，由 `/ly/navi/is_rotate=false` 觸發；
+- 若啟用 `NaviRotateControl`，AreaTask 不直接寫 `FollowMode`，由 `/ly/navi/should_rotate=false` 觸發；
 - 如果 `MyHighland.UseFaceMode=true`，才會發布 regional FaceMode 目標；
 - 兼容 phase 仍會停火。
 
@@ -329,13 +331,13 @@ CentralToBase
 
 - 先正常去 `CentralToBase`。
 - 到點、不可達或超時後，進入去 `BaseToCentral` 的強綁定穿越段。
-- 強綁定穿越段中，任務調度 hard lock 生效；正式配置下是否 `FollowMode=1 / Rotate=0` 由 `/ly/navi/is_rotate=false` 決定。
+- 強綁定穿越段中，任務調度 hard lock 生效；正式配置下是否 `FollowMode=1 / Rotate=0` 由 `/ly/navi/should_rotate=false` 決定。
 - 是否穩定停火取決於獨立控制：active regional FaceMode 或任務結果明確 `SuppressFire` 才會壓住新的 `FireStatus` 翻轉；`FollowMode=1` 本身不再停火。
 - 到 `BaseToCentral` 後，恢復普通巡邏、小陀螺、開火控制。
 - 如果血量/彈量新鮮數據低於門檻，開始安全返回 `CentralToBase`。
 - 如果非強綁定階段遇到更高優先級請求，也不是直接取消，而是請求安全返回。
 
-如果 `MyRoadland.UseFaceMode=true`，Roadland 的 FaceMode 目標就是當前穿越終點；正式配置目前是 `false`，地形朝向/跟隨主要交給外部導航的 `/ly/navi/is_rotate`：
+如果 `MyRoadland.UseFaceMode=true`，Roadland 的 FaceMode 目標就是當前穿越終點；正式配置目前是 `false`，地形朝向/跟隨主要交給外部導航的 `/ly/navi/should_rotate`：
 
 - 往中場側穿越時，朝向 `BaseToCentral`；
 - 返回基地側時，朝向 `CentralToBase`。
@@ -416,7 +418,7 @@ Roadland 非強綁定階段通常不直接取消，而是請求安全返回：
 - regional defense 不會取消它；
 - recovery 不會直接取消它；
 - 任務會保持穿越控制權；
-- `FollowMode / Rotate=0` 是否輸出由 `/ly/navi/is_rotate` 的新鮮值或任務本身的獨立字段決定；
+- `FollowMode / Rotate=0` 是否輸出由 `/ly/navi/should_rotate` 的新鮮值或任務本身的獨立字段決定；
 - regional FaceMode 只有在對應 AreaTask `UseFaceMode=true` 時才會輸出；
 - 普通裝甲鏈路是否巡航、鎖敵和開火不再由 `FollowMode` bit 決定。
 
@@ -459,7 +461,7 @@ Area task 使用既有 BT 控制鏈路輸出：
 
 - 通過 `SetPositionByBaseGoal()` 發導航目標；
 - 通過 `FireCode.FollowMode` 控 FollowMode bit；
-- 若啟用 `NaviRotateControl.yaml`，新鮮 `/ly/navi/is_rotate` 會接管區域兼容用的 FollowMode/小陀螺/regional FaceMode 釋放；
+- 若啟用 `NaviRotateControl.yaml`，新鮮 `/ly/navi/should_rotate` 會接管區域兼容用的 FollowMode/小陀螺/regional FaceMode 釋放；
 - 需要固定朝向時，通過 `/ly/face_mode/target_raw` 發 FaceMode 目標；
 - 需要停火時，覆蓋本輪 fire 狀態。
 

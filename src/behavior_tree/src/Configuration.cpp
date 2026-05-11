@@ -473,6 +473,7 @@ namespace LangYa {
     }
     void from_json(const json& j, OutpostConfirmSetting& os) {
         os.RefereeFreshTimeoutMs = j.value("RefereeFreshTimeoutMs", os.RefereeFreshTimeoutMs);
+        os.TrustEnemyOutpostHp = j.value("TrustEnemyOutpostHp", os.TrustEnemyOutpostHp);
         os.MaxGameTimeSec = j.value("MaxGameTimeSec", os.MaxGameTimeSec);
         os.MinSelfHp = j.value("MinSelfHp", os.MinSelfHp);
         os.MinAmmo = j.value("MinAmmo", os.MinAmmo);
@@ -484,6 +485,8 @@ namespace LangYa {
         os.DamageAbortThreshold = j.value("DamageAbortThreshold", os.DamageAbortThreshold);
         os.DamageAbortWindowMs = j.value("DamageAbortWindowMs", os.DamageAbortWindowMs);
         os.DamageAbortHoldMs = j.value("DamageAbortHoldMs", os.DamageAbortHoldMs);
+        os.OpeningHighPriority = j.value("OpeningHighPriority", os.OpeningHighPriority);
+        os.SuppressChaseWhileActive = j.value("SuppressChaseWhileActive", os.SuppressChaseWhileActive);
     }
     void from_json(const json& j, TaskSetting& ts) {
         ts.Buff = j.value("Buff", ts.Buff);
@@ -522,6 +525,8 @@ namespace LangYa {
         fs.Enable = j.value("Enable", fs.Enable);
         fs.LostTargetHoldMs = j.value("LostTargetHoldMs", fs.LostTargetHoldMs);
         fs.SuppressFire = j.value("SuppressFire", fs.SuppressFire);
+        fs.FallbackToPatrolScanMode2 =
+            j.value("FallbackToPatrolScanMode2", fs.FallbackToPatrolScanMode2);
     }
 
     void from_json(const json& j, ExternalAimSetting& ea) {
@@ -748,6 +753,7 @@ namespace LangYa {
         hp.Enable = j.value("Enable", hp.Enable);
         hp.StartElapsedSec = j.value("StartElapsedSec", hp.StartElapsedSec);
         hp.HoldSec = j.value("HoldSec", hp.HoldSec);
+        hp.NoEnemyReleaseSec = j.value("NoEnemyReleaseSec", hp.NoEnemyReleaseSec);
         hp.FriendPositionFreshMs = j.value("FriendPositionFreshMs", hp.FriendPositionFreshMs);
         hp.FriendHealthFreshMs = j.value("FriendHealthFreshMs", hp.FriendHealthFreshMs);
         const int goal_base_id = j.value("GoalBaseId", static_cast<int>(hp.GoalBaseId));
@@ -1121,6 +1127,13 @@ namespace BehaviorTree {
                 "Task/OutpostConfirm/RefereeFreshTimeoutMs"
             },
             config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "Task.OutpostConfirm.TrustEnemyOutpostHp",
+                "Task/OutpostConfirm/TrustEnemyOutpostHp"
+            },
+            config.TaskSettings.OutpostConfirm.TrustEnemyOutpostHp);
         ReadOptionalIntParam(
             node_,
             {
@@ -1198,6 +1211,51 @@ namespace BehaviorTree {
                 "Task/OutpostConfirm/DamageAbortHoldMs"
             },
             config.TaskSettings.OutpostConfirm.DamageAbortHoldMs);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "Task.OutpostConfirm.OpeningHighPriority",
+                "Task/OutpostConfirm/OpeningHighPriority"
+            },
+            config.TaskSettings.OutpostConfirm.OpeningHighPriority);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "Task.OutpostConfirm.SuppressChaseWhileActive",
+                "Task/OutpostConfirm/SuppressChaseWhileActive"
+            },
+            config.TaskSettings.OutpostConfirm.SuppressChaseWhileActive);
+    }
+
+    void Application::ApplyFaceModeParameterOverrides() {
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "FaceMode.Enable",
+                "FaceMode/Enable"
+            },
+            config.FaceModeSettings.Enable);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "FaceMode.LostTargetHoldMs",
+                "FaceMode/LostTargetHoldMs"
+            },
+            config.FaceModeSettings.LostTargetHoldMs);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "FaceMode.SuppressFire",
+                "FaceMode/SuppressFire"
+            },
+            config.FaceModeSettings.SuppressFire);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "FaceMode.FallbackToPatrolScanMode2",
+                "FaceMode/FallbackToPatrolScanMode2"
+            },
+            config.FaceModeSettings.FallbackToPatrolScanMode2);
     }
 
     void Application::ApplyNaviRotateControlParameterOverrides() {
@@ -1772,6 +1830,7 @@ namespace BehaviorTree {
         ApplyAreaManagerParameterOverrides();
         ApplyStartGateParameterOverrides();
         ApplyNaviRotateControlParameterOverrides();
+        ApplyFaceModeParameterOverrides();
         ApplyExternalAimParameterOverrides();
         LoggerPtr->Debug("Switch_Point: {}", config.SwitchPoint);
         LoggerPtr->Debug("------ AimDebug ------");
@@ -1815,8 +1874,9 @@ namespace BehaviorTree {
             config.TaskSettings.BuffConfirm.DamageAbortWindowMs,
             config.TaskSettings.BuffConfirm.DamageAbortHoldMs);
         LoggerPtr->Debug(
-            "OutpostConfirm: referee_fresh_ms={} max_game_time_sec={} min_self_hp={} min_ammo={} visual_scout_without_hp={} visual_scout_hold_ms={} visual_scout_cooldown_ms={} visual_scout_face_distance_cm={} armor_interrupt_max_distance_cm={} damage_abort_threshold={} damage_abort_window_ms={} damage_abort_hold_ms={}",
+            "OutpostConfirm: referee_fresh_ms={} trust_enemy_outpost_hp={} max_game_time_sec={} min_self_hp={} min_ammo={} visual_scout_without_hp={} visual_scout_hold_ms={} visual_scout_cooldown_ms={} visual_scout_face_distance_cm={} armor_interrupt_max_distance_cm={} damage_abort_threshold={} damage_abort_window_ms={} damage_abort_hold_ms={} opening_high_priority={} suppress_chase_while_active={}",
             config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs,
+            config.TaskSettings.OutpostConfirm.TrustEnemyOutpostHp ? 1 : 0,
             config.TaskSettings.OutpostConfirm.MaxGameTimeSec,
             config.TaskSettings.OutpostConfirm.MinSelfHp,
             config.TaskSettings.OutpostConfirm.MinAmmo,
@@ -1827,7 +1887,9 @@ namespace BehaviorTree {
             config.TaskSettings.OutpostConfirm.ArmorInterruptMaxDistanceCm,
             config.TaskSettings.OutpostConfirm.DamageAbortThreshold,
             config.TaskSettings.OutpostConfirm.DamageAbortWindowMs,
-            config.TaskSettings.OutpostConfirm.DamageAbortHoldMs);
+            config.TaskSettings.OutpostConfirm.DamageAbortHoldMs,
+            config.TaskSettings.OutpostConfirm.OpeningHighPriority ? 1 : 0,
+            config.TaskSettings.OutpostConfirm.SuppressChaseWhileActive ? 1 : 0);
         LoggerPtr->Debug("------ DamageOpenGate ------");
         LoggerPtr->Debug("Enable: {}", config.DamageOpenGateSettings.Enable);
         LoggerPtr->Debug("HealthDropThreshold: {}", config.DamageOpenGateSettings.HealthDropThreshold);
@@ -1838,6 +1900,7 @@ namespace BehaviorTree {
         LoggerPtr->Debug("Enable: {}", config.FaceModeSettings.Enable);
         LoggerPtr->Debug("LostTargetHoldMs: {}", config.FaceModeSettings.LostTargetHoldMs);
         LoggerPtr->Debug("SuppressFire: {}", config.FaceModeSettings.SuppressFire);
+        LoggerPtr->Debug("FallbackToPatrolScanMode2: {}", config.FaceModeSettings.FallbackToPatrolScanMode2);
         LoggerPtr->Debug("------ ExternalAim ------");
         LoggerPtr->Debug("Enable: {}", config.ExternalAimSettings.Enable);
         LoggerPtr->Debug("ResultFreshTimeoutMs: {}", config.ExternalAimSettings.ResultFreshTimeoutMs);
@@ -1918,6 +1981,7 @@ namespace BehaviorTree {
         LoggerPtr->Debug("Enable: {}", config.HeroProtectionSettings.Enable);
         LoggerPtr->Debug("StartElapsedSec: {}", config.HeroProtectionSettings.StartElapsedSec);
         LoggerPtr->Debug("HoldSec: {}", config.HeroProtectionSettings.HoldSec);
+        LoggerPtr->Debug("NoEnemyReleaseSec: {}", config.HeroProtectionSettings.NoEnemyReleaseSec);
         LoggerPtr->Debug("FriendPositionFreshMs: {}", config.HeroProtectionSettings.FriendPositionFreshMs);
         LoggerPtr->Debug("FriendHealthFreshMs: {}", config.HeroProtectionSettings.FriendHealthFreshMs);
         LoggerPtr->Debug("GoalBaseId: {}", static_cast<int>(config.HeroProtectionSettings.GoalBaseId));
@@ -2400,6 +2464,11 @@ namespace BehaviorTree {
             LoggerPtr->Warning("Invalid HeroProtection.HoldSec={}, fallback to 30.",
                                config.HeroProtectionSettings.HoldSec);
             config.HeroProtectionSettings.HoldSec = 30;
+        }
+        if (config.HeroProtectionSettings.NoEnemyReleaseSec <= 0) {
+            LoggerPtr->Warning("Invalid HeroProtection.NoEnemyReleaseSec={}, fallback to 8.",
+                               config.HeroProtectionSettings.NoEnemyReleaseSec);
+            config.HeroProtectionSettings.NoEnemyReleaseSec = 8;
         }
         if (config.HeroProtectionSettings.FriendPositionFreshMs <= 0) {
             LoggerPtr->Warning("Invalid HeroProtection.FriendPositionFreshMs={}, fallback to 2500.",

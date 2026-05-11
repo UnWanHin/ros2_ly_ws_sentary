@@ -256,7 +256,7 @@ private:
     VelocityType naviVelocity{0, 0}; /// 定义回调，接收导航的速度控制数据
     bool naviReach{false}; // /ly/navi/reached: 当前导航目标是否已到达
     bool naviReachable{true}; // /ly/navi/reachable: 当前导航目标是否有有效路径
-    bool naviIsRotate{true}; // /ly/navi/is_rotate: 外部导航是否允许正常小陀螺
+    bool naviIsRotate{true}; // /ly/navi/should_rotate: 外部导航是否允许正常小陀螺
     bool hasReceivedNaviReach_{false};
     bool hasReceivedNaviReachable_{false};
     bool hasReceivedNaviIsRotate_{false};
@@ -391,6 +391,8 @@ private:
     int fortressGainPointEnemyCount_{0};
     std::chrono::steady_clock::time_point fortressGainPointNoContactSince_{};
     std::chrono::steady_clock::time_point fortressGainPointDegradedUntil_{};
+    bool protectHeroActive_{false};
+    std::chrono::steady_clock::time_point protectHeroLastEnemySeenTime_{};
     FaceModeManager faceModeManager_{};
     std::chrono::steady_clock::time_point lastUpdateBlackboardLogTime_{};
     std::chrono::steady_clock::time_point lastTreeTickLogTime_{};
@@ -604,6 +606,8 @@ public:
     void ApplyAimModeFaceTarget(UnitTeam target_team);
     bool TrySetAimModeTaskGoal(UnitTeam my_team, UnitTeam enemy_team, const char* reason);
     bool IsOutpostVisualScoutNavigationActive() const noexcept { return outpostVisualScoutNavigationActive_; }
+    bool IsOutpostOpeningHighPriorityActive() const noexcept;
+    bool ShouldSuppressChaseForOutpostTask() const noexcept;
     bool TrySetOutpostVisualScoutTravelGoal(UnitTeam my_team, UnitTeam enemy_team, const char* reason);
     void ApplyRegionalAreaTaskControl(const RegionalAreaTaskTickResult& result);
     bool RequestRoadlandSafeReturn(const char* reason);
@@ -685,6 +689,7 @@ public:
     void ApplyAreaManagerParameterOverrides();
     void ApplyStartGateParameterOverrides();
     void ApplyNaviRotateControlParameterOverrides();
+    void ApplyFaceModeParameterOverrides();
     void ApplyExternalAimParameterOverrides();
     bool InitDecisionTrace();
     void WriteDecisionTrace(std::string_view event);

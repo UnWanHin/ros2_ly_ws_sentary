@@ -134,7 +134,7 @@ namespace BehaviorTree {
     LY_DEF_ROS_TOPIC(ly_navi_lower_head, "/ly/navi/lower_head", std_msgs::msg::UInt8);
     LY_DEF_ROS_TOPIC(ly_navi_reached, "/ly/navi/reached", std_msgs::msg::Bool);
     LY_DEF_ROS_TOPIC(ly_navi_reachable, "/ly/navi/reachable", std_msgs::msg::Bool);
-    LY_DEF_ROS_TOPIC(ly_navi_is_rotate, "/ly/navi/is_rotate", std_msgs::msg::Bool);
+    LY_DEF_ROS_TOPIC(ly_navi_should_rotate, "/ly/navi/should_rotate", std_msgs::msg::Bool);
 
     LY_DEF_ROS_TOPIC(ly_team_buff, "/ly/team/buff", gimbal_driver::msg::BuffData);
     LY_DEF_ROS_TOPIC(ly_game_rfid, "/ly/game/rfid", gimbal_driver::msg::RfidStatus);

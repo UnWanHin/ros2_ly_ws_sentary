@@ -997,11 +997,24 @@ namespace BehaviorTree {
             navi_rotate_control_release_request &&
             config.NaviRotateControlSettings.ClearRegionalFaceModeWhenTrue &&
             faceModeManager_.Control().Phase != RegionalAreaTaskPhase::Idle;
-        const bool face_mode_active =
+        const bool face_mode_requested =
             faceModeManager_.Active(config.FaceModeSettings, visual_target_has_face_priority) &&
             !navi_rotate_control_clear_regional_face_mode;
+        const auto face_mode_angles = face_mode_requested
+            ? faceModeManager_.SelectAngles(faceModeData, config.FaceModeSettings, now)
+            : std::optional<GimbalAnglesType>{};
+        const bool face_mode_fallback_patrol_scan =
+            face_mode_requested &&
+            !face_mode_angles.has_value() &&
+            config.FaceModeSettings.FallbackToPatrolScanMode2;
+        const bool face_mode_active =
+            face_mode_requested && !face_mode_fallback_patrol_scan;
         const auto chase_mode_enabled = [&]() -> bool {
             if (!config.ChaseSettings.Enable || !config.ChaseSettings.FollowAimTarget) {
+                return false;
+            }
+            if (ShouldSuppressChaseForOutpostTask() ||
+                !UnitTypeFromArmorType(targetArmor.Type).has_value()) {
                 return false;
             }
             switch (aimMode) {
@@ -1044,15 +1057,13 @@ namespace BehaviorTree {
                 gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
                 buffAimData.FireStatus = false;
             }
-            const auto face_angles =
-                faceModeManager_.SelectAngles(faceModeData, config.FaceModeSettings, now);
-            nextAngles = face_angles.value_or(gimbalAngles);
+            nextAngles = face_mode_angles.value_or(gimbalAngles);
 
             static auto last_face_mode_log = std::chrono::steady_clock::time_point{};
             if (now - last_face_mode_log > std::chrono::seconds(2)) {
                 LoggerPtr->Debug(
                     "FaceMode active: keep rotate policy, stop patrol scan, {} gimbal angles, suppress_fire={}",
-                    face_angles.has_value() ? "use FaceMode" : "hold current",
+                    face_mode_angles.has_value() ? "use FaceMode" : "hold current",
                     config.FaceModeSettings.SuppressFire ? 1 : 0);
                 last_face_mode_log = now;
             }
@@ -1125,10 +1136,11 @@ namespace BehaviorTree {
         else { // 未识别到目标
             gimbalControlData.FireCode.AimMode = 0;
             
-            if(aimMode != AimMode::Buff) {
+            if(aimMode != AimMode::Buff || face_mode_fallback_patrol_scan) {
                 if (!config.AimDebugSettings.StopScan && now - lastFoundEnemyTime > std::chrono::milliseconds(2000)) {
                     static auto last_searching_log = std::chrono::steady_clock::time_point{};
-                    const int patrol_mode = config.PatrolScanSettings.Mode;
+                    const int patrol_mode =
+                        face_mode_fallback_patrol_scan ? 2 : config.PatrolScanSettings.Mode;
                     const bool boost_patrol_scan =
                         aimMode == AimMode::RotateScan &&
                         damage_rotate_elapsed_ms >= 0 &&
@@ -1178,12 +1190,13 @@ namespace BehaviorTree {
                     }
                     if (now - last_searching_log > std::chrono::seconds(2)) {
                         LoggerPtr->Debug(
-                            "Searching Target... patrol_mode={} yaw_step={} dir={} (damage_boost={} elapsed_ms={})",
+                            "Searching Target... patrol_mode={} yaw_step={} dir={} (damage_boost={} elapsed_ms={} face_fallback={})",
                             patrol_mode,
                             yaw_scan_step,
                             yaw_scan_direction,
                             boost_patrol_scan ? 1 : 0,
-                            damage_rotate_elapsed_ms);
+                            damage_rotate_elapsed_ms,
+                            face_mode_fallback_patrol_scan ? 1 : 0);
                         last_searching_log = now;
                         gimbalControlData.FireCode.AimMode = 0;
                     }
@@ -1799,7 +1812,11 @@ namespace BehaviorTree {
                 }
             }
         }else if(config.TaskSettings.Outpost) { // 打前哨站
-            if (IsRegionalDefenseAimSuppressActive()) {
+            const auto& outpost_confirm = config.TaskSettings.OutpostConfirm;
+            const auto now = std::chrono::steady_clock::now();
+            const int referee_fresh_ms = std::max(0, outpost_confirm.RefereeFreshTimeoutMs);
+            const bool outpost_opening_high_priority = IsOutpostOpeningHighPriorityActive();
+            if (IsRegionalDefenseAimSuppressActive() && !outpost_opening_high_priority) {
                 outpostVisualScoutNavigationActive_ = false;
                 aimMode = AimMode::RotateScan;
                 LoggerPtr->Info("Regional defense active: suppress Outpost aim mode.");
@@ -1814,13 +1831,12 @@ namespace BehaviorTree {
                 return;
             }
 
-            const auto& outpost_confirm = config.TaskSettings.OutpostConfirm;
-            const auto now = std::chrono::steady_clock::now();
-            const int referee_fresh_ms = std::max(0, outpost_confirm.RefereeFreshTimeoutMs);
             const bool enemy_outpost_hp_fresh =
                 hasReceivedEnemyOutpostHealth_ &&
                 lastEnemyOutpostHealthRxTime_.time_since_epoch().count() != 0 &&
                 now - lastEnemyOutpostHealthRxTime_ <= std::chrono::milliseconds(referee_fresh_ms);
+            const bool enemy_outpost_hp_trusted =
+                outpost_confirm.TrustEnemyOutpostHp && enemy_outpost_hp_fresh;
             const bool self_hp_fresh =
                 hasReceivedMyselfHealth_ &&
                 lastMyselfHealthRxTime.time_since_epoch().count() != 0 &&
@@ -1920,8 +1936,8 @@ namespace BehaviorTree {
                 ammo_ready &&
                 in_time_window &&
                 !outpost_goal_unreachable &&
-                !(enemy_outpost_hp_fresh && enemyOutpostHealth == 0) &&
-                ((enemy_outpost_hp_fresh && enemyOutpostHealth > 0) ||
+                !(enemy_outpost_hp_trusted && enemyOutpostHealth == 0) &&
+                ((enemy_outpost_hp_trusted && enemyOutpostHealth > 0) ||
                  outpost_visual_recent ||
                  outpost_visual_scout_available);
             auto clear_outpost_visual_scout_attempt = [&]() {
@@ -1976,11 +1992,11 @@ namespace BehaviorTree {
                 clear_outpost_visual_scout_attempt();
                 aimMode = AimMode::RotateScan;
                 LoggerPtr->Info("Outpost task canceled: BuffOutpost goal externally unreachable.");
-            } else if (enemy_outpost_hp_fresh && enemyOutpostHealth == 0) {
+            } else if (enemy_outpost_hp_trusted && enemyOutpostHealth == 0) {
                 reset_outpost_visual_scout_state();
                 LoggerPtr->Info("Enemy Outpost HP interface says destroyed; skip Outpost task.");
                 aimMode = AimMode::RotateScan;
-            } else if (enemy_outpost_hp_fresh && enemyOutpostHealth > 0) {
+            } else if (enemy_outpost_hp_trusted && enemyOutpostHealth > 0) {
                 reset_outpost_visual_scout_state();
                 LoggerPtr->Info("Enemy Outpost HP interface says alive: {}", enemyOutpostHealth);
                 outpostVisualScoutNavigationActive_ = true;
@@ -2046,7 +2062,8 @@ namespace BehaviorTree {
                 clear_outpost_visual_scout_attempt();
                 aimMode = AimMode::RotateScan;
                 LoggerPtr->Info(
-                    "Outpost visual scout disabled and HP interface unavailable: fresh={} hp={}.",
+                    "Outpost visual scout disabled and HP interface unavailable: trust={} fresh={} hp={}.",
+                    outpost_confirm.TrustEnemyOutpostHp ? 1 : 0,
                     enemy_outpost_hp_fresh ? 1 : 0,
                     enemyOutpostHealth);
             }
@@ -3210,6 +3227,20 @@ namespace BehaviorTree {
         return areaManager_.IsRegionalDefenseAimSuppressActive(std::chrono::steady_clock::now());
     }
 
+    bool Application::IsOutpostOpeningHighPriorityActive() const noexcept {
+        const auto& outpost = config.TaskSettings.OutpostConfirm;
+        return config.TaskSettings.Outpost &&
+            outpost.OpeningHighPriority &&
+            outpost.MaxGameTimeSec > 0 &&
+            ElapsedSeconds() < outpost.MaxGameTimeSec;
+    }
+
+    bool Application::ShouldSuppressChaseForOutpostTask() const noexcept {
+        return config.TaskSettings.Outpost &&
+            config.TaskSettings.OutpostConfirm.SuppressChaseWhileActive &&
+            (outpostVisualScoutNavigationActive_ || aimMode == AimMode::Outpost);
+    }
+
     bool Application::IsFortressGainPointEnemyOccupiedEventRawFresh(const int referee_fresh_ms) const noexcept {
         return hasReceivedEventData_ &&
             lastEventDataRxTime_.time_since_epoch().count() != 0 &&
@@ -3613,23 +3644,56 @@ namespace BehaviorTree {
             IsLeagueProfile() ||
             IsShowcasePatrolEnabled() ||
             ElapsedSeconds() < protection.StartElapsedSec) {
+            protectHeroActive_ = false;
             return false;
         }
 
         constexpr UnitType hero_unit = UnitType::Hero;
         if (!IsFriendPositionFresh(hero_unit, protection.FriendPositionFreshMs)) {
+            protectHeroActive_ = false;
             return false;
         }
         const int hero_x = static_cast<int>(friendRobots[hero_unit].position_.X);
         const int hero_y = static_cast<int>(friendRobots[hero_unit].position_.Y);
+        const bool hero_in_highland =
+            Area::IsPointInsideMainArea(my_team, Area::MainAreaKind::Highland, hero_x, hero_y);
+        const bool hero_in_protect_hero =
+            Area::IsPointInsideProtectHeroArea(my_team, hero_x, hero_y);
         if (!IsOfficialFieldPointValid(hero_x, hero_y) ||
-            !Area::IsPointInsideProtectHeroArea(my_team, hero_x, hero_y)) {
+            (!hero_in_highland && !hero_in_protect_hero)) {
+            protectHeroActive_ = false;
             return false;
         }
 
         if (IsFriendHealthFresh(hero_unit, protection.FriendHealthFreshMs) &&
             friendRobots[hero_unit].currentHealth_ == 0) {
+            protectHeroActive_ = false;
             return false;
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        const auto maybe_threat = EvaluateRegionalDefenseThreat(my_team, enemy_team);
+        const bool has_enemy_threat = maybe_threat.has_value();
+        const bool should_start_protect =
+            has_enemy_threat &&
+            maybe_threat->OwnBaseCount > 0 &&
+            maybe_threat->OwnHighlandCount > 0;
+        if (should_start_protect) {
+            protectHeroActive_ = true;
+            protectHeroLastEnemySeenTime_ = now;
+        } else if (protectHeroActive_ && has_enemy_threat) {
+            protectHeroLastEnemySeenTime_ = now;
+        } else if (!protectHeroActive_) {
+            return false;
+        } else {
+            const auto release_after =
+                std::chrono::seconds(std::max(1, protection.NoEnemyReleaseSec));
+            if (protectHeroLastEnemySeenTime_.time_since_epoch().count() == 0 ||
+                now - protectHeroLastEnemySeenTime_ >= release_after) {
+                protectHeroActive_ = false;
+                protectHeroLastEnemySeenTime_ = {};
+                return false;
+            }
         }
 
         const std::uint8_t goal_base_id = AreaManager::IsValidBaseGoalId(protection.GoalBaseId)
@@ -3667,12 +3731,15 @@ namespace BehaviorTree {
         speedLevel = 1;
         if (LoggerPtr) {
             LoggerPtr->Info(
-                "ProtectHero: elapsed={}s hero=({}, {}) goal={} hold={}s.",
+                "ProtectHero: elapsed={}s hero=({}, {}) in_highland={} in_protect_hero={} goal={} hold={}s no_enemy_release={}s.",
                 ElapsedSeconds(),
                 hero_x,
                 hero_y,
+                hero_in_highland ? 1 : 0,
+                hero_in_protect_hero ? 1 : 0,
                 static_cast<int>(naviCommandGoal),
-                std::max(1, protection.HoldSec));
+                std::max(1, protection.HoldSec),
+                std::max(1, protection.NoEnemyReleaseSec));
         }
         return true;
     }

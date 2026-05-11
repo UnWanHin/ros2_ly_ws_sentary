@@ -168,7 +168,7 @@ Updated: 2026-05-08
 ├── lower_head    : std_msgs/msg/UInt8              [External] 导航兼容低头状态
 ├── reached       : std_msgs/msg/Bool               [External] 导航 -> BT，当前 goal 是否到达
 ├── reachable     : std_msgs/msg/Bool               [External] 导航 -> BT，当前 goal 是否可达
-├── is_rotate     : std_msgs/msg/Bool               [External] 导航 -> BT，true 恢复正常巡逻，false 停小陀螺并请求 FollowMode
+├── should_rotate : std_msgs/msg/Bool               [External] 导航 -> BT，true 恢复正常巡逻，false 停小陀螺并请求 FollowMode
 └── vel           : gimbal_driver/msg/Vel           [External] 兼容/调试速度链路
 
 /goal_pose : geometry_msgs/msg/PoseStamped  [External] navi_tf_bridge -> 外部导航最终目标

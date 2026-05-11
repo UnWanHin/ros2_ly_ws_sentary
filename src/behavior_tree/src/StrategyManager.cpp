@@ -136,12 +136,36 @@ bool StrategyManager::RunTactical(Application& app) {
         return true;
     }
 
-    if (app.TrySetRegionalDefenseGoal(my_team, enemy_team)) {
+    if (app.IsOutpostOpeningHighPriorityActive()) {
+        if (app.IsOutpostVisualScoutNavigationActive() && app.aimMode != AimMode::Outpost) {
+            if (app.naviCommandIntervalClock.trigger()) {
+                app.TrySetOutpostVisualScoutTravelGoal(
+                    my_team,
+                    enemy_team,
+                    "regional_tactical_opening_outpost_scout_travel");
+            }
+            MarkHandled(app, StrategyLayer::Tactical);
+            return true;
+        }
+
+        if (app.aimMode == AimMode::Outpost) {
+            if (app.naviCommandIntervalClock.trigger()) {
+                app.TrySetAimModeTaskGoal(
+                    my_team,
+                    enemy_team,
+                    "regional_tactical_opening_outpost_aim");
+            }
+            MarkHandled(app, StrategyLayer::Tactical);
+            return true;
+        }
+    }
+
+    if (app.TrySetProtectHeroGoal(my_team, enemy_team)) {
         MarkHandled(app, StrategyLayer::Tactical);
         return true;
     }
 
-    if (app.TrySetProtectHeroGoal(my_team, enemy_team)) {
+    if (app.TrySetRegionalDefenseGoal(my_team, enemy_team)) {
         MarkHandled(app, StrategyLayer::Tactical);
         return true;
     }

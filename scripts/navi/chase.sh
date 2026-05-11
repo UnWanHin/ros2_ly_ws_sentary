@@ -49,7 +49,7 @@ Purpose:
 
 Defaults:
   fire=false, rotate=true, scan=true, scan_mode=2, area_limit=false,
-  publish_navi_goal=false, ignore /ly/navi/is_rotate.
+  publish_navi_goal=false, ignore /ly/navi/should_rotate.
 
 Options:
   --bt-config-file <path>          Source BT JSON to patch. Default:
@@ -60,7 +60,7 @@ Options:
   --scan [true|false]              Enable gimbal patrol scan when no target. Default: ${SCAN_ENABLED}
   --scan-mode <1|2>                PatrolScan.Mode. Default: ${SCAN_MODE}
   --area-limit [true|false]        Enable Chase.AreaLimit. Default: ${AREA_LIMIT_ENABLED}
-  --respect-is-rotate              Use normal NaviRotateControl.yaml and obey /ly/navi/is_rotate.
+  --respect-is-rotate              Use normal NaviRotateControl.yaml and obey /ly/navi/should_rotate.
   --ignore-is-rotate               Disable NaviRotateControl for this test. Default.
   --nogate                         Bypass /ly/game/is_start. Default.
   --with-gate                      Do not bypass /ly/game/is_start.
@@ -439,7 +439,7 @@ echo "[INFO] formal chase test via sentry_all/regional" >&2
 echo "[INFO] external aim input: /ly/aim/armor_targets + /ly/aim/result" >&2
 echo "[INFO] chase output: /ly/navi/target_rel -> /goal_pose" >&2
 echo "[INFO] fire=${FIRE_ENABLED} rotate=${ROTATE_ENABLED} scan=${SCAN_ENABLED} scan_mode=${SCAN_MODE} area_limit=${AREA_LIMIT_ENABLED}" >&2
-echo "[INFO] respect_is_rotate=${RESPECT_IS_ROTATE} source_bt_config=${SOURCE_BT_CONFIG}" >&2
+echo "[INFO] respect_should_rotate=${RESPECT_IS_ROTATE} source_bt_config=${SOURCE_BT_CONFIG}" >&2
 echo "[INFO] generated bt_config=${TEMP_BT_CONFIG}" >&2
 echo "[INFO] navi_rotate_config=${TEMP_NAVI_ROTATE_CONFIG}" >&2
 

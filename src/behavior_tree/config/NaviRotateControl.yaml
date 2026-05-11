@@ -1,7 +1,7 @@
 behavior_tree:
   ros__parameters:
     NaviRotateControl:
-      # External navigation publishes /ly/navi/is_rotate.
+      # External navigation publishes /ly/navi/should_rotate.
       # true: return to BT's normal rotate and patrol policy.
       # false: merge FollowMode bit into the final FireCode and stop chassis rotate level.
       # It does not make BT enter the internal FollowMode branch; patrol/fire continue normally.

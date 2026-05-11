@@ -468,6 +468,7 @@ namespace LangYa
 
     struct OutpostConfirmSetting {
         int RefereeFreshTimeoutMs{2000};
+        bool TrustEnemyOutpostHp{false};
         int MaxGameTimeSec{90};
         int MinSelfHp{150};
         int MinAmmo{30};
@@ -479,6 +480,8 @@ namespace LangYa
         int DamageAbortThreshold{30};
         int DamageAbortWindowMs{1000};
         int DamageAbortHoldMs{3000};
+        bool OpeningHighPriority{true};
+        bool SuppressChaseWhileActive{true};
     };
 
     struct TaskSetting {
@@ -510,6 +513,7 @@ namespace LangYa
         bool Enable{false};
         int LostTargetHoldMs{300};
         bool SuppressFire{true};
+        bool FallbackToPatrolScanMode2{true};
     };
 
     struct ExternalAimSetting {
@@ -681,6 +685,7 @@ namespace LangYa
         bool Enable{true};
         int StartElapsedSec{120};
         int HoldSec{30};
+        int NoEnemyReleaseSec{8};
         int FriendPositionFreshMs{2500};
         int FriendHealthFreshMs{2500};
         std::uint8_t GoalBaseId{Highland.ID};
