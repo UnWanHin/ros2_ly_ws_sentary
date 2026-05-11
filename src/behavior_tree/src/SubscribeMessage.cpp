@@ -458,7 +458,7 @@ namespace BehaviorTree{
             app.lastExternalAimTargetsRxTime_ = now;
         });
 
-        // ly_aim_result: external sentry.aim final yaw/pitch plus fire gate.
+        // ly_aim_result: external sentry.aim follow gate, final yaw/pitch, and fire gate.
         GenSub<ly_aim_result>([](Application& app, auto msg) {
             if (!app.config.ExternalAimSettings.Enable) {
                 return;
@@ -467,7 +467,7 @@ namespace BehaviorTree{
             const auto pitch = static_cast<AngleType>(msg->pitch);
             const bool finite_angles = std::isfinite(yaw) && std::isfinite(pitch);
             const auto now = std::chrono::steady_clock::now();
-            const bool result_valid = finite_angles;
+            const bool result_valid = msg->follow && finite_angles;
             app.externalAimData.Angles = GimbalAnglesType{yaw, pitch};
             app.externalAimData.BuffFollow = false;
             app.externalAimData.FireStatus = result_valid && msg->fire;

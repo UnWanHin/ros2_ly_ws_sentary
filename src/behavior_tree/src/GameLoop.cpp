@@ -991,7 +991,8 @@ namespace BehaviorTree {
         }();
         const bool has_target_for_angles = find_target || has_recent_latched_target;
         const bool visual_target_has_face_priority =
-            has_target_for_angles && (aimMode == AimMode::Buff || aimMode == AimMode::Outpost);
+            has_target_for_angles &&
+            (external_aim_active || aimMode == AimMode::Buff || aimMode == AimMode::Outpost);
         const bool navi_rotate_control_clear_regional_face_mode =
             navi_rotate_control_release_request &&
             config.NaviRotateControlSettings.ClearRegionalFaceModeWhenTrue &&

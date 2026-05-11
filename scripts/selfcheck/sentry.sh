@@ -278,6 +278,16 @@ check_ros_interface() {
   fi
 }
 
+check_ros_interface_field() {
+  local interface_name="$1"
+  local expected_field="$2"
+  if timeout "${CMD_TIMEOUT}s" ros2 interface show "${interface_name}" 2>/dev/null | grep -Fxq "${expected_field}"; then
+    pass "ROS interface field available: ${interface_name} ${expected_field}"
+  else
+    fail "ROS interface field missing: ${interface_name} ${expected_field}"
+  fi
+}
+
 check_executable_file() {
   local path="$1"
   if [[ -x "${path}" ]]; then
@@ -790,6 +800,7 @@ if (( RUNTIME_ONLY == 0 )); then
   check_ros_interface "sentry_msgs/msg/AimTarget"
   check_ros_interface "sentry_msgs/msg/AimTargetArray"
   check_ros_interface "sentry_msgs/msg/AimResult"
+  check_ros_interface_field "sentry_msgs/msg/AimResult" "bool follow"
 
   if grep -Fq 'BTCPP_format="4"' "${ROOT_DIR}/src/behavior_tree/Scripts/main.xml"; then
     pass "BT XML format is v4"

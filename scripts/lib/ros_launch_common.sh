@@ -57,16 +57,20 @@ launch_arg_bool_is_false() {
   return 1
 }
 
+sentry_msgs_aim_result_has_follow() {
+  ros2 interface show sentry_msgs/msg/AimResult 2>/dev/null | grep -Fxq "bool follow"
+}
+
 require_sentry_msgs_for_behavior_tree() {
   if launch_arg_bool_is_false "use_behavior_tree"; then
     return 0
   fi
-  if ros2 pkg prefix sentry_msgs >/dev/null 2>&1; then
+  if ros2 pkg prefix sentry_msgs >/dev/null 2>&1 && sentry_msgs_aim_result_has_follow; then
     return 0
   fi
 
-  echo "[ERROR] sentry_msgs is required for the formal /ly/aim/* chain." >&2
-  echo "        Build/source ~/sentry.common, or set SENTRY_MSGS_SETUP to sentry_msgs local_setup.bash." >&2
+  echo "[ERROR] sentry_msgs with AimResult.follow is required for the formal /ly/aim/* chain." >&2
+  echo "        Build/source the updated ~/sentry.common, or set SENTRY_MSGS_SETUP to its local_setup.bash." >&2
   exit 1
 }
 

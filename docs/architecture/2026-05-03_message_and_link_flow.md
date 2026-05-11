@@ -16,21 +16,21 @@
       ↓
 [behavior_tree] 根據 regional/task/posture/血量/目標優先級選 target
       ↓ /ly/aim/select_target (sentry_msgs/AimTarget)
-[sentry.aim] → /ly/aim/result (sentry_msgs/AimResult: yaw, pitch, fire)
+[sentry.aim] → /ly/aim/result (sentry_msgs/AimResult: follow, fire, yaw, pitch)
       ↓
 [behavior_tree] → /ly/control/angles + /ly/control/firecode + /ly/control/vel/posture/sentry_cmd
       ↓
 [gimbal_driver] → 下位機
 ```
 
-`AimResult.fire` 是正式開火門控：`true` 時 BT 翻轉一次 `FireCode.FireStatus`，`false` 時只轉角不開火。這條鏈路不再經過 `/ly/predictor/target`。
+`AimResult.follow` 是正式角度接管門控：`true` 時 BT 接收 yaw/pitch 並轉發到 `/ly/control/angles`，`false` 時視為外部 aim 未識別到車體，BT 不接管該幀角度並繼續自身巡邏/FaceMode/決策輸出。`AimResult.fire` 只在 `follow=true` 時生效：`true` 時 BT 翻轉一次 `FireCode.FireStatus`，`false` 時只轉角不開火。這條鏈路不再經過 `/ly/predictor/target`。
 `/ly/aim/armor_targets` 由外部 decider 以 `SensorDataQoS` 發布，BT 也用 `SensorDataQoS` 訂閱，避免 QoS 不匹配。
 
 另有两个辅助/调试链路：
 
 - **导航 TF bridge**：`/ly/navi/goal_pos_raw` 或 `/ly/navi/target_rel` 经 `navi_tf_bridge` 转 `/goal_pose`。
 - **FaceMode 固定点朝向**：`map_aim_point_node` 根据 `[official_map_x, official_map_y, map_z]` 解算 yaw/pitch；独立测试默认直接发布 `/ly/control/angles`，给 BT 区域任务使用时输出 `/ly/face_mode/angles`，由 BT 统一发布控制。区域状态机需要切换目标时发布 `/ly/face_mode/target_raw`，格式为 `[official_map_x, official_map_y, map_z]` cm。FaceMode 只接管云台巡逻/角度/停火，不清零底盘小陀螺 `Rotate`；需要停小陀螺时由 `FollowMode` 控制。
-- **ExternalAim 外部辅瞄接口**：`sentry_msgs` 是 `behavior_tree` 的正式依赖；BT 订阅 `/ly/aim/armor_targets` 和 `/ly/aim/result`，发布 `/ly/aim/select_target`。外部 aim 只提供可打目标、yaw/pitch 和 `fire` 门控，最终 `/ly/control/angles`、`/ly/control/firecode` 仍由 BT 统一发布；外部 `armor_controller_node` 必須關閉 legacy `/ly/control/*`。
+- **ExternalAim 外部辅瞄接口**：`sentry_msgs` 是 `behavior_tree` 的正式依赖；BT 订阅 `/ly/aim/armor_targets` 和 `/ly/aim/result`，发布 `/ly/aim/select_target`。外部 aim 提供可打目标、`follow`、yaw/pitch 和 `fire` 门控，最终 `/ly/control/angles`、`/ly/control/firecode` 仍由 BT 统一发布；外部 `armor_controller_node` 必須關閉 legacy `/ly/control/*`。
 
 ---
 
@@ -76,12 +76,12 @@
       ↓
 [behavior_tree] 选择 targetArmor
       ↓ /ly/aim/select_target (sentry_msgs/AimTarget)
-[sentry.aim] → /ly/aim/result (sentry_msgs/AimResult: yaw, pitch, fire)
+[sentry.aim] → /ly/aim/result (sentry_msgs/AimResult: follow, fire, yaw, pitch)
       ↓
 [behavior_tree] → /ly/control/angles + /ly/control/firecode
 ```
 
-这里不走 `AimResult -> /ly/predictor/target`，因为旧 `/ly/predictor/target.status` 只能表示 target valid，BT 会按自身 fire rate 翻转开火，不能表达外部 `AimResult.fire=false` 时“继续给角度但不击发”的语义。
+这里不走 `AimResult -> /ly/predictor/target`，因为旧 `/ly/predictor/target.status` 只能表示 target valid，BT 会按自身 fire rate 翻转开火，不能同时表达外部 `AimResult.follow=false` 时“不接管角度”和 `AimResult.fire=false` 时“接管角度但不击发”的语义。
 
 ### 詳細消息鏈路
 

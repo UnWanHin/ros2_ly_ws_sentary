@@ -112,7 +112,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/bt/target` | `std_msgs/msg/UInt8` | `behavior_tree` -> legacy tools/debug | 当前 BT 选择的装甲板目标类型；正式選目標同時發布 `/ly/aim/select_target`。 |
 | `/ly/aim/armor_targets` | `sentry_msgs/msg/AimTargetArray` | external aim -> `behavior_tree` | 外部辅瞄输出的可打目标列表；数组元素是 `AimTarget.msg`，BT 用它生成 `hitableTargets`、目標距離和 Chase 相對 point。 |
 | `/ly/aim/select_target` | `sentry_msgs/msg/AimTarget` | `behavior_tree` -> external aim | BT 选择的目标 `id`，`header.stamp` 为当前发布时间，`position` 尽量填最近一次 `/ly/aim/armor_targets` 中同 id 的位置。 |
-| `/ly/aim/result` | `sentry_msgs/msg/AimResult` | external aim -> `behavior_tree` | 外部辅瞄最终 yaw/pitch 和 `fire` 门控；BT 直接用于 `/ly/control/angles` 和 `/ly/control/firecode`，不再绕到 `/ly/predictor/target`。 |
+| `/ly/aim/result` | `sentry_msgs/msg/AimResult` | external aim -> `behavior_tree` | 外部辅瞄 `follow`、最终 yaw/pitch 和 `fire` 门控；`follow=true` 时 BT 接管角度并转发 `/ly/control/angles`，`fire=true` 时翻转 `/ly/control/firecode`，不再绕到 `/ly/predictor/target`。 |
 | `/ly/detector/armors` | `auto_aim_common/msg/Armors` | legacy detector -> legacy tracker/predictor | 舊內部輔瞄鏈路，正式 `sentry_all` 不啟動。 |
 | `/ly/predictor/target` | `auto_aim_common/msg/Target` | legacy predictor -> `behavior_tree` | 舊普通輔瞄結果；`Behavion` 正式配置會忽略。 |
 | `/ly/back_cam/target` | `auto_aim_common/msg/Target` | legacy/debug | 后置相机目标结果。 |
@@ -170,7 +170,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `gimbal_driver/msg/GimbalRawFrame` | `header`, `direction`, `type_id`, `data`, `firecode_raw`, `sentry_cmd_raw` | 可选 raw 串口诊断 topic。 |
 | `sentry_msgs/msg/AimTargetArray` | `header`, `aim_targets[]` | 外部 aim 可打目标列表；`/ly/aim/armor_targets` 使用 `SensorDataQoS`。 |
 | `sentry_msgs/msg/AimTarget` | `header`, `position`, `id` | 外部 aim 候选目标和 BT 目标选择共用结构；`id` 对齐 `ArmorType`，`position` 为米制 point，`header.frame_id` 非空时才作为 Chase 真值点参与 TF 转换。 |
-| `sentry_msgs/msg/AimResult` | `header`, `fire`, `pitch`, `yaw` | 外部 aim 的最终角度与开火门控。 |
+| `sentry_msgs/msg/AimResult` | `header`, `follow`, `fire`, `pitch`, `yaw` | 外部 aim 的角度接管、最终角度与开火门控。 |
 | `auto_aim_common/msg/Target` | `header`, `status`, `buff_follow`, `yaw`, `pitch` | predictor/buff/outpost 角度目标。 |
 | `auto_aim_common/msg/RelativeTarget` | `header`, `valid`, `x`, `y`, `z`, `distance_m`, `yaw_error_deg`, `pitch_error_deg`, `armor_type`, `aim_mode` | 追击相对目标。 |
 | `auto_aim_common/msg/Armors` | `header`, `Armor[] armors`, `Car[] cars`, `yaw`, `pitch`, predictor target index | 检测输出给跟踪/预测。 |

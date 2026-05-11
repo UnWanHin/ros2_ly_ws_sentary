@@ -213,7 +213,7 @@ private:
     // ArmorType targetArmor{ArmorType::Hero}; // 目标装甲板
     ArmorData targetArmor{}; // 目标装甲板，包括距离
     AimData autoAimData{}; // 定义回调，接收的辅瞄云台角度数据
-    AimData externalAimData{}; // 接收外部 sentry_msgs/AimResult 角度与开火门控
+    AimData externalAimData{}; // 接收外部 sentry_msgs/AimResult follow/角度/开火门控
     AimData buffAimData{}; // 定义回调，接收的打符云台角度数据
     AimData outpostAimData{}; // 定义回调，接收的打哨站云台角度数据
     AimData faceModeData{}; // 接收 FaceMode 解算出来的固定点朝向角
