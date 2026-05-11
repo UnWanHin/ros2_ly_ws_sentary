@@ -99,6 +99,14 @@ namespace BehaviorTree{
         LoggerPtr->Debug("-----------End PrintMessageAll-----------");
     }
     void Application::SubscribeMessageAll() {
+        auto stamp_or_now = [](Application& app, const auto& header)
+            -> rclcpp::Time {
+            if (header.stamp.sec != 0 || header.stamp.nanosec != 0) {
+                return rclcpp::Time(header.stamp);
+            }
+            return app.node_->now();
+        };
+
         // 输入分组说明：
         // 1) 云台与火控回读
         // 2) 裁判/比赛态数据（血量、弹药、时间、开赛标志）
@@ -279,8 +287,9 @@ namespace BehaviorTree{
 
         // ly_navi_position
         // Navigation/TF-derived self position in official-map centimeters: [x, y].
-        GenSub<ly_navi_position>([](Application& app, auto msg) {
+        GenSub<ly_navi_position>([stamp_or_now](Application& app, auto msg) {
             const auto now = std::chrono::steady_clock::now();
+            const auto stamp = stamp_or_now(app, msg->header);
             if (msg->data.size() < 2) {
                 if (now - app.lastPositionDataGuardLogTime_ > std::chrono::seconds(2)) {
                     if (app.LoggerPtr) {
@@ -296,13 +305,16 @@ namespace BehaviorTree{
             app.sentryNaviPositionSource_.X = static_cast<int>(msg->data[0]);
             app.sentryNaviPositionSource_.Y = static_cast<int>(msg->data[1]);
             app.sentryNaviPositionSource_.LastRx = now;
+            app.sentryNaviPositionSource_.Stamp = stamp;
             app.UpdateSentryPositionFusion(now);
+            app.PubFriendInfo();
         });
 
         // ly_friend_uwb_pos
         // Dedicated radar/UWB self position.
-        GenSub<ly_friend_uwb_pos>([](Application& app, auto msg) {
+        GenSub<ly_friend_uwb_pos>([stamp_or_now](Application& app, auto msg) {
             const auto now = std::chrono::steady_clock::now();
+            const auto stamp = stamp_or_now(app, msg->header);
             if (msg->data.size() < 2) {
                 if (now - app.lastPositionDataGuardLogTime_ > std::chrono::seconds(2)) {
                     if (app.LoggerPtr) {
@@ -319,12 +331,15 @@ namespace BehaviorTree{
             app.sentryUwbPositionSource_.X = static_cast<int>(msg->data[0]);
             app.sentryUwbPositionSource_.Y = 1500 - static_cast<int>(msg->data[1]);
             app.sentryUwbPositionSource_.LastRx = now;
+            app.sentryUwbPositionSource_.Stamp = stamp;
             app.lastSentryRadarPositionRxTime_ = now;
             app.UpdateSentryPositionFusion(now);
+            app.PubFriendInfo();
         });
 
         // ly_position_data
-        GenSub<ly_position_data>([](Application& app, auto msg) {
+        GenSub<ly_position_data>([stamp_or_now](Application& app, auto msg) {
+            const auto stamp = stamp_or_now(app, msg->header);
             int FriendCarId = msg->friendcarid;
             auto in_range = [](const int idx) { return idx >= 0 && idx < 10; };
             auto maybe_warn_invalid_id = [&](const char* side, const int raw_id) {
@@ -345,11 +360,13 @@ namespace BehaviorTree{
                     app.sentryPositionDataSource_.X = static_cast<int>(msg->friendx);
                     app.sentryPositionDataSource_.Y = 1500 - static_cast<int>(msg->friendy);
                     app.sentryPositionDataSource_.LastRx = now;
+                    app.sentryPositionDataSource_.Stamp = stamp;
                     app.UpdateSentryPositionFusion(now);
                 } else {
                     app.friendRobots[FriendCarId].position_.X = msg->friendx;
                     app.friendRobots[FriendCarId].position_.Y = 1500 - msg->friendy;
                     app.lastFriendPositionRxTime_[friend_index] = now;
+                    app.lastFriendPositionStamp_[friend_index].Stamp = stamp;
                 }
             } else {
                 maybe_warn_invalid_id("friend", FriendCarId);
@@ -359,11 +376,14 @@ namespace BehaviorTree{
             if (in_range(EnemyCarId)) {
                 app.enemyRobots[EnemyCarId].position_.X = msg->enemyx;
                 app.enemyRobots[EnemyCarId].position_.Y = 1500 - msg->enemyy;
-                app.lastEnemyPositionRxTime_[static_cast<std::size_t>(EnemyCarId)] =
-                    std::chrono::steady_clock::now();
+                const auto enemy_index = static_cast<std::size_t>(EnemyCarId);
+                app.lastEnemyPositionRxTime_[enemy_index] = std::chrono::steady_clock::now();
+                app.lastEnemyPositionStamp_[enemy_index].Stamp = stamp;
             } else {
                 maybe_warn_invalid_id("enemy", EnemyCarId);
             }
+            app.PubFriendInfo();
+            app.PubEnemyInfo();
         });
 
         // ly_detector_armors
@@ -384,8 +404,8 @@ namespace BehaviorTree{
         });
 
 #ifdef LY_ENABLE_SENTRY_MSGS
-        // ly_aim_target_list: external sentry.aim target candidates.
-        GenSubWithQoS<ly_aim_target_list>(rclcpp::SensorDataQoS(), [](Application& app, auto msg) {
+        // ly_aim_armor_target: external sentry.aim target candidates.
+        GenSubWithQoS<ly_aim_armor_target>(rclcpp::SensorDataQoS(), [](Application& app, auto msg) {
             if (!app.config.ExternalAimSettings.Enable) {
                 return;
             }
@@ -564,8 +584,9 @@ namespace BehaviorTree{
         });
 
         // ly_enemy_hp
-        GenSub<ly_enemy_hp>([](Application& app, auto msg) {
+        GenSub<ly_enemy_hp>([stamp_or_now](Application& app, auto msg) {
             const auto now = std::chrono::steady_clock::now();
+            const auto stamp = stamp_or_now(app, msg->header);
             const auto& aim_target = app.config.DecisionAutonomySettings.AimTarget;
             const int dead_confirm_ms = std::max(0, aim_target.DeadHealthConfirmMs);
             const int respawn_transition_timeout_ms =
@@ -573,6 +594,7 @@ namespace BehaviorTree{
             const auto update_health = [&](const UnitType unit, const std::uint16_t health) {
                 const auto index = static_cast<std::size_t>(unit);
                 app.lastEnemyHealthRxTime_[index] = now;
+                app.lastEnemyHealthStamp_[index].Stamp = stamp;
                 if (health == 0) {
                     if (!app.enemyZeroHealthObserved_[index]) {
                         app.enemyZeroHealthObserved_[index] = true;
@@ -612,15 +634,27 @@ namespace BehaviorTree{
             update_health(UnitType::Infantry1, static_cast<std::uint16_t>(msg->infantry1));
             update_health(UnitType::Infantry2, static_cast<std::uint16_t>(msg->infantry2));
             update_health(UnitType::Sentry, static_cast<std::uint16_t>(msg->sentry));
+            app.PubEnemyInfo();
         });
 
         // ly_friend_hp
-        GenSub<ly_friend_hp>([](Application& app, auto msg) {
-            app.friendRobots[UnitType::Hero].setCurrentHealth(static_cast<std::uint16_t>(msg->hero));
-            app.friendRobots[UnitType::Engineer].setCurrentHealth(static_cast<std::uint16_t>(msg->engineer));
-            app.friendRobots[UnitType::Infantry1].setCurrentHealth(static_cast<std::uint16_t>(msg->infantry1));
-            app.friendRobots[UnitType::Infantry2].setCurrentHealth(static_cast<std::uint16_t>(msg->infantry2));
-            app.friendRobots[UnitType::Sentry].setCurrentHealth(static_cast<std::uint16_t>(msg->sentry));
+        GenSub<ly_friend_hp>([stamp_or_now](Application& app, auto msg) {
+            const auto now = std::chrono::steady_clock::now();
+            const auto stamp = stamp_or_now(app, msg->header);
+            const auto update_health = [&](const UnitType unit, const std::uint16_t health) {
+                const auto index = static_cast<std::size_t>(unit);
+                app.friendRobots[unit].setCurrentHealth(health);
+                if (index < app.lastFriendHealthRxTime_.size()) {
+                    app.lastFriendHealthRxTime_[index] = now;
+                    app.lastFriendHealthStamp_[index].Stamp = stamp;
+                }
+            };
+            update_health(UnitType::Hero, static_cast<std::uint16_t>(msg->hero));
+            update_health(UnitType::Engineer, static_cast<std::uint16_t>(msg->engineer));
+            update_health(UnitType::Infantry1, static_cast<std::uint16_t>(msg->infantry1));
+            update_health(UnitType::Infantry2, static_cast<std::uint16_t>(msg->infantry2));
+            update_health(UnitType::Sentry, static_cast<std::uint16_t>(msg->sentry));
+            app.PubFriendInfo();
         });
     }    
 

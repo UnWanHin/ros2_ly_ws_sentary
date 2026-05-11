@@ -47,7 +47,7 @@ Purpose:
 
 Options:
   --offline|--online
-  --mode 1|2|3|league|regional|showcase
+  --mode 1|2|3|league|regional|showcase  Ignored legacy option
   --wait SEC
   --config-file PATH
   --enable-fire true|false
@@ -82,6 +82,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --mode)
       MODE_ARG="$2"
+      st_warn "--mode is ignored by standalone buff mode."
       shift 2
       ;;
     --wait)
@@ -154,31 +155,22 @@ fi
 LAUNCH_ARGS=(
   "use_gimbal:=true"
   "use_detector:=true"
-  "use_tracker:=false"
-  "use_predictor:=false"
-  "use_outpost:=false"
   "use_buff:=true"
-  "use_behavior_tree:=false"
+  "use_bridge:=false"
 )
 
 if (( OFFLINE_MODE == 1 )); then
-  LAUNCH_ARGS+=("offline:=true")
+  st_warn "--offline is not supported by detector/buff_test.launch.py; use config overrides for video/virtual IO if needed."
 fi
 if [[ -n "${CONFIG_FILE}" ]]; then
   LAUNCH_ARGS+=("config_file:=${CONFIG_FILE}")
 fi
 
-START_ARGS=("--mode" "${MODE_ARG}" "--no-prompt")
-if (( CLEANUP_EXISTING == 1 )); then
-  START_ARGS+=("--cleanup-existing")
-else
-  START_ARGS+=("--no-cleanup-existing")
-fi
-
 LAUNCH_CMD=(
-  "${ROOT_DIR}/scripts/start/sentry_all.sh"
-  "${START_ARGS[@]}"
-  --
+  "ros2"
+  "launch"
+  "detector"
+  "buff_test.launch.py"
   "${LAUNCH_ARGS[@]}"
 )
 

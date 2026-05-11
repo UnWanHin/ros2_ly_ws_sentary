@@ -36,7 +36,7 @@ Options:
 Examples:
   ./scripts/areatest/regional_base.sh --pure
   ./scripts/areatest/regional_central.sh --pure --fake-referee
-  ./scripts/areatest/regional_roadland.sh -- use_detector:=false use_tracker:=false use_predictor:=false
+  ./scripts/areatest/regional_roadland.sh
 EOF2
 }
 
@@ -178,11 +178,6 @@ fi
 BT_CONFIG_FILE="${BT_CONFIG_FILE_NORMAL}"
 if (( PURE_MODE == 1 )); then
   BT_CONFIG_FILE="${BT_CONFIG_FILE_PURE}"
-  add_launch_arg_if_missing "use_detector" "false"
-  add_launch_arg_if_missing "use_tracker" "false"
-  add_launch_arg_if_missing "use_predictor" "false"
-  add_launch_arg_if_missing "use_outpost" "false"
-  add_launch_arg_if_missing "use_buff" "false"
 fi
 
 if [[ ! -f "${BT_CONFIG_FILE}" ]]; then
@@ -242,7 +237,7 @@ echo "[INFO] Regional single-area test: area=${AREA_LABEL}"
 echo "[INFO] BT config: ${BT_CONFIG_FILE}"
 echo "[INFO] Uses real sentry_all regional chain; this is not navi_debug and not a direct goal publisher."
 if (( PURE_MODE == 1 )); then
-  echo "[INFO] Pure mode enabled: firing/chase/posture disabled; detector/tracker/predictor/outpost/buff nodes default off."
+  echo "[INFO] Pure mode enabled: firing/chase/posture disabled; formal sentry_all does not start internal vision nodes."
 fi
 if (( FAKE_REFEREE == 1 )); then
   echo "[INFO] Fake referee enabled: hp=${FAKE_HP}, ammo=${FAKE_AMMO}"

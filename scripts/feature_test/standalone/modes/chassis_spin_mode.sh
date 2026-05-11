@@ -99,11 +99,6 @@ export ROS_LOG_DIR=/tmp/ros2_logs
 
 LAUNCH_ARGS=(
   "use_gimbal:=true"
-  "use_detector:=false"
-  "use_tracker:=false"
-  "use_predictor:=false"
-  "use_outpost:=false"
-  "use_buff:=false"
   "use_behavior_tree:=false"
 )
 

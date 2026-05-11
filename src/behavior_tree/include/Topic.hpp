@@ -61,6 +61,7 @@
 #include "gimbal_driver/msg/buff_data.hpp"
 #include "gimbal_driver/msg/bullet_info.hpp"
 #include "gimbal_driver/msg/position_data.hpp"
+#include "gimbal_driver/msg/unit_info_array.hpp"
 
 #ifdef LY_ENABLE_SENTRY_MSGS
 #include "sentry_msgs/msg/aim_result.hpp"
@@ -118,9 +119,9 @@ namespace BehaviorTree {
     LY_DEF_ROS_TOPIC(ly_face_mode_target_raw, "/ly/face_mode/target_raw", std_msgs::msg::UInt16MultiArray);
 
 #ifdef LY_ENABLE_SENTRY_MSGS
-    LY_DEF_ROS_TOPIC(ly_aim_target_list, "/ly/aim/TargetList", sentry_msgs::msg::AimTargetArray);
-    LY_DEF_ROS_TOPIC(ly_aim_select_target, "/ly/aim/SelectTarget", sentry_msgs::msg::AimTarget);
-    LY_DEF_ROS_TOPIC(ly_aim_result, "/ly/aim/Result", sentry_msgs::msg::AimResult);
+    LY_DEF_ROS_TOPIC(ly_aim_armor_target, "/ly/aim/armor_target", sentry_msgs::msg::AimTargetArray);
+    LY_DEF_ROS_TOPIC(ly_aim_select_target, "/ly/aim/select_target", sentry_msgs::msg::AimTarget);
+    LY_DEF_ROS_TOPIC(ly_aim_result, "/ly/aim/result", sentry_msgs::msg::AimResult);
 #endif
     
     LY_DEF_ROS_TOPIC(ly_navi_vel, "/ly/navi/vel", gimbal_driver::msg::Vel);
@@ -139,5 +140,7 @@ namespace BehaviorTree {
     LY_DEF_ROS_TOPIC(ly_game_rfid, "/ly/game/rfid", gimbal_driver::msg::RfidStatus);
     LY_DEF_ROS_TOPIC(ly_game_bullet, "/ly/game/bullet", gimbal_driver::msg::BulletInfo);
     LY_DEF_ROS_TOPIC(ly_position_data, "/ly/position/data", gimbal_driver::msg::PositionData);
+    LY_DEF_ROS_TOPIC(ly_friend_info, "/ly/friend/info", gimbal_driver::msg::UnitInfoArray);
+    LY_DEF_ROS_TOPIC(ly_enemy_info, "/ly/enemy/info", gimbal_driver::msg::UnitInfoArray);
 
 }

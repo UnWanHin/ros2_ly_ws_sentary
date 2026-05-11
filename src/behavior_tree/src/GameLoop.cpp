@@ -485,6 +485,7 @@ namespace BehaviorTree {
         auto apply_result = [&](const int x,
                                 const int y,
                                 const std::chrono::steady_clock::time_point last_rx,
+                                const rclcpp::Time& stamp,
                                 const char* source) {
             const int clamped_x = std::clamp(
                 x,
@@ -501,6 +502,7 @@ namespace BehaviorTree {
             lastSentryPositionRxTime_ = last_rx;
             if (sentry_index < lastFriendPositionRxTime_.size()) {
                 lastFriendPositionRxTime_[sentry_index] = last_rx;
+                lastFriendPositionStamp_[sentry_index].Stamp = stamp;
             }
 
             const std::string next_source = source == nullptr ? "unknown" : source;
@@ -527,6 +529,7 @@ namespace BehaviorTree {
             double sum_x = 0.0;
             double sum_y = 0.0;
             std::chrono::steady_clock::time_point latest_rx{};
+            rclcpp::Time latest_stamp{};
             int used_count = 0;
             for (const auto& candidate : candidates) {
                 if (!source_fresh(candidate)) {
@@ -542,13 +545,19 @@ namespace BehaviorTree {
                 if (latest_rx.time_since_epoch().count() == 0 ||
                     candidate.Cache->LastRx > latest_rx) {
                     latest_rx = candidate.Cache->LastRx;
+                    latest_stamp = candidate.Cache->Stamp;
                 }
                 ++used_count;
             }
             if (sum_weight > 0.0 && used_count > 0) {
                 const int fused_x = static_cast<int>(std::lround(sum_x / sum_weight));
                 const int fused_y = static_cast<int>(std::lround(sum_y / sum_weight));
-                apply_result(fused_x, fused_y, latest_rx, used_count == 1 ? "weighted_single" : "weighted");
+                apply_result(
+                    fused_x,
+                    fused_y,
+                    latest_rx,
+                    latest_stamp,
+                    used_count == 1 ? "weighted_single" : "weighted");
             }
             return;
         }
@@ -566,7 +575,7 @@ namespace BehaviorTree {
             }
         }
         if (best != nullptr) {
-            apply_result(best->Cache->X, best->Cache->Y, best->Cache->LastRx, best->Name);
+            apply_result(best->Cache->X, best->Cache->Y, best->Cache->LastRx, best->Cache->Stamp, best->Name);
         }
     }
 
@@ -611,6 +620,8 @@ namespace BehaviorTree {
         GlobalBlackboard_->set<std::uint16_t>("AmmoLeft", ammoLeft);
         GlobalBlackboard_->set<Robots>("FriendRobots", friendRobots);
         GlobalBlackboard_->set<Robots>("EnemyRobots", enemyRobots);
+        GlobalBlackboard_->set<gimbal_driver::msg::UnitInfoArray>("FriendInfo", MakeFriendInfoMsg());
+        GlobalBlackboard_->set<gimbal_driver::msg::UnitInfoArray>("EnemyInfo", MakeEnemyInfoMsg());
         GlobalBlackboard_->set<std::uint16_t>("EnemyOutpostHealth", enemyOutpostHealth);
         GlobalBlackboard_->set<std::uint16_t>("SelfOutpostHealth", selfOutpostHealth);
         GlobalBlackboard_->set<std::uint16_t>("SelfBaseHealth", selfBaseHealth);

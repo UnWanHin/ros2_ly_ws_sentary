@@ -1056,6 +1056,7 @@ namespace
                 {
                     using topic = ly_position_data;
                     topic::Msg msg;
+                    msg.header.stamp = Node.GetNode()->now();
                     msg.friendcarid = data.Friend.CarId;
                     msg.friendx = data.Friend.X;
                     msg.friendy = data.Friend.Y;
@@ -1089,6 +1090,7 @@ namespace
             {
                 using topic = ly_friend_hp;
                 topic::Msg msg;
+                msg.header.stamp = Node.GetNode()->now();
                 msg.hero = data.HeroMyself;
                 msg.engineer = data.EngineerMyself;
                 msg.infantry1 = data.Infantry1Myself;
@@ -1109,6 +1111,7 @@ namespace
             {
                 using topic = ly_enemy_hp;
                 topic::Msg msg;
+                msg.header.stamp = Node.GetNode()->now();
                 msg.hero = data.HeroEnemy;
                 msg.engineer = data.EngineerEnemy;
                 msg.infantry1 = data.Infantry1Enemy;

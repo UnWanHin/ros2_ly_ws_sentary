@@ -379,7 +379,7 @@ void TreeTick() {
   - `Enable`：總開關
   - `ToNavi`：改由 BT 發布導航追擊輸入，導航側負責速度閉環
   - `UseOfficialPositionSource`：允許用 `/ly/position/data` 的敵方官方坐標作追擊源
-  - `PreferOfficialPositionSource`：默認 `false`；TargetList 追擊點優先走 `/ly/navi/target_rel -> /goal_pose`，官方坐標只作退化來源
+  - `PreferOfficialPositionSource`：默認 `false`；`/ly/aim/armor_target` 追擊點優先走 `/ly/navi/target_rel -> /goal_pose`，官方坐標只作退化來源
   - `OfficialPositionFreshMs`：敵方/自身官方坐標最大有效時間；超時不使用官方源
   - `PreferredDistanceCm`：與目標保持的最適距離（cm）
   - `DistanceDeadbandCm`：距離死區（cm）
@@ -390,8 +390,8 @@ void TreeTick() {
 
 `Chase.ToNavi=true` 時現在是多源輸出：
 
-- TargetList 追擊點有效：使用 `/ly/aim/TargetList` 中當前選中目標的 point，帶來源 frame（默認 `gimbal_world`）發布 `/ly/navi/target_rel`，由 `navi_tf_bridge` TF 轉 `/goal_pose`；bridge 會按 `Chase.AreaLimit` 和 `ChaseEnableCrossArea` 做大區域限制。
-- TargetList 追擊點不可用且官方坐標源有效：`targetArmor -> enemyRobots[unit].position_`，結合自身官方坐標按 `PreferredDistanceCm` 留距後，BT 先按同一個 `Chase.AreaLimit` / `ChaseEnableCrossArea` 限制，再發布 `/ly/navi/goal_pos_raw`，由 `navi_tf_bridge` 的 4x4 靜態矩陣轉 `/goal_pose`。
+- `/ly/aim/armor_target` 追擊點有效：使用 `/ly/aim/armor_target` 中當前選中目標的 point，帶來源 frame（默認 `gimbal_world`）發布 `/ly/navi/target_rel`，由 `navi_tf_bridge` TF 轉 `/goal_pose`；bridge 會按 `Chase.AreaLimit` 和 `ChaseEnableCrossArea` 做大區域限制。
+- `/ly/aim/armor_target` 追擊點不可用且官方坐標源有效：`targetArmor -> enemyRobots[unit].position_`，結合自身官方坐標按 `PreferredDistanceCm` 留距後，BT 先按同一個 `Chase.AreaLimit` / `ChaseEnableCrossArea` 限制，再發布 `/ly/navi/goal_pos_raw`，由 `navi_tf_bridge` 的 4x4 靜態矩陣轉 `/goal_pose`。
 - `Chase.ToNavi=false` 仍是 BT 內部速度追擊，只使用視覺角度/距離計算 `/ly/gimbal/vel`。
 
 ### 黑板結構（兩種賽制一致）

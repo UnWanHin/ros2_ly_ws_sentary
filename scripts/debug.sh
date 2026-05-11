@@ -14,7 +14,7 @@ Usage:
   $(basename "$0") [entry] [args...]
 
 Entries:
-  armor_test            Competition-style armor test preset.
+  armor_test            Formal external-aim armor test preset.
   navi-debug            behavior_tree-only navigation debug.
   standalone            Standalone submenu (armor/buff/outpost/spin/navi).
   navi_goal             JSON-driven /ly/navi/goal patrol.

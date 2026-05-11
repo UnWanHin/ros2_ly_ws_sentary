@@ -26,6 +26,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rosidl_default_generators REQUIRED) #ros2?s?W
 find_package(rclcpp REQUIRED) #ros2?s?W
 find_package(std_msgs REQUIRED) #ros2?s?W
+find_package(builtin_interfaces REQUIRED)
 find_package(Boost CONFIG REQUIRED COMPONENTS system)
 #find_package(Boost REQUIRED COMPONENTS system)
 find_package(fmt 6.1.2 CONFIG REQUIRED)
@@ -102,7 +103,9 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/SentryCmd.msg"
   "msg/SentryInfo.msg"
   "msg/StampedUInt16MultiArray.msg"
-  DEPENDENCIES geometry_msgs std_msgs
+  "msg/UnitInfo.msg"
+  "msg/UnitInfoArray.msg"
+  DEPENDENCIES builtin_interfaces geometry_msgs std_msgs
 )
 
 

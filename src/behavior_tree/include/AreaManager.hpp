@@ -58,6 +58,11 @@ struct ResolvedMainArea {
     bool UsedNearestFallback{false};
 };
 
+struct ResolvedAreaKey {
+    AreaKey Key{};
+    bool UsedNearestFallback{false};
+};
+
 struct NaviGoalAreaScopeResult {
     bool Allowed{false};
     bool ScopeEnabled{false};
@@ -394,6 +399,11 @@ public:
         int x,
         int y);
     static std::optional<AreaKey> ResolveAreaKeyForPoint(
+        LangYa::UnitTeam my_team,
+        LangYa::UnitTeam enemy_team,
+        int x,
+        int y);
+    static std::optional<ResolvedAreaKey> ResolveAreaKeyForPointWithNearest(
         LangYa::UnitTeam my_team,
         LangYa::UnitTeam enemy_team,
         int x,

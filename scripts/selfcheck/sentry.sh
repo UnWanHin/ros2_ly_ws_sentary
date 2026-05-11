@@ -132,6 +132,45 @@ source_ros() {
   fail "No ROS2 setup found under /opt/ros"
 }
 
+source_optional_sentry_msgs() {
+  if ros2 pkg prefix sentry_msgs >/dev/null 2>&1; then
+    pass "sentry_msgs available: $(ros2 pkg prefix sentry_msgs)"
+    return 0
+  fi
+
+  local -a setup_candidates=()
+  if [[ -n "${SENTRY_MSGS_SETUP:-}" ]]; then
+    setup_candidates+=("${SENTRY_MSGS_SETUP}")
+  fi
+  if [[ -n "${SENTRY_COMMON_SETUP:-}" ]]; then
+    setup_candidates+=("${SENTRY_COMMON_SETUP}")
+  fi
+  if [[ -n "${SENTRY_COMMON_ROOT:-}" ]]; then
+    setup_candidates+=("${SENTRY_COMMON_ROOT}/install/setup.bash")
+  fi
+  setup_candidates+=(
+    "${HOME}/sentry.common/install/setup.bash"
+    "/tmp/sentry_msgs_install/sentry_msgs/share/sentry_msgs/local_setup.bash"
+  )
+
+  local setup_file
+  for setup_file in "${setup_candidates[@]}"; do
+    if [[ -f "${setup_file}" ]]; then
+      # shellcheck disable=SC1090
+      set +u
+      source "${setup_file}"
+      set -u
+      if ros2 pkg prefix sentry_msgs >/dev/null 2>&1; then
+        pass "sentry_msgs sourced: ${setup_file}"
+        return 0
+      fi
+    fi
+  done
+
+  warn "sentry_msgs not found; formal /ly/aim/* checks will fail until ~/sentry.common is built/sourced."
+  return 1
+}
+
 source_workspace() {
   if [[ -f "${ROOT_DIR}/install/setup.bash" ]]; then
     # shellcheck disable=SC1091
@@ -654,6 +693,7 @@ check_cmd timeout
 check_cmd awk
 check_cmd grep
 source_ros
+source_optional_sentry_msgs || true
 source_workspace
 
 if (( RUNTIME_ONLY == 0 )); then
@@ -832,8 +872,8 @@ if (( STATIC_ONLY == 0 )); then
   check_node_sub "/behavior_tree" "/ly/game/is_start" hard
   check_node_sub "/behavior_tree" "/ly/game/time_left" hard
   check_node_sub "/behavior_tree" "/ly/friend/is_team_red" hard
-  check_node_sub "/behavior_tree" "/ly/aim/TargetList" hard
-  check_node_sub "/behavior_tree" "/ly/aim/Result" hard
+  check_node_sub "/behavior_tree" "/ly/aim/armor_target" hard
+  check_node_sub "/behavior_tree" "/ly/aim/result" hard
 
   # behavior_tree outputs
   check_node_pub "/behavior_tree" "/ly/control/angles" hard
@@ -841,7 +881,7 @@ if (( STATIC_ONLY == 0 )); then
   check_node_pub "/behavior_tree" "/ly/control/posture" hard
   check_node_pub "/behavior_tree" "/ly/vision/mode" hard
   check_node_pub "/behavior_tree" "/ly/bt/target" hard
-  check_node_pub "/behavior_tree" "/ly/aim/SelectTarget" hard
+  check_node_pub "/behavior_tree" "/ly/aim/select_target" hard
   check_node_pub "/behavior_tree" "/ly/navi/vel" hard
 
   print_section "Critical Topic Links"
@@ -852,9 +892,9 @@ if (( STATIC_ONLY == 0 )); then
   # 兼容鏈路檢查：電控側仍訂閱 /ly/control/vel，若沒有發布者視為缺口
   check_topic_link "/ly/control/vel" "gimbal_driver/msg/ControlVelocity" "/behavior_tree" "/gimbal_driver" hard
 
-  check_topic_link "/ly/aim/SelectTarget" "sentry_msgs/msg/AimTarget" "/behavior_tree" "" hard
-  check_topic_link "/ly/aim/TargetList" "sentry_msgs/msg/AimTargetArray" "" "/behavior_tree" hard
-  check_topic_link "/ly/aim/Result" "sentry_msgs/msg/AimResult" "" "/behavior_tree" hard
+  check_topic_link "/ly/aim/select_target" "sentry_msgs/msg/AimTarget" "/behavior_tree" "" hard
+  check_topic_link "/ly/aim/armor_target" "sentry_msgs/msg/AimTargetArray" "" "/behavior_tree" hard
+  check_topic_link "/ly/aim/result" "sentry_msgs/msg/AimResult" "" "/behavior_tree" hard
 
   print_section "Conditional Topics (Data-Dependent)"
   check_topic_link "/ly/gimbal/angles" "gimbal_driver/msg/GimbalAngles" "/gimbal_driver" "/behavior_tree" warn
@@ -866,7 +906,7 @@ if (( STATIC_ONLY == 0 )); then
     check_topic_hz "/ly/control/firecode" 5 hard
     check_topic_hz "/ly/navi/vel" 1 warn
     check_topic_hz "/ly/gimbal/angles" 1 warn
-    check_topic_hz "/ly/aim/Result" 1 warn
+    check_topic_hz "/ly/aim/result" 1 warn
   fi
   else
     warn "Runtime graph checks skipped because no ROS2 nodes are active"

@@ -66,8 +66,23 @@ This repository is a ROS2 workspace built with `colcon`.
 - Do not perform chain/link rerouting or coverage-style rewiring unless explicitly required and validated.
 - Preserve external contracts (topics, messages, APIs, config keys) unless interface change is the explicit task.
 
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in GitHub Issues for `HUSTLYRM/2026_sentry`; use `gh` from inside this clone. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the default Matt Pocock triage roles: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This is a single-context ROS2 sentry workspace; read the repo-level docs first, and treat `CONTEXT.md` / `docs/adr/` as optional lazy-created docs. See `docs/agents/domain.md`.
+
 ## Skill Auto-Match & Auto-Install
 - Automatically match and use the minimal relevant skill set when user intent clearly maps to available skills.
+- Prefer the installed Matt Pocock skills when they match: `$diagnose` for bugs/failures, `$tdd` for test-first work, `$triage` for issue workflow, `$to-issues` for breaking plans into issues, `$to-prd` for PRDs, `$improve-codebase-architecture` for architecture work, `$zoom-out` for broader context, `$grill-me` / `$grill-with-docs` for stress-testing plans, `$handoff` for handoff summaries, and `$caveman` only when the user asks for terse mode.
 - If a required skill is missing locally, automatically try to install it with `$skill-installer` (curated first, then explicit GitHub path if needed).
 - Prefer trusted/local sources in this order when possible: workspace/local skills, curated skills, pinned GitHub repo path.
 - If auto-install fails (network, permission, missing repo, incompatible skill), continue with the best fallback workflow instead of blocking the task.

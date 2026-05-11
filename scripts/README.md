@@ -88,20 +88,21 @@ scripts/
 - `scripts/debug/armor_test.sh`
 - 实际实现：`scripts/aim/armor_test.sh`
 
-它不是“正式比赛完全等价入口”，而是“比赛风格辅瞄预设”。
+它不是“正式比赛完全等价入口”，而是“正式外部辅瞄的 armor 调试预设”。
 
 默认行为：
 
-- 使用分层配置（`config/base_config.yaml` + `src/detector/config/detector_config.yaml` + `src/predictor/config/predictor_config.yaml`，并叠加 `config/override_config.yaml`）
+- 使用分层配置（`config/base_config.yaml` + `config/override_config.yaml`）
 - 默认 `--mode regional`
 - 默认 `--nogate`
-- 默认启用：`gimbal_driver / detector / tracker_solver / predictor / behavior_tree`
-- 默认关闭：`buff_hitter / outpost_hitter`
+- 默认启用：`gimbal_driver / navi_tf_bridge / FaceMode bridge / behavior_tree`
+- 不启动内部 `detector / tracker_solver / predictor / outpost_hitter / buff_hitter`
+- 目标输入来自外部 `/ly/aim/armor_target` + `/ly/aim/result`
 
 所以它适合：
 
-- 快速验证比赛风格的 autoaim 主链
-- 快速看 `behavior_tree` + `predictor` 的联调效果
+- 快速验证正式外部 aim -> `behavior_tree` -> `/ly/control/*` 主链
+- 快速看外部 aim 与 BT 下发链路的联调效果
 
 但它不等于正式比赛整套默认路径，因为正式比赛主入口仍然是：
 
@@ -186,7 +187,7 @@ python3 ./scripts/python/start.py --keep-to-navi
 
 | 分类脚本 | 用途 | 实际实现 |
 | --- | --- | --- |
-| `scripts/debug/armor_test.sh` | 比赛风格辅瞄预设 | `scripts/aim/armor_test.sh` |
+| `scripts/debug/armor_test.sh` | 正式外部辅瞄 armor 预设 | `scripts/aim/armor_test.sh` |
 | `scripts/debug/navi_debug.sh` | behavior_tree-only 导航调试 | `scripts/launch/start_sentry_navi_debug.sh` |
 | `scripts/debug/standalone.sh` | 单项功能测试菜单 | `scripts/feature_test/standalone/run_standalone_menu.sh` |
 | `scripts/debug/navi_goal.sh` | JSON 巡逻点发 `/ly/navi/goal` | `scripts/feature_test/standalone/modes/navi_patrol_mode.sh` |
@@ -217,7 +218,7 @@ python3 ./scripts/python/start.py --keep-to-navi
 | `scripts/navi/facemode_official.sh` | FaceMode 直接使用 `official_map` frame，不过矩阵；默认用 `target -> gimbal_barrel_joint` TF 相对几何算朝向，不走相机，输入 cm，需要 TF 中有 official_map 链路 |
 | `scripts/navi/navi_vel_chain.sh` | 导航专用速度链路：只拉 `gimbal_driver` 和 `/ly/navi/vel -> /ly/control/vel` 桥，不启动 BT/视觉/FaceMode/小陀螺 |
 | `scripts/navi/navi_control_chain.sh` | area_test `--pure` 风格的正式 BT 导航下位机链路：`/ly/navi/vel -> behavior_tree -> /ly/control/vel -> gimbal_driver`，不打弹，默认开小陀螺和 `PatrolScan.Mode=2`，只禁用 navi_tf_bridge 的 `/goal_pose` 输出 |
-| `scripts/navi/chase.sh` | 正式 `sentry_all` 追击测试链路：外部 `/ly/aim/TargetList` + `/ly/aim/Result` 进 BT，默认不打弹、开小陀螺和 `PatrolScan.Mode=2`，关闭 Chase 区域边界限制，只看 `/ly/navi/target_rel -> /goal_pose` 能否追击 |
+| `scripts/navi/chase.sh` | 正式 `sentry_all` 追击测试链路：外部 `/ly/aim/armor_target` + `/ly/aim/result` 进 BT，默认不打弹、开小陀螺和 `PatrolScan.Mode=2`，关闭 Chase 区域边界限制，只看 `/ly/navi/target_rel -> /goal_pose` 能否追击 |
 | `scripts/navi/position.sh` | 一键查看 `/ly/navi/position`，默认只输出 `data: [official_map_x_cm, official_map_y_cm]`；`--full` 可看 `header.stamp` 和 map 系 `map_point` |
 | `scripts/navi/map_aim_point_test.sh` | FaceMode 完整测试入口，可拉 `gimbal_driver` / `tf_tree`，支持 `--unit m\|cm`，默认 cm |
 | `scripts/navi/map_aim_point_attach.sh` | 已有 stack 上只附加 FaceMode 节点 |
@@ -244,7 +245,7 @@ python3 ./scripts/python/start.py --keep-to-navi
 ./scripts/areatest/regional_roadland.sh --pure
 ```
 
-`--pure` 会切到 pure preset：停火、关闭 Chase、关闭 Posture、忽略 Recovery 回补，并默认不启动 detector/tracker/predictor/outpost/buff 节点；AreaManager 区域任务和导航桥仍走正式链路。
+`--pure` 会切到 pure preset：停火、关闭 Chase、关闭 Posture、忽略 Recovery 回补；AreaManager 区域任务和导航桥仍走正式链路。正式 `sentry_all` 本身已经不启动内部 detector/tracker/predictor/outpost/buff。
 
 如果在桌面/台架上没有真实裁判数据，低血量/低弹量默认值会触发 recovery，Central 也不会进入健康巡逻。可以临时加：
 
@@ -327,7 +328,7 @@ python3 ./scripts/python/start.py --keep-to-navi
 # 展示姿态
 ./scripts/start.sh showcase
 
-# 比赛风格 autoaim 预设
+# 正式外部 aim armor 预设
 ./scripts/debug.sh armor_test --mode league
 
 # 射表标定

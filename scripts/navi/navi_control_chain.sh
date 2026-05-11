@@ -15,7 +15,6 @@ OFFLINE_MODE=0
 ROTATE_ENABLED="${ROTATE_ENABLED:-true}"
 SCAN_ENABLED="${SCAN_ENABLED:-true}"
 SCAN_MODE="${SCAN_MODE:-2}"
-WITH_VISION=0
 OUTPUT="${OUTPUT:-screen}"
 LAUNCH_ARGS=()
 START_ARGS=(--mode regional --no-prompt)
@@ -24,8 +23,6 @@ BT_CONFIG_SOURCE=""
 
 CONFIG_DIR="${ROOT_DIR}/src/behavior_tree/Scripts/ConfigJson/regional/test"
 DEFAULT_BASE_CONFIG_FILE="${ROOT_DIR}/config/base_config.yaml"
-DEFAULT_DETECTOR_CONFIG_FILE="${ROOT_DIR}/src/detector/config/detector_config.yaml"
-DEFAULT_PREDICTOR_CONFIG_FILE="${ROOT_DIR}/src/predictor/config/predictor_config.yaml"
 DEFAULT_OVERRIDE_CONFIG_FILE="${ROOT_DIR}/config/override_config.yaml"
 
 usage() {
@@ -39,23 +36,23 @@ Purpose:
   and behavior_tree forwards it to /ly/control/vel.
 
 Defaults:
-  area=central, fire=false, rotate=true, scan=true, scan_mode=2, vision=false.
+  area=central, fire=false, rotate=true, scan=true, scan_mode=2.
 
 Options:
   --area <base|highland|roadland|central>
   --rotate [true|false]       Enable BT rotate output. Default: ${ROTATE_ENABLED}
   --scan [true|false]         Enable BT gimbal patrol scan. Default: ${SCAN_ENABLED}
   --scan-mode <1|2>           PatrolScan.Mode. Default: ${SCAN_MODE}
-  --with-vision               Start detector/tracker/predictor.
-  --no-vision                 Do not start detector/tracker/predictor. Default.
+  --with-vision               Ignored; formal chain uses external /ly/aim/*.
+  --no-vision                 Ignored; formal chain uses external /ly/aim/*.
   --nogate                    Bypass /ly/game/is_start. Default.
   --with-gate                 Wait for /ly/game/is_start.
   --online                    Use real gimbal device config. Default.
   --offline|--virtual-device  Pass offline:=true to sentry_all.
   --config-file <path>        Global override YAML. Default: ${DEFAULT_OVERRIDE_CONFIG_FILE}
   --base-config-file <path>   Base config YAML. Default: ${DEFAULT_BASE_CONFIG_FILE}
-  --detector-config-file <p>  Detector config YAML. Default: ${DEFAULT_DETECTOR_CONFIG_FILE}
-  --predictor-config-file <p> Predictor config YAML. Default: ${DEFAULT_PREDICTOR_CONFIG_FILE}
+  --detector-config-file <p>  Ignored legacy option.
+  --predictor-config-file <p> Ignored legacy option.
   --bt-config-file <path>     Source pure BT JSON instead of area preset.
   --output screen|log         Launch output mode. Default: ${OUTPUT}
   --cleanup-existing          Let start_sentry_all clean old stack. Default.
@@ -268,11 +265,11 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --with-vision)
-      WITH_VISION=1
+      echo "[WARN] --with-vision is ignored: formal sentry_all uses external /ly/aim/*." >&2
       shift
       ;;
     --no-vision)
-      WITH_VISION=0
+      echo "[WARN] --no-vision is ignored: formal sentry_all uses external /ly/aim/*." >&2
       shift
       ;;
     --nogate)
@@ -312,7 +309,7 @@ while [[ $# -gt 0 ]]; do
         echo "[ERROR] --detector-config-file requires a path." >&2
         exit 2
       fi
-      DEFAULT_DETECTOR_CONFIG_FILE="$2"
+      echo "[WARN] --detector-config-file is ignored: formal sentry_all uses external /ly/aim/*." >&2
       shift 2
       ;;
     --predictor-config-file)
@@ -320,7 +317,7 @@ while [[ $# -gt 0 ]]; do
         echo "[ERROR] --predictor-config-file requires a path." >&2
         exit 2
       fi
-      DEFAULT_PREDICTOR_CONFIG_FILE="$2"
+      echo "[WARN] --predictor-config-file is ignored: formal sentry_all uses external /ly/aim/*." >&2
       shift 2
       ;;
     --bt-config-file)
@@ -380,13 +377,6 @@ add_launch_arg_if_missing "publish_navi_goal" "true"
 add_launch_arg_if_missing "navi_publish_goal_pose" "false"
 add_launch_arg_if_missing "base_config_file" "${DEFAULT_BASE_CONFIG_FILE}"
 add_launch_arg_if_missing "config_file" "${DEFAULT_OVERRIDE_CONFIG_FILE}"
-add_launch_arg_if_missing "detector_config_file" "${DEFAULT_DETECTOR_CONFIG_FILE}"
-add_launch_arg_if_missing "predictor_config_file" "${DEFAULT_PREDICTOR_CONFIG_FILE}"
-add_launch_arg_if_missing "use_detector" "$([[ "${WITH_VISION}" == "1" ]] && printf true || printf false)"
-add_launch_arg_if_missing "use_tracker" "$([[ "${WITH_VISION}" == "1" ]] && printf true || printf false)"
-add_launch_arg_if_missing "use_predictor" "$([[ "${WITH_VISION}" == "1" ]] && printf true || printf false)"
-add_launch_arg_if_missing "use_outpost" "false"
-add_launch_arg_if_missing "use_buff" "false"
 add_launch_arg_if_missing "output" "${OUTPUT}"
 
 if (( OFFLINE_MODE == 1 )); then
@@ -395,7 +385,7 @@ fi
 
 echo "[INFO] navi control uses area_test --pure style: area=${AREA}" >&2
 echo "[INFO] /goal_pose disabled: publish_navi_goal=true, navi_publish_goal_pose=false" >&2
-echo "[INFO] fire=false rotate=${ROTATE_ENABLED} scan=${SCAN_ENABLED} scan_mode=${SCAN_MODE} vision=${WITH_VISION}" >&2
+echo "[INFO] fire=false rotate=${ROTATE_ENABLED} scan=${SCAN_ENABLED} scan_mode=${SCAN_MODE}" >&2
 echo "[INFO] source bt_config=${BT_CONFIG_SOURCE}" >&2
 echo "[INFO] generated bt_config=${TEMP_BT_CONFIG}" >&2
 

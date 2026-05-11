@@ -159,6 +159,7 @@ case "${CHASE_SOURCE,,}" in
 esac
 
 source_ros_workspace "${ROOT_DIR}"
+require_sentry_msgs_for_behavior_tree
 cleanup_existing_stack "1" \
   "/(gimbal_driver_node|detector_node|tracker_solver_node|predictor_node|outpost_hitter_node|buff_hitter_node|behavior_tree_node|target_rel_to_goal_pos_node)([[:space:]]|$)" \
   "ros2 launch (behavior_tree|navi_tf_bridge) (sentry_all|competition_autoaim|showcase|chase_only|decision_chase|target_rel_to_goal_pos)\\.launch.py"

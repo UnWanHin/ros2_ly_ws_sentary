@@ -150,6 +150,7 @@ private:
     Robots enemyRobots; // 敌方机器人的信息
     bool hasReceivedEnemyHealth_{false};
     std::array<std::chrono::steady_clock::time_point, 10> lastEnemyHealthRxTime_{};
+    std::array<std::chrono::steady_clock::time_point, 10> lastFriendHealthRxTime_{};
     std::array<bool, 10> enemyZeroHealthObserved_{};
     std::array<std::chrono::steady_clock::time_point, 10> enemyZeroHealthSince_{};
     std::array<bool, 10> enemyHealthConfirmedDead_{};
@@ -317,6 +318,10 @@ private:
         int X{0};
         int Y{0};
         std::chrono::steady_clock::time_point LastRx{};
+        rclcpp::Time Stamp{};
+    };
+    struct UnitInfoStampCache {
+        rclcpp::Time Stamp{};
     };
     SentryPositionSourceCache sentryUwbPositionSource_{};
     SentryPositionSourceCache sentryPositionDataSource_{};
@@ -328,6 +333,10 @@ private:
     std::string sentryPositionFusionSource_{"none"};
     std::array<std::chrono::steady_clock::time_point, 10> lastEnemyPositionRxTime_{};
     std::array<std::chrono::steady_clock::time_point, 10> lastFriendPositionRxTime_{};
+    std::array<UnitInfoStampCache, 10> lastEnemyPositionStamp_{};
+    std::array<UnitInfoStampCache, 10> lastFriendPositionStamp_{};
+    std::array<UnitInfoStampCache, 10> lastEnemyHealthStamp_{};
+    std::array<UnitInfoStampCache, 10> lastFriendHealthStamp_{};
 
     // ==========================================
     // Runtime Guard (L1/L2)
@@ -466,6 +475,8 @@ private:
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_navi_lower_head_;
     
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_bt_target_;
+    rclcpp::Publisher<gimbal_driver::msg::UnitInfoArray>::SharedPtr pub_friend_info_;
+    rclcpp::Publisher<gimbal_driver::msg::UnitInfoArray>::SharedPtr pub_enemy_info_;
 
     void RecordDamageSample(std::chrono::steady_clock::time_point now, std::uint16_t damage);
     DecisionIntent MakeDecisionIntent(
@@ -477,6 +488,8 @@ private:
     void RecordDecisionIntent(DecisionIntent intent);
     void UpdateSentryPositionFusion(std::chrono::steady_clock::time_point now);
     bool IsSentryPositionFresh(std::chrono::steady_clock::time_point now) const;
+    gimbal_driver::msg::UnitInfoArray MakeFriendInfoMsg();
+    gimbal_driver::msg::UnitInfoArray MakeEnemyInfoMsg();
 
 
 public:
@@ -496,6 +509,8 @@ public:
     void PubNaviRelativeTarget();
     void PubNaviGoal();
     void PubNaviGoalPos();
+    void PubFriendInfo();
+    void PubEnemyInfo();
 
 
     // 等待比赛开始

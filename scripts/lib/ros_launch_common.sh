@@ -5,6 +5,71 @@
 # Keep behavior and interface changes synchronized with related modules.
 
 
+source_optional_sentry_msgs() {
+  if ros2 pkg prefix sentry_msgs >/dev/null 2>&1; then
+    return 0
+  fi
+
+  local -a setup_candidates=()
+  if [[ -n "${SENTRY_MSGS_SETUP:-}" ]]; then
+    setup_candidates+=("${SENTRY_MSGS_SETUP}")
+  fi
+  if [[ -n "${SENTRY_COMMON_SETUP:-}" ]]; then
+    setup_candidates+=("${SENTRY_COMMON_SETUP}")
+  fi
+  if [[ -n "${SENTRY_COMMON_ROOT:-}" ]]; then
+    setup_candidates+=("${SENTRY_COMMON_ROOT}/install/setup.bash")
+  fi
+  setup_candidates+=(
+    "${HOME}/sentry.common/install/setup.bash"
+    "/tmp/sentry_msgs_install/sentry_msgs/share/sentry_msgs/local_setup.bash"
+  )
+
+  local setup_file
+  for setup_file in "${setup_candidates[@]}"; do
+    if [[ -f "${setup_file}" ]]; then
+      set +u
+      # shellcheck disable=SC1090
+      source "${setup_file}"
+      set -u
+      if ros2 pkg prefix sentry_msgs >/dev/null 2>&1; then
+        echo "[INFO] sourced sentry_msgs: ${setup_file}" >&2
+        return 0
+      fi
+    fi
+  done
+
+  return 1
+}
+
+launch_arg_bool_is_false() {
+  local key="$1"
+  local arg
+  local value
+  for arg in "${LAUNCH_ARGS[@]:-}"; do
+    if [[ "${arg}" == "${key}:="* ]]; then
+      value="${arg#${key}:=}"
+      value="$(printf '%s' "${value}" | tr '[:upper:]' '[:lower:]')"
+      [[ "${value}" == "false" || "${value}" == "0" || "${value}" == "no" || "${value}" == "off" ]]
+      return
+    fi
+  done
+  return 1
+}
+
+require_sentry_msgs_for_behavior_tree() {
+  if launch_arg_bool_is_false "use_behavior_tree"; then
+    return 0
+  fi
+  if ros2 pkg prefix sentry_msgs >/dev/null 2>&1; then
+    return 0
+  fi
+
+  echo "[ERROR] sentry_msgs is required for the formal /ly/aim/* chain." >&2
+  echo "        Build/source ~/sentry.common, or set SENTRY_MSGS_SETUP to sentry_msgs local_setup.bash." >&2
+  exit 1
+}
+
 source_ros_workspace() {
   local root_dir="$1"
 
@@ -29,6 +94,8 @@ source_ros_workspace() {
       fi
     done
   fi
+
+  source_optional_sentry_msgs || true
 
   if [[ ! -f "${root_dir}/install/setup.bash" ]]; then
     echo "[ERROR] ${root_dir}/install/setup.bash not found." >&2

@@ -3,6 +3,7 @@
 # Keep behavior and interface changes synchronized with related modules.
 
 # 位置消息
+std_msgs/Header header
 uint8 friendcarid
 int16 friendx
 int16 friendy

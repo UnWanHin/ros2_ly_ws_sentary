@@ -12,6 +12,57 @@ namespace {
     constexpr std::uint8_t kVisionModeArmor = 1;
     constexpr std::uint8_t kVisionModeBuff = 2;
     constexpr std::uint8_t kVisionModeOutpost = 3;
+    constexpr auto kUnitInfoFreshTimeout = std::chrono::seconds(30);
+
+    const char* UnitAreaKindName(const BehaviorTree::Area::MainAreaKind kind) {
+        switch (kind) {
+            case BehaviorTree::Area::MainAreaKind::Base: return "base";
+            case BehaviorTree::Area::MainAreaKind::Highland: return "highland";
+            case BehaviorTree::Area::MainAreaKind::Roadland: return "roadland";
+            case BehaviorTree::Area::MainAreaKind::Central: return "central";
+            default: return "unknown";
+        }
+    }
+
+    std::uint8_t UnitAreaId(const BehaviorTree::AreaKey& key) {
+        using Info = gimbal_driver::msg::UnitInfo;
+        if (key.Side == BehaviorTree::AreaSide::Common &&
+            key.Kind == BehaviorTree::Area::MainAreaKind::Central) {
+            return Info::AREA_CENTRAL;
+        }
+        if (key.Side == BehaviorTree::AreaSide::My) {
+            switch (key.Kind) {
+                case BehaviorTree::Area::MainAreaKind::Base: return Info::AREA_MY_BASE;
+                case BehaviorTree::Area::MainAreaKind::Highland: return Info::AREA_MY_HIGHLAND;
+                case BehaviorTree::Area::MainAreaKind::Roadland: return Info::AREA_MY_ROADLAND;
+                default: return Info::AREA_UNKNOWN;
+            }
+        }
+        if (key.Side == BehaviorTree::AreaSide::Enemy) {
+            switch (key.Kind) {
+                case BehaviorTree::Area::MainAreaKind::Base: return Info::AREA_ENEMY_BASE;
+                case BehaviorTree::Area::MainAreaKind::Highland: return Info::AREA_ENEMY_HIGHLAND;
+                case BehaviorTree::Area::MainAreaKind::Roadland: return Info::AREA_ENEMY_ROADLAND;
+                default: return Info::AREA_UNKNOWN;
+            }
+        }
+        return Info::AREA_UNKNOWN;
+    }
+
+    std::string UnitAreaName(const BehaviorTree::AreaKey& key) {
+        if (key.Side == BehaviorTree::AreaSide::Common) {
+            return "central";
+        }
+        std::string prefix;
+        if (key.Side == BehaviorTree::AreaSide::My) {
+            prefix = "my_";
+        } else if (key.Side == BehaviorTree::AreaSide::Enemy) {
+            prefix = "enemy_";
+        } else {
+            return "unknown";
+        }
+        return prefix + UnitAreaKindName(key.Kind);
+    }
 
     gimbal_driver::msg::FireCode MakeFireCodeMsg(const LangYa::FireCodeType& firecode, const rclcpp::Time& stamp) {
         gimbal_driver::msg::FireCode msg;
@@ -93,6 +144,126 @@ namespace BehaviorTree {
             else if(config.NaviSettings.UseXY && !chase_bridge_active) PubNaviGoalPos();
             else PubNaviGoal();
         }
+    }
+
+    gimbal_driver::msg::UnitInfoArray Application::MakeFriendInfoMsg() {
+        const auto now = std::chrono::steady_clock::now();
+        const auto enemy_team = team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
+        gimbal_driver::msg::UnitInfoArray msg;
+        msg.header.stamp = node_->now();
+        msg.header.frame_id = "official_map";
+        msg.units.reserve(RobotLists.size());
+        for (const auto unit_type : RobotLists) {
+            const auto index = static_cast<std::size_t>(unit_type);
+            if (index >= lastFriendPositionRxTime_.size() ||
+                index >= lastFriendHealthRxTime_.size()) {
+                continue;
+            }
+            const auto& robot = friendRobots[unit_type];
+            const bool has_hp =
+                lastFriendHealthRxTime_[index].time_since_epoch().count() != 0;
+            const bool has_position =
+                lastFriendPositionRxTime_[index].time_since_epoch().count() != 0;
+
+            gimbal_driver::msg::UnitInfo unit;
+            unit.car_id = static_cast<std::uint8_t>(unit_type);
+            unit.hp = robot.currentHealth_;
+            unit.has_hp = has_hp;
+            unit.hp_fresh = has_hp && now - lastFriendHealthRxTime_[index] <= kUnitInfoFreshTimeout;
+            unit.hp_stamp = lastFriendHealthStamp_[index].Stamp;
+            unit.position_x = static_cast<std::int16_t>(robot.position_.X);
+            unit.position_y = static_cast<std::int16_t>(robot.position_.Y);
+            unit.has_position = has_position;
+            unit.position_fresh =
+                has_position && now - lastFriendPositionRxTime_[index] <= kUnitInfoFreshTimeout;
+            unit.position_stamp = lastFriendPositionStamp_[index].Stamp;
+            unit.position_source = unit_type == UnitType::Sentry
+                ? sentryPositionFusionSource_
+                : (has_position ? "position_data" : "none");
+            unit.area_id = gimbal_driver::msg::UnitInfo::AREA_UNKNOWN;
+            unit.area_name = "unknown";
+            unit.area_used_nearest_fallback = false;
+            if (has_position) {
+                const auto area = AreaManager::ResolveAreaKeyForPointWithNearest(
+                    team,
+                    enemy_team,
+                    unit.position_x,
+                    unit.position_y);
+                if (area.has_value()) {
+                    unit.area_id = UnitAreaId(area->Key);
+                    unit.area_name = UnitAreaName(area->Key);
+                    unit.area_used_nearest_fallback = area->UsedNearestFallback;
+                }
+            }
+            msg.units.push_back(std::move(unit));
+        }
+        return msg;
+    }
+
+    void Application::PubFriendInfo() {
+        if (!pub_friend_info_) {
+            return;
+        }
+        pub_friend_info_->publish(MakeFriendInfoMsg());
+    }
+
+    gimbal_driver::msg::UnitInfoArray Application::MakeEnemyInfoMsg() {
+        const auto now = std::chrono::steady_clock::now();
+        const auto enemy_team = team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
+        gimbal_driver::msg::UnitInfoArray msg;
+        msg.header.stamp = node_->now();
+        msg.header.frame_id = "official_map";
+        msg.units.reserve(RobotLists.size());
+        for (const auto unit_type : RobotLists) {
+            const auto index = static_cast<std::size_t>(unit_type);
+            if (index >= lastEnemyPositionRxTime_.size() ||
+                index >= lastEnemyHealthRxTime_.size()) {
+                continue;
+            }
+            const auto& robot = enemyRobots[unit_type];
+            const bool has_hp =
+                lastEnemyHealthRxTime_[index].time_since_epoch().count() != 0;
+            const bool has_position =
+                lastEnemyPositionRxTime_[index].time_since_epoch().count() != 0;
+
+            gimbal_driver::msg::UnitInfo unit;
+            unit.car_id = static_cast<std::uint8_t>(unit_type);
+            unit.hp = robot.currentHealth_;
+            unit.has_hp = has_hp;
+            unit.hp_fresh = has_hp && now - lastEnemyHealthRxTime_[index] <= kUnitInfoFreshTimeout;
+            unit.hp_stamp = lastEnemyHealthStamp_[index].Stamp;
+            unit.position_x = static_cast<std::int16_t>(robot.position_.X);
+            unit.position_y = static_cast<std::int16_t>(robot.position_.Y);
+            unit.has_position = has_position;
+            unit.position_fresh =
+                has_position && now - lastEnemyPositionRxTime_[index] <= kUnitInfoFreshTimeout;
+            unit.position_stamp = lastEnemyPositionStamp_[index].Stamp;
+            unit.position_source = has_position ? "position_data" : "none";
+            unit.area_id = gimbal_driver::msg::UnitInfo::AREA_UNKNOWN;
+            unit.area_name = "unknown";
+            unit.area_used_nearest_fallback = false;
+            if (has_position) {
+                const auto area = AreaManager::ResolveAreaKeyForPointWithNearest(
+                    team,
+                    enemy_team,
+                    unit.position_x,
+                    unit.position_y);
+                if (area.has_value()) {
+                    unit.area_id = UnitAreaId(area->Key);
+                    unit.area_name = UnitAreaName(area->Key);
+                    unit.area_used_nearest_fallback = area->UsedNearestFallback;
+                }
+            }
+            msg.units.push_back(std::move(unit));
+        }
+        return msg;
+    }
+
+    void Application::PubEnemyInfo() {
+        if (!pub_enemy_info_) {
+            return;
+        }
+        pub_enemy_info_->publish(MakeEnemyInfoMsg());
     }
 
     void Application::PubAimModeEnableData() {

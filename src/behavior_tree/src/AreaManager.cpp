@@ -1432,4 +1432,66 @@ std::optional<AreaKey> AreaManager::ResolveAreaKeyForPoint(
     return std::nullopt;
 }
 
+std::optional<ResolvedAreaKey> AreaManager::ResolveAreaKeyForPointWithNearest(
+    const LangYa::UnitTeam my_team,
+    const LangYa::UnitTeam enemy_team,
+    const int x,
+    const int y) {
+    const auto exact = ResolveAreaKeyForPoint(my_team, enemy_team, x, y);
+    if (exact.has_value()) {
+        return ResolvedAreaKey{.Key = *exact, .UsedNearestFallback = false};
+    }
+    if (my_team != LangYa::UnitTeam::Red && my_team != LangYa::UnitTeam::Blue) {
+        return std::nullopt;
+    }
+
+    struct Candidate {
+        AreaKey Key{};
+        Area::Point<double> Centroid{};
+    };
+    std::vector<Candidate> candidates;
+    candidates.reserve(7);
+    for (const auto area_kind : kSideMainAreas) {
+        candidates.push_back(Candidate{
+            .Key = AreaKey{.Side = AreaSide::My, .Kind = area_kind, .Team = my_team},
+            .Centroid = MainAreaCentroid(my_team, area_kind)
+        });
+    }
+    candidates.push_back(Candidate{
+        .Key = AreaKey{
+            .Side = AreaSide::Common,
+            .Kind = Area::MainAreaKind::Central,
+            .Team = LangYa::UnitTeam::Unknown
+        },
+        .Centroid = MainAreaCentroid(my_team, Area::MainAreaKind::Central)
+    });
+    if (enemy_team == LangYa::UnitTeam::Red || enemy_team == LangYa::UnitTeam::Blue) {
+        for (const auto area_kind : kSideMainAreas) {
+            candidates.push_back(Candidate{
+                .Key = AreaKey{.Side = AreaSide::Enemy, .Kind = area_kind, .Team = enemy_team},
+                .Centroid = MainAreaCentroid(enemy_team, area_kind)
+            });
+        }
+    }
+    if (candidates.empty()) {
+        return std::nullopt;
+    }
+
+    const Candidate* best = nullptr;
+    double best_dist_sq = std::numeric_limits<double>::infinity();
+    for (const auto& candidate : candidates) {
+        const double dx = static_cast<double>(x) - candidate.Centroid.x;
+        const double dy = static_cast<double>(y) - candidate.Centroid.y;
+        const double dist_sq = dx * dx + dy * dy;
+        if (best == nullptr || dist_sq < best_dist_sq) {
+            best = &candidate;
+            best_dist_sq = dist_sq;
+        }
+    }
+    if (best == nullptr) {
+        return std::nullopt;
+    }
+    return ResolvedAreaKey{.Key = best->Key, .UsedNearestFallback = true};
+}
+
 }  // namespace BehaviorTree

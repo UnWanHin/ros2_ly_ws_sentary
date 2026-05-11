@@ -9,9 +9,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT_NAME="$(basename "$0")"
 USE_NOGATE=1
+MODE_ARG="regional"
 DEFAULT_BASE_CONFIG_FILE="${ROOT_DIR}/config/base_config.yaml"
-DEFAULT_DETECTOR_CONFIG_FILE="${ROOT_DIR}/src/detector/config/detector_config.yaml"
-DEFAULT_PREDICTOR_CONFIG_FILE="${ROOT_DIR}/src/predictor/config/predictor_config.yaml"
 DEFAULT_OVERRIDE_CONFIG_FILE="${ROOT_DIR}/config/override_config.yaml"
 LAUNCH_ARGS=()
 
@@ -21,11 +20,12 @@ source "${ROOT_DIR}/scripts/lib/ros_launch_common.sh"
 usage() {
   cat <<EOF
 Usage:
-  ${SCRIPT_NAME} [--nogate|--with-gate] [-- <launch_args...>]
+  ${SCRIPT_NAME} [--nogate|--with-gate] [--mode league|regional|showcase] [-- <launch_args...>]
 
 Purpose:
-  Thin wrapper for behavior_tree/competition_autoaim.launch.py.
-  Defaults to the competition config and enables detector visualization for test runs.
+  Formal external-aim armor test wrapper.
+  Starts behavior_tree/sentry_all via competition_autoaim.launch.py and waits for
+  external /ly/aim/armor_target + /ly/aim/result.
 EOF
 }
 
@@ -50,6 +50,14 @@ while [[ $# -gt 0 ]]; do
       USE_NOGATE=0
       shift
       ;;
+    --mode)
+      if [[ $# -lt 2 ]]; then
+        echo "[ERROR] --mode requires a value" >&2
+        exit 2
+      fi
+      MODE_ARG="$2"
+      shift 2
+      ;;
     --help|-h)
       usage
       exit 0
@@ -67,6 +75,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 source_ros_workspace "${ROOT_DIR}"
+require_sentry_msgs_for_behavior_tree
 cleanup_existing_stack "1" "/(gimbal_driver_node|detector_node|tracker_solver_node|predictor_node|outpost_hitter_node|buff_hitter_node|behavior_tree_node)([[:space:]]|$)" "ros2 launch behavior_tree (competition_autoaim|sentry_all)\\.launch.py"
 
 if (( USE_NOGATE == 1 )); then
@@ -79,28 +88,12 @@ if [[ -f "${DEFAULT_BASE_CONFIG_FILE}" ]] && ! has_launch_arg_key "base_config_f
   LAUNCH_ARGS=("base_config_file:=${DEFAULT_BASE_CONFIG_FILE}" "${LAUNCH_ARGS[@]}")
 fi
 
-if [[ -f "${DEFAULT_DETECTOR_CONFIG_FILE}" ]] && ! has_launch_arg_key "detector_config_file"; then
-  LAUNCH_ARGS=("detector_config_file:=${DEFAULT_DETECTOR_CONFIG_FILE}" "${LAUNCH_ARGS[@]}")
-fi
-
-if [[ -f "${DEFAULT_PREDICTOR_CONFIG_FILE}" ]] && ! has_launch_arg_key "predictor_config_file"; then
-  LAUNCH_ARGS=("predictor_config_file:=${DEFAULT_PREDICTOR_CONFIG_FILE}" "${LAUNCH_ARGS[@]}")
-fi
-
 if [[ -f "${DEFAULT_OVERRIDE_CONFIG_FILE}" ]] && ! has_launch_arg_key "config_file"; then
   LAUNCH_ARGS=("config_file:=${DEFAULT_OVERRIDE_CONFIG_FILE}" "${LAUNCH_ARGS[@]}")
 fi
 
-if ! has_launch_arg_key "detector_config.show" && ! has_launch_arg_key "detector_config/show"; then
-  LAUNCH_ARGS=("detector_config.show:=true" "${LAUNCH_ARGS[@]}")
-fi
-
-if ! has_launch_arg_key "detector_config.draw" && ! has_launch_arg_key "detector_config/draw"; then
-  LAUNCH_ARGS=("detector_config.draw:=true" "${LAUNCH_ARGS[@]}")
-fi
-
-if ! has_launch_arg_key "detector_config.web_show" && ! has_launch_arg_key "detector_config/web_show"; then
-  LAUNCH_ARGS=("detector_config.web_show:=true" "${LAUNCH_ARGS[@]}")
+if ! has_launch_arg_key "mode"; then
+  LAUNCH_ARGS=("mode:=${MODE_ARG}" "${LAUNCH_ARGS[@]}")
 fi
 
 exec ros2 launch behavior_tree competition_autoaim.launch.py "${LAUNCH_ARGS[@]}"

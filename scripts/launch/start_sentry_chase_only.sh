@@ -89,6 +89,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 source_ros_workspace "${ROOT_DIR}"
+require_sentry_msgs_for_behavior_tree
 cleanup_existing_stack "1" "/(gimbal_driver_node|detector_node|tracker_solver_node|predictor_node|outpost_hitter_node|buff_hitter_node|behavior_tree_node)([[:space:]]|$)" "ros2 launch behavior_tree (sentry_all|competition_autoaim|showcase|chase_only)\\.launch.py"
 
 if [[ -f "${DEFAULT_BASE_CONFIG_FILE}" ]] && ! has_launch_arg_key "base_config_file"; then

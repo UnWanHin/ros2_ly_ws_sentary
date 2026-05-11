@@ -300,6 +300,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 source_ros_workspace "${ROOT_DIR}"
+require_sentry_msgs_for_behavior_tree
 cleanup_existing_launch_tree "${CLEANUP_EXISTING}" "${STACK_LAUNCH_REGEX}"
 
 if [[ -z "${BT_APP_FILE_LOG_ENABLE:-}" ]]; then

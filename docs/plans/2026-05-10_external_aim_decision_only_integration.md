@@ -44,15 +44,15 @@ AimTargetArray:
 
 | Topic | Type | Direction | 語義 |
 |---|---|---|---|
-| `/ly/aim/TargetList` | `sentry_msgs/msg/AimTargetArray` | external aim -> BT | 可擊打目標列表，元素是 `AimTarget.msg`。 |
-| `/ly/aim/SelectTarget` | `sentry_msgs/msg/AimTarget` | BT -> external aim | BT 選中的目標 id，帶 `std_msgs/Header.stamp`。 |
-| `/ly/aim/Result` | `sentry_msgs/msg/AimResult` | external aim -> BT | yaw/pitch 與 fire 門控。 |
+| `/ly/aim/armor_target` | `sentry_msgs/msg/AimTargetArray` | external aim -> BT | 可擊打目標列表，元素是 `AimTarget.msg`。 |
+| `/ly/aim/select_target` | `sentry_msgs/msg/AimTarget` | BT -> external aim | BT 選中的目標 id，帶 `std_msgs/Header.stamp`。 |
+| `/ly/aim/result` | `sentry_msgs/msg/AimResult` | external aim -> BT | yaw/pitch 與 fire 門控。 |
 
-`sentry.aim` 的 `aim_armor_decider_node` 需要用 `SensorDataQoS` 發 `/ly/aim/TargetList`、訂閱
-`/ly/aim/SelectTarget`。BT 因此對 `/ly/aim/TargetList` 使用 `SensorDataQoS` 訂閱，避免 reliable
+`sentry.aim` 的 `aim_armor_decider_node` 需要用 `SensorDataQoS` 發 `/ly/aim/armor_target`、訂閱
+`/ly/aim/select_target`。BT 因此對 `/ly/aim/armor_target` 使用 `SensorDataQoS` 訂閱，避免 reliable
 subscriber 對 best-effort publisher 不匹配而收不到候選目標。
 
-`AimResult` 是在 BT 發出 `/ly/aim/SelectTarget` 後，外部 aim 根據選中目標輸出的結果。它不是 detector/predictor 的直接替代消息，不能無條件映射成 `/ly/predictor/target`。
+`AimResult` 是在 BT 發出 `/ly/aim/select_target` 後，外部 aim 根據選中目標輸出的結果。它不是 detector/predictor 的直接替代消息，不能無條件映射成 `/ly/predictor/target`。
 
 ## 不能走 AimResult -> /ly/predictor/target
 
@@ -67,9 +67,9 @@ subscriber 對 best-effort publisher 不匹配而收不到候選目標。
 
 ```text
 BT target decision
-  -> /ly/aim/SelectTarget
+  -> /ly/aim/select_target
 external aim
-  -> /ly/aim/Result(yaw, pitch, fire)
+  -> /ly/aim/result(yaw, pitch, fire)
 BT final control
   -> /ly/control/angles
   -> /ly/control/firecode
@@ -114,20 +114,20 @@ BT 現在多處依賴內部 `/ly/detector/armors` 生成的 `armorList/hitableTa
 - `SetAimTarget()` / `TrySetAimTargetByAutonomy()` 用 `hitableTargets`、敵方血量、距離和優先級選目標。
 - `Chase` 用 `targetArmor.Distance`、`nextAngles - gimbalAngles`、官方敵方位置去生成 `/ly/navi/target_rel` 或追擊速度。
 
-外部模式下沒有內部 `/ly/detector/armors`。因此 `/ly/aim/TargetList` 必須成為 BT 的可擊打目標來源：
+外部模式下沒有內部 `/ly/detector/armors`。因此 `/ly/aim/armor_target` 必須成為 BT 的可擊打目標來源：
 
 - `AimTargetArray.aim_targets[].id` 映射到 `ArmorType`。
 - `position` 會被缓存为当前目标的相对/局部点；Chase 只有在该 point 新鲜且 `header.frame_id` 非空时才直接发布到 `/ly/navi/target_rel`，否则退回 yaw/pitch 誤差和距離近似。官方坐标追击仍可走 `/ly/position/data`。
 - 若長時間沒有當前 target id 的 candidate，BT 應視為未鎖定目標，不接受新的 `AimResult` 開火。
 
-落地版保留現有 `armorList/hitableTargets/targetArmor` 決策資料結構，但資料源改成 `/ly/aim/TargetList`。這樣可以不重寫 regional/Task/Posture 的選目標邏輯，同時確保正式鏈路不再依賴內部 detector。
+落地版保留現有 `armorList/hitableTargets/targetArmor` 決策資料結構，但資料源改成 `/ly/aim/armor_target`。這樣可以不重寫 regional/Task/Posture 的選目標邏輯，同時確保正式鏈路不再依賴內部 detector。
 
 ## Chase 對接狀態
 
 Chase 保留原本 BT 內的追擊輸出策略，但資料源已改成外部 aim：
 
 - 角度源：`AimResult.yaw/pitch`。
-- 距離源：`/ly/aim/TargetList` 裡當前 id 的 `position` 長度，沿用 `targetArmor.Distance`，單位按外部 aim 的世界/相機幾何輸出視為 m。
+- 距離源：`/ly/aim/armor_target` 裡當前 id 的 `position` 長度，沿用 `targetArmor.Distance`，單位按外部 aim 的世界/相機幾何輸出視為 m。
 - `/ly/navi/target_rel`：有新鮮且帶 `frame_id` 的 `AimTarget.position` 時直接用該 xyz，並把 `AimTarget.header.frame_id` 帶給 `navi_tf_bridge`；沒有新鮮 point 或 frame_id 缺失時退回 BT 用 yaw/pitch 誤差與距離近似的相對目標。
 - 官方坐標追擊：仍沿用 `/ly/position/data` 的敵方/自身官方坐標，帶 freshness gate；外部 aim 不需要提供官方地圖坐標。
 
@@ -154,8 +154,8 @@ Chase 保留原本 BT 內的追擊輸出策略，但資料源已改成外部 aim
 4. `scripts/launch/start_sentry_all.sh` 不再注入內部輔瞄配置或 `use_*` 開關。
 5. `AimResult.fire` 直接驅動 BT 最終火控；`AimResult.fire=false` 時只跟角不打彈。
 6. 普通、前哨、打符 aim mode 的角度源都統一用外部 `AimResult`；內部 `/ly/predictor/target`、`/ly/buff/target`、`/ly/outpost/target` 在正式外部模式下被忽略。
-7. 前哨任務在距 `BuffOutpost` `VisualScoutFaceDistanceCm` 半徑內就會選擇 `ArmorType::Outpost` 並發 `/ly/aim/SelectTarget`，不用等到原本 100cm 近點。
-8. BT 對 `/ly/aim/TargetList` 使用 `SensorDataQoS`，兼容外部 decider 的 best-effort 發布。
+7. 前哨任務在距 `BuffOutpost` `VisualScoutFaceDistanceCm` 半徑內就會選擇 `ArmorType::Outpost` 並發 `/ly/aim/select_target`，不用等到原本 100cm 近點。
+8. BT 對 `/ly/aim/armor_target` 使用 `SensorDataQoS`，兼容外部 decider 的 best-effort 發布。
 9. `scripts/launch/start_sentry_all.sh`、showcase、navi_debug、chase wrapper 不再自動注入內部輔瞄配置。
 10. `selfcheck.sh sentry` 的 runtime graph 改成檢查 BT `/ly/aim/*` 契約，並確認內部輔瞄節點沒有出現在正式鏈路。
 
