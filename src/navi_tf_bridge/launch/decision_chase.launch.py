@@ -41,6 +41,20 @@ def _bool_default(value) -> str:
     return "true" if bool(value) else "false"
 
 
+def _normalize_area_token(raw) -> str:
+    return str(raw or "").strip().lower().replace("-", "_").replace(" ", "_")
+
+
+def _area_scope_csv(raw) -> str:
+    if isinstance(raw, dict):
+        tokens = [key for key, enabled in raw.items() if bool(enabled)]
+    elif isinstance(raw, list):
+        tokens = raw
+    else:
+        tokens = []
+    return ",".join(token for token in (_normalize_area_token(item) for item in tokens) if token)
+
+
 def _load_bridge_defaults(param_file: str) -> dict:
     if yaml is None:
         return {}
@@ -73,7 +87,11 @@ def _resolve_bridge_chase_params(context, behavior_tree_share: str):
     resolved_to_navi = "true"
     resolved_area_limit_enable = "false"
     resolved_area_limit_boundary_margin_cm = "30.0"
-    resolved_area_limit_hold_when_unknown_area = "false"
+    resolved_area_limit_chase_enable_cross_area = "false"
+    resolved_area_limit_use_area_scope = "false"
+    resolved_area_limit_my_area = ""
+    resolved_area_limit_enemy_area = ""
+    resolved_area_limit_common_area = ""
     resolved_area_limit_hold_when_no_intersection = "true"
 
     bt_config_file_value = LaunchConfiguration("bt_config_file").perform(context).strip()
@@ -101,15 +119,29 @@ def _resolve_bridge_chase_params(context, behavior_tree_share: str):
                     resolved_area_limit_boundary_margin_cm = str(
                         float(area_limit_cfg.get("BoundaryMarginCm", 30.0))
                     )
-                    resolved_area_limit_hold_when_unknown_area = (
+                    resolved_area_limit_chase_enable_cross_area = (
                         "true"
-                        if bool(area_limit_cfg.get("HoldWhenUnknownArea", False))
+                        if bool(area_limit_cfg.get("ChaseEnableCrossArea", False))
                         else "false"
                     )
                     resolved_area_limit_hold_when_no_intersection = (
                         "true"
                         if bool(area_limit_cfg.get("HoldWhenNoIntersection", True))
                         else "false"
+                    )
+            autonomy_cfg = config_root.get("DecisionAutonomy", {})
+            if isinstance(autonomy_cfg, dict):
+                navi_goal_cfg = autonomy_cfg.get("NaviGoal", {})
+                if isinstance(navi_goal_cfg, dict):
+                    resolved_area_limit_use_area_scope = (
+                        "true" if bool(navi_goal_cfg.get("UseAreaScope", False)) else "false"
+                    )
+                    resolved_area_limit_my_area = _area_scope_csv(navi_goal_cfg.get("MyArea", {}))
+                    resolved_area_limit_enemy_area = _area_scope_csv(
+                        navi_goal_cfg.get("EnemyArea", {})
+                    )
+                    resolved_area_limit_common_area = _area_scope_csv(
+                        navi_goal_cfg.get("CommonArea", {})
                     )
             navi_cfg = config_root.get("NaviSetting", {})
             if isinstance(navi_cfg, dict):
@@ -165,8 +197,24 @@ def _resolve_bridge_chase_params(context, behavior_tree_share: str):
             resolved_area_limit_boundary_margin_cm,
         ),
         SetLaunchConfiguration(
-            "resolved_chase_area_limit_hold_when_unknown_area",
-            resolved_area_limit_hold_when_unknown_area,
+            "resolved_chase_area_limit_chase_enable_cross_area",
+            resolved_area_limit_chase_enable_cross_area,
+        ),
+        SetLaunchConfiguration(
+            "resolved_chase_area_limit_use_area_scope",
+            resolved_area_limit_use_area_scope,
+        ),
+        SetLaunchConfiguration(
+            "resolved_chase_area_limit_my_area",
+            resolved_area_limit_my_area,
+        ),
+        SetLaunchConfiguration(
+            "resolved_chase_area_limit_enemy_area",
+            resolved_area_limit_enemy_area,
+        ),
+        SetLaunchConfiguration(
+            "resolved_chase_area_limit_common_area",
+            resolved_area_limit_common_area,
         ),
         SetLaunchConfiguration(
             "resolved_chase_area_limit_hold_when_no_intersection",
@@ -345,7 +393,11 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument("resolved_chase_area_limit_enable", default_value="false"),
         DeclareLaunchArgument("resolved_chase_area_limit_boundary_margin_cm", default_value="30.0"),
-        DeclareLaunchArgument("resolved_chase_area_limit_hold_when_unknown_area", default_value="false"),
+        DeclareLaunchArgument("resolved_chase_area_limit_chase_enable_cross_area", default_value="false"),
+        DeclareLaunchArgument("resolved_chase_area_limit_use_area_scope", default_value="false"),
+        DeclareLaunchArgument("resolved_chase_area_limit_my_area", default_value=""),
+        DeclareLaunchArgument("resolved_chase_area_limit_enemy_area", default_value=""),
+        DeclareLaunchArgument("resolved_chase_area_limit_common_area", default_value=""),
         DeclareLaunchArgument("resolved_chase_area_limit_hold_when_no_intersection", default_value="true"),
         DeclareLaunchArgument(
             "chase_area_limit_area_header_file",
@@ -546,9 +598,22 @@ def generate_launch_description():
                     LaunchConfiguration("resolved_chase_area_limit_boundary_margin_cm"),
                     value_type=float,
                 ),
-                "chase_area_limit.hold_when_unknown_area": ParameterValue(
-                    LaunchConfiguration("resolved_chase_area_limit_hold_when_unknown_area"),
+                "chase_area_limit.chase_enable_cross_area": ParameterValue(
+                    LaunchConfiguration("resolved_chase_area_limit_chase_enable_cross_area"),
                     value_type=bool,
+                ),
+                "chase_area_limit.use_area_scope": ParameterValue(
+                    LaunchConfiguration("resolved_chase_area_limit_use_area_scope"),
+                    value_type=bool,
+                ),
+                "chase_area_limit.my_area": LaunchConfiguration(
+                    "resolved_chase_area_limit_my_area"
+                ),
+                "chase_area_limit.enemy_area": LaunchConfiguration(
+                    "resolved_chase_area_limit_enemy_area"
+                ),
+                "chase_area_limit.common_area": LaunchConfiguration(
+                    "resolved_chase_area_limit_common_area"
                 ),
                 "chase_area_limit.hold_when_no_intersection": ParameterValue(
                     LaunchConfiguration("resolved_chase_area_limit_hold_when_no_intersection"),

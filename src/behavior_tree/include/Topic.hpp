@@ -55,6 +55,7 @@
 #include "gimbal_driver/msg/rfid_status.hpp"
 #include "gimbal_driver/msg/sentry_cmd.hpp"
 #include "gimbal_driver/msg/sentry_info.hpp"
+#include "gimbal_driver/msg/stamped_u_int16_multi_array.hpp"
 #include "gimbal_driver/msg/uwb_pos.hpp"
 #include "gimbal_driver/msg/vel.hpp"
 #include "gimbal_driver/msg/buff_data.hpp"
@@ -95,7 +96,7 @@ namespace BehaviorTree {
     LY_DEF_ROS_TOPIC(ly_friend_base_hp, "/ly/friend/base_hp", std_msgs::msg::UInt16);
     
     LY_DEF_ROS_TOPIC(ly_friend_ammo_left, "/ly/friend/ammo_left", std_msgs::msg::UInt16);
-    LY_DEF_ROS_TOPIC(ly_friend_uwb_pos, "/ly/friend/uwb_pos", std_msgs::msg::UInt16MultiArray);
+    LY_DEF_ROS_TOPIC(ly_friend_uwb_pos, "/ly/friend/uwb_pos", gimbal_driver::msg::StampedUInt16MultiArray);
     
     LY_DEF_ROS_TOPIC(ly_game_is_start, "/ly/game/is_start", std_msgs::msg::Bool);
     LY_DEF_ROS_TOPIC(ly_game_time_left, "/ly/game/time_left", std_msgs::msg::UInt16);
@@ -127,7 +128,7 @@ namespace BehaviorTree {
     LY_DEF_ROS_TOPIC(ly_navi_goal, "/ly/navi/goal", std_msgs::msg::UInt8);
     LY_DEF_ROS_TOPIC(ly_navi_goal_pos_raw, "/ly/navi/goal_pos_raw", std_msgs::msg::UInt16MultiArray);
     LY_DEF_ROS_TOPIC(ly_navi_goal_pos, "/ly/navi/goal_pos", std_msgs::msg::UInt16MultiArray);
-    LY_DEF_ROS_TOPIC(ly_navi_position, "/ly/navi/position", std_msgs::msg::UInt16MultiArray);
+    LY_DEF_ROS_TOPIC(ly_navi_position, "/ly/navi/position", gimbal_driver::msg::StampedUInt16MultiArray);
     LY_DEF_ROS_TOPIC(ly_navi_speed_level, "/ly/navi/speed_level", std_msgs::msg::UInt8);
     LY_DEF_ROS_TOPIC(ly_navi_lower_head, "/ly/navi/lower_head", std_msgs::msg::UInt8);
     LY_DEF_ROS_TOPIC(ly_navi_reached, "/ly/navi/reached", std_msgs::msg::Bool);

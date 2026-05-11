@@ -312,9 +312,20 @@ private:
     int leagueRouteCompatPendingHoldSec_{1};
     std::chrono::steady_clock::time_point lastLeagueRecoveryGuardLogTime_{};
     std::chrono::steady_clock::time_point lastPositionDataGuardLogTime_{};
+    struct SentryPositionSourceCache {
+        bool Valid{false};
+        int X{0};
+        int Y{0};
+        std::chrono::steady_clock::time_point LastRx{};
+    };
+    SentryPositionSourceCache sentryUwbPositionSource_{};
+    SentryPositionSourceCache sentryPositionDataSource_{};
+    SentryPositionSourceCache sentryNaviPositionSource_{};
     bool hasReceivedSentryPosition_{false};
     std::chrono::steady_clock::time_point lastSentryPositionRxTime_{};
     std::chrono::steady_clock::time_point lastSentryRadarPositionRxTime_{};
+    std::chrono::steady_clock::time_point lastSentryPositionFusionLogTime_{};
+    std::string sentryPositionFusionSource_{"none"};
     std::array<std::chrono::steady_clock::time_point, 10> lastEnemyPositionRxTime_{};
     std::array<std::chrono::steady_clock::time_point, 10> lastFriendPositionRxTime_{};
 
@@ -464,6 +475,8 @@ private:
         bool apply_team_offset,
         const char* detail = nullptr) const;
     void RecordDecisionIntent(DecisionIntent intent);
+    void UpdateSentryPositionFusion(std::chrono::steady_clock::time_point now);
+    bool IsSentryPositionFresh(std::chrono::steady_clock::time_point now) const;
 
 
 public:

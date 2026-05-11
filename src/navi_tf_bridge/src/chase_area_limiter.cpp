@@ -152,6 +152,16 @@ bool ChaseAreaLimiter::firstBoundaryIntersectionT(
   return true;
 }
 
+bool ChaseAreaLimiter::isAreaAllowed(const Area & area) const
+{
+  if (!config_.chase_enable_cross_area || !config_.require_allowed_area_match) {
+    return true;
+  }
+  return std::find(
+    config_.allowed_area_names.begin(), config_.allowed_area_names.end(), area.name) !=
+         config_.allowed_area_names.end();
+}
+
 ChaseAreaLimiter::Result ChaseAreaLimiter::limit(
   const PointCm self,
   const PointCm goal) const
@@ -176,17 +186,30 @@ ChaseAreaLimiter::Result ChaseAreaLimiter::limit(
   const auto * area = findContainingArea(config_.areas, self);
   if (area == nullptr) {
     result.status = Status::UnknownArea;
-    if (config_.hold_when_unknown_area) {
-      result.point = self;
-      result.hold_current = true;
-    }
+    result.point = self;
+    result.hold_current = true;
     return result;
   }
 
   result.area_name = area->name;
-  if (isPointInsidePolygon(area->boundary, goal)) {
-    result.status = Status::Inside;
-    return result;
+  if (config_.chase_enable_cross_area) {
+    if (!isAreaAllowed(*area)) {
+      result.status = Status::AreaScopeBlocked;
+      result.point = self;
+      result.hold_current = true;
+      return result;
+    }
+    const auto * goal_area = findContainingArea(config_.areas, goal);
+    if (goal_area != nullptr && isAreaAllowed(*goal_area)) {
+      result.status = Status::Inside;
+      result.area_name = goal_area->name;
+      return result;
+    }
+  } else {
+    if (isPointInsidePolygon(area->boundary, goal)) {
+      result.status = Status::Inside;
+      return result;
+    }
   }
 
   double t_hit = 0.0;
@@ -230,6 +253,8 @@ const char * ChaseAreaLimiter::statusName(const Status status)
       return "unknown_area";
     case Status::NoIntersection:
       return "no_intersection";
+    case Status::AreaScopeBlocked:
+      return "area_scope_blocked";
     default:
       return "unknown";
   }

@@ -37,7 +37,7 @@
 | 发布 | `/goal_pose` | 导航最终目标，`geometry_msgs/PoseStamped` |
 | 发布 | `/ly/navi/goal_pos` | legacy/direct-XY 兼容输出，默认关闭 |
 | 发布 | `/ly/navi/target_map` | debug target map，按配置可开关 |
-| 发布 | `/ly/navi/position` | `map_frame <- base_frame` 反解出的自身官方地图坐标，`[x_cm, y_cm]` |
+| 发布 | `/ly/navi/position` | `map_frame <- base_frame` 反解出的自身官方地图坐标，`StampedUInt16MultiArray data=[x_cm, y_cm]`，带 `header.stamp` |
 | 发布 | `/ly/control/angles` | FaceMode 独立测试/直接控制输出 |
 | 发布 | `/ly/face_mode/angles` | 正式 BT 链路的 FaceMode solver 输出 |
 | 发布 | `/ly/control/firecode` | FaceMode 可选 firecode 输出 |
@@ -62,10 +62,12 @@
   - row-major 4x4，输入点先从 cm 解码到 m，再应用矩阵。
 - `Chase.AreaLimit.Enable: true`
   - 正式 BT 链路从 behavior_tree 的 `bt_config_file` 读取 `Chase.AreaLimit` 并传给 bridge；`tf_config.yaml` 不重复保存策略开关。
-  - 追击 `/ly/navi/target_rel -> /goal_pose` 时，先把自身和候选追击点反算到官方地图 cm 坐标；如果候选点跨出当前所在大区域，就把 `/goal_pose` 截到当前大区域边界内侧。
+  - 追击 `/ly/navi/target_rel -> /goal_pose` 时，先把自身和候选追击点反算到官方地图 cm 坐标；`ChaseEnableCrossArea=false` 时候选点跨出当前所在大区域会被截到边界内侧，`true` 时可落到已启用的大区域内。
   - 官方坐标 fallback 追击走 `/ly/navi/goal_pos_raw`，由 BT 在发布前按同一个 `Chase.AreaLimit` 限制；bridge 不会把该限制套到普通固定点位 `/ly/navi/goal_pos_raw`。
   - 大区域边界从 `src/behavior_tree/module/Area.hpp` 的 `RedMainArea*Points` / `BlueMainArea*Points` / `CommonMainAreaCentralPoints` 解析，避免在 YAML 里重复维护点位。
-  - `BoundaryMarginCm` 控制离边界保留的安全距离；`HoldWhenUnknownArea` 表示自身不在任何已知大区域时保持当前点。
+  - `BoundaryMarginCm` 控制离边界保留的安全距离；自身不在任何已知大区域时会保持当前点。
+  - `ChaseEnableCrossArea=false` 时，单次追击只允许在当前所在大区域内，目标越界会夹到边界内侧。
+  - `ChaseEnableCrossArea=true` 时，追击目标可落在 `DecisionAutonomy.NaviGoal` 已开启的大区域内；未开启的大区域仍不允许作为追击目标。
   - 该限制只约束底盘追击目标，不关闭云台跟踪和开火；目标丢失或 Chase 退出后仍回到 BT 原决策链路。
 
 FaceMode launch 必填：
@@ -109,6 +111,6 @@ FaceMode 默认：
 - `sentry_all.launch.py` 默认已拉起 BT 用的 FaceMode solver，输出到 `/ly/face_mode/angles`，不会直接抢 `/ly/control/angles`。
 - 单独调试区域任务 FaceMode 时，运行 `scripts/navi/facemode.sh --bt-output ...`，避免和 BT 同时抢 `/ly/control/angles`。
 - 区域任务需要切换固定朝向点时，由 BT 发布 `/ly/face_mode/target_raw`；格式为 `[official_map_x, official_map_y, map_z]` cm。
-- `/ly/navi/position` 依赖 raw-goal static calibration；如果 `tf_config.yaml` 的 4x4 没准备好，节点不会发布这个补充位置。
+- `/ly/navi/position` 依赖 raw-goal static calibration；如果 `tf_config.yaml` 的 4x4 没准备好，节点不会发布这个补充位置。BT 会把它作为 `AreaManager.SentryPositionFusion` 的 Navi 源。
 - FaceMode 默认 `yaw_sign=-1.0`；`camera_projection` 下目标在 `gx_camera` 后方时会用几何 yaw/pitch fallback 先转向正面，再继续投影微调。
 - 详细变更记录见 [navi_tf_bridge / FaceMode / scripts 入口整理记录](../record/2026-05-03_navi_tf_bridge_facemode_and_script_layout.md)。

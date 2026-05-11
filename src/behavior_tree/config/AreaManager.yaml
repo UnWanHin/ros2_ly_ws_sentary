@@ -2,6 +2,26 @@ behavior_tree:
   ros__parameters:
     AreaManager:
       Switch_Point: false
+      SentryPositionFusion:
+        Enable: true
+        Mode: priority   # priority or weighted
+        FreshTimeoutMs: 2000
+        Sources:
+          Uwb:
+            Enable: true
+            Priority: 0
+            Weight: 1.0
+            FreshTimeoutMs: 0
+          PositionData:
+            Enable: true
+            Priority: 1
+            Weight: 0.7
+            FreshTimeoutMs: 0
+          Navi:
+            Enable: true
+            Priority: 2
+            Weight: 0.8
+            FreshTimeoutMs: 0
       RegionalAreaTask:
         Enable: true
         MyBase:

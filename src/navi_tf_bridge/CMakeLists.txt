@@ -43,6 +43,7 @@ ament_target_dependencies(target_rel_to_goal_pos_node
   std_msgs
   geometry_msgs
   auto_aim_common
+  gimbal_driver
   tf2
   tf2_ros
   tf2_geometry_msgs

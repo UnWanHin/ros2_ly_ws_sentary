@@ -234,7 +234,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData>
 | `/ly/team/buff` | `BuffData` | 能量機關增益狀態 |
 | `/ly/game/rfid` | `RfidStatus` | 0x0209 `rfid_status` 低 32 位拆字段；TypeID 8 的 `rfid_status_2` 也合并在这里 |
 | `/ly/position/data` | `PositionData` | UWB位置數據 |
-| `/ly/friend/uwb_pos` | `UInt16MultiArray` | 自身UWB位置[x, y] |
+| `/ly/friend/uwb_pos` | `StampedUInt16MultiArray` | 自身UWB位置 `data=[x, y]`，带 `header.stamp` |
 | `/ly/gimbal/chassis` | `Chassis` | 底盘四元反馈（`steer_angle`, `angular_velocity`, `velocity_x`, `velocity_y`） |
 | `/ly/gimbal/posture` | `UInt8` | 姿態回讀（TypeID 7 `/ly/game/sentry/info.posture` 有效值优先覆盖；TypeID 6 `ChassisData.Posture` 作兼容回读；僅 1/2/3 視為有效） |
 | `ly/gimbal/eventdata` | `UInt32` | 場地事件原始值（當前 topic 字符串無前導 `/`） |

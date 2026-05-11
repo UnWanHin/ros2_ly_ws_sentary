@@ -49,6 +49,7 @@
 #include "gimbal_driver/msg/position_data.hpp"
 #include "gimbal_driver/msg/sentry_cmd.hpp"
 #include "gimbal_driver/msg/sentry_info.hpp"
+#include "gimbal_driver/msg/stamped_u_int16_multi_array.hpp"
 
 #include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/u_int8.hpp>
@@ -89,7 +90,7 @@ namespace
     LY_DEF_ROS_TOPIC(ly_friend_base_hp, "/ly/friend/base_hp", std_msgs::msg::UInt16);
 
     LY_DEF_ROS_TOPIC(ly_friend_ammo_left, "/ly/friend/ammo_left", std_msgs::msg::UInt16);
-    LY_DEF_ROS_TOPIC(ly_friend_uwb_pos, "/ly/friend/uwb_pos", std_msgs::msg::UInt16MultiArray);
+    LY_DEF_ROS_TOPIC(ly_friend_uwb_pos, "/ly/friend/uwb_pos", gimbal_driver::msg::StampedUInt16MultiArray);
     LY_DEF_ROS_TOPIC(ly_friend_uwb_yaw, "/ly/friend/uwb_yaw", std_msgs::msg::UInt16);
 
     LY_DEF_ROS_TOPIC(ly_game_is_start, "/ly/game/is_start", std_msgs::msg::Bool);
@@ -1070,6 +1071,8 @@ namespace
                         static_cast<std::uint16_t>(data.Friend.Y)
                     };
                     topic::Msg msg;
+                    msg.header.stamp = Node.GetNode()->now();
+                    msg.header.frame_id = "official_map";
                     msg.data = pos;
                     Node.Publisher<topic>()->publish(msg);
                 }

@@ -35,7 +35,7 @@ Updated: 2026-05-08
 ├── op_hp          : std_msgs/msg/UInt16            [Embedded] 我方前哨血量
 ├── base_hp        : std_msgs/msg/UInt16            [Embedded] 我方基地血量
 ├── ammo_left      : std_msgs/msg/UInt16            [Embedded] 当前弹量摘要
-├── uwb_pos        : std_msgs/msg/UInt16MultiArray  [Embedded] 自身官方坐标 [x, y]
+├── uwb_pos        : gimbal_driver/msg/StampedUInt16MultiArray [Embedded] 自身官方坐标 [x, y]，带 header.stamp
 └── uwb_yaw        : std_msgs/msg/UInt16            [Embedded] UWB yaw 回读
 ```
 
@@ -163,7 +163,7 @@ Updated: 2026-05-08
 ├── goal_pos      : std_msgs/msg/UInt16MultiArray   [External] 已处理导航点兼容输出
 ├── target_rel    : auto_aim_common/msg/RelativeTarget [External] BT -> navi_tf_bridge，相机系/目标相对点
 ├── target_map    : geometry_msgs/msg/PointStamped  [External] navi_tf_bridge debug，目标转换后的 map/odom 点
-├── position      : std_msgs/msg/UInt16MultiArray   [External] navi_tf_bridge -> BT，自身官方坐标 [x, y]
+├── position      : gimbal_driver/msg/StampedUInt16MultiArray [External] navi_tf_bridge -> BT，自身官方坐标 [x, y]，带 header.stamp
 ├── speed_level   : std_msgs/msg/UInt8              [External] BT -> 导航速度档
 ├── lower_head    : std_msgs/msg/UInt8              [External] 导航兼容低头状态
 ├── reached       : std_msgs/msg/Bool               [External] 导航 -> BT，当前 goal 是否到达
@@ -513,6 +513,7 @@ std_msgs/msg/UInt16
 std_msgs/msg/UInt32
 std_msgs/msg/Float32
 std_msgs/msg/UInt16MultiArray
+gimbal_driver/msg/StampedUInt16MultiArray
 geometry_msgs/msg/PointStamped
 geometry_msgs/msg/PoseStamped
 sensor_msgs/msg/Image
@@ -590,6 +591,8 @@ TypeID 8 BulletDataAndRfid2
 
 - `PositionType.X/Y` 在底层注释里写的是“乘了100”，当前 ROS `PositionData` 直接保留 `int16`。
 - `behavior_tree` 消费 `/ly/position/data` 时会做 `Y = 1500 - raw_y` 的官方地图方向转换。
+- `/ly/friend/uwb_pos` 和 `/ly/navi/position` 使用 `gimbal_driver/msg/StampedUInt16MultiArray`，`data=[x, y]`，`header.stamp` 是各自发布节点打的源时间戳。
+- `behavior_tree` 通过 `AreaManager.SentryPositionFusion` 融合 `/ly/friend/uwb_pos`、`/ly/position/data` 的 sentry friend slot 和 `/ly/navi/position`，再写入 `friendRobots[Sentry].position_`。
 - `/ly/navi/position` 是 `navi_tf_bridge` 从 TF 算出位置后再逆变换成官方地图 cm 的 `[x, y]`，给区域判断辅助用。
 
 ### 下行：ROS -> `gimbal_driver` -> 下位机

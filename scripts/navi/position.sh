@@ -60,7 +60,7 @@ Options:
   --base-frame <frame>  TF base frame to probe. Default: ${BASE_FRAME}
   --fallback-base-frame <frame>
                         Fallback TF base frame to probe. Default: ${FALLBACK_BASE_FRAME}
-  --full                Print full UInt16MultiArray message
+  --full                Print full StampedUInt16MultiArray message
   --no-info             Do not print topic info before echo
   --no-tf-check         Skip map <- base_link TF readiness probe
   --help, -h            Show this help

@@ -26,8 +26,10 @@ public:
     bool enabled{false};
     std::string area_header_file{};
     double boundary_margin_cm{30.0};
-    bool hold_when_unknown_area{false};
+    bool chase_enable_cross_area{false};
     bool hold_when_no_intersection{true};
+    bool require_allowed_area_match{false};
+    std::vector<std::string> allowed_area_names{};
     std::vector<Area> areas{};
   };
 
@@ -40,6 +42,7 @@ public:
     Clamped,
     UnknownArea,
     NoIntersection,
+    AreaScopeBlocked,
   };
 
   struct Result
@@ -78,6 +81,7 @@ private:
     PointCm start,
     PointCm end,
     double & t_out);
+  bool isAreaAllowed(const Area & area) const;
 
   Config config_{};
 };

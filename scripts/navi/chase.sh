@@ -230,7 +230,7 @@ chase.setdefault("InvertStrafeDirection", False)
 area_limit = chase.setdefault("AreaLimit", {})
 area_limit["Enable"] = area_limit_enabled
 area_limit.setdefault("BoundaryMarginCm", 30)
-area_limit.setdefault("HoldWhenUnknownArea", True)
+area_limit.setdefault("ChaseEnableCrossArea", False)
 area_limit.setdefault("HoldWhenNoIntersection", True)
 
 with open(dst, "w", encoding="utf-8") as f:

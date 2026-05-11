@@ -292,20 +292,15 @@ namespace BehaviorTree{
                 }
                 return;
             }
-            const auto sentry_index = static_cast<std::size_t>(UnitType::Sentry);
-            if (app.lastSentryRadarPositionRxTime_.time_since_epoch().count() != 0 &&
-                now - app.lastSentryRadarPositionRxTime_ <= std::chrono::seconds(2)) {
-                return;
-            }
-            app.friendRobots[UnitType::Sentry].position_.X = msg->data[0];
-            app.friendRobots[UnitType::Sentry].position_.Y = msg->data[1];
-            app.hasReceivedSentryPosition_ = true;
-            app.lastSentryPositionRxTime_ = now;
-            app.lastFriendPositionRxTime_[sentry_index] = app.lastSentryPositionRxTime_;
+            app.sentryNaviPositionSource_.Valid = true;
+            app.sentryNaviPositionSource_.X = static_cast<int>(msg->data[0]);
+            app.sentryNaviPositionSource_.Y = static_cast<int>(msg->data[1]);
+            app.sentryNaviPositionSource_.LastRx = now;
+            app.UpdateSentryPositionFusion(now);
         });
 
         // ly_friend_uwb_pos
-        // Dedicated radar/UWB self position. Prefer it over the generic PositionData friend slot.
+        // Dedicated radar/UWB self position.
         GenSub<ly_friend_uwb_pos>([](Application& app, auto msg) {
             const auto now = std::chrono::steady_clock::now();
             if (msg->data.size() < 2) {
@@ -320,15 +315,12 @@ namespace BehaviorTree{
                 return;
             }
 
-            const auto sentry_index = static_cast<std::size_t>(UnitType::Sentry);
-            app.friendRobots[UnitType::Sentry].position_.X =
-                static_cast<std::int16_t>(msg->data[0]);
-            app.friendRobots[UnitType::Sentry].position_.Y =
-                static_cast<std::int16_t>(1500 - static_cast<int>(msg->data[1]));
-            app.hasReceivedSentryPosition_ = true;
-            app.lastSentryPositionRxTime_ = now;
+            app.sentryUwbPositionSource_.Valid = true;
+            app.sentryUwbPositionSource_.X = static_cast<int>(msg->data[0]);
+            app.sentryUwbPositionSource_.Y = 1500 - static_cast<int>(msg->data[1]);
+            app.sentryUwbPositionSource_.LastRx = now;
             app.lastSentryRadarPositionRxTime_ = now;
-            app.lastFriendPositionRxTime_[sentry_index] = now;
+            app.UpdateSentryPositionFusion(now);
         });
 
         // ly_position_data
@@ -348,17 +340,16 @@ namespace BehaviorTree{
                 const auto now = std::chrono::steady_clock::now();
                 const auto friend_index = static_cast<std::size_t>(FriendCarId);
                 const bool friend_is_sentry = FriendCarId == static_cast<int>(UnitType::Sentry);
-                const bool radar_sentry_position_fresh =
-                    app.lastSentryRadarPositionRxTime_.time_since_epoch().count() != 0 &&
-                    now - app.lastSentryRadarPositionRxTime_ <= std::chrono::seconds(2);
-                if (!friend_is_sentry || !radar_sentry_position_fresh) {
+                if (friend_is_sentry) {
+                    app.sentryPositionDataSource_.Valid = true;
+                    app.sentryPositionDataSource_.X = static_cast<int>(msg->friendx);
+                    app.sentryPositionDataSource_.Y = 1500 - static_cast<int>(msg->friendy);
+                    app.sentryPositionDataSource_.LastRx = now;
+                    app.UpdateSentryPositionFusion(now);
+                } else {
                     app.friendRobots[FriendCarId].position_.X = msg->friendx;
                     app.friendRobots[FriendCarId].position_.Y = 1500 - msg->friendy;
                     app.lastFriendPositionRxTime_[friend_index] = now;
-                }
-                if (friend_is_sentry && !radar_sentry_position_fresh) {
-                    app.hasReceivedSentryPosition_ = true;
-                    app.lastSentryPositionRxTime_ = app.lastFriendPositionRxTime_[friend_index];
                 }
             } else {
                 maybe_warn_invalid_id("friend", FriendCarId);

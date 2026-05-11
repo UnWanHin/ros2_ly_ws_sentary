@@ -1,10 +1,12 @@
 #include <chrono>
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <fstream>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <regex>
 #include <sstream>
 #include <string>
@@ -12,6 +14,7 @@
 #include <vector>
 
 #include "auto_aim_common/msg/relative_target.hpp"
+#include "gimbal_driver/msg/stamped_u_int16_multi_array.hpp"
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
@@ -23,6 +26,7 @@
 #include "navi_tf_bridge/pointer_debug.hpp"
 #include "navi_tf_bridge/pointer_solver.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/bool.hpp"
 #include "std_msgs/msg/u_int16_multi_array.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
@@ -93,10 +97,21 @@ public:
       this->declare_parameter<std::string>("chase_area_limit.area_header_file", "");
     const double chase_area_limit_boundary_margin_cm =
       this->declare_parameter<double>("chase_area_limit.boundary_margin_cm", 30.0);
-    const bool chase_area_limit_hold_when_unknown_area =
-      this->declare_parameter<bool>("chase_area_limit.hold_when_unknown_area", false);
+    const bool chase_area_limit_chase_enable_cross_area =
+      this->declare_parameter<bool>("chase_area_limit.chase_enable_cross_area", false);
     const bool chase_area_limit_hold_when_no_intersection =
       this->declare_parameter<bool>("chase_area_limit.hold_when_no_intersection", true);
+    chase_area_limit_use_area_scope_ =
+      this->declare_parameter<bool>("chase_area_limit.use_area_scope", false);
+    chase_area_limit_my_area_ =
+      splitAreaTokens(this->declare_parameter<std::string>("chase_area_limit.my_area", ""));
+    chase_area_limit_enemy_area_ =
+      splitAreaTokens(this->declare_parameter<std::string>("chase_area_limit.enemy_area", ""));
+    chase_area_limit_common_area_ =
+      splitAreaTokens(this->declare_parameter<std::string>("chase_area_limit.common_area", ""));
+    const std::string friend_is_team_red_topic =
+      this->declare_parameter<std::string>(
+      "chase_area_limit.friend_is_team_red_topic", "/ly/friend/is_team_red");
     const std::vector<std::string> chase_area_limit_area_names =
       this->declare_parameter<std::vector<std::string>>(
       "chase_area_limit.area_names", std::vector<std::string>{});
@@ -125,6 +140,7 @@ public:
       this->declare_parameter<std::string>("raw_goal_source_frame", "official_map");
     const std::string raw_goal_target_frame =
       this->declare_parameter<std::string>("raw_goal_target_frame", "map");
+    navi_position_frame_ = raw_goal_source_frame;
     const std::vector<double> raw_goal_source_points =
       this->declare_parameter<std::vector<double>>(
       "raw_goal_source_points", std::vector<double>{});
@@ -150,8 +166,10 @@ public:
       .enabled = chase_area_limit_enable,
       .area_header_file = chase_area_limit_area_header_file,
       .boundary_margin_cm = chase_area_limit_boundary_margin_cm,
-      .hold_when_unknown_area = chase_area_limit_hold_when_unknown_area,
+      .chase_enable_cross_area = chase_area_limit_chase_enable_cross_area,
       .hold_when_no_intersection = chase_area_limit_hold_when_no_intersection,
+      .require_allowed_area_match = false,
+      .allowed_area_names = {},
       .areas = {}};
     if (!chase_area_limit_area_header_file.empty()) {
       chase_area_limit_config.areas =
@@ -182,6 +200,7 @@ public:
       }
     }
     chase_area_limiter_.setConfig(std::move(chase_area_limit_config));
+    updateChaseAreaLimitAllowedAreas();
 
     goal_output_.setConfig(GoalOutput::Config{
       .map_frame = map_frame,
@@ -230,6 +249,16 @@ public:
       input_goal_pos_raw_topic_,
       rclcpp::QoS(10),
       std::bind(&TargetRelToGoalPosNode::goalPosRawCallback, this, std::placeholders::_1));
+    sub_friend_is_team_red_ = this->create_subscription<std_msgs::msg::Bool>(
+      friend_is_team_red_topic,
+      rclcpp::QoS(10),
+      [this](const std_msgs::msg::Bool::SharedPtr msg) {
+        if (!msg) {
+          return;
+        }
+        friend_is_team_red_ = msg->data;
+        updateChaseAreaLimitAllowedAreas();
+      });
 
     const auto & output_config = goal_output_.config();
     if (output_config.publish_goal_pos) {
@@ -246,7 +275,8 @@ public:
     }
     if (publish_navi_position) {
       pub_navi_position_ =
-        this->create_publisher<std_msgs::msg::UInt16MultiArray>(output_navi_position_topic_, 10);
+        this->create_publisher<gimbal_driver::msg::StampedUInt16MultiArray>(
+          output_navi_position_topic_, 10);
       navi_position_timer_ = this->create_wall_timer(
         std::chrono::duration<double>(1.0 / navi_position_publish_hz),
         std::bind(&TargetRelToGoalPosNode::onNaviPositionTimer, this));
@@ -270,6 +300,89 @@ public:
   }
 
 private:
+  static std::string normalizeAreaToken(std::string token)
+  {
+    std::transform(
+      token.begin(), token.end(), token.begin(),
+      [](const unsigned char c) {
+        if (c == '-' || c == ' ') {
+          return '_';
+        }
+        return static_cast<char>(std::tolower(c));
+      });
+    return token;
+  }
+
+  static std::vector<std::string> splitAreaTokens(const std::string & raw)
+  {
+    std::vector<std::string> tokens;
+    std::stringstream ss(raw);
+    std::string token;
+    while (std::getline(ss, token, ',')) {
+      token = normalizeAreaToken(token);
+      token.erase(
+        std::remove_if(
+          token.begin(), token.end(),
+          [](const unsigned char c) { return std::isspace(c) != 0; }),
+        token.end());
+      if (!token.empty()) {
+        tokens.push_back(token);
+      }
+    }
+    return tokens;
+  }
+
+  static void addSideAreaNames(
+    std::vector<std::string> & names,
+    const std::vector<std::string> & scope,
+    const char * side)
+  {
+    for (const auto & token : scope) {
+      if (token == "base") {
+        names.push_back(std::string(side) + "_base");
+      } else if (token == "highland" || token == "high_land" || token == "high") {
+        names.push_back(std::string(side) + "_highland");
+      } else if (token == "roadland" || token == "road_land" || token == "road") {
+        names.push_back(std::string(side) + "_roadland");
+      }
+    }
+  }
+
+  static void addCommonAreaNames(
+    std::vector<std::string> & names,
+    const std::vector<std::string> & scope)
+  {
+    for (const auto & token : scope) {
+      if (token == "central" || token == "center" || token == "centre" || token == "middle") {
+        names.push_back("common_central");
+      }
+    }
+  }
+
+  void updateChaseAreaLimitAllowedAreas()
+  {
+    auto config = chase_area_limiter_.config();
+    config.allowed_area_names.clear();
+    config.require_allowed_area_match =
+      config.chase_enable_cross_area && chase_area_limit_use_area_scope_;
+
+    if (config.require_allowed_area_match) {
+      addCommonAreaNames(config.allowed_area_names, chase_area_limit_common_area_);
+      if (friend_is_team_red_.has_value()) {
+        const char * my_side = *friend_is_team_red_ ? "red" : "blue";
+        const char * enemy_side = *friend_is_team_red_ ? "blue" : "red";
+        addSideAreaNames(config.allowed_area_names, chase_area_limit_my_area_, my_side);
+        addSideAreaNames(config.allowed_area_names, chase_area_limit_enemy_area_, enemy_side);
+      }
+      std::sort(config.allowed_area_names.begin(), config.allowed_area_names.end());
+      config.allowed_area_names.erase(
+        std::unique(config.allowed_area_names.begin(), config.allowed_area_names.end()),
+        config.allowed_area_names.end());
+    }
+
+    chase_area_limiter_.setConfig(std::move(config));
+  }
+
   void logStartup() const
   {
     const auto & chase = chase_pointer_.config();
@@ -287,7 +400,8 @@ private:
       "fallback_base_frame=%s target_rel_default_frame=%s raw_goal_in=%s raw_goal_frame=%s invert_y_axis=%s y_axis_max_cm=%d preferred_distance_cm=%d "
       "goal_u16_encode=%s enc=[[%.6f,0,%.3f],[0,%.6f,%.3f]] dec=[[%.6f,0,%.3f],[0,%.6f,%.3f]] "
       "distance_deadband_cm=%d stop_when_no_target=%s allow_reverse_goal=%s "
-      "chase_area_limit=%s area_header=%s area_count=%zu boundary_margin_cm=%.1f hold_unknown=%s hold_no_intersection=%s "
+      "chase_area_limit=%s area_header=%s area_count=%zu boundary_margin_cm=%.1f chase_enable_cross_area=%s "
+      "scope_enable=%s allowed_area_count=%zu hold_no_intersection=%s "
       "use_raw_goal_static_calibration=%s model=%s source_frame=%s target_frame=%s",
       input_topic_.c_str(),
       output_goal_pos_topic_.c_str(),
@@ -320,7 +434,9 @@ private:
       "<empty>" : chase_area_limiter_.config().area_header_file.c_str(),
       chase_area_limiter_.config().areas.size(),
       chase_area_limiter_.config().boundary_margin_cm,
-      chase_area_limiter_.config().hold_when_unknown_area ? "true" : "false",
+      chase_area_limiter_.config().chase_enable_cross_area ? "true" : "false",
+      chase_area_limiter_.config().require_allowed_area_match ? "true" : "false",
+      chase_area_limiter_.config().allowed_area_names.size(),
       chase_area_limiter_.config().hold_when_no_intersection ? "true" : "false",
       map.use_static_calibration ? "true" : "false",
       solver.model.c_str(),
@@ -487,7 +603,9 @@ private:
       return;
     }
 
-    std_msgs::msg::UInt16MultiArray msg;
+    gimbal_driver::msg::StampedUInt16MultiArray msg;
+    msg.header.stamp = this->now();
+    msg.header.frame_id = navi_position_frame_;
     msg.data = {
       static_cast<std::uint16_t>(std::clamp(std::lround(raw_x_cm), 0L, 65535L)),
       static_cast<std::uint16_t>(std::clamp(std::lround(raw_y_cm), 0L, 65535L))
@@ -710,9 +828,15 @@ private:
   std::string output_goal_pose_topic_;
   std::string output_target_map_topic_;
   std::string output_navi_position_topic_;
+  std::string navi_position_frame_{"official_map"};
 
   ChasePointer chase_pointer_;
   ChaseAreaLimiter chase_area_limiter_;
+  bool chase_area_limit_use_area_scope_{false};
+  std::vector<std::string> chase_area_limit_my_area_{};
+  std::vector<std::string> chase_area_limit_enemy_area_{};
+  std::vector<std::string> chase_area_limit_common_area_{};
+  std::optional<bool> friend_is_team_red_{};
   MapPointer map_pointer_;
   GoalOutput goal_output_;
   PointerDebug pointer_debug_;
@@ -722,9 +846,10 @@ private:
 
   rclcpp::Subscription<auto_aim_common::msg::RelativeTarget>::SharedPtr sub_target_rel_;
   rclcpp::Subscription<std_msgs::msg::UInt16MultiArray>::SharedPtr sub_goal_pos_raw_;
+  rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr sub_friend_is_team_red_;
   GoalOutput::Publishers goal_publishers_;
   rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr pub_target_map_;
-  rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr pub_navi_position_;
+  rclcpp::Publisher<gimbal_driver::msg::StampedUInt16MultiArray>::SharedPtr pub_navi_position_;
   rclcpp::TimerBase::SharedPtr debug_export_timer_;
   rclcpp::TimerBase::SharedPtr navi_position_timer_;
 };

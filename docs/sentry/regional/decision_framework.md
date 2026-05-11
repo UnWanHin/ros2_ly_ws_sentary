@@ -113,7 +113,7 @@ Regional 任務主要使用這些導航/定位輸入：
 - `/ly/navi/position`：導航/TF 推出的自身官方地圖坐標，單位 cm。
 - `/ly/position/data`：官方/雷達定位坐標。
 
-自身哨兵坐標的優先級是 `/ly/friend/uwb_pos` 最高；`/ly/position/data` 裡 `friendcarid == Sentry` 的自身坐標只在雷達/UWB 超過 2 秒未更新時才會覆蓋；`/ly/navi/position` 是導航/TF 反算的最後 fallback。這個坐標主要用於：
+自身哨兵坐標由 `AreaManager.SentryPositionFusion` 統一融合後寫入 `friendRobots[Sentry].position_`。默认 `Mode=priority`，優先級是 `/ly/friend/uwb_pos`、`/ly/position/data` 裡 `friendcarid == Sentry`、`/ly/navi/position`；也可以改成 `Mode=weighted`，按各 source 的 `Weight` 對新鮮坐標做加權平均。這個融合後坐標主要用於：
 
 - 選最近的巡邏起點；
 - 判斷自己目前在哪個大區域；
@@ -152,6 +152,23 @@ TrySetScopedPositionByBaseGoal()
 ```yaml
 AreaManager:
   Switch_Point: false
+  SentryPositionFusion:
+    Enable: true
+    Mode: priority
+    FreshTimeoutMs: 2000
+    Sources:
+      Uwb:
+        Enable: true
+        Priority: 0
+        Weight: 1.0
+      PositionData:
+        Enable: true
+        Priority: 1
+        Weight: 0.7
+      Navi:
+        Enable: true
+        Priority: 2
+        Weight: 0.8
   RegionalAreaTask:
     Enable: true
     MyBase:
@@ -164,7 +181,7 @@ AreaManager:
       Enable: true
 ```
 
-`src/behavior_tree/config/AreaManager.yaml` 不再默認寫 `Area.MyArea/EnemyArea/CommonArea` 的區域開關，避免它把不同 `bt_config_file` 裡的區域選擇全部覆蓋成同一套。正式 regional 和單區域 areatest 的「哪些區域可選」仍由對應 `ConfigJson` 裡的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 控制；DefaultPolicy 只會在這些已啟用區域內挑候選，JSON 裡為 `false` 的區域不會因為血量健康或權重高而被選中。`AreaManager.yaml` 只保留 `Switch_Point`、區域狀態機任務時序，以及 DefaultPolicy 的門檻、權重、冷卻和重試參數。`Task.yaml` 只管這局是否允許 `Task.Buff / Task.Outpost`，會覆蓋 JSON 裡同名字段。
+`src/behavior_tree/config/AreaManager.yaml` 不再默認寫 `Area.MyArea/EnemyArea/CommonArea` 的區域開關，避免它把不同 `bt_config_file` 裡的區域選擇全部覆蓋成同一套。正式 regional 和單區域 areatest 的「哪些區域可選」仍由對應 `ConfigJson` 裡的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 控制；DefaultPolicy 只會在這些已啟用區域內挑候選，JSON 裡為 `false` 的區域不會因為血量健康或權重高而被選中。`AreaManager.yaml` 保留 `Switch_Point`、`SentryPositionFusion`、區域狀態機任務時序，以及 DefaultPolicy 的門檻、權重、冷卻和重試參數。`Task.yaml` 只管這局是否允許 `Task.Buff / Task.Outpost`，會覆蓋 JSON 裡同名字段。
 
 `Switch_Point=true` 時只交換 `Area.hpp` 裡紅/藍官方點位和區域邊界查找結果，不交換 `team`、敵我語義或導航 goal ID。這是給導航零點/物理場地方向反了時使用的點位查找開關。
 

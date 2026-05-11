@@ -267,8 +267,8 @@ void TreeTick() {
 | `/ly/team/buff` | `teamBuff` | 增益狀態 |
 | `/ly/game/rfid` | `rfidStatus`, `rfidStatus2`, `rfidMatchState` | 裁判 RFID bit 語義和 BT 內部區域匹配狀態；1s 內未更新則 `RfidFresh=false` |
 | `/ly/game/bullet` | `bulletInfo` | TypeID 7/8 合并出的弹速、发射事件、允许发弹量、金币；当前只缓存，不参与正式决策 |
-| `/ly/friend/uwb_pos` | `friendRobots[Sentry].position_` | 雷達/UWB 自身坐標，優先級高於 `/ly/position/data` 的自身 friend slot |
-| `/ly/position/data` | `friendRobots`, `enemyRobots`（更新position） | 通用位置；`friendcarid == Sentry` 只在 `/ly/friend/uwb_pos` 超過 2s 未更新時覆蓋自身坐標 |
+| `/ly/friend/uwb_pos` | `SentryPositionFusion` source | 雷達/UWB 自身坐標，`StampedUInt16MultiArray data=[x,y]` 帶 `header.stamp` |
+| `/ly/position/data` | `friendRobots`, `enemyRobots`（更新position） | 通用位置；`friendcarid == Sentry` 會進 `SentryPositionFusion`，其他 friend/enemy 仍直接更新 `friendRobots/enemyRobots` |
 | `/ly/gimbal/angles` | `gimbalAngles` | 當前雲台角 |
 | `/ly/gimbal/posture` | `postureState` | 姿態回讀（0未知/1進攻/2防禦/3移動） |
 | `/ly/gimbal/vel` | `naviVelocity` | 底盤速度反饋 |
@@ -276,7 +276,7 @@ void TreeTick() {
 | `/ly/outpost/target` | `outpostAimData`, `isFindTargetAtomic` | 前哨瞄準角度；当前同样按老链路语义视为可开火 |
 | `/ly/buff/target` | `buffAimData`, `isFindTargetAtomic` | 打符瞄準角度 |
 | `/ly/face_mode/angles` | `faceModeData` | FaceMode 角度输入；正式 `sentry_all` 中由 `map_aim_point_node` 输出到这个 topic |
-| `/ly/navi/position` | `friendRobots[Sentry].position_` | 导航 TF 反解出的自身官方地图厘米坐标，作为 `/ly/position/data` 之外的补充位置来源 |
+| `/ly/navi/position` | `SentryPositionFusion` source | 导航 TF 反解出的自身官方地图厘米坐标，`StampedUInt16MultiArray data=[x,y]` 带 `header.stamp` |
 | `/ly/navi/reached` | `naviReach` | 導航當前目標是否已到達；外部狀態新鮮且匹配當前目標時優先使用 |
 | `/ly/navi/reachable` | `naviReachable` | 導航當前目標是否有有效路徑；超時/未收到/不匹配當前目標時退回內部距離判斷 |
 | `/ly/navi/is_rotate` | `naviIsRotate` | 外部导航区域兼容旋转控制；true 恢复正常巡逻，false 关闭小陀螺并请求 FollowMode |
@@ -285,7 +285,7 @@ void TreeTick() {
 安全降級（兼容默認行為）：
 
 - `/ly/position/data` 會做 ID 邊界檢查，非法 `carid` 直接忽略並節流告警。
-- 自身哨兵坐標優先使用 `/ly/friend/uwb_pos`；雷達/UWB 2 秒內新鮮時，`/ly/position/data` 和 `/ly/navi/position` 都不覆蓋自身坐標。
+- 自身哨兵坐標由 `AreaManager.SentryPositionFusion` 統一輸出到 `friendRobots[Sentry].position_`。`Mode=priority` 時按 `Priority` 選最新鮮的最高優先級源；`Mode=weighted` 時對新鮮源按 `Weight` 加權平均。
 - 聯盟賽回補判斷只在 `myselfHealth/ammoLeft` 已收到（且可選地未過期）時生效，避免默認值 `0` 誤觸發回補。
 - `wait_for_game_start_timeout_sec`、`debug_bypass_is_start` 默認關閉，不改變原始開賽門控行為。
 
@@ -383,15 +383,15 @@ void TreeTick() {
   - `OfficialPositionFreshMs`：敵方/自身官方坐標最大有效時間；超時不使用官方源
   - `PreferredDistanceCm`：與目標保持的最適距離（cm）
   - `DistanceDeadbandCm`：距離死區（cm）
-  - `AreaLimit`：`ToNavi=true` 的追擊區域限制；`Enable=true` 時把追擊目標限制在自身當前所在大區域內，`BoundaryMarginCm` 控制離邊界保留距離，`HoldWhenUnknownArea` 表示自身不在任何已知大區域時保持當前點。
+  - `AreaLimit`：`ToNavi=true` 的追擊區域限制；`Enable=true` 時啟用追擊限區，`BoundaryMarginCm` 控制離邊界保留距離，自身不在任何已知大區域時保持當前點。`ChaseEnableCrossArea=false` 表示單次追擊只在當前所在大區域內；`true` 表示可追到 `DecisionAutonomy.NaviGoal` 已開啟的大區域內，未開啟的大區域仍不允許。
   - `DistanceKp` / `MaxForwardSpeed` / `MaxBackwardSpeed`：前後追擊控制
   - `UseYawStrafe` / `YawKp` / `YawDeadbandDeg` / `MaxStrafeSpeed`：側向跟隨控制
   - `LostTargetHoldMs` / `StopWhenNoTarget`：丟目標回退策略
 
 `Chase.ToNavi=true` 時現在是多源輸出：
 
-- TargetList 追擊點有效：使用 `/ly/aim/TargetList` 中當前選中目標的 point，帶來源 frame（默認 `gimbal_world`）發布 `/ly/navi/target_rel`，由 `navi_tf_bridge` TF 轉 `/goal_pose`；bridge 會按 `Chase.AreaLimit` 做當前大區域邊界限制。
-- TargetList 追擊點不可用且官方坐標源有效：`targetArmor -> enemyRobots[unit].position_`，結合自身官方坐標按 `PreferredDistanceCm` 留距後，BT 先按同一個 `Chase.AreaLimit` 限制到當前大區域內，再發布 `/ly/navi/goal_pos_raw`，由 `navi_tf_bridge` 的 4x4 靜態矩陣轉 `/goal_pose`。
+- TargetList 追擊點有效：使用 `/ly/aim/TargetList` 中當前選中目標的 point，帶來源 frame（默認 `gimbal_world`）發布 `/ly/navi/target_rel`，由 `navi_tf_bridge` TF 轉 `/goal_pose`；bridge 會按 `Chase.AreaLimit` 和 `ChaseEnableCrossArea` 做大區域限制。
+- TargetList 追擊點不可用且官方坐標源有效：`targetArmor -> enemyRobots[unit].position_`，結合自身官方坐標按 `PreferredDistanceCm` 留距後，BT 先按同一個 `Chase.AreaLimit` / `ChaseEnableCrossArea` 限制，再發布 `/ly/navi/goal_pos_raw`，由 `navi_tf_bridge` 的 4x4 靜態矩陣轉 `/goal_pose`。
 - `Chase.ToNavi=false` 仍是 BT 內部速度追擊，只使用視覺角度/距離計算 `/ly/gimbal/vel`。
 
 ### 黑板結構（兩種賽制一致）
@@ -439,7 +439,7 @@ SET_POSITION(BuffShoot, MyTeam);  // 設置導航目標為打符點位
 
 `Area.CommonArea.Central.Task.CommonCentral` 管 Central 公共区域的健康巡逻任务：上游选中 Central 大区点且自身血量/弹量数据新鲜并达到阈值时，从当前坐标最近的巡逻点插入循环。循环顺序为 `my OutpostArea -> my RightShoot -> my BuffAround2 -> my LeftShoot -> my OutpostShoot -> enemy RightShoot -> enemy OccupyArea -> enemy OutpostShoot -> my OutpostArea`。拿不到自身坐标时从 `my OutpostArea` 开始；到达/不可达仍复用 `/ly/navi/reached`、`/ly/navi/reachable`。
 
-区域状态机参数集中在 `src/behavior_tree/config/AreaManager.yaml`：`AreaManager.Switch_Point` 默认 `false`，设为 `true` 时只交换 `Area.hpp` 中红/蓝官方点位和区域边界查找结果，不交换 `team` 语义和导航 goal ID。`Task.Buff/Outpost` 开关集中在 `src/behavior_tree/config/Task.yaml`，会覆盖 JSON 同名字段。`NaviRotateControl.yaml` 讓外部導航通過 `/ly/navi/is_rotate` 接管 Castle/Roadland/Highland 這類區域兼容的小陀螺/FollowMode/regional FaceMode 交替。`Task.OutpostConfirm.VisualScoutWithoutHp` 讓前哨任務不依賴 `op_hp`，而是先用普通裝甲模式去 `BuffOutpost`，進入 `VisualScoutFaceDistanceCm` 後才開前哨視覺和 FaceMode；`VisualScoutHoldMs/CooldownMs` 控制到點後的偵查窗口和冷卻，`ArmorInterruptMaxDistanceCm` 控制行進中普通裝甲目標可打斷前哨任務的最遠距離；若 `op_hp` 接口有資料，仍可用來提前判斷前哨已毀。默认 YAML 不写 `Area.MyArea/EnemyArea/CommonArea` 区域开关，避免覆盖不同 `bt_config_file` 的区域选择；正式 regional 和单区域 areatest 的可选区域仍由 `ConfigJson` 里的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 控制。`AreaManager.RegionalAreaTask.MyHighland/MyBase/MyRoadland/CommonCentral` 管各自区域任务时序，`AreaManager.DefaultPolicy` 管 Default 层的血量/弹量门槛、区域权重、距离惩罚、冷却和重试。RegionalDefense 使用 `/ly/position/data` 的官方场地坐标判定敌方区域，高优先级搜索 Base/Highland/Roadland/Central 威胁，不用 map/odom 坐标混判。区域任务需要动态切换 FaceMode 目标时，BT 发布 `/ly/face_mode/target_raw`，格式为 `[official_map_x, official_map_y, map_z]` cm。正式 regional 不再使用旧单策略点表兜底。
+区域状态机参数集中在 `src/behavior_tree/config/AreaManager.yaml`：`AreaManager.Switch_Point` 默认 `false`，设为 `true` 时只交换 `Area.hpp` 中红/蓝官方点位和区域边界查找结果，不交换 `team` 语义和导航 goal ID。`AreaManager.SentryPositionFusion` 管自身哨兵三源坐标融合，来源是 `/ly/friend/uwb_pos`、`/ly/position/data` 的 `friendcarid == Sentry` 和 `/ly/navi/position`；`Mode=priority` 按 `Priority` 选择新鲜源，`Mode=weighted` 按 `Weight` 加权平均，`FreshTimeoutMs` 控制坐标新鲜度。`Task.Buff/Outpost` 开关集中在 `src/behavior_tree/config/Task.yaml`，会覆盖 JSON 同名字段。`NaviRotateControl.yaml` 讓外部導航通過 `/ly/navi/is_rotate` 接管 Castle/Roadland/Highland 這類區域兼容的小陀螺/FollowMode/regional FaceMode 交替。`Task.OutpostConfirm.VisualScoutWithoutHp` 讓前哨任務不依賴 `op_hp`，而是先用普通裝甲模式去 `BuffOutpost`，進入 `VisualScoutFaceDistanceCm` 後才開前哨視覺和 FaceMode；`VisualScoutHoldMs/CooldownMs` 控制到點後的偵查窗口和冷卻，`ArmorInterruptMaxDistanceCm` 控制行進中普通裝甲目標可打斷前哨任務的最遠距離；若 `op_hp` 接口有資料，仍可用來提前判斷前哨已毀。默认 YAML 不写 `Area.MyArea/EnemyArea/CommonArea` 区域开关，避免覆盖不同 `bt_config_file` 的区域选择；正式 regional 和单区域 areatest 的可选区域仍由 `ConfigJson` 里的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 控制。`AreaManager.RegionalAreaTask.MyHighland/MyBase/MyRoadland/CommonCentral` 管各自区域任务时序，`AreaManager.DefaultPolicy` 管 Default 层的血量/弹量门槛、区域权重、距离惩罚、冷却和重试。RegionalDefense 使用 `/ly/position/data` 的官方场地坐标判定敌方区域，高优先级搜索 Base/Highland/Roadland/Central 威胁，不用 map/odom 坐标混判。区域任务需要动态切换 FaceMode 目标时，BT 发布 `/ly/face_mode/target_raw`，格式为 `[official_map_x, official_map_y, map_z]` cm。正式 regional 不再使用旧单策略点表兜底。
 
 ---
 

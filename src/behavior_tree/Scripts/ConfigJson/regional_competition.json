@@ -147,7 +147,7 @@
         "AreaLimit": {
             "Enable": true,
             "BoundaryMarginCm": 30,
-            "HoldWhenUnknownArea": true,
+            "ChaseEnableCrossArea": false,
             "HoldWhenNoIntersection": true
         },
         "MinValidDistanceCm": 80,

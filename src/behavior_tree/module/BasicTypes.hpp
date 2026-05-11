@@ -531,6 +531,22 @@ namespace LangYa
         bool StopRotateWhenFalse{true};
     };
 
+    struct SentryPositionFusionSourceSetting {
+        bool Enable{true};
+        int Priority{0};
+        double Weight{1.0};
+        int FreshTimeoutMs{0}; // <=0 uses SentryPositionFusionSetting::FreshTimeoutMs
+    };
+
+    struct SentryPositionFusionSetting {
+        bool Enable{true};
+        std::string Mode{"priority"}; // priority or weighted
+        int FreshTimeoutMs{2000};
+        SentryPositionFusionSourceSetting Uwb{true, 0, 1.0, 0};
+        SentryPositionFusionSourceSetting PositionData{true, 1, 0.7, 0};
+        SentryPositionFusionSourceSetting Navi{true, 2, 0.8, 0};
+    };
+
     struct LeagueStrategySetting {
         bool EnableRouteCompat{true};
         bool UseHealthRecovery{true};
@@ -573,7 +589,7 @@ namespace LangYa
     struct ChaseAreaLimitSetting {
         bool Enable{false};
         int BoundaryMarginCm{30};
-        bool HoldWhenUnknownArea{false};
+        bool ChaseEnableCrossArea{false};
         bool HoldWhenNoIntersection{true};
     };
 
@@ -815,6 +831,7 @@ namespace LangYa
         FaceModeSetting FaceModeSettings{};
         ExternalAimSetting ExternalAimSettings{};
         NaviRotateControlSetting NaviRotateControlSettings{};
+        SentryPositionFusionSetting SentryPositionFusionSettings{};
         LeagueStrategySetting LeagueStrategySettings{};
         ShowcasePatrolSetting ShowcasePatrolSettings{};
         NaviDebugSetting NaviDebugSettings{};

@@ -11,6 +11,7 @@
 #include <limits>
 #include <optional>
 #include <utility>
+#include <vector>
 
 using namespace LangYa;
 
@@ -36,6 +37,16 @@ namespace BehaviorTree {
     constexpr auto kRfidFreshTimeout = std::chrono::milliseconds(1000);
     // 丢 1~2 帧时保留锁角，避免抖动；时间过长会让云台“粘住旧目标”。
     constexpr auto kLostTargetHold = std::chrono::milliseconds(200);
+
+    std::string NormalizeConfigToken(std::string value) {
+        std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+            if (c == '-' || c == ' ') {
+                return '_';
+            }
+            return static_cast<char>(std::tolower(c));
+        });
+        return value;
+    }
 
     std::optional<ArmorType> ArmorTypeFromPriorityId(const int armor_type_id) {
         switch (static_cast<ArmorType>(armor_type_id)) {
@@ -147,18 +158,27 @@ namespace BehaviorTree {
 
     struct MainAreaBoundaryView {
         const char* Name;
+        UnitTeam Team;
+        Area::MainAreaKind Kind;
         const std::vector<Area::Point<int>>* Boundary;
     };
 
     std::array<MainAreaBoundaryView, 7> MainAreaBoundaries() {
         return {{
-            {"red_base", &Area::MainAreaBoundary(UnitTeam::Red, Area::MainAreaKind::Base)},
-            {"red_highland", &Area::MainAreaBoundary(UnitTeam::Red, Area::MainAreaKind::Highland)},
-            {"red_roadland", &Area::MainAreaBoundary(UnitTeam::Red, Area::MainAreaKind::Roadland)},
-            {"common_central", &Area::MainAreaBoundary(UnitTeam::Red, Area::MainAreaKind::Central)},
-            {"blue_base", &Area::MainAreaBoundary(UnitTeam::Blue, Area::MainAreaKind::Base)},
-            {"blue_highland", &Area::MainAreaBoundary(UnitTeam::Blue, Area::MainAreaKind::Highland)},
-            {"blue_roadland", &Area::MainAreaBoundary(UnitTeam::Blue, Area::MainAreaKind::Roadland)},
+            {"red_base", UnitTeam::Red, Area::MainAreaKind::Base,
+             &Area::MainAreaBoundary(UnitTeam::Red, Area::MainAreaKind::Base)},
+            {"red_highland", UnitTeam::Red, Area::MainAreaKind::Highland,
+             &Area::MainAreaBoundary(UnitTeam::Red, Area::MainAreaKind::Highland)},
+            {"red_roadland", UnitTeam::Red, Area::MainAreaKind::Roadland,
+             &Area::MainAreaBoundary(UnitTeam::Red, Area::MainAreaKind::Roadland)},
+            {"common_central", UnitTeam::Unknown, Area::MainAreaKind::Central,
+             &Area::MainAreaBoundary(UnitTeam::Red, Area::MainAreaKind::Central)},
+            {"blue_base", UnitTeam::Blue, Area::MainAreaKind::Base,
+             &Area::MainAreaBoundary(UnitTeam::Blue, Area::MainAreaKind::Base)},
+            {"blue_highland", UnitTeam::Blue, Area::MainAreaKind::Highland,
+             &Area::MainAreaBoundary(UnitTeam::Blue, Area::MainAreaKind::Highland)},
+            {"blue_roadland", UnitTeam::Blue, Area::MainAreaKind::Roadland,
+             &Area::MainAreaBoundary(UnitTeam::Blue, Area::MainAreaKind::Roadland)},
         }};
     }
 
@@ -171,6 +191,38 @@ namespace BehaviorTree {
             }
         }
         return nullptr;
+    }
+
+    bool AreaScopeContains(
+        const std::vector<std::string>& scope,
+        const Area::MainAreaKind kind) {
+        for (const auto& token : scope) {
+            const auto parsed = AreaManager::MainAreaKindFromToken(token);
+            if (parsed.has_value() && *parsed == kind) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool IsMainAreaAllowedForCrossChase(
+        const MainAreaBoundaryView& area,
+        const UnitTeam my_team,
+        const UnitTeam enemy_team,
+        const NaviGoalAutonomySetting& navi_goal) {
+        if (!navi_goal.UseAreaScope) {
+            return true;
+        }
+        if (area.Kind == Area::MainAreaKind::Central) {
+            return AreaScopeContains(navi_goal.CommonArea, Area::MainAreaKind::Central);
+        }
+        if (area.Team == my_team) {
+            return AreaScopeContains(navi_goal.MyArea, area.Kind);
+        }
+        if (area.Team == enemy_team) {
+            return AreaScopeContains(navi_goal.EnemyArea, area.Kind);
+        }
+        return false;
     }
 
     double Cross2d(
@@ -242,6 +294,9 @@ namespace BehaviorTree {
         const int self_x,
         const int self_y,
         const Area::Point<std::uint16_t>& goal,
+        const UnitTeam my_team,
+        const UnitTeam enemy_team,
+        const NaviGoalAutonomySetting& navi_goal,
         const ChaseAreaLimitSetting& config) {
         OfficialChaseAreaLimitResult result{.Goal = goal};
         if (!config.Enable) {
@@ -251,21 +306,40 @@ namespace BehaviorTree {
         const auto* self_area = FindContainingMainArea(self_x, self_y);
         if (self_area == nullptr || self_area->Boundary == nullptr) {
             result.Status = "unknown_area";
-            if (config.HoldWhenUnknownArea) {
-                result.Goal = Area::Point<std::uint16_t>{
-                    static_cast<std::uint16_t>(std::clamp(self_x, 0, kOfficialFieldWidthCm)),
-                    static_cast<std::uint16_t>(std::clamp(self_y, 0, kOfficialFieldHeightCm))};
-                result.Held = true;
-            }
+            result.Goal = Area::Point<std::uint16_t>{
+                static_cast<std::uint16_t>(std::clamp(self_x, 0, kOfficialFieldWidthCm)),
+                static_cast<std::uint16_t>(std::clamp(self_y, 0, kOfficialFieldHeightCm))};
+            result.Held = true;
             return result;
         }
 
         result.AreaName = self_area->Name;
+        if (config.ChaseEnableCrossArea &&
+            !IsMainAreaAllowedForCrossChase(*self_area, my_team, enemy_team, navi_goal)) {
+            result.Status = "area_scope_blocked";
+            result.Goal = Area::Point<std::uint16_t>{
+                static_cast<std::uint16_t>(std::clamp(self_x, 0, kOfficialFieldWidthCm)),
+                static_cast<std::uint16_t>(std::clamp(self_y, 0, kOfficialFieldHeightCm))};
+            result.Held = true;
+            return result;
+        }
+
         const int goal_x = static_cast<int>(goal.x);
         const int goal_y = static_cast<int>(goal.y);
-        if (Area::IsPointInsideMainAreaBoundary(*self_area->Boundary, goal_x, goal_y)) {
-            result.Status = "inside";
-            return result;
+        if (config.ChaseEnableCrossArea) {
+            const auto* goal_area = FindContainingMainArea(goal_x, goal_y);
+            if (goal_area != nullptr &&
+                goal_area->Boundary != nullptr &&
+                IsMainAreaAllowedForCrossChase(*goal_area, my_team, enemy_team, navi_goal)) {
+                result.Status = "inside_allowed_area";
+                result.AreaName = goal_area->Name;
+                return result;
+            }
+        } else {
+            if (Area::IsPointInsideMainAreaBoundary(*self_area->Boundary, goal_x, goal_y)) {
+                result.Status = "inside";
+                return result;
+            }
         }
 
         double t_hit = 0.0;
@@ -366,6 +440,136 @@ namespace BehaviorTree {
         lastDecisionIntent_ = std::move(intent);
     }
 
+    bool Application::IsSentryPositionFresh(
+        const std::chrono::steady_clock::time_point now) const {
+        if (!hasReceivedSentryPosition_ ||
+            lastSentryPositionRxTime_.time_since_epoch().count() == 0) {
+            return false;
+        }
+        const int timeout_ms = std::max(1, config.SentryPositionFusionSettings.FreshTimeoutMs);
+        return now - lastSentryPositionRxTime_ <= std::chrono::milliseconds(timeout_ms);
+    }
+
+    void Application::UpdateSentryPositionFusion(
+        const std::chrono::steady_clock::time_point now) {
+        const auto& setting = config.SentryPositionFusionSettings;
+        struct Candidate {
+            const char* Name;
+            const SentryPositionSourceCache* Cache;
+            const SentryPositionFusionSourceSetting* Setting;
+        };
+
+        const std::array<Candidate, 3> candidates{{
+            {"uwb", &sentryUwbPositionSource_, &setting.Uwb},
+            {"position_data", &sentryPositionDataSource_, &setting.PositionData},
+            {"navi", &sentryNaviPositionSource_, &setting.Navi},
+        }};
+
+        auto source_timeout_ms = [&](const SentryPositionFusionSourceSetting& source) {
+            if (source.FreshTimeoutMs > 0) {
+                return source.FreshTimeoutMs;
+            }
+            return std::max(1, setting.FreshTimeoutMs);
+        };
+        auto source_fresh = [&](const Candidate& candidate) {
+            if (candidate.Cache == nullptr || candidate.Setting == nullptr ||
+                (setting.Enable && !candidate.Setting->Enable) ||
+                !candidate.Cache->Valid ||
+                candidate.Cache->LastRx.time_since_epoch().count() == 0 ||
+                candidate.Cache->X <= 0 || candidate.Cache->Y <= 0) {
+                return false;
+            }
+            return now - candidate.Cache->LastRx <=
+                std::chrono::milliseconds(std::max(1, source_timeout_ms(*candidate.Setting)));
+        };
+        auto apply_result = [&](const int x,
+                                const int y,
+                                const std::chrono::steady_clock::time_point last_rx,
+                                const char* source) {
+            const int clamped_x = std::clamp(
+                x,
+                0,
+                static_cast<int>(std::numeric_limits<std::int16_t>::max()));
+            const int clamped_y = std::clamp(
+                y,
+                0,
+                static_cast<int>(std::numeric_limits<std::int16_t>::max()));
+            const auto sentry_index = static_cast<std::size_t>(UnitType::Sentry);
+            friendRobots[UnitType::Sentry].position_.X = static_cast<std::int16_t>(clamped_x);
+            friendRobots[UnitType::Sentry].position_.Y = static_cast<std::int16_t>(clamped_y);
+            hasReceivedSentryPosition_ = true;
+            lastSentryPositionRxTime_ = last_rx;
+            if (sentry_index < lastFriendPositionRxTime_.size()) {
+                lastFriendPositionRxTime_[sentry_index] = last_rx;
+            }
+
+            const std::string next_source = source == nullptr ? "unknown" : source;
+            const bool source_changed = next_source != sentryPositionFusionSource_;
+            sentryPositionFusionSource_ = next_source;
+            if (LoggerPtr &&
+                (source_changed ||
+                 now - lastSentryPositionFusionLogTime_ > std::chrono::seconds(2))) {
+                LoggerPtr->Debug(
+                    "Sentry position fusion: mode={} source={} x={} y={}",
+                    setting.Enable ? NormalizeConfigToken(setting.Mode) : "priority",
+                    sentryPositionFusionSource_,
+                    clamped_x,
+                    clamped_y);
+                lastSentryPositionFusionLogTime_ = now;
+            }
+        };
+
+        const auto mode = setting.Enable
+            ? NormalizeConfigToken(setting.Mode)
+            : std::string{"priority"};
+        if (mode == "weighted" || mode == "weight" || mode == "weighted_fit") {
+            double sum_weight = 0.0;
+            double sum_x = 0.0;
+            double sum_y = 0.0;
+            std::chrono::steady_clock::time_point latest_rx{};
+            int used_count = 0;
+            for (const auto& candidate : candidates) {
+                if (!source_fresh(candidate)) {
+                    continue;
+                }
+                const double weight = std::max(0.0, candidate.Setting->Weight);
+                if (weight <= 0.0) {
+                    continue;
+                }
+                sum_weight += weight;
+                sum_x += static_cast<double>(candidate.Cache->X) * weight;
+                sum_y += static_cast<double>(candidate.Cache->Y) * weight;
+                if (latest_rx.time_since_epoch().count() == 0 ||
+                    candidate.Cache->LastRx > latest_rx) {
+                    latest_rx = candidate.Cache->LastRx;
+                }
+                ++used_count;
+            }
+            if (sum_weight > 0.0 && used_count > 0) {
+                const int fused_x = static_cast<int>(std::lround(sum_x / sum_weight));
+                const int fused_y = static_cast<int>(std::lround(sum_y / sum_weight));
+                apply_result(fused_x, fused_y, latest_rx, used_count == 1 ? "weighted_single" : "weighted");
+            }
+            return;
+        }
+
+        const Candidate* best = nullptr;
+        for (const auto& candidate : candidates) {
+            if (!source_fresh(candidate)) {
+                continue;
+            }
+            if (best == nullptr ||
+                candidate.Setting->Priority < best->Setting->Priority ||
+                (candidate.Setting->Priority == best->Setting->Priority &&
+                 candidate.Cache->LastRx > best->Cache->LastRx)) {
+                best = &candidate;
+            }
+        }
+        if (best != nullptr) {
+            apply_result(best->Cache->X, best->Cache->Y, best->Cache->LastRx, best->Name);
+        }
+    }
+
      /**
      * @brief 更新黑板数据 \n
      * @brief  更新数据从上到下依次是：我方颜色，敌方哨站血量，我方哨站血量，剩余弹药，比赛剩余时间 \n
@@ -386,10 +590,8 @@ namespace BehaviorTree {
             lastRfidStatusRxTime_.time_since_epoch().count() != 0 &&
             now - lastRfidStatusRxTime_ <= kRfidFreshTimeout;
         const auto enemy_team = team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
-        const bool self_position_fresh =
-            hasReceivedSentryPosition_ &&
-            lastSentryPositionRxTime_.time_since_epoch().count() != 0 &&
-            now - lastSentryPositionRxTime_ <= std::chrono::seconds(2);
+        UpdateSentryPositionFusion(now);
+        const bool self_position_fresh = IsSentryPositionFresh(now);
         areaManager_.TickSelfArea(
             now,
             self_position_fresh,
@@ -1227,6 +1429,9 @@ namespace BehaviorTree {
                             self_x,
                             self_y,
                             official_chase_goal,
+                            team,
+                            team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue,
+                            config.DecisionAutonomySettings.NaviGoal,
                             config.ChaseSettings.AreaLimit);
                         naviGoalPosition = limited_chase_goal.Goal;
                         if ((limited_chase_goal.Limited || limited_chase_goal.Held) &&
@@ -2400,11 +2605,7 @@ namespace BehaviorTree {
         if (area_team != UnitTeam::Red && area_team != UnitTeam::Blue) {
             return false;
         }
-        if (!hasReceivedSentryPosition_) {
-            return false;
-        }
-        if (lastSentryPositionRxTime_.time_since_epoch().count() == 0 ||
-            std::chrono::steady_clock::now() - lastSentryPositionRxTime_ > std::chrono::seconds(2)) {
+        if (!IsSentryPositionFresh(std::chrono::steady_clock::now())) {
             return false;
         }
         const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
@@ -2419,11 +2620,7 @@ namespace BehaviorTree {
         if (area_team != UnitTeam::Red && area_team != UnitTeam::Blue) {
             return false;
         }
-        if (!hasReceivedSentryPosition_) {
-            return false;
-        }
-        if (lastSentryPositionRxTime_.time_since_epoch().count() == 0 ||
-            std::chrono::steady_clock::now() - lastSentryPositionRxTime_ > std::chrono::seconds(2)) {
+        if (!IsSentryPositionFresh(std::chrono::steady_clock::now())) {
             return false;
         }
         const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
@@ -2505,11 +2702,7 @@ namespace BehaviorTree {
         if (external_reach.has_value()) {
             return *external_reach;
         }
-        if (!hasReceivedSentryPosition_) {
-            return false;
-        }
-        if (lastSentryPositionRxTime_.time_since_epoch().count() == 0 ||
-            std::chrono::steady_clock::now() - lastSentryPositionRxTime_ > std::chrono::seconds(2)) {
+        if (!IsSentryPositionFresh(std::chrono::steady_clock::now())) {
             return false;
         }
         const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
@@ -2534,11 +2727,7 @@ namespace BehaviorTree {
         if (!AreaManager::IsValidBaseGoalId(base_goal_id) || distance_cm <= 0) {
             return false;
         }
-        if (!hasReceivedSentryPosition_) {
-            return false;
-        }
-        if (lastSentryPositionRxTime_.time_since_epoch().count() == 0 ||
-            std::chrono::steady_clock::now() - lastSentryPositionRxTime_ > std::chrono::seconds(2)) {
+        if (!IsSentryPositionFresh(std::chrono::steady_clock::now())) {
             return false;
         }
         const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
@@ -2815,10 +3004,7 @@ namespace BehaviorTree {
         }
 
         const auto now = std::chrono::steady_clock::now();
-        const bool self_position_fresh =
-            hasReceivedSentryPosition_ &&
-            lastSentryPositionRxTime_.time_since_epoch().count() != 0 &&
-            now - lastSentryPositionRxTime_ <= std::chrono::seconds(2);
+        const bool self_position_fresh = IsSentryPositionFresh(now);
         const int self_x = self_position_fresh
             ? static_cast<int>(friendRobots[UnitType::Sentry].position_.X)
             : 0;
@@ -3184,10 +3370,7 @@ namespace BehaviorTree {
         int hold_sec = defense.HardHoldSec;
         std::vector<std::uint8_t> candidates;
         auto order_nearest_base_candidates = [&](std::vector<std::uint8_t> goals) {
-            const bool self_position_fresh =
-                hasReceivedSentryPosition_ &&
-                lastSentryPositionRxTime_.time_since_epoch().count() != 0 &&
-                now - lastSentryPositionRxTime_ <= std::chrono::seconds(2);
+            const bool self_position_fresh = IsSentryPositionFresh(now);
             const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
             const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
             if (!self_position_fresh || self_x <= 0 || self_y <= 0) {
@@ -3417,10 +3600,7 @@ namespace BehaviorTree {
                 return false;
             }
         }
-        const bool self_position_fresh =
-            hasReceivedSentryPosition_ &&
-            lastSentryPositionRxTime_.time_since_epoch().count() != 0 &&
-            now - lastSentryPositionRxTime_ <= std::chrono::seconds(2);
+        const bool self_position_fresh = IsSentryPositionFresh(now);
         const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
         const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
         const bool has_self_position = self_position_fresh && self_x > 0 && self_y > 0;
@@ -3567,10 +3747,7 @@ namespace BehaviorTree {
                 last_rx.time_since_epoch().count() != 0 &&
                 now - last_rx <= std::chrono::seconds(2);
         };
-        const bool self_position_fresh =
-            hasReceivedSentryPosition_ &&
-            lastSentryPositionRxTime_.time_since_epoch().count() != 0 &&
-            now - lastSentryPositionRxTime_ <= std::chrono::seconds(2);
+        const bool self_position_fresh = IsSentryPositionFresh(now);
         const auto candidates =
             defaultStrategyManager_.BuildRegionalAreaCandidates(
                 DefaultRegionalPolicyInput{

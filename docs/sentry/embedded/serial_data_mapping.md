@@ -514,8 +514,8 @@ data.Friend.CarId == 7
 则上位机还会额外发布：
 
 - topic：`/ly/friend/uwb_pos`
-- 类型：`UInt16MultiArray`
-- 内容：`[Friend.X, Friend.Y]`
+- 类型：`gimbal_driver/msg/StampedUInt16MultiArray`
+- 内容：`data=[Friend.X, Friend.Y]`，`header.stamp` 为 `gimbal_driver` 发布时间
 
 注意当前代码行为：
 

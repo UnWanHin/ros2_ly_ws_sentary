@@ -184,9 +184,31 @@ def generate_launch_description():
             default_value=str(float(get_chase_area_limit_default("boundary_margin_cm", 30.0))),
         ),
         DeclareLaunchArgument(
-            "chase_area_limit_hold_when_unknown_area",
+            "chase_area_limit_chase_enable_cross_area",
             default_value=_bool_default(
-                get_chase_area_limit_default("hold_when_unknown_area", False)
+                get_chase_area_limit_default("chase_enable_cross_area", False)
+            ),
+        ),
+        DeclareLaunchArgument(
+            "chase_area_limit_use_area_scope",
+            default_value=_bool_default(get_chase_area_limit_default("use_area_scope", False)),
+        ),
+        DeclareLaunchArgument(
+            "chase_area_limit_my_area",
+            default_value=str(get_chase_area_limit_default("my_area", "")),
+        ),
+        DeclareLaunchArgument(
+            "chase_area_limit_enemy_area",
+            default_value=str(get_chase_area_limit_default("enemy_area", "")),
+        ),
+        DeclareLaunchArgument(
+            "chase_area_limit_common_area",
+            default_value=str(get_chase_area_limit_default("common_area", "")),
+        ),
+        DeclareLaunchArgument(
+            "chase_area_limit_friend_is_team_red_topic",
+            default_value=str(
+                get_chase_area_limit_default("friend_is_team_red_topic", "/ly/friend/is_team_red")
             ),
         ),
         DeclareLaunchArgument(
@@ -335,9 +357,25 @@ def generate_launch_description():
                             LaunchConfiguration("chase_area_limit_boundary_margin_cm"),
                             value_type=float,
                         ),
-                        "chase_area_limit.hold_when_unknown_area": ParameterValue(
-                            LaunchConfiguration("chase_area_limit_hold_when_unknown_area"),
+                        "chase_area_limit.chase_enable_cross_area": ParameterValue(
+                            LaunchConfiguration("chase_area_limit_chase_enable_cross_area"),
                             value_type=bool,
+                        ),
+                        "chase_area_limit.use_area_scope": ParameterValue(
+                            LaunchConfiguration("chase_area_limit_use_area_scope"),
+                            value_type=bool,
+                        ),
+                        "chase_area_limit.my_area": LaunchConfiguration(
+                            "chase_area_limit_my_area"
+                        ),
+                        "chase_area_limit.enemy_area": LaunchConfiguration(
+                            "chase_area_limit_enemy_area"
+                        ),
+                        "chase_area_limit.common_area": LaunchConfiguration(
+                            "chase_area_limit_common_area"
+                        ),
+                        "chase_area_limit.friend_is_team_red_topic": LaunchConfiguration(
+                            "chase_area_limit_friend_is_team_red_topic"
                         ),
                         "chase_area_limit.hold_when_no_intersection": ParameterValue(
                             LaunchConfiguration("chase_area_limit_hold_when_no_intersection"),

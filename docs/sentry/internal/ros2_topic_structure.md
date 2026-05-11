@@ -79,14 +79,14 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/friend/base_hp` | `std_msgs/msg/UInt16` | `behavior_tree` | 我方基地血量。 |
 | `/ly/friend/op_hp` | `std_msgs/msg/UInt16` | `behavior_tree` | 我方前哨血量。 |
 | `/ly/friend/ammo_left` | `std_msgs/msg/UInt16` | `behavior_tree` | 当前弹量。 |
-| `/ly/friend/uwb_pos` | `std_msgs/msg/UInt16MultiArray` | `behavior_tree` | 自身官方坐标 `[x, y]`，来自下位机 TypeID 5。 |
+| `/ly/friend/uwb_pos` | `gimbal_driver/msg/StampedUInt16MultiArray` | `behavior_tree` | 自身官方坐标融合源，`data=[x, y]`，来自下位机 TypeID 5；`header.stamp` 为 `gimbal_driver` 发布时间。 |
 | `/ly/friend/uwb_yaw` | `std_msgs/msg/UInt16` | 调试/兼容 | 自身 UWB yaw。 |
 | `/ly/game/rfid` | `gimbal_driver/msg/RfidStatus` | `behavior_tree` | 裁判 `0x0209 rfid_status` 语义拆字段；TypeID 4 的低 32 bit 和 TypeID 8 的 `rfid_status_2` 在 `gimbal_driver` 内保留 shadow，任一侧更新都会合并发布完整消息；BT 内部聚合为 `RfidMatchState`。 |
 | `/ly/enemy/hp` | `gimbal_driver/msg/Health` | `behavior_tree` | 敌方各兵种血量。 |
 | `/ly/enemy/base_hp` | `std_msgs/msg/UInt16` | `behavior_tree` | 敌方基地血量。 |
 | `/ly/enemy/op_hp` | `std_msgs/msg/UInt16` | `behavior_tree` | 敌方前哨血量。 |
 | `/ly/team/buff` | `gimbal_driver/msg/BuffData` | `behavior_tree` | 队伍增益与剩余能量。 |
-| `/ly/position/data` | `gimbal_driver/msg/PositionData` | `behavior_tree` | 官方坐标系统中一组友方/敌方机器人位置。 |
+| `/ly/position/data` | `gimbal_driver/msg/PositionData` | `behavior_tree` | 官方坐标系统中一组友方/敌方机器人位置；`friendcarid == Sentry` 时作为自身坐标融合源。 |
 | `/ly/bullet/speed` | `std_msgs/msg/Float32` | predictor/调试 | 旧弹速 topic，来自 TypeID 5。 |
 | `/ly/game/sentry/info` | `gimbal_driver/msg/SentryInfo` | `behavior_tree`/调试 | 裁判 `0x020D sentry_info/sentry_info_2` 语义拆字段；其中有效 `posture` 会同步覆盖 `/ly/gimbal/posture`；BT 使用 `can_activate_energy_mechanism` 判斷打能量機關確認窗口。 |
 | `/ly/game/bullet` | `gimbal_driver/msg/BulletInfo` | `behavior_tree`/调试 | TypeID 7/8 合并出的弹速、发射事件、允许发弹量、金币；BT 当前只订阅并缓存，暂不参与正式决策；RFID2 不在这里。 |
@@ -132,7 +132,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/navi/goal_pos` | `std_msgs/msg/UInt16MultiArray` | `behavior_tree` 或 bridge -> navigation/兼容 | 已处理坐标输出；`ToNavi=true` 时通常不作为最终导航目标。 |
 | `/ly/navi/target_rel` | `auto_aim_common/msg/RelativeTarget` | `behavior_tree` -> `navi_tf_bridge` | 追击目标点，默认 `gimbal_world` frame，字段含 `x/y/z`, `distance_m`, `yaw_error_deg`, `pitch_error_deg`, `armor_type`, `aim_mode`。 |
 | `/ly/navi/target_map` | `geometry_msgs/msg/PointStamped` | `navi_tf_bridge` -> debug | 追击目标转换到 map/导航 frame 后的点。 |
-| `/ly/navi/position` | `std_msgs/msg/UInt16MultiArray` | `navi_tf_bridge` -> `behavior_tree` | TF 导出的自身位置，再逆变换为官方地图 cm `[x, y]`，用于区域判断辅助。 |
+| `/ly/navi/position` | `gimbal_driver/msg/StampedUInt16MultiArray` | `navi_tf_bridge` -> `behavior_tree` | TF 导出的自身位置，再逆变换为官方地图 cm `data=[x, y]`，作为自身坐标融合源；`header.stamp` 为 bridge 发布时间。 |
 | `/goal_pose` | `geometry_msgs/msg/PoseStamped` | `navi_tf_bridge` -> external navigation | 最终导航目标。 |
 | `/ly/navi/reached` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree` | 当前目标是否到达；true=到达，false=路上。 |
 | `/ly/navi/reachable` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree` | 当前目标是否有有效路径；true=可达，false=不可达。 |
@@ -141,7 +141,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/navi/lower_head` | `std_msgs/msg/UInt8` | navigation/兼容 -> `behavior_tree` | 低头/通过特定路径时的兼容状态。 |
 | `/ly/navi/vel` | `gimbal_driver/msg/Vel` | 兼容/调试 | 当前 BT 代码保留 publisher，但主控制速度走 `/ly/control/vel`。 |
 
-追击多源退化顺序：`Chase.ToNavi=true` 时，BT 优先使用 `/ly/aim/TargetList` 里当前选中目标的 point 发布 `/ly/navi/target_rel`，消息携带来源 frame（默认 `gimbal_world`），由 `navi_tf_bridge` 转成 `/goal_pose`。`Chase.AreaLimit` 来自 BT JSON：TargetList 路径由 `navi_tf_bridge` 限制追击 `/goal_pose`，官方坐标 fallback 路径由 BT 在发布 `/ly/navi/goal_pos_raw` 前限制目标点；两者语义都是限制在自身当前大区域边界内侧，避免跨大区域追击。该限制不关闭云台跟踪/开火。只有 TargetList 追击点不可用时，才退化到 `/ly/position/data` 官方坐标源。两条链路不会在同一 tick 同时作为有效追击目标发布。
+追击多源退化顺序：`Chase.ToNavi=true` 时，BT 优先使用 `/ly/aim/TargetList` 里当前选中目标的 point 发布 `/ly/navi/target_rel`，消息携带来源 frame（默认 `gimbal_world`），由 `navi_tf_bridge` 转成 `/goal_pose`。`Chase.AreaLimit` 来自 BT JSON：TargetList 路径由 `navi_tf_bridge` 限制追击 `/goal_pose`，官方坐标 fallback 路径由 BT 在发布 `/ly/navi/goal_pos_raw` 前限制目标点。`ChaseEnableCrossArea=false` 时限制在自身当前大区域边界内侧；`true` 时可追到 `DecisionAutonomy.NaviGoal` 已开启的大区域，未开启区域仍不允许。该限制不关闭云台跟踪/开火。只有 TargetList 追击点不可用时，才退化到 `/ly/position/data` 官方坐标源。两条链路不会在同一 tick 同时作为有效追击目标发布。
 
 导航状态保护：
 

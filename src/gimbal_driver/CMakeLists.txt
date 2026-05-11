@@ -101,6 +101,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/PositionData.msg"
   "msg/SentryCmd.msg"
   "msg/SentryInfo.msg"
+  "msg/StampedUInt16MultiArray.msg"
   DEPENDENCIES geometry_msgs std_msgs
 )
 

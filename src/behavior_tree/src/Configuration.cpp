@@ -229,6 +229,29 @@ bool ReadOptionalDoubleParam(
     return false;
 }
 
+bool ReadOptionalStringParam(
+    const std::shared_ptr<rclcpp::Node>& node,
+    const std::vector<std::string>& names,
+    std::string& value) {
+    if (!node) {
+        return false;
+    }
+    for (const auto& name : names) {
+        if (!node->has_parameter(name)) {
+            continue;
+        }
+        rclcpp::Parameter param;
+        if (!node->get_parameter(name, param)) {
+            continue;
+        }
+        if (param.get_type() == rclcpp::ParameterType::PARAMETER_STRING) {
+            value = param.as_string();
+            return true;
+        }
+    }
+    return false;
+}
+
 bool ReadOptionalBoolParam(
     const std::shared_ptr<rclcpp::Node>& node,
     const std::vector<std::string>& names,
@@ -524,6 +547,33 @@ namespace LangYa {
         nr.StopRotateWhenFalse = j.value("StopRotateWhenFalse", nr.StopRotateWhenFalse);
     }
 
+    void from_json(const json& j, SentryPositionFusionSourceSetting& source) {
+        source.Enable = j.value("Enable", source.Enable);
+        source.Priority = j.value("Priority", source.Priority);
+        source.Weight = j.value("Weight", source.Weight);
+        source.FreshTimeoutMs = j.value("FreshTimeoutMs", source.FreshTimeoutMs);
+    }
+
+    void from_json(const json& j, SentryPositionFusionSetting& fusion) {
+        fusion.Enable = j.value("Enable", fusion.Enable);
+        fusion.Mode = j.value("Mode", fusion.Mode);
+        fusion.FreshTimeoutMs = j.value("FreshTimeoutMs", fusion.FreshTimeoutMs);
+        const auto read_source = [&](const char* name, SentryPositionFusionSourceSetting& source) {
+            if (j.contains(name) && j.at(name).is_object()) {
+                j.at(name).get_to(source);
+            }
+            if (j.contains("Sources") && j.at("Sources").is_object() &&
+                j.at("Sources").contains(name) &&
+                j.at("Sources").at(name).is_object()) {
+                j.at("Sources").at(name).get_to(source);
+            }
+        };
+        read_source("Uwb", fusion.Uwb);
+        read_source("UWB", fusion.Uwb);
+        read_source("PositionData", fusion.PositionData);
+        read_source("Navi", fusion.Navi);
+    }
+
     void from_json(const json& j, LeagueStrategySetting& ls) {
         ls.EnableRouteCompat = j.value("EnableRouteCompat", ls.EnableRouteCompat);
         ls.UseHealthRecovery = j.value("UseHealthRecovery", ls.UseHealthRecovery);
@@ -573,7 +623,7 @@ namespace LangYa {
     void from_json(const json& j, ChaseAreaLimitSetting& ca) {
         ca.Enable = j.value("Enable", ca.Enable);
         ca.BoundaryMarginCm = j.value("BoundaryMarginCm", ca.BoundaryMarginCm);
-        ca.HoldWhenUnknownArea = j.value("HoldWhenUnknownArea", ca.HoldWhenUnknownArea);
+        ca.ChaseEnableCrossArea = j.value("ChaseEnableCrossArea", ca.ChaseEnableCrossArea);
         ca.HoldWhenNoIntersection = j.value("HoldWhenNoIntersection", ca.HoldWhenNoIntersection);
     }
 
@@ -904,6 +954,9 @@ namespace LangYa {
         }
         if (j.contains("NaviRotateControl")) {
             j.at("NaviRotateControl").get_to(c.NaviRotateControlSettings);
+        }
+        if (j.contains("SentryPositionFusion")) {
+            j.at("SentryPositionFusion").get_to(c.SentryPositionFusionSettings);
         }
         if (j.contains("LeagueStrategy")) {
             j.at("LeagueStrategy").get_to(c.LeagueStrategySettings);
@@ -1252,6 +1305,39 @@ namespace BehaviorTree {
             },
             config.SwitchPoint);
         Area::SetSwitchPoint(config.SwitchPoint);
+
+        auto& sentry_position_fusion = config.SentryPositionFusionSettings;
+        auto fusion_names = [](const std::string& key) {
+            return std::vector<std::string>{
+                "AreaManager.SentryPositionFusion." + key,
+                "AreaManager/SentryPositionFusion/" + key
+            };
+        };
+        auto fusion_source_names = [](const std::vector<std::string>& source_names,
+                                      const std::string& key) {
+            std::vector<std::string> names;
+            names.reserve(source_names.size() * 4U);
+            for (const auto& source_name : source_names) {
+                names.push_back("AreaManager.SentryPositionFusion.Sources." + source_name + "." + key);
+                names.push_back("AreaManager/SentryPositionFusion/Sources/" + source_name + "/" + key);
+                names.push_back("AreaManager.SentryPositionFusion." + source_name + "." + key);
+                names.push_back("AreaManager/SentryPositionFusion/" + source_name + "/" + key);
+            }
+            return names;
+        };
+        auto read_fusion_source = [&](const std::vector<std::string>& source_names,
+                                      SentryPositionFusionSourceSetting& source) {
+            ReadOptionalBoolParam(node_, fusion_source_names(source_names, "Enable"), source.Enable);
+            ReadOptionalIntParam(node_, fusion_source_names(source_names, "Priority"), source.Priority);
+            ReadOptionalDoubleParam(node_, fusion_source_names(source_names, "Weight"), source.Weight);
+            ReadOptionalIntParam(node_, fusion_source_names(source_names, "FreshTimeoutMs"), source.FreshTimeoutMs);
+        };
+        ReadOptionalBoolParam(node_, fusion_names("Enable"), sentry_position_fusion.Enable);
+        ReadOptionalStringParam(node_, fusion_names("Mode"), sentry_position_fusion.Mode);
+        ReadOptionalIntParam(node_, fusion_names("FreshTimeoutMs"), sentry_position_fusion.FreshTimeoutMs);
+        read_fusion_source({"Uwb", "UWB"}, sentry_position_fusion.Uwb);
+        read_fusion_source({"PositionData"}, sentry_position_fusion.PositionData);
+        read_fusion_source({"Navi", "NaviPosition"}, sentry_position_fusion.Navi);
 
         auto read_area_group = [&](const std::string& group_name,
                                    std::vector<std::string>& area_list,
@@ -1754,6 +1840,28 @@ namespace BehaviorTree {
         LoggerPtr->Debug("ClearFollowModeWhenTrue: {}", config.NaviRotateControlSettings.ClearFollowModeWhenTrue);
         LoggerPtr->Debug("ClearRegionalFaceModeWhenTrue: {}", config.NaviRotateControlSettings.ClearRegionalFaceModeWhenTrue);
         LoggerPtr->Debug("StopRotateWhenFalse: {}", config.NaviRotateControlSettings.StopRotateWhenFalse);
+        LoggerPtr->Debug("------ SentryPositionFusion ------");
+        LoggerPtr->Debug("Enable: {}", config.SentryPositionFusionSettings.Enable);
+        LoggerPtr->Debug("Mode: {}", config.SentryPositionFusionSettings.Mode);
+        LoggerPtr->Debug("FreshTimeoutMs: {}", config.SentryPositionFusionSettings.FreshTimeoutMs);
+        LoggerPtr->Debug(
+            "Uwb: Enable={} Priority={} Weight={} FreshTimeoutMs={}",
+            config.SentryPositionFusionSettings.Uwb.Enable,
+            config.SentryPositionFusionSettings.Uwb.Priority,
+            config.SentryPositionFusionSettings.Uwb.Weight,
+            config.SentryPositionFusionSettings.Uwb.FreshTimeoutMs);
+        LoggerPtr->Debug(
+            "PositionData: Enable={} Priority={} Weight={} FreshTimeoutMs={}",
+            config.SentryPositionFusionSettings.PositionData.Enable,
+            config.SentryPositionFusionSettings.PositionData.Priority,
+            config.SentryPositionFusionSettings.PositionData.Weight,
+            config.SentryPositionFusionSettings.PositionData.FreshTimeoutMs);
+        LoggerPtr->Debug(
+            "Navi: Enable={} Priority={} Weight={} FreshTimeoutMs={}",
+            config.SentryPositionFusionSettings.Navi.Enable,
+            config.SentryPositionFusionSettings.Navi.Priority,
+            config.SentryPositionFusionSettings.Navi.Weight,
+            config.SentryPositionFusionSettings.Navi.FreshTimeoutMs);
         LoggerPtr->Debug("------ LeagueStrategy ------");
         LoggerPtr->Debug("EnableRouteCompat: {}", config.LeagueStrategySettings.EnableRouteCompat);
         LoggerPtr->Debug("UseHealthRecovery: {}", config.LeagueStrategySettings.UseHealthRecovery);
@@ -1912,10 +2020,10 @@ namespace BehaviorTree {
         LoggerPtr->Debug("PreferredDistanceCm: {}", config.ChaseSettings.PreferredDistanceCm);
         LoggerPtr->Debug("DistanceDeadbandCm: {}", config.ChaseSettings.DistanceDeadbandCm);
         LoggerPtr->Debug(
-            "AreaLimit: Enable={} BoundaryMarginCm={} HoldWhenUnknownArea={} HoldWhenNoIntersection={}",
+            "AreaLimit: Enable={} BoundaryMarginCm={} ChaseEnableCrossArea={} HoldWhenNoIntersection={}",
             config.ChaseSettings.AreaLimit.Enable,
             config.ChaseSettings.AreaLimit.BoundaryMarginCm,
-            config.ChaseSettings.AreaLimit.HoldWhenUnknownArea,
+            config.ChaseSettings.AreaLimit.ChaseEnableCrossArea,
             config.ChaseSettings.AreaLimit.HoldWhenNoIntersection);
         LoggerPtr->Debug("MinValidDistanceCm: {}", config.ChaseSettings.MinValidDistanceCm);
         LoggerPtr->Debug("MaxValidDistanceCm: {}", config.ChaseSettings.MaxValidDistanceCm);
@@ -2108,6 +2216,43 @@ namespace BehaviorTree {
                 config.NaviRotateControlSettings.FreshTimeoutMs);
             config.NaviRotateControlSettings.FreshTimeoutMs = 500;
         }
+        auto& sentry_position_fusion = config.SentryPositionFusionSettings;
+        if (sentry_position_fusion.FreshTimeoutMs <= 0) {
+            LoggerPtr->Warning(
+                "Invalid SentryPositionFusion.FreshTimeoutMs={}, fallback to 2000.",
+                sentry_position_fusion.FreshTimeoutMs);
+            sentry_position_fusion.FreshTimeoutMs = 2000;
+        }
+        const auto fusion_mode = NormalizeAutonomyToken(sentry_position_fusion.Mode);
+        if (fusion_mode != "priority" &&
+            fusion_mode != "weighted" &&
+            fusion_mode != "weight" &&
+            fusion_mode != "weighted_fit") {
+            LoggerPtr->Warning(
+                "Invalid SentryPositionFusion.Mode='{}', fallback to priority.",
+                sentry_position_fusion.Mode);
+            sentry_position_fusion.Mode = "priority";
+        }
+        auto sanitize_fusion_source = [&](const char* name,
+                                          SentryPositionFusionSourceSetting& source) {
+            if (source.Weight < 0.0) {
+                LoggerPtr->Warning(
+                    "Invalid SentryPositionFusion.{}.Weight={}, fallback to 0.",
+                    name,
+                    source.Weight);
+                source.Weight = 0.0;
+            }
+            if (source.FreshTimeoutMs < 0) {
+                LoggerPtr->Warning(
+                    "Invalid SentryPositionFusion.{}.FreshTimeoutMs={}, use global FreshTimeoutMs.",
+                    name,
+                    source.FreshTimeoutMs);
+                source.FreshTimeoutMs = 0;
+            }
+        };
+        sanitize_fusion_source("Uwb", sentry_position_fusion.Uwb);
+        sanitize_fusion_source("PositionData", sentry_position_fusion.PositionData);
+        sanitize_fusion_source("Navi", sentry_position_fusion.Navi);
         if (!IsValidBaseGoal(config.LeagueStrategySettings.MainGoal)) {
             LoggerPtr->Warning(
                 "Invalid LeagueStrategy.MainGoal={}, fallback to OccupyArea.",
