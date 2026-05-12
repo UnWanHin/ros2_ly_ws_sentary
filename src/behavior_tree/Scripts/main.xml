@@ -7,11 +7,11 @@
       <SelectAimMode/>
       <SelectStrategyMode/>
       <Hard/>
-      <Default/>
       <Task/>
       <PreprocessData/>
       <SelectAimTarget/>
       <Tactical/>
+      <Default/>
       <Finalizer/>
       <SelectPosture/>
       <PublishAll/>

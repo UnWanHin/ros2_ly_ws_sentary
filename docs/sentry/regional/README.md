@@ -10,6 +10,7 @@ Updated: 2026-05-06
 |---|---|
 | `current_behavior.md` | 当前 regional/BT 分层、任务触发、打断关系和运行行为 |
 | `decision_framework.md` | Regional 大区域状态机框架和任务组织 |
+| `strategy_layers_and_navigation_reach.md` | Strategy 分层、`/ly/navi/reached`、坐标兜底和 watchdog 语义 |
 | `zone_blocks.md` | 区域点位、区域块和底层区域任务记录 |
 | `vision_mode_semantics.md` | `/ly/vision/mode`、task mode 等视觉/任务模式语义 |
 | `vision_task_patrol_modes.md` | Vision、Task、Patrol 的当前流转关系 |

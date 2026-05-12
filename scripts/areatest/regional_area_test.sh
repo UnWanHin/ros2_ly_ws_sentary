@@ -32,6 +32,10 @@ Options:
   --hp VALUE             Fake referee self health, default 450
   --ammo VALUE           Fake referee ammo_left, default 200
   --red|--blue           With --fake-referee, publish /ly/friend/is_team_red
+  --mock-gimbal-state    Publish mock /ly/gimbal/angles for bench route tests
+  --no-mock-gimbal-state Do not publish mock gimbal angles; require real /ly/gimbal/angles
+  --mock-gimbal-yaw DEG  Mock gimbal yaw, default 0.0
+  --mock-gimbal-pitch DEG Mock gimbal pitch, default 0.0
 
 Examples:
   ./scripts/areatest/regional_base.sh --pure
@@ -107,6 +111,9 @@ FAKE_REFEREE=0
 FAKE_HP=450
 FAKE_AMMO=200
 FAKE_TEAM_RED=""
+MOCK_GIMBAL_STATE="auto"
+MOCK_GIMBAL_YAW=0.0
+MOCK_GIMBAL_PITCH=0.0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -149,6 +156,30 @@ while [[ $# -gt 0 ]]; do
     --blue)
       FAKE_TEAM_RED="false"
       shift
+      ;;
+    --mock-gimbal-state)
+      MOCK_GIMBAL_STATE="true"
+      shift
+      ;;
+    --no-mock-gimbal-state|--real-gimbal-state)
+      MOCK_GIMBAL_STATE="false"
+      shift
+      ;;
+    --mock-gimbal-yaw)
+      if [[ $# -lt 2 ]]; then
+        echo "[ERROR] --mock-gimbal-yaw requires a value." >&2
+        exit 2
+      fi
+      MOCK_GIMBAL_YAW="$2"
+      shift 2
+      ;;
+    --mock-gimbal-pitch)
+      if [[ $# -lt 2 ]]; then
+        echo "[ERROR] --mock-gimbal-pitch requires a value." >&2
+        exit 2
+      fi
+      MOCK_GIMBAL_PITCH="$2"
+      shift 2
       ;;
     --help|-h)
       usage
@@ -233,16 +264,44 @@ start_fake_referee_publishers() {
   fi
 }
 
+start_mock_gimbal_state() {
+  source_ros_workspace "${ROOT_DIR}"
+
+  ros2 run navi_tf_bridge mock_gimbal_state_node --ros-args \
+    -p gimbal_angles_topic:=/ly/gimbal/angles \
+    -p yaw_deg:="${MOCK_GIMBAL_YAW}" \
+    -p pitch_deg:="${MOCK_GIMBAL_PITCH}" \
+    -p publish_big_yaw:=false \
+    -p publish_hz:=30.0 \
+    >/dev/null 2>&1 &
+  CHILD_PIDS+=("$!")
+}
+
 echo "[INFO] Regional single-area test: area=${AREA_LABEL}"
 echo "[INFO] BT config: ${BT_CONFIG_FILE}"
 echo "[INFO] Uses real sentry_all regional chain; this is not navi_debug and not a direct goal publisher."
 if (( PURE_MODE == 1 )); then
   echo "[INFO] Pure mode enabled: firing/chase/posture disabled; formal sentry_all does not start internal vision nodes."
 fi
+SHOULD_MOCK_GIMBAL=0
+if [[ "${MOCK_GIMBAL_STATE}" == "true" ]] ||
+   [[ "${MOCK_GIMBAL_STATE}" == "auto" && "${PURE_MODE}" == "1" ]]; then
+  SHOULD_MOCK_GIMBAL=1
+fi
 if (( FAKE_REFEREE == 1 )); then
   echo "[INFO] Fake referee enabled: hp=${FAKE_HP}, ammo=${FAKE_AMMO}"
+fi
+if (( SHOULD_MOCK_GIMBAL == 1 )); then
+  echo "[INFO] Mock gimbal state enabled: yaw=${MOCK_GIMBAL_YAW}, pitch=${MOCK_GIMBAL_PITCH}"
+fi
+if (( FAKE_REFEREE == 1 || SHOULD_MOCK_GIMBAL == 1 )); then
   trap cleanup_children EXIT INT TERM
-  start_fake_referee_publishers
+  if (( FAKE_REFEREE == 1 )); then
+    start_fake_referee_publishers
+  fi
+  if (( SHOULD_MOCK_GIMBAL == 1 )); then
+    start_mock_gimbal_state
+  fi
   "${ROOT_DIR}/scripts/launch/start_sentry_all.sh" "${START_ARGS[@]}" -- "${LAUNCH_ARGS[@]}" &
   LAUNCH_PID="$!"
   set +e

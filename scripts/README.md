@@ -245,7 +245,7 @@ python3 ./scripts/python/start.py --keep-to-navi
 ./scripts/areatest/regional_roadland.sh --pure
 ```
 
-`--pure` 会切到 pure preset：停火、关闭 Chase、关闭 Posture、忽略 Recovery 回补；AreaManager 区域任务和导航桥仍走正式链路。正式 `sentry_all` 本身已经不启动内部 detector/tracker/predictor/outpost/buff。
+`--pure` 会切到 pure preset：停火、关闭 Chase、关闭 Posture、忽略 Recovery 回补；AreaManager 区域任务和导航桥仍走正式链路。为了避免 bench/离线测试时 BT 因 `/ly/gimbal/angles` 缺失进入 `gimbal_stale` safe-control，`--pure` 默认会启动 `mock_gimbal_state_node` 持续发布 `/ly/gimbal/angles`；实机要完全使用下位机角度时加 `--no-mock-gimbal-state`。正式 `sentry_all` 本身已经不启动内部 detector/tracker/predictor/outpost/buff。
 
 如果在桌面/台架上没有真实裁判数据，低血量/低弹量默认值会触发 recovery，Central 也不会进入健康巡逻。可以临时加：
 

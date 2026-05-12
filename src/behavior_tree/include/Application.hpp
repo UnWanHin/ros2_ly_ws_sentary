@@ -283,7 +283,7 @@ private:
     bool naviChaseVelocityActive_{false};
     VelocityType naviChaseVelocity{0, 0};
     std::chrono::steady_clock::time_point lastOfficialChaseAreaLimitLogTime_{};
-    TimerClock naviCommandIntervalClock{Seconds{10}}, recoveryClock{Seconds{90}}; // 控制间隔，回家时间 
+    TimerClock naviCommandIntervalClock{Seconds{10}}; // 控制间隔
     std::uint8_t speedLevel{1}; // 0 没电, 1 正常, 2 快速
     StrategyMode strategyMode_{StrategyMode::Regional}; // 当前策略
     CompetitionProfile competitionProfile_{CompetitionProfile::Regional};

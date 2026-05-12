@@ -105,6 +105,13 @@ bool StrategyManager::RunDefault(Application& app) {
 
     const UnitTeam my_team = app.team;
     const UnitTeam enemy_team = app.team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
+    if (app.areaManager_.RegionalAreaTaskActive()) {
+        default_requested_ = true;
+        (void)app.TickRegionalAreaTask(my_team, enemy_team);
+        MarkHandled(app, StrategyLayer::Default);
+        return true;
+    }
+
     default_requested_ = app.IsDefaultRegionalDecisionReady(my_team, enemy_team);
     if (!default_requested_) {
         PublishRuntimeToBlackboards(app);
@@ -126,8 +133,7 @@ bool StrategyManager::RunTask(Application& app) {
 
     const UnitTeam my_team = app.team;
     const UnitTeam enemy_team = app.team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
-    if (app.TickRegionalAreaTask(my_team, enemy_team) ||
-        app.TickNaviAreaTransition() ||
+    if (app.TickNaviAreaTransition() ||
         app.TickNaviProgressWatchdog(my_team, enemy_team)) {
         MarkHandled(app, StrategyLayer::Task);
         return true;

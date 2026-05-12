@@ -37,9 +37,9 @@ Updated: 2026-05-13
 Regional 不是單一點表，而是分層策略：
 
 - `Hard`：最高優先級，先處理低血/低彈回 `Recovery`，以及 Roadland 強綁定穿越段。
-- `Default`：沒有事件、沒有任務、沒有 Buff/Outpost 時，按大區域候選分數選 `MyBase / MyHighland / MyRoadland / CommonCentral`。
-- `Task`：持續 tick 已啟動的大區域任務、Highland 兼容過渡和導航 watchdog。
+- `Task`：處理 Highland 兼容過渡和導航 watchdog 等支援任務，不再擁有基本大區域狀態機。
 - `Tactical`：處理 Buff、RegionalDefense、ProtectHero、Outpost 和 watchdog fallback。
+- `Default`：沒有事件、沒有任務、沒有 Buff/Outpost 時，按大區域候選分數選並持續 tick `MyBase / MyHighland / MyRoadland / CommonCentral`。
 - `Finalizer`：只做策略層狀態同步，不再做舊點表 fallback。
 
 Regional 目前已有的主要邏輯：
@@ -68,20 +68,20 @@ Regional 裡常見控制語義：
 
 ## Strategy 分層
 
-`Scripts/main.xml` 的主決策入口現在先跑高優先級策略層，再整理目標，最後跑 Tactical/Finalizer。每 tick 依序執行：
+`Scripts/main.xml` 的主決策入口現在先跑高優先級策略層，再整理目標，接著跑 Tactical，最後由 Default 兜底。每 tick 依序執行：
 
 ```text
-EvaluateEvents -> Hard -> Default -> Task -> PreprocessData -> SelectAimTarget -> Tactical -> Finalizer
+EvaluateEvents -> Hard -> Task -> PreprocessData -> SelectAimTarget -> Tactical -> Default -> Finalizer
 ```
 
 各層的責任是：
 
 - `EvaluateEvents`：語義整理層，只把裁判資料、視覺鎖定、受擊、導航狀態和 RegionalDefense 威脅收斂成 `EventSnapshot`。這層不發導航、不改火控、不接管輸出。
 - `Hard`：最高優先級保護，處理 recovery/補血補彈和 Roadland 強綁定穿越段。Roadland 強綁定段在這層 hard lock，避免被戰術層中途搶走。
-- `Default`：無特別事件時的底層決策，現在按 `AreaManager.DefaultPolicy` 對已啟用的大區域做資源門檻、距離、目前區域、上次任務結果、冷卻和重試評分，再啟動 AreaManager 任務；沒有可用區域時不再 fallback 到任何舊點表。`RegionalIdlePatrol` 點表不再是正式 regional 的 Default 入口。
-- `Task`：已啟動的 AreaManager 任務繼續 tick，包含 Highland/Base/Roadland/Central 任務、Highland 兼容過渡和導航 watchdog。
+- `Task`：只保留 Highland 兼容過渡和導航 watchdog 這類支援任務；不再 tick Highland/Base/Roadland/Central 基本大區域狀態機。
 - `PreprocessData / SelectAimTarget`：在 Tactical 前整理可打目標、官方坐標和本 tick `targetArmor`，讓戰術層使用最新目標資料。
 - `Tactical`：regional 只保留明確戰術 overlay：`RegionalDefense`、ProtectHero、Buff/Outpost 任務站位、Chase 追擊和導航 watchdog；不再調用舊單策略點表。`LeagueSimple` 只在 `CompetitionProfile=league` 時使用，Showcase 只在明確 showcase 配置時使用。
+- `Default`：無特別事件時的底層決策，現在按 `AreaManager.DefaultPolicy` 對已啟用的大區域做資源門檻、距離、目前區域、上次任務結果、冷卻和重試評分，再啟動並持續 tick AreaManager 任務；Highland 駐守、Base 巡邏、Roadland 駐守和 Central 遊走都歸這一層。沒有可用區域時不再 fallback 到任何舊點表。`RegionalIdlePatrol` 點表不再是正式 regional 的 Default 入口。
 - `Finalizer`：只做本 tick 策略層完成標記和黑板同步；regional 不再 fallback 到舊點表。
 
 分層狀態會寫入 BT blackboard：
@@ -484,9 +484,9 @@ FaceMode 負責固定點朝向和接管雲台角度。FollowMode 只負責下發
 因此正式 regional 的導航點來源應只來自：
 
 - `Hard` recovery / Roadland hard lock；
-- `Default` 選中的 AreaManager 大區域任務；
-- `Task` 正在執行的區域狀態機、Highland transition、watchdog；
+- `Task` 的 Highland transition、watchdog；
 - `Tactical` 的 `RegionalDefense`、ProtectHero、Buff/Outpost 任務站位或 Chase 追擊。
+- `Default` 選中並執行的 AreaManager 大區域任務。
 
 如果這些都沒有輸出，`Finalizer` 只同步策略層 blackboard，不再做舊點表兜底。歷史單策略邏輯已從 live code 移除；需要對照時只看 `docs/record/` 裡的歷史記錄。
 

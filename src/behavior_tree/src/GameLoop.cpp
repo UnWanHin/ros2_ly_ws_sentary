@@ -2657,12 +2657,16 @@ namespace BehaviorTree {
             active_task_type == RegionalAreaTaskType::CommonCentral;
         const bool active_roadland_task = active_task_type == RegionalAreaTaskType::MyRoadland;
         const bool can_yield_to_higher_priority = areaManager_.RegionalAreaTaskCanYieldToHigherPriority();
-        if (active_low_priority_task && (aimMode == AimMode::Buff || aimMode == AimMode::Outpost)) {
+        const bool aim_task_has_higher_priority =
+            aimMode == AimMode::Buff ||
+            aimMode == AimMode::Outpost ||
+            outpostVisualScoutNavigationActive_;
+        if (active_low_priority_task && aim_task_has_higher_priority) {
             if (!can_yield_to_higher_priority) {
                 // Roadland crossing is a bound control segment; do not release regional control
                 // until the far endpoint or timeout protection completes it.
             } else if (active_roadland_task) {
-                RequestRoadlandSafeReturn("aim mode has higher priority");
+                RequestRoadlandSafeReturn("aim task has higher priority");
             } else {
                 areaManager_.ClearRegionalAreaTask();
                 defaultStrategyManager_.RecordRegionalAreaResult(
@@ -2673,7 +2677,7 @@ namespace BehaviorTree {
                 ResetRegionalAreaControlOverride();
                 gimbalControlData.FireCode.FollowMode = 0;
                 if (LoggerPtr) {
-                    LoggerPtr->Info("RegionalAreaTask canceled: aim mode has higher priority.");
+                    LoggerPtr->Info("RegionalAreaTask canceled: aim task has higher priority.");
                 }
                 return false;
             }
@@ -4686,9 +4690,19 @@ namespace BehaviorTree {
             }
             return false;
         }
-        // 复活
+        constexpr std::uint16_t kRegionalRecoveryHealthEnter = 150;
+        constexpr std::uint16_t kRegionalRecoveryHealthExit = 380;
+        constexpr std::uint16_t kRegionalRecoveryAmmoThreshold = 30;
+        const bool regional_recovery_needed =
+            myselfHealth < kRegionalRecoveryHealthEnter ||
+            ammoLeft <= kRegionalRecoveryAmmoThreshold;
+        const bool regional_recovery_ready =
+            myselfHealth >= kRegionalRecoveryHealthExit &&
+            ammoLeft > kRegionalRecoveryAmmoThreshold;
+
+        // 复活/回补保持：进入 Recovery 后，血量和弹量都恢复才释放。
         if(naviCommandGoal == recovery_goal_id) {
-            if(myselfHealth < 380) {
+            if(!regional_recovery_ready) {
                 if (cancel_regional_area_task_for_recovery()) {
                     return true;
                 }
@@ -4697,13 +4711,12 @@ namespace BehaviorTree {
             }
         }
         // 回家
-        // 条件为：血量低于150 或者 弹药为0且距离上一次回家已经过去90秒
-        if(myselfHealth < 150 || (ammoLeft <= 30 && recoveryClock.trigger())) {
+        // 条件为：血量低于进入阈值，或者弹药低于进入阈值。
+        if(regional_recovery_needed) {
             if (cancel_regional_area_task_for_recovery()) {
                 return true;
             }
             SetPositionByBaseGoal(LangYa::Recovery.ID, MyTeam, apply_team_offset);
-            recoveryClock.tick();
             naviCommandIntervalClock.reset(Seconds{1});
             return true;
         }
