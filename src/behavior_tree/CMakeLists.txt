@@ -226,11 +226,27 @@ ament_target_dependencies(${PROJECT_NAME}_node
 
 ament_target_dependencies(${PROJECT_NAME}_node sentry_msgs)
 
+add_executable(area_calculator
+  tools/AreaCalculator.cpp
+  src/AreaManager.cpp
+)
+
+target_include_directories(area_calculator PRIVATE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
+)
+
+ament_target_dependencies(area_calculator
+  gimbal_driver
+)
+
 # =========================================
 # 5. 安裝規則 (Install Rules)
 # =========================================
 # 安裝執行檔
-install(TARGETS ${PROJECT_NAME}_node
+install(TARGETS
+  ${PROJECT_NAME}_node
+  area_calculator
   DESTINATION lib/${PROJECT_NAME}
 )
 

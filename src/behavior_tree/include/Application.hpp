@@ -279,6 +279,7 @@ private:
     std::string naviRelativeTargetFrameId{};
     bool naviChaseOfficialTargetValid{false};
     std::uint8_t naviChaseOfficialTargetArmorType{0U};
+    bool chaseTacticalAllowed_{false};
     std::chrono::steady_clock::time_point lastOfficialChaseAreaLimitLogTime_{};
     TimerClock naviCommandIntervalClock{Seconds{10}}, recoveryClock{Seconds{90}}; // 控制间隔，回家时间 
     std::uint8_t speedLevel{1}; // 0 没电, 1 正常, 2 快速
@@ -545,6 +546,10 @@ public:
     bool CheckPositionRecovery();
     void SetPositionRepeat();
     bool StrategyLayerHandled() const noexcept { return strategyManager_.Handled(); }
+    void ResetChaseTacticalAuthorization() noexcept { chaseTacticalAllowed_ = false; }
+    void SetChaseTacticalAllowed(bool allowed) noexcept { chaseTacticalAllowed_ = allowed; }
+    bool IsChaseTacticalAllowed() const noexcept { return chaseTacticalAllowed_; }
+    bool CanAuthorizeChaseTactical() const noexcept;
     bool RunStrategyLayerHard();
     bool RunStrategyLayerDefault();
     bool RunStrategyLayerTask();

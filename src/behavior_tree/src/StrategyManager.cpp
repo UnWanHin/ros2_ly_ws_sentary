@@ -21,11 +21,13 @@ void StrategyManager::PublishRuntimeToBlackboards(Application& app) const noexce
         app.TickBlackboard_->set("StrategyLayerHardLock", hard_lock_);
         app.TickBlackboard_->set("StrategyLayerDefaultRequested", default_requested_);
         app.TickBlackboard_->set("StrategyLayerHandledBy", std::string{handled_by_});
+        app.TickBlackboard_->set("ChaseTacticalAllowed", app.IsChaseTacticalAllowed());
     }
     if (app.GlobalBlackboard_) {
         app.GlobalBlackboard_->set("StrategyLayerHandledBy", std::string{handled_by_});
         app.GlobalBlackboard_->set("StrategyLayerHardLock", hard_lock_);
         app.GlobalBlackboard_->set("StrategyLayerDefaultRequested", default_requested_);
+        app.GlobalBlackboard_->set("ChaseTacticalAllowed", app.IsChaseTacticalAllowed());
     }
 }
 
@@ -36,6 +38,7 @@ void StrategyManager::Reset(Application& app) noexcept {
     default_goal_commanded_ = false;
     handled_layer_ = StrategyLayer::Finalizer;
     handled_by_ = "none";
+    app.ResetChaseTacticalAuthorization();
     PublishRuntimeToBlackboards(app);
 }
 
@@ -48,6 +51,30 @@ void StrategyManager::MarkHandled(
     handled_layer_ = layer;
     handled_by_ = StrategyLayerName(layer);
     PublishRuntimeToBlackboards(app);
+}
+
+bool Application::CanAuthorizeChaseTactical() const noexcept {
+    if (!config.ChaseSettings.Enable ||
+        !config.ChaseSettings.FollowAimTarget ||
+        areaManager_.RegionalAreaTaskActive() ||
+        areaManager_.HighlandTransitionActive() ||
+        outpostVisualScoutNavigationActive_ ||
+        ShouldSuppressChaseForOutpostTask()) {
+        return false;
+    }
+
+    switch (aimMode) {
+        case AimMode::AutoAim:
+            return config.ChaseSettings.EnableInAutoAim;
+        case AimMode::RotateScan:
+            return config.ChaseSettings.EnableInRotateScan;
+        case AimMode::Outpost:
+            return config.ChaseSettings.EnableInOutpostMode;
+        case AimMode::Buff:
+            return config.ChaseSettings.EnableInBuffMode;
+        default:
+            return false;
+    }
 }
 
 bool StrategyManager::RunHard(Application& app) {
@@ -110,17 +137,29 @@ bool StrategyManager::RunTask(Application& app) {
 
 bool StrategyManager::RunTactical(Application& app) {
     if (handled_) {
+        if (handled_layer_ == StrategyLayer::Default &&
+            !default_goal_commanded_ &&
+            app.CanAuthorizeChaseTactical()) {
+            app.SetChaseTacticalAllowed(true);
+            PublishRuntimeToBlackboards(app);
+        }
         return true;
     }
 
     if (app.IsLeagueProfile()) {
         app.SetPositionLeagueSimple();
+        if (app.CanAuthorizeChaseTactical()) {
+            app.SetChaseTacticalAllowed(true);
+        }
         MarkHandled(app, StrategyLayer::Tactical);
         return true;
     }
 
     if (app.IsShowcasePatrolEnabled()) {
         app.SetPositionShowcasePatrol();
+        if (app.CanAuthorizeChaseTactical()) {
+            app.SetChaseTacticalAllowed(true);
+        }
         MarkHandled(app, StrategyLayer::Tactical);
         return true;
     }
@@ -190,6 +229,12 @@ bool StrategyManager::RunTactical(Application& app) {
     }
 
     if (app.TickNaviProgressWatchdog(my_team, enemy_team)) {
+        MarkHandled(app, StrategyLayer::Tactical);
+        return true;
+    }
+
+    if (app.CanAuthorizeChaseTactical()) {
+        app.SetChaseTacticalAllowed(true);
         MarkHandled(app, StrategyLayer::Tactical);
         return true;
     }

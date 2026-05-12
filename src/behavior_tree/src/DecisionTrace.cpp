@@ -292,9 +292,13 @@ void Application::WriteDecisionTrace(const std::string_view event) {
     const int goal_base_id = GoalBaseId(naviCommandGoal);
     const auto posture_runtime = postureManager_.Runtime();
     const bool enable_chase_to_navi =
+        chaseTacticalAllowed_ &&
         config.ChaseSettings.Enable && config.ChaseSettings.ToNavi;
     const bool uses_chase_official_goal = enable_chase_to_navi && naviChaseOfficialTargetValid;
-    const bool uses_chase_relative_target = enable_chase_to_navi && !uses_chase_official_goal;
+    const bool uses_chase_relative_target =
+        enable_chase_to_navi &&
+        !uses_chase_official_goal &&
+        (naviRelativeTargetValid || config.ChaseSettings.StopWhenNoTarget);
     const bool uses_goal_pos = uses_chase_official_goal ||
         (config.NaviSettings.UseXY && !uses_chase_relative_target);
     const bool uses_goal_pos_bridge = uses_goal_pos && config.NaviSettings.ToNavi;

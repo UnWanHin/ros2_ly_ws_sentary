@@ -1010,7 +1010,9 @@ namespace BehaviorTree {
         const bool face_mode_active =
             face_mode_requested && !face_mode_fallback_patrol_scan;
         const auto chase_mode_enabled = [&]() -> bool {
-            if (!config.ChaseSettings.Enable || !config.ChaseSettings.FollowAimTarget) {
+            if (!chaseTacticalAllowed_ ||
+                !config.ChaseSettings.Enable ||
+                !config.ChaseSettings.FollowAimTarget) {
                 return false;
             }
             if (ShouldSuppressChaseForOutpostTask() ||
