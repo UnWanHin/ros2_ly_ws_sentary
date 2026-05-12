@@ -43,7 +43,7 @@ UpdateGlobalData
 
 目前做兩類事情：
 
-- Recovery：`CheckPositionRecovery()`，低血/低彈回 `Recovery`，且高於所有 regional/tactical 行為。
+- Recovery：`CheckPositionRecovery()`，低血/低彈回 `Recovery`，且高於所有 regional/tactical 行為。Regional 模式下若已到達但 3 秒內血量/彈量沒有回升，會在己方 `Recovery` 子區域內切換中心探測點。
 - Roadland 強綁定穿越段：如果 active regional task 是 `MyRoadland`，且當前 phase 不能讓出控制，會在 Hard 層繼續 `TickRegionalAreaTask()`。
 
 Roadland 這裡看起來像 Default task，但它在不可讓出的穿越段會被提升到 Hard。這是地形/安全約束，不是普通巡邏優先級。

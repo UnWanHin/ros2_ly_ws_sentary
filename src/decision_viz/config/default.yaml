@@ -176,6 +176,8 @@ structures:
     # Regional AreaManager follow-mode sub-area
     - {name: RoadlandFollow.Red, kind: follow_zone, polygon: [[510, 192], [987, 203], [990, 29], [510, 26]]}
     - {name: RoadlandFollow.Blue, kind: follow_zone, polygon: [[2290, 1308], [1813, 1297], [1810, 1471], [2290, 1474]]}
+    - {name: Recovery.Red, kind: special_zone, polygon: [[109, 286], [306, 292], [304, 205], [111, 208]]}
+    - {name: Recovery.Blue, kind: special_zone, polygon: [[2691, 1214], [2494, 1208], [2496, 1295], [2689, 1292]]}
     - {name: MiniRoadland.Red, kind: special_zone, polygon: [[392, 189], [510, 196], [517, 26], [392, 26]]}
     - {name: MiniRoadland.Blue, kind: special_zone, polygon: [[2408, 1311], [2290, 1304], [2283, 1474], [2408, 1474]]}
     - {name: CentralLeft.Red, kind: special_zone, shape: polyline, polyline: [[1205, 1260], [1026, 1006]], width_cm: 5}

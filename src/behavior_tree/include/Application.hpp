@@ -267,6 +267,13 @@ private:
     std::chrono::steady_clock::time_point naviExternalStatusGoalStartTime_{};
     std::uint8_t naviExternalStatusGoalId_{0};
     Area::Point<std::uint16_t> naviExternalStatusGoalPosition_{};
+    bool regionalRecoveryProbeActive_{false};
+    std::size_t regionalRecoveryProbeIndex_{0};
+    bool regionalRecoveryMonitorActive_{false};
+    Area::Point<std::uint16_t> regionalRecoveryMonitorGoal_{};
+    std::chrono::steady_clock::time_point regionalRecoveryMonitorStartTime_{};
+    std::uint16_t regionalRecoveryMonitorHealth_{0};
+    std::uint16_t regionalRecoveryMonitorAmmo_{0};
     bool specialPatrolHoldActive_{false};
     std::uint8_t specialPatrolHoldBaseGoal_{LangYa::CentralLeftA.ID};
     std::chrono::steady_clock::time_point specialPatrolHoldStartTime_{};
@@ -619,6 +626,9 @@ public:
     void UpdateNaviExternalStatusGoal(
         std::uint8_t goal_id,
         Area::Point<std::uint16_t> goal_position);
+    bool IsNaviGoalPositionArrived(
+        std::uint8_t goal_id,
+        Area::Point<std::uint16_t> goal_position) const;
     bool IsBaseGoalArrived(
         std::uint8_t base_goal_id,
         UnitTeam goal_team,

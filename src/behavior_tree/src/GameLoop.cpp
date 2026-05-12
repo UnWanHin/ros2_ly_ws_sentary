@@ -2485,6 +2485,48 @@ namespace BehaviorTree {
         naviExternalStatusGoalStartTime_ = std::chrono::steady_clock::now();
     }
 
+    bool Application::IsNaviGoalPositionArrived(
+        const std::uint8_t goal_id,
+        const Area::Point<std::uint16_t> goal_position) const {
+        const auto external_reachable = GetExternalNaviReachableForGoal(goal_id, goal_position);
+        if (external_reachable.has_value() && !*external_reachable) {
+            return false;
+        }
+        const auto external_reach = GetExternalNaviReachForGoal(goal_id, goal_position);
+        if (external_reach.has_value()) {
+            return *external_reach;
+        }
+        const auto& runtime = areaManager_.ProgressWatchdogRuntime();
+        const auto now = std::chrono::steady_clock::now();
+        const int distance_fallback_grace_ms =
+            std::max(0, config.DecisionAutonomySettings.NaviGoal.DistanceFallbackGraceMs);
+        if (distance_fallback_grace_ms > 0 &&
+            runtime.Active &&
+            runtime.GoalId == goal_id &&
+            runtime.GoalPosition.x == goal_position.x &&
+            runtime.GoalPosition.y == goal_position.y &&
+            runtime.GoalStartTime.time_since_epoch().count() != 0 &&
+            now - runtime.GoalStartTime < std::chrono::milliseconds(distance_fallback_grace_ms)) {
+            return false;
+        }
+        if (!IsSentryPositionFresh(now)) {
+            return false;
+        }
+        const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
+        const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
+        if (self_x <= 0 || self_y <= 0) {
+            return false;
+        }
+        const auto arrive_distance = static_cast<std::uint16_t>(
+            std::max(1, config.DecisionAutonomySettings.NaviGoal.HighlandCompatArriveDistanceCm));
+        return AreaManager::DistanceSq(
+            self_x,
+            self_y,
+            static_cast<int>(goal_position.x),
+            static_cast<int>(goal_position.y)) <=
+            static_cast<double>(arrive_distance) * static_cast<double>(arrive_distance);
+    }
+
     bool Application::IsBaseGoalArrived(
         const std::uint8_t base_goal_id,
         const UnitTeam goal_team,
@@ -4955,6 +4997,116 @@ namespace BehaviorTree {
         constexpr std::uint16_t kRegionalRecoveryHealthEnter = 150;
         constexpr std::uint16_t kRegionalRecoveryHealthExit = 380;
         constexpr std::uint16_t kRegionalRecoveryAmmoThreshold = 30;
+        constexpr auto kRegionalRecoveryProbeDelay = std::chrono::seconds(3);
+        const auto recovery_default_position =
+            AreaManager::GoalPointByBaseId(LangYa::Recovery.ID, MyTeam);
+        const auto& recovery_probe_points = Area::RecoveryProbePoints(MyTeam);
+        auto same_recovery_point = [](const Area::Point<std::uint16_t>& a,
+                                      const Area::Point<std::uint16_t>& b) {
+            return a.x == b.x && a.y == b.y;
+        };
+        auto reset_regional_recovery_probe = [&]() {
+            regionalRecoveryProbeActive_ = false;
+            regionalRecoveryProbeIndex_ = 0;
+            regionalRecoveryMonitorActive_ = false;
+            regionalRecoveryMonitorGoal_ = {};
+            regionalRecoveryMonitorStartTime_ = std::chrono::steady_clock::time_point{};
+            regionalRecoveryMonitorHealth_ = 0;
+            regionalRecoveryMonitorAmmo_ = 0;
+        };
+        auto command_recovery_position = [&](const Area::Point<std::uint16_t>& point,
+                                             const char* reason) {
+            const bool changed =
+                naviCommandGoal != recovery_goal_id ||
+                !same_recovery_point(naviGoalPosition, point);
+            naviCommandGoal = recovery_goal_id;
+            naviGoalPosition = point;
+            naviGoalPublishAllowed_ = true;
+            speedLevel = 1;
+            UpdateNaviProgressWatchdogGoal(LangYa::Recovery.ID, MyTeam, apply_team_offset);
+            naviCommandIntervalClock.reset(Seconds{1});
+            if (changed) {
+                regionalRecoveryMonitorActive_ = false;
+                if (LoggerPtr) {
+                    LoggerPtr->Info(
+                        "Regional recovery target: reason={} point=({}, {}) hp={} ammo={}.",
+                        reason,
+                        static_cast<int>(point.x),
+                        static_cast<int>(point.y),
+                        myselfHealth,
+                        ammoLeft);
+                }
+            }
+        };
+        auto tick_regional_recovery_position = [&]() {
+            if (!config.NaviSettings.UseXY && regionalRecoveryProbeActive_) {
+                reset_regional_recovery_probe();
+            }
+            Area::Point<std::uint16_t> target_position = recovery_default_position;
+            if (config.NaviSettings.UseXY &&
+                regionalRecoveryProbeActive_ &&
+                !recovery_probe_points.empty()) {
+                regionalRecoveryProbeIndex_ %= recovery_probe_points.size();
+                target_position = recovery_probe_points[regionalRecoveryProbeIndex_];
+            }
+
+            if (naviCommandGoal != recovery_goal_id ||
+                !same_recovery_point(naviGoalPosition, target_position)) {
+                command_recovery_position(
+                    target_position,
+                    regionalRecoveryProbeActive_ ? "sync_probe" : "sync_default");
+                return true;
+            }
+
+            if (!IsNaviGoalPositionArrived(recovery_goal_id, target_position)) {
+                regionalRecoveryMonitorActive_ = false;
+                naviCommandIntervalClock.reset(Seconds{1});
+                return true;
+            }
+
+            const auto now = std::chrono::steady_clock::now();
+            if (!regionalRecoveryMonitorActive_ ||
+                !same_recovery_point(regionalRecoveryMonitorGoal_, target_position)) {
+                regionalRecoveryMonitorActive_ = true;
+                regionalRecoveryMonitorGoal_ = target_position;
+                regionalRecoveryMonitorStartTime_ = now;
+                regionalRecoveryMonitorHealth_ = myselfHealth;
+                regionalRecoveryMonitorAmmo_ = ammoLeft;
+                naviCommandIntervalClock.reset(Seconds{1});
+                return true;
+            }
+
+            const bool resource_improved =
+                myselfHealth > regionalRecoveryMonitorHealth_ ||
+                ammoLeft > regionalRecoveryMonitorAmmo_;
+            if (resource_improved) {
+                regionalRecoveryMonitorStartTime_ = now;
+                regionalRecoveryMonitorHealth_ = myselfHealth;
+                regionalRecoveryMonitorAmmo_ = ammoLeft;
+                naviCommandIntervalClock.reset(Seconds{1});
+                return true;
+            }
+
+            if (config.NaviSettings.UseXY &&
+                !recovery_probe_points.empty() &&
+                now - regionalRecoveryMonitorStartTime_ >= kRegionalRecoveryProbeDelay) {
+                if (!regionalRecoveryProbeActive_) {
+                    regionalRecoveryProbeActive_ = true;
+                    regionalRecoveryProbeIndex_ = 0;
+                } else {
+                    regionalRecoveryProbeIndex_ =
+                        (regionalRecoveryProbeIndex_ + 1U) % recovery_probe_points.size();
+                }
+                regionalRecoveryMonitorActive_ = false;
+                command_recovery_position(
+                    recovery_probe_points[regionalRecoveryProbeIndex_],
+                    "no_resource_change_probe");
+                return true;
+            }
+
+            naviCommandIntervalClock.reset(Seconds{1});
+            return true;
+        };
         const bool regional_recovery_needed =
             myselfHealth < kRegionalRecoveryHealthEnter ||
             ammoLeft <= kRegionalRecoveryAmmoThreshold;
@@ -4962,14 +5114,17 @@ namespace BehaviorTree {
             myselfHealth >= kRegionalRecoveryHealthExit &&
             ammoLeft > kRegionalRecoveryAmmoThreshold;
 
+        if (regional_recovery_ready) {
+            reset_regional_recovery_probe();
+        }
+
         // 复活/回补保持：进入 Recovery 后，血量和弹量都恢复才释放。
         if(naviCommandGoal == recovery_goal_id) {
             if(!regional_recovery_ready) {
                 if (cancel_regional_area_task_for_recovery()) {
                     return true;
                 }
-                naviCommandIntervalClock.reset(Seconds{1});
-                return true;
+                return tick_regional_recovery_position();
             }
         }
         // 回家
@@ -4978,10 +5133,11 @@ namespace BehaviorTree {
             if (cancel_regional_area_task_for_recovery()) {
                 return true;
             }
-            SetPositionByBaseGoal(LangYa::Recovery.ID, MyTeam, apply_team_offset);
-            naviCommandIntervalClock.reset(Seconds{1});
+            reset_regional_recovery_probe();
+            command_recovery_position(recovery_default_position, "enter_default");
             return true;
         }
+        reset_regional_recovery_probe();
         return false;
     }
 

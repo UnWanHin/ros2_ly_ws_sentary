@@ -402,6 +402,10 @@ public:
         LangYa::UnitTeam area_team,
         int x,
         int y);
+    static bool IsPositionInRecoveryArea(
+        LangYa::UnitTeam area_team,
+        int x,
+        int y);
     static bool IsPositionInCentralLeftLineArea(
         LangYa::UnitTeam area_team,
         int x,

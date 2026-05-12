@@ -1414,6 +1414,16 @@ bool AreaManager::IsPositionInMiniRoadlandArea(
     return Area::IsPointInsideMiniRoadlandArea(area_team, x, y);
 }
 
+bool AreaManager::IsPositionInRecoveryArea(
+    const LangYa::UnitTeam area_team,
+    const int x,
+    const int y) {
+    if (area_team != LangYa::UnitTeam::Red && area_team != LangYa::UnitTeam::Blue) {
+        return false;
+    }
+    return Area::IsPointInsideRecoveryArea(area_team, x, y);
+}
+
 bool AreaManager::IsPositionInCentralLeftLineArea(
     const LangYa::UnitTeam area_team,
     const int x,
