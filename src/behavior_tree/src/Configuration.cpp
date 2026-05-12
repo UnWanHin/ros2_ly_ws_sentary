@@ -83,7 +83,7 @@ BehaviorTree::CompetitionProfile ParseCompetitionProfile(const std::string& valu
 }
 
 bool IsValidBaseGoal(const std::uint8_t goal_id) {
-    return goal_id <= LangYa::CentralToBase.ID;
+    return BehaviorTree::AreaManager::IsValidBaseGoalId(goal_id);
 }
 
 bool ReadOptionalBoolParam(
@@ -704,12 +704,14 @@ namespace LangYa {
             na.HighlandCompatDisableRotate = compat.value("DisableRotate", na.HighlandCompatDisableRotate);
             na.HighlandCompatArriveDistanceCm = compat.value("ArriveDistanceCm", na.HighlandCompatArriveDistanceCm);
             na.HighlandCompatTimeoutSec = compat.value("TimeoutSec", na.HighlandCompatTimeoutSec);
+            na.DistanceFallbackGraceMs = compat.value("DistanceFallbackGraceMs", na.DistanceFallbackGraceMs);
         }
         na.HighlandCompatEnable = j.value("HighlandCompatEnable", na.HighlandCompatEnable);
         na.HighlandCompatDisableRotate = j.value("HighlandCompatDisableRotate", na.HighlandCompatDisableRotate);
         na.HighlandCompatArriveDistanceCm =
             j.value("HighlandCompatArriveDistanceCm", na.HighlandCompatArriveDistanceCm);
         na.HighlandCompatTimeoutSec = j.value("HighlandCompatTimeoutSec", na.HighlandCompatTimeoutSec);
+        na.DistanceFallbackGraceMs = j.value("DistanceFallbackGraceMs", na.DistanceFallbackGraceMs);
     }
 
     void from_json(const json& j, AimTargetAutonomySetting& aa) {
@@ -808,6 +810,24 @@ namespace LangYa {
                     continue;
                 }
                 AppendRegionalPatrolGoalByName(goal_name, rp.Goals);
+            }
+        }
+    }
+
+    void from_json(const json& j, SpecialMiniRoadlandSetting& mr) {
+        mr.Enable = j.value("Enable", mr.Enable);
+        mr.GoalHoldSec = j.value("GoalHoldSec", mr.GoalHoldSec);
+        mr.SpeedLevel = j.value("SpeedLevel", mr.SpeedLevel);
+        const int goal_base_id = j.value("GoalBaseId", static_cast<int>(mr.GoalBaseId));
+        mr.GoalBaseId = static_cast<std::uint8_t>(std::clamp(goal_base_id, 0, 255));
+    }
+
+    void from_json(const json& j, SpecialSetting& ss) {
+        if (j.contains("MiniRoadland")) {
+            if (j.at("MiniRoadland").is_object()) {
+                j.at("MiniRoadland").get_to(ss.MiniRoadland);
+            } else if (j.at("MiniRoadland").is_boolean()) {
+                ss.MiniRoadland.Enable = j.at("MiniRoadland").get<bool>();
             }
         }
     }
@@ -994,6 +1014,9 @@ namespace LangYa {
         }
         if (j.contains("RegionalIdlePatrol")) {
             j.at("RegionalIdlePatrol").get_to(c.RegionalIdlePatrolSettings);
+        }
+        if (j.contains("Special")) {
+            j.at("Special").get_to(c.SpecialSettings);
         }
         if (j.contains("RegionalAreaTask")) {
             j.at("RegionalAreaTask").get_to(c.RegionalAreaTaskSettings);
@@ -1225,6 +1248,43 @@ namespace BehaviorTree {
                 "Task/OutpostConfirm/SuppressChaseWhileActive"
             },
             config.TaskSettings.OutpostConfirm.SuppressChaseWhileActive);
+    }
+
+    void Application::ApplySpecialParameterOverrides() {
+        auto& mini = config.SpecialSettings.MiniRoadland;
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "Special.MiniRoadland.Enable",
+                "Special/MiniRoadland/Enable",
+                "Special.MiniRoadland",
+                "Special/MiniRoadland"
+            },
+            mini.Enable);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Special.MiniRoadland.GoalHoldSec",
+                "Special/MiniRoadland/GoalHoldSec"
+            },
+            mini.GoalHoldSec);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Special.MiniRoadland.SpeedLevel",
+                "Special/MiniRoadland/SpeedLevel"
+            },
+            mini.SpeedLevel);
+        int goal_base_id = static_cast<int>(mini.GoalBaseId);
+        if (ReadOptionalIntParam(
+                node_,
+                {
+                    "Special.MiniRoadland.GoalBaseId",
+                    "Special/MiniRoadland/GoalBaseId"
+                },
+                goal_base_id)) {
+            mini.GoalBaseId = static_cast<std::uint8_t>(std::clamp(goal_base_id, 0, 255));
+        }
     }
 
     void Application::ApplyFaceModeParameterOverrides() {
@@ -1828,6 +1888,7 @@ namespace BehaviorTree {
         config = j.get<Config>();
         ApplyTaskParameterOverrides();
         ApplyAreaManagerParameterOverrides();
+        ApplySpecialParameterOverrides();
         ApplyStartGateParameterOverrides();
         ApplyNaviRotateControlParameterOverrides();
         ApplyFaceModeParameterOverrides();
@@ -1998,6 +2059,11 @@ namespace BehaviorTree {
         for (const auto goal_id : config.RegionalIdlePatrolSettings.Goals) {
             LoggerPtr->Debug("Goal: {}", static_cast<int>(goal_id));
         }
+        LoggerPtr->Debug("------ Special ------");
+        LoggerPtr->Debug("MiniRoadland.Enable: {}", config.SpecialSettings.MiniRoadland.Enable);
+        LoggerPtr->Debug("MiniRoadland.GoalHoldSec: {}", config.SpecialSettings.MiniRoadland.GoalHoldSec);
+        LoggerPtr->Debug("MiniRoadland.GoalBaseId: {}", static_cast<int>(config.SpecialSettings.MiniRoadland.GoalBaseId));
+        LoggerPtr->Debug("MiniRoadland.SpeedLevel: {}", config.SpecialSettings.MiniRoadland.SpeedLevel);
         LoggerPtr->Debug("------ RegionalAreaTask ------");
         LoggerPtr->Debug("Enable: {}", config.RegionalAreaTaskSettings.Enable);
         LoggerPtr->Debug("IgnoreRecovery: {}", config.RegionalAreaTaskSettings.IgnoreRecovery);
@@ -2068,11 +2134,12 @@ namespace BehaviorTree {
             LoggerPtr->Debug("  {}", area);
         }
         LoggerPtr->Debug(
-            "NaviGoal.HighlandCompat(enable/disable_rotate/arrive_cm/timeout_s): {}/{}/{}/{}",
+            "NaviGoal.HighlandCompat(enable/disable_rotate/arrive_cm/timeout_s/distance_fallback_grace_ms): {}/{}/{}/{}/{}",
             config.DecisionAutonomySettings.NaviGoal.HighlandCompatEnable,
             config.DecisionAutonomySettings.NaviGoal.HighlandCompatDisableRotate,
             config.DecisionAutonomySettings.NaviGoal.HighlandCompatArriveDistanceCm,
-            config.DecisionAutonomySettings.NaviGoal.HighlandCompatTimeoutSec);
+            config.DecisionAutonomySettings.NaviGoal.HighlandCompatTimeoutSec,
+            config.DecisionAutonomySettings.NaviGoal.DistanceFallbackGraceMs);
         LoggerPtr->Debug(
             "AimTarget(enable, weights priority/distance/low_health/current_target, hold_ms/switch_ms/health_fresh_ms/dead_confirm_ms/dead_hold_ms/respawn_transition_ms/invuln_sec/sentry_invuln_sec): {}/{}/{}/{}/{}/{}/{}/{}/{}/{}/{}/{}/{}",
             config.DecisionAutonomySettings.AimTarget.Enable,
@@ -2545,6 +2612,28 @@ namespace BehaviorTree {
             LoggerPtr->Warning("RegionalIdlePatrol enabled but all GoalEnable entries are false or invalid.");
         }
 
+        auto& mini_roadland = config.SpecialSettings.MiniRoadland;
+        if (mini_roadland.GoalHoldSec <= 0) {
+            LoggerPtr->Warning("Invalid Special.MiniRoadland.GoalHoldSec={}, fallback to 6.",
+                               mini_roadland.GoalHoldSec);
+            mini_roadland.GoalHoldSec = 6;
+        }
+        if (mini_roadland.GoalBaseId != LangYa::MiniRoadland.ID) {
+            LoggerPtr->Warning("Invalid Special.MiniRoadland.GoalBaseId={}, fallback to MiniRoadland.",
+                               static_cast<int>(mini_roadland.GoalBaseId));
+            mini_roadland.GoalBaseId = LangYa::MiniRoadland.ID;
+        }
+        if (mini_roadland.SpeedLevel < 0) {
+            LoggerPtr->Warning("Invalid Special.MiniRoadland.SpeedLevel={}, fallback to 1.",
+                               mini_roadland.SpeedLevel);
+            mini_roadland.SpeedLevel = 1;
+        }
+        if (mini_roadland.SpeedLevel > 255) {
+            LoggerPtr->Warning("Invalid Special.MiniRoadland.SpeedLevel={}, clamp to 255.",
+                               mini_roadland.SpeedLevel);
+            mini_roadland.SpeedLevel = 255;
+        }
+
         auto& highland_task = config.RegionalAreaTaskSettings.MyHighland;
         if (highland_task.ApproachTimeoutSec <= 0) {
             LoggerPtr->Warning(
@@ -2888,6 +2977,11 @@ namespace BehaviorTree {
             LoggerPtr->Warning("Invalid DecisionAutonomy.NaviGoal.HighlandCompat.TimeoutSec={}, fallback to 6.",
                                autonomy.NaviGoal.HighlandCompatTimeoutSec);
             autonomy.NaviGoal.HighlandCompatTimeoutSec = 6;
+        }
+        if (autonomy.NaviGoal.DistanceFallbackGraceMs < 0) {
+            LoggerPtr->Warning("Invalid DecisionAutonomy.NaviGoal.DistanceFallbackGraceMs={}, fallback to 3000.",
+                               autonomy.NaviGoal.DistanceFallbackGraceMs);
+            autonomy.NaviGoal.DistanceFallbackGraceMs = 3000;
         }
         clamp_non_negative(autonomy.AimTarget.PriorityWeight, "DecisionAutonomy.AimTarget.PriorityWeight");
         clamp_non_negative(autonomy.AimTarget.DistanceWeight, "DecisionAutonomy.AimTarget.DistanceWeight");

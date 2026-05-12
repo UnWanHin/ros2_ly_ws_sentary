@@ -255,6 +255,8 @@ void PrintExactMembership(UnitTeam area_team, int x, int y) {
               << (BehaviorTree::Area::IsPointInsideProtectHeroArea(area_team, x, y) ? "true" : "false") << "\n";
     std::cout << "  " << TeamName(area_team) << "_roadland_follow_mode: "
               << (BehaviorTree::Area::IsPointInsideRoadlandFollowModeArea(area_team, x, y) ? "true" : "false") << "\n";
+    std::cout << "  " << TeamName(area_team) << "_mini_roadland: "
+              << (BehaviorTree::Area::IsPointInsideMiniRoadlandArea(area_team, x, y) ? "true" : "false") << "\n";
 }
 
 void PrintResolution(UnitTeam my_team, int x, int y) {

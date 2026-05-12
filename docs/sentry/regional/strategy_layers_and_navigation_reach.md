@@ -9,7 +9,7 @@ Updated: 2026-05-13
 你的理想分層應該理解成：
 
 ```text
-Hard -> Task -> Tactical -> Default
+Hard -> Task -> Tactical -> Special -> Default
 ```
 
 實際 XML 裡會插入資料準備節點，所以目前 live 順序是：
@@ -24,6 +24,7 @@ UpdateGlobalData
 -> PreprocessData
 -> SelectAimTarget
 -> Tactical
+-> Special
 -> Default
 -> Finalizer
 -> SelectPosture
@@ -32,7 +33,7 @@ UpdateGlobalData
 
 `PreprocessData / SelectAimTarget` 不是策略優先級，它們是 Tactical 前的資料整理。因為 Tactical 裡 Chase、RegionalDefense、ProtectHero 等會用本 tick 的目標、坐標、敵情，所以它們必須在 Tactical 前。
 
-現在大方向是對的：Hard 最高，Task 支援任務次之，Tactical 戰術事件再來，Default 是兜底的大區域任務。
+現在大方向是對的：Hard 最高，Task 支援任務次之，Tactical 戰術事件再來，Special 是可開關的專項巡察層，Default 是兜底的大區域任務。
 
 ## 各層責任
 
@@ -79,6 +80,17 @@ Task 現在不應該擁有 Highland/Base/Roadland/Central 這些普通大區域�
 
 Tactical 應該高於 Default。也就是有敵情、防守、保護英雄、前哨、打符、追擊這類明確戰術事件時，不應該被 Base 巡邏、Highland 駐守、Roadland 駐守、Central 遊走頂掉。
 
+### Special
+
+入口：`StrategyManager::RunSpecial()`
+
+目前只做可開關的 `MiniRoadland` 偵察駐守：
+
+- 配置在 `src/behavior_tree/config/Special.yaml`。
+- 優先級低於 Tactical，高於 Default。
+- 只去己方 `MiniRoadland` 點；不會因敵方 Roadland scope 變化而去敵方點。
+- 這個任務直接下發 `MiniRoadland` base goal，因此可無視 `Area.MyArea.Roadland=false`；但它不會無視更高層的 Recovery、RegionalDefense、ProtectHero、Buff/Outpost、Chase 等 Tactical/Task/Hard 行為。
+
 ### Default
 
 入口：`StrategyManager::RunDefault()`
@@ -95,7 +107,7 @@ Default 擁有這些普通大區域行為：
 - `MyRoadland`：Roadland 駐守/穿越流程，其中不可讓出的穿越段會臨時由 Hard 接管。
 - `CommonCentral`：Central 遊走。
 
-Default 是底層行為。它只應該在 Hard/Task/Tactical 都沒接管時輸出導航目標。
+Default 是底層行為。它只應該在 Hard/Task/Tactical/Special 都沒接管時輸出導航目標。
 
 ### Finalizer
 
@@ -118,7 +130,7 @@ Default 是底層行為。它只應該在 Hard/Task/Tactical 都沒接管時輸�
 1. goal id 必須有效。
 2. `/ly/navi/reachable` 如果對當前 goal 新鮮且為 `false`，直接判定未到達。
 3. `/ly/navi/reached` 如果對當前 goal 新鮮，就完全相信它：`true` 就到達，`false` 就未到達。
-4. 只有 `/ly/navi/reached` 沒有新鮮值時，才用自身融合坐標和 goal 坐標距離做兜底。
+4. 只有 `/ly/navi/reached` 沒有新鮮值，且新 goal 下發已超過 `DecisionAutonomy.NaviGoal.DistanceFallbackGraceMs` 後，才用自身融合坐標和 goal 坐標距離做兜底。默認 grace 是 3000 ms。
 
 `/ly/navi/reached` 的新鮮條件不是單純 2 秒內收到就算，它還要求：
 

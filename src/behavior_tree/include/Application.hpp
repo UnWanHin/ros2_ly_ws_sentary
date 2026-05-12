@@ -574,6 +574,7 @@ public:
     bool RunStrategyLayerDefault();
     bool RunStrategyLayerTask();
     bool RunStrategyLayerTactical();
+    bool RunStrategyLayerSpecial();
     bool RunStrategyLayerFinalizer();
     void SetPositionLeagueSimple();
     void SetPositionShowcasePatrol();
@@ -661,6 +662,7 @@ public:
         UnitTeam enemy_team) const;
     bool TrySetRegionalDefenseGoal(UnitTeam my_team, UnitTeam enemy_team);
     bool TrySetProtectHeroGoal(UnitTeam my_team, UnitTeam enemy_team);
+    bool TrySetSpecialMiniRoadlandGoal(UnitTeam my_team, UnitTeam enemy_team);
     bool TickNaviProgressWatchdog(UnitTeam my_team, UnitTeam enemy_team);
     bool IsDefaultRegionalDecisionReady(UnitTeam my_team, UnitTeam enemy_team) const;
     bool TrySetDefaultRegionalGoal(UnitTeam my_team, UnitTeam enemy_team);
@@ -712,6 +714,7 @@ public:
     bool ConfigurationInit();
     void ApplyTaskParameterOverrides();
     void ApplyAreaManagerParameterOverrides();
+    void ApplySpecialParameterOverrides();
     void ApplyStartGateParameterOverrides();
     void ApplyNaviRotateControlParameterOverrides();
     void ApplyFaceModeParameterOverrides();

@@ -10,6 +10,7 @@ const char* StrategyLayerName(const StrategyLayer layer) noexcept {
         case StrategyLayer::Default: return "Default";
         case StrategyLayer::Task: return "Task";
         case StrategyLayer::Tactical: return "Tactical";
+        case StrategyLayer::Special: return "Special";
         case StrategyLayer::Finalizer: return "Finalizer";
         default: return "Unknown";
     }
@@ -242,6 +243,20 @@ bool StrategyManager::RunTactical(Application& app) {
     return false;
 }
 
+bool StrategyManager::RunSpecial(Application& app) {
+    if (handled_) {
+        return true;
+    }
+
+    const UnitTeam my_team = app.team;
+    const UnitTeam enemy_team = app.team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
+    if (app.TrySetSpecialMiniRoadlandGoal(my_team, enemy_team)) {
+        MarkHandled(app, StrategyLayer::Special);
+        return true;
+    }
+    return false;
+}
+
 bool StrategyManager::RunFinalizer(Application& app) {
     if (!handled_) {
         MarkHandled(app, StrategyLayer::Finalizer);
@@ -265,6 +280,10 @@ bool Application::RunStrategyLayerTask() {
 
 bool Application::RunStrategyLayerTactical() {
     return strategyManager_.RunTactical(*this);
+}
+
+bool Application::RunStrategyLayerSpecial() {
+    return strategyManager_.RunSpecial(*this);
 }
 
 bool Application::RunStrategyLayerFinalizer() {

@@ -321,6 +321,7 @@ namespace LangYa
     static constexpr TeamedLocation CentralToBase{ 22 };
     static constexpr TeamedLocation BuffOutpost{ 23 };
     static constexpr TeamedLocation OutpostGuard{ 24 };
+    static constexpr TeamedLocation MiniRoadland{ 25 };
 
     /// @brief 团队类型
     enum class NaviTeam : std::uint8_t
@@ -663,6 +664,7 @@ namespace LangYa
         bool HighlandCompatDisableRotate{false};
         int HighlandCompatArriveDistanceCm{20};
         int HighlandCompatTimeoutSec{6};
+        int DistanceFallbackGraceMs{3000};
     };
 
     struct RegionalDefenseSetting {
@@ -712,6 +714,17 @@ namespace LangYa
             LangYa::CastleLeft1.ID,
             LangYa::CastleLeft2.ID
         };
+    };
+
+    struct SpecialMiniRoadlandSetting {
+        bool Enable{false};
+        int GoalHoldSec{6};
+        std::uint8_t GoalBaseId{MiniRoadland.ID};
+        int SpeedLevel{1};
+    };
+
+    struct SpecialSetting {
+        SpecialMiniRoadlandSetting MiniRoadland{};
     };
 
     struct MyHighlandAreaTaskSetting {
@@ -853,6 +866,7 @@ namespace LangYa
         HeroProtectionSetting HeroProtectionSettings{};
         NaviProgressWatchdogSetting NaviProgressWatchdogSettings{};
         RegionalIdlePatrolSetting RegionalIdlePatrolSettings{};
+        SpecialSetting SpecialSettings{};
         RegionalAreaTaskSetting RegionalAreaTaskSettings{};
         std::vector<int> AimTargetPriority{
             static_cast<int>(ArmorType::Hero),

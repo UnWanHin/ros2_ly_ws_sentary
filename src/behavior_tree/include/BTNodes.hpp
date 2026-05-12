@@ -161,6 +161,19 @@ public:
     }
 };
 
+class SpecialLayerNode : public AppSyncActionNode {
+public:
+    SpecialLayerNode(const std::string& name, const BT::NodeConfig& config, Application* app)
+        : AppSyncActionNode(name, config, app) {}
+
+    static BT::PortsList providedPorts() { return {}; }
+
+    BT::NodeStatus tick() override {
+        app_->RunStrategyLayerSpecial();
+        return BT::NodeStatus::SUCCESS;
+    }
+};
+
 class FinalizerLayerNode : public AppSyncActionNode {
 public:
     FinalizerLayerNode(const std::string& name, const BT::NodeConfig& config, Application* app)

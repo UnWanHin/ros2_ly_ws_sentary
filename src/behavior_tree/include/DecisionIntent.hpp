@@ -20,7 +20,8 @@ enum class DecisionLayer : std::uint8_t {
     RegionalDefense = 5,
     AimMode = 6,
     Watchdog = 7,
-    IdlePatrol = 8
+    IdlePatrol = 8,
+    Special = 9
 };
 
 enum class DecisionReason : std::uint8_t {
@@ -45,7 +46,8 @@ enum class DecisionReason : std::uint8_t {
     NaviTransition = 18,
     Start = 19,
     OwnFortressGainPointEnemy = 20,
-    ProtectHero = 21
+    ProtectHero = 21,
+    SpecialMiniRoadland = 22
 };
 
 struct DecisionIntent {
@@ -69,6 +71,7 @@ inline const char* DecisionLayerToString(const DecisionLayer layer) noexcept {
         case DecisionLayer::AimMode: return "aim_mode";
         case DecisionLayer::Watchdog: return "watchdog";
         case DecisionLayer::IdlePatrol: return "idle_patrol";
+        case DecisionLayer::Special: return "special";
         default: return "unknown";
     }
 }
@@ -96,6 +99,7 @@ inline const char* DecisionReasonToString(const DecisionReason reason) noexcept 
         case DecisionReason::Start: return "start";
         case DecisionReason::OwnFortressGainPointEnemy: return "own_fortress_gain_point_enemy";
         case DecisionReason::ProtectHero: return "protect_hero";
+        case DecisionReason::SpecialMiniRoadland: return "special_mini_roadland";
         default: return "unknown";
     }
 }
@@ -122,6 +126,7 @@ inline DecisionReason DecisionReasonFromString(const std::string_view reason) no
     if (reason == "start") return DecisionReason::Start;
     if (reason == "own_fortress_gain_point_enemy") return DecisionReason::OwnFortressGainPointEnemy;
     if (reason == "protect_hero") return DecisionReason::ProtectHero;
+    if (reason == "special_mini_roadland") return DecisionReason::SpecialMiniRoadland;
     return DecisionReason::Unknown;
 }
 
@@ -154,6 +159,8 @@ inline DecisionLayer DecisionLayerForReason(const DecisionReason reason) noexcep
         case DecisionReason::AreaScopeBlocked:
         case DecisionReason::ProtectHero:
             return DecisionLayer::Tactical;
+        case DecisionReason::SpecialMiniRoadland:
+            return DecisionLayer::Special;
         default:
             return DecisionLayer::Unknown;
     }
@@ -166,6 +173,7 @@ inline int DecisionPriorityForReason(const DecisionReason reason) noexcept {
         case DecisionLayer::AimMode: return 260;
         case DecisionLayer::Watchdog: return 240;
         case DecisionLayer::Task: return 200;
+        case DecisionLayer::Special: return 140;
         case DecisionLayer::Default: return 120;
         case DecisionLayer::Tactical: return 100;
         case DecisionLayer::IdlePatrol: return 40;

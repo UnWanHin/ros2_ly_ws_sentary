@@ -2502,7 +2502,20 @@ namespace BehaviorTree {
         if (external_reach.has_value()) {
             return *external_reach;
         }
-        if (!IsSentryPositionFresh(std::chrono::steady_clock::now())) {
+        const auto& runtime = areaManager_.ProgressWatchdogRuntime();
+        const auto now = std::chrono::steady_clock::now();
+        const int distance_fallback_grace_ms =
+            std::max(0, config.DecisionAutonomySettings.NaviGoal.DistanceFallbackGraceMs);
+        if (distance_fallback_grace_ms > 0 &&
+            runtime.Active &&
+            runtime.GoalId == goal_id &&
+            runtime.GoalPosition.x == goal_point.x &&
+            runtime.GoalPosition.y == goal_point.y &&
+            runtime.GoalStartTime.time_since_epoch().count() != 0 &&
+            now - runtime.GoalStartTime < std::chrono::milliseconds(distance_fallback_grace_ms)) {
+            return false;
+        }
+        if (!IsSentryPositionFresh(now)) {
             return false;
         }
         const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
@@ -3776,6 +3789,74 @@ namespace BehaviorTree {
         return true;
     }
 
+    bool Application::TrySetSpecialMiniRoadlandGoal(
+        const UnitTeam my_team,
+        const UnitTeam enemy_team) {
+        (void)enemy_team;
+        const auto& mini = config.SpecialSettings.MiniRoadland;
+        if (!mini.Enable ||
+            IsLeagueProfile() ||
+            IsShowcasePatrolEnabled() ||
+            GetStrategyMode() != StrategyMode::Regional ||
+            my_team == UnitTeam::Unknown) {
+            return false;
+        }
+
+        const auto goal_base_id = mini.GoalBaseId;
+        if (goal_base_id != LangYa::MiniRoadland.ID) {
+            return false;
+        }
+
+        if (areaManager_.RegionalAreaTaskActive()) {
+            if (areaManager_.RegionalAreaTask().Type == RegionalAreaTaskType::MyRoadland &&
+                !areaManager_.RegionalAreaTaskCanYieldToHigherPriority()) {
+                return false;
+            }
+            const auto canceled_task_type = areaManager_.RegionalAreaTask().Type;
+            areaManager_.ClearRegionalAreaTask();
+            defaultStrategyManager_.RecordRegionalAreaResult(
+                canceled_task_type,
+                "canceled",
+                std::chrono::steady_clock::now(),
+                config.RegionalAreaTaskSettings.DefaultPolicy);
+            ResetRegionalAreaControlOverride();
+            gimbalControlData.FireCode.FollowMode = 0;
+            if (LoggerPtr) {
+                LoggerPtr->Info("RegionalAreaTask canceled: Special MiniRoadland has higher priority.");
+            }
+        }
+
+        constexpr bool apply_team_offset = true;
+        const auto resolved_goal_id = ResolveGoalId(goal_base_id, my_team, apply_team_offset);
+        const bool should_refresh_goal =
+            naviCommandGoal != resolved_goal_id ||
+            !naviGoalPublishAllowed_ ||
+            naviCommandIntervalClock.trigger();
+        if (should_refresh_goal) {
+            SetPositionByBaseGoal(goal_base_id, my_team, apply_team_offset);
+            naviCommandIntervalClock.reset(Seconds{std::max(1, mini.GoalHoldSec)});
+            speedLevel = static_cast<std::uint8_t>(std::clamp(mini.SpeedLevel, 0, 255));
+            if (LoggerPtr) {
+                const auto point = AreaManager::GoalPointByBaseId(goal_base_id, my_team);
+                LoggerPtr->Info(
+                    "Special MiniRoadland: goal={} point=({}, {}) hold={}s speed={}.",
+                    static_cast<int>(naviCommandGoal),
+                    static_cast<int>(point.x),
+                    static_cast<int>(point.y),
+                    std::max(1, mini.GoalHoldSec),
+                    static_cast<int>(speedLevel));
+            }
+        }
+
+        RecordDecisionIntent(MakeDecisionIntent(
+            DecisionReason::SpecialMiniRoadland,
+            goal_base_id,
+            my_team,
+            apply_team_offset,
+            "special_mini_roadland"));
+        return true;
+    }
+
     void Application::UpdateNaviProgressWatchdogGoal(
         const std::uint8_t base_goal_id,
         const UnitTeam goal_team,
@@ -4159,6 +4240,7 @@ namespace BehaviorTree {
             case LangYa::CentralToBase.ID: assign_position(LangYa::CentralToBase, BehaviorTree::Area::CentralToBase); break;
             case LangYa::BuffOutpost.ID: assign_position(LangYa::BuffOutpost, BehaviorTree::Area::BuffOutpost); break;
             case LangYa::OutpostGuard.ID: assign_position(LangYa::OutpostGuard, BehaviorTree::Area::OutpostGuard); break;
+            case LangYa::MiniRoadland.ID: assign_position(LangYa::MiniRoadland, BehaviorTree::Area::MiniRoadland); break;
             default:
                 LoggerPtr->Warning("Unknown base goal id={}, fallback to Home.", static_cast<int>(base_goal_id));
                 effective_base_goal_id = LangYa::Home.ID;

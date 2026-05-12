@@ -8,10 +8,11 @@ class Application;
 
 enum class StrategyLayer : std::uint8_t {
     Hard = 0,
-    Default = 1,
-    Task = 2,
-    Tactical = 3,
-    Finalizer = 4
+    Task = 1,
+    Tactical = 2,
+    Special = 3,
+    Default = 4,
+    Finalizer = 5
 };
 
 const char* StrategyLayerName(StrategyLayer layer) noexcept;
@@ -30,6 +31,7 @@ public:
     bool RunDefault(Application& app);
     bool RunTask(Application& app);
     bool RunTactical(Application& app);
+    bool RunSpecial(Application& app);
     bool RunFinalizer(Application& app);
 
 private:

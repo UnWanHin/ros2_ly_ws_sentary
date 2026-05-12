@@ -1,0 +1,10 @@
+behavior_tree:
+  ros__parameters:
+    Special:
+      # Optional regional layer between Tactical and Default.
+      # MiniRoadland ignores MyArea.Roadland scope and only commands the own-team goal.
+      MiniRoadland:
+        Enable: false
+        GoalBaseId: 25
+        GoalHoldSec: 6
+        SpeedLevel: 1

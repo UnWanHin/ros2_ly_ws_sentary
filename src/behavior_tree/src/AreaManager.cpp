@@ -1298,6 +1298,7 @@ Area::Point<std::uint16_t> AreaManager::GoalPointByBaseId(
         case LangYa::CentralToBase.ID: return Area::CentralToBase(goal_team);
         case LangYa::BuffOutpost.ID: return Area::BuffOutpost(goal_team);
         case LangYa::OutpostGuard.ID: return Area::OutpostGuard(goal_team);
+        case LangYa::MiniRoadland.ID: return Area::MiniRoadland(goal_team);
         default: return Area::Home(goal_team);
     }
 }
@@ -1399,6 +1400,16 @@ bool AreaManager::IsPositionInRoadlandFollowModeArea(
         return false;
     }
     return Area::IsPointInsideRoadlandFollowModeArea(area_team, x, y);
+}
+
+bool AreaManager::IsPositionInMiniRoadlandArea(
+    const LangYa::UnitTeam area_team,
+    const int x,
+    const int y) {
+    if (area_team != LangYa::UnitTeam::Red && area_team != LangYa::UnitTeam::Blue) {
+        return false;
+    }
+    return Area::IsPointInsideMiniRoadlandArea(area_team, x, y);
 }
 
 std::optional<AreaKey> AreaManager::ResolveAreaKeyForPoint(

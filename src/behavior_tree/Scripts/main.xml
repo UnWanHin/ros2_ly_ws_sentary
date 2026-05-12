@@ -11,6 +11,7 @@
       <PreprocessData/>
       <SelectAimTarget/>
       <Tactical/>
+      <Special/>
       <Default/>
       <Finalizer/>
       <SelectPosture/>
@@ -27,6 +28,7 @@
     <Action ID="Default"/>
     <Action ID="Task"/>
     <Action ID="Tactical"/>
+    <Action ID="Special"/>
     <Action ID="Finalizer"/>
     <Action ID="PreprocessData"/>
     <Action ID="SelectAimTarget"/>

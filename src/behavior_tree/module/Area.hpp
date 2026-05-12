@@ -362,6 +362,20 @@ namespace Area {
         { 2290, 1474 }
     };
 
+    static const std::vector<Point<int>> RedMiniRoadlandPoints = {
+        { 392, 189 },
+        { 510, 196 },
+        { 517, 26 },
+        { 392, 26 }
+    };
+
+    static const std::vector<Point<int>> BlueMiniRoadlandPoints = {
+        { 2408, 1311 },
+        { 2290, 1304 },
+        { 2283, 1474 },
+        { 2408, 1474 }
+    };
+
     static const std::vector<Point<int>> RedMainAreaHighlandPoints = {
         { 313, 1065 },
         { 315, 1497 },
@@ -693,6 +707,27 @@ namespace Area {
         return IsPointInsideAreaShapes(RoadlandFollowModeShapes(team), x, y);
     }
 
+    inline const std::vector<Point<int>>& MiniRoadlandBoundary(const UnitTeam team) {
+        return PointLookupTeam(team) == UnitTeam::Blue
+            ? BlueMiniRoadlandPoints
+            : RedMiniRoadlandPoints;
+    }
+
+    inline std::vector<AreaShapeView> MiniRoadlandShapes(const UnitTeam team) {
+        std::vector<AreaShapeView> shapes{PolygonShape(MiniRoadlandBoundary(team))};
+        return shapes;
+    }
+
+    inline bool IsPointInsideMiniRoadlandArea(
+        const UnitTeam team,
+        const int x,
+        const int y) {
+        if (team != UnitTeam::Red && team != UnitTeam::Blue) {
+            return false;
+        }
+        return IsPointInsideAreaShapes(MiniRoadlandShapes(team), x, y);
+    }
+
     // 特殊点 {Red, Blue}
     static const Location<std::uint16_t> Home{ {393, 810}, {2408, 683} };
     static const Location<std::uint16_t> Base{ {401, 691}, {2400, 811} };
@@ -721,6 +756,7 @@ namespace Area {
     static const Location<std::uint16_t> CentralToBase{ {451, 146}, {2349, 1354} };
     static const Location<std::uint16_t> BuffOutpost{ {1100, 1130}, {1700, 370} };
     static const Location<std::uint16_t> OutpostGuard{ {969, 368}, {1831, 1132} };
+    static const Location<std::uint16_t> MiniRoadland{ {457, 72}, {2343, 1428} };
 
     // 地图静态瞄准点，单位为 cm；z 是目标中心相对地图平面的高度。
     static const Location3<double> OutpostPose{ {1093.0, 366.0, 100.0}, {1707.0, 1134.0, 100.0} };

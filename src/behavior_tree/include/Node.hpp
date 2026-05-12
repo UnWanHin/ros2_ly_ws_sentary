@@ -971,6 +971,9 @@ namespace BT {
         if (str == "Highland") return LangYa::Highland;
         if (str == "BaseToCentral") return LangYa::BaseToCentral;
         if (str == "CentralToBase") return LangYa::CentralToBase;
+        if (str == "BuffOutpost") return LangYa::BuffOutpost;
+        if (str == "OutpostGuard") return LangYa::OutpostGuard;
+        if (str == "MiniRoadland") return LangYa::MiniRoadland;
         return LangYa::Home; // 默認返回 Home
     }
 

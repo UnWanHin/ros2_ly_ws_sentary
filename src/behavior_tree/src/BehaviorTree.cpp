@@ -127,6 +127,7 @@ bool Application::RegisterTreeNodes() {
         REGISTER_APP_NODE(DefaultLayerNode, "Default");
         REGISTER_APP_NODE(TaskLayerNode, "Task");
         REGISTER_APP_NODE(TacticalLayerNode, "Tactical");
+        REGISTER_APP_NODE(SpecialLayerNode, "Special");
         REGISTER_APP_NODE(FinalizerLayerNode, "Finalizer");
         REGISTER_APP_NODE(IsAimModeBuffNode, "IsAimModeBuff");
         REGISTER_APP_NODE(IsAimModeOutpostNode, "IsAimModeOutpost");
