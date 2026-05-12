@@ -182,11 +182,14 @@ namespace BehaviorTree {
         }};
     }
 
+    UnitTeam MainAreaLookupTeam(const MainAreaBoundaryView& area) {
+        return area.Team == UnitTeam::Unknown ? UnitTeam::Red : area.Team;
+    }
+
     const MainAreaBoundaryView* FindContainingMainArea(const int x, const int y) {
         static const auto boundaries = MainAreaBoundaries();
         for (const auto& boundary : boundaries) {
-            if (boundary.Boundary != nullptr &&
-                Area::IsPointInsideMainAreaBoundary(*boundary.Boundary, x, y)) {
+            if (Area::IsPointInsideMainArea(MainAreaLookupTeam(boundary), boundary.Kind, x, y)) {
                 return &boundary;
             }
         }
@@ -336,7 +339,7 @@ namespace BehaviorTree {
                 return result;
             }
         } else {
-            if (Area::IsPointInsideMainAreaBoundary(*self_area->Boundary, goal_x, goal_y)) {
+            if (Area::IsPointInsideMainArea(MainAreaLookupTeam(*self_area), self_area->Kind, goal_x, goal_y)) {
                 result.Status = "inside";
                 return result;
             }
@@ -1009,41 +1012,6 @@ namespace BehaviorTree {
             config.FaceModeSettings.FallbackToPatrolScanMode2;
         const bool face_mode_active =
             face_mode_requested && !face_mode_fallback_patrol_scan;
-        const auto chase_mode_enabled = [&]() -> bool {
-            if (!chaseTacticalAllowed_ ||
-                !config.ChaseSettings.Enable ||
-                !config.ChaseSettings.FollowAimTarget) {
-                return false;
-            }
-            if (ShouldSuppressChaseForOutpostTask() ||
-                !UnitTypeFromArmorType(targetArmor.Type).has_value()) {
-                return false;
-            }
-            switch (aimMode) {
-                case AimMode::AutoAim:
-                    return config.ChaseSettings.EnableInAutoAim;
-                case AimMode::RotateScan:
-                    return config.ChaseSettings.EnableInRotateScan;
-                case AimMode::Outpost:
-                    return config.ChaseSettings.EnableInOutpostMode;
-                case AimMode::Buff:
-                    return config.ChaseSettings.EnableInBuffMode;
-                default:
-                    return false;
-            }
-        }();
-        naviRelativeTargetValid = false;
-        naviRelativeTargetX = 0.0F;
-        naviRelativeTargetY = 0.0F;
-        naviRelativeTargetZ = 0.0F;
-        naviRelativeTargetDistance = 0.0F;
-        naviRelativeTargetYawErrorDeg = 0.0F;
-        naviRelativeTargetPitchErrorDeg = 0.0F;
-        naviRelativeTargetArmorType = 0U;
-        naviRelativeTargetAimMode = static_cast<std::uint8_t>(aimMode);
-        naviRelativeTargetFrameId.clear();
-        naviChaseOfficialTargetValid = false;
-        naviChaseOfficialTargetArmorType = 0U;
         auto reset_patrol_scan_state = [this]() {
             patrolScanDirection_ = 1;
             patrolScanCenterYaw_ = 0.0f;
@@ -1256,208 +1224,8 @@ namespace BehaviorTree {
             gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
         }
 
-        bool has_external_target_point = false;
-        ExternalAimTargetCache external_target_point{};
-        if (config.ExternalAimSettings.Enable &&
-            hasExternalAimTargets_ &&
-            targetArmor.Type != ArmorType::UnKnown) {
-            const auto target_index = static_cast<std::size_t>(targetArmor.Type);
-            const int fresh_ms = std::max(1, config.ExternalAimSettings.TargetFreshTimeoutMs);
-            if (target_index < externalAimTargets_.size()) {
-                const auto& cached = externalAimTargets_[target_index];
-                has_external_target_point =
-                    cached.Valid &&
-                    cached.LastSeen.time_since_epoch().count() != 0 &&
-                    now - cached.LastSeen <= std::chrono::milliseconds(fresh_ms) &&
-                    std::isfinite(cached.X) &&
-                    std::isfinite(cached.Y) &&
-                    std::isfinite(cached.Z) &&
-                    std::isfinite(cached.Distance) &&
-                    cached.Distance > 0.0f &&
-                    !cached.FrameId.empty();
-                if (has_external_target_point) {
-                    external_target_point = cached;
-                }
-            }
-        }
-
-        if (chase_mode_enabled) {
-            const bool chase_to_navi = config.ChaseSettings.ToNavi;
-            const bool navi_to_navi =
-                config.NaviSettings.UseXY && config.NaviSettings.ToNavi;
-            bool has_chase_target = has_target_for_angles || has_external_target_point;
-            if (!has_chase_target &&
-                config.ChaseSettings.LostTargetHoldMs > 0 &&
-                activeAimData->HasLatchedAngles &&
-                lastTargetSeenTime.time_since_epoch().count() != 0) {
-                has_chase_target = (now - lastTargetSeenTime) <=
-                    std::chrono::milliseconds(config.ChaseSettings.LostTargetHoldMs);
-            }
-
-            bool chase_distance_valid = false;
-            float distance_cm = 0.0f;
-            if (has_external_target_point) {
-                distance_cm = external_target_point.Distance * 100.0f;
-                chase_distance_valid =
-                    distance_cm >= static_cast<float>(config.ChaseSettings.MinValidDistanceCm) &&
-                    distance_cm <= static_cast<float>(config.ChaseSettings.MaxValidDistanceCm);
-            } else if (std::isfinite(targetArmor.Distance) && targetArmor.Distance > 0.0f) {
-                distance_cm = targetArmor.Distance * 100.0f;
-                chase_distance_valid =
-                    distance_cm >= static_cast<float>(config.ChaseSettings.MinValidDistanceCm) &&
-                    distance_cm <= static_cast<float>(config.ChaseSettings.MaxValidDistanceCm);
-            }
-
-            if (has_chase_target &&
-                chase_distance_valid &&
-                targetArmor.Type != ArmorType::UnKnown) {
-                const auto yaw_error_deg = static_cast<double>(
-                    std::remainder(nextAngles.Yaw - gimbalAngles.Yaw, 360.0f));
-                const auto pitch_error_deg = static_cast<double>(
-                    std::remainder(nextAngles.Pitch - gimbalAngles.Pitch, 360.0f));
-                const double distance_m = static_cast<double>(distance_cm) * 0.01;
-                constexpr double kDegToRad = 0.017453292519943295;
-                const double yaw_rad = yaw_error_deg * kDegToRad;
-                const double pitch_rad = pitch_error_deg * kDegToRad;
-                const double cos_pitch = std::cos(pitch_rad);
-
-                naviRelativeTargetValid = true;
-                if (has_external_target_point) {
-                    naviRelativeTargetX = external_target_point.X;
-                    naviRelativeTargetY = external_target_point.Y;
-                    naviRelativeTargetZ = external_target_point.Z;
-                    naviRelativeTargetDistance = external_target_point.Distance;
-                    naviRelativeTargetFrameId = external_target_point.FrameId;
-                } else {
-                    naviRelativeTargetX = static_cast<float>(distance_m * cos_pitch * std::cos(yaw_rad));
-                    naviRelativeTargetY = static_cast<float>(distance_m * cos_pitch * std::sin(yaw_rad));
-                    naviRelativeTargetZ = static_cast<float>(distance_m * std::sin(pitch_rad));
-                    naviRelativeTargetDistance = static_cast<float>(distance_m);
-                    naviRelativeTargetFrameId.clear();
-                }
-                naviRelativeTargetYawErrorDeg = static_cast<float>(yaw_error_deg);
-                naviRelativeTargetPitchErrorDeg = static_cast<float>(pitch_error_deg);
-                naviRelativeTargetArmorType = static_cast<std::uint8_t>(targetArmor.Type);
-
-                if (chase_to_navi) {
-                    // 直发地图坐标模式：UseXY=true 且关闭 tf bridge。
-                    if (config.NaviSettings.UseXY && !navi_to_navi) {
-                        const auto maybe_target_unit = UnitTypeFromArmorType(targetArmor.Type);
-                        if (maybe_target_unit.has_value()) {
-                            const int enemy_x = static_cast<int>(enemyRobots[*maybe_target_unit].position_.X);
-                            const int enemy_y = static_cast<int>(enemyRobots[*maybe_target_unit].position_.Y);
-                            if (enemy_x >= 0 && enemy_y >= 0) {
-                                naviGoalPosition.x = static_cast<std::uint16_t>(std::clamp(enemy_x, 0, 65535));
-                                naviGoalPosition.y = static_cast<std::uint16_t>(std::clamp(enemy_y, 0, 65535));
-                            }
-                        }
-                    }
-                } else {
-                    const double distance_error_cm =
-                        static_cast<double>(distance_cm) -
-                        static_cast<double>(config.ChaseSettings.PreferredDistanceCm);
-
-                    int chase_vx = 0;
-                    if (std::abs(distance_error_cm) >
-                        static_cast<double>(config.ChaseSettings.DistanceDeadbandCm)) {
-                        chase_vx = static_cast<int>(std::lround(config.ChaseSettings.DistanceKp * distance_error_cm));
-                        chase_vx = std::clamp(
-                            chase_vx,
-                            -config.ChaseSettings.MaxBackwardSpeed,
-                            config.ChaseSettings.MaxForwardSpeed);
-                    }
-
-                    int chase_vy = 0;
-                    if (config.ChaseSettings.UseYawStrafe) {
-                        if (std::abs(yaw_error_deg) > static_cast<double>(config.ChaseSettings.YawDeadbandDeg)) {
-                            chase_vy = static_cast<int>(std::lround(config.ChaseSettings.YawKp * yaw_error_deg));
-                            if (config.ChaseSettings.InvertStrafeDirection) {
-                                chase_vy = -chase_vy;
-                            }
-                            chase_vy = std::clamp(
-                                chase_vy,
-                                -config.ChaseSettings.MaxStrafeSpeed,
-                                config.ChaseSettings.MaxStrafeSpeed);
-                        }
-                    }
-
-                    nextVelocity.X = static_cast<std::int8_t>(ClampToInt8(chase_vx));
-                    nextVelocity.Y = static_cast<std::int8_t>(ClampToInt8(chase_vy));
-                }
-            } else if (!chase_to_navi &&
-                       config.ChaseSettings.StopWhenNoTarget) {
-                nextVelocity = VelocityType{0, 0};
-            } else if (chase_to_navi &&
-                       config.NaviSettings.UseXY &&
-                       !navi_to_navi &&
-                       config.ChaseSettings.StopWhenNoTarget) {
-                const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
-                const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
-                if (self_x >= 0 && self_y >= 0) {
-                    naviGoalPosition.x = static_cast<std::uint16_t>(std::clamp(self_x, 0, 65535));
-                    naviGoalPosition.y = static_cast<std::uint16_t>(std::clamp(self_y, 0, 65535));
-                }
-            }
-
-            if (chase_to_navi && config.ChaseSettings.UseOfficialPositionSource) {
-                const bool should_try_official =
-                    !has_external_target_point &&
-                    (config.ChaseSettings.PreferOfficialPositionSource || !naviRelativeTargetValid);
-                const auto maybe_target_unit = UnitTypeFromArmorType(targetArmor.Type);
-                const auto sentry_index = static_cast<std::size_t>(UnitType::Sentry);
-                const bool self_position_fresh =
-                    hasReceivedSentryPosition_ &&
-                    sentry_index < lastFriendPositionRxTime_.size() &&
-                    lastFriendPositionRxTime_[sentry_index].time_since_epoch().count() != 0 &&
-                    now - lastFriendPositionRxTime_[sentry_index] <=
-                        std::chrono::milliseconds(std::max(1, config.ChaseSettings.OfficialPositionFreshMs));
-
-                if (should_try_official &&
-                    maybe_target_unit.has_value() &&
-                    IsEnemyPositionFresh(*maybe_target_unit, config.ChaseSettings.OfficialPositionFreshMs)) {
-                    const int target_x = static_cast<int>(enemyRobots[*maybe_target_unit].position_.X);
-                    const int target_y = static_cast<int>(enemyRobots[*maybe_target_unit].position_.Y);
-                    const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
-                    const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
-                    if (IsOfficialFieldPointValid(target_x, target_y) &&
-                        self_position_fresh &&
-                        IsOfficialFieldPointValid(self_x, self_y)) {
-                        const auto official_chase_goal = BuildOfficialChaseGoal(
-                            self_x,
-                            self_y,
-                            target_x,
-                            target_y,
-                            config.ChaseSettings.PreferredDistanceCm,
-                            config.ChaseSettings.DistanceDeadbandCm);
-                        const auto limited_chase_goal = ApplyOfficialChaseAreaLimit(
-                            self_x,
-                            self_y,
-                            official_chase_goal,
-                            team,
-                            team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue,
-                            config.DecisionAutonomySettings.NaviGoal,
-                            config.ChaseSettings.AreaLimit);
-                        naviGoalPosition = limited_chase_goal.Goal;
-                        if ((limited_chase_goal.Limited || limited_chase_goal.Held) &&
-                            now - lastOfficialChaseAreaLimitLogTime_ > std::chrono::seconds(2)) {
-                            LoggerPtr->Info(
-                                "Official chase area limit {} area={} self=({}, {}) raw_goal=({}, {}) limited=({}, {}).",
-                                limited_chase_goal.Status,
-                                limited_chase_goal.AreaName,
-                                self_x,
-                                self_y,
-                                static_cast<int>(official_chase_goal.x),
-                                static_cast<int>(official_chase_goal.y),
-                                static_cast<int>(naviGoalPosition.x),
-                                static_cast<int>(naviGoalPosition.y));
-                            lastOfficialChaseAreaLimitLogTime_ = now;
-                        }
-                        naviChaseOfficialTargetValid = true;
-                        naviChaseOfficialTargetArmorType =
-                            static_cast<std::uint8_t>(targetArmor.Type);
-                    }
-                }
-            }
+        if (naviChaseVelocityActive_) {
+            nextVelocity = naviChaseVelocity;
         }
 
         if (fortress_defense_stand_still) {
@@ -3241,6 +3009,264 @@ namespace BehaviorTree {
         return config.TaskSettings.Outpost &&
             config.TaskSettings.OutpostConfirm.SuppressChaseWhileActive &&
             (outpostVisualScoutNavigationActive_ || aimMode == AimMode::Outpost);
+    }
+
+    bool Application::TryApplyChaseTactical() {
+        if (!CanAuthorizeChaseTactical()) {
+            return false;
+        }
+
+        const auto maybe_target_unit = UnitTypeFromArmorType(targetArmor.Type);
+        if (!maybe_target_unit.has_value()) {
+            return false;
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        const bool external_aim_active = config.ExternalAimSettings.Enable;
+        if (external_aim_active &&
+            externalAimData.LastValidTime.time_since_epoch().count() != 0 &&
+            now - externalAimData.LastValidTime >
+                std::chrono::milliseconds(std::max(1, config.ExternalAimSettings.ResultFreshTimeoutMs))) {
+            externalAimData.Valid = false;
+            externalAimData.Fresh = false;
+            externalAimData.FireStatus = false;
+            externalAimData.HasLatchedAngles = false;
+        }
+
+        const AimData* active_aim_data = external_aim_active ? &externalAimData : &autoAimData;
+        if (!external_aim_active) {
+            if (aimMode == AimMode::Buff) {
+                active_aim_data = &buffAimData;
+            } else if (aimMode == AimMode::Outpost) {
+                active_aim_data = &outpostAimData;
+            }
+        }
+
+        const bool find_target_callback = isFindTargetAtomic.load(std::memory_order_relaxed);
+        const bool find_target =
+            find_target_callback && active_aim_data->Fresh && active_aim_data->Valid;
+        const bool has_recent_latched_target = [&]() {
+            if (find_target || !config.AimDebugSettings.ReuseLatchedAnglesOnNoTarget ||
+                !active_aim_data->HasLatchedAngles ||
+                active_aim_data->LastValidTime.time_since_epoch().count() == 0) {
+                return false;
+            }
+            const int hold_ms = std::max(0, config.AimDebugSettings.LatchedTargetHoldMs);
+            return hold_ms > 0 &&
+                   (now - active_aim_data->LastValidTime) <= std::chrono::milliseconds(hold_ms);
+        }();
+        const bool has_target_for_angles = find_target || has_recent_latched_target;
+        const auto chase_angles = has_target_for_angles ? active_aim_data->Angles : gimbalAngles;
+
+        bool has_external_target_point = false;
+        ExternalAimTargetCache external_target_point{};
+        if (config.ExternalAimSettings.Enable &&
+            hasExternalAimTargets_ &&
+            targetArmor.Type != ArmorType::UnKnown) {
+            const auto target_index = static_cast<std::size_t>(targetArmor.Type);
+            const int fresh_ms = std::max(1, config.ExternalAimSettings.TargetFreshTimeoutMs);
+            if (target_index < externalAimTargets_.size()) {
+                const auto& cached = externalAimTargets_[target_index];
+                has_external_target_point =
+                    cached.Valid &&
+                    cached.LastSeen.time_since_epoch().count() != 0 &&
+                    now - cached.LastSeen <= std::chrono::milliseconds(fresh_ms) &&
+                    std::isfinite(cached.X) &&
+                    std::isfinite(cached.Y) &&
+                    std::isfinite(cached.Z) &&
+                    std::isfinite(cached.Distance) &&
+                    cached.Distance > 0.0f &&
+                    !cached.FrameId.empty();
+                if (has_external_target_point) {
+                    external_target_point = cached;
+                }
+            }
+        }
+
+        const bool chase_to_navi = config.ChaseSettings.ToNavi;
+        const bool navi_to_navi = config.NaviSettings.UseXY && config.NaviSettings.ToNavi;
+        bool has_chase_target = has_target_for_angles || has_external_target_point;
+        if (!has_chase_target &&
+            config.ChaseSettings.LostTargetHoldMs > 0 &&
+            active_aim_data->HasLatchedAngles &&
+            lastTargetSeenTime.time_since_epoch().count() != 0) {
+            has_chase_target = (now - lastTargetSeenTime) <=
+                std::chrono::milliseconds(config.ChaseSettings.LostTargetHoldMs);
+        }
+
+        bool chase_distance_valid = false;
+        float distance_cm = 0.0f;
+        if (has_external_target_point) {
+            distance_cm = external_target_point.Distance * 100.0f;
+            chase_distance_valid =
+                distance_cm >= static_cast<float>(config.ChaseSettings.MinValidDistanceCm) &&
+                distance_cm <= static_cast<float>(config.ChaseSettings.MaxValidDistanceCm);
+        } else if (std::isfinite(targetArmor.Distance) && targetArmor.Distance > 0.0f) {
+            distance_cm = targetArmor.Distance * 100.0f;
+            chase_distance_valid =
+                distance_cm >= static_cast<float>(config.ChaseSettings.MinValidDistanceCm) &&
+                distance_cm <= static_cast<float>(config.ChaseSettings.MaxValidDistanceCm);
+        }
+
+        bool chase_output_active = false;
+        if (has_chase_target &&
+            chase_distance_valid &&
+            targetArmor.Type != ArmorType::UnKnown) {
+            const auto yaw_error_deg = static_cast<double>(
+                std::remainder(chase_angles.Yaw - gimbalAngles.Yaw, 360.0f));
+            const auto pitch_error_deg = static_cast<double>(
+                std::remainder(chase_angles.Pitch - gimbalAngles.Pitch, 360.0f));
+            const double distance_m = static_cast<double>(distance_cm) * 0.01;
+            constexpr double kDegToRad = 0.017453292519943295;
+            const double yaw_rad = yaw_error_deg * kDegToRad;
+            const double pitch_rad = pitch_error_deg * kDegToRad;
+            const double cos_pitch = std::cos(pitch_rad);
+
+            naviRelativeTargetValid = true;
+            if (has_external_target_point) {
+                naviRelativeTargetX = external_target_point.X;
+                naviRelativeTargetY = external_target_point.Y;
+                naviRelativeTargetZ = external_target_point.Z;
+                naviRelativeTargetDistance = external_target_point.Distance;
+                naviRelativeTargetFrameId = external_target_point.FrameId;
+            } else {
+                naviRelativeTargetX = static_cast<float>(distance_m * cos_pitch * std::cos(yaw_rad));
+                naviRelativeTargetY = static_cast<float>(distance_m * cos_pitch * std::sin(yaw_rad));
+                naviRelativeTargetZ = static_cast<float>(distance_m * std::sin(pitch_rad));
+                naviRelativeTargetDistance = static_cast<float>(distance_m);
+                naviRelativeTargetFrameId.clear();
+            }
+            naviRelativeTargetYawErrorDeg = static_cast<float>(yaw_error_deg);
+            naviRelativeTargetPitchErrorDeg = static_cast<float>(pitch_error_deg);
+            naviRelativeTargetArmorType = static_cast<std::uint8_t>(targetArmor.Type);
+            naviRelativeTargetAimMode = static_cast<std::uint8_t>(aimMode);
+            chase_output_active = true;
+
+            if (chase_to_navi) {
+                if (config.NaviSettings.UseXY && !navi_to_navi) {
+                    const int enemy_x = static_cast<int>(enemyRobots[*maybe_target_unit].position_.X);
+                    const int enemy_y = static_cast<int>(enemyRobots[*maybe_target_unit].position_.Y);
+                    if (enemy_x >= 0 && enemy_y >= 0) {
+                        naviGoalPosition.x = static_cast<std::uint16_t>(std::clamp(enemy_x, 0, 65535));
+                        naviGoalPosition.y = static_cast<std::uint16_t>(std::clamp(enemy_y, 0, 65535));
+                    }
+                }
+            } else {
+                const double distance_error_cm =
+                    static_cast<double>(distance_cm) -
+                    static_cast<double>(config.ChaseSettings.PreferredDistanceCm);
+
+                int chase_vx = 0;
+                if (std::abs(distance_error_cm) >
+                    static_cast<double>(config.ChaseSettings.DistanceDeadbandCm)) {
+                    chase_vx = static_cast<int>(std::lround(config.ChaseSettings.DistanceKp * distance_error_cm));
+                    chase_vx = std::clamp(
+                        chase_vx,
+                        -config.ChaseSettings.MaxBackwardSpeed,
+                        config.ChaseSettings.MaxForwardSpeed);
+                }
+
+                int chase_vy = 0;
+                if (config.ChaseSettings.UseYawStrafe &&
+                    std::abs(yaw_error_deg) > static_cast<double>(config.ChaseSettings.YawDeadbandDeg)) {
+                    chase_vy = static_cast<int>(std::lround(config.ChaseSettings.YawKp * yaw_error_deg));
+                    if (config.ChaseSettings.InvertStrafeDirection) {
+                        chase_vy = -chase_vy;
+                    }
+                    chase_vy = std::clamp(
+                        chase_vy,
+                        -config.ChaseSettings.MaxStrafeSpeed,
+                        config.ChaseSettings.MaxStrafeSpeed);
+                }
+
+                naviChaseVelocity = VelocityType{
+                    static_cast<std::int8_t>(ClampToInt8(chase_vx)),
+                    static_cast<std::int8_t>(ClampToInt8(chase_vy))
+                };
+                naviChaseVelocityActive_ = true;
+            }
+        } else if (!chase_to_navi && config.ChaseSettings.StopWhenNoTarget) {
+            naviChaseVelocity = VelocityType{0, 0};
+            naviChaseVelocityActive_ = true;
+            chase_output_active = true;
+        } else if (chase_to_navi &&
+                   config.NaviSettings.UseXY &&
+                   !navi_to_navi &&
+                   config.ChaseSettings.StopWhenNoTarget) {
+            const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
+            const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
+            if (self_x >= 0 && self_y >= 0) {
+                naviGoalPosition.x = static_cast<std::uint16_t>(std::clamp(self_x, 0, 65535));
+                naviGoalPosition.y = static_cast<std::uint16_t>(std::clamp(self_y, 0, 65535));
+            }
+            chase_output_active = true;
+        } else if (chase_to_navi && config.ChaseSettings.StopWhenNoTarget) {
+            chase_output_active = true;
+        }
+
+        if (chase_to_navi && config.ChaseSettings.UseOfficialPositionSource) {
+            const bool should_try_official =
+                !has_external_target_point &&
+                (config.ChaseSettings.PreferOfficialPositionSource || !naviRelativeTargetValid);
+            const auto sentry_index = static_cast<std::size_t>(UnitType::Sentry);
+            const bool self_position_fresh =
+                hasReceivedSentryPosition_ &&
+                sentry_index < lastFriendPositionRxTime_.size() &&
+                lastFriendPositionRxTime_[sentry_index].time_since_epoch().count() != 0 &&
+                now - lastFriendPositionRxTime_[sentry_index] <=
+                    std::chrono::milliseconds(std::max(1, config.ChaseSettings.OfficialPositionFreshMs));
+
+            if (should_try_official &&
+                IsEnemyPositionFresh(*maybe_target_unit, config.ChaseSettings.OfficialPositionFreshMs)) {
+                const int target_x = static_cast<int>(enemyRobots[*maybe_target_unit].position_.X);
+                const int target_y = static_cast<int>(enemyRobots[*maybe_target_unit].position_.Y);
+                const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
+                const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
+                if (IsOfficialFieldPointValid(target_x, target_y) &&
+                    self_position_fresh &&
+                    IsOfficialFieldPointValid(self_x, self_y)) {
+                    const auto official_chase_goal = BuildOfficialChaseGoal(
+                        self_x,
+                        self_y,
+                        target_x,
+                        target_y,
+                        config.ChaseSettings.PreferredDistanceCm,
+                        config.ChaseSettings.DistanceDeadbandCm);
+                    const auto limited_chase_goal = ApplyOfficialChaseAreaLimit(
+                        self_x,
+                        self_y,
+                        official_chase_goal,
+                        team,
+                        team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue,
+                        config.DecisionAutonomySettings.NaviGoal,
+                        config.ChaseSettings.AreaLimit);
+                    naviGoalPosition = limited_chase_goal.Goal;
+                    if ((limited_chase_goal.Limited || limited_chase_goal.Held) &&
+                        now - lastOfficialChaseAreaLimitLogTime_ > std::chrono::seconds(2)) {
+                        LoggerPtr->Info(
+                            "Official chase area limit {} area={} self=({}, {}) raw_goal=({}, {}) limited=({}, {}).",
+                            limited_chase_goal.Status,
+                            limited_chase_goal.AreaName,
+                            self_x,
+                            self_y,
+                            static_cast<int>(official_chase_goal.x),
+                            static_cast<int>(official_chase_goal.y),
+                            static_cast<int>(naviGoalPosition.x),
+                            static_cast<int>(naviGoalPosition.y));
+                        lastOfficialChaseAreaLimitLogTime_ = now;
+                    }
+                    naviChaseOfficialTargetValid = true;
+                    naviChaseOfficialTargetArmorType =
+                        static_cast<std::uint8_t>(targetArmor.Type);
+                    chase_output_active = true;
+                }
+            }
+        }
+
+        if (chase_output_active) {
+            chaseTacticalAllowed_ = true;
+        }
+        return chase_output_active;
     }
 
     bool Application::IsFortressGainPointEnemyOccupiedEventRawFresh(const int referee_fresh_ms) const noexcept {

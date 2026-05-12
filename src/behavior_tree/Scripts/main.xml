@@ -6,21 +6,15 @@
       <EvaluateEvents/>
       <SelectAimMode/>
       <SelectStrategyMode/>
-      <SubTree ID="StrategyStack"/>
-      <PreprocessData/>
-      <SelectAimTarget/>
-      <SelectPosture/>
-      <PublishAll/>
-    </Sequence>
-  </BehaviorTree>
-
-  <BehaviorTree ID="StrategyStack">
-    <Sequence name="StrategyLayerStack">
       <Hard/>
       <Default/>
       <Task/>
+      <PreprocessData/>
+      <SelectAimTarget/>
       <Tactical/>
       <Finalizer/>
+      <SelectPosture/>
+      <PublishAll/>
     </Sequence>
   </BehaviorTree>
 

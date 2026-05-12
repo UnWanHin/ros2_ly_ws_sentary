@@ -6,6 +6,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <vector>
 #include <limits>
 #include <cstdint>
@@ -63,8 +64,44 @@ namespace Area {
 
     enum class ShapeType : std::uint8_t {
         Polygon,
+        Polyline,
         CircleRing,
     };
+
+    inline constexpr int kDefaultPolylineAreaToleranceCm = 20;
+
+    inline const char* ShapeTypeName(const ShapeType shape) noexcept {
+        switch (shape) {
+            case ShapeType::Polygon: return "polygon";
+            case ShapeType::Polyline: return "polyline";
+            case ShapeType::CircleRing: return "circle_ring";
+            default: return "unknown";
+        }
+    }
+
+    struct AreaShapeView {
+        ShapeType Shape{ShapeType::Polygon};
+        const std::vector<Point<int>>* Points{nullptr};
+        int ToleranceCm{0};
+    };
+
+    inline AreaShapeView PolygonShape(const std::vector<Point<int>>& points) noexcept {
+        return AreaShapeView{
+            .Shape = ShapeType::Polygon,
+            .Points = &points,
+            .ToleranceCm = 0,
+        };
+    }
+
+    inline AreaShapeView PolylineShape(
+        const std::vector<Point<int>>& points,
+        const int tolerance_cm = kDefaultPolylineAreaToleranceCm) noexcept {
+        return AreaShapeView{
+            .Shape = ShapeType::Polyline,
+            .Points = &points,
+            .ToleranceCm = tolerance_cm,
+        };
+    }
 
     template<Arithmetic T>
     struct CircleRing {
@@ -520,6 +557,89 @@ namespace Area {
         return inside;
     }
 
+    inline double DistanceSqToPolylineSegment(
+        const Point<int>& point,
+        const Point<int>& start,
+        const Point<int>& end) noexcept {
+        const double px = static_cast<double>(point.x);
+        const double py = static_cast<double>(point.y);
+        const double ax = static_cast<double>(start.x);
+        const double ay = static_cast<double>(start.y);
+        const double bx = static_cast<double>(end.x);
+        const double by = static_cast<double>(end.y);
+        const double vx = bx - ax;
+        const double vy = by - ay;
+        const double length_sq = vx * vx + vy * vy;
+        if (length_sq <= 1e-9) {
+            const double dx = px - ax;
+            const double dy = py - ay;
+            return dx * dx + dy * dy;
+        }
+        const double wx = px - ax;
+        const double wy = py - ay;
+        const double t = std::clamp((wx * vx + wy * vy) / length_sq, 0.0, 1.0);
+        const double cx = ax + t * vx;
+        const double cy = ay + t * vy;
+        const double dx = px - cx;
+        const double dy = py - cy;
+        return dx * dx + dy * dy;
+    }
+
+    inline bool IsPointInsidePolylineArea(
+        const std::vector<Point<int>>& polyline,
+        const int x,
+        const int y,
+        const int tolerance_cm = kDefaultPolylineAreaToleranceCm) noexcept {
+        if (polyline.size() < 2) {
+            return false;
+        }
+        const Point<int> point{x, y};
+        const double tolerance = static_cast<double>(std::max(0, tolerance_cm));
+        const double tolerance_sq = tolerance * tolerance;
+        for (std::size_t i = 1; i < polyline.size(); ++i) {
+            if (DistanceSqToPolylineSegment(point, polyline[i - 1], polyline[i]) <= tolerance_sq) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    inline bool IsPointInsideAreaShape(
+        const AreaShapeView& shape,
+        const int x,
+        const int y) noexcept {
+        if (shape.Points == nullptr) {
+            return false;
+        }
+        switch (shape.Shape) {
+            case ShapeType::Polygon:
+                return IsPointInsideMainAreaBoundary(*shape.Points, x, y);
+            case ShapeType::Polyline:
+                return IsPointInsidePolylineArea(*shape.Points, x, y, shape.ToleranceCm);
+            default:
+                return false;
+        }
+    }
+
+    inline bool IsPointInsideAreaShapes(
+        const std::vector<AreaShapeView>& shapes,
+        const int x,
+        const int y) noexcept {
+        for (const auto& shape : shapes) {
+            if (IsPointInsideAreaShape(shape, x, y)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    inline std::vector<AreaShapeView> MainAreaShapes(
+        const UnitTeam team,
+        const MainAreaKind kind) {
+        std::vector<AreaShapeView> shapes{PolygonShape(MainAreaBoundary(team, kind))};
+        return shapes;
+    }
+
     inline bool IsPointInsideMainArea(
         const UnitTeam team,
         const MainAreaKind kind,
@@ -528,13 +648,18 @@ namespace Area {
         if (team != UnitTeam::Red && team != UnitTeam::Blue) {
             return false;
         }
-        return IsPointInsideMainAreaBoundary(MainAreaBoundary(team, kind), x, y);
+        return IsPointInsideAreaShapes(MainAreaShapes(team, kind), x, y);
     }
 
     inline const std::vector<Point<int>>& ProtectHeroBoundary(const UnitTeam team) {
         return PointLookupTeam(team) == UnitTeam::Blue
             ? BlueProtectHeroPoints
             : RedProtectHeroPoints;
+    }
+
+    inline std::vector<AreaShapeView> ProtectHeroShapes(const UnitTeam team) {
+        std::vector<AreaShapeView> shapes{PolygonShape(ProtectHeroBoundary(team))};
+        return shapes;
     }
 
     inline bool IsPointInsideProtectHeroArea(
@@ -544,13 +669,18 @@ namespace Area {
         if (team != UnitTeam::Red && team != UnitTeam::Blue) {
             return false;
         }
-        return IsPointInsideMainAreaBoundary(ProtectHeroBoundary(team), x, y);
+        return IsPointInsideAreaShapes(ProtectHeroShapes(team), x, y);
     }
 
     inline const std::vector<Point<int>>& RoadlandFollowModeBoundary(const UnitTeam team) {
         return PointLookupTeam(team) == UnitTeam::Blue
             ? BlueRoadlandFollowModePoints
             : RedRoadlandFollowModePoints;
+    }
+
+    inline std::vector<AreaShapeView> RoadlandFollowModeShapes(const UnitTeam team) {
+        std::vector<AreaShapeView> shapes{PolygonShape(RoadlandFollowModeBoundary(team))};
+        return shapes;
     }
 
     inline bool IsPointInsideRoadlandFollowModeArea(
@@ -560,7 +690,7 @@ namespace Area {
         if (team != UnitTeam::Red && team != UnitTeam::Blue) {
             return false;
         }
-        return IsPointInsideMainAreaBoundary(RoadlandFollowModeBoundary(team), x, y);
+        return IsPointInsideAreaShapes(RoadlandFollowModeShapes(team), x, y);
     }
 
     // 特殊点 {Red, Blue}

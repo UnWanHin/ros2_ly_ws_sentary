@@ -1,6 +1,6 @@
 # Regional 決策框架說明
 
-Updated: 2026-05-12
+Updated: 2026-05-13
 
 本文記錄目前 `behavior_tree` 裡 regional 決策的區域狀態機框架：它會做哪些任務、怎麼啟動、怎麼判斷到達、會輸出什麼控制，以及哪些階段會被高優先級邏輯打斷。
 
@@ -68,10 +68,10 @@ Regional 裡常見控制語義：
 
 ## Strategy 分層
 
-`Scripts/main.xml` 的主決策入口現在走 `StrategyStack`，每 tick 依序執行：
+`Scripts/main.xml` 的主決策入口現在先跑高優先級策略層，再整理目標，最後跑 Tactical/Finalizer。每 tick 依序執行：
 
 ```text
-EvaluateEvents -> Hard -> Default -> Task -> Tactical -> Finalizer
+EvaluateEvents -> Hard -> Default -> Task -> PreprocessData -> SelectAimTarget -> Tactical -> Finalizer
 ```
 
 各層的責任是：
@@ -80,7 +80,8 @@ EvaluateEvents -> Hard -> Default -> Task -> Tactical -> Finalizer
 - `Hard`：最高優先級保護，處理 recovery/補血補彈和 Roadland 強綁定穿越段。Roadland 強綁定段在這層 hard lock，避免被戰術層中途搶走。
 - `Default`：無特別事件時的底層決策，現在按 `AreaManager.DefaultPolicy` 對已啟用的大區域做資源門檻、距離、目前區域、上次任務結果、冷卻和重試評分，再啟動 AreaManager 任務；沒有可用區域時不再 fallback 到任何舊點表。`RegionalIdlePatrol` 點表不再是正式 regional 的 Default 入口。
 - `Task`：已啟動的 AreaManager 任務繼續 tick，包含 Highland/Base/Roadland/Central 任務、Highland 兼容過渡和導航 watchdog。
-- `Tactical`：regional 只保留明確戰術 overlay：`RegionalDefense`、ProtectHero、Buff/Outpost 任務站位和導航 watchdog；不再調用舊單策略點表。`LeagueSimple` 只在 `CompetitionProfile=league` 時使用，Showcase 只在明確 showcase 配置時使用。
+- `PreprocessData / SelectAimTarget`：在 Tactical 前整理可打目標、官方坐標和本 tick `targetArmor`，讓戰術層使用最新目標資料。
+- `Tactical`：regional 只保留明確戰術 overlay：`RegionalDefense`、ProtectHero、Buff/Outpost 任務站位、Chase 追擊和導航 watchdog；不再調用舊單策略點表。`LeagueSimple` 只在 `CompetitionProfile=league` 時使用，Showcase 只在明確 showcase 配置時使用。
 - `Finalizer`：只做本 tick 策略層完成標記和黑板同步；regional 不再 fallback 到舊點表。
 
 分層狀態會寫入 BT blackboard：
@@ -485,7 +486,7 @@ FaceMode 負責固定點朝向和接管雲台角度。FollowMode 只負責下發
 - `Hard` recovery / Roadland hard lock；
 - `Default` 選中的 AreaManager 大區域任務；
 - `Task` 正在執行的區域狀態機、Highland transition、watchdog；
-- `Tactical` 的 `RegionalDefense` 或 Buff/Outpost 任務站位。
+- `Tactical` 的 `RegionalDefense`、ProtectHero、Buff/Outpost 任務站位或 Chase 追擊。
 
 如果這些都沒有輸出，`Finalizer` 只同步策略層 blackboard，不再做舊點表兜底。歷史單策略邏輯已從 live code 移除；需要對照時只看 `docs/record/` 裡的歷史記錄。
 

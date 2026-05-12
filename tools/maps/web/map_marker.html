@@ -97,7 +97,7 @@
       <div class="small">
         坐標系固定：左下角為 (0,0)，X 向右，Y 向上；點圖時會自動換算 cm。
       </div>
-      <div class="small">C++ 匯入支援 <span class="mono">Location&lt;...&gt; Name{{red},{blue}}</span> 點位，以及 <span class="mono">std::vector&lt;Point&lt;...&gt;&gt; NameRedPoints = {{...}}</span> 區塊線。</div>
+      <div class="small">C++ 匯入支援 <span class="mono">Location&lt;...&gt; Name{{red},{blue}}</span> 點位，以及 <span class="mono">std::vector&lt;Point&lt;...&gt;&gt; NameRedPoints = {{...}}</span> 區塊線；兩點自動作線段，多點可用 <span class="mono">PolylineShape(NamePoints)</span> 標成折線。</div>
       <div class="small">自定義點：輸入 X/Y 會即時預覽；X 或 Y 完成編輯(change)後會新增一個點，舊點不清除。地圖區右鍵也可直接新增自定義點。</div>
       <div class="small" id="pointStats">已標記 0/40，完整點位 0/20</div>
       <div class="small" id="regionStats">區塊 0</div>
@@ -475,6 +475,32 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
       return result;
     }
 
+    function parseAreaShapeReferences(text) {
+      const result = new Map();
+      const helperRegex = /\b(PolygonShape|PolylineShape)\s*\(\s*([A-Za-z_]\w*)/g;
+      let match;
+      while ((match = helperRegex.exec(text)) !== null) {
+        result.set(match[2], match[1] === "PolylineShape" ? "polyline" : "polygon");
+      }
+
+      const designatedRegex = /ShapeType::(Polygon|Polyline)[\s\S]{0,180}?\.Points\s*=\s*&?\s*([A-Za-z_]\w*)/g;
+      while ((match = designatedRegex.exec(text)) !== null) {
+        result.set(match[2], match[1] === "Polyline" ? "polyline" : "polygon");
+      }
+      return result;
+    }
+
+    function inferRegionShape(points) {
+      return Array.isArray(points) && points.length < 3 ? "polyline" : "polygon";
+    }
+
+    function normalizeRegionShape(region) {
+      if (!region || !Array.isArray(region.points)) return "polygon";
+      if (region.shape === "polyline") return "polyline";
+      if (region.points.length < 3) return "polyline";
+      return "polygon";
+    }
+
     function parseTeamedLocationIds(text) {
       const result = new Map();
       const idRegex = /static\s+constexpr\s+TeamedLocation\s+([A-Za-z_]\w*)\s*\{\s*(\d+)\s*\}\s*;/g;
@@ -570,6 +596,7 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
 
     function importCppRegions(text) {
       let imported = 0;
+      const shapeByName = parseAreaShapeReferences(text);
       const regionRegex = /(?:static\s+const\s+)?(?:std::)?vector\s*<\s*Point\s*<[^>]+>\s*>\s+(\w+)\s*=\s*\{([\s\S]*?)\}\s*;/g;
       let match;
       while ((match = regionRegex.exec(text)) !== null) {
@@ -579,6 +606,7 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
         state.regions.push({
           name: stripTeamSuffix(name),
           team: teamFromName(name),
+          shape: shapeByName.get(name) || inferRegionShape(points),
           points
         });
         imported += 1;
@@ -756,6 +784,7 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
 
     function drawRegion(region) {
       if (!Array.isArray(region.points) || region.points.length < 2) return;
+      const shape = normalizeRegionShape(region);
       const style = TEAM_STYLE[normalizeTeam(region.team)];
       ctx.save();
       ctx.strokeStyle = style.color;
@@ -768,11 +797,15 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
         if (index === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       });
-      ctx.closePath();
+      if (shape === "polygon") {
+        ctx.closePath();
+      }
       ctx.stroke();
-      ctx.globalAlpha = 0.12;
-      ctx.fill();
-      ctx.globalAlpha = 1;
+      if (shape === "polygon") {
+        ctx.globalAlpha = 0.12;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
       ctx.setLineDash([]);
       for (const point of region.points) {
         const [x, y] = toScreen(point[0], point[1]);
@@ -915,9 +948,13 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
       const radiusSq = radiusPx * radiusPx;
       for (const region of state.regions) {
         if (!Array.isArray(region.points) || region.points.length < 2) continue;
-        for (let index = 0; index < region.points.length; index += 1) {
+        const shape = normalizeRegionShape(region);
+        const segmentCount = shape === "polygon" ? region.points.length : region.points.length - 1;
+        for (let index = 0; index < segmentCount; index += 1) {
           const current = region.points[index];
-          const next = region.points[(index + 1) % region.points.length];
+          const next = shape === "polygon"
+            ? region.points[(index + 1) % region.points.length]
+            : region.points[index + 1];
           const [ax, ay] = toScreen(current[0], current[1]);
           const [bx, by] = toScreen(next[0], next[1]);
           const distSq = distanceToSegmentSquared(screenX, screenY, ax, ay, bx, by);

@@ -193,6 +193,8 @@ bool IsPointInsideRfidArea(const RfidAreaSpec& spec, const int x, const int y) n
                 return false;
             }
             return Area::IsPointInsideMainAreaBoundary(spec.Boundary, x, y);
+        case Area::ShapeType::Polyline:
+            return Area::IsPointInsidePolylineArea(spec.Boundary, x, y);
         case Area::ShapeType::CircleRing: {
             if (!IsCircleRingValid(spec.CircleRing)) {
                 return false;
@@ -265,6 +267,11 @@ std::vector<Area::Point<double>> ComputeRfidAreaRepresentativePoints(
             }
             return points;
         }
+        case Area::ShapeType::Polyline:
+            if (spec.Boundary.empty()) {
+                return {};
+            }
+            return {AverageCenter(spec.Boundary)};
         case Area::ShapeType::CircleRing:
             return ComputeCircleRingRepresentativePoints(spec.CircleRing);
         default:

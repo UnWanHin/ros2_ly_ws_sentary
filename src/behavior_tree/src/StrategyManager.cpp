@@ -139,8 +139,7 @@ bool StrategyManager::RunTactical(Application& app) {
     if (handled_) {
         if (handled_layer_ == StrategyLayer::Default &&
             !default_goal_commanded_ &&
-            app.CanAuthorizeChaseTactical()) {
-            app.SetChaseTacticalAllowed(true);
+            app.TryApplyChaseTactical()) {
             PublishRuntimeToBlackboards(app);
         }
         return true;
@@ -148,18 +147,14 @@ bool StrategyManager::RunTactical(Application& app) {
 
     if (app.IsLeagueProfile()) {
         app.SetPositionLeagueSimple();
-        if (app.CanAuthorizeChaseTactical()) {
-            app.SetChaseTacticalAllowed(true);
-        }
+        app.TryApplyChaseTactical();
         MarkHandled(app, StrategyLayer::Tactical);
         return true;
     }
 
     if (app.IsShowcasePatrolEnabled()) {
         app.SetPositionShowcasePatrol();
-        if (app.CanAuthorizeChaseTactical()) {
-            app.SetChaseTacticalAllowed(true);
-        }
+        app.TryApplyChaseTactical();
         MarkHandled(app, StrategyLayer::Tactical);
         return true;
     }
@@ -233,8 +228,7 @@ bool StrategyManager::RunTactical(Application& app) {
         return true;
     }
 
-    if (app.CanAuthorizeChaseTactical()) {
-        app.SetChaseTacticalAllowed(true);
+    if (app.TryApplyChaseTactical()) {
         MarkHandled(app, StrategyLayer::Tactical);
         return true;
     }
