@@ -403,6 +403,53 @@ def _flatten_row_major(matrix: "np.ndarray") -> List[float]:
     return [float(value) for value in matrix.reshape(-1)]
 
 
+def _point_values(values: "np.ndarray") -> List[float]:
+    return [float(value) for value in values.tolist()]
+
+
+def _save_input_yaml(
+    path: Path,
+    cfg: Dict[str, Any],
+    raw_pairs: Sequence[PointPair3D],
+    source_frame: str,
+    target_frame: str,
+    source_unit: str,
+    target_unit: str,
+    output_unit: str,
+    result: Dict[str, Any],
+) -> None:
+    data = dict(cfg) if isinstance(cfg, dict) else {}
+    data["source_frame"] = source_frame
+    data["target_frame"] = target_frame
+    data["source_unit"] = source_unit
+    data["target_unit"] = target_unit
+    data["output_unit"] = output_unit
+    data["points"] = [
+        {
+            "name": pair.name,
+            "source": _point_values(pair.source),
+            "target": _point_values(pair.target),
+        }
+        for pair in raw_pairs
+    ]
+    data["last_result"] = {
+        "model": "kabsch",
+        "num_points": result["num_points"],
+        "raw_goal_transform_matrix": result["matrix_4x4_row_major"],
+        "rotation_det": result["rotation_det"],
+        "translation": result["translation"],
+        "residual": {
+            "rmse": result["residual"]["rmse"],
+            "max": result["residual"]["max"],
+            "unit": result["residual"]["unit"],
+            "rmse_m": result["residual"]["rmse_m"],
+            "max_m": result["residual"]["max_m"],
+        },
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _dump_yaml(str(path), data)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -420,6 +467,14 @@ def main() -> int:
         ),
     )
     parser.add_argument("--output", default="", help="Optional output YAML path.")
+    parser.add_argument(
+        "--save-input",
+        action="store_true",
+        help=(
+            "After a successful solve, write the point table used and last_result "
+            "back to --input or the default navi_calib.yaml."
+        ),
+    )
     parser.add_argument(
         "--point",
         action="append",
@@ -498,11 +553,13 @@ def main() -> int:
     try:
         if args.point:
             raw_pairs = [_parse_point_text(text, i) for i, text in enumerate(args.point)]
+            pair_source = "cli"
         elif args.input:
             points_raw = cfg.get("points", [])
             if not isinstance(points_raw, list):
                 raise ValueError("'points' must be a list")
             raw_pairs = [_parse_yaml_pair(raw, i) for i, raw in enumerate(points_raw)]
+            pair_source = "input"
         else:
             raw_pairs = _prompt_pairs(
                 max(args.min_points, 3),
@@ -513,11 +570,13 @@ def main() -> int:
                 output_unit,
                 str(default_input_path) if default_input_path.is_file() else "",
             )
+            pair_source = "interactive"
             if not raw_pairs and default_input_path.is_file():
                 points_raw = cfg.get("points", [])
                 if not isinstance(points_raw, list):
                     raise ValueError(f"default input YAML '{default_input_path}' points must be a list")
                 raw_pairs = [_parse_yaml_pair(raw, i) for i, raw in enumerate(points_raw)]
+                pair_source = "default_input"
         pairs = _convert_pairs_to_output_unit(raw_pairs, source_unit, target_unit, output_unit)
         _validate_pairs(pairs, max(args.min_points, 3))
         r, t, singular_values = _kabsch(pairs, args.allow_reflection, args.snap_epsilon)
@@ -577,6 +636,26 @@ def main() -> int:
             print(f"[ERROR] Failed to write output YAML: {ex}", file=sys.stderr)
             return 2
 
+    saved_input_path = ""
+    if args.save_input:
+        save_path = Path(args.input).expanduser() if args.input else default_input_path
+        try:
+            _save_input_yaml(
+                save_path,
+                cfg,
+                raw_pairs,
+                source_frame,
+                target_frame,
+                source_unit,
+                target_unit,
+                output_unit,
+                result,
+            )
+        except Exception as ex:
+            print(f"[ERROR] Failed to save input YAML: {ex}", file=sys.stderr)
+            return 2
+        saved_input_path = str(save_path)
+
     print("Kabsch solve completed.")
     print(f"source_frame={source_frame}, target_frame={target_frame}, points={len(pairs)}")
     print(
@@ -600,6 +679,12 @@ def main() -> int:
     print(f"  {qx:.9f} {qy:.9f} {qz:.9f} {qw:.9f}")
     if args.output:
         print(f"output_yaml={args.output}")
+    if saved_input_path:
+        print(f"saved_input_yaml={saved_input_path}")
+    elif pair_source in ("cli", "interactive"):
+        print(
+            f"[INFO] point table was used for this run only; add --save-input to update {default_input_path}."
+        )
     return 0
 
 

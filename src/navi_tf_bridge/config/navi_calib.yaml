@@ -7,7 +7,9 @@
 #   # Press Enter at pair[1] to solve from this YAML.
 #
 # If you type any pair in interactive mode, typed pairs replace this point list
-# for that run, while these frame/unit settings are still used.
+# for that run, while these frame/unit settings are still used. Add
+# --save-input to kabsch_calib.py to write the used points and last_result
+# back to this file.
 
 source_frame: official_map
 target_frame: map

@@ -62,10 +62,10 @@ target_rel_to_goal_pos_node:
     # Row-major 4x4 matrix. /ly/navi/goal_pos_raw is UInt16 cm, decoded to meters
     # before this meter-frame matrix is applied. /goal_pose is published in meters.
     raw_goal_transform_matrix: [
-      0.040876853, 0.999164192, 0.000000000, -3.848276078,
-      -0.999164192, 0.040876853, 0.000000000, 1.039210632,
-      0.000000000, 0.000000000, 1.000000000, 0.000000000,
-      0.000000000, 0.000000000, 0.000000000, 1.000000000,
+       0.061966691, -0.998078218, 0.000000000, 15.036385585,
+       0.998078218, 0.061966691, 0.000000000, -24.836845501,
+       0.000000000, 0.000000000, 1.000000000, 0.000000000,
+       0.000000000, 0.000000000, 0.000000000, 1.000000000
     ]
 
     # Debug export (for comparing Area.hpp map points with TF-converted points)
