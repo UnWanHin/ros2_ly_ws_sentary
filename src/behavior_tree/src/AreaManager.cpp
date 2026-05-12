@@ -1412,6 +1412,16 @@ bool AreaManager::IsPositionInMiniRoadlandArea(
     return Area::IsPointInsideMiniRoadlandArea(area_team, x, y);
 }
 
+bool AreaManager::IsPositionInSettleArea(
+    const LangYa::UnitTeam area_team,
+    const int x,
+    const int y) {
+    if (area_team != LangYa::UnitTeam::Red && area_team != LangYa::UnitTeam::Blue) {
+        return false;
+    }
+    return Area::IsPointInsideSettleArea(area_team, x, y);
+}
+
 std::optional<AreaKey> AreaManager::ResolveAreaKeyForPoint(
     const LangYa::UnitTeam my_team,
     const LangYa::UnitTeam enemy_team,

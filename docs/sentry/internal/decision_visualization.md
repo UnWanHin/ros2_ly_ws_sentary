@@ -21,7 +21,7 @@ In offline mode, it can send file-based control commands to `decision_viz.mock_i
 - Viewer config: `src/decision_viz/config/default.yaml`
 - Default map: `tools/maps/basemaps/buff_map_field.png`
 - Rule-aware structure overlay source: `src/decision_viz/config/default.yaml` -> `structures`
-- The structure overlay includes `RoadlandFollow.*` and `MiniRoadland.*`; MiniRoadland is rendered as a `special_zone`, not as a FollowMode region.
+- The structure overlay includes `RoadlandFollow.*`, `MiniRoadland.*`, and `SettleArea.*`; MiniRoadland is rendered as a `special_zone`, not as a FollowMode region.
 - Scripted route overlay source: `src/decision_viz/config/default.yaml` -> `scripted_path`
 - Energy mechanism debug fields are recorded in `decision_output`: `has_sentry_info`, `sentry_can_activate_energy`, and `energy_activate_confirm_pulse`.
 

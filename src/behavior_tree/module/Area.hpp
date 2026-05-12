@@ -376,6 +376,22 @@ namespace Area {
         { 2408, 1474 }
     };
 
+    static const std::vector<Point<int>> RedSettleAreaPoints = {
+        { 1210, 774 },
+        { 1210, 811 },
+        { 1320, 900 },
+        { 1437, 864 },
+        { 1283, 701 }
+    };
+
+    static const std::vector<Point<int>> BlueSettleAreaPoints = {
+        { 1590, 726 },
+        { 1590, 689 },
+        { 1480, 600 },
+        { 1363, 636 },
+        { 1517, 799 }
+    };
+
     static const std::vector<Point<int>> RedMainAreaHighlandPoints = {
         { 313, 1065 },
         { 315, 1497 },
@@ -726,6 +742,27 @@ namespace Area {
             return false;
         }
         return IsPointInsideAreaShapes(MiniRoadlandShapes(team), x, y);
+    }
+
+    inline const std::vector<Point<int>>& SettleAreaBoundary(const UnitTeam team) {
+        return PointLookupTeam(team) == UnitTeam::Blue
+            ? BlueSettleAreaPoints
+            : RedSettleAreaPoints;
+    }
+
+    inline std::vector<AreaShapeView> SettleAreaShapes(const UnitTeam team) {
+        std::vector<AreaShapeView> shapes{PolygonShape(SettleAreaBoundary(team))};
+        return shapes;
+    }
+
+    inline bool IsPointInsideSettleArea(
+        const UnitTeam team,
+        const int x,
+        const int y) {
+        if (team != UnitTeam::Red && team != UnitTeam::Blue) {
+            return false;
+        }
+        return IsPointInsideAreaShapes(SettleAreaShapes(team), x, y);
     }
 
     // 特殊点 {Red, Blue}

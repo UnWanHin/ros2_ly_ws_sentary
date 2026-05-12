@@ -402,6 +402,10 @@ public:
         LangYa::UnitTeam area_team,
         int x,
         int y);
+    static bool IsPositionInSettleArea(
+        LangYa::UnitTeam area_team,
+        int x,
+        int y);
     static std::optional<AreaKey> ResolveAreaKeyForPoint(
         LangYa::UnitTeam my_team,
         LangYa::UnitTeam enemy_team,

@@ -157,6 +157,11 @@ structures:
       alpha: 30
       outline: "#7dd3fc"
       outline_alpha: 150
+    settle_zone:
+      fill: "#f59e0b"
+      alpha: 28
+      outline: "#fbbf24"
+      outline_alpha: 150
   items:
     # Walls (major visual barriers / tunnel-style blocks)
     - {name: Wall.CenterCore, kind: wall, rect: [1200, 600, 420, 300]}
@@ -173,6 +178,8 @@ structures:
     - {name: RoadlandFollow.Blue, kind: follow_zone, polygon: [[2290, 1308], [1813, 1297], [1810, 1471], [2290, 1474]]}
     - {name: MiniRoadland.Red, kind: special_zone, polygon: [[392, 189], [510, 196], [517, 26], [392, 26]]}
     - {name: MiniRoadland.Blue, kind: special_zone, polygon: [[2408, 1311], [2290, 1304], [2283, 1474], [2408, 1474]]}
+    - {name: SettleArea.Red, kind: settle_zone, polygon: [[1210, 774], [1210, 811], [1320, 900], [1437, 864], [1283, 701]]}
+    - {name: SettleArea.Blue, kind: settle_zone, polygon: [[1590, 726], [1590, 689], [1480, 600], [1363, 636], [1517, 799]]}
 
 unit_styles:
   friend:
