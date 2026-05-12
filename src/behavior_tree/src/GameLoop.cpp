@@ -3028,6 +3028,14 @@ namespace BehaviorTree {
             (outpostVisualScoutNavigationActive_ || aimMode == AimMode::Outpost);
     }
 
+    bool Application::ShouldSuppressChaseForSpecialPatrol() const noexcept {
+        return config.SpecialSettings.Patrol.Enable &&
+            config.SpecialSettings.Patrol.SuppressChase &&
+            GetStrategyMode() == StrategyMode::Regional &&
+            !IsLeagueProfile() &&
+            !IsShowcasePatrolEnabled();
+    }
+
     bool Application::TryApplyChaseTactical() {
         if (!CanAuthorizeChaseTactical()) {
             return false;
@@ -3857,6 +3865,171 @@ namespace BehaviorTree {
         return true;
     }
 
+    bool Application::TrySetSpecialPatrolGoal(
+        const UnitTeam my_team,
+        const UnitTeam enemy_team) {
+        (void)enemy_team;
+        const auto& patrol = config.SpecialSettings.Patrol;
+        if (!patrol.Enable ||
+            IsLeagueProfile() ||
+            IsShowcasePatrolEnabled() ||
+            GetStrategyMode() != StrategyMode::Regional ||
+            my_team == UnitTeam::Unknown) {
+            specialPatrolHoldActive_ = false;
+            return false;
+        }
+
+        if (areaManager_.RegionalAreaTaskActive()) {
+            if (areaManager_.RegionalAreaTask().Type == RegionalAreaTaskType::MyRoadland &&
+                !areaManager_.RegionalAreaTaskCanYieldToHigherPriority()) {
+                return false;
+            }
+            const auto canceled_task_type = areaManager_.RegionalAreaTask().Type;
+            areaManager_.ClearRegionalAreaTask();
+            defaultStrategyManager_.RecordRegionalAreaResult(
+                canceled_task_type,
+                "canceled",
+                std::chrono::steady_clock::now(),
+                config.RegionalAreaTaskSettings.DefaultPolicy);
+            ResetRegionalAreaControlOverride();
+            gimbalControlData.FireCode.FollowMode = 0;
+            if (LoggerPtr) {
+                LoggerPtr->Info("RegionalAreaTask canceled: Special Patrol has higher priority.");
+            }
+        }
+
+        constexpr bool apply_team_offset = true;
+        auto is_patrol_goal = [&](const std::uint8_t base_goal) {
+            return base_goal == LangYa::CentralLeftA.ID ||
+                   base_goal == LangYa::CentralLeftB.ID;
+        };
+        auto other_goal = [](const std::uint8_t base_goal) {
+            return base_goal == LangYa::CentralLeftA.ID
+                ? LangYa::CentralLeftB.ID
+                : LangYa::CentralLeftA.ID;
+        };
+        auto nearest_goal = [&]() {
+            const auto now = std::chrono::steady_clock::now();
+            if (!IsSentryPositionFresh(now)) {
+                return LangYa::CentralLeftA.ID;
+            }
+            const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
+            const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
+            if (self_x <= 0 || self_y <= 0) {
+                return LangYa::CentralLeftA.ID;
+            }
+            const auto point_a = AreaManager::GoalPointByBaseId(LangYa::CentralLeftA.ID, my_team);
+            const auto point_b = AreaManager::GoalPointByBaseId(LangYa::CentralLeftB.ID, my_team);
+            const double dist_a = AreaManager::DistanceSq(
+                self_x, self_y, static_cast<int>(point_a.x), static_cast<int>(point_a.y));
+            const double dist_b = AreaManager::DistanceSq(
+                self_x, self_y, static_cast<int>(point_b.x), static_cast<int>(point_b.y));
+            return dist_b < dist_a ? LangYa::CentralLeftB.ID : LangYa::CentralLeftA.ID;
+        };
+
+        const auto current_base_goal = BaseGoalIdFromResolvedGoal(naviCommandGoal);
+        std::uint8_t target_base_goal =
+            is_patrol_goal(current_base_goal) ? current_base_goal : nearest_goal();
+
+        const AimData* active_aim_data = config.ExternalAimSettings.Enable ? &externalAimData : &autoAimData;
+        if (!config.ExternalAimSettings.Enable) {
+            if (aimMode == AimMode::Buff) {
+                active_aim_data = &buffAimData;
+            } else if (aimMode == AimMode::Outpost) {
+                active_aim_data = &outpostAimData;
+            }
+        }
+        const bool target_locked =
+            patrol.StopOnTarget &&
+            targetArmor.Type != ArmorType::UnKnown &&
+            isFindTargetAtomic.load(std::memory_order_relaxed) &&
+            active_aim_data->Fresh &&
+            active_aim_data->Valid;
+        if (target_locked) {
+            const auto now = std::chrono::steady_clock::now();
+            const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
+            const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
+            if (IsSentryPositionFresh(now) && self_x > 0 && self_y > 0) {
+                naviCommandGoal = ResolveGoalId(target_base_goal, my_team, apply_team_offset);
+                naviGoalPosition = Area::Point<std::uint16_t>{
+                    static_cast<std::uint16_t>(std::clamp(self_x, 0, kOfficialFieldWidthCm)),
+                    static_cast<std::uint16_t>(std::clamp(self_y, 0, kOfficialFieldHeightCm))
+                };
+                naviGoalPublishAllowed_ = true;
+                naviCommandIntervalClock.reset(Seconds{1});
+                speedLevel = 0;
+                UpdateNaviProgressWatchdogGoal(target_base_goal, my_team, apply_team_offset);
+                specialPatrolHoldActive_ = false;
+                if (LoggerPtr) {
+                    LoggerPtr->Info(
+                        "Special Patrol: target locked, hold current position=({}, {}) goal={}.",
+                        self_x,
+                        self_y,
+                        static_cast<int>(naviCommandGoal));
+                }
+                RecordDecisionIntent(MakeDecisionIntent(
+                    DecisionReason::SpecialPatrol,
+                    target_base_goal,
+                    my_team,
+                    apply_team_offset,
+                    "special_patrol_target_hold"));
+                return true;
+            }
+        }
+
+        if (is_patrol_goal(current_base_goal) &&
+            IsBaseGoalArrived(current_base_goal, my_team, apply_team_offset)) {
+            const auto now = std::chrono::steady_clock::now();
+            if (!specialPatrolHoldActive_ ||
+                specialPatrolHoldBaseGoal_ != current_base_goal) {
+                specialPatrolHoldActive_ = true;
+                specialPatrolHoldBaseGoal_ = current_base_goal;
+                specialPatrolHoldStartTime_ = now;
+            }
+            const int hold_sec = std::max(0, patrol.GoalHoldSec);
+            if (hold_sec == 0 ||
+                now - specialPatrolHoldStartTime_ >= std::chrono::seconds(hold_sec)) {
+                target_base_goal = other_goal(current_base_goal);
+                specialPatrolHoldActive_ = false;
+            }
+        } else if (!is_patrol_goal(current_base_goal)) {
+            specialPatrolHoldActive_ = false;
+        }
+
+        const auto target_position = AreaManager::GoalPointByBaseId(target_base_goal, my_team);
+        const auto resolved_goal_id = ResolveGoalId(target_base_goal, my_team, apply_team_offset);
+        const bool position_mismatch =
+            naviGoalPosition.x != target_position.x ||
+            naviGoalPosition.y != target_position.y;
+        const bool should_refresh_goal =
+            naviCommandGoal != resolved_goal_id ||
+            position_mismatch ||
+            !naviGoalPublishAllowed_ ||
+            naviCommandIntervalClock.trigger();
+        if (should_refresh_goal) {
+            SetPositionByBaseGoal(target_base_goal, my_team, apply_team_offset);
+            naviCommandIntervalClock.reset(Seconds{std::max(1, patrol.GoalHoldSec)});
+            speedLevel = static_cast<std::uint8_t>(std::clamp(patrol.SpeedLevel, 0, 255));
+            if (LoggerPtr) {
+                LoggerPtr->Info(
+                    "Special Patrol: goal={} point=({}, {}) hold={}s speed={}.",
+                    static_cast<int>(naviCommandGoal),
+                    static_cast<int>(target_position.x),
+                    static_cast<int>(target_position.y),
+                    std::max(0, patrol.GoalHoldSec),
+                    static_cast<int>(speedLevel));
+            }
+        }
+
+        RecordDecisionIntent(MakeDecisionIntent(
+            DecisionReason::SpecialPatrol,
+            target_base_goal,
+            my_team,
+            apply_team_offset,
+            "special_patrol"));
+        return true;
+    }
+
     void Application::UpdateNaviProgressWatchdogGoal(
         const std::uint8_t base_goal_id,
         const UnitTeam goal_team,
@@ -4212,6 +4385,11 @@ namespace BehaviorTree {
             naviGoalPosition = area_location(goal_team);
             naviGoalPublishAllowed_ = true;
         };
+        auto assign_point = [&](const auto& goal_location, const Area::Point<std::uint16_t>& point) {
+            naviCommandGoal = apply_team_offset ? goal_location(goal_team) : goal_location.ID;
+            naviGoalPosition = point;
+            naviGoalPublishAllowed_ = true;
+        };
         std::uint8_t effective_base_goal_id = base_goal_id;
 
         switch (base_goal_id) {
@@ -4241,6 +4419,8 @@ namespace BehaviorTree {
             case LangYa::BuffOutpost.ID: assign_position(LangYa::BuffOutpost, BehaviorTree::Area::BuffOutpost); break;
             case LangYa::OutpostGuard.ID: assign_position(LangYa::OutpostGuard, BehaviorTree::Area::OutpostGuard); break;
             case LangYa::MiniRoadland.ID: assign_position(LangYa::MiniRoadland, BehaviorTree::Area::MiniRoadland); break;
+            case LangYa::CentralLeftA.ID: assign_point(LangYa::CentralLeftA, BehaviorTree::Area::CentralLeft.A(goal_team)); break;
+            case LangYa::CentralLeftB.ID: assign_point(LangYa::CentralLeftB, BehaviorTree::Area::CentralLeft.B(goal_team)); break;
             default:
                 LoggerPtr->Warning("Unknown base goal id={}, fallback to Home.", static_cast<int>(base_goal_id));
                 effective_base_goal_id = LangYa::Home.ID;

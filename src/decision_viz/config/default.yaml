@@ -178,6 +178,8 @@ structures:
     - {name: RoadlandFollow.Blue, kind: follow_zone, polygon: [[2290, 1308], [1813, 1297], [1810, 1471], [2290, 1474]]}
     - {name: MiniRoadland.Red, kind: special_zone, polygon: [[392, 189], [510, 196], [517, 26], [392, 26]]}
     - {name: MiniRoadland.Blue, kind: special_zone, polygon: [[2408, 1311], [2290, 1304], [2283, 1474], [2408, 1474]]}
+    - {name: CentralLeft.Red, kind: special_zone, shape: polyline, polyline: [[1205, 1260], [1026, 1006]], width_cm: 5}
+    - {name: CentralLeft.Blue, kind: special_zone, shape: polyline, polyline: [[1595, 240], [1774, 494]], width_cm: 5}
     - {name: SettleArea.Red, kind: settle_zone, polygon: [[1210, 774], [1210, 811], [1320, 900], [1437, 864], [1283, 701]]}
     - {name: SettleArea.Blue, kind: settle_zone, polygon: [[1590, 726], [1590, 689], [1480, 600], [1363, 636], [1517, 799]]}
 
@@ -238,3 +240,5 @@ goals:
   - {id: 23, name: BuffOutpost, red: [1100, 1130], blue: [1700, 370]}
   - {id: 24, name: OutpostGuard, red: [969, 368], blue: [1831, 1132]}
   - {id: 25, name: MiniRoadland, red: [457, 72], blue: [2343, 1428]}
+  - {id: 26, name: CentralLeft.A, red: [1205, 1260], blue: [1595, 240]}
+  - {id: 27, name: CentralLeft.B, red: [1026, 1006], blue: [1774, 494]}

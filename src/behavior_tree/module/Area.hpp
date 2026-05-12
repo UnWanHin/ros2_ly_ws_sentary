@@ -140,6 +140,26 @@ namespace Area {
     };
 
     template<Arithmetic T>
+    class Line {
+    public:
+        Line() = default;
+        explicit Line(const Location<T>& pointA, const Location<T>& pointB)
+            : pointA_(pointA), pointB_(pointB) {}
+
+        Point<T> A(const UnitTeam team) const {
+            return pointA_(team);
+        }
+
+        Point<T> B(const UnitTeam team) const {
+            return pointB_(team);
+        }
+
+    private:
+        Location<T> pointA_;
+        Location<T> pointB_;
+    };
+
+    template<Arithmetic T>
     class Location3 {
     public:
         Location3() = default;
@@ -374,6 +394,16 @@ namespace Area {
         { 2290, 1304 },
         { 2283, 1474 },
         { 2408, 1474 }
+    };
+
+    static const std::vector<Point<int>> RedCentralLeftLinePoints = {
+        { 1205, 1260 },
+        { 1026, 1006 }
+    };
+
+    static const std::vector<Point<int>> BlueCentralLeftLinePoints = {
+        { 1595, 240 },
+        { 1774, 494 }
     };
 
     static const std::vector<Point<int>> RedSettleAreaPoints = {
@@ -744,6 +774,29 @@ namespace Area {
         return IsPointInsideAreaShapes(MiniRoadlandShapes(team), x, y);
     }
 
+    inline const std::vector<Point<int>>& CentralLeftLineBoundary(const UnitTeam team) {
+        return PointLookupTeam(team) == UnitTeam::Blue
+            ? BlueCentralLeftLinePoints
+            : RedCentralLeftLinePoints;
+    }
+
+    inline std::vector<AreaShapeView> CentralLeftLineShapes(const UnitTeam team) {
+        std::vector<AreaShapeView> shapes{
+            PolylineShape(CentralLeftLineBoundary(team), kDefaultPolylineAreaWidthCm)
+        };
+        return shapes;
+    }
+
+    inline bool IsPointInsideCentralLeftLineArea(
+        const UnitTeam team,
+        const int x,
+        const int y) {
+        if (team != UnitTeam::Red && team != UnitTeam::Blue) {
+            return false;
+        }
+        return IsPointInsideAreaShapes(CentralLeftLineShapes(team), x, y);
+    }
+
     inline const std::vector<Point<int>>& SettleAreaBoundary(const UnitTeam team) {
         return PointLookupTeam(team) == UnitTeam::Blue
             ? BlueSettleAreaPoints
@@ -794,6 +847,20 @@ namespace Area {
     static const Location<std::uint16_t> BuffOutpost{ {1100, 1130}, {1700, 370} };
     static const Location<std::uint16_t> OutpostGuard{ {969, 368}, {1831, 1132} };
     static const Location<std::uint16_t> MiniRoadland{ {457, 72}, {2343, 1428} };
+    static const Line<std::uint16_t> CentralLeft{
+        Location<std::uint16_t>{
+            {static_cast<std::uint16_t>(RedCentralLeftLinePoints[0].x),
+             static_cast<std::uint16_t>(RedCentralLeftLinePoints[0].y)},
+            {static_cast<std::uint16_t>(BlueCentralLeftLinePoints[0].x),
+             static_cast<std::uint16_t>(BlueCentralLeftLinePoints[0].y)}
+        },
+        Location<std::uint16_t>{
+            {static_cast<std::uint16_t>(RedCentralLeftLinePoints[1].x),
+             static_cast<std::uint16_t>(RedCentralLeftLinePoints[1].y)},
+            {static_cast<std::uint16_t>(BlueCentralLeftLinePoints[1].x),
+             static_cast<std::uint16_t>(BlueCentralLeftLinePoints[1].y)}
+        }
+    };
 
     // 地图静态瞄准点，单位为 cm；z 是目标中心相对地图平面的高度。
     static const Location3<double> OutpostPose{ {1093.0, 366.0, 100.0}, {1707.0, 1134.0, 100.0} };

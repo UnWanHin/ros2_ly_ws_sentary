@@ -60,7 +60,8 @@ bool Application::CanAuthorizeChaseTactical() const noexcept {
         areaManager_.RegionalAreaTaskActive() ||
         areaManager_.HighlandTransitionActive() ||
         outpostVisualScoutNavigationActive_ ||
-        ShouldSuppressChaseForOutpostTask()) {
+        ShouldSuppressChaseForOutpostTask() ||
+        ShouldSuppressChaseForSpecialPatrol()) {
         return false;
     }
 
@@ -250,6 +251,10 @@ bool StrategyManager::RunSpecial(Application& app) {
 
     const UnitTeam my_team = app.team;
     const UnitTeam enemy_team = app.team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
+    if (app.TrySetSpecialPatrolGoal(my_team, enemy_team)) {
+        MarkHandled(app, StrategyLayer::Special);
+        return true;
+    }
     if (app.TrySetSpecialMiniRoadlandGoal(my_team, enemy_team)) {
         MarkHandled(app, StrategyLayer::Special);
         return true;

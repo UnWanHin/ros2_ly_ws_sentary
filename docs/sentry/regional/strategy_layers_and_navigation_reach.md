@@ -84,12 +84,13 @@ Tactical 應該高於 Default。也就是有敵情、防守、保護英雄、前
 
 入口：`StrategyManager::RunSpecial()`
 
-目前只做可開關的 `MiniRoadland` 偵察駐守：
+目前做可開關的專項行為：
 
 - 配置在 `src/behavior_tree/config/Special.yaml`。
 - 優先級低於 Tactical，高於 Default。
-- 只去己方 `MiniRoadland` 點；不會因敵方 Roadland scope 變化而去敵方點。
-- 這個任務直接下發 `MiniRoadland` base goal，因此可無視 `Area.MyArea.Roadland=false`；但它不會無視更高層的 Recovery、RegionalDefense、ProtectHero、Buff/Outpost、Chase 等 Tactical/Task/Hard 行為。
+- `Patrol`：在己方 `CentralLeft` 線的 A/B 端點之間巡邏；默認抑制 Chase，鎖到目標時停在當前坐標打，不邊走邊追。
+- `MiniRoadland`：只去己方 `MiniRoadland` 點；不會因敵方 Roadland scope 變化而去敵方點。
+- 這些任務直接下發 Special base goal，因此可無視對應 Default 大區域 scope；但不會無視更高層的 Recovery、RegionalDefense、ProtectHero、Buff/Outpost 等 Tactical/Task/Hard 行為。
 
 ### Default
 

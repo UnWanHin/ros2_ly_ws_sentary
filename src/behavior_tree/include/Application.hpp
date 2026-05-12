@@ -267,6 +267,9 @@ private:
     std::chrono::steady_clock::time_point naviExternalStatusGoalStartTime_{};
     std::uint8_t naviExternalStatusGoalId_{0};
     Area::Point<std::uint16_t> naviExternalStatusGoalPosition_{};
+    bool specialPatrolHoldActive_{false};
+    std::uint8_t specialPatrolHoldBaseGoal_{LangYa::CentralLeftA.ID};
+    std::chrono::steady_clock::time_point specialPatrolHoldStartTime_{};
     bool naviRelativeTargetValid{false};
     float naviRelativeTargetX{0.0F};
     float naviRelativeTargetY{0.0F};
@@ -570,6 +573,7 @@ public:
     bool IsChaseTacticalAllowed() const noexcept { return chaseTacticalAllowed_; }
     bool CanAuthorizeChaseTactical() const noexcept;
     bool TryApplyChaseTactical();
+    bool ShouldSuppressChaseForSpecialPatrol() const noexcept;
     bool RunStrategyLayerHard();
     bool RunStrategyLayerDefault();
     bool RunStrategyLayerTask();
@@ -663,6 +667,7 @@ public:
     bool TrySetRegionalDefenseGoal(UnitTeam my_team, UnitTeam enemy_team);
     bool TrySetProtectHeroGoal(UnitTeam my_team, UnitTeam enemy_team);
     bool TrySetSpecialMiniRoadlandGoal(UnitTeam my_team, UnitTeam enemy_team);
+    bool TrySetSpecialPatrolGoal(UnitTeam my_team, UnitTeam enemy_team);
     bool TickNaviProgressWatchdog(UnitTeam my_team, UnitTeam enemy_team);
     bool IsDefaultRegionalDecisionReady(UnitTeam my_team, UnitTeam enemy_team) const;
     bool TrySetDefaultRegionalGoal(UnitTeam my_team, UnitTeam enemy_team);

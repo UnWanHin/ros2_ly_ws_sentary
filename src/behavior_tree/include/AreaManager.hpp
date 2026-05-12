@@ -370,7 +370,7 @@ public:
     bool RegionalAreaTaskCanYieldToHigherPriority() const noexcept;
     void RequestRoadlandReturnToBase(AreaTimePoint now) noexcept;
 
-    static constexpr std::uint8_t MaxBaseGoalId() noexcept { return LangYa::MiniRoadland.ID; }
+    static constexpr std::uint8_t MaxBaseGoalId() noexcept { return LangYa::CentralLeftB.ID; }
     static bool IsValidBaseGoalId(std::uint8_t base_goal_id) noexcept;
     static bool IsReservedNonCombatGoalId(std::uint8_t base_goal_id) noexcept;
     static std::uint8_t ResolveGoalId(
@@ -399,6 +399,10 @@ public:
         int x,
         int y);
     static bool IsPositionInMiniRoadlandArea(
+        LangYa::UnitTeam area_team,
+        int x,
+        int y);
+    static bool IsPositionInCentralLeftLineArea(
         LangYa::UnitTeam area_team,
         int x,
         int y);

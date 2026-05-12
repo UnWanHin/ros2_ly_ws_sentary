@@ -822,12 +822,27 @@ namespace LangYa {
         mr.GoalBaseId = static_cast<std::uint8_t>(std::clamp(goal_base_id, 0, 255));
     }
 
+    void from_json(const json& j, SpecialPatrolSetting& sp) {
+        sp.Enable = j.value("Enable", sp.Enable);
+        sp.GoalHoldSec = j.value("GoalHoldSec", sp.GoalHoldSec);
+        sp.SpeedLevel = j.value("SpeedLevel", sp.SpeedLevel);
+        sp.SuppressChase = j.value("SuppressChase", sp.SuppressChase);
+        sp.StopOnTarget = j.value("StopOnTarget", sp.StopOnTarget);
+    }
+
     void from_json(const json& j, SpecialSetting& ss) {
         if (j.contains("MiniRoadland")) {
             if (j.at("MiniRoadland").is_object()) {
                 j.at("MiniRoadland").get_to(ss.MiniRoadland);
             } else if (j.at("MiniRoadland").is_boolean()) {
                 ss.MiniRoadland.Enable = j.at("MiniRoadland").get<bool>();
+            }
+        }
+        if (j.contains("Patrol")) {
+            if (j.at("Patrol").is_object()) {
+                j.at("Patrol").get_to(ss.Patrol);
+            } else if (j.at("Patrol").is_boolean()) {
+                ss.Patrol.Enable = j.at("Patrol").get<bool>();
             }
         }
     }
@@ -1252,6 +1267,7 @@ namespace BehaviorTree {
 
     void Application::ApplySpecialParameterOverrides() {
         auto& mini = config.SpecialSettings.MiniRoadland;
+        auto& patrol = config.SpecialSettings.Patrol;
         ReadOptionalBoolParam(
             node_,
             {
@@ -1285,6 +1301,43 @@ namespace BehaviorTree {
                 goal_base_id)) {
             mini.GoalBaseId = static_cast<std::uint8_t>(std::clamp(goal_base_id, 0, 255));
         }
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "Special.Patrol.Enable",
+                "Special/Patrol/Enable",
+                "Special.Patrol",
+                "Special/Patrol"
+            },
+            patrol.Enable);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Special.Patrol.GoalHoldSec",
+                "Special/Patrol/GoalHoldSec"
+            },
+            patrol.GoalHoldSec);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Special.Patrol.SpeedLevel",
+                "Special/Patrol/SpeedLevel"
+            },
+            patrol.SpeedLevel);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "Special.Patrol.SuppressChase",
+                "Special/Patrol/SuppressChase"
+            },
+            patrol.SuppressChase);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "Special.Patrol.StopOnTarget",
+                "Special/Patrol/StopOnTarget"
+            },
+            patrol.StopOnTarget);
     }
 
     void Application::ApplyFaceModeParameterOverrides() {
@@ -2064,6 +2117,11 @@ namespace BehaviorTree {
         LoggerPtr->Debug("MiniRoadland.GoalHoldSec: {}", config.SpecialSettings.MiniRoadland.GoalHoldSec);
         LoggerPtr->Debug("MiniRoadland.GoalBaseId: {}", static_cast<int>(config.SpecialSettings.MiniRoadland.GoalBaseId));
         LoggerPtr->Debug("MiniRoadland.SpeedLevel: {}", config.SpecialSettings.MiniRoadland.SpeedLevel);
+        LoggerPtr->Debug("Patrol.Enable: {}", config.SpecialSettings.Patrol.Enable);
+        LoggerPtr->Debug("Patrol.GoalHoldSec: {}", config.SpecialSettings.Patrol.GoalHoldSec);
+        LoggerPtr->Debug("Patrol.SpeedLevel: {}", config.SpecialSettings.Patrol.SpeedLevel);
+        LoggerPtr->Debug("Patrol.SuppressChase: {}", config.SpecialSettings.Patrol.SuppressChase);
+        LoggerPtr->Debug("Patrol.StopOnTarget: {}", config.SpecialSettings.Patrol.StopOnTarget);
         LoggerPtr->Debug("------ RegionalAreaTask ------");
         LoggerPtr->Debug("Enable: {}", config.RegionalAreaTaskSettings.Enable);
         LoggerPtr->Debug("IgnoreRecovery: {}", config.RegionalAreaTaskSettings.IgnoreRecovery);
@@ -2632,6 +2690,22 @@ namespace BehaviorTree {
             LoggerPtr->Warning("Invalid Special.MiniRoadland.SpeedLevel={}, clamp to 255.",
                                mini_roadland.SpeedLevel);
             mini_roadland.SpeedLevel = 255;
+        }
+        auto& special_patrol = config.SpecialSettings.Patrol;
+        if (special_patrol.GoalHoldSec < 0) {
+            LoggerPtr->Warning("Invalid Special.Patrol.GoalHoldSec={}, fallback to 2.",
+                               special_patrol.GoalHoldSec);
+            special_patrol.GoalHoldSec = 2;
+        }
+        if (special_patrol.SpeedLevel < 0) {
+            LoggerPtr->Warning("Invalid Special.Patrol.SpeedLevel={}, fallback to 1.",
+                               special_patrol.SpeedLevel);
+            special_patrol.SpeedLevel = 1;
+        }
+        if (special_patrol.SpeedLevel > 255) {
+            LoggerPtr->Warning("Invalid Special.Patrol.SpeedLevel={}, clamp to 255.",
+                               special_patrol.SpeedLevel);
+            special_patrol.SpeedLevel = 255;
         }
 
         auto& highland_task = config.RegionalAreaTaskSettings.MyHighland;

@@ -732,6 +732,31 @@ class Viewer:
                 continue
 
             points = self.structure_points(item, image_rect)
+            if shape == "polyline":
+                if len(points) < 2:
+                    continue
+                field_w, field_h = self.field_size()
+                px_per_cm_x = image_rect.width / max(1.0, float(field_w))
+                px_per_cm_y = image_rect.height / max(1.0, float(field_h))
+                width_cm = float(item.get("width_cm", 5.0))
+                if not math.isfinite(width_cm) or width_cm <= 0.0:
+                    width_cm = 5.0
+                width_px = max(1, int(round(width_cm * min(px_per_cm_x, px_per_cm_y))))
+                self.pg.draw.lines(overlay, outline, False, points, width_px)
+                for point in points:
+                    self.pg.draw.circle(overlay, fill, point, max(2, width_px + 1))
+                screen_points = [(point[0] + image_rect.x, point[1] + image_rect.y) for point in points]
+                xs = [point[0] for point in screen_points]
+                ys = [point[1] for point in screen_points]
+                bounds = self.pg.Rect(min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))
+                hovered = self.hover_goal_tags and bounds.inflate(
+                    self.goal_tag_hover_radius_px,
+                    self.goal_tag_hover_radius_px).collidepoint(mouse_pos)
+                if show_labels or hovered:
+                    cx = round(sum(point[0] for point in points) / len(points)) + image_rect.x
+                    cy = round(sum(point[1] for point in points) / len(points)) + image_rect.y
+                    labels.append((label_name, cx + 4, cy - 10))
+                continue
             if len(points) < 3:
                 continue
             self.pg.draw.polygon(overlay, fill, points)
@@ -752,6 +777,8 @@ class Viewer:
 
     def structure_points(self, item: dict[str, Any], image_rect: Any) -> list[tuple[int, int]]:
         raw_points = as_list(item.get("polygon"))
+        if not raw_points:
+            raw_points = as_list(item.get("polyline"))
         if not raw_points and isinstance(item.get("rect"), (list, tuple)) and len(item["rect"]) >= 4:
             x, y, w, h = item["rect"][:4]
             raw_points = [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]

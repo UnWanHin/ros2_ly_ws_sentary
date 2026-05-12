@@ -39,7 +39,7 @@ Regional 不是單一點表，而是分層策略：
 - `Hard`：最高優先級，先處理低血/低彈回 `Recovery`，以及 Roadland 強綁定穿越段。
 - `Task`：處理 Highland 兼容過渡和導航 watchdog 等支援任務，不再擁有基本大區域狀態機。
 - `Tactical`：處理 Buff、RegionalDefense、ProtectHero、Outpost 和 watchdog fallback。
-- `Special`：可開關的專項巡察層，目前只有 `MiniRoadland` 偵察駐守，優先級低於 Tactical、高於 Default。
+- `Special`：可開關的專項巡察層，目前包含兩點線段 Patrol 和 `MiniRoadland` 偵察駐守，優先級低於 Tactical、高於 Default。
 - `Default`：沒有事件、沒有任務、沒有 Buff/Outpost 時，按大區域候選分數選並持續 tick `MyBase / MyHighland / MyRoadland / CommonCentral`。
 - `Finalizer`：只做策略層狀態同步，不再做舊點表 fallback。
 
@@ -56,6 +56,7 @@ Regional 目前已有的主要邏輯：
 - Buff：由能量機關裁判狀態、sentry info、timer、damage abort 和 timeout 決定是否進 `AimMode::Buff`；戰術站位使用 `BuffOutpost`，FaceMode 對己方目標側。
 - Outpost：正式入口不依賴 `op_hp`，由血量/彈藥門檻、時間窗、damage abort、目標不可達狀態和 `Task.OutpostConfirm.VisualScoutWithoutHp` 決定是否去 `BuffOutpost` 偵查；Travel 階段保持普通裝甲模式，距 `BuffOutpost` 小於 `VisualScoutFaceDistanceCm` 後才開前哨視覺和敵方前哨 FaceMode，到達 `BuffOutpost` 後仍沒有 `/ly/outpost/target` 才開始計算偵查 timeout，超時退出並冷卻。普通裝甲目標若有效且不超過 `ArmorInterruptMaxDistanceCm`，會先打車，目標消失或太遠後回到前哨任務。`op_hp` 接口保留，若它新鮮且為 0，可提前判定敵方前哨已毀並跳過任務。
 - Navi progress watchdog：檢測 goal 不可達或長時間無位移，按當前目標區域選 fallback 點。
+- Special Patrol：由 `src/behavior_tree/config/Special.yaml` 控制；啟用後在 Tactical 無事件時巡己方 `CentralLeft` 線的 A/B 端點。默認 `SuppressChase=true`，鎖到目標時不追擊、不邊走邊打，而是把導航目標壓到當前自身坐標。
 - Special MiniRoadland：由 `src/behavior_tree/config/Special.yaml` 控制；啟用後在 Tactical 無事件時去己方 `MiniRoadland` 點偵察駐守，且不受 `Area.MyArea.Roadland=false` 影響。
 - Regional idle patrol：預留空閒巡邏，默認候選是 `HoleRoad / Castle / CastleRight2 / CastleRight1 / CastleLeft1 / CastleLeft2`。
 
@@ -83,7 +84,7 @@ EvaluateEvents -> Hard -> Task -> PreprocessData -> SelectAimTarget -> Tactical 
 - `Task`：只保留 Highland 兼容過渡和導航 watchdog 這類支援任務；不再 tick Highland/Base/Roadland/Central 基本大區域狀態機。
 - `PreprocessData / SelectAimTarget`：在 Tactical 前整理可打目標、官方坐標和本 tick `targetArmor`，讓戰術層使用最新目標資料。
 - `Tactical`：regional 只保留明確戰術 overlay：`RegionalDefense`、ProtectHero、Buff/Outpost 任務站位、Chase 追擊和導航 watchdog；不再調用舊單策略點表。`LeagueSimple` 只在 `CompetitionProfile=league` 時使用，Showcase 只在明確 showcase 配置時使用。
-- `Special`：可選專項層；目前 `Special.MiniRoadland.Enable=true` 時只下發己方 `MiniRoadland` 偵察點。它直接走 base goal，不走 Default 的大區域 scope，所以 `MyArea.Roadland=false` 不會阻止 MiniRoadland；但更高層回補、回防、前哨、打符、追擊仍會先接管。
+- `Special`：可選專項層；`Special.Patrol.Enable=true` 時巡己方 `CentralLeft` 線，`Special.MiniRoadland.Enable=true` 時下發己方 `MiniRoadland` 偵察點。它直接走 base goal，不走 Default 的大區域 scope；但更高層回補、回防、前哨、打符仍會先接管。Special Patrol 默認抑制 Chase。
 - `Default`：無特別事件時的底層決策，現在按 `AreaManager.DefaultPolicy` 對已啟用的大區域做資源門檻、距離、目前區域、上次任務結果、冷卻和重試評分，再啟動並持續 tick AreaManager 任務；Highland 駐守、Base 巡邏、Roadland 駐守和 Central 遊走都歸這一層。沒有可用區域時不再 fallback 到任何舊點表。`RegionalIdlePatrol` 點表不再是正式 regional 的 Default 入口。
 - `Finalizer`：只做本 tick 策略層完成標記和黑板同步；regional 不再 fallback 到舊點表。
 

@@ -8,3 +8,11 @@ behavior_tree:
         GoalBaseId: 25
         GoalHoldSec: 6
         SpeedLevel: 1
+      # CentralLeft two-endpoint tactical line patrol. SuppressChase keeps locked targets from
+      # converting into navigation chase inside this constrained terrain.
+      Patrol:
+        Enable: false
+        GoalHoldSec: 2
+        SpeedLevel: 1
+        SuppressChase: true
+        StopOnTarget: true

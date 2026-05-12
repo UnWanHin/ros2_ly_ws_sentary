@@ -322,6 +322,8 @@ namespace LangYa
     static constexpr TeamedLocation BuffOutpost{ 23 };
     static constexpr TeamedLocation OutpostGuard{ 24 };
     static constexpr TeamedLocation MiniRoadland{ 25 };
+    static constexpr TeamedLocation CentralLeftA{ 26 };
+    static constexpr TeamedLocation CentralLeftB{ 27 };
 
     /// @brief 团队类型
     enum class NaviTeam : std::uint8_t
@@ -723,8 +725,17 @@ namespace LangYa
         int SpeedLevel{1};
     };
 
+    struct SpecialPatrolSetting {
+        bool Enable{false};
+        int GoalHoldSec{2};
+        int SpeedLevel{1};
+        bool SuppressChase{true};
+        bool StopOnTarget{true};
+    };
+
     struct SpecialSetting {
         SpecialMiniRoadlandSetting MiniRoadland{};
+        SpecialPatrolSetting Patrol{};
     };
 
     struct MyHighlandAreaTaskSetting {
