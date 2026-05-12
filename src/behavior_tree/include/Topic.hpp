@@ -130,6 +130,7 @@ namespace BehaviorTree {
     LY_DEF_ROS_TOPIC(ly_navi_goal_pos_raw, "/ly/navi/goal_pos_raw", std_msgs::msg::UInt16MultiArray);
     LY_DEF_ROS_TOPIC(ly_navi_goal_pos, "/ly/navi/goal_pos", std_msgs::msg::UInt16MultiArray);
     LY_DEF_ROS_TOPIC(ly_navi_position, "/ly/navi/position", gimbal_driver::msg::StampedUInt16MultiArray);
+    LY_DEF_ROS_TOPIC(ly_navi_target_official, "/ly/navi/target_official", gimbal_driver::msg::StampedUInt16MultiArray);
     LY_DEF_ROS_TOPIC(ly_navi_speed_level, "/ly/navi/speed_level", std_msgs::msg::UInt8);
     LY_DEF_ROS_TOPIC(ly_navi_lower_head, "/ly/navi/lower_head", std_msgs::msg::UInt8);
     LY_DEF_ROS_TOPIC(ly_navi_reached, "/ly/navi/reached", std_msgs::msg::Bool);

@@ -257,6 +257,7 @@ if(control_result.valid){
 - `/ly/navi/should_rotate` - 外部导航区域兼容控制，`true` 恢复 BT 正常小陀螺/巡逻，`false` 关闭小陀螺并请求 `FollowMode`
 - `/ly/face_mode/angles` - FaceMode 角度输入；区域任务开启固定朝向时由 BT 消费
 - `/ly/navi/position` - 导航 TF 反解出的自身位置，`StampedUInt16MultiArray data=[official_x_cm, official_y_cm]` 进入 BT 的 `AreaManager.SentryPositionFusion`，`header.stamp` 使用 TF source stamp，`map_point` 保留 map 系 m 坐标
+- `/ly/navi/target_official` - 导航 TF bridge 将有效 `/ly/navi/target_rel` 的真实目标点反算成 official-map cm，`StampedUInt16MultiArray data=[official_x_cm, official_y_cm, armor_type]`；BT 只在对应敌方没有新鲜非零 `/ly/position/data` 时用作 `/ly/enemy/info` 和 `enemyRobots` 的位置 fallback
 
 **behavior_tree 發布**:
 - `/ly/control/angles`

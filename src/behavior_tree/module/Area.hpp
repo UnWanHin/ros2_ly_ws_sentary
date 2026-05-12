@@ -68,7 +68,7 @@ namespace Area {
         CircleRing,
     };
 
-    inline constexpr int kDefaultPolylineAreaToleranceCm = 20;
+    inline constexpr int kDefaultPolylineAreaWidthCm = 5;
 
     inline const char* ShapeTypeName(const ShapeType shape) noexcept {
         switch (shape) {
@@ -82,24 +82,24 @@ namespace Area {
     struct AreaShapeView {
         ShapeType Shape{ShapeType::Polygon};
         const std::vector<Point<int>>* Points{nullptr};
-        int ToleranceCm{0};
+        int WidthCm{0};
     };
 
     inline AreaShapeView PolygonShape(const std::vector<Point<int>>& points) noexcept {
         return AreaShapeView{
             .Shape = ShapeType::Polygon,
             .Points = &points,
-            .ToleranceCm = 0,
+            .WidthCm = 0,
         };
     }
 
     inline AreaShapeView PolylineShape(
         const std::vector<Point<int>>& points,
-        const int tolerance_cm = kDefaultPolylineAreaToleranceCm) noexcept {
+        const int width_cm = kDefaultPolylineAreaWidthCm) noexcept {
         return AreaShapeView{
             .Shape = ShapeType::Polyline,
             .Points = &points,
-            .ToleranceCm = tolerance_cm,
+            .WidthCm = width_cm,
         };
     }
 
@@ -589,15 +589,15 @@ namespace Area {
         const std::vector<Point<int>>& polyline,
         const int x,
         const int y,
-        const int tolerance_cm = kDefaultPolylineAreaToleranceCm) noexcept {
+        const int width_cm = kDefaultPolylineAreaWidthCm) noexcept {
         if (polyline.size() < 2) {
             return false;
         }
         const Point<int> point{x, y};
-        const double tolerance = static_cast<double>(std::max(0, tolerance_cm));
-        const double tolerance_sq = tolerance * tolerance;
+        const double half_width = static_cast<double>(std::max(0, width_cm)) * 0.5;
+        const double half_width_sq = half_width * half_width;
         for (std::size_t i = 1; i < polyline.size(); ++i) {
-            if (DistanceSqToPolylineSegment(point, polyline[i - 1], polyline[i]) <= tolerance_sq) {
+            if (DistanceSqToPolylineSegment(point, polyline[i - 1], polyline[i]) <= half_width_sq) {
                 return true;
             }
         }
@@ -615,7 +615,7 @@ namespace Area {
             case ShapeType::Polygon:
                 return IsPointInsideMainAreaBoundary(*shape.Points, x, y);
             case ShapeType::Polyline:
-                return IsPointInsidePolylineArea(*shape.Points, x, y, shape.ToleranceCm);
+                return IsPointInsidePolylineArea(*shape.Points, x, y, shape.WidthCm);
             default:
                 return false;
         }

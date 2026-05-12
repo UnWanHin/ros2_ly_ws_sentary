@@ -86,6 +86,12 @@ def generate_launch_description():
             default_value=str(get_default("output_target_map_topic", "/ly/navi/target_map")),
         ),
         DeclareLaunchArgument(
+            "output_target_official_topic",
+            default_value=str(
+                get_default("output_target_official_topic", "/ly/navi/target_official")
+            ),
+        ),
+        DeclareLaunchArgument(
             "output_navi_position_topic",
             default_value=str(get_default("output_navi_position_topic", "/ly/navi/position")),
         ),
@@ -108,6 +114,10 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "publish_target_map",
             default_value=_bool_default(get_default("publish_target_map", True)),
+        ),
+        DeclareLaunchArgument(
+            "publish_target_official",
+            default_value=_bool_default(get_default("publish_target_official", True)),
         ),
         DeclareLaunchArgument(
             "publish_navi_position",
@@ -285,6 +295,9 @@ def generate_launch_description():
                         "output_goal_pos_topic": LaunchConfiguration("output_goal_pos_topic"),
                         "output_goal_pose_topic": LaunchConfiguration("output_goal_pose_topic"),
                         "output_target_map_topic": LaunchConfiguration("output_target_map_topic"),
+                        "output_target_official_topic": LaunchConfiguration(
+                            "output_target_official_topic"
+                        ),
                         "output_navi_position_topic": LaunchConfiguration("output_navi_position_topic"),
                         "map_frame": LaunchConfiguration("map_frame"),
                         "base_frame": LaunchConfiguration("base_frame"),
@@ -297,6 +310,9 @@ def generate_launch_description():
                         ),
                         "publish_target_map": ParameterValue(
                             LaunchConfiguration("publish_target_map"), value_type=bool
+                        ),
+                        "publish_target_official": ParameterValue(
+                            LaunchConfiguration("publish_target_official"), value_type=bool
                         ),
                         "publish_navi_position": ParameterValue(
                             LaunchConfiguration("publish_navi_position"), value_type=bool

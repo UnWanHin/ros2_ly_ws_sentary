@@ -340,6 +340,7 @@ private:
     std::array<UnitInfoStampCache, 10> lastFriendPositionStamp_{};
     std::array<UnitInfoStampCache, 10> lastEnemyHealthStamp_{};
     std::array<UnitInfoStampCache, 10> lastFriendHealthStamp_{};
+    std::array<std::string, 10> lastEnemyPositionSource_{};
 
     // ==========================================
     // Runtime Guard (L1/L2)

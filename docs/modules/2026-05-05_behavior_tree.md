@@ -268,7 +268,7 @@ void TreeTick() {
 | `/ly/game/rfid` | `rfidStatus`, `rfidStatus2`, `rfidMatchState` | 裁判 RFID bit 語義和 BT 內部區域匹配狀態；1s 內未更新則 `RfidFresh=false` |
 | `/ly/game/bullet` | `bulletInfo` | TypeID 7/8 合并出的弹速、发射事件、允许发弹量、金币；当前只缓存，不参与正式决策 |
 | `/ly/friend/uwb_pos` | `SentryPositionFusion` source | 雷達/UWB 自身坐標，`StampedUInt16MultiArray data=[x,y]` 帶 `header.stamp` |
-| `/ly/position/data` | `friendRobots`, `enemyRobots`（更新position） | 通用位置；`friendcarid == Sentry` 會進 `SentryPositionFusion`，其他 friend/enemy 仍直接更新 `friendRobots/enemyRobots` |
+| `/ly/position/data` | `friendRobots`, `enemyRobots`（更新position） | 通用位置；`friendcarid == Sentry` 會進 `SentryPositionFusion`，其他 friend/enemy 仍直接更新 `friendRobots/enemyRobots`；raw `(0,0)` 視為 unknown，不刷新 BT 狀態 |
 | `/ly/gimbal/angles` | `gimbalAngles` | 當前雲台角 |
 | `/ly/gimbal/posture` | `postureState` | 姿態回讀（0未知/1進攻/2防禦/3移動） |
 | `/ly/gimbal/vel` | `naviVelocity` | 底盤速度反饋 |
@@ -277,6 +277,7 @@ void TreeTick() {
 | `/ly/buff/target` | `buffAimData`, `isFindTargetAtomic` | 打符瞄準角度 |
 | `/ly/face_mode/angles` | `faceModeData` | FaceMode 角度输入；正式 `sentry_all` 中由 `map_aim_point_node` 输出到这个 topic |
 | `/ly/navi/position` | `SentryPositionFusion` source | 导航 TF 反解出的自身位置；BT 只消费 `StampedUInt16MultiArray data=[official_x_cm,official_y_cm]`，消息另带 `header.stamp` 和 map 系 `map_point` |
+| `/ly/navi/target_official` | `enemyRobots` fallback position | `navi_tf_bridge` 把当前追击目标 TF 到 map 后反算回 official-map cm；BT 只在没有新鲜非零 `/ly/position/data` 时写入敌方对应 `armor_type` 的位置，并在 `/ly/enemy/info.position_source` 标记 `navi_target_official` |
 | `/ly/navi/reached` | `naviReach` | 導航當前目標是否已到達；外部狀態新鮮且匹配當前目標時優先使用 |
 | `/ly/navi/reachable` | `naviReachable` | 導航當前目標是否有有效路徑；超時/未收到/不匹配當前目標時退回內部距離判斷 |
 | `/ly/navi/should_rotate` | `naviIsRotate` | 外部导航区域兼容旋转控制；true 恢复正常巡逻，false 关闭小陀螺并请求 FollowMode |
@@ -284,7 +285,8 @@ void TreeTick() {
 
 安全降級（兼容默認行為）：
 
-- `/ly/position/data` 會做 ID 邊界檢查，非法 `carid` 直接忽略並節流告警。
+- `/ly/friend/hp`、`/ly/enemy/hp` 只把 `hp > 0` 的單位寫入 BT 狀態；`0` 視為 unknown，不刷新血量和 freshness。
+- `/ly/position/data` 會做 ID 邊界檢查，非法 `carid` 直接忽略並節流告警；`x=0,y=0` 視為 unknown，不刷新位置和 freshness。
 - 自身哨兵坐標由 `AreaManager.SentryPositionFusion` 統一輸出到 `friendRobots[Sentry].position_`。`Mode=priority` 時按 `Priority` 選最新鮮的最高優先級源；`Mode=weighted` 時對新鮮源按 `Weight` 加權平均。
 - 聯盟賽回補判斷只在 `myselfHealth/ammoLeft` 已收到（且可選地未過期）時生效，避免默認值 `0` 誤觸發回補。
 - `wait_for_game_start_timeout_sec`、`debug_bypass_is_start` 默認關閉，不改變原始開賽門控行為。

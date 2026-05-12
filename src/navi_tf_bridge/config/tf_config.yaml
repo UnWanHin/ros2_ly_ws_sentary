@@ -5,6 +5,7 @@ target_rel_to_goal_pos_node:
     output_goal_pos_topic: /ly/navi/goal_pos
     output_goal_pose_topic: /goal_pose
     output_target_map_topic: /ly/navi/target_map
+    output_target_official_topic: /ly/navi/target_official
     output_navi_position_topic: /ly/navi/position
 
     # TF frame settings
@@ -18,6 +19,7 @@ target_rel_to_goal_pos_node:
     use_msg_frame_id: true
 
     publish_target_map: true
+    publish_target_official: true
     publish_navi_position: true
     navi_position_publish_hz: 10.0
     # Legacy UInt16 output is disabled by default; /goal_pose is the final navigation target.

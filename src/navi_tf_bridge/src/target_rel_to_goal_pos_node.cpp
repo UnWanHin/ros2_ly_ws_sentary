@@ -51,6 +51,9 @@ public:
       this->declare_parameter<std::string>("output_goal_pose_topic", "/goal_pose");
     output_target_map_topic_ =
       this->declare_parameter<std::string>("output_target_map_topic", "/ly/navi/target_map");
+    output_target_official_topic_ =
+      this->declare_parameter<std::string>(
+      "output_target_official_topic", "/ly/navi/target_official");
     output_navi_position_topic_ =
       this->declare_parameter<std::string>("output_navi_position_topic", "/ly/navi/position");
 
@@ -64,6 +67,8 @@ public:
       this->declare_parameter<std::string>("target_rel_default_frame", "gimbal_world");
 
     const bool publish_target_map = this->declare_parameter<bool>("publish_target_map", true);
+    const bool publish_target_official =
+      this->declare_parameter<bool>("publish_target_official", true);
     const bool publish_navi_position =
       this->declare_parameter<bool>("publish_navi_position", true);
     const bool publish_goal_pos = this->declare_parameter<bool>("publish_goal_pos", false);
@@ -273,6 +278,11 @@ public:
       pub_target_map_ =
         this->create_publisher<geometry_msgs::msg::PointStamped>(output_target_map_topic_, 10);
     }
+    if (publish_target_official) {
+      pub_target_official_ =
+        this->create_publisher<gimbal_driver::msg::StampedUInt16MultiArray>(
+        output_target_official_topic_, 10);
+    }
     if (publish_navi_position) {
       pub_navi_position_ =
         this->create_publisher<gimbal_driver::msg::StampedUInt16MultiArray>(
@@ -397,7 +407,7 @@ private:
     RCLCPP_INFO(
       this->get_logger(),
       "Started target_rel -> goal bridge. in=%s goal_pos_out=%s publish_goal_pos=%s goal_pose_out=%s publish_goal_pose=%s map_frame=%s base_frame=%s "
-      "fallback_base_frame=%s target_rel_default_frame=%s raw_goal_in=%s raw_goal_frame=%s invert_y_axis=%s y_axis_max_cm=%d preferred_distance_cm=%d "
+      "fallback_base_frame=%s target_rel_default_frame=%s target_official_out=%s publish_target_official=%s raw_goal_in=%s raw_goal_frame=%s invert_y_axis=%s y_axis_max_cm=%d preferred_distance_cm=%d "
       "goal_u16_encode=%s enc=[[%.6f,0,%.3f],[0,%.6f,%.3f]] dec=[[%.6f,0,%.3f],[0,%.6f,%.3f]] "
       "distance_deadband_cm=%d stop_when_no_target=%s allow_reverse_goal=%s "
       "chase_area_limit=%s area_header=%s area_count=%zu boundary_margin_cm=%.1f chase_enable_cross_area=%s "
@@ -412,6 +422,8 @@ private:
       chase.base_frame.c_str(),
       chase.fallback_base_frame.c_str(),
       chase.default_frame.c_str(),
+      output_target_official_topic_.c_str(),
+      pub_target_official_ ? "true" : "false",
       input_goal_pos_raw_topic_.c_str(),
       map.raw_frame.c_str(),
       output.invert_y_axis ? "true" : "false",
@@ -752,6 +764,87 @@ private:
     return true;
   }
 
+  void publishTargetOfficial(
+    const auto_aim_common::msg::RelativeTarget & msg,
+    const geometry_msgs::msg::PointStamped & target_map,
+    const std::string & resolved_source_frame)
+  {
+    if (!pub_target_official_) {
+      return;
+    }
+    if (!msg.valid) {
+      return;
+    }
+
+    double raw_x_cm = 0.0;
+    double raw_y_cm = 0.0;
+    if (!map_pointer_.mapToRawCentimeters(target_map.point, raw_x_cm, raw_y_cm)) {
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(),
+        *this->get_clock(),
+        2000,
+        "Cannot publish /ly/navi/target_official: raw-goal static calibration is not ready.");
+      return;
+    }
+
+    gimbal_driver::msg::StampedUInt16MultiArray official_msg;
+    official_msg.header.stamp = target_map.header.stamp;
+    official_msg.header.frame_id = navi_position_frame_;
+    official_msg.data = {
+      static_cast<std::uint16_t>(std::clamp(std::lround(raw_x_cm), 0L, 65535L)),
+      static_cast<std::uint16_t>(std::clamp(std::lround(raw_y_cm), 0L, 65535L)),
+      static_cast<std::uint16_t>(msg.armor_type)
+    };
+    official_msg.map_point = target_map.point;
+    official_msg.map_frame = chase_pointer_.config().map_frame;
+    official_msg.source_frame = resolved_source_frame;
+    pub_target_official_->publish(official_msg);
+  }
+
+  bool transformExactTargetToMap(
+    const auto_aim_common::msg::RelativeTarget & msg,
+    const std::vector<std::string> & source_candidates,
+    const rclcpp::Time & transform_time,
+    geometry_msgs::msg::PointStamped & target_map,
+    std::string & resolved_source_frame,
+    std::string & last_tf_error)
+  {
+    if (!msg.valid) {
+      return false;
+    }
+
+    const double x = static_cast<double>(msg.x);
+    const double y = static_cast<double>(msg.y);
+    const double z = static_cast<double>(msg.z);
+    if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) {
+      return false;
+    }
+    if (std::hypot(x, y) <= 1e-6) {
+      return false;
+    }
+
+    geometry_msgs::msg::Point target_rel;
+    target_rel.x = x;
+    target_rel.y = y;
+    target_rel.z = z;
+    if (!chase_pointer_.transformToMap(
+        target_rel,
+        source_candidates,
+        transform_time,
+        tf_buffer_,
+        target_map,
+        resolved_source_frame,
+        last_tf_error))
+    {
+      return false;
+    }
+
+    target_map.header.frame_id = chase_pointer_.config().map_frame;
+    target_map.header.stamp =
+      (transform_time.nanoseconds() == 0) ? this->now() : transform_time;
+    return true;
+  }
+
   void goalPosRawCallback(const std_msgs::msg::UInt16MultiArray::SharedPtr msg)
   {
     if (!msg) {
@@ -789,6 +882,20 @@ private:
 
     const auto source_candidates = chase_pointer_.buildSourceCandidates(msg->header.frame_id);
     const rclcpp::Time transform_time(msg->header.stamp);
+
+    geometry_msgs::msg::PointStamped target_map;
+    std::string target_last_tf_error;
+    std::string target_resolved_source_frame;
+    if (transformExactTargetToMap(
+        *msg,
+        source_candidates,
+        transform_time,
+        target_map,
+        target_resolved_source_frame,
+        target_last_tf_error))
+    {
+      publishTargetOfficial(*msg, target_map, target_resolved_source_frame);
+    }
 
     geometry_msgs::msg::PointStamped point_map;
     std::string last_tf_error;
@@ -841,6 +948,7 @@ private:
   std::string output_goal_pos_topic_;
   std::string output_goal_pose_topic_;
   std::string output_target_map_topic_;
+  std::string output_target_official_topic_;
   std::string output_navi_position_topic_;
   std::string navi_position_frame_{"official_map"};
 
@@ -863,6 +971,7 @@ private:
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr sub_friend_is_team_red_;
   GoalOutput::Publishers goal_publishers_;
   rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr pub_target_map_;
+  rclcpp::Publisher<gimbal_driver::msg::StampedUInt16MultiArray>::SharedPtr pub_target_official_;
   rclcpp::Publisher<gimbal_driver::msg::StampedUInt16MultiArray>::SharedPtr pub_navi_position_;
   rclcpp::TimerBase::SharedPtr debug_export_timer_;
   rclcpp::TimerBase::SharedPtr navi_position_timer_;

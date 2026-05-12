@@ -242,7 +242,12 @@ namespace BehaviorTree {
             unit.position_fresh =
                 has_position && now - lastEnemyPositionRxTime_[index] <= kUnitInfoFreshTimeout;
             unit.position_stamp = lastEnemyPositionStamp_[index].Stamp;
-            unit.position_source = has_position ? "position_data" : "none";
+            unit.position_source = "none";
+            if (has_position) {
+                unit.position_source = lastEnemyPositionSource_[index].empty()
+                    ? "position_data"
+                    : lastEnemyPositionSource_[index];
+            }
             unit.area_id = gimbal_driver::msg::UnitInfo::AREA_UNKNOWN;
             unit.area_name = "unknown";
             unit.area_used_nearest_fallback = false;

@@ -97,7 +97,7 @@
       <div class="small">
         坐標系固定：左下角為 (0,0)，X 向右，Y 向上；點圖時會自動換算 cm。
       </div>
-      <div class="small">C++ 匯入支援 <span class="mono">Location&lt;...&gt; Name{{red},{blue}}</span> 點位，以及 <span class="mono">std::vector&lt;Point&lt;...&gt;&gt; NameRedPoints = {{...}}</span> 區塊線；兩點自動作線段，多點可用 <span class="mono">PolylineShape(NamePoints)</span> 標成折線。</div>
+      <div class="small">C++ 匯入支援 <span class="mono">Location&lt;...&gt; Name{{red},{blue}}</span> 點位，以及 <span class="mono">std::vector&lt;Point&lt;...&gt;&gt; NameRedPoints = {{...}}</span> 區塊線；兩點自動作線段，多點可用 <span class="mono">PolylineShape(NamePoints, width_cm)</span> 標成折線寬度。</div>
       <div class="small">自定義點：輸入 X/Y 會即時預覽；X 或 Y 完成編輯(change)後會新增一個點，舊點不清除。地圖區右鍵也可直接新增自定義點。</div>
       <div class="small" id="pointStats">已標記 0/40，完整點位 0/20</div>
       <div class="small" id="regionStats">區塊 0</div>
@@ -173,6 +173,7 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
     const DEFAULT_IMAGE_URI = "../basemaps/RMUC2026_V1.2.0_topview_cad_field.png";
     const DEFAULT_AREA_URI = "../../../src/behavior_tree/module/Area.hpp";
     const DEFAULT_BASIC_TYPES_URI = "../../../src/behavior_tree/module/BasicTypes.hpp";
+    const DEFAULT_POLYLINE_WIDTH_CM = 5;
 
     const state = {
       points: FALLBACK_POINTS.map(([id, name]) => ({ id, name, red: null, blue: null })),
@@ -477,15 +478,23 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
 
     function parseAreaShapeReferences(text) {
       const result = new Map();
-      const helperRegex = /\b(PolygonShape|PolylineShape)\s*\(\s*([A-Za-z_]\w*)/g;
+      const helperRegex = /\b(PolygonShape|PolylineShape)\s*\(\s*([A-Za-z_]\w*)\s*(?:,\s*(-?\d+(?:\.\d+)?))?/g;
       let match;
       while ((match = helperRegex.exec(text)) !== null) {
-        result.set(match[2], match[1] === "PolylineShape" ? "polyline" : "polygon");
+        const shape = match[1] === "PolylineShape" ? "polyline" : "polygon";
+        const widthCm = shape === "polyline" && match[3] !== undefined
+          ? Math.max(0, Number(match[3]))
+          : undefined;
+        result.set(match[2], { shape, widthCm });
       }
 
-      const designatedRegex = /ShapeType::(Polygon|Polyline)[\s\S]{0,180}?\.Points\s*=\s*&?\s*([A-Za-z_]\w*)/g;
+      const designatedRegex = /ShapeType::(Polygon|Polyline)[\s\S]{0,220}?\.Points\s*=\s*&?\s*([A-Za-z_]\w*)(?:[\s\S]{0,120}?\.WidthCm\s*=\s*(-?\d+(?:\.\d+)?))?/g;
       while ((match = designatedRegex.exec(text)) !== null) {
-        result.set(match[2], match[1] === "Polyline" ? "polyline" : "polygon");
+        const shape = match[1] === "Polyline" ? "polyline" : "polygon";
+        const widthCm = shape === "polyline" && match[3] !== undefined
+          ? Math.max(0, Number(match[3]))
+          : undefined;
+        result.set(match[2], { shape, widthCm });
       }
       return result;
     }
@@ -499,6 +508,19 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
       if (region.shape === "polyline") return "polyline";
       if (region.points.length < 3) return "polyline";
       return "polygon";
+    }
+
+    function regionPolylineWidthCm(region) {
+      if (normalizeRegionShape(region) !== "polyline") return 0;
+      const width = Number(region.widthCm);
+      return Number.isFinite(width) && width > 0 ? width : DEFAULT_POLYLINE_WIDTH_CM;
+    }
+
+    function cmWidthToScreenPx(widthCm) {
+      const size = mapSize();
+      const xScale = overlay.width / Math.max(1, size.width);
+      const yScale = overlay.height / Math.max(1, size.height);
+      return Math.max(2, widthCm * Math.max(xScale, yScale));
     }
 
     function parseTeamedLocationIds(text) {
@@ -603,10 +625,12 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
         const points = parsePointPairs(match[2]);
         if (points.length < 2) continue;
         const name = match[1];
+        const shapeInfo = shapeByName.get(name) || {};
         state.regions.push({
           name: stripTeamSuffix(name),
           team: teamFromName(name),
-          shape: shapeByName.get(name) || inferRegionShape(points),
+          shape: shapeInfo.shape || inferRegionShape(points),
+          widthCm: shapeInfo.widthCm,
           points
         });
         imported += 1;
@@ -790,7 +814,9 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
       ctx.strokeStyle = style.color;
       ctx.fillStyle = style.color;
       ctx.lineWidth = 2;
-      ctx.setLineDash([8, 4]);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.setLineDash(shape === "polyline" ? [] : [8, 4]);
       ctx.beginPath();
       region.points.forEach((point, index) => {
         const [x, y] = toScreen(point[0], point[1]);
@@ -800,8 +826,16 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
       if (shape === "polygon") {
         ctx.closePath();
       }
-      ctx.stroke();
-      if (shape === "polygon") {
+      if (shape === "polyline") {
+        ctx.globalAlpha = 0.18;
+        ctx.lineWidth = cmWidthToScreenPx(regionPolylineWidthCm(region));
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 4]);
+        ctx.stroke();
+      } else {
+        ctx.stroke();
         ctx.globalAlpha = 0.12;
         ctx.fill();
         ctx.globalAlpha = 1;
@@ -818,7 +852,8 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
       }
       const [labelX, labelY] = toScreen(region.points[0][0], region.points[0][1]);
       if (showTagToggle.checked) {
-        drawTag(labelX, labelY, `${style.prefix}:${region.name}`, style.color);
+        const widthText = shape === "polyline" ? ` ${regionPolylineWidthCm(region)}cm` : "";
+        drawTag(labelX, labelY, `${style.prefix}:${region.name}${widthText}`, style.color);
       }
       ctx.restore();
     }
@@ -958,7 +993,11 @@ static const std::vector&lt;Point&lt;std::uint16_t&gt;&gt; CastleRedPoints = {
           const [ax, ay] = toScreen(current[0], current[1]);
           const [bx, by] = toScreen(next[0], next[1]);
           const distSq = distanceToSegmentSquared(screenX, screenY, ax, ay, bx, by);
-          if (distSq <= radiusSq && (!best || distSq < best.distSq)) {
+          const widthRadiusPx = shape === "polyline"
+            ? cmWidthToScreenPx(regionPolylineWidthCm(region)) * 0.5
+            : 0;
+          const hitRadiusSq = Math.max(radiusSq, (widthRadiusPx + radiusPx) * (widthRadiusPx + radiusPx));
+          if (distSq <= hitRadiusSq && (!best || distSq < best.distSq)) {
             best = { region, distSq };
           }
         }
