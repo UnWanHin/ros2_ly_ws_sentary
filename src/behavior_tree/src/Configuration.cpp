@@ -2339,9 +2339,9 @@ namespace BehaviorTree {
         }
         if (outpost_confirm.MaxGameTimeSec < 0) {
             LoggerPtr->Warning(
-                "Invalid Task.OutpostConfirm.MaxGameTimeSec={}, fallback to 90.",
+                "Invalid Task.OutpostConfirm.MaxGameTimeSec={}, fallback to 120.",
                 outpost_confirm.MaxGameTimeSec);
-            outpost_confirm.MaxGameTimeSec = 90;
+            outpost_confirm.MaxGameTimeSec = 120;
         }
         if (outpost_confirm.MinSelfHp < 0) {
             LoggerPtr->Warning(

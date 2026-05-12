@@ -14,8 +14,8 @@ behavior_tree:
         # false: 不把下位機刷來的 /ly/enemy/op_hp 當前哨存活/已毀 gate。
         # 這樣 op_hp=0 只當 unknown，前哨能靠 /ly/aim 目標和 visual scout 繼續進任務。
         TrustEnemyOutpostHp: false
-        # 兼容原有邏輯：開局 90 秒內才主動打前哨；設 0 可關閉時間窗口。
-        MaxGameTimeSec: 90
+        # 兼容原有邏輯：開局 120 秒內才主動打前哨；設 0 可關閉時間窗口。
+        MaxGameTimeSec: 120
         # 低於這些資源門檻時不主動打前哨，讓 Hard Recovery 優先。
         MinSelfHp: 150
         MinAmmo: 30

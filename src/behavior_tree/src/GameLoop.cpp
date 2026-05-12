@@ -1854,8 +1854,17 @@ namespace BehaviorTree {
         int now_time = 420 - timeLeft;
         // 处理坐标数据
         reliableEnemyPosuition.clear();
+        const int reliable_enemy_position_fresh_ms = std::max(
+            1,
+            std::max(
+                config.RegionalDefenseSettings.EnemyPositionFreshMs,
+                config.ChaseSettings.OfficialPositionFreshMs));
         for(auto robot : RobotLists) {
-           if(enemyRobots[robot].position_.X > 100 && enemyRobots[robot].position_.Y > 100) {
+            const int enemy_x = static_cast<int>(enemyRobots[robot].position_.X);
+            const int enemy_y = static_cast<int>(enemyRobots[robot].position_.Y);
+            if(IsEnemyPositionFresh(robot, reliable_enemy_position_fresh_ms) &&
+               IsOfficialFieldPointValid(enemy_x, enemy_y) &&
+               enemy_x > 100 && enemy_y > 100) {
                 reliableEnemyPosuition.push_back(robot);
             }
         }
