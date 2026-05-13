@@ -93,7 +93,7 @@
             "UseAreaScope": true,
             "MyArea": {
                 "Base": true,
-                "Highland": true,
+                "Highland": false,
                 "Roadland": false
             },
             "EnemyArea": {

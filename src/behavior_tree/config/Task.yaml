@@ -33,7 +33,7 @@ behavior_tree:
         # 到 BuffOutpost 後短暫開 FaceMode 看前哨，避免長時間卡住巡邏。
         PostWindowScoutHoldMs: 3000
         # 打前哨時普通車體目標小於此距離才打斷前哨；更遠的車體先忽略，繼續前哨任務。
-        ArmorWarningDistanceCm: 1000
+        ArmorWarningDistanceCm: 5000
         # 因近距離車體打斷後，車體丟失且仍允許前哨任務時，回前哨 FaceMode 搜索的時間。
         PostArmorFaceSearchMs: 3000
         # 前哨任務可被受擊打斷；與 Buff 不同，打前哨之後可再回來打。
