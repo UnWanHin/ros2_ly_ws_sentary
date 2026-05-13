@@ -32,12 +32,13 @@
 | 方向 | Topic | 说明 |
 |---|---|---|
 | 订阅 | `/ly/navi/target_rel` | 追击目标点，默认 frame 为 `gimbal_world` |
+| 订阅 | `/ly/aim/armor_targets` | 外部 aim 全量候选；每个 target point 会按 frame 转成 map，再反算为 official-map fallback |
 | 订阅 | `/ly/navi/goal_pos_raw` | 官方地图二维点，单位 cm |
 | 订阅 | `/ly/face_mode/target_raw` | FaceMode 动态目标，`[official_map_x, official_map_y, map_z]` cm |
 | 发布 | `/goal_pose` | 导航最终目标，`geometry_msgs/PoseStamped` |
 | 发布 | `/ly/navi/goal_pos` | legacy/direct-XY 兼容输出，默认关闭 |
 | 发布 | `/ly/navi/target_map` | debug target map，按配置可开关 |
-| 发布 | `/ly/navi/target_official` | 当前有效 `/ly/navi/target_rel` 的真实目标点反算回 official-map cm，`data=[official_x_cm, official_y_cm, armor_type]`，给 BT 敌方位置 fallback 使用 |
+| 发布 | `/ly/navi/target_official` | 有效 `/ly/navi/target_rel` 或 `/ly/aim/armor_targets` 里的 target point 反算回 official-map cm，`data=[official_x_cm, official_y_cm, armor_type]`，给 BT 敌方位置 fallback 使用 |
 | 发布 | `/ly/navi/position` | `map_frame <- base_frame` 反解出的自身位置；`data=[official_x_cm, official_y_cm]` 保持官方地图 cm，`header.stamp` 使用 TF source stamp，`map_point` 保留 map 系 m 坐标并附带 `map_frame/source_frame` |
 | 发布 | `/ly/control/angles` | FaceMode 独立测试/直接控制输出 |
 | 发布 | `/ly/face_mode/angles` | 正式 BT 链路的 FaceMode solver 输出 |
@@ -53,8 +54,10 @@
 
 - `target_rel_default_frame: gimbal_world`
   - `/ly/navi/target_rel` 没带 `header.frame_id` 时使用。
+- `input_armor_targets_topic: /ly/aim/armor_targets`
+  - 每次收到外部 aim 候选 array 时，逐个 target 做 TF 到 `map`，再用同一套 raw-goal static calibration 反算回 official-map cm。
 - `publish_target_official: true`
-  - 将当前有效追击目标点按同一套 raw-goal static calibration 反算成 official-map cm，发布 `/ly/navi/target_official`。
+  - 发布 `/ly/navi/target_official`；BT 会把它作为敌方位置 fallback，且新鲜 `/ly/position/data` 优先。
 - `map_frame: map`
   - 输出导航目标所在 frame。
 - `use_raw_goal_static_calibration: true`

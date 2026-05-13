@@ -25,8 +25,13 @@ behavior_tree:
         VisualScoutWithoutHp: true
         VisualScoutHoldMs: 10000
         VisualScoutCooldownMs: 15000
-        # 距 BuffOutpost 300cm 內才開始開前哨 FaceMode/視覺；到點後才開始 no-target timeout。
+        # 接近 BuffOutpost 的參考距離；正式前哨 FaceMode/no-target timeout 到點後才開始。
         VisualScoutFaceDistanceCm: 300
+        # 開局窗口後，允許低優先級週期回 BuffOutpost 短暫看前哨；會讓回防/戰術任務先做。
+        PostWindowScoutEnable: true
+        PostWindowScoutIntervalSec: 60
+        # 到 BuffOutpost 後短暫開 FaceMode 看前哨，避免長時間卡住巡邏。
+        PostWindowScoutHoldMs: 3000
         # 打前哨時普通車體目標小於此距離才打斷前哨；更遠的車體先忽略，繼續前哨任務。
         ArmorWarningDistanceCm: 1000
         # 因近距離車體打斷後，車體丟失且仍允許前哨任務時，回前哨 FaceMode 搜索的時間。

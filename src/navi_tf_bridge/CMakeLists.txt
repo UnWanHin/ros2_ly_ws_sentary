@@ -11,6 +11,7 @@ find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(auto_aim_common REQUIRED)
 find_package(gimbal_driver REQUIRED)
+find_package(sentry_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
@@ -44,6 +45,7 @@ ament_target_dependencies(target_rel_to_goal_pos_node
   geometry_msgs
   auto_aim_common
   gimbal_driver
+  sentry_msgs
   tf2
   tf2_ros
   tf2_geometry_msgs

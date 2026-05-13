@@ -1,6 +1,7 @@
 target_rel_to_goal_pos_node:
   ros__parameters:
     input_topic: /ly/navi/target_rel
+    input_armor_targets_topic: /ly/aim/armor_targets
     input_goal_pos_raw_topic: /ly/navi/goal_pos_raw
     output_goal_pos_topic: /ly/navi/goal_pos
     output_goal_pose_topic: /goal_pose

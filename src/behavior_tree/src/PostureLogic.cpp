@@ -126,10 +126,12 @@ SentryPosture Application::SelectDesiredPosture(const bool has_target) const {
          outpostAimData.LastValidTime.time_since_epoch().count() != 0 &&
          target_keep_ms > 0 &&
          now - outpostAimData.LastValidTime <= std::chrono::milliseconds(target_keep_ms));
+    const bool outpost_at_buff_outpost =
+        IsBaseGoalArrived(LangYa::BuffOutpost.ID, team, true);
     const bool outpost_attack_ready =
         aimMode == AimMode::Outpost &&
         targetArmor.Type == ArmorType::Outpost &&
-        IsBaseGoalArrived(LangYa::BuffOutpost.ID, team, true) &&
+        outpost_at_buff_outpost &&
         outpost_target_recent;
     const bool outpost_post_armor_face_search_active =
         outpostPostArmorFaceSearchUntil_.time_since_epoch().count() != 0 &&
@@ -190,8 +192,14 @@ SentryPosture Application::SelectDesiredPosture(const bool has_target) const {
         }
         return SentryPosture::Attack;
     }
-    if (outpost_task_active && !very_low_health && !low_health) {
+    if (outpost_task_active && (very_low_health || low_health)) {
+        return SentryPosture::Defense;
+    }
+    if (outpost_task_active && outpost_at_buff_outpost) {
         return SentryPosture::Attack;
+    }
+    if (outpost_task_active) {
+        return SentryPosture::Move;
     }
 
     if (low_energy) {

@@ -26,6 +26,7 @@
 #include "navi_tf_bridge/pointer_debug.hpp"
 #include "navi_tf_bridge/pointer_solver.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "sentry_msgs/msg/aim_target_array.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "std_msgs/msg/u_int16_multi_array.hpp"
 #include "tf2_ros/buffer.h"
@@ -43,6 +44,8 @@ public:
     tf_listener_(tf_buffer_)
   {
     input_topic_ = this->declare_parameter<std::string>("input_topic", "/ly/navi/target_rel");
+    input_armor_targets_topic_ =
+      this->declare_parameter<std::string>("input_armor_targets_topic", "/ly/aim/armor_targets");
     input_goal_pos_raw_topic_ =
       this->declare_parameter<std::string>("input_goal_pos_raw_topic", "/ly/navi/goal_pos_raw");
     output_goal_pos_topic_ =
@@ -250,6 +253,12 @@ public:
       input_topic_,
       rclcpp::QoS(10),
       std::bind(&TargetRelToGoalPosNode::targetRelCallback, this, std::placeholders::_1));
+    if (!input_armor_targets_topic_.empty()) {
+      sub_armor_targets_ = this->create_subscription<sentry_msgs::msg::AimTargetArray>(
+        input_armor_targets_topic_,
+        rclcpp::SensorDataQoS(),
+        std::bind(&TargetRelToGoalPosNode::armorTargetsCallback, this, std::placeholders::_1));
+    }
     sub_goal_pos_raw_ = this->create_subscription<std_msgs::msg::UInt16MultiArray>(
       input_goal_pos_raw_topic_,
       rclcpp::QoS(10),
@@ -407,7 +416,7 @@ private:
     RCLCPP_INFO(
       this->get_logger(),
       "Started target_rel -> goal bridge. in=%s goal_pos_out=%s publish_goal_pos=%s goal_pose_out=%s publish_goal_pose=%s map_frame=%s base_frame=%s "
-      "fallback_base_frame=%s target_rel_default_frame=%s target_official_out=%s publish_target_official=%s raw_goal_in=%s raw_goal_frame=%s invert_y_axis=%s y_axis_max_cm=%d preferred_distance_cm=%d "
+      "fallback_base_frame=%s target_rel_default_frame=%s armor_targets_in=%s target_official_out=%s publish_target_official=%s raw_goal_in=%s raw_goal_frame=%s invert_y_axis=%s y_axis_max_cm=%d preferred_distance_cm=%d "
       "goal_u16_encode=%s enc=[[%.6f,0,%.3f],[0,%.6f,%.3f]] dec=[[%.6f,0,%.3f],[0,%.6f,%.3f]] "
       "distance_deadband_cm=%d stop_when_no_target=%s allow_reverse_goal=%s "
       "chase_area_limit=%s area_header=%s area_count=%zu boundary_margin_cm=%.1f chase_enable_cross_area=%s "
@@ -422,6 +431,7 @@ private:
       chase.base_frame.c_str(),
       chase.fallback_base_frame.c_str(),
       chase.default_frame.c_str(),
+      input_armor_targets_topic_.empty() ? "<disabled>" : input_armor_targets_topic_.c_str(),
       output_target_official_topic_.c_str(),
       pub_target_official_ ? "true" : "false",
       input_goal_pos_raw_topic_.c_str(),
@@ -769,10 +779,19 @@ private:
     const geometry_msgs::msg::PointStamped & target_map,
     const std::string & resolved_source_frame)
   {
+    publishTargetOfficialData(msg.valid, msg.armor_type, target_map, resolved_source_frame);
+  }
+
+  void publishTargetOfficialData(
+    const bool valid,
+    const std::uint8_t armor_type,
+    const geometry_msgs::msg::PointStamped & target_map,
+    const std::string & resolved_source_frame)
+  {
     if (!pub_target_official_) {
       return;
     }
-    if (!msg.valid) {
+    if (!valid) {
       return;
     }
 
@@ -793,12 +812,47 @@ private:
     official_msg.data = {
       static_cast<std::uint16_t>(std::clamp(std::lround(raw_x_cm), 0L, 65535L)),
       static_cast<std::uint16_t>(std::clamp(std::lround(raw_y_cm), 0L, 65535L)),
-      static_cast<std::uint16_t>(msg.armor_type)
+      static_cast<std::uint16_t>(armor_type)
     };
     official_msg.map_point = target_map.point;
     official_msg.map_frame = chase_pointer_.config().map_frame;
     official_msg.source_frame = resolved_source_frame;
     pub_target_official_->publish(official_msg);
+  }
+
+  bool transformPointToMap(
+    const geometry_msgs::msg::Point & point_rel,
+    const std::vector<std::string> & source_candidates,
+    const rclcpp::Time & transform_time,
+    geometry_msgs::msg::PointStamped & target_map,
+    std::string & resolved_source_frame,
+    std::string & last_tf_error)
+  {
+    if (!std::isfinite(point_rel.x) || !std::isfinite(point_rel.y) ||
+      !std::isfinite(point_rel.z))
+    {
+      return false;
+    }
+    if (std::hypot(point_rel.x, point_rel.y) <= 1e-6) {
+      return false;
+    }
+
+    if (!chase_pointer_.transformToMap(
+        point_rel,
+        source_candidates,
+        transform_time,
+        tf_buffer_,
+        target_map,
+        resolved_source_frame,
+        last_tf_error))
+    {
+      return false;
+    }
+
+    target_map.header.frame_id = chase_pointer_.config().map_frame;
+    target_map.header.stamp =
+      (transform_time.nanoseconds() == 0) ? this->now() : transform_time;
+    return true;
   }
 
   bool transformExactTargetToMap(
@@ -827,22 +881,13 @@ private:
     target_rel.x = x;
     target_rel.y = y;
     target_rel.z = z;
-    if (!chase_pointer_.transformToMap(
-        target_rel,
-        source_candidates,
-        transform_time,
-        tf_buffer_,
-        target_map,
-        resolved_source_frame,
-        last_tf_error))
-    {
-      return false;
-    }
-
-    target_map.header.frame_id = chase_pointer_.config().map_frame;
-    target_map.header.stamp =
-      (transform_time.nanoseconds() == 0) ? this->now() : transform_time;
-    return true;
+    return transformPointToMap(
+      target_rel,
+      source_candidates,
+      transform_time,
+      target_map,
+      resolved_source_frame,
+      last_tf_error);
   }
 
   void goalPosRawCallback(const std_msgs::msg::UInt16MultiArray::SharedPtr msg)
@@ -943,7 +988,54 @@ private:
       goal_publishers_);
   }
 
+  void armorTargetsCallback(const sentry_msgs::msg::AimTargetArray::SharedPtr msg)
+  {
+    if (!msg || !pub_target_official_) {
+      return;
+    }
+
+    const rclcpp::Time transform_time = this->now();
+    for (const auto & target : msg->aim_targets) {
+      geometry_msgs::msg::Point target_rel;
+      target_rel.x = target.position.x;
+      target_rel.y = target.position.y;
+      target_rel.z = target.position.z;
+
+      std::string frame_id =
+        !target.header.frame_id.empty() ? target.header.frame_id : msg->header.frame_id;
+      const auto source_candidates = chase_pointer_.buildSourceCandidates(frame_id);
+
+      geometry_msgs::msg::PointStamped target_map;
+      std::string resolved_source_frame;
+      std::string last_tf_error;
+      if (!transformPointToMap(
+          target_rel,
+          source_candidates,
+          transform_time,
+          target_map,
+          resolved_source_frame,
+          last_tf_error))
+      {
+        RCLCPP_WARN_THROTTLE(
+          this->get_logger(),
+          *this->get_clock(),
+          2000,
+          "Cannot convert /ly/aim/armor_targets id=%u to official map: %s",
+          static_cast<unsigned int>(target.id),
+          last_tf_error.empty() ? "invalid target point or TF unavailable" : last_tf_error.c_str());
+        continue;
+      }
+
+      publishTargetOfficialData(
+        true,
+        static_cast<std::uint8_t>(target.id),
+        target_map,
+        resolved_source_frame);
+    }
+  }
+
   std::string input_topic_;
+  std::string input_armor_targets_topic_;
   std::string input_goal_pos_raw_topic_;
   std::string output_goal_pos_topic_;
   std::string output_goal_pose_topic_;
@@ -967,6 +1059,7 @@ private:
   tf2_ros::TransformListener tf_listener_;
 
   rclcpp::Subscription<auto_aim_common::msg::RelativeTarget>::SharedPtr sub_target_rel_;
+  rclcpp::Subscription<sentry_msgs::msg::AimTargetArray>::SharedPtr sub_armor_targets_;
   rclcpp::Subscription<std_msgs::msg::UInt16MultiArray>::SharedPtr sub_goal_pos_raw_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr sub_friend_is_team_red_;
   GoalOutput::Publishers goal_publishers_;

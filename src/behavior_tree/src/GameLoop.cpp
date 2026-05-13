@@ -959,6 +959,9 @@ namespace BehaviorTree {
 
         /*----------云台----------*/
         auto now = std::chrono::steady_clock::now();
+        const bool outpost_damage_abort_scan_active =
+            outpostTaskDamageAbortUntil_.time_since_epoch().count() != 0 &&
+            now < outpostTaskDamageAbortUntil_;
         const bool external_aim_active = config.ExternalAimSettings.Enable;
         if (external_aim_active &&
             externalAimData.LastValidTime.time_since_epoch().count() != 0 &&
@@ -1110,7 +1113,9 @@ namespace BehaviorTree {
                 if (!config.AimDebugSettings.StopScan && now - lastFoundEnemyTime > std::chrono::milliseconds(2000)) {
                     static auto last_searching_log = std::chrono::steady_clock::time_point{};
                     const int patrol_mode =
-                        face_mode_fallback_patrol_scan ? 2 : config.PatrolScanSettings.Mode;
+                        (face_mode_fallback_patrol_scan || outpost_damage_abort_scan_active)
+                            ? 2
+                            : config.PatrolScanSettings.Mode;
                     const bool boost_patrol_scan =
                         aimMode == AimMode::RotateScan &&
                         damage_rotate_elapsed_ms >= 0 &&
@@ -1586,12 +1591,23 @@ namespace BehaviorTree {
             const auto now = std::chrono::steady_clock::now();
             const int referee_fresh_ms = std::max(0, outpost_confirm.RefereeFreshTimeoutMs);
             const bool outpost_opening_high_priority = IsOutpostOpeningHighPriorityActive();
-            if (IsRegionalDefenseAimSuppressActive() && !outpost_opening_high_priority) {
+            const UnitTeam enemy_team = team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
+            const auto opening_defense_threat = outpost_opening_high_priority
+                ? EvaluateRegionalDefenseThreat(team, enemy_team)
+                : std::optional<RegionalDefenseThreat>{};
+            const bool opening_base_defense_required =
+                opening_defense_threat.has_value() &&
+                opening_defense_threat->OwnBaseCount > 0;
+            if ((IsRegionalDefenseAimSuppressActive() &&
+                 (!outpost_opening_high_priority || opening_base_defense_required)) ||
+                opening_base_defense_required) {
                 outpostVisualScoutNavigationActive_ = false;
                 outpostPostArmorFaceSearchUntil_ = {};
                 outpostArmorInterruptActive_ = false;
                 aimMode = AimMode::RotateScan;
-                LoggerPtr->Info("Regional defense active: suppress Outpost aim mode.");
+                LoggerPtr->Info(
+                    "Regional defense active: suppress Outpost aim mode. opening_base_count={}",
+                    opening_defense_threat.has_value() ? opening_defense_threat->OwnBaseCount : 0);
                 return;
             }
             if (areaManager_.RegionalAreaTaskActive() &&
@@ -1623,9 +1639,14 @@ namespace BehaviorTree {
                 outpost_confirm.MinSelfHp <= 0 || (self_hp_fresh && myselfHealth >= outpost_confirm.MinSelfHp);
             const bool ammo_ready =
                 outpost_confirm.MinAmmo <= 0 || (ammo_fresh && ammoLeft >= outpost_confirm.MinAmmo);
+            const bool opening_window_limited = outpost_confirm.MaxGameTimeSec > 0;
             const bool in_time_window =
-                outpost_confirm.MaxGameTimeSec <= 0 || now_time < outpost_confirm.MaxGameTimeSec;
-            const bool outpost_time_gate_open = in_time_window;
+                !opening_window_limited || now_time < outpost_confirm.MaxGameTimeSec;
+            const bool post_window_scout_time =
+                opening_window_limited &&
+                now_time >= outpost_confirm.MaxGameTimeSec &&
+                outpost_confirm.PostWindowScoutEnable;
+            const bool outpost_time_gate_open = in_time_window || post_window_scout_time;
             const bool outpost_goal_unreachable =
                 IsBaseGoalExternallyUnreachable(LangYa::BuffOutpost.ID, team, true);
             const bool outpost_visual_scout_point_reached =
@@ -1699,6 +1720,18 @@ namespace BehaviorTree {
                     std::chrono::milliseconds(std::max(0, config.AimDebugSettings.LatchedTargetHoldMs));
             const int visual_scout_hold_ms = std::max(0, outpost_confirm.VisualScoutHoldMs);
             const int visual_scout_cooldown_ms = std::max(0, outpost_confirm.VisualScoutCooldownMs);
+            const int post_window_scout_hold_ms =
+                std::max(0, outpost_confirm.PostWindowScoutHoldMs);
+            const int post_window_scout_interval_ms =
+                std::max(0, outpost_confirm.PostWindowScoutIntervalSec) * 1000;
+            const bool post_window_scout_mode =
+                post_window_scout_time && !in_time_window;
+            const int active_visual_scout_hold_ms = post_window_scout_mode
+                ? post_window_scout_hold_ms
+                : visual_scout_hold_ms;
+            const int active_visual_scout_cooldown_ms = post_window_scout_mode
+                ? post_window_scout_interval_ms
+                : visual_scout_cooldown_ms;
             const int post_armor_face_search_ms =
                 std::max(0, outpost_confirm.PostArmorFaceSearchMs);
             const bool outpost_visual_scout_cooling_down =
@@ -1728,7 +1761,7 @@ namespace BehaviorTree {
                 now < outpostPostArmorFaceSearchUntil_;
             const bool outpost_visual_scout_available =
                 outpost_confirm.VisualScoutWithoutHp &&
-                visual_scout_hold_ms > 0 &&
+                active_visual_scout_hold_ms > 0 &&
                 !outpost_visual_scout_cooling_down;
             const bool outpost_visual_scout_candidate_allowed =
                 outpost_base_gate_allowed &&
@@ -1800,22 +1833,23 @@ namespace BehaviorTree {
                 reset_outpost_visual_scout_state();
                 LoggerPtr->Info("Enemy Outpost HP interface says alive: {}", enemyOutpostHealth);
                 outpostVisualScoutNavigationActive_ = true;
-                aimMode = outpost_visual_scout_face_ready ? AimMode::Outpost : AimMode::RotateScan;
+                aimMode = outpost_visual_scout_point_reached ? AimMode::Outpost : AimMode::RotateScan;
                 LoggerPtr->Info(
-                    "Outpost HP alive: face_ready={} face_distance_cm={} point_reached={}.",
+                    "Outpost HP alive: point_reached={} face_distance_ready={} face_distance_cm={}.",
+                    outpost_visual_scout_point_reached ? 1 : 0,
                     outpost_visual_scout_face_ready ? 1 : 0,
-                    visual_scout_face_distance_cm,
-                    outpost_visual_scout_point_reached ? 1 : 0);
+                    visual_scout_face_distance_cm);
             } else if (outpost_visual_recent) {
                 reset_outpost_visual_scout_state();
                 outpostVisualScoutNavigationActive_ = true;
                 LoggerPtr->Info(
-                    "Keep Outpost task by recent visual target.");
-                aimMode = AimMode::Outpost;
+                    "Keep Outpost task by recent visual target. point_reached={}",
+                    outpost_visual_scout_point_reached ? 1 : 0);
+                aimMode = outpost_visual_scout_point_reached ? AimMode::Outpost : AimMode::RotateScan;
             } else if (post_armor_face_search_active) {
                 outpostVisualScoutNavigationActive_ = true;
                 clear_outpost_visual_scout_attempt();
-                if (outpost_visual_scout_face_ready) {
+                if (outpost_visual_scout_point_reached) {
                     aimMode = AimMode::Outpost;
                     LoggerPtr->Info(
                         "Outpost post-armor search: FaceMode active for {} ms, point_reached={}.",
@@ -1829,7 +1863,7 @@ namespace BehaviorTree {
                         visual_scout_face_distance_cm);
                 }
             } else if (outpost_confirm.VisualScoutWithoutHp &&
-                       visual_scout_hold_ms > 0) {
+                       active_visual_scout_hold_ms > 0) {
                 if (outpost_visual_scout_cooling_down) {
                     aimMode = AimMode::RotateScan;
                     LoggerPtr->Info(
@@ -1846,31 +1880,32 @@ namespace BehaviorTree {
                             visual_scout_face_distance_cm);
                     } else if (!outpost_visual_scout_point_reached) {
                         outpostVisualScoutStartTime_ = {};
-                        aimMode = AimMode::Outpost;
+                        aimMode = AimMode::RotateScan;
                         LoggerPtr->Info(
-                            "Outpost visual scout approach: within face distance, enable Outpost vision/FaceMode before timeout.");
+                            "Outpost visual scout approach: within face distance, keep armor scan until BuffOutpost reached.");
                     } else if (outpostVisualScoutStartTime_.time_since_epoch().count() == 0) {
                         outpostVisualScoutStartTime_ = now;
                         LoggerPtr->Info(
-                            "Start Outpost visual scout without HP for {} ms.",
-                            visual_scout_hold_ms);
+                            "Start Outpost visual scout without HP for {} ms. post_window={}",
+                            active_visual_scout_hold_ms,
+                            post_window_scout_mode ? 1 : 0);
                         aimMode = AimMode::Outpost;
                     } else {
                         const auto scout_elapsed =
                             std::chrono::duration_cast<std::chrono::milliseconds>(
                                 now - outpostVisualScoutStartTime_);
-                        if (scout_elapsed <= std::chrono::milliseconds(visual_scout_hold_ms)) {
+                        if (scout_elapsed <= std::chrono::milliseconds(active_visual_scout_hold_ms)) {
                             aimMode = AimMode::Outpost;
                         } else {
                             outpostVisualScoutStartTime_ = {};
-                            const int scout_cooldown_ms = visual_scout_cooldown_ms;
+                            const int scout_cooldown_ms = active_visual_scout_cooldown_ms;
                             outpostVisualScoutCooldownUntil_ =
                                 now + std::chrono::milliseconds(scout_cooldown_ms);
                             outpostVisualScoutNavigationActive_ = false;
                             aimMode = AimMode::RotateScan;
                             LoggerPtr->Warning(
                                 "Outpost visual scout timeout without target: hold_ms={} cooldown_ms={}.",
-                                visual_scout_hold_ms,
+                                active_visual_scout_hold_ms,
                                 scout_cooldown_ms);
                         }
                     }

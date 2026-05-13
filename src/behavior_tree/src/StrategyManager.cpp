@@ -1,5 +1,6 @@
 #include "../include/Application.hpp"
 
+#include <optional>
 #include <string>
 
 namespace BehaviorTree {
@@ -169,6 +170,17 @@ bool StrategyManager::RunTactical(Application& app) {
 
     const UnitTeam my_team = app.team;
     const UnitTeam enemy_team = app.team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
+    const auto opening_defense_threat = app.IsOutpostOpeningHighPriorityActive()
+        ? app.EvaluateRegionalDefenseThreat(my_team, enemy_team)
+        : std::optional<RegionalDefenseThreat>{};
+    const bool opening_base_defense_required =
+        opening_defense_threat.has_value() &&
+        opening_defense_threat->OwnBaseCount > 0;
+
+    if (opening_base_defense_required && app.TrySetRegionalDefenseGoal(my_team, enemy_team)) {
+        MarkHandled(app, StrategyLayer::Tactical);
+        return true;
+    }
 
     if (app.aimMode == AimMode::Buff) {
         if (app.naviCommandIntervalClock.trigger()) {

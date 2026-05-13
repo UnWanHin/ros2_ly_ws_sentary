@@ -325,6 +325,9 @@ self_large_energy_status == 1 / 2
     "VisualScoutHoldMs": 10000,
     "VisualScoutCooldownMs": 15000,
     "VisualScoutFaceDistanceCm": 300,
+    "PostWindowScoutEnable": true,
+    "PostWindowScoutIntervalSec": 60,
+    "PostWindowScoutHoldMs": 3000,
     "ArmorWarningDistanceCm": 1000,
     "PostArmorFaceSearchMs": 3000,
     "DamageAbortThreshold": 30,
@@ -338,10 +341,11 @@ self_large_energy_status == 1 / 2
 
 - `Task.Outpost=true` 才允許進前哨任務。
 - `/ly/enemy/op_hp` 不是正式 gate；接口保留，若它新鮮且為 0，BT 可提前判定敵方前哨已毀並跳過任務。
-- 若 `VisualScoutWithoutHp=true`，且血量/彈量/時間窗/不可達 gate 都通過，會先以普通裝甲模式導航去 `BuffOutpost`；距 `BuffOutpost` 小於 `VisualScoutFaceDistanceCm` 後才切 `AimMode::Outpost`、開 `/ly/vision/mode=3` 和敵方前哨 FaceMode。
-- 到達 `BuffOutpost` 後才開始計算 `VisualScoutHoldMs` no-target timeout；默認到點駐守約 10 秒，仍沒有 `/ly/outpost/target` 則退出。
+- 若 `VisualScoutWithoutHp=true`，且血量/彈量/時間窗/不可達 gate 都通過，會先以普通裝甲模式導航去 `BuffOutpost`；路上不開前哨 FaceMode。
+- 到達 `BuffOutpost` 後才切 `AimMode::Outpost`、開 `/ly/vision/mode=3` 和敵方前哨 FaceMode，並開始計算 `VisualScoutHoldMs` no-target timeout；默認到點駐守約 10 秒，仍沒有 `/ly/outpost/target` 則退出。
 - 自身血量、彈量低於 `OutpostConfirm.MinSelfHp / MinAmmo` 時不主動進前哨任務，讓 Hard Recovery 優先處理。
-- 開局 `OutpostConfirm.MaxGameTimeSec=120` 秒內前哨是高優先級任務；超過時間窗後不再自動每 20 秒週期去 `BuffOutpost` 偵查。
+- 開局 `OutpostConfirm.MaxGameTimeSec=120` 秒內前哨是高優先級任務；但己方 Base 有新鮮敵方位置時，RegionalDefense 可打斷前哨任務。
+- 超過時間窗後，前哨改為低優先級週期偵查：`PostWindowScoutIntervalSec` 控制間隔，到 `BuffOutpost` 後用 `PostWindowScoutHoldMs` 短暫開 FaceMode。
 - Roadland 強綁定穿越、RegionalDefense、受擊超過門檻、導航回報 `BuffOutpost` 不可達，都會退出前哨模式。
 - 行進/接近過程中若普通裝甲目標有效且距離不超過 `ArmorWarningDistanceCm`，先保持普通自瞄打車；更遠的車體會被忽略並繼續選前哨。近距離車體丟失後，若前哨 gate 仍允許，會用 `PostArmorFaceSearchMs` 回前哨 FaceMode 搜索一小段時間。舊鍵 `ArmorInterruptMaxDistanceCm` 仍可讀取作兼容。
 - 前哨血量接口回報歸零、視覺偵查超時、視覺偵查冷卻中，或沒有允許 visual scout/近期前哨視覺鎖定時，退回普通掃描。
@@ -355,8 +359,8 @@ self_large_energy_status == 1 / 2
 
 導航與朝向：
 
-- Travel 階段導航去 `BuffOutpost` 點，但保持普通裝甲視覺，不開前哨 FaceMode。
-- Approach 階段距 `BuffOutpost` 300cm 左右才 FaceMode 朝向敵方 `OutpostPose`。
+- Travel/Approach 階段導航去 `BuffOutpost` 點，但保持普通裝甲視覺，不開前哨 FaceMode。
+- 到達 `BuffOutpost` 後才 FaceMode 朝向敵方 `OutpostPose`。
 - 識別到前哨時，前哨視覺角度優先；沒識別到時，FaceMode 提供粗朝向。
 
 ## 雲台巡邏掃描

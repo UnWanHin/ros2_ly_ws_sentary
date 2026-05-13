@@ -529,6 +529,9 @@ namespace LangYa {
         os.VisualScoutHoldMs = j.value("VisualScoutHoldMs", os.VisualScoutHoldMs);
         os.VisualScoutCooldownMs = j.value("VisualScoutCooldownMs", os.VisualScoutCooldownMs);
         os.VisualScoutFaceDistanceCm = j.value("VisualScoutFaceDistanceCm", os.VisualScoutFaceDistanceCm);
+        os.PostWindowScoutEnable = j.value("PostWindowScoutEnable", os.PostWindowScoutEnable);
+        os.PostWindowScoutIntervalSec = j.value("PostWindowScoutIntervalSec", os.PostWindowScoutIntervalSec);
+        os.PostWindowScoutHoldMs = j.value("PostWindowScoutHoldMs", os.PostWindowScoutHoldMs);
         os.ArmorWarningDistanceCm = j.value("ArmorInterruptMaxDistanceCm", os.ArmorWarningDistanceCm);
         os.ArmorWarningDistanceCm = j.value("ArmorWarningDistanceCm", os.ArmorWarningDistanceCm);
         os.ArmorInterruptMaxDistanceCm = os.ArmorWarningDistanceCm;
@@ -1295,6 +1298,27 @@ namespace BehaviorTree {
                 "Task/OutpostConfirm/VisualScoutFaceDistanceCm"
             },
             config.TaskSettings.OutpostConfirm.VisualScoutFaceDistanceCm);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "Task.OutpostConfirm.PostWindowScoutEnable",
+                "Task/OutpostConfirm/PostWindowScoutEnable"
+            },
+            config.TaskSettings.OutpostConfirm.PostWindowScoutEnable);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.OutpostConfirm.PostWindowScoutIntervalSec",
+                "Task/OutpostConfirm/PostWindowScoutIntervalSec"
+            },
+            config.TaskSettings.OutpostConfirm.PostWindowScoutIntervalSec);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.OutpostConfirm.PostWindowScoutHoldMs",
+                "Task/OutpostConfirm/PostWindowScoutHoldMs"
+            },
+            config.TaskSettings.OutpostConfirm.PostWindowScoutHoldMs);
         ReadOptionalIntParam(
             node_,
             {
@@ -2139,7 +2163,7 @@ namespace BehaviorTree {
             config.TaskSettings.BuffConfirm.DamageAbortWindowMs,
             config.TaskSettings.BuffConfirm.DamageAbortHoldMs);
         LoggerPtr->Debug(
-            "OutpostConfirm: referee_fresh_ms={} trust_enemy_outpost_hp={} max_game_time_sec={} min_self_hp={} min_ammo={} visual_scout_without_hp={} visual_scout_hold_ms={} visual_scout_cooldown_ms={} visual_scout_face_distance_cm={} armor_warning_distance_cm={} post_armor_face_search_ms={} damage_abort_threshold={} damage_abort_window_ms={} damage_abort_hold_ms={} opening_high_priority={} suppress_chase_while_active={}",
+            "OutpostConfirm: referee_fresh_ms={} trust_enemy_outpost_hp={} max_game_time_sec={} min_self_hp={} min_ammo={} visual_scout_without_hp={} visual_scout_hold_ms={} visual_scout_cooldown_ms={} visual_scout_face_distance_cm={} post_window_scout_enable={} post_window_scout_interval_sec={} post_window_scout_hold_ms={} armor_warning_distance_cm={} post_armor_face_search_ms={} damage_abort_threshold={} damage_abort_window_ms={} damage_abort_hold_ms={} opening_high_priority={} suppress_chase_while_active={}",
             config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs,
             config.TaskSettings.OutpostConfirm.TrustEnemyOutpostHp ? 1 : 0,
             config.TaskSettings.OutpostConfirm.MaxGameTimeSec,
@@ -2149,6 +2173,9 @@ namespace BehaviorTree {
             config.TaskSettings.OutpostConfirm.VisualScoutHoldMs,
             config.TaskSettings.OutpostConfirm.VisualScoutCooldownMs,
             config.TaskSettings.OutpostConfirm.VisualScoutFaceDistanceCm,
+            config.TaskSettings.OutpostConfirm.PostWindowScoutEnable ? 1 : 0,
+            config.TaskSettings.OutpostConfirm.PostWindowScoutIntervalSec,
+            config.TaskSettings.OutpostConfirm.PostWindowScoutHoldMs,
             config.TaskSettings.OutpostConfirm.ArmorWarningDistanceCm,
             config.TaskSettings.OutpostConfirm.PostArmorFaceSearchMs,
             config.TaskSettings.OutpostConfirm.DamageAbortThreshold,
@@ -2534,6 +2561,18 @@ namespace BehaviorTree {
                 "Invalid Task.OutpostConfirm.VisualScoutFaceDistanceCm={}, fallback to 300.",
                 outpost_confirm.VisualScoutFaceDistanceCm);
             outpost_confirm.VisualScoutFaceDistanceCm = 300;
+        }
+        if (outpost_confirm.PostWindowScoutIntervalSec < 0) {
+            LoggerPtr->Warning(
+                "Invalid Task.OutpostConfirm.PostWindowScoutIntervalSec={}, fallback to 60.",
+                outpost_confirm.PostWindowScoutIntervalSec);
+            outpost_confirm.PostWindowScoutIntervalSec = 60;
+        }
+        if (outpost_confirm.PostWindowScoutHoldMs < 0) {
+            LoggerPtr->Warning(
+                "Invalid Task.OutpostConfirm.PostWindowScoutHoldMs={}, fallback to 3000.",
+                outpost_confirm.PostWindowScoutHoldMs);
+            outpost_confirm.PostWindowScoutHoldMs = 3000;
         }
         if (outpost_confirm.ArmorWarningDistanceCm < 0) {
             LoggerPtr->Warning(

@@ -70,6 +70,10 @@ def generate_launch_description():
             default_value=str(get_default("input_topic", "/ly/navi/target_rel")),
         ),
         DeclareLaunchArgument(
+            "input_armor_targets_topic",
+            default_value=str(get_default("input_armor_targets_topic", "/ly/aim/armor_targets")),
+        ),
+        DeclareLaunchArgument(
             "output_goal_pos_topic",
             default_value=str(get_default("output_goal_pos_topic", "/ly/navi/goal_pos")),
         ),
@@ -291,6 +295,9 @@ def generate_launch_description():
                     default_bridge_param_file,
                     {
                         "input_topic": LaunchConfiguration("input_topic"),
+                        "input_armor_targets_topic": LaunchConfiguration(
+                            "input_armor_targets_topic"
+                        ),
                         "input_goal_pos_raw_topic": LaunchConfiguration("input_goal_pos_raw_topic"),
                         "output_goal_pos_topic": LaunchConfiguration("output_goal_pos_topic"),
                         "output_goal_pose_topic": LaunchConfiguration("output_goal_pose_topic"),
