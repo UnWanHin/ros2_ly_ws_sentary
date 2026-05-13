@@ -1005,6 +1005,7 @@ namespace LangYa {
         bs.Enable = j.value("Enable", bs.Enable);
         bs.TravelTimeoutSec = j.value("TravelTimeoutSec", bs.TravelTimeoutSec);
         bs.CommandHoldSec = j.value("CommandHoldSec", bs.CommandHoldSec);
+        bs.GoalHoldSec = j.value("GoalHoldSec", bs.GoalHoldSec);
         bs.MaxPatrolSteps = j.value("MaxPatrolSteps", bs.MaxPatrolSteps);
         if (j.contains("Patrol") && j.at("Patrol").is_object()) {
             const auto& patrol = j.at("Patrol");
@@ -2004,6 +2005,17 @@ namespace BehaviorTree {
         ReadOptionalIntParam(
             node_,
             {
+                "AreaManager.Area.MyArea.Base.Task.MyBase.GoalHoldSec",
+                "AreaManager/Area/MyArea/Base/Task/MyBase/GoalHoldSec",
+                "AreaManager.Task.MyBase.GoalHoldSec",
+                "AreaManager/Task/MyBase/GoalHoldSec",
+                "AreaManager.RegionalAreaTask.MyBase.GoalHoldSec",
+                "AreaManager/RegionalAreaTask/MyBase/GoalHoldSec"
+            },
+            base.GoalHoldSec);
+        ReadOptionalIntParam(
+            node_,
+            {
                 "AreaManager.Area.MyArea.Base.Task.MyBase.MaxPatrolSteps",
                 "AreaManager/Area/MyArea/Base/Task/MyBase/MaxPatrolSteps",
                 "AreaManager.Task.MyBase.MaxPatrolSteps",
@@ -2500,6 +2512,7 @@ namespace BehaviorTree {
         LoggerPtr->Debug("MyBase.Enable: {}", config.RegionalAreaTaskSettings.MyBase.Enable);
         LoggerPtr->Debug("MyBase.TravelTimeoutSec: {}", config.RegionalAreaTaskSettings.MyBase.TravelTimeoutSec);
         LoggerPtr->Debug("MyBase.CommandHoldSec: {}", config.RegionalAreaTaskSettings.MyBase.CommandHoldSec);
+        LoggerPtr->Debug("MyBase.GoalHoldSec: {}", config.RegionalAreaTaskSettings.MyBase.GoalHoldSec);
         LoggerPtr->Debug("MyBase.MaxPatrolSteps: {}", config.RegionalAreaTaskSettings.MyBase.MaxPatrolSteps);
         LoggerPtr->Debug("MyBase.PatrolDistancePenaltyPerMeter: {}", config.RegionalAreaTaskSettings.MyBase.PatrolDistancePenaltyPerMeter);
         LoggerPtr->Debug("MyBase.PatrolCurrentGoalPenalty: {}", config.RegionalAreaTaskSettings.MyBase.PatrolCurrentGoalPenalty);
@@ -3150,6 +3163,12 @@ namespace BehaviorTree {
                 "Invalid RegionalAreaTask.MyBase.CommandHoldSec={}, fallback to 1.",
                 base_task.CommandHoldSec);
             base_task.CommandHoldSec = 1;
+        }
+        if (base_task.GoalHoldSec < 0) {
+            LoggerPtr->Warning(
+                "Invalid RegionalAreaTask.MyBase.GoalHoldSec={}, fallback to 15.",
+                base_task.GoalHoldSec);
+            base_task.GoalHoldSec = 15;
         }
         if (base_task.MaxPatrolSteps <= 0) {
             LoggerPtr->Warning(

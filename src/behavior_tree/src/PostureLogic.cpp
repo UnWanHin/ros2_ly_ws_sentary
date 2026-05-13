@@ -32,6 +32,14 @@ void AddScore(PostureScore& score, const SentryPosture posture, const int delta)
         default: break;
     }
 }
+
+bool IsRecoveryGoal(const std::uint8_t goal_id) noexcept {
+    const std::uint8_t base_goal_id =
+        goal_id >= LangYa::TeamedLocation::LocationCount
+            ? static_cast<std::uint8_t>(goal_id - LangYa::TeamedLocation::LocationCount)
+            : goal_id;
+    return base_goal_id == LangYa::Recovery.ID;
+}
 }  // namespace
 
 bool Application::HasRecentTarget() const {
@@ -114,6 +122,9 @@ SentryPosture Application::SelectDesiredPosture(const bool has_target) const {
     }
 
     if (aimMode == AimMode::Buff) {
+        return SentryPosture::Move;
+    }
+    if (IsRecoveryGoal(naviCommandGoal)) {
         return SentryPosture::Move;
     }
 

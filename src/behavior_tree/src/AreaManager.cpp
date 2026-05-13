@@ -265,6 +265,7 @@ void RegionalAreaTaskRuntime::Clear() noexcept {
     CurrentBaseGoal = LangYa::Highland.ID;
     StartTime = AreaTimePoint{};
     PhaseStartTime = AreaTimePoint{};
+    BaseGoalArrivedTime = AreaTimePoint{};
     OwnerTeam = LangYa::UnitTeam::Unknown;
     PatrolIndex = 0U;
     PatrolStepCount = 0;
@@ -891,6 +892,7 @@ void AreaManager::StartRegionalAreaTask(
             : LangYa::Highland.ID;
     regional_area_task_.StartTime = now;
     regional_area_task_.PhaseStartTime = now;
+    regional_area_task_.BaseGoalArrivedTime = AreaTimePoint{};
 }
 
 bool AreaManager::RegionalAreaTaskCriticalControlActive() const noexcept {
@@ -950,15 +952,31 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
             return std::chrono::duration_cast<std::chrono::seconds>(
                 input.Now - regional_area_task_.PhaseStartTime);
         };
-        const bool travel_timed_out =
-            base_setting.TravelTimeoutSec > 0 &&
-            phase_elapsed() >= std::chrono::seconds(base_setting.TravelTimeoutSec);
         auto complete_base_task = [&](const char* reason) {
             result.Completed = true;
             result.Type = regional_area_task_.Type;
             result.Phase = regional_area_task_.Phase;
             result.Reason = reason;
             regional_area_task_.Clear();
+        };
+        auto switch_to_next_base_goal = [&](const char* complete_reason) {
+            ++regional_area_task_.PatrolStepCount;
+            if (base_setting.MaxPatrolSteps > 0 &&
+                regional_area_task_.PatrolStepCount >= base_setting.MaxPatrolSteps) {
+                complete_base_task(complete_reason);
+                return false;
+            }
+            regional_area_task_.CurrentBaseGoal = SelectMyBasePatrolGoal(
+                regional_area_task_.GoalTeam,
+                base_setting,
+                input.HasSelfPosition,
+                input.SelfX,
+                input.SelfY,
+                regional_area_task_.CurrentBaseGoal,
+                true);
+            regional_area_task_.PhaseStartTime = input.Now;
+            regional_area_task_.BaseGoalArrivedTime = AreaTimePoint{};
+            return true;
         };
 
         if (regional_area_task_.CurrentBaseGoal == LangYa::Home.ID ||
@@ -973,27 +991,35 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
                 LangYa::Home.ID,
                 false);
             regional_area_task_.PhaseStartTime = input.Now;
+            regional_area_task_.BaseGoalArrivedTime = AreaTimePoint{};
             regional_area_task_.PatrolStepCount = 0;
-        } else if (input.CurrentBaseGoalArrived ||
-                   input.CurrentBaseGoalUnreachable ||
-                   travel_timed_out) {
-            ++regional_area_task_.PatrolStepCount;
-            if (base_setting.MaxPatrolSteps > 0 &&
-                regional_area_task_.PatrolStepCount >= base_setting.MaxPatrolSteps) {
-                complete_base_task(input.CurrentBaseGoalUnreachable
+        } else {
+            const bool hold_started =
+                regional_area_task_.BaseGoalArrivedTime.time_since_epoch().count() != 0;
+            const bool current_goal_arrived = hold_started || input.CurrentBaseGoalArrived;
+            const bool travel_timed_out =
+                !current_goal_arrived &&
+                base_setting.TravelTimeoutSec > 0 &&
+                phase_elapsed() >= std::chrono::seconds(base_setting.TravelTimeoutSec);
+            if (input.CurrentBaseGoalUnreachable || travel_timed_out) {
+                if (!switch_to_next_base_goal(input.CurrentBaseGoalUnreachable
                     ? "unreachable"
-                    : (travel_timed_out ? "timeout" : "patrol_complete"));
-                return result;
+                    : "timeout")) {
+                    return result;
+                }
+            } else if (current_goal_arrived) {
+                if (!hold_started) {
+                    regional_area_task_.BaseGoalArrivedTime = input.Now;
+                }
+                const auto hold_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+                    input.Now - regional_area_task_.BaseGoalArrivedTime);
+                if (base_setting.GoalHoldSec <= 0 ||
+                    hold_elapsed >= std::chrono::seconds(base_setting.GoalHoldSec)) {
+                    if (!switch_to_next_base_goal("patrol_complete")) {
+                        return result;
+                    }
+                }
             }
-            regional_area_task_.CurrentBaseGoal = SelectMyBasePatrolGoal(
-                regional_area_task_.GoalTeam,
-                base_setting,
-                input.HasSelfPosition,
-                input.SelfX,
-                input.SelfY,
-                regional_area_task_.CurrentBaseGoal,
-                true);
-            regional_area_task_.PhaseStartTime = input.Now;
         }
 
         result.Active = true;

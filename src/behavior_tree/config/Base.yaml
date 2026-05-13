@@ -3,6 +3,8 @@ behavior_tree:
     AreaManager:
       RegionalAreaTask:
         MyBase:
+          # Seconds to stay after reaching the selected Base patrol goal before scoring the next one.
+          GoalHoldSec: 15
           Patrol:
             # score = weight - distance_m * DistancePenaltyPerMeter.
             # CurrentGoalPenalty is applied when the selector must consider the current point.

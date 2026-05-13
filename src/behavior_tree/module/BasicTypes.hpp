@@ -773,6 +773,7 @@ namespace LangYa
         bool Enable{false};
         int TravelTimeoutSec{12};
         int CommandHoldSec{1};
+        int GoalHoldSec{15};
         int MaxPatrolSteps{4};
         double PatrolDistancePenaltyPerMeter{0.4};
         double PatrolCurrentGoalPenalty{5.0};

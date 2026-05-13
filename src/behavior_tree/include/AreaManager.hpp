@@ -222,6 +222,7 @@ struct RegionalAreaTaskRuntime {
     std::uint8_t CurrentBaseGoal{LangYa::Highland.ID};
     AreaTimePoint StartTime{};
     AreaTimePoint PhaseStartTime{};
+    AreaTimePoint BaseGoalArrivedTime{};
     LangYa::UnitTeam OwnerTeam{LangYa::UnitTeam::Unknown};
     std::size_t PatrolIndex{0};
     int PatrolStepCount{0};
