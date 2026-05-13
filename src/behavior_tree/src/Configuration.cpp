@@ -643,6 +643,29 @@ namespace LangYa {
         fs.SuppressFire = j.value("SuppressFire", fs.SuppressFire);
         fs.FallbackToPatrolScanMode2 =
             j.value("FallbackToPatrolScanMode2", fs.FallbackToPatrolScanMode2);
+        fs.FallbackPatrolScanMode =
+            j.value("FallbackPatrolScanMode", fs.FallbackPatrolScanMode);
+        fs.OutpostFallbackPatrolScanMode =
+            j.value("OutpostFallbackPatrolScanMode", fs.OutpostFallbackPatrolScanMode);
+        if (j.contains("OutpostManualTarget") && j.at("OutpostManualTarget").is_object()) {
+            const auto& manual = j.at("OutpostManualTarget");
+            fs.OutpostManualTargetEnable =
+                manual.value("Enable", fs.OutpostManualTargetEnable);
+            fs.OutpostManualTargetMapXCm =
+                manual.value("MapXCm", fs.OutpostManualTargetMapXCm);
+            fs.OutpostManualTargetMapYCm =
+                manual.value("MapYCm", fs.OutpostManualTargetMapYCm);
+            fs.OutpostManualTargetMapZCm =
+                manual.value("MapZCm", fs.OutpostManualTargetMapZCm);
+        }
+        fs.OutpostManualTargetEnable =
+            j.value("OutpostManualTargetEnable", fs.OutpostManualTargetEnable);
+        fs.OutpostManualTargetMapXCm =
+            j.value("OutpostManualTargetMapXCm", fs.OutpostManualTargetMapXCm);
+        fs.OutpostManualTargetMapYCm =
+            j.value("OutpostManualTargetMapYCm", fs.OutpostManualTargetMapYCm);
+        fs.OutpostManualTargetMapZCm =
+            j.value("OutpostManualTargetMapZCm", fs.OutpostManualTargetMapZCm);
     }
 
     void from_json(const json& j, ExternalAimSetting& ea) {
@@ -1594,6 +1617,56 @@ namespace BehaviorTree {
                 "FaceMode/FallbackToPatrolScanMode2"
             },
             config.FaceModeSettings.FallbackToPatrolScanMode2);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "FaceMode.FallbackPatrolScanMode",
+                "FaceMode/FallbackPatrolScanMode"
+            },
+            config.FaceModeSettings.FallbackPatrolScanMode);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "FaceMode.OutpostFallbackPatrolScanMode",
+                "FaceMode/OutpostFallbackPatrolScanMode"
+            },
+            config.FaceModeSettings.OutpostFallbackPatrolScanMode);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "FaceMode.OutpostManualTarget.Enable",
+                "FaceMode/OutpostManualTarget/Enable",
+                "FaceMode.OutpostManualTargetEnable",
+                "FaceMode/OutpostManualTargetEnable"
+            },
+            config.FaceModeSettings.OutpostManualTargetEnable);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "FaceMode.OutpostManualTarget.MapXCm",
+                "FaceMode/OutpostManualTarget/MapXCm",
+                "FaceMode.OutpostManualTargetMapXCm",
+                "FaceMode/OutpostManualTargetMapXCm"
+            },
+            config.FaceModeSettings.OutpostManualTargetMapXCm);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "FaceMode.OutpostManualTarget.MapYCm",
+                "FaceMode/OutpostManualTarget/MapYCm",
+                "FaceMode.OutpostManualTargetMapYCm",
+                "FaceMode/OutpostManualTargetMapYCm"
+            },
+            config.FaceModeSettings.OutpostManualTargetMapYCm);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "FaceMode.OutpostManualTarget.MapZCm",
+                "FaceMode/OutpostManualTarget/MapZCm",
+                "FaceMode.OutpostManualTargetMapZCm",
+                "FaceMode/OutpostManualTargetMapZCm"
+            },
+            config.FaceModeSettings.OutpostManualTargetMapZCm);
     }
 
     void Application::ApplyNaviRotateControlParameterOverrides() {
@@ -2374,6 +2447,14 @@ namespace BehaviorTree {
         LoggerPtr->Debug("LostTargetHoldMs: {}", config.FaceModeSettings.LostTargetHoldMs);
         LoggerPtr->Debug("SuppressFire: {}", config.FaceModeSettings.SuppressFire);
         LoggerPtr->Debug("FallbackToPatrolScanMode2: {}", config.FaceModeSettings.FallbackToPatrolScanMode2);
+        LoggerPtr->Debug("FallbackPatrolScanMode: {}", config.FaceModeSettings.FallbackPatrolScanMode);
+        LoggerPtr->Debug("OutpostFallbackPatrolScanMode: {}", config.FaceModeSettings.OutpostFallbackPatrolScanMode);
+        LoggerPtr->Debug(
+            "OutpostManualTarget: enable={} map=({}, {}, {}) cm",
+            config.FaceModeSettings.OutpostManualTargetEnable ? 1 : 0,
+            config.FaceModeSettings.OutpostManualTargetMapXCm,
+            config.FaceModeSettings.OutpostManualTargetMapYCm,
+            config.FaceModeSettings.OutpostManualTargetMapZCm);
         LoggerPtr->Debug("------ ExternalAim ------");
         LoggerPtr->Debug("Enable: {}", config.ExternalAimSettings.Enable);
         LoggerPtr->Debug("ResultFreshTimeoutMs: {}", config.ExternalAimSettings.ResultFreshTimeoutMs);
@@ -3371,10 +3452,43 @@ namespace BehaviorTree {
             default_policy.Retry.MaxRetry = 2;
         }
 
-        if (config.PatrolScanSettings.Mode != 1 && config.PatrolScanSettings.Mode != 2) {
+        auto valid_patrol_scan_mode = [](const int mode) {
+            return mode == 1 || mode == 2 || mode == 3;
+        };
+        if (!valid_patrol_scan_mode(config.PatrolScanSettings.Mode)) {
             LoggerPtr->Warning("Invalid PatrolScan.Mode={}, fallback to 1.", config.PatrolScanSettings.Mode);
             config.PatrolScanSettings.Mode = 1;
         }
+        if (!valid_patrol_scan_mode(config.FaceModeSettings.FallbackPatrolScanMode)) {
+            LoggerPtr->Warning(
+                "Invalid FaceMode.FallbackPatrolScanMode={}, fallback to 2.",
+                config.FaceModeSettings.FallbackPatrolScanMode);
+            config.FaceModeSettings.FallbackPatrolScanMode = 2;
+        }
+        if (!valid_patrol_scan_mode(config.FaceModeSettings.OutpostFallbackPatrolScanMode)) {
+            LoggerPtr->Warning(
+                "Invalid FaceMode.OutpostFallbackPatrolScanMode={}, fallback to 3.",
+                config.FaceModeSettings.OutpostFallbackPatrolScanMode);
+            config.FaceModeSettings.OutpostFallbackPatrolScanMode = 3;
+        }
+        auto clamp_face_target_cm = [this](const char* key, int& value) {
+            if (value < 0 || value > 65535) {
+                LoggerPtr->Warning(
+                    "Invalid {}={} cm, clamp to UInt16 range [0, 65535].",
+                    key,
+                    value);
+                value = std::clamp(value, 0, 65535);
+            }
+        };
+        clamp_face_target_cm(
+            "FaceMode.OutpostManualTarget.MapXCm",
+            config.FaceModeSettings.OutpostManualTargetMapXCm);
+        clamp_face_target_cm(
+            "FaceMode.OutpostManualTarget.MapYCm",
+            config.FaceModeSettings.OutpostManualTargetMapYCm);
+        clamp_face_target_cm(
+            "FaceMode.OutpostManualTarget.MapZCm",
+            config.FaceModeSettings.OutpostManualTargetMapZCm);
 
         const std::vector<int> default_aim_target_priority{
             static_cast<int>(ArmorType::Hero),

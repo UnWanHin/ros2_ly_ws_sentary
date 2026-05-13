@@ -14,6 +14,8 @@ namespace BehaviorTree {
     constexpr float kGatePatrolScanYawStepDeg = 9.0f;
     constexpr float kGatePatrolSwingYawStepDeg = 1.0f;
     constexpr float kGatePatrolSwingHalfRangeDeg = 30.0f;
+    constexpr float kGatePatrolOutpostYawStepDeg = 0.35f;
+    constexpr float kGatePatrolOutpostPitchDeg = 15.0f;
     constexpr float kGatePatrolPitchCenterDeg = 0.0f;
     constexpr float kGatePatrolPitchHalfRangeDeg = 12.0f;
     constexpr float kGatePatrolPitchPeriodMs = 500.0f;
@@ -122,8 +124,10 @@ namespace BehaviorTree {
                             kGatePatrolSwingHalfRangeDeg * std::sin(gate_patrol_phase_rad),
                         gimbalAngles.Yaw);
                 } else {
+                    const float yaw_step =
+                        patrol_mode == 3 ? kGatePatrolOutpostYawStepDeg : kGatePatrolScanYawStepDeg;
                     next_yaw = NormalizeGatePatrolAngleNear(
-                        gate_patrol_last_yaw + kGatePatrolScanYawStepDeg,
+                        gate_patrol_last_yaw + yaw_step,
                         gimbalAngles.Yaw);
                 }
                 gate_patrol_last_yaw = next_yaw;
@@ -131,12 +135,13 @@ namespace BehaviorTree {
                 const float pitch_elapsed_ms = static_cast<float>(
                     std::chrono::duration_cast<std::chrono::milliseconds>(
                         now_steady - wait_begin).count());
-                const float next_pitch =
-                    kGatePatrolPitchCenterDeg +
-                    kGatePatrolPitchHalfRangeDeg *
-                        std::sin(
-                            pitch_elapsed_ms * kGatePatrolTwoPi /
-                            std::max(kGatePatrolPitchPeriodMs, 1.0f));
+                const float next_pitch = patrol_mode == 3
+                    ? kGatePatrolOutpostPitchDeg
+                    : kGatePatrolPitchCenterDeg +
+                        kGatePatrolPitchHalfRangeDeg *
+                            std::sin(
+                                pitch_elapsed_ms * kGatePatrolTwoPi /
+                                std::max(kGatePatrolPitchPeriodMs, 1.0f));
                 gimbalControlData.GimbalAngles = GimbalAnglesType{
                     static_cast<AngleType>(next_yaw),
                     static_cast<AngleType>(next_pitch)};

@@ -443,7 +443,7 @@ namespace LangYa
 
     // 巡逻扫描配置
     struct PatrolScanSetting {
-        int Mode{1}; // 1=原始单向/受击抖扫, 2=左右摆头（幅度/步进由 GameLoop 常量决定）
+        int Mode{1}; // 1=原始单向/受击抖扫, 2=左右摆头, 3=慢速高位单向扫
     };
 
     // 频率相关
@@ -523,6 +523,12 @@ namespace LangYa
         int LostTargetHoldMs{300};
         bool SuppressFire{true};
         bool FallbackToPatrolScanMode2{true};
+        int FallbackPatrolScanMode{2};
+        int OutpostFallbackPatrolScanMode{3};
+        bool OutpostManualTargetEnable{false};
+        int OutpostManualTargetMapXCm{0};
+        int OutpostManualTargetMapYCm{0};
+        int OutpostManualTargetMapZCm{0};
     };
 
     struct ExternalAimSetting {

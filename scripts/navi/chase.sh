@@ -58,7 +58,7 @@ Options:
   --no-fire                        Same as --fire false.
   --rotate [true|false]            Enable chassis rotate output. Default: ${ROTATE_ENABLED}
   --scan [true|false]              Enable gimbal patrol scan when no target. Default: ${SCAN_ENABLED}
-  --scan-mode <1|2>                PatrolScan.Mode. Default: ${SCAN_MODE}
+  --scan-mode <1|2|3>              PatrolScan.Mode. Default: ${SCAN_MODE}
   --area-limit [true|false]        Enable Chase.AreaLimit. Default: ${AREA_LIMIT_ENABLED}
   --respect-is-rotate              Use normal NaviRotateControl.yaml and obey /ly/navi/should_rotate.
   --ignore-is-rotate               Disable NaviRotateControl for this test. Default.
@@ -144,8 +144,8 @@ add_launch_arg_if_missing() {
 }
 
 validate_scan_mode() {
-  if ! [[ "${SCAN_MODE}" =~ ^[12]$ ]]; then
-    echo "[ERROR] --scan-mode must be 1 or 2, got: ${SCAN_MODE}" >&2
+  if ! [[ "${SCAN_MODE}" =~ ^[123]$ ]]; then
+    echo "[ERROR] --scan-mode must be 1, 2, or 3, got: ${SCAN_MODE}" >&2
     exit 2
   fi
 }
@@ -322,7 +322,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --scan-mode)
       if (( $# < 2 )); then
-        echo "[ERROR] --scan-mode requires 1 or 2." >&2
+        echo "[ERROR] --scan-mode requires 1, 2, or 3." >&2
         exit 2
       fi
       SCAN_MODE="$2"

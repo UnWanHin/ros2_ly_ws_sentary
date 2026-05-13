@@ -300,8 +300,25 @@ def generate_launch_description():
     )
     firecode_partial_hold_ms = LaunchConfiguration("firecode_partial_hold_ms")
     velocity_raw_to_mps = LaunchConfiguration("velocity_raw_to_mps")
+    face_mode_target_frame = LaunchConfiguration("face_mode_target_frame")
+    face_mode_use_raw_goal_static_calibration = LaunchConfiguration(
+        "face_mode_use_raw_goal_static_calibration"
+    )
+    face_mode_raw_goal_target_frame = LaunchConfiguration("face_mode_raw_goal_target_frame")
     face_mode_max_yaw_step_deg = LaunchConfiguration("face_mode_max_yaw_step_deg")
     face_mode_max_pitch_step_deg = LaunchConfiguration("face_mode_max_pitch_step_deg")
+    face_mode_outpost_manual_target_enable = LaunchConfiguration(
+        "face_mode_outpost_manual_target_enable"
+    )
+    face_mode_outpost_manual_target_map_x_cm = LaunchConfiguration(
+        "face_mode_outpost_manual_target_map_x_cm"
+    )
+    face_mode_outpost_manual_target_map_y_cm = LaunchConfiguration(
+        "face_mode_outpost_manual_target_map_y_cm"
+    )
+    face_mode_outpost_manual_target_map_z_cm = LaunchConfiguration(
+        "face_mode_outpost_manual_target_map_z_cm"
+    )
     gimbal_raw_log_enable = LaunchConfiguration("gimbal_raw_log_enable")
     gimbal_raw_log_uplink = LaunchConfiguration("gimbal_raw_log_uplink")
     gimbal_raw_log_downlink = LaunchConfiguration("gimbal_raw_log_downlink")
@@ -486,6 +503,41 @@ def generate_launch_description():
             description="FaceMode max pitch command change per publish. 0 disables step limiting.",
         ),
         DeclareLaunchArgument(
+            "face_mode_target_frame",
+            default_value="official_map",
+            description="Frame used by FaceMode target_raw when static calibration is disabled.",
+        ),
+        DeclareLaunchArgument(
+            "face_mode_use_raw_goal_static_calibration",
+            default_value="true",
+            description="Apply official_map -> map raw-goal calibration inside FaceMode solver.",
+        ),
+        DeclareLaunchArgument(
+            "face_mode_raw_goal_target_frame",
+            default_value="map",
+            description="Target frame after FaceMode raw-goal static calibration.",
+        ),
+        DeclareLaunchArgument(
+            "face_mode_outpost_manual_target_enable",
+            default_value="false",
+            description="Override Outpost FaceMode target_raw with launch-provided cm coordinates.",
+        ),
+        DeclareLaunchArgument(
+            "face_mode_outpost_manual_target_map_x_cm",
+            default_value="0",
+            description="Manual Outpost FaceMode target x in cm.",
+        ),
+        DeclareLaunchArgument(
+            "face_mode_outpost_manual_target_map_y_cm",
+            default_value="0",
+            description="Manual Outpost FaceMode target y in cm.",
+        ),
+        DeclareLaunchArgument(
+            "face_mode_outpost_manual_target_map_z_cm",
+            default_value="0",
+            description="Manual Outpost FaceMode target z in cm.",
+        ),
+        DeclareLaunchArgument(
             "gimbal_raw_log_enable",
             default_value="false",
             description="Enable gimbal_driver raw serial rx/tx file log.",
@@ -659,6 +711,16 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] velocity_raw_to_mps: ", velocity_raw_to_mps]),
         LogInfo(msg=["[sentry_all] face_mode_max_yaw_step_deg: ", face_mode_max_yaw_step_deg]),
         LogInfo(msg=["[sentry_all] face_mode_max_pitch_step_deg: ", face_mode_max_pitch_step_deg]),
+        LogInfo(msg=["[sentry_all] face_mode_target_frame: ", face_mode_target_frame]),
+        LogInfo(msg=[
+            "[sentry_all] face_mode_use_raw_goal_static_calibration: ",
+            face_mode_use_raw_goal_static_calibration,
+        ]),
+        LogInfo(msg=["[sentry_all] face_mode_raw_goal_target_frame: ", face_mode_raw_goal_target_frame]),
+        LogInfo(msg=[
+            "[sentry_all] face_mode_outpost_manual_target_enable: ",
+            face_mode_outpost_manual_target_enable,
+        ]),
         LogInfo(msg=["[sentry_all] gimbal_raw_log_enable: ", gimbal_raw_log_enable]),
         LogInfo(msg=["[sentry_all] gimbal_raw_log_uplink: ", gimbal_raw_log_uplink]),
         LogInfo(msg=["[sentry_all] gimbal_raw_log_downlink: ", gimbal_raw_log_downlink]),
@@ -776,7 +838,7 @@ def generate_launch_description():
             output=output,
             parameters=[{
                 "require_initial_target": False,
-                "target_frame": "official_map",
+                "target_frame": ParameterValue(face_mode_target_frame, value_type=str),
                 "aim_frame": "gimbal_world",
                 "camera_frame": "gx_camera",
                 "solve_mode": "relative_geometry",
@@ -788,8 +850,10 @@ def generate_launch_description():
                 "publish_firecode": False,
                 "aim_mode": True,
                 "bridge_config_file": ParameterValue(face_mode_solver_bridge_config_file, value_type=str),
-                "use_raw_goal_static_calibration": True,
-                "raw_goal_target_frame": "map",
+                "use_raw_goal_static_calibration": ParameterValue(
+                    face_mode_use_raw_goal_static_calibration, value_type=bool),
+                "raw_goal_target_frame": ParameterValue(
+                    face_mode_raw_goal_target_frame, value_type=str),
                 "publish_hz": 30.0,
                 "tf_timeout_sec": 0.05,
                 "use_gimbal_stamp_for_tf": False,
@@ -1040,6 +1104,22 @@ def generate_launch_description():
                         start_gate_allow_gimbal_patrol_before_start, value_type=bool),
                     "ExternalAim.Enable": True,
                     "ExternalAim/Enable": True,
+                    "FaceMode.OutpostManualTarget.Enable": ParameterValue(
+                        face_mode_outpost_manual_target_enable, value_type=bool),
+                    "FaceMode/OutpostManualTarget/Enable": ParameterValue(
+                        face_mode_outpost_manual_target_enable, value_type=bool),
+                    "FaceMode.OutpostManualTarget.MapXCm": ParameterValue(
+                        face_mode_outpost_manual_target_map_x_cm, value_type=int),
+                    "FaceMode/OutpostManualTarget/MapXCm": ParameterValue(
+                        face_mode_outpost_manual_target_map_x_cm, value_type=int),
+                    "FaceMode.OutpostManualTarget.MapYCm": ParameterValue(
+                        face_mode_outpost_manual_target_map_y_cm, value_type=int),
+                    "FaceMode/OutpostManualTarget/MapYCm": ParameterValue(
+                        face_mode_outpost_manual_target_map_y_cm, value_type=int),
+                    "FaceMode.OutpostManualTarget.MapZCm": ParameterValue(
+                        face_mode_outpost_manual_target_map_z_cm, value_type=int),
+                    "FaceMode/OutpostManualTarget/MapZCm": ParameterValue(
+                        face_mode_outpost_manual_target_map_z_cm, value_type=int),
                     "decision_trace_enabled": decision_trace_enabled,
                     "decision_trace_file": decision_trace_file,
                     "decision_trace_every_n_ticks": decision_trace_every_n_ticks,

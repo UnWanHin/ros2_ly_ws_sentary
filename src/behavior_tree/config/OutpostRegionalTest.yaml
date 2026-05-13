@@ -1,0 +1,39 @@
+behavior_tree:
+  ros__parameters:
+    Task:
+      Buff: false
+      Outpost: true
+      OutpostConfirm:
+        TrustEnemyOutpostHp: false
+        MaxGameTimeSec: 0
+        MinSelfHp: 0
+        MinAmmo: 0
+        VisualScoutWithoutHp: true
+        VisualScoutHoldMs: 300000
+        VisualScoutCooldownMs: 1000
+        VisualScoutFaceDistanceCm: 300
+        PostWindowScoutEnable: true
+        PostWindowScoutIntervalSec: 60
+        PostWindowScoutHoldMs: 3000
+        ArmorWarningDistanceCm: 5000
+        PostArmorFaceSearchMs: 3000
+        DamageAbortThreshold: 30
+        DamageAbortWindowMs: 1000
+        DamageAbortHoldMs: 3000
+        OpeningHighPriority: true
+        SuppressChaseWhileActive: true
+    FaceMode:
+      Enable: true
+      LostTargetHoldMs: 300
+      SuppressFire: true
+      FallbackToPatrolScanMode2: true
+      FallbackPatrolScanMode: 2
+      OutpostFallbackPatrolScanMode: 3
+      OutpostManualTarget:
+        Enable: false
+        MapXCm: 0
+        MapYCm: 0
+        MapZCm: 0
+    AreaManager:
+      RegionalAreaTask:
+        IgnoreRecovery: true

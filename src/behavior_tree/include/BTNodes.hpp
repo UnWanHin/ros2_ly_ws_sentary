@@ -62,6 +62,7 @@ public:
     BT::NodeStatus tick() override {
         app_->SetAimMode();
         app_->CheckDebug();
+        app_->RefreshAimModeFaceControl();
         app_->GetGlobalBlackboard()->set("AimMode", static_cast<std::uint8_t>(app_->GetAimMode()));
         return BT::NodeStatus::SUCCESS;
     }

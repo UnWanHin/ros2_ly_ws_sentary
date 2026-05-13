@@ -646,6 +646,7 @@ public:
     bool IsHighlandCompatArrived(UnitTeam goal_team) const;
     void ResetRegionalAreaControlOverride() noexcept;
     void ApplyAimModeFaceTarget(UnitTeam target_team);
+    void RefreshAimModeFaceControl();
     bool TrySetAimModeTaskGoal(UnitTeam my_team, UnitTeam enemy_team, const char* reason);
     bool IsOutpostVisualScoutNavigationActive() const noexcept { return outpostVisualScoutNavigationActive_; }
     bool IsOutpostOpeningHighPriorityActive() const noexcept;

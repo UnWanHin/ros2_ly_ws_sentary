@@ -63,5 +63,10 @@ behavior_tree:
         DamageAbortWindowMs: 1000
         DamageAbortHoldMs: 5000
     FaceMode:
-      # true: 若 BT 已請求 FaceMode 但拿不到 /ly/face_mode/angles，改用 PatrolScan mode 2 掃描。
+      # true: BT 在 Buff/Outpost 或區域任務請求朝向固定地圖點時，允許使用 /ly/face_mode/angles。
+      Enable: true
+      # true: 若 BT 已請求 FaceMode 但拿不到 /ly/face_mode/angles，改用 PatrolScan fallback 掃描。
       FallbackToPatrolScanMode2: true
+      FallbackPatrolScanMode: 2
+      # Outpost FaceMode 失效時用 mode 3：yaw 慢速單向掃，pitch 固定高位。
+      OutpostFallbackPatrolScanMode: 3

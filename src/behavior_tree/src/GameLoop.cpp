@@ -815,6 +815,8 @@ namespace BehaviorTree {
         static constexpr auto kPatrolSwingYawBoostStep = 1.1f * delta_yaw; //受擊加速
         static constexpr auto kPatrolSwingHalfRangeDeg = 30.0f; // mode2: 左右擺頭半幅
         static constexpr auto kPatrolSwingCenterDriftPerCycleDeg = -70.0f; // mode2: 每完整左右掃一圈，中心點右偏角度
+        static constexpr auto kPatrolOutpostFallbackYawStep = 0.35f * delta_yaw; // mode3: 前哨fallback慢速單向掃
+        static constexpr auto kPatrolOutpostFallbackPitchDeg = 15.0f; // mode3: 前哨fallback固定高位
         static constexpr auto kTwoPi = 6.2831853071795864769f;
         static constexpr int kDamageScanBoostWindowMs = 1300;
         static constexpr int kDamageScanYawPhaseMs = 160;
@@ -1122,10 +1124,16 @@ namespace BehaviorTree {
             if(aimMode != AimMode::Buff || face_mode_fallback_patrol_scan) {
                 if (!config.AimDebugSettings.StopScan && now - lastFoundEnemyTime > std::chrono::milliseconds(2000)) {
                     static auto last_searching_log = std::chrono::steady_clock::time_point{};
-                    const int patrol_mode =
-                        (face_mode_fallback_patrol_scan || outpost_damage_abort_scan_active)
-                            ? 2
-                            : config.PatrolScanSettings.Mode;
+                    const bool outpost_face_mode_fallback =
+                        face_mode_fallback_patrol_scan && aimMode == AimMode::Outpost;
+                    int patrol_mode = config.PatrolScanSettings.Mode;
+                    if (outpost_damage_abort_scan_active) {
+                        patrol_mode = 2;
+                    } else if (outpost_face_mode_fallback) {
+                        patrol_mode = config.FaceModeSettings.OutpostFallbackPatrolScanMode;
+                    } else if (face_mode_fallback_patrol_scan) {
+                        patrol_mode = config.FaceModeSettings.FallbackPatrolScanMode;
+                    }
                     const bool boost_patrol_scan =
                         aimMode == AimMode::RotateScan &&
                         damage_rotate_elapsed_ms >= 0 &&
@@ -1164,6 +1172,13 @@ namespace BehaviorTree {
                             patrolScanPhaseRad_ += kTwoPi;
                         }
                         yaw_scan_direction = patrolScanDirection_;
+                    } else if (patrol_mode == 3) {
+                        yaw_scan_step = kPatrolOutpostFallbackYawStep;
+                        if (patrolScanActiveMode_ != patrol_mode || patrolScanCenterInitialized_) {
+                            reset_patrol_scan_state();
+                            patrolScanActiveMode_ = patrol_mode;
+                        }
+                        yaw_scan_direction = 1;
                     } else {
                         if (patrolScanActiveMode_ != patrol_mode || patrolScanCenterInitialized_) {
                             reset_patrol_scan_state();
@@ -1192,15 +1207,17 @@ namespace BehaviorTree {
                     const auto pitch_elapsed_ms = static_cast<float>(
                         std::chrono::duration_cast<std::chrono::milliseconds>(
                             current_time - gameStartTime).count());
-                    const float next_scan_pitch = kPatrolScanPitchCenterDeg +
-                        kPatrolScanPitchHalfRangeDeg *
-                            std::sin(pitch_elapsed_ms * kTwoPi / std::max(kPatrolScanPitchPeriodMs, 1.0f));
+                    const float next_scan_pitch = patrol_mode == 3
+                        ? kPatrolOutpostFallbackPitchDeg
+                        : kPatrolScanPitchCenterDeg +
+                            kPatrolScanPitchHalfRangeDeg *
+                                std::sin(pitch_elapsed_ms * kTwoPi / std::max(kPatrolScanPitchPeriodMs, 1.0f));
                     nextAngles = GimbalAnglesType{
                         static_cast<AngleType>(next_scan_yaw),
                         static_cast<AngleType>(next_scan_pitch)
                     };
 
-                    if (aimMode == AimMode::Outpost) {
+                    if (aimMode == AimMode::Outpost && patrol_mode != 3) {
                         nextAngles.Pitch += 15.0f;
                     }
                 } else {
@@ -2736,10 +2753,29 @@ namespace BehaviorTree {
     }
 
     void Application::ApplyAimModeFaceTarget(const UnitTeam target_team) {
+        std::optional<Area::Point3<double>> outpost_manual_target;
+        if (aimMode == AimMode::Outpost &&
+            config.FaceModeSettings.OutpostManualTargetEnable) {
+            outpost_manual_target = Area::Point3<double>{
+                static_cast<double>(config.FaceModeSettings.OutpostManualTargetMapXCm),
+                static_cast<double>(config.FaceModeSettings.OutpostManualTargetMapYCm),
+                static_cast<double>(config.FaceModeSettings.OutpostManualTargetMapZCm)
+            };
+        }
         (void)faceModeManager_.PublishAimTarget(
             aimMode,
             target_team,
-            pub_face_mode_target_raw_);
+            pub_face_mode_target_raw_,
+            outpost_manual_target);
+    }
+
+    void Application::RefreshAimModeFaceControl() {
+        if (aimMode != AimMode::Buff && aimMode != AimMode::Outpost) {
+            return;
+        }
+        const auto enemy_team = team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
+        const auto target_team = aimMode == AimMode::Outpost ? enemy_team : team;
+        ApplyAimModeFaceTarget(target_team);
     }
 
     bool Application::TrySetAimModeTaskGoal(

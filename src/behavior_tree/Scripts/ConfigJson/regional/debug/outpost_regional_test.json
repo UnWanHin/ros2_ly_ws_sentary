@@ -1,0 +1,94 @@
+{
+    "CompetitionProfile": "regional",
+    "AimDebug": {
+        "StopFire": false,
+        "StopRotate": false,
+        "StopScan": false,
+        "ForceBuff": false,
+        "ForceOutpost": false,
+        "HitCar": false,
+        "FireRequireTargetStatus": false,
+        "ReuseLatchedAnglesOnNoTarget": true,
+        "LatchedTargetHoldMs": 100
+    },
+    "PatrolScan": {
+        "Mode": 2
+    },
+    "Rate": {
+        "FireRate": 20,
+        "TreeTickRate": 100,
+        "NaviCommandRate": 1
+    },
+    "DamageOpenGate": {
+        "Enable": false,
+        "HealthDropThreshold": 30
+    },
+    "NaviSetting": {
+        "UseXY": true,
+        "ToNavi": true
+    },
+    "FaceMode": {
+        "Enable": true,
+        "LostTargetHoldMs": 300,
+        "SuppressFire": true,
+        "FallbackToPatrolScanMode2": true,
+        "FallbackPatrolScanMode": 2,
+        "OutpostFallbackPatrolScanMode": 3,
+        "OutpostManualTarget": {
+            "Enable": false,
+            "MapXCm": 0,
+            "MapYCm": 0,
+            "MapZCm": 0
+        }
+    },
+    "ExternalAim": {
+        "Enable": true,
+        "ResultFreshTimeoutMs": 300,
+        "TargetFreshTimeoutMs": 500,
+        "UseTargetArrayAsArmorList": true,
+        "PublishSelectTarget": true,
+        "TargetDefaultFrame": "gimbal_world"
+    },
+    "Task": {
+        "Buff": false,
+        "Outpost": true
+    },
+    "RegionalDefense": {
+        "Enable": false
+    },
+    "NaviProgressWatchdog": {
+        "Enable": false
+    },
+    "RegionalIdlePatrol": {
+        "Enable": false,
+        "Goals": []
+    },
+    "RegionalAreaTask": {
+        "IgnoreRecovery": true
+    },
+    "DecisionAutonomy": {
+        "Enable": false,
+        "EnabledModules": [
+            "aim_target"
+        ],
+        "HardRuleModules": [
+            "recovery",
+            "aim_mode",
+            "fire_safety"
+        ]
+    },
+    "Chase": {
+        "Enable": false,
+        "FollowAimTarget": true,
+        "ToNavi": true,
+        "EnableInOutpostMode": false,
+        "EnableInBuffMode": false
+    },
+    "Posture": {
+        "Enable": true,
+        "SwitchCooldownSec": 0,
+        "MinHoldSec": 0,
+        "OptimisticAck": true
+    },
+    "ScanCounter": 1
+}
