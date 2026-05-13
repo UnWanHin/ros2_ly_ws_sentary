@@ -396,36 +396,6 @@ namespace Area {
         { 2408, 1474 }
     };
 
-    static const std::vector<Point<int>> RedRecoveryAreaPoints = {
-        { 109, 286 },
-        { 306, 292 },
-        { 304, 205 },
-        { 111, 208 }
-    };
-
-    static const std::vector<Point<int>> BlueRecoveryAreaPoints = {
-        { 2691, 1214 },
-        { 2494, 1208 },
-        { 2496, 1295 },
-        { 2689, 1292 }
-    };
-
-    static const std::vector<Point<std::uint16_t>> RedRecoveryProbePoints = {
-        { 208, 248 },
-        { 250, 249 },
-        { 166, 247 },
-        { 208, 272 },
-        { 208, 225 }
-    };
-
-    static const std::vector<Point<std::uint16_t>> BlueRecoveryProbePoints = {
-        { 2592, 1252 },
-        { 2550, 1251 },
-        { 2634, 1253 },
-        { 2592, 1228 },
-        { 2592, 1275 }
-    };
-
     static const std::vector<Point<int>> RedCentralLeftLinePoints = {
         { 1205, 1260 },
         { 1026, 1006 }
@@ -804,33 +774,6 @@ namespace Area {
         return IsPointInsideAreaShapes(MiniRoadlandShapes(team), x, y);
     }
 
-    inline const std::vector<Point<int>>& RecoveryAreaBoundary(const UnitTeam team) {
-        return PointLookupTeam(team) == UnitTeam::Blue
-            ? BlueRecoveryAreaPoints
-            : RedRecoveryAreaPoints;
-    }
-
-    inline std::vector<AreaShapeView> RecoveryAreaShapes(const UnitTeam team) {
-        std::vector<AreaShapeView> shapes{PolygonShape(RecoveryAreaBoundary(team))};
-        return shapes;
-    }
-
-    inline bool IsPointInsideRecoveryArea(
-        const UnitTeam team,
-        const int x,
-        const int y) {
-        if (team != UnitTeam::Red && team != UnitTeam::Blue) {
-            return false;
-        }
-        return IsPointInsideAreaShapes(RecoveryAreaShapes(team), x, y);
-    }
-
-    inline const std::vector<Point<std::uint16_t>>& RecoveryProbePoints(const UnitTeam team) {
-        return PointLookupTeam(team) == UnitTeam::Blue
-            ? BlueRecoveryProbePoints
-            : RedRecoveryProbePoints;
-    }
-
     inline const std::vector<Point<int>>& CentralLeftLineBoundary(const UnitTeam team) {
         return PointLookupTeam(team) == UnitTeam::Blue
             ? BlueCentralLeftLinePoints
@@ -901,7 +844,7 @@ namespace Area {
     static const Location<std::uint16_t> Highland{ {774, 1166}, {2021, 334} };
     static const Location<std::uint16_t> BaseToCentral{ {1125, 155}, {1675, 1345} };
     static const Location<std::uint16_t> CentralToBase{ {451, 146}, {2349, 1354} };
-    static const Location<std::uint16_t> BuffOutpost{ {1196, 1130}, {1700, 370} };
+    static const Location<std::uint16_t> BuffOutpost{ {1196, 1256}, {1604, 244} };
     static const Location<std::uint16_t> OutpostGuard{ {969, 368}, {1831, 1132} };
     static const Location<std::uint16_t> MiniRoadland{ {457, 72}, {2343, 1428} };
     static const Line<std::uint16_t> CentralLeft{
