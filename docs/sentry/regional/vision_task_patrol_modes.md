@@ -322,7 +322,7 @@ self_large_energy_status == 1 / 2
     "MinSelfHp": 150,
     "MinAmmo": 30,
     "VisualScoutWithoutHp": true,
-    "VisualScoutHoldMs": 8000,
+    "VisualScoutHoldMs": 10000,
     "VisualScoutCooldownMs": 15000,
     "VisualScoutFaceDistanceCm": 300,
     "ArmorInterruptMaxDistanceCm": 1000,
@@ -338,9 +338,9 @@ self_large_energy_status == 1 / 2
 - `Task.Outpost=true` 才允許進前哨任務。
 - `/ly/enemy/op_hp` 不是正式 gate；接口保留，若它新鮮且為 0，BT 可提前判定敵方前哨已毀並跳過任務。
 - 若 `VisualScoutWithoutHp=true`，且血量/彈量/時間窗/不可達 gate 都通過，會先以普通裝甲模式導航去 `BuffOutpost`；距 `BuffOutpost` 小於 `VisualScoutFaceDistanceCm` 後才切 `AimMode::Outpost`、開 `/ly/vision/mode=3` 和敵方前哨 FaceMode。
-- 到達 `BuffOutpost` 後才開始計算 `VisualScoutHoldMs` no-target timeout；到點後仍沒有 `/ly/outpost/target`，則退出並按 `VisualScoutCooldownMs` 冷卻。
+- 到達 `BuffOutpost` 後才開始計算 `VisualScoutHoldMs` no-target timeout；默認到點駐守約 10 秒，仍沒有 `/ly/outpost/target` 則退出。
 - 自身血量、彈量低於 `OutpostConfirm.MinSelfHp / MinAmmo` 時不主動進前哨任務，讓 Hard Recovery 優先處理。
-- 默認只在開局 `OutpostConfirm.MaxGameTimeSec=120` 秒內主動打前哨；設 `0` 可關閉時間窗口。
+- 開局 `OutpostConfirm.MaxGameTimeSec=120` 秒內前哨是高優先級任務；超過時間窗後不再自動每 20 秒週期去 `BuffOutpost` 偵查。
 - Roadland 強綁定穿越、RegionalDefense、受擊超過門檻、導航回報 `BuffOutpost` 不可達，都會退出前哨模式。
 - 行進/接近過程中若普通裝甲目標有效且距離不超過 `ArmorInterruptMaxDistanceCm`，先保持普通自瞄打車；目標消失或太遠後，回到前哨偵查任務。
 - 前哨血量接口回報歸零、視覺偵查超時、視覺偵查冷卻中，或沒有允許 visual scout/近期前哨視覺鎖定時，退回普通掃描。
@@ -391,7 +391,7 @@ StopScan=false
 
 已寫好的 regional 區域狀態機：
 
-- `MyBase`：`CastleLeft1 -> CastleLeft2 -> CastleRight2 -> CastleRight1` 循環。
+- `MyBase`：按 `Base.yaml` 裡的 Base patrol 權重和自身距離評估候選點，不按固定順序循環。
 - `MyHighland`：Highland 進入、BuffShoot 駐守、HoleRoad 離開。
 - `MyRoadland`：CentralToBase / BaseToCentral 強綁定穿越與駐守。
 - `CommonCentral`：中場巡邏路線。
@@ -418,7 +418,7 @@ StopScan=false
 }
 ```
 
-`src/behavior_tree/config/AreaManager.yaml` 管狀態機參數和 DefaultPolicy 權重；JSON scope 管哪些區域允許被選。JSON 裡是 `false` 的區域，即使血量彈量健康，也不會被 Default 選中。
+`src/behavior_tree/config/AreaManager.yaml` 管狀態機參數和 DefaultPolicy 權重；`src/behavior_tree/config/Base.yaml` 管 MyBase patrol 候選點權重；JSON scope 管哪些區域允許被選。JSON 裡是 `false` 的區域，即使血量彈量健康，也不會被 Default 選中。
 
 ## FollowMode
 

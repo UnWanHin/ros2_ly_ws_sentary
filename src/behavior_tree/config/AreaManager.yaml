@@ -28,6 +28,7 @@ behavior_tree:
           Enable: true
           TravelTimeoutSec: 12
           CommandHoldSec: 1
+          MaxPatrolSteps: 4
         MyHighland:
           Enable: true
           UseFaceMode: false
@@ -50,6 +51,7 @@ behavior_tree:
           Enable: true
           TravelTimeoutSec: 12
           CommandHoldSec: 1
+          MaxPatrolSteps: 8
           HealthyHpMin: 300
           HealthyAmmoMin: 50
       DefaultPolicy:

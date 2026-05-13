@@ -1621,6 +1621,7 @@ namespace BehaviorTree {
                 outpost_confirm.MinAmmo <= 0 || (ammo_fresh && ammoLeft >= outpost_confirm.MinAmmo);
             const bool in_time_window =
                 outpost_confirm.MaxGameTimeSec <= 0 || now_time < outpost_confirm.MaxGameTimeSec;
+            const bool outpost_time_gate_open = in_time_window;
             const bool outpost_goal_unreachable =
                 IsBaseGoalExternallyUnreachable(LangYa::BuffOutpost.ID, team, true);
             const bool outpost_visual_scout_point_reached =
@@ -1704,7 +1705,7 @@ namespace BehaviorTree {
             const bool outpost_visual_scout_candidate_allowed =
                 self_hp_ready &&
                 ammo_ready &&
-                in_time_window &&
+                outpost_time_gate_open &&
                 !outpost_goal_unreachable &&
                 !(enemy_outpost_hp_trusted && enemyOutpostHealth == 0) &&
                 ((enemy_outpost_hp_trusted && enemyOutpostHealth > 0) ||
@@ -1751,7 +1752,7 @@ namespace BehaviorTree {
                     ammoLeft,
                     ammo_fresh ? 1 : 0,
                     outpost_confirm.MinAmmo);
-            } else if (!in_time_window) {
+            } else if (!outpost_time_gate_open) {
                 clear_outpost_visual_scout_attempt();
                 aimMode = AimMode::RotateScan;
                 LoggerPtr->Info(
@@ -1817,14 +1818,15 @@ namespace BehaviorTree {
                             aimMode = AimMode::Outpost;
                         } else {
                             outpostVisualScoutStartTime_ = {};
+                            const int scout_cooldown_ms = visual_scout_cooldown_ms;
                             outpostVisualScoutCooldownUntil_ =
-                                now + std::chrono::milliseconds(visual_scout_cooldown_ms);
+                                now + std::chrono::milliseconds(scout_cooldown_ms);
                             outpostVisualScoutNavigationActive_ = false;
                             aimMode = AimMode::RotateScan;
                             LoggerPtr->Warning(
                                 "Outpost visual scout timeout without target: hold_ms={} cooldown_ms={}.",
                                 visual_scout_hold_ms,
-                                visual_scout_cooldown_ms);
+                                scout_cooldown_ms);
                         }
                     }
                 }
@@ -2802,6 +2804,13 @@ namespace BehaviorTree {
             central_ammo_known &&
             (myselfHealth < static_cast<std::uint16_t>(std::max(0, central_setting.HealthyHpMin)) ||
              ammoLeft < static_cast<std::uint16_t>(std::max(0, central_setting.HealthyAmmoMin)));
+        const bool self_position_fresh = IsSentryPositionFresh(now);
+        const int self_x = self_position_fresh
+            ? static_cast<int>(friendRobots[UnitType::Sentry].position_.X)
+            : 0;
+        const int self_y = self_position_fresh
+            ? static_cast<int>(friendRobots[UnitType::Sentry].position_.Y)
+            : 0;
         const auto result = areaManager_.TickRegionalAreaTask(
             RegionalAreaTaskTickInput{
                 .Setting = config.RegionalAreaTaskSettings,
@@ -2820,7 +2829,10 @@ namespace BehaviorTree {
                 .RoadlandBaseToCentralUnreachable = IsBaseGoalExternallyUnreachable(LangYa::BaseToCentral.ID, goal_team, apply_team_offset),
                 .RoadlandShouldLeave = active_roadland_task && roadland_data_unhealthy,
                 .CentralShouldLeave =
-                    active_task_type == RegionalAreaTaskType::CommonCentral && central_data_unhealthy
+                    active_task_type == RegionalAreaTaskType::CommonCentral && central_data_unhealthy,
+                .HasSelfPosition = self_position_fresh && self_x > 0 && self_y > 0,
+                .SelfX = self_x,
+                .SelfY = self_y
             });
 
         if (result.Completed) {
@@ -2887,6 +2899,7 @@ namespace BehaviorTree {
             self_position_fresh && self_x > 0 && self_y > 0,
             self_x,
             self_y,
+            config.RegionalAreaTaskSettings.MyBase,
             IsSelfInMainArea(my_team, Area::MainAreaKind::Highland));
         if (!plan.has_value()) {
             return false;
@@ -2928,7 +2941,7 @@ namespace BehaviorTree {
         if (LoggerPtr) {
             if (plan->Type == RegionalAreaTaskType::MyBase) {
                 LoggerPtr->Info(
-                    "RegionalAreaTask[MyBase] start from goal={} reason={}: start_base_goal={} route=CastleLeft1->CastleLeft2->CastleRight2->CastleRight1.",
+                    "RegionalAreaTask[MyBase] start from goal={} reason={}: start_base_goal={} selection=weighted_evaluation.",
                     static_cast<int>(ResolveGoalId(base_goal_id, goal_team, apply_team_offset)),
                     reason ? reason : "area_task",
                     static_cast<int>(plan->InitialBaseGoal));

@@ -104,7 +104,7 @@ Tactical 應該高於 Default。也就是有敵情、防守、保護英雄、前
 Default 擁有這些普通大區域行為：
 
 - `MyHighland`：Highland 駐守/巡邏流程。
-- `MyBase`：Base 城堡點巡邏。
+- `MyBase`：Base 候選點加權巡邏，候選和權重在 `src/behavior_tree/config/Base.yaml`。
 - `MyRoadland`：Roadland 駐守/穿越流程，其中不可讓出的穿越段會臨時由 Hard 接管。
 - `CommonCentral`：Central 遊走。
 

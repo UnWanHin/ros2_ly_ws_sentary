@@ -476,7 +476,7 @@ namespace LangYa
         int MinSelfHp{150};
         int MinAmmo{30};
         bool VisualScoutWithoutHp{true};
-        int VisualScoutHoldMs{8000};
+        int VisualScoutHoldMs{10000};
         int VisualScoutCooldownMs{15000};
         int VisualScoutFaceDistanceCm{300};
         int ArmorInterruptMaxDistanceCm{1000};
@@ -748,10 +748,27 @@ namespace LangYa
         int LeaveTimeoutSec{8};
     };
 
+    struct MyBasePatrolGoalSetting {
+        std::uint8_t BaseGoalId{LangYa::CastleLeft2.ID};
+        double Weight{10.0};
+    };
+
     struct MyBaseAreaTaskSetting {
         bool Enable{false};
         int TravelTimeoutSec{12};
         int CommandHoldSec{1};
+        int MaxPatrolSteps{4};
+        double PatrolDistancePenaltyPerMeter{0.4};
+        double PatrolCurrentGoalPenalty{5.0};
+        std::vector<MyBasePatrolGoalSetting> PatrolGoals{
+            {LangYa::CastleLeft1.ID, 10.0},
+            {LangYa::CastleLeft2.ID, 10.0},
+            {LangYa::CastleRight2.ID, 10.0},
+            {LangYa::CastleRight1.ID, 10.0},
+            {LangYa::HoleRoad.ID, 7.0},
+            {LangYa::OutpostGuard.ID, 7.0},
+            {LangYa::BuffOutpost.ID, 6.0}
+        };
     };
 
     struct MyRoadlandAreaTaskSetting {
@@ -770,6 +787,7 @@ namespace LangYa
         bool Enable{false};
         int TravelTimeoutSec{12};
         int CommandHoldSec{1};
+        int MaxPatrolSteps{8};
         int HealthyHpMin{300};
         int HealthyAmmoMin{50};
     };

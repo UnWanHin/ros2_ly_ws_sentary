@@ -224,6 +224,7 @@ struct RegionalAreaTaskRuntime {
     AreaTimePoint PhaseStartTime{};
     LangYa::UnitTeam OwnerTeam{LangYa::UnitTeam::Unknown};
     std::size_t PatrolIndex{0};
+    int PatrolStepCount{0};
 
     void Clear() noexcept;
 };
@@ -255,6 +256,9 @@ struct RegionalAreaTaskTickInput {
     bool RoadlandBaseToCentralUnreachable{false};
     bool RoadlandShouldLeave{false};
     bool CentralShouldLeave{false};
+    bool HasSelfPosition{false};
+    int SelfX{0};
+    int SelfY{0};
 };
 
 struct RegionalAreaTaskTickResult {
@@ -362,6 +366,7 @@ public:
         bool has_self_position,
         int self_x,
         int self_y,
+        const LangYa::MyBaseAreaTaskSetting& my_base_setting,
         bool self_in_my_highland) const;
     void StartRegionalAreaTask(const RegionalAreaTaskPlan& plan, AreaTimePoint now);
     RegionalAreaTaskTickResult TickRegionalAreaTask(const RegionalAreaTaskTickInput& input);

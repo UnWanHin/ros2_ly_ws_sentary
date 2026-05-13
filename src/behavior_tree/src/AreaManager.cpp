@@ -27,13 +27,6 @@ constexpr std::array<Area::MainAreaKind, 3> kSideMainAreas{
     Area::MainAreaKind::Roadland
 };
 
-constexpr std::array<std::uint8_t, 4> kMyBasePatrolGoals{
-    LangYa::CastleLeft1.ID,
-    LangYa::CastleLeft2.ID,
-    LangYa::CastleRight2.ID,
-    LangYa::CastleRight1.ID
-};
-
 struct CentralPatrolGoalSpec {
     std::uint8_t BaseGoalId{LangYa::OutpostArea.ID};
     bool EnemySide{false};
@@ -153,39 +146,59 @@ std::size_t NearestCommonCentralPatrolIndex(
     return nearest_index;
 }
 
-std::uint8_t NextMyBasePatrolGoal(const std::uint8_t current_base_goal) {
-    const auto it = std::find(kMyBasePatrolGoals.begin(), kMyBasePatrolGoals.end(), current_base_goal);
-    if (it == kMyBasePatrolGoals.end()) {
-        return LangYa::CastleLeft2.ID;
-    }
-    const auto next = std::next(it);
-    return next == kMyBasePatrolGoals.end() ? kMyBasePatrolGoals.front() : *next;
-}
-
-std::uint8_t NearestMyBasePatrolGoal(
+std::uint8_t SelectMyBasePatrolGoal(
     const LangYa::UnitTeam goal_team,
+    const LangYa::MyBaseAreaTaskSetting& setting,
     const bool has_self_position,
     const int self_x,
-    const int self_y) {
-    if (!has_self_position || self_x <= 0 || self_y <= 0) {
-        return LangYa::CastleLeft2.ID;
-    }
+    const int self_y,
+    const std::uint8_t current_base_goal,
+    const bool avoid_current_goal) {
+    const bool can_use_position = has_self_position && self_x > 0 && self_y > 0;
+    const auto valid_goal_count = std::count_if(
+        setting.PatrolGoals.begin(),
+        setting.PatrolGoals.end(),
+        [](const LangYa::MyBasePatrolGoalSetting& goal) {
+            return goal.Weight > 0.0 &&
+                   AreaManager::IsValidBaseGoalId(goal.BaseGoalId) &&
+                   !AreaManager::IsReservedNonCombatGoalId(goal.BaseGoalId);
+        });
 
-    std::uint8_t nearest_goal = LangYa::CastleLeft2.ID;
-    double nearest_dist_sq = std::numeric_limits<double>::infinity();
-    for (const auto base_goal_id : kMyBasePatrolGoals) {
-        const auto goal_point = AreaManager::GoalPointByBaseId(base_goal_id, goal_team);
-        const double dist_sq = AreaManager::DistanceSq(
-            self_x,
-            self_y,
-            static_cast<int>(goal_point.x),
-            static_cast<int>(goal_point.y));
-        if (dist_sq < nearest_dist_sq) {
-            nearest_dist_sq = dist_sq;
-            nearest_goal = base_goal_id;
+    std::uint8_t best_goal = LangYa::CastleLeft2.ID;
+    double best_score = -std::numeric_limits<double>::infinity();
+    bool found = false;
+    for (const auto& candidate : setting.PatrolGoals) {
+        if (candidate.Weight <= 0.0 ||
+            !AreaManager::IsValidBaseGoalId(candidate.BaseGoalId) ||
+            AreaManager::IsReservedNonCombatGoalId(candidate.BaseGoalId)) {
+            continue;
+        }
+        if (avoid_current_goal &&
+            valid_goal_count > 1 &&
+            candidate.BaseGoalId == current_base_goal) {
+            continue;
+        }
+
+        double score = candidate.Weight;
+        if (can_use_position) {
+            const auto goal_point = AreaManager::GoalPointByBaseId(candidate.BaseGoalId, goal_team);
+            const double distance_cm = std::sqrt(AreaManager::DistanceSq(
+                self_x,
+                self_y,
+                static_cast<int>(goal_point.x),
+                static_cast<int>(goal_point.y)));
+            score -= (distance_cm / 100.0) * std::max(0.0, setting.PatrolDistancePenaltyPerMeter);
+        }
+        if (candidate.BaseGoalId == current_base_goal) {
+            score -= std::max(0.0, setting.PatrolCurrentGoalPenalty);
+        }
+        if (!found || score > best_score) {
+            best_score = score;
+            best_goal = candidate.BaseGoalId;
+            found = true;
         }
     }
-    return nearest_goal;
+    return found ? best_goal : LangYa::CastleLeft2.ID;
 }
 
 }  // namespace
@@ -254,6 +267,7 @@ void RegionalAreaTaskRuntime::Clear() noexcept {
     PhaseStartTime = AreaTimePoint{};
     OwnerTeam = LangYa::UnitTeam::Unknown;
     PatrolIndex = 0U;
+    PatrolStepCount = 0;
 }
 
 void NaviProgressWatchdogRuntime::Clear() noexcept {
@@ -773,6 +787,7 @@ std::optional<RegionalAreaTaskPlan> AreaManager::PlanRegionalAreaTaskForGoal(
     const bool has_self_position,
     const int self_x,
     const int self_y,
+    const LangYa::MyBaseAreaTaskSetting& my_base_setting,
     const bool self_in_my_highland) const {
     if (regional_area_task_.Active ||
         !IsValidBaseGoalId(base_goal_id) ||
@@ -822,7 +837,14 @@ std::optional<RegionalAreaTaskPlan> AreaManager::PlanRegionalAreaTaskForGoal(
             .GoalTeam = goal_team,
             .ApplyTeamOffset = apply_team_offset,
             .TriggerBaseGoal = base_goal_id,
-            .InitialBaseGoal = NearestMyBasePatrolGoal(goal_team, has_self_position, self_x, self_y)
+            .InitialBaseGoal = SelectMyBasePatrolGoal(
+                goal_team,
+                my_base_setting,
+                has_self_position,
+                self_x,
+                self_y,
+                LangYa::Home.ID,
+                false)
         };
     }
 
@@ -860,6 +882,7 @@ void AreaManager::StartRegionalAreaTask(
     regional_area_task_.TriggerBaseGoal = plan.TriggerBaseGoal;
     regional_area_task_.OwnerTeam = plan.GoalTeam;
     regional_area_task_.PatrolIndex = plan.InitialPatrolIndex;
+    regional_area_task_.PatrolStepCount = 0;
     regional_area_task_.CurrentBaseGoal =
         (plan.Type == RegionalAreaTaskType::MyBase ||
          plan.Type == RegionalAreaTaskType::MyRoadland ||
@@ -930,17 +953,46 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
         const bool travel_timed_out =
             base_setting.TravelTimeoutSec > 0 &&
             phase_elapsed() >= std::chrono::seconds(base_setting.TravelTimeoutSec);
+        auto complete_base_task = [&](const char* reason) {
+            result.Completed = true;
+            result.Type = regional_area_task_.Type;
+            result.Phase = regional_area_task_.Phase;
+            result.Reason = reason;
+            regional_area_task_.Clear();
+        };
 
         if (regional_area_task_.CurrentBaseGoal == LangYa::Home.ID ||
             regional_area_task_.Phase != RegionalAreaTaskPhase::BasePatrol) {
             regional_area_task_.Phase = RegionalAreaTaskPhase::BasePatrol;
-            regional_area_task_.CurrentBaseGoal = LangYa::CastleLeft2.ID;
+            regional_area_task_.CurrentBaseGoal = SelectMyBasePatrolGoal(
+                regional_area_task_.GoalTeam,
+                base_setting,
+                input.HasSelfPosition,
+                input.SelfX,
+                input.SelfY,
+                LangYa::Home.ID,
+                false);
             regional_area_task_.PhaseStartTime = input.Now;
+            regional_area_task_.PatrolStepCount = 0;
         } else if (input.CurrentBaseGoalArrived ||
                    input.CurrentBaseGoalUnreachable ||
                    travel_timed_out) {
-            regional_area_task_.CurrentBaseGoal =
-                NextMyBasePatrolGoal(regional_area_task_.CurrentBaseGoal);
+            ++regional_area_task_.PatrolStepCount;
+            if (base_setting.MaxPatrolSteps > 0 &&
+                regional_area_task_.PatrolStepCount >= base_setting.MaxPatrolSteps) {
+                complete_base_task(input.CurrentBaseGoalUnreachable
+                    ? "unreachable"
+                    : (travel_timed_out ? "timeout" : "patrol_complete"));
+                return result;
+            }
+            regional_area_task_.CurrentBaseGoal = SelectMyBasePatrolGoal(
+                regional_area_task_.GoalTeam,
+                base_setting,
+                input.HasSelfPosition,
+                input.SelfX,
+                input.SelfY,
+                regional_area_task_.CurrentBaseGoal,
+                true);
             regional_area_task_.PhaseStartTime = input.Now;
         }
 
@@ -1001,7 +1053,8 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
                     }
                     break;
                 case RegionalAreaTaskPhase::RoadlandHoldBaseToCentral:
-                    if (input.RoadlandShouldLeave) {
+                    if (input.RoadlandShouldLeave ||
+                        phase_timed_out(roadland_setting.GuardHoldSec)) {
                         start_phase(
                             RegionalAreaTaskPhase::RoadlandCrossToCentralToBase,
                             LangYa::CentralToBase.ID);
@@ -1084,6 +1137,13 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
         const bool travel_timed_out =
             central_setting.TravelTimeoutSec > 0 &&
             phase_elapsed() >= std::chrono::seconds(central_setting.TravelTimeoutSec);
+        auto complete_central_task = [&](const char* reason) {
+            result.Completed = true;
+            result.Type = regional_area_task_.Type;
+            result.Phase = regional_area_task_.Phase;
+            result.Reason = reason;
+            regional_area_task_.Clear();
+        };
         auto set_patrol_goal = [&](std::size_t patrol_index) {
             patrol_index %= kCommonCentralPatrolGoals.size();
             const auto& spec = kCommonCentralPatrolGoals[patrol_index];
@@ -1112,9 +1172,18 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
         if (regional_area_task_.CurrentBaseGoal == LangYa::Home.ID ||
             regional_area_task_.Phase != RegionalAreaTaskPhase::CentralPatrol) {
             set_patrol_goal(regional_area_task_.PatrolIndex);
+            regional_area_task_.PatrolStepCount = 0;
         } else if (input.CurrentBaseGoalArrived ||
                    input.CurrentBaseGoalUnreachable ||
                    travel_timed_out) {
+            ++regional_area_task_.PatrolStepCount;
+            if (central_setting.MaxPatrolSteps > 0 &&
+                regional_area_task_.PatrolStepCount >= central_setting.MaxPatrolSteps) {
+                complete_central_task(input.CurrentBaseGoalUnreachable
+                    ? "unreachable"
+                    : (travel_timed_out ? "timeout" : "patrol_complete"));
+                return result;
+            }
             set_patrol_goal(NextCommonCentralPatrolIndex(regional_area_task_.PatrolIndex));
         }
 

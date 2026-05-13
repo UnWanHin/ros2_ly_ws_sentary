@@ -72,7 +72,7 @@ struct EventEvaluateInput {
 
     bool BuffTaskEnabled{false};
     bool OutpostTaskEnabled{false};
-    int OutpostMaxGameTimeSec{90};
+    int OutpostMaxGameTimeSec{120};
     int ElapsedGameSec{0};
 
     bool HasEnemyOutpostHealth{false};

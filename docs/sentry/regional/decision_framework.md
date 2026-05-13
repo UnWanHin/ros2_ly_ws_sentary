@@ -18,6 +18,7 @@ Updated: 2026-05-13
 主要相關文件：
 
 - `src/behavior_tree/config/AreaManager.yaml`
+- `src/behavior_tree/config/Base.yaml`
 - `src/behavior_tree/config/Task.yaml`
 - `src/behavior_tree/include/AreaManager.hpp`
 - `src/behavior_tree/src/AreaManager.cpp`
@@ -47,15 +48,15 @@ Regional 目前已有的主要邏輯：
 
 - 回補/回基地：低血或低彈優先去 `Recovery`；這層高於 RegionalDefense。非 league regional 下，已在 `Recovery` 且血量未回到門檻時會繼續守住 Recovery。
 - Default 大區域任務：候選包含 `MyBase`、`MyHighland`、`MyRoadland`、`CommonCentral`；評分會看血量/彈量新鮮度、資源門檻、距離、目前區域、上一個區域、任務冷卻和失敗重試。
-- `MyBase` 任務：在己方堡壘邊點巡邏，路線是 `CastleLeft1 -> CastleLeft2 -> CastleRight2 -> CastleRight1`，啟動時按自身位置選最近點。
+- `MyBase` 任務：在己方 Base 候選點中按 `Base.yaml` 權重和自身距離評估選點；候選包含四個 Castle 邊點、`HoleRoad`、`OutpostGuard`、`BuffOutpost`。完成 `MaxPatrolSteps` 後退出，交回 Default scorer 重新評估下一個大區域。
 - `MyHighland` 任務：`Highland` approach -> `Highland` hold -> `BuffShoot` -> `BuffShoot` hold -> `HoleRoad` 離開；approach/leave 仍是地形兼容階段，但正式配置下 Follow/Rotate 兼容交給 `/ly/navi/should_rotate`。
-- `MyRoadland` 任務：`CentralToBase -> BaseToCentral -> BaseToCentral hold -> CentralToBase return`；穿越段仍是強綁定調度段，不能被普通高優先級邏輯直接打斷。正式配置下它不再靠 AreaTask 自己長時間開 `FollowMode / FaceMode` 做地形兼容，Follow/Rotate 由 `/ly/navi/should_rotate` 接管。
-- `CommonCentral` 任務：中場巡邏路線是 `my OutpostArea -> my RightShoot -> my BuffAround2 -> my LeftShoot -> my OutpostShoot -> enemy RightShoot -> enemy OccupyArea -> enemy OutpostShoot`，啟動時也按自身位置選最近點。
+- `MyRoadland` 任務：`CentralToBase -> BaseToCentral -> BaseToCentral hold -> CentralToBase return`；穿越段仍是強綁定調度段，不能被普通高優先級邏輯直接打斷。`GuardHoldSec` 到時或資源不健康時會返回並完成任務。正式配置下它不再靠 AreaTask 自己長時間開 `FollowMode / FaceMode` 做地形兼容，Follow/Rotate 由 `/ly/navi/should_rotate` 接管。
+- `CommonCentral` 任務：中場巡邏路線是 `my OutpostArea -> my RightShoot -> my BuffAround2 -> my LeftShoot -> my OutpostShoot -> enemy RightShoot -> enemy OccupyArea -> enemy OutpostShoot`，啟動時也按自身位置選最近點；完成 `MaxPatrolSteps` 後退出，交回 Default scorer 重新評估下一個大區域。
 - RegionalDefense：用官方敵方位置和 `event_data` 做戰術防守；敵方進我方 Base/Highland/Roadland/CommonCentral 或己方堡壘增益點 `2/3` 都可觸發。
 - 己方堡壘增益點 `2/3`：不去 `Castle`，只在 `CastleLeft1 / CastleLeft2 / CastleRight1 / CastleRight2` 搜索；若 Base 大區敵方數達門檻且普通裝甲目標已鎖定並允許開火，才原地停車、最高小陀螺開火；長時間無官方敵方位置且無視覺目標會退化忽略一段時間。
 - Recovery：Hard 層先回 `Recovery` 點；到達後若 3 秒內血量/彈量沒有回升，會在己方 `Recovery` 子區域內切換中心探測點，避免卡在補給區邊緣。
 - Buff：由能量機關裁判狀態、sentry info、timer、damage abort 和 timeout 決定是否進 `AimMode::Buff`；戰術站位使用 `BuffOutpost`，FaceMode 對己方目標側。
-- Outpost：正式入口不依賴 `op_hp`，由血量/彈藥門檻、時間窗、damage abort、目標不可達狀態和 `Task.OutpostConfirm.VisualScoutWithoutHp` 決定是否去 `BuffOutpost` 偵查；Travel 階段保持普通裝甲模式，距 `BuffOutpost` 小於 `VisualScoutFaceDistanceCm` 後才開前哨視覺和敵方前哨 FaceMode，到達 `BuffOutpost` 後仍沒有 `/ly/outpost/target` 才開始計算偵查 timeout，超時退出並冷卻。普通裝甲目標若有效且不超過 `ArmorInterruptMaxDistanceCm`，會先打車，目標消失或太遠後回到前哨任務。`op_hp` 接口保留，若它新鮮且為 0，可提前判定敵方前哨已毀並跳過任務。
+- Outpost：正式入口不依賴 `op_hp`，由血量/彈藥門檻、時間窗、damage abort、目標不可達狀態和 `Task.OutpostConfirm.VisualScoutWithoutHp` 決定是否去 `BuffOutpost` 偵查；Travel 階段保持普通裝甲模式，距 `BuffOutpost` 小於 `VisualScoutFaceDistanceCm` 後才開前哨視覺和敵方前哨 FaceMode，到達 `BuffOutpost` 後仍沒有 `/ly/outpost/target` 才開始計算偵查 timeout，默認駐守 10 秒。120 秒時間窗後不再做每 20 秒週期偵查。普通裝甲目標若有效且不超過 `ArmorInterruptMaxDistanceCm`，會先打車，目標消失或太遠後回到前哨任務。`op_hp` 接口保留，若它新鮮且為 0，可提前判定敵方前哨已毀並跳過任務。
 - Navi progress watchdog：檢測 goal 不可達或長時間無位移，按當前目標區域選 fallback 點。
 - Special Patrol：由 `src/behavior_tree/config/Special.yaml` 控制；啟用後在 Tactical 無事件時巡己方 `CentralLeft` 線的 A/B 端點。默認 `SuppressChase=true`，鎖到目標時不追擊、不邊走邊打，而是把導航目標壓到當前自身坐標。
 - Special MiniRoadland：由 `src/behavior_tree/config/Special.yaml` 控制；啟用後在 Tactical 無事件時去己方 `MiniRoadland` 點偵察駐守，且不受 `Area.MyArea.Roadland=false` 影響。
@@ -86,7 +87,7 @@ EvaluateEvents -> Hard -> Task -> PreprocessData -> SelectAimTarget -> Tactical 
 - `PreprocessData / SelectAimTarget`：在 Tactical 前整理可打目標、官方坐標和本 tick `targetArmor`，讓戰術層使用最新目標資料。
 - `Tactical`：regional 只保留明確戰術 overlay：`RegionalDefense`、ProtectHero、Buff/Outpost 任務站位、Chase 追擊和導航 watchdog；不再調用舊單策略點表。`LeagueSimple` 只在 `CompetitionProfile=league` 時使用，Showcase 只在明確 showcase 配置時使用。
 - `Special`：可選專項層；`Special.Patrol.Enable=true` 時巡己方 `CentralLeft` 線，`Special.MiniRoadland.Enable=true` 時下發己方 `MiniRoadland` 偵察點。它直接走 base goal，不走 Default 的大區域 scope；但更高層回補、回防、前哨、打符仍會先接管。Special Patrol 默認抑制 Chase。
-- `Default`：無特別事件時的底層決策，現在按 `AreaManager.DefaultPolicy` 對已啟用的大區域做資源門檻、距離、目前區域、上次任務結果、冷卻和重試評分，再啟動並持續 tick AreaManager 任務；Highland 駐守、Base 巡邏、Roadland 駐守和 Central 遊走都歸這一層。沒有可用區域時不再 fallback 到任何舊點表。`RegionalIdlePatrol` 點表不再是正式 regional 的 Default 入口。
+- `Default`：無特別事件時的底層決策，按 `AreaManager.DefaultPolicy` 對已啟用的大區域做資源門檻、距離、目前區域、上次任務結果、冷卻和重試評分，再啟動 AreaManager 任務。每個 Default 區域任務都必須有完成/退出條件；任務完成後回到 scorer 重新評估，不寫死下一個大區域順序。沒有可用區域時不再 fallback 到任何舊點表。`RegionalIdlePatrol` 點表不再是正式 regional 的 Default 入口。
 - `Finalizer`：只做本 tick 策略層完成標記和黑板同步；regional 不再 fallback 到舊點表。
 
 分層狀態會寫入 BT blackboard：
@@ -226,7 +227,7 @@ AreaManager:
       Enable: true
 ```
 
-`src/behavior_tree/config/AreaManager.yaml` 不再默認寫 `Area.MyArea/EnemyArea/CommonArea` 的區域開關，避免它把不同 `bt_config_file` 裡的區域選擇全部覆蓋成同一套。正式 regional 和單區域 areatest 的「哪些區域可選」仍由對應 `ConfigJson` 裡的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 控制；DefaultPolicy 只會在這些已啟用區域內挑候選，JSON 裡為 `false` 的區域不會因為血量健康或權重高而被選中。`AreaManager.yaml` 保留 `Switch_Point`、`SentryPositionFusion`、區域狀態機任務時序，以及 DefaultPolicy 的門檻、權重、冷卻和重試參數。`Task.yaml` 只管這局是否允許 `Task.Buff / Task.Outpost`，會覆蓋 JSON 裡同名字段。
+`src/behavior_tree/config/AreaManager.yaml` 不再默認寫 `Area.MyArea/EnemyArea/CommonArea` 的區域開關，避免它把不同 `bt_config_file` 裡的區域選擇全部覆蓋成同一套。正式 regional 和單區域 areatest 的「哪些區域可選」仍由對應 `ConfigJson` 裡的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 控制；DefaultPolicy 只會在這些已啟用區域內挑候選，JSON 裡為 `false` 的區域不會因為血量健康或權重高而被選中。`AreaManager.yaml` 保留 `Switch_Point`、`SentryPositionFusion`、區域狀態機任務時序，以及 DefaultPolicy 的門檻、權重、冷卻和重試參數。`Base.yaml` 保留 MyBase patrol 的候選點權重和距離懲罰。`Task.yaml` 只管這局是否允許 `Task.Buff / Task.Outpost`，會覆蓋 JSON 裡同名字段。
 
 `Switch_Point=true` 時只交換 `Area.hpp` 裡紅/藍官方點位和區域邊界查找結果，不交換 `team`、敵我語義或導航 goal ID。這是給導航零點/物理場地方向反了時使用的點位查找開關。
 
@@ -309,13 +310,13 @@ Highland 巡邏和 BuffShoot 駐守時：
 
 觸發條件：上游選中的 goal 精確屬於我方 Base 大區域，並且當前不在我方 Highland 裡。
 
-任務路線：
+候選點：
 
 ```text
-CastleLeft1 -> CastleLeft2 -> CastleRight2 -> CastleRight1 -> repeat
+CastleLeft1 / CastleLeft2 / CastleRight2 / CastleRight1 / HoleRoad / OutpostGuard / BuffOutpost
 ```
 
-起點會用自身坐標選最近點。拿不到自身坐標時，保守從 `CastleLeft2` 開始。Default 啟動 MyBase 前會先檢查血量/彈量是否新鮮且達到 `DefaultPolicy` 我方區域門檻。
+每次啟動或切下一個巡邏點時，會按 `src/behavior_tree/config/Base.yaml` 裡的權重和自身距離評分，不按固定順序輪。拿不到自身坐標時只用權重評估；全部候選不可用時，保守回到 `CastleLeft2`。Default 啟動 MyBase 前會先檢查血量/彈量是否新鮮且達到 `DefaultPolicy` 我方區域門檻。
 
 MyBase 本身不開 `FollowMode`，也不開 `FaceMode`，就是普通基地巡遊狀態機。
 

@@ -1,0 +1,19 @@
+behavior_tree:
+  ros__parameters:
+    AreaManager:
+      RegionalAreaTask:
+        MyBase:
+          Patrol:
+            # score = weight - distance_m * DistancePenaltyPerMeter.
+            # CurrentGoalPenalty is applied when the selector must consider the current point.
+            # Set a goal weight to 0 to disable that candidate.
+            DistancePenaltyPerMeter: 0.4
+            CurrentGoalPenalty: 5.0
+            GoalWeights:
+              CastleLeft1: 10.0
+              CastleLeft2: 10.0
+              CastleRight2: 10.0
+              CastleRight1: 10.0
+              HoleRoad: 7.0
+              OutpostGuard: 7.0
+              BuffOutpost: 6.0

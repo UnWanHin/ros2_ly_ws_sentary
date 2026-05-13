@@ -50,7 +50,7 @@ scripts/
 - `scripts/debug/` 是有意暴露出来的稳定调试接口；即使里面有 wrapper，也保留给人直接找命令用。
 - `scripts/launch/` 只保留完整/决策 stack；少量历史命令只做兼容转发。辅瞄、导航、标定分别在 `scripts/aim/`、`scripts/navi/`、`scripts/tools/`。
 - 根层 `config/` 只放全局共享配置，例如 `base_config.yaml`、`override_config.yaml`、`common.yaml`。
-- `behavior_tree` 自己的状态机/任务开关配置放在 `src/behavior_tree/config/`，例如 `AreaManager.yaml`、`Task.yaml`。
+- `behavior_tree` 自己的状态机/任务开关配置放在 `src/behavior_tree/config/`，例如 `AreaManager.yaml`、`Base.yaml`、`Task.yaml`。
 - 功能测试配置放在 `scripts/feature_test/config/`。
 - 旧的根目录壳脚本已经删掉，避免同一件事出现两三个名字。
 

@@ -67,11 +67,59 @@ bool AppendRegionalPatrolGoalByName(
         goal_id = LangYa::CastleRight1.ID;
     } else if (token == "castle") {
         goal_id = LangYa::Castle.ID;
+    } else if (token == "buffoutpost" || token == "buff_outpost") {
+        goal_id = LangYa::BuffOutpost.ID;
+    } else if (token == "outpostguard" || token == "outpost_guard") {
+        goal_id = LangYa::OutpostGuard.ID;
     } else {
         return false;
     }
     goals.push_back(goal_id);
     return true;
+}
+
+const std::vector<std::pair<const char*, std::uint8_t>>& MyBasePatrolGoalNameMap() {
+    static const std::vector<std::pair<const char*, std::uint8_t>> goals{
+        {"CastleLeft1", LangYa::CastleLeft1.ID},
+        {"CastleLeft2", LangYa::CastleLeft2.ID},
+        {"CastleRight2", LangYa::CastleRight2.ID},
+        {"CastleRight1", LangYa::CastleRight1.ID},
+        {"HoleRoad", LangYa::HoleRoad.ID},
+        {"OutpostGuard", LangYa::OutpostGuard.ID},
+        {"BuffOutpost", LangYa::BuffOutpost.ID}
+    };
+    return goals;
+}
+
+bool MyBasePatrolGoalIdByName(const std::string& goal_name, std::uint8_t& goal_id) {
+    const auto token = NormalizeAutonomyToken(goal_name);
+    for (const auto& [name, id] : MyBasePatrolGoalNameMap()) {
+        if (NormalizeAutonomyToken(name) == token) {
+            goal_id = id;
+            return true;
+        }
+    }
+    return false;
+}
+
+void UpsertMyBasePatrolGoalWeight(
+    std::vector<LangYa::MyBasePatrolGoalSetting>& goals,
+    const std::uint8_t goal_id,
+    const double weight) {
+    const auto it = std::find_if(
+        goals.begin(),
+        goals.end(),
+        [goal_id](const LangYa::MyBasePatrolGoalSetting& goal) {
+            return goal.BaseGoalId == goal_id;
+        });
+    if (it != goals.end()) {
+        it->Weight = weight;
+        return;
+    }
+    goals.push_back(LangYa::MyBasePatrolGoalSetting{
+        .BaseGoalId = goal_id,
+        .Weight = weight
+    });
 }
 
 BehaviorTree::CompetitionProfile ParseCompetitionProfile(const std::string& value) {
@@ -861,6 +909,28 @@ namespace LangYa {
         bs.Enable = j.value("Enable", bs.Enable);
         bs.TravelTimeoutSec = j.value("TravelTimeoutSec", bs.TravelTimeoutSec);
         bs.CommandHoldSec = j.value("CommandHoldSec", bs.CommandHoldSec);
+        bs.MaxPatrolSteps = j.value("MaxPatrolSteps", bs.MaxPatrolSteps);
+        if (j.contains("Patrol") && j.at("Patrol").is_object()) {
+            const auto& patrol = j.at("Patrol");
+            bs.PatrolDistancePenaltyPerMeter =
+                patrol.value("DistancePenaltyPerMeter", bs.PatrolDistancePenaltyPerMeter);
+            bs.PatrolCurrentGoalPenalty =
+                patrol.value("CurrentGoalPenalty", bs.PatrolCurrentGoalPenalty);
+            if (patrol.contains("GoalWeights") && patrol.at("GoalWeights").is_object()) {
+                bs.PatrolGoals.clear();
+                for (auto it = patrol.at("GoalWeights").begin(); it != patrol.at("GoalWeights").end(); ++it) {
+                    std::uint8_t goal_id = LangYa::Home.ID;
+                    if (!MyBasePatrolGoalIdByName(it.key(), goal_id) ||
+                        !it.value().is_number()) {
+                        continue;
+                    }
+                    bs.PatrolGoals.push_back(LangYa::MyBasePatrolGoalSetting{
+                        .BaseGoalId = goal_id,
+                        .Weight = it.value().get<double>()
+                    });
+                }
+            }
+        }
     }
 
     void from_json(const json& j, MyRoadlandAreaTaskSetting& rs) {
@@ -879,6 +949,7 @@ namespace LangYa {
         cs.Enable = j.value("Enable", cs.Enable);
         cs.TravelTimeoutSec = j.value("TravelTimeoutSec", cs.TravelTimeoutSec);
         cs.CommandHoldSec = j.value("CommandHoldSec", cs.CommandHoldSec);
+        cs.MaxPatrolSteps = j.value("MaxPatrolSteps", cs.MaxPatrolSteps);
         cs.HealthyHpMin = j.value("HealthyHpMin", cs.HealthyHpMin);
         cs.HealthyAmmoMin = j.value("HealthyAmmoMin", cs.HealthyAmmoMin);
     }
@@ -1720,6 +1791,56 @@ namespace BehaviorTree {
                 "AreaManager/RegionalAreaTask/MyBase/CommandHoldSec"
             },
             base.CommandHoldSec);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "AreaManager.Area.MyArea.Base.Task.MyBase.MaxPatrolSteps",
+                "AreaManager/Area/MyArea/Base/Task/MyBase/MaxPatrolSteps",
+                "AreaManager.Task.MyBase.MaxPatrolSteps",
+                "AreaManager/Task/MyBase/MaxPatrolSteps",
+                "AreaManager.RegionalAreaTask.MyBase.MaxPatrolSteps",
+                "AreaManager/RegionalAreaTask/MyBase/MaxPatrolSteps"
+            },
+            base.MaxPatrolSteps);
+        ReadOptionalDoubleParam(
+            node_,
+            {
+                "AreaManager.Area.MyArea.Base.Task.MyBase.Patrol.DistancePenaltyPerMeter",
+                "AreaManager/Area/MyArea/Base/Task/MyBase/Patrol/DistancePenaltyPerMeter",
+                "AreaManager.Task.MyBase.Patrol.DistancePenaltyPerMeter",
+                "AreaManager/Task/MyBase/Patrol/DistancePenaltyPerMeter",
+                "AreaManager.RegionalAreaTask.MyBase.Patrol.DistancePenaltyPerMeter",
+                "AreaManager/RegionalAreaTask/MyBase/Patrol/DistancePenaltyPerMeter"
+            },
+            base.PatrolDistancePenaltyPerMeter);
+        ReadOptionalDoubleParam(
+            node_,
+            {
+                "AreaManager.Area.MyArea.Base.Task.MyBase.Patrol.CurrentGoalPenalty",
+                "AreaManager/Area/MyArea/Base/Task/MyBase/Patrol/CurrentGoalPenalty",
+                "AreaManager.Task.MyBase.Patrol.CurrentGoalPenalty",
+                "AreaManager/Task/MyBase/Patrol/CurrentGoalPenalty",
+                "AreaManager.RegionalAreaTask.MyBase.Patrol.CurrentGoalPenalty",
+                "AreaManager/RegionalAreaTask/MyBase/Patrol/CurrentGoalPenalty"
+            },
+            base.PatrolCurrentGoalPenalty);
+        for (const auto& [goal_name, goal_id] : MyBasePatrolGoalNameMap()) {
+            std::vector<std::string> weight_names;
+            const auto append_weight_names = [&weight_names, goal_name](const std::string& prefix) {
+                weight_names.push_back(prefix + ".GoalWeights." + goal_name);
+                weight_names.push_back(prefix + "/GoalWeights/" + goal_name);
+            };
+            append_weight_names("AreaManager.Area.MyArea.Base.Task.MyBase.Patrol");
+            append_weight_names("AreaManager/Area/MyArea/Base/Task/MyBase/Patrol");
+            append_weight_names("AreaManager.Task.MyBase.Patrol");
+            append_weight_names("AreaManager/Task/MyBase/Patrol");
+            append_weight_names("AreaManager.RegionalAreaTask.MyBase.Patrol");
+            append_weight_names("AreaManager/RegionalAreaTask/MyBase/Patrol");
+            double weight = 0.0;
+            if (ReadOptionalDoubleParam(node_, weight_names, weight)) {
+                UpsertMyBasePatrolGoalWeight(base.PatrolGoals, goal_id, weight);
+            }
+        }
         ReadOptionalBoolParam(
             node_,
             {
@@ -1852,6 +1973,17 @@ namespace BehaviorTree {
                 "AreaManager/RegionalAreaTask/CommonCentral/CommandHoldSec"
             },
             central.CommandHoldSec);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "AreaManager.Area.CommonArea.Central.Task.CommonCentral.MaxPatrolSteps",
+                "AreaManager/Area/CommonArea/Central/Task/CommonCentral/MaxPatrolSteps",
+                "AreaManager.Task.CommonCentral.MaxPatrolSteps",
+                "AreaManager/Task/CommonCentral/MaxPatrolSteps",
+                "AreaManager.RegionalAreaTask.CommonCentral.MaxPatrolSteps",
+                "AreaManager/RegionalAreaTask/CommonCentral/MaxPatrolSteps"
+            },
+            central.MaxPatrolSteps);
         ReadOptionalIntParam(
             node_,
             {
@@ -2135,6 +2267,15 @@ namespace BehaviorTree {
         LoggerPtr->Debug("MyBase.Enable: {}", config.RegionalAreaTaskSettings.MyBase.Enable);
         LoggerPtr->Debug("MyBase.TravelTimeoutSec: {}", config.RegionalAreaTaskSettings.MyBase.TravelTimeoutSec);
         LoggerPtr->Debug("MyBase.CommandHoldSec: {}", config.RegionalAreaTaskSettings.MyBase.CommandHoldSec);
+        LoggerPtr->Debug("MyBase.MaxPatrolSteps: {}", config.RegionalAreaTaskSettings.MyBase.MaxPatrolSteps);
+        LoggerPtr->Debug("MyBase.PatrolDistancePenaltyPerMeter: {}", config.RegionalAreaTaskSettings.MyBase.PatrolDistancePenaltyPerMeter);
+        LoggerPtr->Debug("MyBase.PatrolCurrentGoalPenalty: {}", config.RegionalAreaTaskSettings.MyBase.PatrolCurrentGoalPenalty);
+        for (const auto& goal : config.RegionalAreaTaskSettings.MyBase.PatrolGoals) {
+            LoggerPtr->Debug(
+                "MyBase.PatrolGoal: id={} weight={}",
+                static_cast<int>(goal.BaseGoalId),
+                goal.Weight);
+        }
         LoggerPtr->Debug("MyRoadland.Enable: {}", config.RegionalAreaTaskSettings.MyRoadland.Enable);
         LoggerPtr->Debug("MyRoadland.UseFaceMode: {}", config.RegionalAreaTaskSettings.MyRoadland.UseFaceMode);
         LoggerPtr->Debug("MyRoadland.TravelTimeoutSec: {}", config.RegionalAreaTaskSettings.MyRoadland.TravelTimeoutSec);
@@ -2147,6 +2288,7 @@ namespace BehaviorTree {
         LoggerPtr->Debug("CommonCentral.Enable: {}", config.RegionalAreaTaskSettings.CommonCentral.Enable);
         LoggerPtr->Debug("CommonCentral.TravelTimeoutSec: {}", config.RegionalAreaTaskSettings.CommonCentral.TravelTimeoutSec);
         LoggerPtr->Debug("CommonCentral.CommandHoldSec: {}", config.RegionalAreaTaskSettings.CommonCentral.CommandHoldSec);
+        LoggerPtr->Debug("CommonCentral.MaxPatrolSteps: {}", config.RegionalAreaTaskSettings.CommonCentral.MaxPatrolSteps);
         LoggerPtr->Debug("CommonCentral.HealthyHpMin: {}", config.RegionalAreaTaskSettings.CommonCentral.HealthyHpMin);
         LoggerPtr->Debug("CommonCentral.HealthyAmmoMin: {}", config.RegionalAreaTaskSettings.CommonCentral.HealthyAmmoMin);
         LoggerPtr->Debug("DefaultPolicy.Enable: {}", config.RegionalAreaTaskSettings.DefaultPolicy.Enable);
@@ -2357,9 +2499,9 @@ namespace BehaviorTree {
         }
         if (outpost_confirm.VisualScoutHoldMs < 0) {
             LoggerPtr->Warning(
-                "Invalid Task.OutpostConfirm.VisualScoutHoldMs={}, fallback to 8000.",
+                "Invalid Task.OutpostConfirm.VisualScoutHoldMs={}, fallback to 10000.",
                 outpost_confirm.VisualScoutHoldMs);
-            outpost_confirm.VisualScoutHoldMs = 8000;
+            outpost_confirm.VisualScoutHoldMs = 10000;
         }
         if (outpost_confirm.VisualScoutCooldownMs < 0) {
             LoggerPtr->Warning(
@@ -2752,6 +2894,66 @@ namespace BehaviorTree {
                 base_task.CommandHoldSec);
             base_task.CommandHoldSec = 1;
         }
+        if (base_task.MaxPatrolSteps <= 0) {
+            LoggerPtr->Warning(
+                "Invalid RegionalAreaTask.MyBase.MaxPatrolSteps={}, fallback to 4.",
+                base_task.MaxPatrolSteps);
+            base_task.MaxPatrolSteps = 4;
+        }
+        if (base_task.PatrolDistancePenaltyPerMeter < 0.0) {
+            LoggerPtr->Warning(
+                "Invalid RegionalAreaTask.MyBase.Patrol.DistancePenaltyPerMeter={}, fallback to 0.4.",
+                base_task.PatrolDistancePenaltyPerMeter);
+            base_task.PatrolDistancePenaltyPerMeter = 0.4;
+        }
+        if (base_task.PatrolCurrentGoalPenalty < 0.0) {
+            LoggerPtr->Warning(
+                "Invalid RegionalAreaTask.MyBase.Patrol.CurrentGoalPenalty={}, fallback to 5.",
+                base_task.PatrolCurrentGoalPenalty);
+            base_task.PatrolCurrentGoalPenalty = 5.0;
+        }
+        std::vector<LangYa::MyBasePatrolGoalSetting> sanitized_base_patrol_goals;
+        sanitized_base_patrol_goals.reserve(base_task.PatrolGoals.size());
+        for (const auto& goal : base_task.PatrolGoals) {
+            if (!IsValidBaseGoal(goal.BaseGoalId) ||
+                BehaviorTree::AreaManager::IsReservedNonCombatGoalId(goal.BaseGoalId)) {
+                LoggerPtr->Warning(
+                    "Ignore invalid RegionalAreaTask.MyBase.Patrol.GoalWeights goal={}.",
+                    static_cast<int>(goal.BaseGoalId));
+                continue;
+            }
+            const auto it = std::find_if(
+                sanitized_base_patrol_goals.begin(),
+                sanitized_base_patrol_goals.end(),
+                [&goal](const LangYa::MyBasePatrolGoalSetting& item) {
+                    return item.BaseGoalId == goal.BaseGoalId;
+                });
+            if (it != sanitized_base_patrol_goals.end()) {
+                it->Weight = goal.Weight;
+                continue;
+            }
+            sanitized_base_patrol_goals.push_back(goal);
+        }
+        const bool has_enabled_base_patrol_goal = std::any_of(
+            sanitized_base_patrol_goals.begin(),
+            sanitized_base_patrol_goals.end(),
+            [](const LangYa::MyBasePatrolGoalSetting& goal) {
+                return goal.Weight > 0.0;
+            });
+        if (!has_enabled_base_patrol_goal) {
+            LoggerPtr->Warning(
+                "RegionalAreaTask.MyBase.Patrol has no enabled goal, fallback to default Base patrol weights.");
+            sanitized_base_patrol_goals = {
+                {LangYa::CastleLeft1.ID, 10.0},
+                {LangYa::CastleLeft2.ID, 10.0},
+                {LangYa::CastleRight2.ID, 10.0},
+                {LangYa::CastleRight1.ID, 10.0},
+                {LangYa::HoleRoad.ID, 7.0},
+                {LangYa::OutpostGuard.ID, 7.0},
+                {LangYa::BuffOutpost.ID, 6.0}
+            };
+        }
+        base_task.PatrolGoals = std::move(sanitized_base_patrol_goals);
         auto& roadland_task = config.RegionalAreaTaskSettings.MyRoadland;
         if (roadland_task.TravelTimeoutSec <= 0) {
             LoggerPtr->Warning(
@@ -2807,6 +3009,12 @@ namespace BehaviorTree {
                 "Invalid RegionalAreaTask.CommonCentral.CommandHoldSec={}, fallback to 1.",
                 central_task.CommandHoldSec);
             central_task.CommandHoldSec = 1;
+        }
+        if (central_task.MaxPatrolSteps <= 0) {
+            LoggerPtr->Warning(
+                "Invalid RegionalAreaTask.CommonCentral.MaxPatrolSteps={}, fallback to 8.",
+                central_task.MaxPatrolSteps);
+            central_task.MaxPatrolSteps = 8;
         }
         if (central_task.HealthyHpMin < 0) {
             LoggerPtr->Warning(
