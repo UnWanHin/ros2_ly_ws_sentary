@@ -69,6 +69,13 @@
 using namespace ly_auto_aim;
 using namespace LangYa;
 
+// tracker_solver 和 predictor 都導出 <solver/solver.hpp>，包含順序會決定可見的 extern。
+// 这里显式声明两个全局节点指针，避免同名头文件导致 shooting_table_calib 编译不稳定。
+namespace ly_auto_aim::solver {
+    extern rclcpp::Node::SharedPtr global_tracker_solver_node;
+    extern rclcpp::Node::SharedPtr global_predictor_solver_node;
+}
+
 // [ROS 2] 全局節點指針 (用於 roslog 適配)
 namespace {
     rclcpp::Node::SharedPtr global_node_ptr = nullptr;
@@ -1487,6 +1494,7 @@ int main(int argc, char** argv)
     // [ROS 2] 初始化全局指針 (讓算法庫能工作)
     global_node_ptr = node;
     ly_auto_aim::solver::global_tracker_solver_node = node;
+    ly_auto_aim::solver::global_predictor_solver_node = node;
     ly_auto_aim::predictor::global_predictor_node = node;
     // 這裡我們把 controller 的全局變量也指過去 (如果有的話)
     ly_auto_aim::controller::global_controller_node = node;
