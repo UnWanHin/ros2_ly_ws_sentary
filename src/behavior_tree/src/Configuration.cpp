@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <filesystem>
 #include <initializer_list>
 #include <utility>
@@ -603,6 +604,17 @@ namespace LangYa {
         os.DamageAbortHoldMs = j.value("DamageAbortHoldMs", os.DamageAbortHoldMs);
         os.OpeningHighPriority = j.value("OpeningHighPriority", os.OpeningHighPriority);
         os.SuppressChaseWhileActive = j.value("SuppressChaseWhileActive", os.SuppressChaseWhileActive);
+        if (j.contains("ManualGoal") && j.at("ManualGoal").is_object()) {
+            const auto& manual = j.at("ManualGoal");
+            os.ManualGoalEnable = manual.value("Enable", os.ManualGoalEnable);
+            os.ManualGoalMapXM = manual.value("MapXM", os.ManualGoalMapXM);
+            os.ManualGoalMapYM = manual.value("MapYM", os.ManualGoalMapYM);
+            os.ManualGoalMapZM = manual.value("MapZM", os.ManualGoalMapZM);
+        }
+        os.ManualGoalEnable = j.value("ManualGoalEnable", os.ManualGoalEnable);
+        os.ManualGoalMapXM = j.value("ManualGoalMapXM", os.ManualGoalMapXM);
+        os.ManualGoalMapYM = j.value("ManualGoalMapYM", os.ManualGoalMapYM);
+        os.ManualGoalMapZM = j.value("ManualGoalMapZM", os.ManualGoalMapZM);
     }
     void from_json(const json& j, TaskSetting& ts) {
         ts.Buff = j.value("Buff", ts.Buff);
@@ -647,25 +659,6 @@ namespace LangYa {
             j.value("FallbackPatrolScanMode", fs.FallbackPatrolScanMode);
         fs.OutpostFallbackPatrolScanMode =
             j.value("OutpostFallbackPatrolScanMode", fs.OutpostFallbackPatrolScanMode);
-        if (j.contains("OutpostManualTarget") && j.at("OutpostManualTarget").is_object()) {
-            const auto& manual = j.at("OutpostManualTarget");
-            fs.OutpostManualTargetEnable =
-                manual.value("Enable", fs.OutpostManualTargetEnable);
-            fs.OutpostManualTargetMapXCm =
-                manual.value("MapXCm", fs.OutpostManualTargetMapXCm);
-            fs.OutpostManualTargetMapYCm =
-                manual.value("MapYCm", fs.OutpostManualTargetMapYCm);
-            fs.OutpostManualTargetMapZCm =
-                manual.value("MapZCm", fs.OutpostManualTargetMapZCm);
-        }
-        fs.OutpostManualTargetEnable =
-            j.value("OutpostManualTargetEnable", fs.OutpostManualTargetEnable);
-        fs.OutpostManualTargetMapXCm =
-            j.value("OutpostManualTargetMapXCm", fs.OutpostManualTargetMapXCm);
-        fs.OutpostManualTargetMapYCm =
-            j.value("OutpostManualTargetMapYCm", fs.OutpostManualTargetMapYCm);
-        fs.OutpostManualTargetMapZCm =
-            j.value("OutpostManualTargetMapZCm", fs.OutpostManualTargetMapZCm);
     }
 
     void from_json(const json& j, ExternalAimSetting& ea) {
@@ -1511,6 +1504,42 @@ namespace BehaviorTree {
                 "Task/OutpostConfirm/SuppressChaseWhileActive"
             },
             config.TaskSettings.OutpostConfirm.SuppressChaseWhileActive);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "Task.OutpostConfirm.ManualGoal.Enable",
+                "Task/OutpostConfirm/ManualGoal/Enable",
+                "Task.OutpostConfirm.ManualGoalEnable",
+                "Task/OutpostConfirm/ManualGoalEnable"
+            },
+            config.TaskSettings.OutpostConfirm.ManualGoalEnable);
+        ReadOptionalDoubleParam(
+            node_,
+            {
+                "Task.OutpostConfirm.ManualGoal.MapXM",
+                "Task/OutpostConfirm/ManualGoal/MapXM",
+                "Task.OutpostConfirm.ManualGoalMapXM",
+                "Task/OutpostConfirm/ManualGoalMapXM"
+            },
+            config.TaskSettings.OutpostConfirm.ManualGoalMapXM);
+        ReadOptionalDoubleParam(
+            node_,
+            {
+                "Task.OutpostConfirm.ManualGoal.MapYM",
+                "Task/OutpostConfirm/ManualGoal/MapYM",
+                "Task.OutpostConfirm.ManualGoalMapYM",
+                "Task/OutpostConfirm/ManualGoalMapYM"
+            },
+            config.TaskSettings.OutpostConfirm.ManualGoalMapYM);
+        ReadOptionalDoubleParam(
+            node_,
+            {
+                "Task.OutpostConfirm.ManualGoal.MapZM",
+                "Task/OutpostConfirm/ManualGoal/MapZM",
+                "Task.OutpostConfirm.ManualGoalMapZM",
+                "Task/OutpostConfirm/ManualGoalMapZM"
+            },
+            config.TaskSettings.OutpostConfirm.ManualGoalMapZM);
     }
 
     void Application::ApplySpecialParameterOverrides() {
@@ -1631,42 +1660,6 @@ namespace BehaviorTree {
                 "FaceMode/OutpostFallbackPatrolScanMode"
             },
             config.FaceModeSettings.OutpostFallbackPatrolScanMode);
-        ReadOptionalBoolParam(
-            node_,
-            {
-                "FaceMode.OutpostManualTarget.Enable",
-                "FaceMode/OutpostManualTarget/Enable",
-                "FaceMode.OutpostManualTargetEnable",
-                "FaceMode/OutpostManualTargetEnable"
-            },
-            config.FaceModeSettings.OutpostManualTargetEnable);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "FaceMode.OutpostManualTarget.MapXCm",
-                "FaceMode/OutpostManualTarget/MapXCm",
-                "FaceMode.OutpostManualTargetMapXCm",
-                "FaceMode/OutpostManualTargetMapXCm"
-            },
-            config.FaceModeSettings.OutpostManualTargetMapXCm);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "FaceMode.OutpostManualTarget.MapYCm",
-                "FaceMode/OutpostManualTarget/MapYCm",
-                "FaceMode.OutpostManualTargetMapYCm",
-                "FaceMode/OutpostManualTargetMapYCm"
-            },
-            config.FaceModeSettings.OutpostManualTargetMapYCm);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "FaceMode.OutpostManualTarget.MapZCm",
-                "FaceMode/OutpostManualTarget/MapZCm",
-                "FaceMode.OutpostManualTargetMapZCm",
-                "FaceMode/OutpostManualTargetMapZCm"
-            },
-            config.FaceModeSettings.OutpostManualTargetMapZCm);
     }
 
     void Application::ApplyNaviRotateControlParameterOverrides() {
@@ -2436,6 +2429,12 @@ namespace BehaviorTree {
             config.TaskSettings.OutpostConfirm.DamageAbortHoldMs,
             config.TaskSettings.OutpostConfirm.OpeningHighPriority ? 1 : 0,
             config.TaskSettings.OutpostConfirm.SuppressChaseWhileActive ? 1 : 0);
+        LoggerPtr->Debug(
+            "OutpostManualGoal: enable={} map=({:.3f}, {:.3f}, {:.3f}) m",
+            config.TaskSettings.OutpostConfirm.ManualGoalEnable ? 1 : 0,
+            config.TaskSettings.OutpostConfirm.ManualGoalMapXM,
+            config.TaskSettings.OutpostConfirm.ManualGoalMapYM,
+            config.TaskSettings.OutpostConfirm.ManualGoalMapZM);
         LoggerPtr->Debug("------ DamageOpenGate ------");
         LoggerPtr->Debug("Enable: {}", config.DamageOpenGateSettings.Enable);
         LoggerPtr->Debug("HealthDropThreshold: {}", config.DamageOpenGateSettings.HealthDropThreshold);
@@ -2449,12 +2448,6 @@ namespace BehaviorTree {
         LoggerPtr->Debug("FallbackToPatrolScanMode2: {}", config.FaceModeSettings.FallbackToPatrolScanMode2);
         LoggerPtr->Debug("FallbackPatrolScanMode: {}", config.FaceModeSettings.FallbackPatrolScanMode);
         LoggerPtr->Debug("OutpostFallbackPatrolScanMode: {}", config.FaceModeSettings.OutpostFallbackPatrolScanMode);
-        LoggerPtr->Debug(
-            "OutpostManualTarget: enable={} map=({}, {}, {}) cm",
-            config.FaceModeSettings.OutpostManualTargetEnable ? 1 : 0,
-            config.FaceModeSettings.OutpostManualTargetMapXCm,
-            config.FaceModeSettings.OutpostManualTargetMapYCm,
-            config.FaceModeSettings.OutpostManualTargetMapZCm);
         LoggerPtr->Debug("------ ExternalAim ------");
         LoggerPtr->Debug("Enable: {}", config.ExternalAimSettings.Enable);
         LoggerPtr->Debug("ResultFreshTimeoutMs: {}", config.ExternalAimSettings.ResultFreshTimeoutMs);
@@ -2885,6 +2878,21 @@ namespace BehaviorTree {
                 outpost_confirm.DamageAbortHoldMs);
             outpost_confirm.DamageAbortHoldMs = 3000;
         }
+        auto sanitize_manual_goal_m = [this](const char* key, double& value) {
+            if (!std::isfinite(value)) {
+                LoggerPtr->Warning("Invalid {}={}, fallback to 0.", key, value);
+                value = 0.0;
+            }
+        };
+        sanitize_manual_goal_m(
+            "Task.OutpostConfirm.ManualGoal.MapXM",
+            outpost_confirm.ManualGoalMapXM);
+        sanitize_manual_goal_m(
+            "Task.OutpostConfirm.ManualGoal.MapYM",
+            outpost_confirm.ManualGoalMapYM);
+        sanitize_manual_goal_m(
+            "Task.OutpostConfirm.ManualGoal.MapZM",
+            outpost_confirm.ManualGoalMapZM);
         if (config.FaceModeSettings.LostTargetHoldMs < 0) {
             LoggerPtr->Warning(
                 "Invalid FaceMode.LostTargetHoldMs={}, fallback to 300.",
@@ -3471,24 +3479,6 @@ namespace BehaviorTree {
                 config.FaceModeSettings.OutpostFallbackPatrolScanMode);
             config.FaceModeSettings.OutpostFallbackPatrolScanMode = 3;
         }
-        auto clamp_face_target_cm = [this](const char* key, int& value) {
-            if (value < 0 || value > 65535) {
-                LoggerPtr->Warning(
-                    "Invalid {}={} cm, clamp to UInt16 range [0, 65535].",
-                    key,
-                    value);
-                value = std::clamp(value, 0, 65535);
-            }
-        };
-        clamp_face_target_cm(
-            "FaceMode.OutpostManualTarget.MapXCm",
-            config.FaceModeSettings.OutpostManualTargetMapXCm);
-        clamp_face_target_cm(
-            "FaceMode.OutpostManualTarget.MapYCm",
-            config.FaceModeSettings.OutpostManualTargetMapYCm);
-        clamp_face_target_cm(
-            "FaceMode.OutpostManualTarget.MapZCm",
-            config.FaceModeSettings.OutpostManualTargetMapZCm);
 
         const std::vector<int> default_aim_target_priority{
             static_cast<int>(ArmorType::Hero),

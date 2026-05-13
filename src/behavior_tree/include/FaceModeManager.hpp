@@ -50,8 +50,7 @@ public:
     bool PublishAimTarget(
         LangYa::AimMode aim_mode,
         LangYa::UnitTeam target_team,
-        const TargetPublisher::SharedPtr& publisher,
-        const std::optional<Area::Point3<double>>& outpost_manual_target = std::nullopt);
+        const TargetPublisher::SharedPtr& publisher);
 
     bool ApplyRegionalTaskResult(
         const RegionalAreaTaskTickResult& result,

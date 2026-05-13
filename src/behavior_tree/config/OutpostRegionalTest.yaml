@@ -22,6 +22,11 @@ behavior_tree:
         DamageAbortHoldMs: 3000
         OpeningHighPriority: true
         SuppressChaseWhileActive: true
+        ManualGoal:
+          Enable: false
+          MapXM: 0.0
+          MapYM: 0.0
+          MapZM: 0.0
     FaceMode:
       Enable: true
       LostTargetHoldMs: 300
@@ -29,11 +34,6 @@ behavior_tree:
       FallbackToPatrolScanMode2: true
       FallbackPatrolScanMode: 2
       OutpostFallbackPatrolScanMode: 3
-      OutpostManualTarget:
-        Enable: false
-        MapXCm: 0
-        MapYCm: 0
-        MapZCm: 0
     AreaManager:
       RegionalAreaTask:
         IgnoreRecovery: true

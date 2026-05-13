@@ -488,6 +488,7 @@ private:
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_navi_goal_;
     rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr pub_navi_goal_pos_raw_;
     rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr pub_navi_goal_pos_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_navi_goal_pose_;
     rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr pub_face_mode_target_raw_;
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_navi_speed_level_;
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_navi_lower_head_;
@@ -527,6 +528,7 @@ public:
     void PubNaviRelativeTarget();
     void PubNaviGoal();
     void PubNaviGoalPos();
+    bool PubManualOutpostGoalPose(const char* reason);
     void PubFriendInfo();
     void PubEnemyInfo();
 

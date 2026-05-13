@@ -61,10 +61,15 @@ def generate_launch_description():
         DeclareLaunchArgument("face_mode_target_frame", default_value="official_map"),
         DeclareLaunchArgument("face_mode_use_raw_goal_static_calibration", default_value="true"),
         DeclareLaunchArgument("face_mode_raw_goal_target_frame", default_value="map"),
-        DeclareLaunchArgument("face_mode_outpost_manual_target_enable", default_value="false"),
-        DeclareLaunchArgument("face_mode_outpost_manual_target_map_x_cm", default_value="0"),
-        DeclareLaunchArgument("face_mode_outpost_manual_target_map_y_cm", default_value="0"),
-        DeclareLaunchArgument("face_mode_outpost_manual_target_map_z_cm", default_value="0"),
+        DeclareLaunchArgument("face_mode_manual_target_enable", default_value="false"),
+        DeclareLaunchArgument("face_mode_manual_target_frame", default_value="map"),
+        DeclareLaunchArgument("face_mode_manual_target_x_m", default_value="0.0"),
+        DeclareLaunchArgument("face_mode_manual_target_y_m", default_value="0.0"),
+        DeclareLaunchArgument("face_mode_manual_target_z_m", default_value="0.0"),
+        DeclareLaunchArgument("outpost_manual_goal_enable", default_value="false"),
+        DeclareLaunchArgument("outpost_manual_goal_x_m", default_value="0.0"),
+        DeclareLaunchArgument("outpost_manual_goal_y_m", default_value="0.0"),
+        DeclareLaunchArgument("outpost_manual_goal_z_m", default_value="0.0"),
     ]
 
     include = IncludeLaunchDescription(
@@ -102,18 +107,15 @@ def generate_launch_description():
                 "face_mode_use_raw_goal_static_calibration"
             ),
             "face_mode_raw_goal_target_frame": LaunchConfiguration("face_mode_raw_goal_target_frame"),
-            "face_mode_outpost_manual_target_enable": LaunchConfiguration(
-                "face_mode_outpost_manual_target_enable"
-            ),
-            "face_mode_outpost_manual_target_map_x_cm": LaunchConfiguration(
-                "face_mode_outpost_manual_target_map_x_cm"
-            ),
-            "face_mode_outpost_manual_target_map_y_cm": LaunchConfiguration(
-                "face_mode_outpost_manual_target_map_y_cm"
-            ),
-            "face_mode_outpost_manual_target_map_z_cm": LaunchConfiguration(
-                "face_mode_outpost_manual_target_map_z_cm"
-            ),
+            "face_mode_manual_target_enable": LaunchConfiguration("face_mode_manual_target_enable"),
+            "face_mode_manual_target_frame": LaunchConfiguration("face_mode_manual_target_frame"),
+            "face_mode_manual_target_x_m": LaunchConfiguration("face_mode_manual_target_x_m"),
+            "face_mode_manual_target_y_m": LaunchConfiguration("face_mode_manual_target_y_m"),
+            "face_mode_manual_target_z_m": LaunchConfiguration("face_mode_manual_target_z_m"),
+            "outpost_manual_goal_enable": LaunchConfiguration("outpost_manual_goal_enable"),
+            "outpost_manual_goal_x_m": LaunchConfiguration("outpost_manual_goal_x_m"),
+            "outpost_manual_goal_y_m": LaunchConfiguration("outpost_manual_goal_y_m"),
+            "outpost_manual_goal_z_m": LaunchConfiguration("outpost_manual_goal_z_m"),
         }.items(),
     )
 

@@ -472,6 +472,11 @@ namespace BehaviorTree {
     }
 
     void Application::PubNaviGoalPos() {
+        if (config.TaskSettings.OutpostConfirm.ManualGoalEnable &&
+            naviCommandGoal == ResolveGoalId(LangYa::BuffOutpost.ID, team, true) &&
+            PubManualOutpostGoalPose("manual_outpost_goal")) {
+            return;
+        }
         std_msgs::msg::UInt16MultiArray msg;
         std::vector<uint16_t> data = {
             static_cast<uint16_t>(naviGoalPosition.x),
@@ -486,5 +491,38 @@ namespace BehaviorTree {
         }
         pub_navi_goal_pos_->publish(msg);
         UpdateNaviExternalStatusGoal(naviCommandGoal, naviGoalPosition);
+    }
+
+    bool Application::PubManualOutpostGoalPose(const char* reason) {
+        if (!pub_navi_goal_pose_ || !config.TaskSettings.OutpostConfirm.ManualGoalEnable) {
+            return false;
+        }
+
+        const auto goal_id = ResolveGoalId(LangYa::BuffOutpost.ID, team, true);
+        naviCommandGoal = goal_id;
+        naviGoalPosition = AreaManager::GoalPointByBaseId(LangYa::BuffOutpost.ID, team);
+
+        geometry_msgs::msg::PoseStamped msg;
+        msg.header.stamp = node_->now();
+        msg.header.frame_id = "map";
+        msg.pose.position.x = config.TaskSettings.OutpostConfirm.ManualGoalMapXM;
+        msg.pose.position.y = config.TaskSettings.OutpostConfirm.ManualGoalMapYM;
+        msg.pose.position.z = config.TaskSettings.OutpostConfirm.ManualGoalMapZM;
+        msg.pose.orientation.w = 1.0;
+        pub_navi_goal_pose_->publish(msg);
+        UpdateNaviExternalStatusGoal(naviCommandGoal, naviGoalPosition);
+
+        static auto last_manual_goal_log = std::chrono::steady_clock::time_point{};
+        const auto now = std::chrono::steady_clock::now();
+        if (now - last_manual_goal_log > std::chrono::seconds(2)) {
+            LoggerPtr->Info(
+                "Manual Outpost /goal_pose: ({:.3f}, {:.3f}, {:.3f})m frame=map reason={}",
+                msg.pose.position.x,
+                msg.pose.position.y,
+                msg.pose.position.z,
+                reason ? reason : "");
+            last_manual_goal_log = now;
+        }
+        return true;
     }
 }

@@ -121,6 +121,12 @@ public:
       this->declare_parameter<bool>("use_raw_goal_static_calibration", false);
     raw_goal_target_frame_override_ =
       trim(this->declare_parameter<std::string>("raw_goal_target_frame", ""));
+    manual_target_enable_ = this->declare_parameter<bool>("manual_target_enable", false);
+    manual_target_frame_ =
+      trim(this->declare_parameter<std::string>("manual_target_frame", "map"));
+    manual_target_point_.x = this->declare_parameter<double>("manual_target_x_m", 0.0);
+    manual_target_point_.y = this->declare_parameter<double>("manual_target_y_m", 0.0);
+    manual_target_point_.z = this->declare_parameter<double>("manual_target_z_m", 0.0);
 
     const double publish_hz = std::max(1.0, this->declare_parameter<double>("publish_hz", 30.0));
     tf_timeout_ = rclcpp::Duration::from_seconds(
@@ -146,7 +152,9 @@ public:
     if (use_static_calibration) {
       loadRawGoalStaticCalibration(bridge_config_file);
     }
-    if (has_active_target_) {
+    if (manual_target_enable_) {
+      applyManualTarget("launch parameter manual_target");
+    } else if (has_active_target_) {
       refreshActiveTargetFromOfficial("initial");
     }
 
@@ -171,7 +179,7 @@ public:
       "FaceMode started: initial_target=%s raw_target=(%.3f, %.3f, %.3f)m@%s "
       "active_target=(%.3f, %.3f, %.3f)m@%s "
       "solve_mode=%s solve_frame=%s aim_frame=%s camera_frame=%s -> %s, gimbal=%s, firecode=%s, "
-      "use_gimbal_stamp_for_tf=%s, command_filter_alpha=%.2f",
+      "use_gimbal_stamp_for_tf=%s, command_filter_alpha=%.2f, manual_target=%s",
       has_active_target_ ? "ready" : "waiting_for_face_target_raw",
       official_map_x_m_,
       official_map_y_m_,
@@ -189,7 +197,8 @@ public:
       gimbal_topic.c_str(),
       publish_firecode_ ? "on" : "off",
       use_gimbal_stamp_for_tf_ ? "true" : "false",
-      command_filter_alpha_);
+      command_filter_alpha_,
+      manual_target_enable_ ? "on" : "off");
   }
 
 private:
@@ -308,6 +317,9 @@ private:
 
   void onFaceTargetRaw(const std_msgs::msg::UInt16MultiArray::SharedPtr msg)
   {
+    if (manual_target_enable_) {
+      return;
+    }
     if (!msg || msg->data.size() < 3) {
       warnThrottled("drop invalid FaceMode raw target: need [official_map_x, official_map_y, map_z] cm");
       return;
@@ -326,6 +338,29 @@ private:
     map_z_m_ = next_z_m;
     has_active_target_ = true;
     refreshActiveTargetFromOfficial("topic /ly/face_mode/target_raw");
+  }
+
+  void applyManualTarget(const std::string & reason)
+  {
+    if (manual_target_frame_.empty()) {
+      manual_target_frame_ = "map";
+    }
+    active_target_frame_ = manual_target_frame_;
+    active_target_point_ = manual_target_point_;
+    official_map_x_m_ = manual_target_point_.x;
+    official_map_y_m_ = manual_target_point_.y;
+    map_z_m_ = manual_target_point_.z;
+    has_active_target_ = true;
+    last_yaw_cmd_deg_.reset();
+    last_pitch_cmd_deg_.reset();
+    RCLCPP_INFO(
+      this->get_logger(),
+      "FaceMode manual target active (%s): target=(%.3f, %.3f, %.3f)m@%s",
+      reason.c_str(),
+      active_target_point_.x,
+      active_target_point_.y,
+      active_target_point_.z,
+      active_target_frame_.c_str());
   }
 
   bool stampIsZero(const gimbal_driver::msg::GimbalAngles & msg) const
@@ -670,6 +705,9 @@ private:
   std::string target_frame_;
   std::string active_target_frame_;
   geometry_msgs::msg::Point active_target_point_;
+  bool manual_target_enable_{false};
+  std::string manual_target_frame_{"map"};
+  geometry_msgs::msg::Point manual_target_point_;
   std::string raw_goal_target_frame_override_;
   std::string raw_goal_configured_target_frame_{"map"};
   PointerSolver raw_goal_solver_{};

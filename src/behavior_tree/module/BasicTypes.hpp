@@ -491,6 +491,10 @@ namespace LangYa
         int DamageAbortHoldMs{3000};
         bool OpeningHighPriority{true};
         bool SuppressChaseWhileActive{true};
+        bool ManualGoalEnable{false};
+        double ManualGoalMapXM{0.0};
+        double ManualGoalMapYM{0.0};
+        double ManualGoalMapZM{0.0};
     };
 
     struct TaskSetting {
@@ -525,10 +529,6 @@ namespace LangYa
         bool FallbackToPatrolScanMode2{true};
         int FallbackPatrolScanMode{2};
         int OutpostFallbackPatrolScanMode{3};
-        bool OutpostManualTargetEnable{false};
-        int OutpostManualTargetMapXCm{0};
-        int OutpostManualTargetMapYCm{0};
-        int OutpostManualTargetMapZCm{0};
     };
 
     struct ExternalAimSetting {

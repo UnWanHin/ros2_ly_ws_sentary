@@ -305,20 +305,17 @@ def generate_launch_description():
         "face_mode_use_raw_goal_static_calibration"
     )
     face_mode_raw_goal_target_frame = LaunchConfiguration("face_mode_raw_goal_target_frame")
+    face_mode_manual_target_enable = LaunchConfiguration("face_mode_manual_target_enable")
+    face_mode_manual_target_frame = LaunchConfiguration("face_mode_manual_target_frame")
+    face_mode_manual_target_x_m = LaunchConfiguration("face_mode_manual_target_x_m")
+    face_mode_manual_target_y_m = LaunchConfiguration("face_mode_manual_target_y_m")
+    face_mode_manual_target_z_m = LaunchConfiguration("face_mode_manual_target_z_m")
     face_mode_max_yaw_step_deg = LaunchConfiguration("face_mode_max_yaw_step_deg")
     face_mode_max_pitch_step_deg = LaunchConfiguration("face_mode_max_pitch_step_deg")
-    face_mode_outpost_manual_target_enable = LaunchConfiguration(
-        "face_mode_outpost_manual_target_enable"
-    )
-    face_mode_outpost_manual_target_map_x_cm = LaunchConfiguration(
-        "face_mode_outpost_manual_target_map_x_cm"
-    )
-    face_mode_outpost_manual_target_map_y_cm = LaunchConfiguration(
-        "face_mode_outpost_manual_target_map_y_cm"
-    )
-    face_mode_outpost_manual_target_map_z_cm = LaunchConfiguration(
-        "face_mode_outpost_manual_target_map_z_cm"
-    )
+    outpost_manual_goal_enable = LaunchConfiguration("outpost_manual_goal_enable")
+    outpost_manual_goal_x_m = LaunchConfiguration("outpost_manual_goal_x_m")
+    outpost_manual_goal_y_m = LaunchConfiguration("outpost_manual_goal_y_m")
+    outpost_manual_goal_z_m = LaunchConfiguration("outpost_manual_goal_z_m")
     gimbal_raw_log_enable = LaunchConfiguration("gimbal_raw_log_enable")
     gimbal_raw_log_uplink = LaunchConfiguration("gimbal_raw_log_uplink")
     gimbal_raw_log_downlink = LaunchConfiguration("gimbal_raw_log_downlink")
@@ -518,25 +515,26 @@ def generate_launch_description():
             description="Target frame after FaceMode raw-goal static calibration.",
         ),
         DeclareLaunchArgument(
-            "face_mode_outpost_manual_target_enable",
+            "face_mode_manual_target_enable",
             default_value="false",
-            description="Override Outpost FaceMode target_raw with launch-provided cm coordinates.",
+            description="Use signed map-frame manual target directly inside FaceMode solver.",
         ),
         DeclareLaunchArgument(
-            "face_mode_outpost_manual_target_map_x_cm",
-            default_value="0",
-            description="Manual Outpost FaceMode target x in cm.",
+            "face_mode_manual_target_frame",
+            default_value="map",
+            description="Frame for signed FaceMode manual target.",
         ),
+        DeclareLaunchArgument("face_mode_manual_target_x_m", default_value="0.0"),
+        DeclareLaunchArgument("face_mode_manual_target_y_m", default_value="0.0"),
+        DeclareLaunchArgument("face_mode_manual_target_z_m", default_value="0.0"),
         DeclareLaunchArgument(
-            "face_mode_outpost_manual_target_map_y_cm",
-            default_value="0",
-            description="Manual Outpost FaceMode target y in cm.",
+            "outpost_manual_goal_enable",
+            default_value="false",
+            description="Publish signed map-frame /goal_pose for Outpost test instead of raw UInt16 point.",
         ),
-        DeclareLaunchArgument(
-            "face_mode_outpost_manual_target_map_z_cm",
-            default_value="0",
-            description="Manual Outpost FaceMode target z in cm.",
-        ),
+        DeclareLaunchArgument("outpost_manual_goal_x_m", default_value="0.0"),
+        DeclareLaunchArgument("outpost_manual_goal_y_m", default_value="0.0"),
+        DeclareLaunchArgument("outpost_manual_goal_z_m", default_value="0.0"),
         DeclareLaunchArgument(
             "gimbal_raw_log_enable",
             default_value="false",
@@ -717,10 +715,8 @@ def generate_launch_description():
             face_mode_use_raw_goal_static_calibration,
         ]),
         LogInfo(msg=["[sentry_all] face_mode_raw_goal_target_frame: ", face_mode_raw_goal_target_frame]),
-        LogInfo(msg=[
-            "[sentry_all] face_mode_outpost_manual_target_enable: ",
-            face_mode_outpost_manual_target_enable,
-        ]),
+        LogInfo(msg=["[sentry_all] face_mode_manual_target_enable: ", face_mode_manual_target_enable]),
+        LogInfo(msg=["[sentry_all] outpost_manual_goal_enable: ", outpost_manual_goal_enable]),
         LogInfo(msg=["[sentry_all] gimbal_raw_log_enable: ", gimbal_raw_log_enable]),
         LogInfo(msg=["[sentry_all] gimbal_raw_log_uplink: ", gimbal_raw_log_uplink]),
         LogInfo(msg=["[sentry_all] gimbal_raw_log_downlink: ", gimbal_raw_log_downlink]),
@@ -854,6 +850,16 @@ def generate_launch_description():
                     face_mode_use_raw_goal_static_calibration, value_type=bool),
                 "raw_goal_target_frame": ParameterValue(
                     face_mode_raw_goal_target_frame, value_type=str),
+                "manual_target_enable": ParameterValue(
+                    face_mode_manual_target_enable, value_type=bool),
+                "manual_target_frame": ParameterValue(
+                    face_mode_manual_target_frame, value_type=str),
+                "manual_target_x_m": ParameterValue(
+                    face_mode_manual_target_x_m, value_type=float),
+                "manual_target_y_m": ParameterValue(
+                    face_mode_manual_target_y_m, value_type=float),
+                "manual_target_z_m": ParameterValue(
+                    face_mode_manual_target_z_m, value_type=float),
                 "publish_hz": 30.0,
                 "tf_timeout_sec": 0.05,
                 "use_gimbal_stamp_for_tf": False,
@@ -1104,22 +1110,22 @@ def generate_launch_description():
                         start_gate_allow_gimbal_patrol_before_start, value_type=bool),
                     "ExternalAim.Enable": True,
                     "ExternalAim/Enable": True,
-                    "FaceMode.OutpostManualTarget.Enable": ParameterValue(
-                        face_mode_outpost_manual_target_enable, value_type=bool),
-                    "FaceMode/OutpostManualTarget/Enable": ParameterValue(
-                        face_mode_outpost_manual_target_enable, value_type=bool),
-                    "FaceMode.OutpostManualTarget.MapXCm": ParameterValue(
-                        face_mode_outpost_manual_target_map_x_cm, value_type=int),
-                    "FaceMode/OutpostManualTarget/MapXCm": ParameterValue(
-                        face_mode_outpost_manual_target_map_x_cm, value_type=int),
-                    "FaceMode.OutpostManualTarget.MapYCm": ParameterValue(
-                        face_mode_outpost_manual_target_map_y_cm, value_type=int),
-                    "FaceMode/OutpostManualTarget/MapYCm": ParameterValue(
-                        face_mode_outpost_manual_target_map_y_cm, value_type=int),
-                    "FaceMode.OutpostManualTarget.MapZCm": ParameterValue(
-                        face_mode_outpost_manual_target_map_z_cm, value_type=int),
-                    "FaceMode/OutpostManualTarget/MapZCm": ParameterValue(
-                        face_mode_outpost_manual_target_map_z_cm, value_type=int),
+                    "Task.OutpostConfirm.ManualGoal.Enable": ParameterValue(
+                        outpost_manual_goal_enable, value_type=bool),
+                    "Task/OutpostConfirm/ManualGoal/Enable": ParameterValue(
+                        outpost_manual_goal_enable, value_type=bool),
+                    "Task.OutpostConfirm.ManualGoal.MapXM": ParameterValue(
+                        outpost_manual_goal_x_m, value_type=float),
+                    "Task/OutpostConfirm/ManualGoal/MapXM": ParameterValue(
+                        outpost_manual_goal_x_m, value_type=float),
+                    "Task.OutpostConfirm.ManualGoal.MapYM": ParameterValue(
+                        outpost_manual_goal_y_m, value_type=float),
+                    "Task/OutpostConfirm/ManualGoal/MapYM": ParameterValue(
+                        outpost_manual_goal_y_m, value_type=float),
+                    "Task.OutpostConfirm.ManualGoal.MapZM": ParameterValue(
+                        outpost_manual_goal_z_m, value_type=float),
+                    "Task/OutpostConfirm/ManualGoal/MapZM": ParameterValue(
+                        outpost_manual_goal_z_m, value_type=float),
                     "decision_trace_enabled": decision_trace_enabled,
                     "decision_trace_file": decision_trace_file,
                     "decision_trace_every_n_ticks": decision_trace_every_n_ticks,

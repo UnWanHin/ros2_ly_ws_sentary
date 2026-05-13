@@ -33,13 +33,7 @@
         "SuppressFire": true,
         "FallbackToPatrolScanMode2": true,
         "FallbackPatrolScanMode": 2,
-        "OutpostFallbackPatrolScanMode": 3,
-        "OutpostManualTarget": {
-            "Enable": false,
-            "MapXCm": 0,
-            "MapYCm": 0,
-            "MapZCm": 0
-        }
+        "OutpostFallbackPatrolScanMode": 3
     },
     "ExternalAim": {
         "Enable": true,
@@ -51,7 +45,15 @@
     },
     "Task": {
         "Buff": false,
-        "Outpost": true
+        "Outpost": true,
+        "OutpostConfirm": {
+            "ManualGoal": {
+                "Enable": false,
+                "MapXM": 0.0,
+                "MapYM": 0.0,
+                "MapZM": 0.0
+            }
+        }
     },
     "RegionalDefense": {
         "Enable": false

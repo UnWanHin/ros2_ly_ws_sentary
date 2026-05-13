@@ -2753,20 +2753,10 @@ namespace BehaviorTree {
     }
 
     void Application::ApplyAimModeFaceTarget(const UnitTeam target_team) {
-        std::optional<Area::Point3<double>> outpost_manual_target;
-        if (aimMode == AimMode::Outpost &&
-            config.FaceModeSettings.OutpostManualTargetEnable) {
-            outpost_manual_target = Area::Point3<double>{
-                static_cast<double>(config.FaceModeSettings.OutpostManualTargetMapXCm),
-                static_cast<double>(config.FaceModeSettings.OutpostManualTargetMapYCm),
-                static_cast<double>(config.FaceModeSettings.OutpostManualTargetMapZCm)
-            };
-        }
         (void)faceModeManager_.PublishAimTarget(
             aimMode,
             target_team,
-            pub_face_mode_target_raw_,
-            outpost_manual_target);
+            pub_face_mode_target_raw_);
     }
 
     void Application::RefreshAimModeFaceControl() {

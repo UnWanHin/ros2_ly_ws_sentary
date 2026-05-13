@@ -75,8 +75,7 @@ std::optional<LangYa::GimbalAnglesType> FaceModeManager::SelectAngles(
 bool FaceModeManager::PublishAimTarget(
     const LangYa::AimMode aim_mode,
     const LangYa::UnitTeam target_team,
-    const TargetPublisher::SharedPtr& publisher,
-    const std::optional<Area::Point3<double>>& outpost_manual_target) {
+    const TargetPublisher::SharedPtr& publisher) {
     if (aim_mode != LangYa::AimMode::Buff && aim_mode != LangYa::AimMode::Outpost) {
         return false;
     }
@@ -88,7 +87,7 @@ bool FaceModeManager::PublishAimTarget(
 
     const auto target = aim_mode == LangYa::AimMode::Buff
         ? Area::BuffPose(target_team)
-        : outpost_manual_target.value_or(Area::OutpostPose(target_team));
+        : Area::OutpostPose(target_team);
     publisher->publish(BuildTargetMessage(target));
     return true;
 }
