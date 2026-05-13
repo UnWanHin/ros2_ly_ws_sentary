@@ -44,7 +44,7 @@ namespace Area {
     inline UnitTeam PointLookupTeam(const UnitTeam team) noexcept {
         return IsSwitchPointEnabled() ? OppositeUnitTeam(team) : team;
     }
-    
+
     // 定义 concept，限制 T 是基本算术类型（int、double、float 等）
     template<typename T>
     concept Arithmetic = std::is_arithmetic_v<T>;
@@ -394,6 +394,36 @@ namespace Area {
         { 2290, 1304 },
         { 2283, 1474 },
         { 2408, 1474 }
+    };
+
+    static const std::vector<Point<int>> RedRecoveryAreaPoints = {
+        { 109, 286 },
+        { 306, 292 },
+        { 304, 205 },
+        { 111, 208 }
+    };
+
+    static const std::vector<Point<int>> BlueRecoveryAreaPoints = {
+        { 2691, 1214 },
+        { 2494, 1208 },
+        { 2496, 1295 },
+        { 2689, 1292 }
+    };
+
+    static const std::vector<Point<std::uint16_t>> RedRecoveryProbePoints = {
+        { 208, 248 },
+        { 250, 249 },
+        { 166, 247 },
+        { 208, 272 },
+        { 208, 225 }
+    };
+
+    static const std::vector<Point<std::uint16_t>> BlueRecoveryProbePoints = {
+        { 2592, 1252 },
+        { 2550, 1251 },
+        { 2634, 1253 },
+        { 2592, 1228 },
+        { 2592, 1275 }
     };
 
     static const std::vector<Point<int>> RedCentralLeftLinePoints = {
@@ -772,6 +802,33 @@ namespace Area {
             return false;
         }
         return IsPointInsideAreaShapes(MiniRoadlandShapes(team), x, y);
+    }
+
+    inline const std::vector<Point<int>>& RecoveryAreaBoundary(const UnitTeam team) {
+        return PointLookupTeam(team) == UnitTeam::Blue
+            ? BlueRecoveryAreaPoints
+            : RedRecoveryAreaPoints;
+    }
+
+    inline std::vector<AreaShapeView> RecoveryAreaShapes(const UnitTeam team) {
+        std::vector<AreaShapeView> shapes{PolygonShape(RecoveryAreaBoundary(team))};
+        return shapes;
+    }
+
+    inline bool IsPointInsideRecoveryArea(
+        const UnitTeam team,
+        const int x,
+        const int y) {
+        if (team != UnitTeam::Red && team != UnitTeam::Blue) {
+            return false;
+        }
+        return IsPointInsideAreaShapes(RecoveryAreaShapes(team), x, y);
+    }
+
+    inline const std::vector<Point<std::uint16_t>>& RecoveryProbePoints(const UnitTeam team) {
+        return PointLookupTeam(team) == UnitTeam::Blue
+            ? BlueRecoveryProbePoints
+            : RedRecoveryProbePoints;
     }
 
     inline const std::vector<Point<int>>& CentralLeftLineBoundary(const UnitTeam team) {
