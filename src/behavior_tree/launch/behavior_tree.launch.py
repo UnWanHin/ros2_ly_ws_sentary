@@ -37,6 +37,11 @@ def generate_launch_description():
         "config",
         "NaviRotateControl.yaml",
     )
+    default_point_manager_config_file = os.path.join(
+        behavior_tree_share,
+        "config",
+        "PointManager.yaml",
+    )
     default_special_config_file = os.path.join(
         behavior_tree_share,
         "config",
@@ -50,6 +55,7 @@ def generate_launch_description():
     area_manager_config_file = LaunchConfiguration("area_manager_config_file")
     task_config_file = LaunchConfiguration("task_config_file")
     navi_rotate_config_file = LaunchConfiguration("navi_rotate_config_file")
+    point_manager_config_file = LaunchConfiguration("point_manager_config_file")
     special_config_file = LaunchConfiguration("special_config_file")
     debug_bypass_is_start = LaunchConfiguration("debug_bypass_is_start")
     runtime_rearm_start_gate = LaunchConfiguration("runtime_rearm_start_gate")
@@ -94,6 +100,11 @@ def generate_launch_description():
             "navi_rotate_config_file",
             default_value=default_navi_rotate_config_file,
             description="External navigation rotate/follow compatibility YAML for behavior_tree.",
+        ),
+        DeclareLaunchArgument(
+            "point_manager_config_file",
+            default_value=default_point_manager_config_file,
+            description="Navigation point default rotate gear YAML for behavior_tree.",
         ),
         DeclareLaunchArgument(
             "special_config_file",
@@ -145,6 +156,7 @@ def generate_launch_description():
         LogInfo(msg=["[behavior_tree] area_manager_config_file: ", area_manager_config_file]),
         LogInfo(msg=["[behavior_tree] task_config_file: ", task_config_file]),
         LogInfo(msg=["[behavior_tree] navi_rotate_config_file: ", navi_rotate_config_file]),
+        LogInfo(msg=["[behavior_tree] point_manager_config_file: ", point_manager_config_file]),
         LogInfo(msg=["[behavior_tree] special_config_file: ", special_config_file]),
         LogInfo(msg=["[behavior_tree] debug_bypass_is_start: ", debug_bypass_is_start]),
         LogInfo(msg=["[behavior_tree] runtime_rearm_start_gate: ", runtime_rearm_start_gate]),
@@ -165,6 +177,7 @@ def generate_launch_description():
                 area_manager_config_file,
                 task_config_file,
                 navi_rotate_config_file,
+                point_manager_config_file,
                 special_config_file,
                 {
                     "competition_profile": competition_profile,

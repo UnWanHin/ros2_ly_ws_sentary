@@ -718,6 +718,7 @@ if (( RUNTIME_ONLY == 0 )); then
   check_file_exists "${ROOT_DIR}/src/behavior_tree/launch/sentry_all.launch.py"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/config/AreaManager.yaml"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/config/Base.yaml"
+  check_file_exists "${ROOT_DIR}/src/behavior_tree/config/PointManager.yaml"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/config/Special.yaml"
   check_file_exists "${ROOT_DIR}/config/base_config.yaml"
   check_file_exists "${ROOT_DIR}/config/override_config.yaml"

@@ -9,6 +9,7 @@
 #include <array>
 #include <numbers>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #pragma region Enums
@@ -543,6 +544,16 @@ namespace LangYa
         bool StopRotateWhenFalse{true};
     };
 
+    struct PointRotateSetting {
+        bool Enable{false};
+        int Rotate{0};
+    };
+
+    struct PointManagerSetting {
+        PointRotateSetting Global{false, 0};
+        std::unordered_map<std::uint8_t, PointRotateSetting> Points{};
+    };
+
     struct SentryPositionFusionSourceSetting {
         bool Enable{true};
         int Priority{0};
@@ -892,6 +903,7 @@ namespace LangYa
         FaceModeSetting FaceModeSettings{};
         ExternalAimSetting ExternalAimSettings{};
         NaviRotateControlSetting NaviRotateControlSettings{};
+        PointManagerSetting PointManagerSettings{};
         SentryPositionFusionSetting SentryPositionFusionSettings{};
         LeagueStrategySetting LeagueStrategySettings{};
         ShowcasePatrolSetting ShowcasePatrolSettings{};

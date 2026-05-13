@@ -716,6 +716,9 @@ public:
     bool HasRecentTarget() const;
     bool IsUnderFireRecent() const;
     bool IsUnderFireBurst() const;
+    std::uint8_t ResolvePointDefaultRotate(
+        std::uint8_t base_goal_id,
+        std::uint8_t fallback = 0) const noexcept;
 
     // 行为树初始化
     bool LoadBehaviorTree() noexcept;
@@ -734,6 +737,7 @@ public:
     void ApplySpecialParameterOverrides();
     void ApplyStartGateParameterOverrides();
     void ApplyNaviRotateControlParameterOverrides();
+    void ApplyPointManagerParameterOverrides();
     void ApplyFaceModeParameterOverrides();
     void ApplyExternalAimParameterOverrides();
     bool InitDecisionTrace();

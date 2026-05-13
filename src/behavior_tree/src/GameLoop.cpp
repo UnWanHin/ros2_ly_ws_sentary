@@ -845,16 +845,18 @@ namespace BehaviorTree {
             }
         }
         
-        // 小陀螺策略（老设计）：
-        // 1) 受击后按 1 -> 2 -> 3 递进换档；
-        // 2) 到 3 档后持续保持；
-        // 3) 仅在一段时间未受击后，回落到 1 档。
+        // 小陀螺策略：
+        // 1) 平时使用点位默认档；
+        // 2) 受击后按 0 -> 1 -> 2 -> 3 递进换档；
+        // 3) 到 3 档后持续保持；
+        // 4) 仅在一段时间未受击后，回落到点位默认档。
         const auto rotate_now = std::chrono::steady_clock::now();
         static auto last_damage_rotate_time = std::chrono::steady_clock::time_point{};
         static auto rotate_ramp_start_time = std::chrono::steady_clock::time_point{};
         static bool rotate_under_fire = false;
 
         constexpr int kRotateNoHitTimeoutMs = 1800;
+        constexpr int kRotateGear0HoldMs = 220;
         constexpr int kRotateGear1HoldMs = 220;
         constexpr int kRotateGear2HoldMs = 220;
 
@@ -869,7 +871,10 @@ namespace BehaviorTree {
 
         bool in_damage_rotate_window = false;
         int damage_rotate_elapsed_ms = -1;
-        std::uint8_t rotate_gear = 1;
+        const auto current_base_goal_id = BaseGoalIdFromResolvedGoal(naviCommandGoal);
+        const std::uint8_t point_default_rotate_gear =
+            ResolvePointDefaultRotate(current_base_goal_id, 0);
+        std::uint8_t rotate_gear = point_default_rotate_gear;
 
         if (last_damage_rotate_time.time_since_epoch().count() != 0) {
             const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -886,17 +891,21 @@ namespace BehaviorTree {
 
             if (no_hit_ms > kRotateNoHitTimeoutMs) {
                 rotate_under_fire = false;
-                rotate_gear = 1;
+                rotate_gear = point_default_rotate_gear;
             } else {
                 const auto ramp_ms = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(
                     rotate_now - rotate_ramp_start_time).count());
-                if (ramp_ms < kRotateGear1HoldMs) {
-                    rotate_gear = 1;
-                } else if (ramp_ms < (kRotateGear1HoldMs + kRotateGear2HoldMs)) {
-                    rotate_gear = 2;
+                std::uint8_t damage_rotate_gear = 0;
+                if (ramp_ms < kRotateGear0HoldMs) {
+                    damage_rotate_gear = 0;
+                } else if (ramp_ms < (kRotateGear0HoldMs + kRotateGear1HoldMs)) {
+                    damage_rotate_gear = 1;
+                } else if (ramp_ms < (kRotateGear0HoldMs + kRotateGear1HoldMs + kRotateGear2HoldMs)) {
+                    damage_rotate_gear = 2;
                 } else {
-                    rotate_gear = 3;
+                    damage_rotate_gear = 3;
                 }
+                rotate_gear = std::max(point_default_rotate_gear, damage_rotate_gear);
             }
         }
 
@@ -915,7 +924,6 @@ namespace BehaviorTree {
         const int regional_referee_fresh_ms = std::max(
             std::max(0, config.TaskSettings.BuffConfirm.RefereeFreshTimeoutMs),
             std::max(0, config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs));
-        const auto current_base_goal_id = BaseGoalIdFromResolvedGoal(naviCommandGoal);
         const bool fortress_defense_search_active =
             regionalDefenseSearchKind_ == RegionalDefenseSearchKind::OwnFortressGainPoint &&
             current_base_goal_id != LangYa::Recovery.ID;
@@ -948,8 +956,10 @@ namespace BehaviorTree {
             const auto log_now = std::chrono::steady_clock::now();
             if (log_now - last_rotate_log > std::chrono::seconds(2)) {
                 LoggerPtr->Debug(
-                    "Rotate Gear: {} (under_fire={} damage_elapsed_ms={} no_hit_timeout_ms={})",
+                    "Rotate Gear: {} (base_goal={} point_default={} under_fire={} damage_elapsed_ms={} no_hit_timeout_ms={})",
                     gimbalControlData.FireCode.Rotate,
+                    static_cast<int>(current_base_goal_id),
+                    static_cast<int>(point_default_rotate_gear),
                     rotate_under_fire ? 1 : 0,
                     damage_rotate_elapsed_ms,
                     kRotateNoHitTimeoutMs);

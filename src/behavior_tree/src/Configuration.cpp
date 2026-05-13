@@ -28,6 +28,23 @@ std::string NormalizeAutonomyToken(std::string value) {
     return value;
 }
 
+std::string NormalizePointToken(std::string value) {
+    value = NormalizeAutonomyToken(std::move(value));
+    value.erase(
+        std::remove_if(
+            value.begin(),
+            value.end(),
+            [](const char c) {
+                return c == '_' || c == '.' || c == '/';
+            }),
+        value.end());
+    return value;
+}
+
+std::uint8_t ClampRotateGear(const int rotate) noexcept {
+    return static_cast<std::uint8_t>(std::clamp(rotate, 0, 3));
+}
+
 std::string NormalizeMainAreaToken(std::string value) {
     value = NormalizeAutonomyToken(std::move(value));
     if (value == "base") {
@@ -91,10 +108,55 @@ const std::vector<std::pair<const char*, std::uint8_t>>& MyBasePatrolGoalNameMap
     return goals;
 }
 
+const std::vector<std::pair<const char*, std::uint8_t>>& PointManagerGoalNameMap() {
+    static const std::vector<std::pair<const char*, std::uint8_t>> goals{
+        {"Home", LangYa::Home.ID},
+        {"Base", LangYa::Base.ID},
+        {"Recovery", LangYa::Recovery.ID},
+        {"BuffShoot", LangYa::BuffShoot.ID},
+        {"LeftHighLand", LangYa::LeftHighLand.ID},
+        {"CastleLeft1", LangYa::CastleLeft1.ID},
+        {"CastleLeft2", LangYa::CastleLeft2.ID},
+        {"Castle", LangYa::Castle.ID},
+        {"CastleRight1", LangYa::CastleRight1.ID},
+        {"CastleRight2", LangYa::CastleRight2.ID},
+        {"FlyRoad", LangYa::FlyRoad.ID},
+        {"OutpostArea", LangYa::OutpostArea.ID},
+        {"MidShoot", LangYa::MidShoot.ID},
+        {"LeftShoot", LangYa::LeftShoot.ID},
+        {"OutpostShoot", LangYa::OutpostShoot.ID},
+        {"BuffAround1", LangYa::BuffAround1.ID},
+        {"BuffAround2", LangYa::BuffAround2.ID},
+        {"RightShoot", LangYa::RightShoot.ID},
+        {"HoleRoad", LangYa::HoleRoad.ID},
+        {"OccupyArea", LangYa::OccupyArea.ID},
+        {"Highland", LangYa::Highland.ID},
+        {"BaseToCentral", LangYa::BaseToCentral.ID},
+        {"CentralToBase", LangYa::CentralToBase.ID},
+        {"BuffOutpost", LangYa::BuffOutpost.ID},
+        {"OutpostGuard", LangYa::OutpostGuard.ID},
+        {"MiniRoadland", LangYa::MiniRoadland.ID},
+        {"CentralLeftA", LangYa::CentralLeftA.ID},
+        {"CentralLeftB", LangYa::CentralLeftB.ID}
+    };
+    return goals;
+}
+
 bool MyBasePatrolGoalIdByName(const std::string& goal_name, std::uint8_t& goal_id) {
     const auto token = NormalizeAutonomyToken(goal_name);
     for (const auto& [name, id] : MyBasePatrolGoalNameMap()) {
         if (NormalizeAutonomyToken(name) == token) {
+            goal_id = id;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool PointManagerGoalIdByName(const std::string& goal_name, std::uint8_t& goal_id) {
+    const auto token = NormalizePointToken(goal_name);
+    for (const auto& [name, id] : PointManagerGoalNameMap()) {
+        if (NormalizePointToken(name) == token) {
             goal_id = id;
             return true;
         }
@@ -606,6 +668,34 @@ namespace LangYa {
         nr.StopRotateWhenFalse = j.value("StopRotateWhenFalse", nr.StopRotateWhenFalse);
     }
 
+    void from_json(const json& j, PointRotateSetting& pr) {
+        pr.Enable = j.value("Enable", pr.Enable);
+        pr.Rotate = j.value("Rotate", pr.Rotate);
+    }
+
+    void from_json(const json& j, PointManagerSetting& pm) {
+        if (j.contains("Global") && j.at("Global").is_object()) {
+            j.at("Global").get_to(pm.Global);
+        }
+        if (!j.contains("Points") || !j.at("Points").is_object()) {
+            return;
+        }
+        for (const auto& [point_name, point_value] : j.at("Points").items()) {
+            std::uint8_t goal_id = LangYa::Home.ID;
+            if (!PointManagerGoalIdByName(point_name, goal_id)) {
+                continue;
+            }
+            PointRotateSetting setting{};
+            if (point_value.is_object()) {
+                point_value.get_to(setting);
+            } else if (point_value.is_number_integer()) {
+                setting.Enable = true;
+                setting.Rotate = point_value.get<int>();
+            }
+            pm.Points[goal_id] = setting;
+        }
+    }
+
     void from_json(const json& j, SentryPositionFusionSourceSetting& source) {
         source.Enable = j.value("Enable", source.Enable);
         source.Priority = j.value("Priority", source.Priority);
@@ -1083,6 +1173,9 @@ namespace LangYa {
         if (j.contains("NaviRotateControl")) {
             j.at("NaviRotateControl").get_to(c.NaviRotateControlSettings);
         }
+        if (j.contains("PointManager")) {
+            j.at("PointManager").get_to(c.PointManagerSettings);
+        }
         if (j.contains("SentryPositionFusion")) {
             j.at("SentryPositionFusion").get_to(c.SentryPositionFusionSettings);
         }
@@ -1135,6 +1228,23 @@ namespace LangYa {
 namespace BehaviorTree {
     using namespace LangYa;
     using json = nlohmann::json;
+
+    std::uint8_t Application::ResolvePointDefaultRotate(
+        const std::uint8_t base_goal_id,
+        const std::uint8_t fallback) const noexcept {
+        if (config.PointManagerSettings.Global.Enable) {
+            return ClampRotateGear(config.PointManagerSettings.Global.Rotate);
+        }
+        const std::uint8_t effective_base_goal_id =
+            base_goal_id >= LangYa::TeamedLocation::LocationCount
+                ? static_cast<std::uint8_t>(base_goal_id - LangYa::TeamedLocation::LocationCount)
+                : base_goal_id;
+        const auto it = config.PointManagerSettings.Points.find(effective_base_goal_id);
+        if (it != config.PointManagerSettings.Points.end()) {
+            return it->second.Enable ? ClampRotateGear(it->second.Rotate) : 0;
+        }
+        return ClampRotateGear(fallback);
+    }
 
     void Application::ApplyTaskParameterOverrides() {
         ReadOptionalBoolParam(
@@ -1536,6 +1646,63 @@ namespace BehaviorTree {
                 "NaviRotateControl/StopRotateWhenFalse"
             },
             setting.StopRotateWhenFalse);
+    }
+
+    void Application::ApplyPointManagerParameterOverrides() {
+        auto& setting = config.PointManagerSettings;
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "PointManager.Global.Enable",
+                "PointManager/Global/Enable"
+            },
+            setting.Global.Enable);
+        int global_rotate = setting.Global.Rotate;
+        if (ReadOptionalIntParam(
+                node_,
+                {
+                    "PointManager.Global.Rotate",
+                    "PointManager/Global/Rotate"
+                },
+                global_rotate)) {
+            setting.Global.Rotate = ClampRotateGear(global_rotate);
+        }
+
+        for (const auto& [point_name, base_goal_id] : PointManagerGoalNameMap()) {
+            auto point_setting = setting.Points.count(base_goal_id) != 0
+                ? setting.Points.at(base_goal_id)
+                : LangYa::PointRotateSetting{};
+            bool touched = setting.Points.count(base_goal_id) != 0;
+            const std::string name{point_name};
+            if (ReadOptionalBoolParam(
+                    node_,
+                    {
+                        "PointManager.Points." + name + ".Enable",
+                        "PointManager/Points/" + name + "/Enable",
+                        "PointManager." + name + ".Enable",
+                        "PointManager/" + name + "/Enable"
+                    },
+                    point_setting.Enable)) {
+                touched = true;
+            }
+            int rotate = point_setting.Rotate;
+            if (ReadOptionalIntParam(
+                    node_,
+                    {
+                        "PointManager.Points." + name + ".Rotate",
+                        "PointManager/Points/" + name + "/Rotate",
+                        "PointManager." + name + ".Rotate",
+                        "PointManager/" + name + "/Rotate"
+                    },
+                    rotate)) {
+                point_setting.Rotate = ClampRotateGear(rotate);
+                touched = true;
+            }
+            if (touched) {
+                point_setting.Rotate = ClampRotateGear(point_setting.Rotate);
+                setting.Points[base_goal_id] = point_setting;
+            }
+        }
     }
 
     void Application::ApplyStartGateParameterOverrides() {
@@ -2119,6 +2286,7 @@ namespace BehaviorTree {
         ApplySpecialParameterOverrides();
         ApplyStartGateParameterOverrides();
         ApplyNaviRotateControlParameterOverrides();
+        ApplyPointManagerParameterOverrides();
         ApplyFaceModeParameterOverrides();
         ApplyExternalAimParameterOverrides();
         LoggerPtr->Debug("Switch_Point: {}", config.SwitchPoint);
@@ -2209,6 +2377,24 @@ namespace BehaviorTree {
         LoggerPtr->Debug("ClearFollowModeWhenTrue: {}", config.NaviRotateControlSettings.ClearFollowModeWhenTrue);
         LoggerPtr->Debug("ClearRegionalFaceModeWhenTrue: {}", config.NaviRotateControlSettings.ClearRegionalFaceModeWhenTrue);
         LoggerPtr->Debug("StopRotateWhenFalse: {}", config.NaviRotateControlSettings.StopRotateWhenFalse);
+        LoggerPtr->Debug("------ PointManager ------");
+        LoggerPtr->Debug(
+            "Global.Enable: {}",
+            config.PointManagerSettings.Global.Enable);
+        LoggerPtr->Debug(
+            "Global.Rotate: {}",
+            config.PointManagerSettings.Global.Rotate);
+        for (const auto& [point_name, base_goal_id] : PointManagerGoalNameMap()) {
+            const auto it = config.PointManagerSettings.Points.find(base_goal_id);
+            if (it == config.PointManagerSettings.Points.end()) {
+                continue;
+            }
+            LoggerPtr->Debug(
+                "{}: enable={} rotate={}",
+                point_name,
+                it->second.Enable,
+                it->second.Rotate);
+        }
         LoggerPtr->Debug("------ SentryPositionFusion ------");
         LoggerPtr->Debug("Enable: {}", config.SentryPositionFusionSettings.Enable);
         LoggerPtr->Debug("Mode: {}", config.SentryPositionFusionSettings.Mode);
@@ -2632,6 +2818,11 @@ namespace BehaviorTree {
                 "Invalid NaviRotateControl.FreshTimeoutMs={}, fallback to 500.",
                 config.NaviRotateControlSettings.FreshTimeoutMs);
             config.NaviRotateControlSettings.FreshTimeoutMs = 500;
+        }
+        config.PointManagerSettings.Global.Rotate =
+            ClampRotateGear(config.PointManagerSettings.Global.Rotate);
+        for (auto& [base_goal_id, point_setting] : config.PointManagerSettings.Points) {
+            point_setting.Rotate = ClampRotateGear(point_setting.Rotate);
         }
         auto& sentry_position_fusion = config.SentryPositionFusionSettings;
         if (sentry_position_fusion.FreshTimeoutMs <= 0) {
