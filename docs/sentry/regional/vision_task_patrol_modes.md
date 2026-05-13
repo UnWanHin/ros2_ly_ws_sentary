@@ -325,7 +325,8 @@ self_large_energy_status == 1 / 2
     "VisualScoutHoldMs": 10000,
     "VisualScoutCooldownMs": 15000,
     "VisualScoutFaceDistanceCm": 300,
-    "ArmorInterruptMaxDistanceCm": 1000,
+    "ArmorWarningDistanceCm": 1000,
+    "PostArmorFaceSearchMs": 3000,
     "DamageAbortThreshold": 30,
     "DamageAbortWindowMs": 1000,
     "DamageAbortHoldMs": 3000
@@ -342,7 +343,7 @@ self_large_energy_status == 1 / 2
 - 自身血量、彈量低於 `OutpostConfirm.MinSelfHp / MinAmmo` 時不主動進前哨任務，讓 Hard Recovery 優先處理。
 - 開局 `OutpostConfirm.MaxGameTimeSec=120` 秒內前哨是高優先級任務；超過時間窗後不再自動每 20 秒週期去 `BuffOutpost` 偵查。
 - Roadland 強綁定穿越、RegionalDefense、受擊超過門檻、導航回報 `BuffOutpost` 不可達，都會退出前哨模式。
-- 行進/接近過程中若普通裝甲目標有效且距離不超過 `ArmorInterruptMaxDistanceCm`，先保持普通自瞄打車；目標消失或太遠後，回到前哨偵查任務。
+- 行進/接近過程中若普通裝甲目標有效且距離不超過 `ArmorWarningDistanceCm`，先保持普通自瞄打車；更遠的車體會被忽略並繼續選前哨。近距離車體丟失後，若前哨 gate 仍允許，會用 `PostArmorFaceSearchMs` 回前哨 FaceMode 搜索一小段時間。舊鍵 `ArmorInterruptMaxDistanceCm` 仍可讀取作兼容。
 - 前哨血量接口回報歸零、視覺偵查超時、視覺偵查冷卻中，或沒有允許 visual scout/近期前哨視覺鎖定時，退回普通掃描。
 - `/ly/outpost/target.status` 必須有效，BT 才會把前哨視覺角度視為可用並允許按火控頻率開火。
 

@@ -479,7 +479,9 @@ namespace LangYa
         int VisualScoutHoldMs{10000};
         int VisualScoutCooldownMs{15000};
         int VisualScoutFaceDistanceCm{300};
+        int ArmorWarningDistanceCm{1000};
         int ArmorInterruptMaxDistanceCm{1000};
+        int PostArmorFaceSearchMs{3000};
         int DamageAbortThreshold{30};
         int DamageAbortWindowMs{1000};
         int DamageAbortHoldMs{3000};
@@ -727,7 +729,7 @@ namespace LangYa
 
     struct SpecialPatrolSetting {
         bool Enable{false};
-        int GoalHoldSec{2};
+        int GoalHoldSec{0};
         int SpeedLevel{1};
         bool SuppressChase{true};
         bool StopOnTarget{true};

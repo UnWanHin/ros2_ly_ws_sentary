@@ -131,6 +131,14 @@ SentryPosture Application::SelectDesiredPosture(const bool has_target) const {
         targetArmor.Type == ArmorType::Outpost &&
         IsBaseGoalArrived(LangYa::BuffOutpost.ID, team, true) &&
         outpost_target_recent;
+    const bool outpost_post_armor_face_search_active =
+        outpostPostArmorFaceSearchUntil_.time_since_epoch().count() != 0 &&
+        now < outpostPostArmorFaceSearchUntil_;
+    const bool outpost_task_active =
+        aimMode == AimMode::Outpost ||
+        outpostVisualScoutNavigationActive_ ||
+        outpostArmorInterruptActive_ ||
+        outpost_post_armor_face_search_active;
     PostureScore score{};
 
     // 1) 基础策略加权
@@ -180,6 +188,9 @@ SentryPosture Application::SelectDesiredPosture(const bool has_target) const {
         if (very_low_health || low_health) {
             return SentryPosture::Defense;
         }
+        return SentryPosture::Attack;
+    }
+    if (outpost_task_active && !very_low_health && !low_health) {
         return SentryPosture::Attack;
     }
 

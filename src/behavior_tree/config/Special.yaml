@@ -12,7 +12,7 @@ behavior_tree:
       # converting into navigation chase inside this constrained terrain.
       Patrol:
         Enable: false
-        GoalHoldSec: 2
+        GoalHoldSec: 0
         SpeedLevel: 1
         SuppressChase: true
         StopOnTarget: true

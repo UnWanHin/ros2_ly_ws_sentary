@@ -242,7 +242,9 @@ private:
     std::chrono::steady_clock::time_point outpostTaskDamageAbortUntil_{};
     std::chrono::steady_clock::time_point outpostVisualScoutStartTime_{};
     std::chrono::steady_clock::time_point outpostVisualScoutCooldownUntil_{};
+    std::chrono::steady_clock::time_point outpostPostArmorFaceSearchUntil_{};
     bool outpostVisualScoutNavigationActive_{false};
+    bool outpostArmorInterruptActive_{false};
     std::array<ExternalAimTargetCache, 9> externalAimTargets_{};
     bool hasExternalAimTargets_{false};
     std::chrono::steady_clock::time_point lastExternalAimTargetsRxTime_{};

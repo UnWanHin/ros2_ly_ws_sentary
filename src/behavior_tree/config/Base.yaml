@@ -10,10 +10,10 @@ behavior_tree:
             DistancePenaltyPerMeter: 0.4
             CurrentGoalPenalty: 5.0
             GoalWeights:
-              CastleLeft1: 10.0
-              CastleLeft2: 10.0
-              CastleRight2: 10.0
-              CastleRight1: 10.0
-              HoleRoad: 7.0
-              OutpostGuard: 7.0
-              BuffOutpost: 6.0
+              CastleLeft1: 5.0
+              CastleLeft2: 7.0
+              CastleRight2: 7.0
+              CastleRight1: 4.0
+              HoleRoad: 15.0
+              OutpostGuard: 19.0
+              BuffOutpost: 16.0

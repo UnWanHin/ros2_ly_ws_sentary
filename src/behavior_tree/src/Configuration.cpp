@@ -529,7 +529,10 @@ namespace LangYa {
         os.VisualScoutHoldMs = j.value("VisualScoutHoldMs", os.VisualScoutHoldMs);
         os.VisualScoutCooldownMs = j.value("VisualScoutCooldownMs", os.VisualScoutCooldownMs);
         os.VisualScoutFaceDistanceCm = j.value("VisualScoutFaceDistanceCm", os.VisualScoutFaceDistanceCm);
-        os.ArmorInterruptMaxDistanceCm = j.value("ArmorInterruptMaxDistanceCm", os.ArmorInterruptMaxDistanceCm);
+        os.ArmorWarningDistanceCm = j.value("ArmorInterruptMaxDistanceCm", os.ArmorWarningDistanceCm);
+        os.ArmorWarningDistanceCm = j.value("ArmorWarningDistanceCm", os.ArmorWarningDistanceCm);
+        os.ArmorInterruptMaxDistanceCm = os.ArmorWarningDistanceCm;
+        os.PostArmorFaceSearchMs = j.value("PostArmorFaceSearchMs", os.PostArmorFaceSearchMs);
         os.DamageAbortThreshold = j.value("DamageAbortThreshold", os.DamageAbortThreshold);
         os.DamageAbortWindowMs = j.value("DamageAbortWindowMs", os.DamageAbortWindowMs);
         os.DamageAbortHoldMs = j.value("DamageAbortHoldMs", os.DamageAbortHoldMs);
@@ -1298,7 +1301,23 @@ namespace BehaviorTree {
                 "Task.OutpostConfirm.ArmorInterruptMaxDistanceCm",
                 "Task/OutpostConfirm/ArmorInterruptMaxDistanceCm"
             },
-            config.TaskSettings.OutpostConfirm.ArmorInterruptMaxDistanceCm);
+            config.TaskSettings.OutpostConfirm.ArmorWarningDistanceCm);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.OutpostConfirm.ArmorWarningDistanceCm",
+                "Task/OutpostConfirm/ArmorWarningDistanceCm"
+            },
+            config.TaskSettings.OutpostConfirm.ArmorWarningDistanceCm);
+        config.TaskSettings.OutpostConfirm.ArmorInterruptMaxDistanceCm =
+            config.TaskSettings.OutpostConfirm.ArmorWarningDistanceCm;
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.OutpostConfirm.PostArmorFaceSearchMs",
+                "Task/OutpostConfirm/PostArmorFaceSearchMs"
+            },
+            config.TaskSettings.OutpostConfirm.PostArmorFaceSearchMs);
         ReadOptionalIntParam(
             node_,
             {
@@ -2120,7 +2139,7 @@ namespace BehaviorTree {
             config.TaskSettings.BuffConfirm.DamageAbortWindowMs,
             config.TaskSettings.BuffConfirm.DamageAbortHoldMs);
         LoggerPtr->Debug(
-            "OutpostConfirm: referee_fresh_ms={} trust_enemy_outpost_hp={} max_game_time_sec={} min_self_hp={} min_ammo={} visual_scout_without_hp={} visual_scout_hold_ms={} visual_scout_cooldown_ms={} visual_scout_face_distance_cm={} armor_interrupt_max_distance_cm={} damage_abort_threshold={} damage_abort_window_ms={} damage_abort_hold_ms={} opening_high_priority={} suppress_chase_while_active={}",
+            "OutpostConfirm: referee_fresh_ms={} trust_enemy_outpost_hp={} max_game_time_sec={} min_self_hp={} min_ammo={} visual_scout_without_hp={} visual_scout_hold_ms={} visual_scout_cooldown_ms={} visual_scout_face_distance_cm={} armor_warning_distance_cm={} post_armor_face_search_ms={} damage_abort_threshold={} damage_abort_window_ms={} damage_abort_hold_ms={} opening_high_priority={} suppress_chase_while_active={}",
             config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs,
             config.TaskSettings.OutpostConfirm.TrustEnemyOutpostHp ? 1 : 0,
             config.TaskSettings.OutpostConfirm.MaxGameTimeSec,
@@ -2130,7 +2149,8 @@ namespace BehaviorTree {
             config.TaskSettings.OutpostConfirm.VisualScoutHoldMs,
             config.TaskSettings.OutpostConfirm.VisualScoutCooldownMs,
             config.TaskSettings.OutpostConfirm.VisualScoutFaceDistanceCm,
-            config.TaskSettings.OutpostConfirm.ArmorInterruptMaxDistanceCm,
+            config.TaskSettings.OutpostConfirm.ArmorWarningDistanceCm,
+            config.TaskSettings.OutpostConfirm.PostArmorFaceSearchMs,
             config.TaskSettings.OutpostConfirm.DamageAbortThreshold,
             config.TaskSettings.OutpostConfirm.DamageAbortWindowMs,
             config.TaskSettings.OutpostConfirm.DamageAbortHoldMs,
@@ -2515,11 +2535,18 @@ namespace BehaviorTree {
                 outpost_confirm.VisualScoutFaceDistanceCm);
             outpost_confirm.VisualScoutFaceDistanceCm = 300;
         }
-        if (outpost_confirm.ArmorInterruptMaxDistanceCm < 0) {
+        if (outpost_confirm.ArmorWarningDistanceCm < 0) {
             LoggerPtr->Warning(
-                "Invalid Task.OutpostConfirm.ArmorInterruptMaxDistanceCm={}, fallback to 1000.",
-                outpost_confirm.ArmorInterruptMaxDistanceCm);
-            outpost_confirm.ArmorInterruptMaxDistanceCm = 1000;
+                "Invalid Task.OutpostConfirm.ArmorWarningDistanceCm={}, fallback to 1000.",
+                outpost_confirm.ArmorWarningDistanceCm);
+            outpost_confirm.ArmorWarningDistanceCm = 1000;
+        }
+        outpost_confirm.ArmorInterruptMaxDistanceCm = outpost_confirm.ArmorWarningDistanceCm;
+        if (outpost_confirm.PostArmorFaceSearchMs < 0) {
+            LoggerPtr->Warning(
+                "Invalid Task.OutpostConfirm.PostArmorFaceSearchMs={}, fallback to 3000.",
+                outpost_confirm.PostArmorFaceSearchMs);
+            outpost_confirm.PostArmorFaceSearchMs = 3000;
         }
         if (outpost_confirm.DamageAbortThreshold < 0) {
             LoggerPtr->Warning(
@@ -2835,9 +2862,9 @@ namespace BehaviorTree {
         }
         auto& special_patrol = config.SpecialSettings.Patrol;
         if (special_patrol.GoalHoldSec < 0) {
-            LoggerPtr->Warning("Invalid Special.Patrol.GoalHoldSec={}, fallback to 2.",
+            LoggerPtr->Warning("Invalid Special.Patrol.GoalHoldSec={}, fallback to 0.",
                                special_patrol.GoalHoldSec);
-            special_patrol.GoalHoldSec = 2;
+            special_patrol.GoalHoldSec = 0;
         }
         if (special_patrol.SpeedLevel < 0) {
             LoggerPtr->Warning("Invalid Special.Patrol.SpeedLevel={}, fallback to 1.",
