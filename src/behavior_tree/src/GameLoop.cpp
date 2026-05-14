@@ -1275,8 +1275,8 @@ namespace BehaviorTree {
             }
         }
 
-        // lower_head 只在未锁目标时生效，并且整对角一起切换，避免混用旧 yaw/new pitch。
-        if(naviLowerHead && !has_target_for_angles) {
+        // lower_head 只在未锁目标且没有 FaceMode 接管时生效，避免覆盖固定点朝向/Outpost fallback。
+        if(naviLowerHead && !has_target_for_angles && !face_mode_requested) {
             nextAngles = GimbalAnglesType{gimbalAngles.Yaw, -15.0f}; //-22.5 - 26.0
         }
         gimbalControlData.GimbalAngles = nextAngles;
