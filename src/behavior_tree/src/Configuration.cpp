@@ -644,6 +644,7 @@ namespace LangYa {
         os.DamageAbortWindowMs = j.value("DamageAbortWindowMs", os.DamageAbortWindowMs);
         os.DamageAbortHoldMs = j.value("DamageAbortHoldMs", os.DamageAbortHoldMs);
         os.OpeningHighPriority = j.value("OpeningHighPriority", os.OpeningHighPriority);
+        os.OpeningHoldSec = j.value("OpeningHoldSec", os.OpeningHoldSec);
         os.OpeningHoldUntilWindowEnd =
             j.value("OpeningHoldUntilWindowEnd", os.OpeningHoldUntilWindowEnd);
         os.SuppressChaseWhileActive = j.value("SuppressChaseWhileActive", os.SuppressChaseWhileActive);
@@ -1068,6 +1069,17 @@ namespace LangYa {
         hs.LeaveTimeoutSec = j.value("LeaveTimeoutSec", hs.LeaveTimeoutSec);
     }
 
+    void from_json(const json& j, PatrolGoalSelectionSetting& ps) {
+        ps.DistancePenaltyPerMeter = j.value("DistancePenaltyPerMeter", ps.DistancePenaltyPerMeter);
+        ps.CurrentGoalPenalty = j.value("CurrentGoalPenalty", ps.CurrentGoalPenalty);
+        ps.AvoidCurrentGoal = j.value("AvoidCurrentGoal", ps.AvoidCurrentGoal);
+        ps.UnvisitedBonus = j.value("UnvisitedBonus", ps.UnvisitedBonus);
+        ps.FreshnessBonusMax = j.value("FreshnessBonusMax", ps.FreshnessBonusMax);
+        ps.FreshnessTimeoutSec = j.value("FreshnessTimeoutSec", ps.FreshnessTimeoutSec);
+        ps.RecentVisitPenalty = j.value("RecentVisitPenalty", ps.RecentVisitPenalty);
+        ps.RecentVisitPenaltySec = j.value("RecentVisitPenaltySec", ps.RecentVisitPenaltySec);
+    }
+
     void from_json(const json& j, MyBaseAreaTaskSetting& bs) {
         bs.Enable = j.value("Enable", bs.Enable);
         bs.TravelTimeoutSec = j.value("TravelTimeoutSec", bs.TravelTimeoutSec);
@@ -1076,10 +1088,6 @@ namespace LangYa {
         bs.MaxPatrolSteps = j.value("MaxPatrolSteps", bs.MaxPatrolSteps);
         if (j.contains("Patrol") && j.at("Patrol").is_object()) {
             const auto& patrol = j.at("Patrol");
-            bs.PatrolDistancePenaltyPerMeter =
-                patrol.value("DistancePenaltyPerMeter", bs.PatrolDistancePenaltyPerMeter);
-            bs.PatrolCurrentGoalPenalty =
-                patrol.value("CurrentGoalPenalty", bs.PatrolCurrentGoalPenalty);
             if (patrol.contains("GoalWeights") && patrol.at("GoalWeights").is_object()) {
                 bs.PatrolGoals.clear();
                 for (auto it = patrol.at("GoalWeights").begin(); it != patrol.at("GoalWeights").end(); ++it) {
@@ -1174,11 +1182,20 @@ namespace LangYa {
     void from_json(const json& j, RegionalAreaTaskSetting& rt) {
         rt.Enable = j.value("Enable", rt.Enable);
         rt.IgnoreRecovery = j.value("IgnoreRecovery", rt.IgnoreRecovery);
+        if (j.contains("PatrolSelection") && j.at("PatrolSelection").is_object()) {
+            j.at("PatrolSelection").get_to(rt.PatrolSelection);
+        }
+        if (j.contains("Patrol") && j.at("Patrol").is_object()) {
+            j.at("Patrol").get_to(rt.PatrolSelection);
+        }
         if (j.contains("MyHighland") && j.at("MyHighland").is_object()) {
             j.at("MyHighland").get_to(rt.MyHighland);
         }
         if (j.contains("MyBase") && j.at("MyBase").is_object()) {
             j.at("MyBase").get_to(rt.MyBase);
+            if (j.at("MyBase").contains("Patrol") && j.at("MyBase").at("Patrol").is_object()) {
+                j.at("MyBase").at("Patrol").get_to(rt.PatrolSelection);
+            }
         }
         if (j.contains("MyRoadland") && j.at("MyRoadland").is_object()) {
             j.at("MyRoadland").get_to(rt.MyRoadland);
@@ -1548,6 +1565,13 @@ namespace BehaviorTree {
                 "Task/OutpostConfirm/OpeningHighPriority"
             },
             config.TaskSettings.OutpostConfirm.OpeningHighPriority);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.OutpostConfirm.OpeningHoldSec",
+                "Task/OutpostConfirm/OpeningHoldSec"
+            },
+            config.TaskSettings.OutpostConfirm.OpeningHoldSec);
         ReadOptionalBoolParam(
             node_,
             {
@@ -2245,28 +2269,57 @@ namespace BehaviorTree {
                 "AreaManager/RegionalAreaTask/MyBase/MaxPatrolSteps"
             },
             base.MaxPatrolSteps);
+        auto& patrol_selection = task.PatrolSelection;
+        auto patrol_selection_names = [](const std::string& key) {
+            std::vector<std::string> names;
+            const auto append = [&names, &key](const std::string& prefix) {
+                names.push_back(prefix + "." + key);
+                names.push_back(prefix + "/" + key);
+            };
+            append("AreaManager.RegionalAreaTask.PatrolSelection");
+            append("AreaManager/RegionalAreaTask/PatrolSelection");
+            append("AreaManager.RegionalAreaTask.Patrol");
+            append("AreaManager/RegionalAreaTask/Patrol");
+            append("AreaManager.Area.MyArea.Base.Task.MyBase.Patrol");
+            append("AreaManager/Area/MyArea/Base/Task/MyBase/Patrol");
+            append("AreaManager.Task.MyBase.Patrol");
+            append("AreaManager/Task/MyBase/Patrol");
+            append("AreaManager.RegionalAreaTask.MyBase.Patrol");
+            append("AreaManager/RegionalAreaTask/MyBase/Patrol");
+            return names;
+        };
         ReadOptionalDoubleParam(
             node_,
-            {
-                "AreaManager.Area.MyArea.Base.Task.MyBase.Patrol.DistancePenaltyPerMeter",
-                "AreaManager/Area/MyArea/Base/Task/MyBase/Patrol/DistancePenaltyPerMeter",
-                "AreaManager.Task.MyBase.Patrol.DistancePenaltyPerMeter",
-                "AreaManager/Task/MyBase/Patrol/DistancePenaltyPerMeter",
-                "AreaManager.RegionalAreaTask.MyBase.Patrol.DistancePenaltyPerMeter",
-                "AreaManager/RegionalAreaTask/MyBase/Patrol/DistancePenaltyPerMeter"
-            },
-            base.PatrolDistancePenaltyPerMeter);
+            patrol_selection_names("DistancePenaltyPerMeter"),
+            patrol_selection.DistancePenaltyPerMeter);
         ReadOptionalDoubleParam(
             node_,
-            {
-                "AreaManager.Area.MyArea.Base.Task.MyBase.Patrol.CurrentGoalPenalty",
-                "AreaManager/Area/MyArea/Base/Task/MyBase/Patrol/CurrentGoalPenalty",
-                "AreaManager.Task.MyBase.Patrol.CurrentGoalPenalty",
-                "AreaManager/Task/MyBase/Patrol/CurrentGoalPenalty",
-                "AreaManager.RegionalAreaTask.MyBase.Patrol.CurrentGoalPenalty",
-                "AreaManager/RegionalAreaTask/MyBase/Patrol/CurrentGoalPenalty"
-            },
-            base.PatrolCurrentGoalPenalty);
+            patrol_selection_names("CurrentGoalPenalty"),
+            patrol_selection.CurrentGoalPenalty);
+        ReadOptionalBoolParam(
+            node_,
+            patrol_selection_names("AvoidCurrentGoal"),
+            patrol_selection.AvoidCurrentGoal);
+        ReadOptionalDoubleParam(
+            node_,
+            patrol_selection_names("UnvisitedBonus"),
+            patrol_selection.UnvisitedBonus);
+        ReadOptionalDoubleParam(
+            node_,
+            patrol_selection_names("FreshnessBonusMax"),
+            patrol_selection.FreshnessBonusMax);
+        ReadOptionalIntParam(
+            node_,
+            patrol_selection_names("FreshnessTimeoutSec"),
+            patrol_selection.FreshnessTimeoutSec);
+        ReadOptionalDoubleParam(
+            node_,
+            patrol_selection_names("RecentVisitPenalty"),
+            patrol_selection.RecentVisitPenalty);
+        ReadOptionalIntParam(
+            node_,
+            patrol_selection_names("RecentVisitPenaltySec"),
+            patrol_selection.RecentVisitPenaltySec);
         for (const auto& [goal_name, goal_id] : MyBasePatrolGoalNameMap()) {
             std::vector<std::string> weight_names;
             const auto append_weight_names = [&weight_names, goal_name](const std::string& prefix) {
@@ -2587,7 +2640,7 @@ namespace BehaviorTree {
             config.TaskSettings.BuffConfirm.DamageAbortWindowMs,
             config.TaskSettings.BuffConfirm.DamageAbortHoldMs);
         LoggerPtr->Debug(
-            "OutpostConfirm: referee_fresh_ms={} trust_enemy_outpost_hp={} max_game_time_sec={} min_self_hp={} min_ammo={} visual_scout_without_hp={} visual_scout_hold_ms={} visual_scout_cooldown_ms={} visual_scout_face_distance_cm={} post_window_scout_enable={} post_window_scout_interval_sec={} post_window_scout_hold_ms={} armor_warning_distance_cm={} post_armor_face_search_ms={} damage_abort_threshold={} damage_abort_window_ms={} damage_abort_hold_ms={} opening_high_priority={} opening_hold_until_window_end={} suppress_chase_while_active={}",
+            "OutpostConfirm: referee_fresh_ms={} trust_enemy_outpost_hp={} max_game_time_sec={} min_self_hp={} min_ammo={} visual_scout_without_hp={} visual_scout_hold_ms={} visual_scout_cooldown_ms={} visual_scout_face_distance_cm={} post_window_scout_enable={} post_window_scout_interval_sec={} post_window_scout_hold_ms={} armor_warning_distance_cm={} post_armor_face_search_ms={} damage_abort_threshold={} damage_abort_window_ms={} damage_abort_hold_ms={} opening_high_priority={} opening_hold_sec={} opening_hold_until_window_end={} suppress_chase_while_active={}",
             config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs,
             config.TaskSettings.OutpostConfirm.TrustEnemyOutpostHp ? 1 : 0,
             config.TaskSettings.OutpostConfirm.MaxGameTimeSec,
@@ -2606,6 +2659,7 @@ namespace BehaviorTree {
             config.TaskSettings.OutpostConfirm.DamageAbortWindowMs,
             config.TaskSettings.OutpostConfirm.DamageAbortHoldMs,
             config.TaskSettings.OutpostConfirm.OpeningHighPriority ? 1 : 0,
+            config.TaskSettings.OutpostConfirm.OpeningHoldSec,
             config.TaskSettings.OutpostConfirm.OpeningHoldUntilWindowEnd ? 1 : 0,
             config.TaskSettings.OutpostConfirm.SuppressChaseWhileActive ? 1 : 0);
         LoggerPtr->Debug(
@@ -2767,8 +2821,16 @@ namespace BehaviorTree {
         LoggerPtr->Debug("MyBase.CommandHoldSec: {}", config.RegionalAreaTaskSettings.MyBase.CommandHoldSec);
         LoggerPtr->Debug("MyBase.GoalHoldSec: {}", config.RegionalAreaTaskSettings.MyBase.GoalHoldSec);
         LoggerPtr->Debug("MyBase.MaxPatrolSteps: {}", config.RegionalAreaTaskSettings.MyBase.MaxPatrolSteps);
-        LoggerPtr->Debug("MyBase.PatrolDistancePenaltyPerMeter: {}", config.RegionalAreaTaskSettings.MyBase.PatrolDistancePenaltyPerMeter);
-        LoggerPtr->Debug("MyBase.PatrolCurrentGoalPenalty: {}", config.RegionalAreaTaskSettings.MyBase.PatrolCurrentGoalPenalty);
+        LoggerPtr->Debug(
+            "PatrolSelection: distance_penalty={} current_penalty={} avoid_current={} unvisited_bonus={} freshness_bonus_max={} freshness_timeout_sec={} recent_visit_penalty={} recent_visit_penalty_sec={}",
+            config.RegionalAreaTaskSettings.PatrolSelection.DistancePenaltyPerMeter,
+            config.RegionalAreaTaskSettings.PatrolSelection.CurrentGoalPenalty,
+            config.RegionalAreaTaskSettings.PatrolSelection.AvoidCurrentGoal ? 1 : 0,
+            config.RegionalAreaTaskSettings.PatrolSelection.UnvisitedBonus,
+            config.RegionalAreaTaskSettings.PatrolSelection.FreshnessBonusMax,
+            config.RegionalAreaTaskSettings.PatrolSelection.FreshnessTimeoutSec,
+            config.RegionalAreaTaskSettings.PatrolSelection.RecentVisitPenalty,
+            config.RegionalAreaTaskSettings.PatrolSelection.RecentVisitPenaltySec);
         for (const auto& goal : config.RegionalAreaTaskSettings.MyBase.PatrolGoals) {
             LoggerPtr->Debug(
                 "MyBase.PatrolGoal: id={} weight={}",
@@ -3060,6 +3122,12 @@ namespace BehaviorTree {
                 "Invalid Task.OutpostConfirm.DamageAbortHoldMs={}, fallback to 3000.",
                 outpost_confirm.DamageAbortHoldMs);
             outpost_confirm.DamageAbortHoldMs = 3000;
+        }
+        if (outpost_confirm.OpeningHoldSec < 0) {
+            LoggerPtr->Warning(
+                "Invalid Task.OutpostConfirm.OpeningHoldSec={}, fallback to 120.",
+                outpost_confirm.OpeningHoldSec);
+            outpost_confirm.OpeningHoldSec = 120;
         }
         auto sanitize_manual_goal_m = [this](const char* key, double& value) {
             if (!std::isfinite(value)) {
@@ -3448,17 +3516,48 @@ namespace BehaviorTree {
                 base_task.MaxPatrolSteps);
             base_task.MaxPatrolSteps = 4;
         }
-        if (base_task.PatrolDistancePenaltyPerMeter < 0.0) {
+        auto& patrol_selection = config.RegionalAreaTaskSettings.PatrolSelection;
+        if (patrol_selection.DistancePenaltyPerMeter < 0.0) {
             LoggerPtr->Warning(
-                "Invalid RegionalAreaTask.MyBase.Patrol.DistancePenaltyPerMeter={}, fallback to 0.4.",
-                base_task.PatrolDistancePenaltyPerMeter);
-            base_task.PatrolDistancePenaltyPerMeter = 0.4;
+                "Invalid RegionalAreaTask.PatrolSelection.DistancePenaltyPerMeter={}, fallback to 0.4.",
+                patrol_selection.DistancePenaltyPerMeter);
+            patrol_selection.DistancePenaltyPerMeter = 0.4;
         }
-        if (base_task.PatrolCurrentGoalPenalty < 0.0) {
+        if (patrol_selection.CurrentGoalPenalty < 0.0) {
             LoggerPtr->Warning(
-                "Invalid RegionalAreaTask.MyBase.Patrol.CurrentGoalPenalty={}, fallback to 5.",
-                base_task.PatrolCurrentGoalPenalty);
-            base_task.PatrolCurrentGoalPenalty = 5.0;
+                "Invalid RegionalAreaTask.PatrolSelection.CurrentGoalPenalty={}, fallback to 5.",
+                patrol_selection.CurrentGoalPenalty);
+            patrol_selection.CurrentGoalPenalty = 5.0;
+        }
+        if (patrol_selection.UnvisitedBonus < 0.0) {
+            LoggerPtr->Warning(
+                "Invalid RegionalAreaTask.PatrolSelection.UnvisitedBonus={}, fallback to 12.",
+                patrol_selection.UnvisitedBonus);
+            patrol_selection.UnvisitedBonus = 12.0;
+        }
+        if (patrol_selection.FreshnessBonusMax < 0.0) {
+            LoggerPtr->Warning(
+                "Invalid RegionalAreaTask.PatrolSelection.FreshnessBonusMax={}, fallback to 12.",
+                patrol_selection.FreshnessBonusMax);
+            patrol_selection.FreshnessBonusMax = 12.0;
+        }
+        if (patrol_selection.FreshnessTimeoutSec < 0) {
+            LoggerPtr->Warning(
+                "Invalid RegionalAreaTask.PatrolSelection.FreshnessTimeoutSec={}, fallback to 120.",
+                patrol_selection.FreshnessTimeoutSec);
+            patrol_selection.FreshnessTimeoutSec = 120;
+        }
+        if (patrol_selection.RecentVisitPenalty < 0.0) {
+            LoggerPtr->Warning(
+                "Invalid RegionalAreaTask.PatrolSelection.RecentVisitPenalty={}, fallback to 8.",
+                patrol_selection.RecentVisitPenalty);
+            patrol_selection.RecentVisitPenalty = 8.0;
+        }
+        if (patrol_selection.RecentVisitPenaltySec < 0) {
+            LoggerPtr->Warning(
+                "Invalid RegionalAreaTask.PatrolSelection.RecentVisitPenaltySec={}, fallback to 30.",
+                patrol_selection.RecentVisitPenaltySec);
+            patrol_selection.RecentVisitPenaltySec = 30;
         }
         std::vector<LangYa::MyBasePatrolGoalSetting> sanitized_base_patrol_goals;
         sanitized_base_patrol_goals.reserve(base_task.PatrolGoals.size());

@@ -2,15 +2,23 @@ behavior_tree:
   ros__parameters:
     AreaManager:
       RegionalAreaTask:
+        # Common weighted patrol scoring. score starts from point weight, then adds
+        # exploration/freshness bonuses and distance/recent/current penalties.
+        PatrolSelection:
+          DistancePenaltyPerMeter: 0.4
+          CurrentGoalPenalty: 5.0
+          AvoidCurrentGoal: true
+          UnvisitedBonus: 12.0
+          FreshnessBonusMax: 12.0
+          FreshnessTimeoutSec: 120
+          RecentVisitPenalty: 8.0
+          RecentVisitPenaltySec: 30
         MyBase:
           # Seconds to stay after reaching the selected Base patrol goal before scoring the next one.
           GoalHoldSec: 15
           Patrol:
-            # score = weight - distance_m * DistancePenaltyPerMeter.
-            # CurrentGoalPenalty is applied when the selector must consider the current point.
-            # Set a goal weight to 0 to disable that candidate.
-            DistancePenaltyPerMeter: 0.4
-            CurrentGoalPenalty: 5.0
+            # Set a goal weight to 0 to disable that candidate. Scoring knobs are
+            # shared under RegionalAreaTask.PatrolSelection.
             GoalWeights:
               CastleLeft1: 9.0
               CastleLeft2: 7.0

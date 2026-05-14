@@ -29,6 +29,17 @@ behavior_tree:
             FreshTimeoutMs: 0
       RegionalAreaTask:
         Enable: true
+        # Common weighted patrol scoring. MyBase uses this now; future patrol tasks
+        # should reuse the same block and keep only their point weights locally.
+        PatrolSelection:
+          DistancePenaltyPerMeter: 0.4
+          CurrentGoalPenalty: 5.0
+          AvoidCurrentGoal: true
+          UnvisitedBonus: 12.0
+          FreshnessBonusMax: 12.0
+          FreshnessTimeoutSec: 120
+          RecentVisitPenalty: 8.0
+          RecentVisitPenaltySec: 30
         MyBase:
           Enable: true
           TravelTimeoutSec: 12

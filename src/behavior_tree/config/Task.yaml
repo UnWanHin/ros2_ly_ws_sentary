@@ -42,7 +42,9 @@ behavior_tree:
         DamageAbortHoldMs: 3000
         # true: 開局 MaxGameTimeSec 內，前哨任務優先壓過普通 regional/protect 類導航任務。
         OpeningHighPriority: true
-        # true: 開局 MaxGameTimeSec 內，即使沒有搜到前哨目標也持續待在 BuffOutpost，不因 no-target timeout 釋放給 Default。
+        # 開局硬駐守 BuffOutpost 的秒數；期間不受 VisualScoutHoldMs/PostWindowScoutHoldMs timeout 影響。
+        OpeningHoldSec: 120
+        # true: 開局 OpeningHoldSec 內，即使沒有搜到前哨目標也持續待在 BuffOutpost，不因 no-target timeout 釋放給 Default。
         OpeningHoldUntilWindowEnd: true
         # true: 前哨任務導航/偵查未結束時，看到車體仍可打，但不發布 chase 追車。
         SuppressChaseWhileActive: true

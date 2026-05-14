@@ -149,12 +149,16 @@ std::size_t NearestCommonCentralPatrolIndex(
 std::uint8_t SelectMyBasePatrolGoal(
     const LangYa::UnitTeam goal_team,
     const LangYa::MyBaseAreaTaskSetting& setting,
+    const LangYa::PatrolGoalSelectionSetting& selection,
     const bool has_self_position,
     const int self_x,
     const int self_y,
     const std::uint8_t current_base_goal,
-    const bool avoid_current_goal) {
+    const bool avoid_current_goal,
+    const AreaTimePoint now,
+    const std::array<AreaTimePoint, 256>& last_arrived) {
     const bool can_use_position = has_self_position && self_x > 0 && self_y > 0;
+    const bool can_use_time = now.time_since_epoch().count() != 0;
     const auto valid_goal_count = std::count_if(
         setting.PatrolGoals.begin(),
         setting.PatrolGoals.end(),
@@ -174,6 +178,7 @@ std::uint8_t SelectMyBasePatrolGoal(
             continue;
         }
         if (avoid_current_goal &&
+            selection.AvoidCurrentGoal &&
             valid_goal_count > 1 &&
             candidate.BaseGoalId == current_base_goal) {
             continue;
@@ -187,10 +192,30 @@ std::uint8_t SelectMyBasePatrolGoal(
                 self_y,
                 static_cast<int>(goal_point.x),
                 static_cast<int>(goal_point.y)));
-            score -= (distance_cm / 100.0) * std::max(0.0, setting.PatrolDistancePenaltyPerMeter);
+            score -= (distance_cm / 100.0) * std::max(0.0, selection.DistancePenaltyPerMeter);
         }
         if (candidate.BaseGoalId == current_base_goal) {
-            score -= std::max(0.0, setting.PatrolCurrentGoalPenalty);
+            score -= std::max(0.0, selection.CurrentGoalPenalty);
+        }
+        if (can_use_time) {
+            const auto arrived = last_arrived[candidate.BaseGoalId];
+            if (arrived.time_since_epoch().count() == 0) {
+                score += std::max(0.0, selection.UnvisitedBonus);
+            } else {
+                const auto age = std::chrono::duration_cast<std::chrono::seconds>(now - arrived);
+                const auto age_sec = std::max(0, static_cast<int>(age.count()));
+                if (selection.FreshnessTimeoutSec > 0) {
+                    const double ratio = std::min(
+                        1.0,
+                        static_cast<double>(age_sec) /
+                            static_cast<double>(selection.FreshnessTimeoutSec));
+                    score += std::max(0.0, selection.FreshnessBonusMax) * ratio;
+                }
+                if (selection.RecentVisitPenaltySec > 0 &&
+                    age_sec < selection.RecentVisitPenaltySec) {
+                    score -= std::max(0.0, selection.RecentVisitPenalty);
+                }
+            }
         }
         if (!found || score > best_score) {
             best_score = score;
@@ -844,6 +869,8 @@ std::optional<RegionalAreaTaskPlan> AreaManager::PlanRegionalAreaTaskForGoal(
     const int self_x,
     const int self_y,
     const LangYa::MyBaseAreaTaskSetting& my_base_setting,
+    const LangYa::PatrolGoalSelectionSetting& patrol_selection,
+    const AreaTimePoint now,
     const bool self_in_my_highland) const {
     if (regional_area_task_.Active ||
         !IsValidBaseGoalId(base_goal_id) ||
@@ -896,11 +923,14 @@ std::optional<RegionalAreaTaskPlan> AreaManager::PlanRegionalAreaTaskForGoal(
             .InitialBaseGoal = SelectMyBasePatrolGoal(
                 goal_team,
                 my_base_setting,
+                patrol_selection,
                 has_self_position,
                 self_x,
                 self_y,
                 LangYa::Home.ID,
-                false)
+                false,
+                now,
+                patrol_goal_last_arrived_)
         };
     }
 
@@ -1024,11 +1054,14 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
             regional_area_task_.CurrentBaseGoal = SelectMyBasePatrolGoal(
                 regional_area_task_.GoalTeam,
                 base_setting,
+                input.Setting.PatrolSelection,
                 input.HasSelfPosition,
                 input.SelfX,
                 input.SelfY,
                 regional_area_task_.CurrentBaseGoal,
-                true);
+                true,
+                input.Now,
+                patrol_goal_last_arrived_);
             regional_area_task_.PhaseStartTime = input.Now;
             regional_area_task_.BaseGoalArrivedTime = AreaTimePoint{};
             return true;
@@ -1040,11 +1073,14 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
             regional_area_task_.CurrentBaseGoal = SelectMyBasePatrolGoal(
                 regional_area_task_.GoalTeam,
                 base_setting,
+                input.Setting.PatrolSelection,
                 input.HasSelfPosition,
                 input.SelfX,
                 input.SelfY,
                 LangYa::Home.ID,
-                false);
+                false,
+                input.Now,
+                patrol_goal_last_arrived_);
             regional_area_task_.PhaseStartTime = input.Now;
             regional_area_task_.BaseGoalArrivedTime = AreaTimePoint{};
             regional_area_task_.PatrolStepCount = 0;
@@ -1066,6 +1102,7 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
             } else if (current_goal_arrived) {
                 if (!hold_started) {
                     regional_area_task_.BaseGoalArrivedTime = input.Now;
+                    patrol_goal_last_arrived_[regional_area_task_.CurrentBaseGoal] = input.Now;
                 }
                 const auto hold_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
                     input.Now - regional_area_task_.BaseGoalArrivedTime);

@@ -228,6 +228,24 @@ namespace BehaviorTree {
         return false;
     }
 
+    bool IsAreaKeyAllowedForChaseTarget(
+        const AreaKey& area,
+        const NaviGoalAutonomySetting& navi_goal) {
+        if (!navi_goal.UseAreaScope) {
+            return true;
+        }
+        if (area.Side == AreaSide::Common) {
+            return AreaScopeContains(navi_goal.CommonArea, area.Kind);
+        }
+        if (area.Side == AreaSide::My) {
+            return AreaScopeContains(navi_goal.MyArea, area.Kind);
+        }
+        if (area.Side == AreaSide::Enemy) {
+            return AreaScopeContains(navi_goal.EnemyArea, area.Kind);
+        }
+        return false;
+    }
+
     double Cross2d(
         const double ax,
         const double ay,
@@ -1672,11 +1690,18 @@ namespace BehaviorTree {
             const bool opening_window_limited = outpost_confirm.MaxGameTimeSec > 0;
             const bool in_time_window =
                 !opening_window_limited || now_time < outpost_confirm.MaxGameTimeSec;
+            const int opening_hold_sec = std::max(0, outpost_confirm.OpeningHoldSec);
+            const bool opening_hard_hold_active =
+                outpost_confirm.OpeningHoldUntilWindowEnd &&
+                opening_hold_sec > 0 &&
+                now_time < opening_hold_sec;
             const bool post_window_scout_time =
                 opening_window_limited &&
                 now_time >= outpost_confirm.MaxGameTimeSec &&
+                !opening_hard_hold_active &&
                 outpost_confirm.PostWindowScoutEnable;
-            const bool outpost_time_gate_open = in_time_window || post_window_scout_time;
+            const bool outpost_time_gate_open =
+                in_time_window || opening_hard_hold_active || post_window_scout_time;
             const bool outpost_goal_unreachable =
                 IsBaseGoalExternallyUnreachable(LangYa::BuffOutpost.ID, team, true);
             const bool outpost_visual_scout_point_reached =
@@ -1792,11 +1817,12 @@ namespace BehaviorTree {
             const bool outpost_visual_scout_available =
                 outpost_confirm.VisualScoutWithoutHp &&
                 active_visual_scout_hold_ms > 0 &&
-                !outpost_visual_scout_cooling_down &&
+                (!outpost_visual_scout_cooling_down || opening_hard_hold_active) &&
                 (!post_window_scout_mode || outpost_visual_scout_face_ready);
             const bool outpost_visual_scout_candidate_allowed =
                 outpost_base_gate_allowed &&
-                ((enemy_outpost_hp_trusted && enemyOutpostHealth > 0) ||
+                (opening_hard_hold_active ||
+                 (enemy_outpost_hp_trusted && enemyOutpostHealth > 0) ||
                  outpost_visual_recent ||
                  outpost_visual_scout_available ||
                  post_armor_face_search_active);
@@ -1870,6 +1896,18 @@ namespace BehaviorTree {
                     outpost_visual_scout_point_reached ? 1 : 0,
                     outpost_visual_scout_face_ready ? 1 : 0,
                     visual_scout_face_distance_cm);
+            } else if (opening_hard_hold_active) {
+                outpostVisualScoutStartTime_ = {};
+                outpostVisualScoutCooldownUntil_ = {};
+                outpostPostArmorFaceSearchUntil_ = {};
+                outpostVisualScoutNavigationActive_ = true;
+                aimMode = outpost_visual_scout_face_ready ? AimMode::Outpost : AimMode::RotateScan;
+                LoggerPtr->Debug(
+                    "Outpost opening hard hold active: elapsed={}s hold={}s point_reached={} face_ready={}.",
+                    now_time,
+                    opening_hold_sec,
+                    outpost_visual_scout_point_reached ? 1 : 0,
+                    outpost_visual_scout_face_ready ? 1 : 0);
             } else if (outpost_visual_recent) {
                 reset_outpost_visual_scout_state();
                 outpostVisualScoutNavigationActive_ = true;
@@ -3078,6 +3116,8 @@ namespace BehaviorTree {
             self_x,
             self_y,
             config.RegionalAreaTaskSettings.MyBase,
+            config.RegionalAreaTaskSettings.PatrolSelection,
+            now,
             IsSelfInMainArea(my_team, Area::MainAreaKind::Highland));
         if (!plan.has_value()) {
             return false;
@@ -3260,10 +3300,13 @@ namespace BehaviorTree {
 
     bool Application::IsOutpostOpeningHighPriorityActive() const noexcept {
         const auto& outpost = config.TaskSettings.OutpostConfirm;
+        const int opening_high_priority_sec = std::max(
+            outpost.MaxGameTimeSec,
+            outpost.OpeningHoldUntilWindowEnd ? outpost.OpeningHoldSec : 0);
         return config.TaskSettings.Outpost &&
             outpost.OpeningHighPriority &&
-            outpost.MaxGameTimeSec > 0 &&
-            ElapsedSeconds() < outpost.MaxGameTimeSec;
+            opening_high_priority_sec > 0 &&
+            ElapsedSeconds() < opening_high_priority_sec;
     }
 
     bool Application::ShouldSuppressChaseForOutpostTask() const noexcept {
@@ -3291,6 +3334,37 @@ namespace BehaviorTree {
         }
 
         const auto now = std::chrono::steady_clock::now();
+        const UnitTeam my_team = team;
+        const UnitTeam enemy_team = team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
+        if (IsEnemyPositionFresh(*maybe_target_unit, config.ChaseSettings.OfficialPositionFreshMs)) {
+            const int target_x = static_cast<int>(enemyRobots[*maybe_target_unit].position_.X);
+            const int target_y = static_cast<int>(enemyRobots[*maybe_target_unit].position_.Y);
+            if (IsOfficialFieldPointValid(target_x, target_y)) {
+                const auto target_area = AreaManager::ResolveAreaKeyForPointWithNearest(
+                    my_team,
+                    enemy_team,
+                    target_x,
+                    target_y);
+                if (target_area.has_value() &&
+                    !IsAreaKeyAllowedForChaseTarget(
+                        target_area->Key,
+                        config.DecisionAutonomySettings.NaviGoal)) {
+                    if (LoggerPtr &&
+                        now - lastOfficialChaseAreaLimitLogTime_ > std::chrono::seconds(2)) {
+                        LoggerPtr->Info(
+                            "Chase blocked by area scope: target={} pos=({}, {}) side={} area={} nearest={}.",
+                            static_cast<int>(targetArmor.Type),
+                            target_x,
+                            target_y,
+                            static_cast<int>(target_area->Key.Side),
+                            Area::MainAreaKindName(target_area->Key.Kind),
+                            target_area->UsedNearestFallback ? 1 : 0);
+                        lastOfficialChaseAreaLimitLogTime_ = now;
+                    }
+                    return false;
+                }
+            }
+        }
         const bool external_aim_active = config.ExternalAimSettings.Enable;
         if (external_aim_active &&
             externalAimData.LastValidTime.time_since_epoch().count() != 0 &&
@@ -3505,8 +3579,8 @@ namespace BehaviorTree {
                         self_x,
                         self_y,
                         official_chase_goal,
-                        team,
-                        team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue,
+                        my_team,
+                        enemy_team,
                         config.DecisionAutonomySettings.NaviGoal,
                         config.ChaseSettings.AreaLimit);
                     naviGoalPosition = limited_chase_goal.Goal;

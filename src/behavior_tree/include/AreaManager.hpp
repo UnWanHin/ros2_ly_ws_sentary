@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <array>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -375,6 +376,8 @@ public:
         int self_x,
         int self_y,
         const LangYa::MyBaseAreaTaskSetting& my_base_setting,
+        const LangYa::PatrolGoalSelectionSetting& patrol_selection,
+        AreaTimePoint now,
         bool self_in_my_highland) const;
     void StartRegionalAreaTask(const RegionalAreaTaskPlan& plan, AreaTimePoint now);
     RegionalAreaTaskTickResult TickRegionalAreaTask(const RegionalAreaTaskTickInput& input);
@@ -452,6 +455,7 @@ private:
     NaviProgressWatchdogRuntime progress_watchdog_{};
     AreaTimePoint regional_defense_suppress_until_{};
     RegionalAreaTaskRuntime regional_area_task_{};
+    std::array<AreaTimePoint, 256> patrol_goal_last_arrived_{};
 };
 
 }  // namespace BehaviorTree

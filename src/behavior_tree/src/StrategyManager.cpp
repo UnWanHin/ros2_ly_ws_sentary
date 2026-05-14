@@ -56,9 +56,12 @@ void StrategyManager::MarkHandled(
 }
 
 bool Application::CanAuthorizeChaseTactical() const noexcept {
+    const bool regional_task_blocks_chase =
+        areaManager_.RegionalAreaTaskActive() &&
+        !areaManager_.RegionalAreaTaskCanYieldToHigherPriority();
     if (!config.ChaseSettings.Enable ||
         !config.ChaseSettings.FollowAimTarget ||
-        areaManager_.RegionalAreaTaskActive() ||
+        regional_task_blocks_chase ||
         areaManager_.HighlandTransitionActive() ||
         outpostVisualScoutNavigationActive_ ||
         ShouldSuppressChaseForOutpostTask() ||

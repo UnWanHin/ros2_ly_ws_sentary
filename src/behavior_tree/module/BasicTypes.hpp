@@ -506,6 +506,7 @@ namespace LangYa
         int DamageAbortWindowMs{1000};
         int DamageAbortHoldMs{3000};
         bool OpeningHighPriority{true};
+        int OpeningHoldSec{120};
         bool OpeningHoldUntilWindowEnd{true};
         bool SuppressChaseWhileActive{true};
         bool ManualGoalEnable{false};
@@ -789,10 +790,23 @@ namespace LangYa
         int LeaveTimeoutSec{8};
     };
 
-    struct MyBasePatrolGoalSetting {
+    struct PatrolGoalSetting {
         std::uint8_t BaseGoalId{LangYa::CastleLeft2.ID};
         double Weight{10.0};
     };
+
+    struct PatrolGoalSelectionSetting {
+        double DistancePenaltyPerMeter{0.4};
+        double CurrentGoalPenalty{5.0};
+        bool AvoidCurrentGoal{true};
+        double UnvisitedBonus{12.0};
+        double FreshnessBonusMax{12.0};
+        int FreshnessTimeoutSec{120};
+        double RecentVisitPenalty{8.0};
+        int RecentVisitPenaltySec{30};
+    };
+
+    using MyBasePatrolGoalSetting = PatrolGoalSetting;
 
     struct MyBaseAreaTaskSetting {
         bool Enable{false};
@@ -800,9 +814,7 @@ namespace LangYa
         int CommandHoldSec{1};
         int GoalHoldSec{15};
         int MaxPatrolSteps{4};
-        double PatrolDistancePenaltyPerMeter{0.4};
-        double PatrolCurrentGoalPenalty{5.0};
-        std::vector<MyBasePatrolGoalSetting> PatrolGoals{
+        std::vector<PatrolGoalSetting> PatrolGoals{
             {LangYa::CastleLeft1.ID, 10.0},
             {LangYa::CastleLeft2.ID, 10.0},
             {LangYa::CastleRight2.ID, 10.0},
@@ -882,6 +894,7 @@ namespace LangYa
     struct RegionalAreaTaskSetting {
         bool Enable{false};
         bool IgnoreRecovery{false};
+        PatrolGoalSelectionSetting PatrolSelection{};
         MyHighlandAreaTaskSetting MyHighland{};
         MyBaseAreaTaskSetting MyBase{};
         MyRoadlandAreaTaskSetting MyRoadland{};
