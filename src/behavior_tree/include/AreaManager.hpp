@@ -259,6 +259,7 @@ struct RegionalAreaTaskTickInput {
     bool RoadlandBaseToCentralUnreachable{false};
     bool RoadlandShouldLeave{false};
     bool CentralShouldLeave{false};
+    bool HoldCurrentBaseGoal{false};
     bool HasSelfPosition{false};
     int SelfX{0};
     int SelfY{0};

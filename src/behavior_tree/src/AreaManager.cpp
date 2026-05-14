@@ -1054,6 +1054,7 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
             const bool current_goal_arrived = hold_started || input.CurrentBaseGoalArrived;
             const bool travel_timed_out =
                 !current_goal_arrived &&
+                !input.HoldCurrentBaseGoal &&
                 base_setting.TravelTimeoutSec > 0 &&
                 phase_elapsed() >= std::chrono::seconds(base_setting.TravelTimeoutSec);
             if (input.CurrentBaseGoalUnreachable || travel_timed_out) {
@@ -1068,8 +1069,9 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
                 }
                 const auto hold_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
                     input.Now - regional_area_task_.BaseGoalArrivedTime);
-                if (base_setting.GoalHoldSec <= 0 ||
-                    hold_elapsed >= std::chrono::seconds(base_setting.GoalHoldSec)) {
+                if (!input.HoldCurrentBaseGoal &&
+                    (base_setting.GoalHoldSec <= 0 ||
+                     hold_elapsed >= std::chrono::seconds(base_setting.GoalHoldSec))) {
                     if (!switch_to_next_base_goal("patrol_complete")) {
                         return result;
                     }

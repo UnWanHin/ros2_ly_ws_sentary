@@ -2959,6 +2959,35 @@ namespace BehaviorTree {
         const int self_y = self_position_fresh
             ? static_cast<int>(friendRobots[UnitType::Sentry].position_.Y)
             : 0;
+        const bool hold_base_patrol_for_armor = [&]() {
+            if (active_task_type != RegionalAreaTaskType::MyBase ||
+                targetArmor.Type == ArmorType::UnKnown ||
+                targetArmor.Type == ArmorType::Outpost) {
+                return false;
+            }
+            const bool external_aim_active = config.ExternalAimSettings.Enable;
+            const AimData* active_aim_data = external_aim_active ? &externalAimData : &autoAimData;
+            if (!external_aim_active) {
+                if (aimMode == AimMode::Buff) {
+                    active_aim_data = &buffAimData;
+                } else if (aimMode == AimMode::Outpost) {
+                    active_aim_data = &outpostAimData;
+                }
+            }
+            if (isFindTargetAtomic.load(std::memory_order_relaxed) &&
+                active_aim_data->Fresh &&
+                active_aim_data->Valid) {
+                return true;
+            }
+            if (!config.AimDebugSettings.ReuseLatchedAnglesOnNoTarget ||
+                !active_aim_data->HasLatchedAngles ||
+                active_aim_data->LastValidTime.time_since_epoch().count() == 0) {
+                return false;
+            }
+            const int hold_ms = std::max(0, config.AimDebugSettings.LatchedTargetHoldMs);
+            return hold_ms > 0 &&
+                   (now - active_aim_data->LastValidTime) <= std::chrono::milliseconds(hold_ms);
+        }();
         const auto result = areaManager_.TickRegionalAreaTask(
             RegionalAreaTaskTickInput{
                 .Setting = config.RegionalAreaTaskSettings,
@@ -2978,6 +3007,7 @@ namespace BehaviorTree {
                 .RoadlandShouldLeave = active_roadland_task && roadland_data_unhealthy,
                 .CentralShouldLeave =
                     active_task_type == RegionalAreaTaskType::CommonCentral && central_data_unhealthy,
+                .HoldCurrentBaseGoal = hold_base_patrol_for_armor,
                 .HasSelfPosition = self_position_fresh && self_x > 0 && self_y > 0,
                 .SelfX = self_x,
                 .SelfY = self_y
