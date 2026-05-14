@@ -1,6 +1,7 @@
 #include <cmath>
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <functional>
 #include <fstream>
 #include <limits>
@@ -13,6 +14,7 @@
 
 #include "geometry_msgs/msg/point.hpp"
 #include "geometry_msgs/msg/point_stamped.hpp"
+#include "gimbal_driver/msg/face_mode_status.hpp"
 #include "gimbal_driver/msg/fire_code.hpp"
 #include "gimbal_driver/msg/gimbal_angles.hpp"
 #include "navi_tf_bridge/pointer_solver.hpp"
@@ -112,6 +114,8 @@ public:
       this->declare_parameter<std::string>("control_firecode_topic", "/ly/control/firecode");
     const std::string face_target_topic =
       this->declare_parameter<std::string>("face_target_topic", "/ly/face_mode/target_raw");
+    const std::string status_topic =
+      this->declare_parameter<std::string>("status_topic", "/ly/gimbal/facemode");
     publish_firecode_ = this->declare_parameter<bool>("publish_firecode", true);
     aim_mode_ = this->declare_parameter<bool>("aim_mode", true);
 
@@ -159,6 +163,7 @@ public:
     }
 
     pub_angles_ = this->create_publisher<gimbal_driver::msg::GimbalAngles>(control_topic, 10);
+    pub_status_ = this->create_publisher<gimbal_driver::msg::FaceModeStatus>(status_topic, 10);
     if (publish_firecode_) {
       pub_firecode_ = this->create_publisher<gimbal_driver::msg::FireCode>(firecode_topic, 10);
     }
@@ -178,7 +183,7 @@ public:
       this->get_logger(),
       "FaceMode started: initial_target=%s raw_target=(%.3f, %.3f, %.3f)m@%s "
       "active_target=(%.3f, %.3f, %.3f)m@%s "
-      "solve_mode=%s solve_frame=%s aim_frame=%s camera_frame=%s -> %s, gimbal=%s, firecode=%s, "
+      "solve_mode=%s solve_frame=%s aim_frame=%s camera_frame=%s -> %s, status=%s, gimbal=%s, firecode=%s, "
       "use_gimbal_stamp_for_tf=%s, command_filter_alpha=%.2f, manual_target=%s",
       has_active_target_ ? "ready" : "waiting_for_face_target_raw",
       official_map_x_m_,
@@ -194,6 +199,7 @@ public:
       aim_frame_.c_str(),
       camera_frame_.c_str(),
       control_topic.c_str(),
+      status_topic.c_str(),
       gimbal_topic.c_str(),
       publish_firecode_ ? "on" : "off",
       use_gimbal_stamp_for_tf_ ? "true" : "false",
@@ -297,6 +303,8 @@ private:
     }
     last_yaw_cmd_deg_.reset();
     last_pitch_cmd_deg_.reset();
+    last_target_stamp_ = this->now();
+    ++target_update_count_;
     RCLCPP_INFO(
       this->get_logger(),
       "FaceMode target updated (%s): official=(%.3f, %.3f, %.3f)m -> %s target=(%.3f, %.3f, %.3f)m",
@@ -353,6 +361,8 @@ private:
     has_active_target_ = true;
     last_yaw_cmd_deg_.reset();
     last_pitch_cmd_deg_.reset();
+    last_target_stamp_ = this->now();
+    ++target_update_count_;
     RCLCPP_INFO(
       this->get_logger(),
       "FaceMode manual target active (%s): target=(%.3f, %.3f, %.3f)m@%s",
@@ -452,6 +462,27 @@ private:
       }
       warnThrottled("TF not ready: " + frame + " <- " + active_target_frame_ + ": " + ex.what() + hint);
       return std::nullopt;
+    }
+  }
+
+  bool canTransformTargetToFrame(const std::string & frame, const rclcpp::Time & lookup_time) const
+  {
+    if (!has_active_target_ || active_target_frame_.empty() || frame.empty()) {
+      return false;
+    }
+    if (frame == active_target_frame_) {
+      return true;
+    }
+    try {
+      std::string error;
+      return tf_buffer_.canTransform(
+        frame,
+        active_target_frame_,
+        lookup_time,
+        rclcpp::Duration::from_seconds(0.0),
+        &error);
+    } catch (const tf2::TransformException &) {
+      return false;
     }
   }
 
@@ -609,21 +640,96 @@ private:
     return SolvedCommand{yaw_cmd_deg, pitch_cmd_deg, *target_camera, detail.str()};
   }
 
+  void publishStatus(
+    const rclcpp::Time & lookup_time,
+    const std::string & failed_stage,
+    const std::string & detail,
+    const SolvedCommand * solved = nullptr,
+    const bool publishing_angles = false,
+    const std::optional<double> command_yaw_deg = std::nullopt,
+    const std::optional<double> command_pitch_deg = std::nullopt)
+  {
+    if (!pub_status_) {
+      return;
+    }
+
+    gimbal_driver::msg::FaceModeStatus msg;
+    const auto now = this->now();
+    msg.header.stamp = now;
+    msg.header.frame_id = active_target_frame_;
+    msg.has_target = has_active_target_;
+    msg.target_stamp = last_target_stamp_;
+    msg.target_age_sec = target_update_count_ > 0
+      ? static_cast<float>((now.nanoseconds() - last_target_stamp_.nanoseconds()) * 1e-9)
+      : -1.0f;
+    msg.target_update_count = target_update_count_;
+    msg.has_gimbal_angles = current_angles_.has_value();
+    msg.gimbal_stamp_ok = current_angles_.has_value() && failed_stage != "gimbal_stamp_stale";
+    msg.raw_goal_static_calibration_ready =
+      raw_goal_static_calibration_ready_ && raw_goal_solver_.ready();
+    msg.manual_target = manual_target_enable_;
+
+    msg.tf_target_to_solve_frame = canTransformTargetToFrame(solve_frame_, lookup_time);
+    msg.tf_target_to_aim_frame = canTransformTargetToFrame(aim_frame_, lookup_time);
+    msg.tf_target_to_camera_frame = canTransformTargetToFrame(camera_frame_, lookup_time);
+    msg.tf_target_to_gimbal_barrel_joint =
+      canTransformTargetToFrame("gimbal_barrel_joint", lookup_time);
+    msg.tf_target_to_gimbal_barrel =
+      canTransformTargetToFrame("gimbal_barrel", lookup_time);
+
+    msg.solver_ok = solved != nullptr;
+    msg.publishing_angles = publishing_angles;
+    msg.last_success_stamp = last_success_stamp_;
+    msg.last_success_age_sec = last_success_count_ > 0
+      ? static_cast<float>((now.nanoseconds() - last_success_stamp_.nanoseconds()) * 1e-9)
+      : -1.0f;
+    msg.function =
+      msg.has_target &&
+      msg.has_gimbal_angles &&
+      msg.gimbal_stamp_ok &&
+      msg.solver_ok &&
+      msg.publishing_angles;
+
+    msg.failed_stage = failed_stage;
+    msg.detail = detail;
+    msg.active_target_frame = active_target_frame_;
+    msg.active_target = active_target_point_;
+    msg.solve_mode = solve_mode_;
+    msg.solve_frame = solve_frame_;
+    msg.aim_frame = aim_frame_;
+    msg.camera_frame = camera_frame_;
+    if (current_angles_) {
+      msg.current_yaw = current_angles_->yaw;
+      msg.current_pitch = current_angles_->pitch;
+    }
+    if (command_yaw_deg) {
+      msg.command_yaw = static_cast<float>(*command_yaw_deg);
+    }
+    if (command_pitch_deg) {
+      msg.command_pitch = static_cast<float>(*command_pitch_deg);
+    }
+
+    pub_status_->publish(msg);
+  }
+
   void onTimer()
   {
+    rclcpp::Time lookup_time(0, 0, this->get_clock()->get_clock_type());
     if (!has_active_target_) {
       warnThrottled("waiting for /ly/face_mode/target_raw before publishing map aim command");
+      publishStatus(lookup_time, "waiting_target", "waiting for /ly/face_mode/target_raw");
       return;
     }
     if (!current_angles_) {
       warnThrottled("waiting for /ly/gimbal/angles before publishing map aim command");
+      publishStatus(lookup_time, "waiting_gimbal_angles", "waiting for /ly/gimbal/angles");
       return;
     }
 
-    rclcpp::Time lookup_time(0, 0, this->get_clock()->get_clock_type());
     try {
       lookup_time = selectTfLookupTime(*current_angles_);
     } catch (const std::runtime_error &) {
+      publishStatus(lookup_time, "gimbal_stamp_stale", "stale /ly/gimbal/angles header stamp");
       return;
     }
 
@@ -642,9 +748,14 @@ private:
       warnThrottled(
         "unknown solve_mode '" + solve_mode_ +
         "'; use camera_projection, relative_geometry, or base_link");
+      publishStatus(lookup_time, "unknown_solve_mode", "unknown solve_mode: " + solve_mode_);
       return;
     }
     if (!solved) {
+      publishStatus(
+        lookup_time,
+        "solver_failed",
+        "FaceMode solver failed; check tf_* fields and map_aim_point_node warning log");
       return;
     }
 
@@ -669,6 +780,8 @@ private:
     pub_angles_->publish(angle_msg);
     last_yaw_cmd_deg_ = yaw_cmd_deg;
     last_pitch_cmd_deg_ = pitch_cmd_deg;
+    last_success_stamp_ = stamp;
+    ++last_success_count_;
 
     if (pub_firecode_) {
       gimbal_driver::msg::FireCode fire_msg;
@@ -680,6 +793,14 @@ private:
       fire_msg.aim_mode = aim_mode_;
       pub_firecode_->publish(fire_msg);
     }
+    publishStatus(
+      lookup_time,
+      "",
+      solved->detail,
+      &(*solved),
+      true,
+      yaw_cmd_deg,
+      pitch_cmd_deg);
 
     const int64_t now_ns = this->now().nanoseconds();
     if (now_ns - last_info_ns_ > static_cast<int64_t>(2e9)) {
@@ -737,12 +858,17 @@ private:
   std::optional<gimbal_driver::msg::GimbalAngles> current_angles_;
   std::optional<double> last_yaw_cmd_deg_;
   std::optional<double> last_pitch_cmd_deg_;
+  rclcpp::Time last_target_stamp_{0, 0, RCL_SYSTEM_TIME};
+  rclcpp::Time last_success_stamp_{0, 0, RCL_SYSTEM_TIME};
+  std::uint32_t target_update_count_{0};
+  std::uint32_t last_success_count_{0};
   int64_t last_warn_ns_{0};
   int64_t last_info_ns_{0};
 
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
   rclcpp::Publisher<gimbal_driver::msg::GimbalAngles>::SharedPtr pub_angles_;
+  rclcpp::Publisher<gimbal_driver::msg::FaceModeStatus>::SharedPtr pub_status_;
   rclcpp::Publisher<gimbal_driver::msg::FireCode>::SharedPtr pub_firecode_;
   rclcpp::Subscription<gimbal_driver::msg::GimbalAngles>::SharedPtr sub_angles_;
   rclcpp::Subscription<std_msgs::msg::UInt16MultiArray>::SharedPtr sub_face_target_raw_;

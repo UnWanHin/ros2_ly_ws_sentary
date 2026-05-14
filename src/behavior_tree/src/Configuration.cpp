@@ -603,6 +603,8 @@ namespace LangYa {
         os.DamageAbortWindowMs = j.value("DamageAbortWindowMs", os.DamageAbortWindowMs);
         os.DamageAbortHoldMs = j.value("DamageAbortHoldMs", os.DamageAbortHoldMs);
         os.OpeningHighPriority = j.value("OpeningHighPriority", os.OpeningHighPriority);
+        os.OpeningHoldUntilWindowEnd =
+            j.value("OpeningHoldUntilWindowEnd", os.OpeningHoldUntilWindowEnd);
         os.SuppressChaseWhileActive = j.value("SuppressChaseWhileActive", os.SuppressChaseWhileActive);
         if (j.contains("ManualGoal") && j.at("ManualGoal").is_object()) {
             const auto& manual = j.at("ManualGoal");
@@ -1505,6 +1507,13 @@ namespace BehaviorTree {
                 "Task/OutpostConfirm/OpeningHighPriority"
             },
             config.TaskSettings.OutpostConfirm.OpeningHighPriority);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "Task.OutpostConfirm.OpeningHoldUntilWindowEnd",
+                "Task/OutpostConfirm/OpeningHoldUntilWindowEnd"
+            },
+            config.TaskSettings.OutpostConfirm.OpeningHoldUntilWindowEnd);
         ReadOptionalBoolParam(
             node_,
             {
@@ -2436,7 +2445,7 @@ namespace BehaviorTree {
             config.TaskSettings.BuffConfirm.DamageAbortWindowMs,
             config.TaskSettings.BuffConfirm.DamageAbortHoldMs);
         LoggerPtr->Debug(
-            "OutpostConfirm: referee_fresh_ms={} trust_enemy_outpost_hp={} max_game_time_sec={} min_self_hp={} min_ammo={} visual_scout_without_hp={} visual_scout_hold_ms={} visual_scout_cooldown_ms={} visual_scout_face_distance_cm={} post_window_scout_enable={} post_window_scout_interval_sec={} post_window_scout_hold_ms={} armor_warning_distance_cm={} post_armor_face_search_ms={} damage_abort_threshold={} damage_abort_window_ms={} damage_abort_hold_ms={} opening_high_priority={} suppress_chase_while_active={}",
+            "OutpostConfirm: referee_fresh_ms={} trust_enemy_outpost_hp={} max_game_time_sec={} min_self_hp={} min_ammo={} visual_scout_without_hp={} visual_scout_hold_ms={} visual_scout_cooldown_ms={} visual_scout_face_distance_cm={} post_window_scout_enable={} post_window_scout_interval_sec={} post_window_scout_hold_ms={} armor_warning_distance_cm={} post_armor_face_search_ms={} damage_abort_threshold={} damage_abort_window_ms={} damage_abort_hold_ms={} opening_high_priority={} opening_hold_until_window_end={} suppress_chase_while_active={}",
             config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs,
             config.TaskSettings.OutpostConfirm.TrustEnemyOutpostHp ? 1 : 0,
             config.TaskSettings.OutpostConfirm.MaxGameTimeSec,
@@ -2455,6 +2464,7 @@ namespace BehaviorTree {
             config.TaskSettings.OutpostConfirm.DamageAbortWindowMs,
             config.TaskSettings.OutpostConfirm.DamageAbortHoldMs,
             config.TaskSettings.OutpostConfirm.OpeningHighPriority ? 1 : 0,
+            config.TaskSettings.OutpostConfirm.OpeningHoldUntilWindowEnd ? 1 : 0,
             config.TaskSettings.OutpostConfirm.SuppressChaseWhileActive ? 1 : 0);
         LoggerPtr->Debug(
             "OutpostManualGoal: enable={} map=({:.3f}, {:.3f}, {:.3f}) m",

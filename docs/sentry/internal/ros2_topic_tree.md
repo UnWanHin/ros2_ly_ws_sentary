@@ -150,9 +150,12 @@ Updated: 2026-05-08
 /ly/face_mode
 ├── target_raw : std_msgs/msg/UInt16MultiArray      [Internal] BT -> FaceMode solver，[official_map_x, official_map_y, map_z]
 └── angles     : gimbal_driver/msg/GimbalAngles     [Internal] FaceMode solver -> BT/控制角
+
+/ly/gimbal
+└── facemode   : gimbal_driver/msg/FaceModeStatus   [Internal] FaceMode solver health/status，定位 target/gimbal/TF/solver 断点
 ```
 
-当前 `pointer_solver_node` 也可以直接发布到 `/ly/control/angles`，并可选发布 `/ly/control/firecode`。正式 `sentry_all` 默认以 BT 模式启动 `map_aim_point_node`：等待 `/ly/face_mode/target_raw` 后，用 TF 相对几何输出 `/ly/face_mode/angles`，BT 激活 FaceMode 后再接管角度链路。
+当前 `pointer_solver_node` 也可以直接发布到 `/ly/control/angles`，并可选发布 `/ly/control/firecode`。正式 `sentry_all` 默认以 BT 模式启动 `map_aim_point_node`：等待 `/ly/face_mode/target_raw` 后，用 TF 相对几何输出 `/ly/face_mode/angles`，BT 激活 FaceMode 后再接管角度链路。`/ly/gimbal/facemode.function=true` 表示 solver 侧已具备 target、云台角、TF 和角度输出；它不等同于 BT 当前一定采用该角度，BT 是否采用仍由 FaceMode 请求状态和目标优先级决定。
 
 ### `/ly/navi` and `/goal_pose`
 

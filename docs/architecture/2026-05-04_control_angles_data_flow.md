@@ -294,9 +294,12 @@ predictor -> mapper_node.py -> /ly/control/angles -> gimbal_driver
   -> navi_tf_bridge/map_aim_point_node
   -> /ly/control/angles 或 /ly/face_mode/angles
   -> gimbal_driver
+
+navi_tf_bridge/map_aim_point_node
+  -> /ly/gimbal/facemode
 ```
 
-这条用于看不到目标时按已知地图点大致朝向目标。X/Y 会按 `tf_config.yaml` 的 raw-goal 4x4 矩阵转换，Z 直接按 map 高度使用；脚本入口是 `scripts/navi/facemode.sh`、`scripts/navi/map_aim_point_test.sh` 或 `scripts/navi/map_aim_point_attach.sh`。`map_aim_point_test.sh` 人手测试入口默认输入 cm，可用 `--unit m` 临时用米输入；`facemode.sh` 和 `/ly/face_mode/target_raw` 仍使用 cm，以兼容 BT/Area 点位。独立测试默认直接发 `/ly/control/angles`；区域任务联动用 `facemode.sh --bt-output ...` 输出 `/ly/face_mode/angles`，再由 BT 发 `/ly/control/angles`。区域任务需要切换固定点时，BT 发布 `/ly/face_mode/target_raw`，FaceMode 节点动态更新目标。它只控制云台，不发布底盘速度，默认 `yaw_sign=-1.0`。如果目标暂时在 `gx_camera` 后方，节点会用几何 yaw/pitch fallback 先让云台转向正面。
+这条用于看不到目标时按已知地图点大致朝向目标。X/Y 会按 `tf_config.yaml` 的 raw-goal 4x4 矩阵转换，Z 直接按 map 高度使用；脚本入口是 `scripts/navi/facemode.sh`、`scripts/navi/map_aim_point_test.sh` 或 `scripts/navi/map_aim_point_attach.sh`。`map_aim_point_test.sh` 人手测试入口默认输入 cm，可用 `--unit m` 临时用米输入；`facemode.sh` 和 `/ly/face_mode/target_raw` 仍使用 cm，以兼容 BT/Area 点位。独立测试默认直接发 `/ly/control/angles`；区域任务联动用 `facemode.sh --bt-output ...` 输出 `/ly/face_mode/angles`，再由 BT 发 `/ly/control/angles`。区域任务需要切换固定点时，BT 发布 `/ly/face_mode/target_raw`，FaceMode 节点动态更新目标。它只控制云台，不发布底盘速度，默认 `yaw_sign=-1.0`。如果目标暂时在 `gx_camera` 后方，节点会用几何 yaw/pitch fallback 先让云台转向正面。`/ly/gimbal/facemode` 是 solver 侧状态 topic，`failed_stage` 和 `tf_target_to_*` 字段用于判断断在 target、`/ly/gimbal/angles`、TF 还是角度解算。
 
 如果你看到旧文档写“`predictor` 直接到 `gimbal_driver`”或“`mapper_node` 转发为默认链路”，要以当前代码为准。
 

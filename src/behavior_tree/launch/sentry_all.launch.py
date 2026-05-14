@@ -843,6 +843,7 @@ def generate_launch_description():
                 "control_angles_topic": "/ly/face_mode/angles",
                 "control_firecode_topic": "/ly/control/firecode",
                 "face_target_topic": "/ly/face_mode/target_raw",
+                "status_topic": "/ly/gimbal/facemode",
                 "publish_firecode": False,
                 "aim_mode": True,
                 "bridge_config_file": ParameterValue(face_mode_solver_bridge_config_file, value_type=str),

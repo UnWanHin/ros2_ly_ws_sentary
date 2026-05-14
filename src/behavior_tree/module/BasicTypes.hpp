@@ -490,6 +490,7 @@ namespace LangYa
         int DamageAbortWindowMs{1000};
         int DamageAbortHoldMs{3000};
         bool OpeningHighPriority{true};
+        bool OpeningHoldUntilWindowEnd{true};
         bool SuppressChaseWhileActive{true};
         bool ManualGoalEnable{false};
         double ManualGoalMapXM{0.0};

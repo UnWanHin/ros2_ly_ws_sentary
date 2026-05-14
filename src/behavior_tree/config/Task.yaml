@@ -16,12 +16,12 @@ behavior_tree:
         TrustEnemyOutpostHp: false
         # 兼容原有邏輯：開局 120 秒內才主動打前哨；設 0 可關閉時間窗口。
         MaxGameTimeSec: 120
-        # 低於這些資源門檻時不主動打前哨，讓 Hard Recovery 優先。
+        # 低於這些資源門檻時不主動打前哨；資料不新鮮時不因 freshness 抖動退出，低血/低彈由 Hard Recovery 優先處理。
         MinSelfHp: 150
         MinAmmo: 30
         # op_hp 不能作為哨兵正式 gate；保留 op_hp 接口，但默認靠前哨視覺確認是否可打。
         # 未收到 op_hp 時會短時切到外部 aim 前哨目標去 BuffOutpost 偵查。
-        # 若沒有收到 /ly/aim/result 的有效前哨結果，超時後退出並冷卻，避免長時間卡前哨任務。
+        # 若沒有收到 /ly/aim/result 的有效前哨結果，非開局窗口會超時並冷卻，避免長時間卡前哨任務。
         VisualScoutWithoutHp: true
         VisualScoutHoldMs:  120000
         VisualScoutCooldownMs: 15000
@@ -42,6 +42,8 @@ behavior_tree:
         DamageAbortHoldMs: 3000
         # true: 開局 MaxGameTimeSec 內，前哨任務優先壓過普通 regional/protect 類導航任務。
         OpeningHighPriority: true
+        # true: 開局 MaxGameTimeSec 內，即使沒有搜到前哨目標也持續待在 BuffOutpost，不因 no-target timeout 釋放給 Default。
+        OpeningHoldUntilWindowEnd: true
         # true: 前哨任務導航/偵查未結束時，看到車體仍可打，但不發布 chase 追車。
         SuppressChaseWhileActive: true
       BuffTimer:
