@@ -498,10 +498,10 @@ namespace LangYa
         int VisualScoutFaceDistanceCm{300};
         bool PostWindowScoutEnable{true};
         int PostWindowScoutIntervalSec{60};
-        int PostWindowScoutHoldMs{3000};
+        int PostWindowScoutHoldMs{5000};
         int ArmorWarningDistanceCm{1000};
         int ArmorInterruptMaxDistanceCm{1000};
-        int PostArmorFaceSearchMs{3000};
+        int PostArmorFaceSearchMs{5000};
         int DamageAbortThreshold{30};
         int DamageAbortWindowMs{1000};
         int DamageAbortHoldMs{3000};

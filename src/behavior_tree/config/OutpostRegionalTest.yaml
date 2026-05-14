@@ -14,9 +14,9 @@ behavior_tree:
         VisualScoutFaceDistanceCm: 300
         PostWindowScoutEnable: true
         PostWindowScoutIntervalSec: 60
-        PostWindowScoutHoldMs: 3000
+        PostWindowScoutHoldMs: 5000
         ArmorWarningDistanceCm: 5000
-        PostArmorFaceSearchMs: 3000
+        PostArmorFaceSearchMs: 5000
         DamageAbortThreshold: 30
         DamageAbortWindowMs: 1000
         DamageAbortHoldMs: 3000

@@ -1863,7 +1863,7 @@ namespace BehaviorTree {
                 reset_outpost_visual_scout_state();
                 LoggerPtr->Info("Enemy Outpost HP interface says alive: {}", enemyOutpostHealth);
                 outpostVisualScoutNavigationActive_ = true;
-                aimMode = outpost_visual_scout_point_reached ? AimMode::Outpost : AimMode::RotateScan;
+                aimMode = outpost_visual_scout_face_ready ? AimMode::Outpost : AimMode::RotateScan;
                 LoggerPtr->Info(
                     "Outpost HP alive: point_reached={} face_distance_ready={} face_distance_cm={}.",
                     outpost_visual_scout_point_reached ? 1 : 0,
@@ -1875,11 +1875,15 @@ namespace BehaviorTree {
                 LoggerPtr->Info(
                     "Keep Outpost task by recent visual target. point_reached={}",
                     outpost_visual_scout_point_reached ? 1 : 0);
-                aimMode = outpost_visual_scout_point_reached ? AimMode::Outpost : AimMode::RotateScan;
+                aimMode = outpost_visual_scout_face_ready ? AimMode::Outpost : AimMode::RotateScan;
             } else if (post_armor_face_search_active) {
                 outpostVisualScoutNavigationActive_ = true;
                 clear_outpost_visual_scout_attempt();
-                if (outpost_visual_scout_point_reached) {
+                if (outpost_visual_scout_face_ready) {
+                    if (!outpost_visual_scout_point_reached) {
+                        outpostPostArmorFaceSearchUntil_ =
+                            now + std::chrono::milliseconds(post_armor_face_search_ms);
+                    }
                     aimMode = AimMode::Outpost;
                     LoggerPtr->Info(
                         "Outpost post-armor search: FaceMode active for {} ms, point_reached={}.",
@@ -1910,9 +1914,9 @@ namespace BehaviorTree {
                             visual_scout_face_distance_cm);
                     } else if (!outpost_visual_scout_point_reached) {
                         outpostVisualScoutStartTime_ = {};
-                        aimMode = AimMode::RotateScan;
+                        aimMode = AimMode::Outpost;
                         LoggerPtr->Info(
-                            "Outpost visual scout approach: within face distance, keep armor scan until BuffOutpost reached.");
+                            "Outpost visual scout approach: within face distance, use FaceMode before BuffOutpost reached.");
                     } else if (outpostVisualScoutStartTime_.time_since_epoch().count() == 0) {
                         outpostVisualScoutStartTime_ = now;
                         LoggerPtr->Info(

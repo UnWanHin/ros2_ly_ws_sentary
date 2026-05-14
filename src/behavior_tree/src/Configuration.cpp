@@ -3026,9 +3026,9 @@ namespace BehaviorTree {
         }
         if (outpost_confirm.PostWindowScoutHoldMs < 0) {
             LoggerPtr->Warning(
-                "Invalid Task.OutpostConfirm.PostWindowScoutHoldMs={}, fallback to 3000.",
+                "Invalid Task.OutpostConfirm.PostWindowScoutHoldMs={}, fallback to 5000.",
                 outpost_confirm.PostWindowScoutHoldMs);
-            outpost_confirm.PostWindowScoutHoldMs = 3000;
+            outpost_confirm.PostWindowScoutHoldMs = 5000;
         }
         if (outpost_confirm.ArmorWarningDistanceCm < 0) {
             LoggerPtr->Warning(
@@ -3039,9 +3039,9 @@ namespace BehaviorTree {
         outpost_confirm.ArmorInterruptMaxDistanceCm = outpost_confirm.ArmorWarningDistanceCm;
         if (outpost_confirm.PostArmorFaceSearchMs < 0) {
             LoggerPtr->Warning(
-                "Invalid Task.OutpostConfirm.PostArmorFaceSearchMs={}, fallback to 3000.",
+                "Invalid Task.OutpostConfirm.PostArmorFaceSearchMs={}, fallback to 5000.",
                 outpost_confirm.PostArmorFaceSearchMs);
-            outpost_confirm.PostArmorFaceSearchMs = 3000;
+            outpost_confirm.PostArmorFaceSearchMs = 5000;
         }
         if (outpost_confirm.DamageAbortThreshold < 0) {
             LoggerPtr->Warning(
