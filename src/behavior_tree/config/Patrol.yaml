@@ -27,7 +27,7 @@ behavior_tree:
       Mode3:
         # Outpost FaceMode fallback. Pitch = offset + half_range * sin(t / period).
         YawStepDegPerTick: 1.0
-        PitchOffsetDeg: 15.0
+        PitchOffsetDeg: 10.0
         # Set 0.0 to keep a fixed high pitch.
         PitchHalfRangeDeg: 3.0
-        PitchPeriodMs: 500.0
+        PitchPeriodMs: 1300.0
