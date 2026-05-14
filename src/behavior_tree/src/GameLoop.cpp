@@ -1792,7 +1792,8 @@ namespace BehaviorTree {
             const bool outpost_visual_scout_available =
                 outpost_confirm.VisualScoutWithoutHp &&
                 active_visual_scout_hold_ms > 0 &&
-                !outpost_visual_scout_cooling_down;
+                !outpost_visual_scout_cooling_down &&
+                (!post_window_scout_mode || outpost_visual_scout_face_ready);
             const bool outpost_visual_scout_candidate_allowed =
                 outpost_base_gate_allowed &&
                 ((enemy_outpost_hp_trusted && enemyOutpostHealth > 0) ||
@@ -1896,6 +1897,16 @@ namespace BehaviorTree {
                         "Outpost post-armor search: travel to BuffOutpost before FaceMode. face_distance_cm={}",
                         visual_scout_face_distance_cm);
                 }
+            } else if (post_window_scout_mode &&
+                       outpost_confirm.VisualScoutWithoutHp &&
+                       active_visual_scout_hold_ms > 0 &&
+                       !outpost_visual_scout_cooling_down &&
+                       !outpost_visual_scout_face_ready) {
+                clear_outpost_visual_scout_attempt();
+                aimMode = AimMode::RotateScan;
+                LoggerPtr->Debug(
+                    "Outpost post-window visual scout waits for default patrol: face_distance_ready=0 face_distance_cm={}.",
+                    visual_scout_face_distance_cm);
             } else if (outpost_confirm.VisualScoutWithoutHp &&
                        active_visual_scout_hold_ms > 0) {
                 if (outpost_visual_scout_cooling_down) {
@@ -1912,7 +1923,7 @@ namespace BehaviorTree {
                         LoggerPtr->Info(
                             "Outpost visual scout travel: go to BuffOutpost in armor mode before face distance. face_distance_cm={}",
                             visual_scout_face_distance_cm);
-                    } else if (!outpost_visual_scout_point_reached) {
+                    } else if (!post_window_scout_mode && !outpost_visual_scout_point_reached) {
                         outpostVisualScoutStartTime_ = {};
                         aimMode = AimMode::Outpost;
                         LoggerPtr->Info(
