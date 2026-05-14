@@ -2,6 +2,11 @@ behavior_tree:
   ros__parameters:
     AreaManager:
       Switch_Point: false
+      Area:
+        # true: going to BuffOutpost first routes through HoleRoad; leaving BuffOutpost to other own goals also routes through HoleRoad.
+        BuffOutpostCompat:
+          Enable: true
+          TimeoutSec: 6
       SentryPositionFusion:
         Enable: true
         Mode: priority   # priority or weighted

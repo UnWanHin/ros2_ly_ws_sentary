@@ -32,7 +32,7 @@ class ScanGimbalNode(Node):
         if yaw_min > yaw_max:
             yaw_min, yaw_max = yaw_max, yaw_min
 
-        self.scan_mode = 2 if scan_mode == 2 else 1
+        self.scan_mode = scan_mode if scan_mode in (1, 2, 3) else 1
         self.yaw_min = yaw_min
         self.yaw_max = yaw_max
         self.pitch = pitch
@@ -81,6 +81,9 @@ class ScanGimbalNode(Node):
                 self.phase -= math.pi * 2.0
             self.yaw = self.center_yaw + self.half_range * math.sin(self.phase)
             return
+        if self.scan_mode == 3:
+            self.yaw = normalize_angle(self.yaw + self.step_deg)
+            return
 
         self.yaw += self.direction * self.step_deg
         if self.yaw >= self.yaw_max:
@@ -101,7 +104,7 @@ def main() -> None:
     parser.add_argument("--angles-topic", type=str, default="/ly/control/angles")
     parser.add_argument("--firecode-topic", type=str, default="/ly/control/firecode")
     parser.add_argument("--safe-firecode", type=int, default=0)
-    parser.add_argument("--scan-mode", type=int, choices=(1, 2), default=1)
+    parser.add_argument("--scan-mode", type=int, choices=(1, 2, 3), default=1)
     parser.add_argument("--no-firecode", action="store_true")
     cli_args = parser.parse_args()
 
@@ -127,6 +130,14 @@ def main() -> None:
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
+
+
+def normalize_angle(angle: float) -> float:
+    while angle > 180.0:
+        angle -= 360.0
+    while angle <= -180.0:
+        angle += 360.0
+    return angle
 
 
 if __name__ == "__main__":

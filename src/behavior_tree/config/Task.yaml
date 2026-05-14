@@ -23,7 +23,7 @@ behavior_tree:
         # 未收到 op_hp 時會短時切到外部 aim 前哨目標去 BuffOutpost 偵查。
         # 若沒有收到 /ly/aim/result 的有效前哨結果，超時後退出並冷卻，避免長時間卡前哨任務。
         VisualScoutWithoutHp: true
-        VisualScoutHoldMs: 10000
+        VisualScoutHoldMs:  120000
         VisualScoutCooldownMs: 15000
         # 接近 BuffOutpost 的參考距離；正式前哨 FaceMode/no-target timeout 到點後才開始。
         VisualScoutFaceDistanceCm: 300
@@ -32,7 +32,7 @@ behavior_tree:
         PostWindowScoutIntervalSec: 60
         # 到 BuffOutpost 後短暫開 FaceMode 看前哨，避免長時間卡住巡邏。
         PostWindowScoutHoldMs: 3000
-        # 打前哨時普通車體目標小於此距離才打斷前哨；更遠的車體先忽略，繼續前哨任務。
+        # 打前哨時普通車體目標小於此距離才打斷前哨；更遠的車體先忽略，繼續前哨out任務。
         ArmorWarningDistanceCm: 5000
         # 因近距離車體打斷後，車體丟失且仍允許前哨任務時，回前哨 FaceMode 搜索的時間。
         PostArmorFaceSearchMs: 3000

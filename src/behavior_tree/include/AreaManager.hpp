@@ -75,7 +75,9 @@ enum class NaviAreaTransitionKind : std::uint8_t {
     EnterMyHighland = 1,
     ViaHighland = 2,
     LeaveMyHighland = 3,
-    LeaveMyHighlandViaCastleLeft1 = 4
+    LeaveMyHighlandViaCastleLeft1 = 4,
+    BuffOutpostViaHoleRoad = 5,
+    LeaveBuffOutpostViaHoleRoad = 6
 };
 
 const char* NaviAreaTransitionKindToString(NaviAreaTransitionKind kind);
@@ -304,6 +306,8 @@ public:
         LangYa::UnitTeam enemy_team) const;
 
     bool IsHighlandCompatEnabled() const noexcept;
+    bool IsBuffOutpostCompatEnabled() const noexcept;
+    bool IsNaviAreaTransitionCompatEnabled() const noexcept;
     bool IsHighlandCompatTarget(std::uint8_t base_goal_id, LangYa::UnitTeam goal_team) const;
     bool HighlandTransitionActive() const noexcept { return transition_.Active; }
     const NaviAreaTransitionRuntime& TransitionRuntime() const noexcept { return transition_; }
@@ -314,6 +318,8 @@ public:
         bool apply_team_offset,
         std::uint8_t current_goal_id,
         bool goal_highland_arrived,
+        bool hole_road_arrived,
+        bool buff_outpost_arrived,
         bool self_in_my_highland) const;
     void StartHighlandTransition(const NaviAreaTransitionPlan& plan, AreaTimePoint now);
     NaviAreaTransitionTickResult TickHighlandTransition(

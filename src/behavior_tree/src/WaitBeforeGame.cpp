@@ -15,7 +15,7 @@ namespace BehaviorTree {
     constexpr float kGatePatrolSwingYawStepDeg = 1.0f;
     constexpr float kGatePatrolSwingHalfRangeDeg = 30.0f;
     constexpr float kGatePatrolOutpostYawStepDeg = 1.0f;
-    constexpr float kGatePatrolOutpostPitchDeg = 15.0f;
+    constexpr float kGatePatrolOutpostPitchDeg = 17.0f;
     constexpr float kGatePatrolPitchCenterDeg = 0.0f;
     constexpr float kGatePatrolPitchHalfRangeDeg = 12.0f;
     constexpr float kGatePatrolPitchPeriodMs = 500.0f;

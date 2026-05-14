@@ -210,6 +210,8 @@ const char* NaviAreaTransitionKindToString(const NaviAreaTransitionKind kind) {
         case NaviAreaTransitionKind::ViaHighland: return "ViaHighland";
         case NaviAreaTransitionKind::LeaveMyHighland: return "LeaveMyHighland";
         case NaviAreaTransitionKind::LeaveMyHighlandViaCastleLeft1: return "LeaveMyHighlandViaCastleLeft1";
+        case NaviAreaTransitionKind::BuffOutpostViaHoleRoad: return "BuffOutpostViaHoleRoad";
+        case NaviAreaTransitionKind::LeaveBuffOutpostViaHoleRoad: return "LeaveBuffOutpostViaHoleRoad";
         default: return "Unknown";
     }
 }
@@ -402,6 +404,14 @@ bool AreaManager::IsHighlandCompatEnabled() const noexcept {
     return navi_goal_config_.HighlandCompatEnable;
 }
 
+bool AreaManager::IsBuffOutpostCompatEnabled() const noexcept {
+    return navi_goal_config_.BuffOutpostCompatEnable;
+}
+
+bool AreaManager::IsNaviAreaTransitionCompatEnabled() const noexcept {
+    return IsHighlandCompatEnabled() || IsBuffOutpostCompatEnabled();
+}
+
 bool AreaManager::IsHighlandCompatTarget(
     const std::uint8_t base_goal_id,
     const LangYa::UnitTeam goal_team) const {
@@ -423,9 +433,11 @@ std::optional<NaviAreaTransitionPlan> AreaManager::PlanHighlandTransition(
     const bool apply_team_offset,
     const std::uint8_t current_goal_id,
     const bool goal_highland_arrived,
+    const bool hole_road_arrived,
+    const bool buff_outpost_arrived,
     const bool self_in_my_highland) const {
     if (transition_.Active ||
-        !IsHighlandCompatEnabled() ||
+        !IsNaviAreaTransitionCompatEnabled() ||
         !IsValidBaseGoalId(base_goal_id) ||
         goal_team == LangYa::UnitTeam::Unknown ||
         my_team == LangYa::UnitTeam::Unknown) {
@@ -435,6 +447,36 @@ std::optional<NaviAreaTransitionPlan> AreaManager::PlanHighlandTransition(
     NaviAreaTransitionPlan plan{};
     plan.GoalTeam = goal_team;
     plan.ApplyTeamOffset = apply_team_offset;
+
+    if (IsBuffOutpostCompatEnabled() && goal_team == my_team) {
+        const bool target_is_buff_outpost = base_goal_id == LangYa::BuffOutpost.ID;
+        const bool target_is_hole_road = base_goal_id == LangYa::HoleRoad.ID;
+        const bool current_is_buff_outpost =
+            buff_outpost_arrived ||
+            current_goal_id == ResolveGoalId(LangYa::BuffOutpost.ID, my_team, apply_team_offset) ||
+            current_goal_id == LangYa::BuffOutpost.ID;
+
+        if (target_is_buff_outpost && !current_is_buff_outpost && !hole_road_arrived) {
+            plan.Kind = NaviAreaTransitionKind::BuffOutpostViaHoleRoad;
+            plan.ViaBaseGoal = LangYa::HoleRoad.ID;
+            plan.HasPendingGoal = true;
+            plan.PendingBaseGoal = LangYa::BuffOutpost.ID;
+            plan.CheckViaAlreadyArrived = true;
+            return plan;
+        }
+
+        if (!target_is_buff_outpost &&
+            !target_is_hole_road &&
+            current_is_buff_outpost &&
+            !hole_road_arrived) {
+            plan.Kind = NaviAreaTransitionKind::LeaveBuffOutpostViaHoleRoad;
+            plan.ViaBaseGoal = LangYa::HoleRoad.ID;
+            plan.HasPendingGoal = true;
+            plan.PendingBaseGoal = base_goal_id;
+            plan.CheckViaAlreadyArrived = true;
+            return plan;
+        }
+    }
 
     const bool target_is_my_highland =
         goal_team == my_team &&
@@ -498,11 +540,24 @@ NaviAreaTransitionTickResult AreaManager::TickHighlandTransition(
     const bool route_unreachable,
     const bool arrived) {
     NaviAreaTransitionTickResult result{};
-    if (!IsHighlandCompatEnabled() || !transition_.Active) {
+    if (!transition_.Active) {
         return result;
     }
 
-    const auto timeout = std::chrono::seconds(std::max(1, navi_goal_config_.HighlandCompatTimeoutSec));
+    const bool buff_outpost_transition =
+        transition_.Kind == NaviAreaTransitionKind::BuffOutpostViaHoleRoad ||
+        transition_.Kind == NaviAreaTransitionKind::LeaveBuffOutpostViaHoleRoad;
+    const bool transition_enabled = buff_outpost_transition
+        ? IsBuffOutpostCompatEnabled()
+        : IsHighlandCompatEnabled();
+    if (!transition_enabled) {
+        return result;
+    }
+
+    const int timeout_sec = buff_outpost_transition
+        ? navi_goal_config_.BuffOutpostCompatTimeoutSec
+        : navi_goal_config_.HighlandCompatTimeoutSec;
+    const auto timeout = std::chrono::seconds(std::max(1, timeout_sec));
     const bool timed_out =
         transition_.StartTime.time_since_epoch().count() != 0 &&
         now - transition_.StartTime >= timeout;

@@ -866,11 +866,19 @@ namespace LangYa {
             na.HighlandCompatTimeoutSec = compat.value("TimeoutSec", na.HighlandCompatTimeoutSec);
             na.DistanceFallbackGraceMs = compat.value("DistanceFallbackGraceMs", na.DistanceFallbackGraceMs);
         }
+        if (j.contains("BuffOutpostCompat") && j.at("BuffOutpostCompat").is_object()) {
+            const auto& compat = j.at("BuffOutpostCompat");
+            na.BuffOutpostCompatEnable = compat.value("Enable", na.BuffOutpostCompatEnable);
+            na.BuffOutpostCompatTimeoutSec = compat.value("TimeoutSec", na.BuffOutpostCompatTimeoutSec);
+        }
         na.HighlandCompatEnable = j.value("HighlandCompatEnable", na.HighlandCompatEnable);
         na.HighlandCompatDisableRotate = j.value("HighlandCompatDisableRotate", na.HighlandCompatDisableRotate);
         na.HighlandCompatArriveDistanceCm =
             j.value("HighlandCompatArriveDistanceCm", na.HighlandCompatArriveDistanceCm);
         na.HighlandCompatTimeoutSec = j.value("HighlandCompatTimeoutSec", na.HighlandCompatTimeoutSec);
+        na.BuffOutpostCompatEnable = j.value("BuffOutpostCompatEnable", na.BuffOutpostCompatEnable);
+        na.BuffOutpostCompatTimeoutSec =
+            j.value("BuffOutpostCompatTimeoutSec", na.BuffOutpostCompatTimeoutSec);
         na.DistanceFallbackGraceMs = j.value("DistanceFallbackGraceMs", na.DistanceFallbackGraceMs);
     }
 
@@ -1919,6 +1927,25 @@ namespace BehaviorTree {
         ReadOptionalBoolParam(
             node_,
             {
+                "AreaManager.Area.BuffOutpostCompat.Enable",
+                "AreaManager/Area/BuffOutpostCompat/Enable",
+                "DecisionAutonomy.NaviGoal.BuffOutpostCompat.Enable",
+                "DecisionAutonomy/NaviGoal/BuffOutpostCompat/Enable"
+            },
+            navi_goal.BuffOutpostCompatEnable);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "AreaManager.Area.BuffOutpostCompat.TimeoutSec",
+                "AreaManager/Area/BuffOutpostCompat/TimeoutSec",
+                "DecisionAutonomy.NaviGoal.BuffOutpostCompat.TimeoutSec",
+                "DecisionAutonomy/NaviGoal/BuffOutpostCompat/TimeoutSec"
+            },
+            navi_goal.BuffOutpostCompatTimeoutSec);
+
+        ReadOptionalBoolParam(
+            node_,
+            {
                 "AreaManager.RegionalAreaTask.IgnoreRecovery",
                 "AreaManager/RegionalAreaTask/IgnoreRecovery",
                 "AreaManager.Task.IgnoreRecovery",
@@ -2660,6 +2687,10 @@ namespace BehaviorTree {
             config.DecisionAutonomySettings.NaviGoal.HighlandCompatArriveDistanceCm,
             config.DecisionAutonomySettings.NaviGoal.HighlandCompatTimeoutSec,
             config.DecisionAutonomySettings.NaviGoal.DistanceFallbackGraceMs);
+        LoggerPtr->Debug(
+            "NaviGoal.BuffOutpostCompat(enable/timeout_s): {}/{}",
+            config.DecisionAutonomySettings.NaviGoal.BuffOutpostCompatEnable,
+            config.DecisionAutonomySettings.NaviGoal.BuffOutpostCompatTimeoutSec);
         LoggerPtr->Debug(
             "AimTarget(enable, weights priority/distance/low_health/current_target, hold_ms/switch_ms/health_fresh_ms/dead_confirm_ms/dead_hold_ms/respawn_transition_ms/invuln_sec/sentry_invuln_sec): {}/{}/{}/{}/{}/{}/{}/{}/{}/{}/{}/{}/{}",
             config.DecisionAutonomySettings.AimTarget.Enable,
@@ -3639,6 +3670,11 @@ namespace BehaviorTree {
             LoggerPtr->Warning("Invalid DecisionAutonomy.NaviGoal.HighlandCompat.TimeoutSec={}, fallback to 6.",
                                autonomy.NaviGoal.HighlandCompatTimeoutSec);
             autonomy.NaviGoal.HighlandCompatTimeoutSec = 6;
+        }
+        if (autonomy.NaviGoal.BuffOutpostCompatTimeoutSec <= 0) {
+            LoggerPtr->Warning("Invalid DecisionAutonomy.NaviGoal.BuffOutpostCompat.TimeoutSec={}, fallback to 6.",
+                               autonomy.NaviGoal.BuffOutpostCompatTimeoutSec);
+            autonomy.NaviGoal.BuffOutpostCompatTimeoutSec = 6;
         }
         if (autonomy.NaviGoal.DistanceFallbackGraceMs < 0) {
             LoggerPtr->Warning("Invalid DecisionAutonomy.NaviGoal.DistanceFallbackGraceMs={}, fallback to 3000.",

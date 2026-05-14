@@ -109,6 +109,10 @@
                 "DisableRotate": true,
                 "ArriveDistanceCm": 20,
                 "TimeoutSec": 6
+            },
+            "BuffOutpostCompat": {
+                "Enable": true,
+                "TimeoutSec": 6
             }
         },
         "AimTarget": {

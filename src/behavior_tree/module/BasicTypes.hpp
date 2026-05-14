@@ -688,6 +688,8 @@ namespace LangYa
         bool HighlandCompatDisableRotate{false};
         int HighlandCompatArriveDistanceCm{20};
         int HighlandCompatTimeoutSec{6};
+        bool BuffOutpostCompatEnable{false};
+        int BuffOutpostCompatTimeoutSec{6};
         int DistanceFallbackGraceMs{3000};
     };
 

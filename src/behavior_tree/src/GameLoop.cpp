@@ -808,14 +808,14 @@ namespace BehaviorTree {
         static constexpr auto kPatrolScanYawStep = 9.0f * delta_yaw; //單向巡航每tick度數
         static constexpr auto kPatrolScanYawBoostStep = 10.0f * delta_yaw; //受擊加速
         static constexpr auto kPatrolScanPitchCenterDeg = 0.0f; //巡航pitch中心
-        static constexpr auto kPatrolScanPitchHalfRangeDeg = 12.0f; //巡航pitch上下半幅
+        static constexpr auto kPatrolScanPitchHalfRangeDeg = 17.0f; //巡航pitch上下半幅
         static constexpr auto kPatrolScanPitchPeriodMs = 500.0f; //巡航pitch完整波形週期
 
         static constexpr auto kPatrolSwingYawStep = 1.0f * delta_yaw; //雙向巡航每tick度數
         static constexpr auto kPatrolSwingYawBoostStep = 1.1f * delta_yaw; //受擊加速
         static constexpr auto kPatrolSwingHalfRangeDeg = 30.0f; // mode2: 左右擺頭半幅
         static constexpr auto kPatrolSwingCenterDriftPerCycleDeg = -70.0f; // mode2: 每完整左右掃一圈，中心點右偏角度
-        static constexpr auto kPatrolOutpostFallbackYawStep = 0.35f * delta_yaw; // mode3: 前哨fallback慢速單向掃
+        static constexpr auto kPatrolOutpostFallbackYawStep = 1.0f * delta_yaw; // mode3: 前哨fallback慢速單向掃
         static constexpr auto kPatrolOutpostFallbackPitchDeg = 15.0f; // mode3: 前哨fallback固定高位
         static constexpr auto kTwoPi = 6.2831853071795864769f;
         static constexpr int kDamageScanBoostWindowMs = 1300;
@@ -3165,7 +3165,7 @@ namespace BehaviorTree {
         const bool apply_team_offset,
         const char* reason) {
         if (areaManager_.HighlandTransitionActive() ||
-            !areaManager_.IsHighlandCompatEnabled() ||
+            !areaManager_.IsNaviAreaTransitionCompatEnabled() ||
             !AreaManager::IsValidBaseGoalId(base_goal_id) ||
             goal_team == UnitTeam::Unknown ||
             my_team == UnitTeam::Unknown) {
@@ -3178,6 +3178,8 @@ namespace BehaviorTree {
             apply_team_offset,
             naviCommandGoal,
             IsHighlandCompatArrived(goal_team),
+            IsBaseGoalArrived(LangYa::HoleRoad.ID, my_team, apply_team_offset),
+            IsBaseGoalArrived(LangYa::BuffOutpost.ID, my_team, apply_team_offset),
             IsSelfInMainArea(my_team, Area::MainAreaKind::Highland));
         if (!plan.has_value()) {
             return false;
@@ -4982,6 +4984,34 @@ namespace BehaviorTree {
             ? true
             : !disable_team_offset_for_debug;
         const auto recovery_goal_id = ResolveGoalId(LangYa::Recovery.ID, MyTeam, apply_team_offset);
+        auto set_recovery_position = [&](const char* reason) {
+            if (areaManager_.HighlandTransitionActive()) {
+                const auto& runtime = areaManager_.TransitionRuntime();
+                if (runtime.HasPendingGoal &&
+                    runtime.PendingBaseGoal == LangYa::Recovery.ID &&
+                    runtime.GoalTeam == MyTeam &&
+                    runtime.ApplyTeamOffset == apply_team_offset &&
+                    TickNaviAreaTransition()) {
+                    naviCommandIntervalClock.reset(Seconds{1});
+                    speedLevel = 1;
+                    return true;
+                }
+            }
+            if (TryStartNaviAreaTransition(
+                    LangYa::Recovery.ID,
+                    MyTeam,
+                    MyTeam,
+                    apply_team_offset,
+                    reason)) {
+                naviCommandIntervalClock.reset(Seconds{1});
+                speedLevel = 1;
+                return true;
+            }
+            SetPositionByBaseGoal(LangYa::Recovery.ID, MyTeam, apply_team_offset);
+            naviCommandIntervalClock.reset(Seconds{1});
+            speedLevel = 1;
+            return true;
+        };
         if (IsLeagueProfile()) {
             // 联赛回补策略核心：
             // - 以裁判输入（自身血量/弹药）作为唯一触发源
@@ -5114,9 +5144,7 @@ namespace BehaviorTree {
                         "recovery_2_3_switch");
                     return true;
                 }
-                SetPositionByBaseGoal(LangYa::Recovery.ID, MyTeam, apply_team_offset);
-                naviCommandIntervalClock.reset(Seconds{1});
-                return true;
+                return set_recovery_position("league_recovery");
             }
 
             if (naviCommandGoal == recovery_goal_id &&
@@ -5140,9 +5168,7 @@ namespace BehaviorTree {
                         "recovery_2_3_switch");
                     return true;
                 }
-                SetPositionByBaseGoal(LangYa::Recovery.ID, MyTeam, apply_team_offset);
-                naviCommandIntervalClock.reset(Seconds{1});
-                return true;
+                return set_recovery_position("league_recovery");
             }
             return false;
         }
@@ -5193,6 +5219,31 @@ namespace BehaviorTree {
         auto tick_regional_recovery_position = [&]() {
             if (!config.NaviSettings.UseXY && regionalRecoveryProbeActive_) {
                 reset_regional_recovery_probe();
+            }
+            if (!regionalRecoveryProbeActive_) {
+                if (areaManager_.HighlandTransitionActive()) {
+                    const auto& runtime = areaManager_.TransitionRuntime();
+                    if (runtime.HasPendingGoal &&
+                        runtime.PendingBaseGoal == LangYa::Recovery.ID &&
+                        runtime.GoalTeam == MyTeam &&
+                        runtime.ApplyTeamOffset == apply_team_offset &&
+                        TickNaviAreaTransition()) {
+                        naviCommandIntervalClock.reset(Seconds{1});
+                        speedLevel = 1;
+                        return true;
+                    }
+                }
+                if (naviCommandGoal != recovery_goal_id &&
+                    TryStartNaviAreaTransition(
+                        LangYa::Recovery.ID,
+                        MyTeam,
+                        MyTeam,
+                        apply_team_offset,
+                        "regional_recovery")) {
+                    naviCommandIntervalClock.reset(Seconds{1});
+                    speedLevel = 1;
+                    return true;
+                }
             }
             Area::Point<std::uint16_t> target_position = recovery_default_position;
             if (config.NaviSettings.UseXY &&
