@@ -23,10 +23,10 @@ behavior_tree:
         # 未收到 op_hp 時會短時切到外部 aim 前哨目標去 BuffOutpost 偵查。
         # 若沒有收到 /ly/aim/result 的有效前哨結果，非開局窗口會超時並冷卻，避免長時間卡前哨任務。
         VisualScoutWithoutHp: true
-        VisualScoutHoldMs:  50000
+        VisualScoutHoldMs: 50000
         VisualScoutCooldownMs: 15000
-        # 接近 BuffOutpost 的參考距離；正式前哨 FaceMode/no-target timeout 到點後才開始。
-        VisualScoutFaceDistanceCm: 300
+        # 接近 BuffOutpost 的參考距離；0 表示不提前 FaceMode，只在 reached BuffOutpost 後開始。
+        VisualScoutFaceDistanceCm: 200
         # 開局窗口後，允許低優先級週期回 BuffOutpost 短暫看前哨；會讓回防/戰術任務先做。
         PostWindowScoutEnable: true
         PostWindowScoutIntervalSec: 60
