@@ -559,6 +559,47 @@ namespace LangYa {
 
     void from_json(const json& j, PatrolScanSetting& ps) {
         ps.Mode = j.value("Mode", ps.Mode);
+        if (j.contains("Mode1") && j.at("Mode1").is_object()) {
+            const auto& mode = j.at("Mode1");
+            ps.Mode1YawStepDegPerTick =
+                mode.value("YawStepDegPerTick", ps.Mode1YawStepDegPerTick);
+            ps.Mode1YawBoostStepDegPerTick =
+                mode.value("YawBoostStepDegPerTick", ps.Mode1YawBoostStepDegPerTick);
+            ps.Mode1PitchCenterDeg =
+                mode.value("PitchCenterDeg", ps.Mode1PitchCenterDeg);
+            ps.Mode1PitchHalfRangeDeg =
+                mode.value("PitchHalfRangeDeg", ps.Mode1PitchHalfRangeDeg);
+            ps.Mode1PitchPeriodMs =
+                mode.value("PitchPeriodMs", ps.Mode1PitchPeriodMs);
+        }
+        if (j.contains("Mode2") && j.at("Mode2").is_object()) {
+            const auto& mode = j.at("Mode2");
+            ps.Mode2YawStepDegPerTick =
+                mode.value("YawStepDegPerTick", ps.Mode2YawStepDegPerTick);
+            ps.Mode2YawBoostStepDegPerTick =
+                mode.value("YawBoostStepDegPerTick", ps.Mode2YawBoostStepDegPerTick);
+            ps.Mode2YawHalfRangeDeg =
+                mode.value("YawHalfRangeDeg", ps.Mode2YawHalfRangeDeg);
+            ps.Mode2CenterDriftPerCycleDeg =
+                mode.value("CenterDriftPerCycleDeg", ps.Mode2CenterDriftPerCycleDeg);
+            ps.Mode2PitchCenterDeg =
+                mode.value("PitchCenterDeg", ps.Mode2PitchCenterDeg);
+            ps.Mode2PitchHalfRangeDeg =
+                mode.value("PitchHalfRangeDeg", ps.Mode2PitchHalfRangeDeg);
+            ps.Mode2PitchPeriodMs =
+                mode.value("PitchPeriodMs", ps.Mode2PitchPeriodMs);
+        }
+        if (j.contains("Mode3") && j.at("Mode3").is_object()) {
+            const auto& mode = j.at("Mode3");
+            ps.Mode3YawStepDegPerTick =
+                mode.value("YawStepDegPerTick", ps.Mode3YawStepDegPerTick);
+            ps.Mode3PitchOffsetDeg =
+                mode.value("PitchOffsetDeg", ps.Mode3PitchOffsetDeg);
+            ps.Mode3PitchHalfRangeDeg =
+                mode.value("PitchHalfRangeDeg", ps.Mode3PitchHalfRangeDeg);
+            ps.Mode3PitchPeriodMs =
+                mode.value("PitchPeriodMs", ps.Mode3PitchPeriodMs);
+        }
     }
 
     void from_json(const json& j, Rate& r) {
@@ -1789,6 +1830,84 @@ namespace BehaviorTree {
         }
     }
 
+    void Application::ApplyPatrolScanParameterOverrides() {
+        auto& setting = config.PatrolScanSettings;
+        ReadOptionalIntParam(
+            node_,
+            {
+                "PatrolScan.Mode",
+                "PatrolScan/Mode"
+            },
+            setting.Mode);
+
+        ReadOptionalDoubleParam(
+            node_,
+            {"PatrolScan.Mode1.YawStepDegPerTick", "PatrolScan/Mode1/YawStepDegPerTick"},
+            setting.Mode1YawStepDegPerTick);
+        ReadOptionalDoubleParam(
+            node_,
+            {"PatrolScan.Mode1.YawBoostStepDegPerTick", "PatrolScan/Mode1/YawBoostStepDegPerTick"},
+            setting.Mode1YawBoostStepDegPerTick);
+        ReadOptionalDoubleParam(
+            node_,
+            {"PatrolScan.Mode1.PitchCenterDeg", "PatrolScan/Mode1/PitchCenterDeg"},
+            setting.Mode1PitchCenterDeg);
+        ReadOptionalDoubleParam(
+            node_,
+            {"PatrolScan.Mode1.PitchHalfRangeDeg", "PatrolScan/Mode1/PitchHalfRangeDeg"},
+            setting.Mode1PitchHalfRangeDeg);
+        ReadOptionalDoubleParam(
+            node_,
+            {"PatrolScan.Mode1.PitchPeriodMs", "PatrolScan/Mode1/PitchPeriodMs"},
+            setting.Mode1PitchPeriodMs);
+
+        ReadOptionalDoubleParam(
+            node_,
+            {"PatrolScan.Mode2.YawStepDegPerTick", "PatrolScan/Mode2/YawStepDegPerTick"},
+            setting.Mode2YawStepDegPerTick);
+        ReadOptionalDoubleParam(
+            node_,
+            {"PatrolScan.Mode2.YawBoostStepDegPerTick", "PatrolScan/Mode2/YawBoostStepDegPerTick"},
+            setting.Mode2YawBoostStepDegPerTick);
+        ReadOptionalDoubleParam(
+            node_,
+            {"PatrolScan.Mode2.YawHalfRangeDeg", "PatrolScan/Mode2/YawHalfRangeDeg"},
+            setting.Mode2YawHalfRangeDeg);
+        ReadOptionalDoubleParam(
+            node_,
+            {"PatrolScan.Mode2.CenterDriftPerCycleDeg", "PatrolScan/Mode2/CenterDriftPerCycleDeg"},
+            setting.Mode2CenterDriftPerCycleDeg);
+        ReadOptionalDoubleParam(
+            node_,
+            {"PatrolScan.Mode2.PitchCenterDeg", "PatrolScan/Mode2/PitchCenterDeg"},
+            setting.Mode2PitchCenterDeg);
+        ReadOptionalDoubleParam(
+            node_,
+            {"PatrolScan.Mode2.PitchHalfRangeDeg", "PatrolScan/Mode2/PitchHalfRangeDeg"},
+            setting.Mode2PitchHalfRangeDeg);
+        ReadOptionalDoubleParam(
+            node_,
+            {"PatrolScan.Mode2.PitchPeriodMs", "PatrolScan/Mode2/PitchPeriodMs"},
+            setting.Mode2PitchPeriodMs);
+
+        ReadOptionalDoubleParam(
+            node_,
+            {"PatrolScan.Mode3.YawStepDegPerTick", "PatrolScan/Mode3/YawStepDegPerTick"},
+            setting.Mode3YawStepDegPerTick);
+        ReadOptionalDoubleParam(
+            node_,
+            {"PatrolScan.Mode3.PitchOffsetDeg", "PatrolScan/Mode3/PitchOffsetDeg"},
+            setting.Mode3PitchOffsetDeg);
+        ReadOptionalDoubleParam(
+            node_,
+            {"PatrolScan.Mode3.PitchHalfRangeDeg", "PatrolScan/Mode3/PitchHalfRangeDeg"},
+            setting.Mode3PitchHalfRangeDeg);
+        ReadOptionalDoubleParam(
+            node_,
+            {"PatrolScan.Mode3.PitchPeriodMs", "PatrolScan/Mode3/PitchPeriodMs"},
+            setting.Mode3PitchPeriodMs);
+    }
+
     void Application::ApplyStartGateParameterOverrides() {
         auto& setting = config.StartGateSettings;
         ReadOptionalBoolParam(
@@ -2401,6 +2520,7 @@ namespace BehaviorTree {
         ApplyStartGateParameterOverrides();
         ApplyNaviRotateControlParameterOverrides();
         ApplyPointManagerParameterOverrides();
+        ApplyPatrolScanParameterOverrides();
         ApplyFaceModeParameterOverrides();
         ApplyExternalAimParameterOverrides();
         LoggerPtr->Debug("Switch_Point: {}", config.SwitchPoint);
@@ -2416,6 +2536,28 @@ namespace BehaviorTree {
         LoggerPtr->Debug("LatchedTargetHoldMs: {}", config.AimDebugSettings.LatchedTargetHoldMs);
         LoggerPtr->Debug("------ PatrolScan ------");
         LoggerPtr->Debug("Mode: {}", config.PatrolScanSettings.Mode);
+        LoggerPtr->Debug(
+            "Mode1: yaw_step={} yaw_boost_step={} pitch_center={} pitch_half_range={} pitch_period_ms={}",
+            config.PatrolScanSettings.Mode1YawStepDegPerTick,
+            config.PatrolScanSettings.Mode1YawBoostStepDegPerTick,
+            config.PatrolScanSettings.Mode1PitchCenterDeg,
+            config.PatrolScanSettings.Mode1PitchHalfRangeDeg,
+            config.PatrolScanSettings.Mode1PitchPeriodMs);
+        LoggerPtr->Debug(
+            "Mode2: yaw_step={} yaw_boost_step={} yaw_half_range={} center_drift_per_cycle={} pitch_center={} pitch_half_range={} pitch_period_ms={}",
+            config.PatrolScanSettings.Mode2YawStepDegPerTick,
+            config.PatrolScanSettings.Mode2YawBoostStepDegPerTick,
+            config.PatrolScanSettings.Mode2YawHalfRangeDeg,
+            config.PatrolScanSettings.Mode2CenterDriftPerCycleDeg,
+            config.PatrolScanSettings.Mode2PitchCenterDeg,
+            config.PatrolScanSettings.Mode2PitchHalfRangeDeg,
+            config.PatrolScanSettings.Mode2PitchPeriodMs);
+        LoggerPtr->Debug(
+            "Mode3: yaw_step={} pitch_offset={} pitch_half_range={} pitch_period_ms={}",
+            config.PatrolScanSettings.Mode3YawStepDegPerTick,
+            config.PatrolScanSettings.Mode3PitchOffsetDeg,
+            config.PatrolScanSettings.Mode3PitchHalfRangeDeg,
+            config.PatrolScanSettings.Mode3PitchPeriodMs);
         LoggerPtr->Debug("------ Rate ------");
         LoggerPtr->Debug("FireRate: {}", config.RateSettings.FireRate);
         LoggerPtr->Debug("TickRate: {}", config.RateSettings.TreeTickRate);
@@ -3520,6 +3662,57 @@ namespace BehaviorTree {
                 config.FaceModeSettings.OutpostFallbackPatrolScanMode);
             config.FaceModeSettings.OutpostFallbackPatrolScanMode = 3;
         }
+        auto& patrol = config.PatrolScanSettings;
+        auto sanitize_positive_double = [this](double& value, const double fallback, const char* key) {
+            if (!std::isfinite(value) || value <= 0.0) {
+                LoggerPtr->Warning("Invalid {}={}, fallback to {}.", key, value, fallback);
+                value = fallback;
+            }
+        };
+        auto sanitize_non_negative_double = [this](double& value, const double fallback, const char* key) {
+            if (!std::isfinite(value) || value < 0.0) {
+                LoggerPtr->Warning("Invalid {}={}, fallback to {}.", key, value, fallback);
+                value = fallback;
+            }
+        };
+        auto sanitize_finite_double = [this](double& value, const double fallback, const char* key) {
+            if (!std::isfinite(value)) {
+                LoggerPtr->Warning("Invalid {}={}, fallback to {}.", key, value, fallback);
+                value = fallback;
+            }
+        };
+        sanitize_positive_double(
+            patrol.Mode1YawStepDegPerTick, 9.0, "PatrolScan.Mode1.YawStepDegPerTick");
+        sanitize_positive_double(
+            patrol.Mode1YawBoostStepDegPerTick, 10.0, "PatrolScan.Mode1.YawBoostStepDegPerTick");
+        sanitize_finite_double(
+            patrol.Mode1PitchCenterDeg, 0.0, "PatrolScan.Mode1.PitchCenterDeg");
+        sanitize_non_negative_double(
+            patrol.Mode1PitchHalfRangeDeg, 13.0, "PatrolScan.Mode1.PitchHalfRangeDeg");
+        sanitize_positive_double(
+            patrol.Mode1PitchPeriodMs, 500.0, "PatrolScan.Mode1.PitchPeriodMs");
+        sanitize_positive_double(
+            patrol.Mode2YawStepDegPerTick, 1.0, "PatrolScan.Mode2.YawStepDegPerTick");
+        sanitize_positive_double(
+            patrol.Mode2YawBoostStepDegPerTick, 1.1, "PatrolScan.Mode2.YawBoostStepDegPerTick");
+        sanitize_positive_double(
+            patrol.Mode2YawHalfRangeDeg, 30.0, "PatrolScan.Mode2.YawHalfRangeDeg");
+        sanitize_finite_double(
+            patrol.Mode2CenterDriftPerCycleDeg, -70.0, "PatrolScan.Mode2.CenterDriftPerCycleDeg");
+        sanitize_finite_double(
+            patrol.Mode2PitchCenterDeg, 0.0, "PatrolScan.Mode2.PitchCenterDeg");
+        sanitize_non_negative_double(
+            patrol.Mode2PitchHalfRangeDeg, 13.0, "PatrolScan.Mode2.PitchHalfRangeDeg");
+        sanitize_positive_double(
+            patrol.Mode2PitchPeriodMs, 500.0, "PatrolScan.Mode2.PitchPeriodMs");
+        sanitize_positive_double(
+            patrol.Mode3YawStepDegPerTick, 1.0, "PatrolScan.Mode3.YawStepDegPerTick");
+        sanitize_finite_double(
+            patrol.Mode3PitchOffsetDeg, 15.0, "PatrolScan.Mode3.PitchOffsetDeg");
+        sanitize_non_negative_double(
+            patrol.Mode3PitchHalfRangeDeg, 3.0, "PatrolScan.Mode3.PitchHalfRangeDeg");
+        sanitize_positive_double(
+            patrol.Mode3PitchPeriodMs, 500.0, "PatrolScan.Mode3.PitchPeriodMs");
 
         const std::vector<int> default_aim_target_priority{
             static_cast<int>(ArmorType::Hero),

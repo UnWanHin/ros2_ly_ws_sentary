@@ -805,18 +805,7 @@ namespace BehaviorTree {
         int now_time = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - gameStartTime).count();
         static constexpr auto delta_yaw = 1.0f; //bt每tick單位
         static constexpr auto buff_yaw = -50.0f + 360.0f;
-        static constexpr auto kPatrolScanYawStep = 9.0f * delta_yaw; //單向巡航每tick度數
-        static constexpr auto kPatrolScanYawBoostStep = 10.0f * delta_yaw; //受擊加速
-        static constexpr auto kPatrolScanPitchCenterDeg = 0.0f; //巡航pitch中心
-        static constexpr auto kPatrolScanPitchHalfRangeDeg = 17.0f; //巡航pitch上下半幅
-        static constexpr auto kPatrolScanPitchPeriodMs = 500.0f; //巡航pitch完整波形週期
-
-        static constexpr auto kPatrolSwingYawStep = 1.0f * delta_yaw; //雙向巡航每tick度數
-        static constexpr auto kPatrolSwingYawBoostStep = 1.1f * delta_yaw; //受擊加速
-        static constexpr auto kPatrolSwingHalfRangeDeg = 30.0f; // mode2: 左右擺頭半幅
-        static constexpr auto kPatrolSwingCenterDriftPerCycleDeg = -70.0f; // mode2: 每完整左右掃一圈，中心點右偏角度
-        static constexpr auto kPatrolOutpostFallbackYawStep = 1.0f * delta_yaw; // mode3: 前哨fallback慢速單向掃
-        static constexpr auto kPatrolOutpostFallbackPitchDeg = 15.0f; // mode3: 前哨fallback固定高位
+        const auto& patrol_scan = config.PatrolScanSettings;
         static constexpr auto kTwoPi = 6.2831853071795864769f;
         static constexpr int kDamageScanBoostWindowMs = 1300;
         static constexpr int kDamageScanYawPhaseMs = 160;
@@ -1138,13 +1127,15 @@ namespace BehaviorTree {
                         aimMode == AimMode::RotateScan &&
                         damage_rotate_elapsed_ms >= 0 &&
                         damage_rotate_elapsed_ms <= kDamageScanBoostWindowMs;
-                    float yaw_scan_step = boost_patrol_scan
-                        ? kPatrolScanYawBoostStep
-                        : kPatrolScanYawStep;
+                    float yaw_scan_step = static_cast<float>(boost_patrol_scan
+                        ? patrol_scan.Mode1YawBoostStepDegPerTick
+                        : patrol_scan.Mode1YawStepDegPerTick);
                     int yaw_scan_direction = 1;
 
                     if (patrol_mode == 2) {
-                        yaw_scan_step = boost_patrol_scan ? kPatrolSwingYawBoostStep : kPatrolSwingYawStep;
+                        yaw_scan_step = static_cast<float>(boost_patrol_scan
+                            ? patrol_scan.Mode2YawBoostStepDegPerTick
+                            : patrol_scan.Mode2YawStepDegPerTick);
 
                         if (!patrolScanCenterInitialized_ || patrolScanActiveMode_ != patrol_mode) {
                             patrolScanCenterInitialized_ = true;
@@ -1155,10 +1146,11 @@ namespace BehaviorTree {
                             patrolScanDirection_ = 1; // 新一轮巡逻默认先向右
                         }
 
-                        const float half_range = kPatrolSwingHalfRangeDeg;
+                        const float half_range = static_cast<float>(patrol_scan.Mode2YawHalfRangeDeg);
                         const float phase_step = yaw_scan_step / std::max(half_range, 1.0f);
                         const float center_drift_step =
-                            kPatrolSwingCenterDriftPerCycleDeg * phase_step / kTwoPi;
+                            static_cast<float>(patrol_scan.Mode2CenterDriftPerCycleDeg) *
+                            phase_step / kTwoPi;
 
                         // mode2: 讓中心點每完成一個正弦掃描週期固定右偏同樣角度。
                         patrolScanCenterYaw_ = normalize_angle_near(
@@ -1173,7 +1165,7 @@ namespace BehaviorTree {
                         }
                         yaw_scan_direction = patrolScanDirection_;
                     } else if (patrol_mode == 3) {
-                        yaw_scan_step = kPatrolOutpostFallbackYawStep;
+                        yaw_scan_step = static_cast<float>(patrol_scan.Mode3YawStepDegPerTick);
                         if (patrolScanActiveMode_ != patrol_mode || patrolScanCenterInitialized_) {
                             reset_patrol_scan_state();
                             patrolScanActiveMode_ = patrol_mode;
@@ -1207,17 +1199,28 @@ namespace BehaviorTree {
                     const auto pitch_elapsed_ms = static_cast<float>(
                         std::chrono::duration_cast<std::chrono::milliseconds>(
                             current_time - gameStartTime).count());
-                    const float next_scan_pitch = patrol_mode == 3
-                        ? kPatrolOutpostFallbackPitchDeg
-                        : kPatrolScanPitchCenterDeg +
-                            kPatrolScanPitchHalfRangeDeg *
-                                std::sin(pitch_elapsed_ms * kTwoPi / std::max(kPatrolScanPitchPeriodMs, 1.0f));
+                    float pitch_center = static_cast<float>(patrol_scan.Mode1PitchCenterDeg);
+                    float pitch_half_range = static_cast<float>(patrol_scan.Mode1PitchHalfRangeDeg);
+                    float pitch_period_ms = static_cast<float>(patrol_scan.Mode1PitchPeriodMs);
+                    if (patrol_mode == 2) {
+                        pitch_center = static_cast<float>(patrol_scan.Mode2PitchCenterDeg);
+                        pitch_half_range = static_cast<float>(patrol_scan.Mode2PitchHalfRangeDeg);
+                        pitch_period_ms = static_cast<float>(patrol_scan.Mode2PitchPeriodMs);
+                    } else if (patrol_mode == 3) {
+                        pitch_center = static_cast<float>(patrol_scan.Mode3PitchOffsetDeg);
+                        pitch_half_range = static_cast<float>(patrol_scan.Mode3PitchHalfRangeDeg);
+                        pitch_period_ms = static_cast<float>(patrol_scan.Mode3PitchPeriodMs);
+                    }
+                    const float next_scan_pitch =
+                        pitch_center +
+                        pitch_half_range *
+                            std::sin(pitch_elapsed_ms * kTwoPi / std::max(pitch_period_ms, 1.0f));
                     nextAngles = GimbalAnglesType{
                         static_cast<AngleType>(next_scan_yaw),
                         static_cast<AngleType>(next_scan_pitch)
                     };
 
-                    if (aimMode == AimMode::Outpost && patrol_mode != 3) {
+                    if (aimMode == AimMode::Outpost) {
                         nextAngles.Pitch += 15.0f;
                     }
                 } else {

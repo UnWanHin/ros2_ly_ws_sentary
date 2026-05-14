@@ -741,6 +741,7 @@ public:
     void ApplyStartGateParameterOverrides();
     void ApplyNaviRotateControlParameterOverrides();
     void ApplyPointManagerParameterOverrides();
+    void ApplyPatrolScanParameterOverrides();
     void ApplyFaceModeParameterOverrides();
     void ApplyExternalAimParameterOverrides();
     bool InitDecisionTrace();

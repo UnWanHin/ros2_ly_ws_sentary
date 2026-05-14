@@ -25,6 +25,7 @@ def generate_launch_description():
     default_task_config_file = os.path.join(config_root, "OutpostRegionalTest.yaml")
     default_navi_rotate_config_file = os.path.join(config_root, "NaviRotateControl.yaml")
     default_point_manager_config_file = os.path.join(config_root, "PointManager.yaml")
+    default_patrol_config_file = os.path.join(config_root, "Patrol.yaml")
     default_special_config_file = os.path.join(config_root, "Special.yaml")
 
     launch_args = [
@@ -36,6 +37,7 @@ def generate_launch_description():
         DeclareLaunchArgument("task_config_file", default_value=default_task_config_file),
         DeclareLaunchArgument("navi_rotate_config_file", default_value=default_navi_rotate_config_file),
         DeclareLaunchArgument("point_manager_config_file", default_value=default_point_manager_config_file),
+        DeclareLaunchArgument("patrol_config_file", default_value=default_patrol_config_file),
         DeclareLaunchArgument("special_config_file", default_value=default_special_config_file),
         DeclareLaunchArgument("output", default_value="screen"),
         DeclareLaunchArgument("offline", default_value="false"),
@@ -83,6 +85,7 @@ def generate_launch_description():
             "task_config_file": LaunchConfiguration("task_config_file"),
             "navi_rotate_config_file": LaunchConfiguration("navi_rotate_config_file"),
             "point_manager_config_file": LaunchConfiguration("point_manager_config_file"),
+            "patrol_config_file": LaunchConfiguration("patrol_config_file"),
             "special_config_file": LaunchConfiguration("special_config_file"),
             "output": LaunchConfiguration("output"),
             "offline": LaunchConfiguration("offline"),

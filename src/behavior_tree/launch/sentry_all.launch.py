@@ -274,6 +274,7 @@ def generate_launch_description():
     default_task_config_file = os.path.join(behavior_tree_config_root, "Task.yaml")
     default_navi_rotate_config_file = os.path.join(behavior_tree_config_root, "NaviRotateControl.yaml")
     default_point_manager_config_file = os.path.join(behavior_tree_config_root, "PointManager.yaml")
+    default_patrol_config_file = os.path.join(behavior_tree_config_root, "Patrol.yaml")
     default_special_config_file = os.path.join(behavior_tree_config_root, "Special.yaml")
 
     mode = LaunchConfiguration("mode")
@@ -283,6 +284,7 @@ def generate_launch_description():
     task_config_file = LaunchConfiguration("task_config_file")
     navi_rotate_config_file = LaunchConfiguration("navi_rotate_config_file")
     point_manager_config_file = LaunchConfiguration("point_manager_config_file")
+    patrol_config_file = LaunchConfiguration("patrol_config_file")
     special_config_file = LaunchConfiguration("special_config_file")
     base_config_file = LaunchConfiguration("base_config_file")
     output = LaunchConfiguration("output")
@@ -418,6 +420,11 @@ def generate_launch_description():
             "point_manager_config_file",
             default_value=default_point_manager_config_file,
             description="Navigation point default rotate gear YAML for behavior_tree.",
+        ),
+        DeclareLaunchArgument(
+            "patrol_config_file",
+            default_value=default_patrol_config_file,
+            description="Gimbal patrol scan YAML for behavior_tree.",
         ),
         DeclareLaunchArgument(
             "special_config_file",
@@ -685,6 +692,7 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] task_config: ", task_config_file]),
         LogInfo(msg=["[sentry_all] navi_rotate_config: ", navi_rotate_config_file]),
         LogInfo(msg=["[sentry_all] point_manager_config: ", point_manager_config_file]),
+        LogInfo(msg=["[sentry_all] patrol_config: ", patrol_config_file]),
         LogInfo(msg=["[sentry_all] special_config: ", special_config_file]),
         LogInfo(msg=["[sentry_all] output: ", output]),
         LogInfo(msg=["[sentry_all] offline: ", offline]),
@@ -1095,6 +1103,7 @@ def generate_launch_description():
                 task_config_file,
                 navi_rotate_config_file,
                 point_manager_config_file,
+                patrol_config_file,
                 special_config_file,
                 {
                     "competition_profile": resolved_competition_profile,

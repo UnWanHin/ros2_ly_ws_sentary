@@ -5,7 +5,7 @@ behavior_tree:
       Area:
         # true: going to BuffOutpost first routes through HoleRoad; leaving BuffOutpost to other own goals also routes through HoleRoad.
         BuffOutpostCompat:
-          Enable: true
+          Enable: false
           TimeoutSec: 6
       SentryPositionFusion:
         Enable: true

@@ -11,14 +11,6 @@ using namespace LangYa;
 namespace BehaviorTree {
     namespace {
     constexpr float kGatePatrolTwoPi = 6.2831853071795864769f;
-    constexpr float kGatePatrolScanYawStepDeg = 9.0f;
-    constexpr float kGatePatrolSwingYawStepDeg = 1.0f;
-    constexpr float kGatePatrolSwingHalfRangeDeg = 30.0f;
-    constexpr float kGatePatrolOutpostYawStepDeg = 1.0f;
-    constexpr float kGatePatrolOutpostPitchDeg = 17.0f;
-    constexpr float kGatePatrolPitchCenterDeg = 0.0f;
-    constexpr float kGatePatrolPitchHalfRangeDeg = 12.0f;
-    constexpr float kGatePatrolPitchPeriodMs = 500.0f;
 
     float NormalizeGatePatrolAngleNear(const float angle, const float reference) {
         return reference + static_cast<float>(std::remainder(angle - reference, 360.0f));
@@ -111,21 +103,26 @@ namespace BehaviorTree {
                 }
 
                 const int patrol_mode = config.PatrolScanSettings.Mode;
+                const auto& patrol_scan = config.PatrolScanSettings;
                 float next_yaw = gate_patrol_last_yaw;
                 if (patrol_mode == 2) {
+                    const float half_range = static_cast<float>(patrol_scan.Mode2YawHalfRangeDeg);
                     const float phase_step =
-                        kGatePatrolSwingYawStepDeg / std::max(kGatePatrolSwingHalfRangeDeg, 1.0f);
+                        static_cast<float>(patrol_scan.Mode2YawStepDegPerTick) /
+                        std::max(half_range, 1.0f);
                     gate_patrol_phase_rad = std::fmod(gate_patrol_phase_rad + phase_step, kGatePatrolTwoPi);
                     if (gate_patrol_phase_rad < 0.0f) {
                         gate_patrol_phase_rad += kGatePatrolTwoPi;
                     }
                     next_yaw = NormalizeGatePatrolAngleNear(
                         gate_patrol_center_yaw +
-                            kGatePatrolSwingHalfRangeDeg * std::sin(gate_patrol_phase_rad),
+                            half_range * std::sin(gate_patrol_phase_rad),
                         gimbalAngles.Yaw);
                 } else {
                     const float yaw_step =
-                        patrol_mode == 3 ? kGatePatrolOutpostYawStepDeg : kGatePatrolScanYawStepDeg;
+                        patrol_mode == 3
+                            ? static_cast<float>(patrol_scan.Mode3YawStepDegPerTick)
+                            : static_cast<float>(patrol_scan.Mode1YawStepDegPerTick);
                     next_yaw = NormalizeGatePatrolAngleNear(
                         gate_patrol_last_yaw + yaw_step,
                         gimbalAngles.Yaw);
@@ -135,13 +132,24 @@ namespace BehaviorTree {
                 const float pitch_elapsed_ms = static_cast<float>(
                     std::chrono::duration_cast<std::chrono::milliseconds>(
                         now_steady - wait_begin).count());
-                const float next_pitch = patrol_mode == 3
-                    ? kGatePatrolOutpostPitchDeg
-                    : kGatePatrolPitchCenterDeg +
-                        kGatePatrolPitchHalfRangeDeg *
-                            std::sin(
-                                pitch_elapsed_ms * kGatePatrolTwoPi /
-                                std::max(kGatePatrolPitchPeriodMs, 1.0f));
+                float pitch_center = static_cast<float>(patrol_scan.Mode1PitchCenterDeg);
+                float pitch_half_range = static_cast<float>(patrol_scan.Mode1PitchHalfRangeDeg);
+                float pitch_period_ms = static_cast<float>(patrol_scan.Mode1PitchPeriodMs);
+                if (patrol_mode == 2) {
+                    pitch_center = static_cast<float>(patrol_scan.Mode2PitchCenterDeg);
+                    pitch_half_range = static_cast<float>(patrol_scan.Mode2PitchHalfRangeDeg);
+                    pitch_period_ms = static_cast<float>(patrol_scan.Mode2PitchPeriodMs);
+                } else if (patrol_mode == 3) {
+                    pitch_center = static_cast<float>(patrol_scan.Mode3PitchOffsetDeg);
+                    pitch_half_range = static_cast<float>(patrol_scan.Mode3PitchHalfRangeDeg);
+                    pitch_period_ms = static_cast<float>(patrol_scan.Mode3PitchPeriodMs);
+                }
+                const float next_pitch =
+                    pitch_center +
+                    pitch_half_range *
+                        std::sin(
+                            pitch_elapsed_ms * kGatePatrolTwoPi /
+                            std::max(pitch_period_ms, 1.0f));
                 gimbalControlData.GimbalAngles = GimbalAnglesType{
                     static_cast<AngleType>(next_yaw),
                     static_cast<AngleType>(next_pitch)};

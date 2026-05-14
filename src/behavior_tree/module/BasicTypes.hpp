@@ -444,6 +444,22 @@ namespace LangYa
     // 巡逻扫描配置
     struct PatrolScanSetting {
         int Mode{1}; // 1=原始单向/受击抖扫, 2=左右摆头, 3=慢速高位单向扫
+        double Mode1YawStepDegPerTick{9.0};
+        double Mode1YawBoostStepDegPerTick{10.0};
+        double Mode1PitchCenterDeg{0.0};
+        double Mode1PitchHalfRangeDeg{13.0};
+        double Mode1PitchPeriodMs{500.0};
+        double Mode2YawStepDegPerTick{1.0};
+        double Mode2YawBoostStepDegPerTick{1.1};
+        double Mode2YawHalfRangeDeg{30.0};
+        double Mode2CenterDriftPerCycleDeg{-70.0};
+        double Mode2PitchCenterDeg{0.0};
+        double Mode2PitchHalfRangeDeg{13.0};
+        double Mode2PitchPeriodMs{500.0};
+        double Mode3YawStepDegPerTick{1.0};
+        double Mode3PitchOffsetDeg{15.0};
+        double Mode3PitchHalfRangeDeg{3.0};
+        double Mode3PitchPeriodMs{500.0};
     };
 
     // 频率相关
