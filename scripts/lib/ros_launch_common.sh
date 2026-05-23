@@ -6,7 +6,7 @@
 
 
 source_optional_sentry_msgs() {
-  if ros2 pkg prefix sentry_msgs >/dev/null 2>&1; then
+  if ros2 pkg prefix sentry_msgs >/dev/null 2>&1 && sentry_msgs_aim_result_has_follow; then
     return 0
   fi
 
@@ -32,7 +32,7 @@ source_optional_sentry_msgs() {
       # shellcheck disable=SC1090
       source "${setup_file}"
       set -u
-      if ros2 pkg prefix sentry_msgs >/dev/null 2>&1; then
+      if ros2 pkg prefix sentry_msgs >/dev/null 2>&1 && sentry_msgs_aim_result_has_follow; then
         echo "[INFO] sourced sentry_msgs: ${setup_file}" >&2
         return 0
       fi
@@ -58,7 +58,9 @@ launch_arg_bool_is_false() {
 }
 
 sentry_msgs_aim_result_has_follow() {
-  ros2 interface show sentry_msgs/msg/AimResult 2>/dev/null | grep -Fxq "bool follow"
+  local interface_text
+  interface_text="$(ros2 interface show sentry_msgs/msg/AimResult 2>/dev/null)" || return 1
+  grep -Fxq "bool follow" <<< "${interface_text}"
 }
 
 require_sentry_msgs_for_behavior_tree() {

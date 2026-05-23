@@ -15,15 +15,15 @@ behavior_tree:
           RecentVisitPenaltySec: 30
         MyBase:
           # Seconds to stay after reaching the selected Base patrol goal before scoring the next one.
-          GoalHoldSec: 15
+          GoalHoldSec: 420
           Patrol:
             # Set a goal weight to 0 to disable that candidate. Scoring knobs are
             # shared under RegionalAreaTask.PatrolSelection.
             GoalWeights:
-              CastleLeft1: 9.0
-              CastleLeft2: 7.0
+              CastleLeft1: 6.0
+              CastleLeft2: 9.0
               CastleRight2: 8.0
               CastleRight1: 7.0
-              HoleRoad: 12.0
-              OutpostGuard: 16.0
-              BuffOutpost: 12.0
+              HoleRoad: 11.0
+              OutpostGuard: 12.0
+              BuffOutpost: 100.0

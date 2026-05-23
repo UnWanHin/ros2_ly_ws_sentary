@@ -3785,33 +3785,33 @@ namespace BehaviorTree {
         sanitize_positive_double(
             patrol.Mode1YawBoostStepDegPerTick, 10.0, "PatrolScan.Mode1.YawBoostStepDegPerTick");
         sanitize_finite_double(
-            patrol.Mode1PitchCenterDeg, 0.0, "PatrolScan.Mode1.PitchCenterDeg");
+            patrol.Mode1PitchCenterDeg, 5.0, "PatrolScan.Mode1.PitchCenterDeg");
         sanitize_non_negative_double(
-            patrol.Mode1PitchHalfRangeDeg, 13.0, "PatrolScan.Mode1.PitchHalfRangeDeg");
+            patrol.Mode1PitchHalfRangeDeg, 15.0, "PatrolScan.Mode1.PitchHalfRangeDeg");
         sanitize_positive_double(
-            patrol.Mode1PitchPeriodMs, 500.0, "PatrolScan.Mode1.PitchPeriodMs");
+            patrol.Mode1PitchPeriodMs, 2000.0, "PatrolScan.Mode1.PitchPeriodMs");
         sanitize_positive_double(
-            patrol.Mode2YawStepDegPerTick, 1.0, "PatrolScan.Mode2.YawStepDegPerTick");
+            patrol.Mode2YawStepDegPerTick, 0.3, "PatrolScan.Mode2.YawStepDegPerTick");
         sanitize_positive_double(
-            patrol.Mode2YawBoostStepDegPerTick, 1.1, "PatrolScan.Mode2.YawBoostStepDegPerTick");
+            patrol.Mode2YawBoostStepDegPerTick, 1.5, "PatrolScan.Mode2.YawBoostStepDegPerTick");
         sanitize_positive_double(
             patrol.Mode2YawHalfRangeDeg, 30.0, "PatrolScan.Mode2.YawHalfRangeDeg");
         sanitize_finite_double(
             patrol.Mode2CenterDriftPerCycleDeg, -70.0, "PatrolScan.Mode2.CenterDriftPerCycleDeg");
         sanitize_finite_double(
-            patrol.Mode2PitchCenterDeg, 0.0, "PatrolScan.Mode2.PitchCenterDeg");
+            patrol.Mode2PitchCenterDeg, 5.0, "PatrolScan.Mode2.PitchCenterDeg");
         sanitize_non_negative_double(
-            patrol.Mode2PitchHalfRangeDeg, 13.0, "PatrolScan.Mode2.PitchHalfRangeDeg");
+            patrol.Mode2PitchHalfRangeDeg, 15.0, "PatrolScan.Mode2.PitchHalfRangeDeg");
         sanitize_positive_double(
-            patrol.Mode2PitchPeriodMs, 500.0, "PatrolScan.Mode2.PitchPeriodMs");
+            patrol.Mode2PitchPeriodMs, 2000.0, "PatrolScan.Mode2.PitchPeriodMs");
         sanitize_positive_double(
-            patrol.Mode3YawStepDegPerTick, 1.0, "PatrolScan.Mode3.YawStepDegPerTick");
+            patrol.Mode3YawStepDegPerTick, 6.0, "PatrolScan.Mode3.YawStepDegPerTick");
         sanitize_finite_double(
-            patrol.Mode3PitchOffsetDeg, 15.0, "PatrolScan.Mode3.PitchOffsetDeg");
+            patrol.Mode3PitchOffsetDeg, 0.0, "PatrolScan.Mode3.PitchOffsetDeg");
         sanitize_non_negative_double(
-            patrol.Mode3PitchHalfRangeDeg, 3.0, "PatrolScan.Mode3.PitchHalfRangeDeg");
+            patrol.Mode3PitchHalfRangeDeg, 12.0, "PatrolScan.Mode3.PitchHalfRangeDeg");
         sanitize_positive_double(
-            patrol.Mode3PitchPeriodMs, 500.0, "PatrolScan.Mode3.PitchPeriodMs");
+            patrol.Mode3PitchPeriodMs, 2000.0, "PatrolScan.Mode3.PitchPeriodMs");
 
         const std::vector<int> default_aim_target_priority{
             static_cast<int>(ArmorType::Hero),

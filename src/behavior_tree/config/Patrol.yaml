@@ -9,25 +9,25 @@ behavior_tree:
         # Degrees added to yaw every BT tick. Actual angular speed also depends on Rate.TreeTickRate.
         YawStepDegPerTick: 9.0
         YawBoostStepDegPerTick: 10.0
-        PitchCenterDeg: 0.0
-        PitchHalfRangeDeg: 13.0
+        PitchCenterDeg: 5.0
+        PitchHalfRangeDeg: 15.0
         # Full pitch sine-wave period in milliseconds. Smaller = faster pitch movement.
-        PitchPeriodMs: 500.0
+        PitchPeriodMs: 2000.0
 
       Mode2:
         # Swing mode yaw/pitch scan.
-        YawStepDegPerTick: 1.0
-        YawBoostStepDegPerTick: 1.1
+        YawStepDegPerTick: 0.3
+        YawBoostStepDegPerTick: 1.5
         YawHalfRangeDeg: 30.0
         CenterDriftPerCycleDeg: -70.0
-        PitchCenterDeg: 0.0
-        PitchHalfRangeDeg: 13.0
-        PitchPeriodMs: 500.0
+        PitchCenterDeg: 5.0
+        PitchHalfRangeDeg: 15.0
+        PitchPeriodMs: 2000.0
 
       Mode3:
         # Outpost FaceMode fallback. Pitch = offset + half_range * sin(t / period).
-        YawStepDegPerTick: 1.0
-        PitchOffsetDeg: 10.0
+        YawStepDegPerTick: 6.0
+        PitchOffsetDeg: 0.0
         # Set 0.0 to keep a fixed high pitch.
-        PitchHalfRangeDeg: 3.0
-        PitchPeriodMs: 1300.0
+        PitchHalfRangeDeg: 12.0
+        PitchPeriodMs: 2000.0

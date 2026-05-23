@@ -129,11 +129,17 @@ source_ros() {
     fi
   done
 
-  fail "No ROS2 setup found under /opt/ros"
+fail "No ROS2 setup found under /opt/ros"
+}
+
+sentry_msgs_aim_result_has_follow() {
+  local interface_text
+  interface_text="$(ros2 interface show sentry_msgs/msg/AimResult 2>/dev/null)" || return 1
+  grep -Fxq "bool follow" <<< "${interface_text}"
 }
 
 source_optional_sentry_msgs() {
-  if ros2 pkg prefix sentry_msgs >/dev/null 2>&1; then
+  if ros2 pkg prefix sentry_msgs >/dev/null 2>&1 && sentry_msgs_aim_result_has_follow; then
     pass "sentry_msgs available: $(ros2 pkg prefix sentry_msgs)"
     return 0
   fi
@@ -160,14 +166,14 @@ source_optional_sentry_msgs() {
       set +u
       source "${setup_file}"
       set -u
-      if ros2 pkg prefix sentry_msgs >/dev/null 2>&1; then
+      if ros2 pkg prefix sentry_msgs >/dev/null 2>&1 && sentry_msgs_aim_result_has_follow; then
         pass "sentry_msgs sourced: ${setup_file}"
         return 0
       fi
     fi
   done
 
-  warn "sentry_msgs not found; formal /ly/aim/* checks will fail until ~/sentry.common is built/sourced."
+  warn "sentry_msgs not found or missing AimResult.follow; formal /ly/aim/* checks will fail until ~/sentry.common is built/sourced."
   return 1
 }
 
@@ -281,7 +287,9 @@ check_ros_interface() {
 check_ros_interface_field() {
   local interface_name="$1"
   local expected_field="$2"
-  if timeout "${CMD_TIMEOUT}s" ros2 interface show "${interface_name}" 2>/dev/null | grep -Fxq "${expected_field}"; then
+  local interface_text
+  if interface_text="$(timeout "${CMD_TIMEOUT}s" ros2 interface show "${interface_name}" 2>/dev/null)" &&
+    grep -Fxq "${expected_field}" <<< "${interface_text}"; then
     pass "ROS interface field available: ${interface_name} ${expected_field}"
   else
     fail "ROS interface field missing: ${interface_name} ${expected_field}"

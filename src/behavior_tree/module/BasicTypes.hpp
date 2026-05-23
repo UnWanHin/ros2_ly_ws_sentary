@@ -446,20 +446,20 @@ namespace LangYa
         int Mode{1}; // 1=原始单向/受击抖扫, 2=左右摆头, 3=慢速高位单向扫
         double Mode1YawStepDegPerTick{9.0};
         double Mode1YawBoostStepDegPerTick{10.0};
-        double Mode1PitchCenterDeg{0.0};
-        double Mode1PitchHalfRangeDeg{13.0};
-        double Mode1PitchPeriodMs{500.0};
-        double Mode2YawStepDegPerTick{1.0};
-        double Mode2YawBoostStepDegPerTick{1.1};
+        double Mode1PitchCenterDeg{5.0};
+        double Mode1PitchHalfRangeDeg{15.0};
+        double Mode1PitchPeriodMs{2000.0};
+        double Mode2YawStepDegPerTick{0.3};
+        double Mode2YawBoostStepDegPerTick{1.5};
         double Mode2YawHalfRangeDeg{30.0};
         double Mode2CenterDriftPerCycleDeg{-70.0};
-        double Mode2PitchCenterDeg{0.0};
-        double Mode2PitchHalfRangeDeg{13.0};
-        double Mode2PitchPeriodMs{500.0};
-        double Mode3YawStepDegPerTick{1.0};
-        double Mode3PitchOffsetDeg{15.0};
-        double Mode3PitchHalfRangeDeg{3.0};
-        double Mode3PitchPeriodMs{500.0};
+        double Mode2PitchCenterDeg{5.0};
+        double Mode2PitchHalfRangeDeg{15.0};
+        double Mode2PitchPeriodMs{2000.0};
+        double Mode3YawStepDegPerTick{6.0};
+        double Mode3PitchOffsetDeg{0.0};
+        double Mode3PitchHalfRangeDeg{12.0};
+        double Mode3PitchPeriodMs{2000.0};
     };
 
     // 频率相关

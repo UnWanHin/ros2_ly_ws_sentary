@@ -20,7 +20,7 @@
     },
     "Task": {
         "Buff": false,
-        "Outpost": false
+        "Outpost": true
     },
     "DamageOpenGate": {
         "Enable": false,
@@ -76,7 +76,8 @@
         3,
         4,
         6,
-        2
+        2,
+        7
     ],
     "AimTargetIgnore": [],
     "DecisionAutonomy": {

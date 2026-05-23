@@ -23,16 +23,16 @@ behavior_tree:
         # 未收到 op_hp 時會短時切到外部 aim 前哨目標去 BuffOutpost 偵查。
         # 若沒有收到 /ly/aim/result 的有效前哨結果，非開局窗口會超時並冷卻，避免長時間卡前哨任務。
         VisualScoutWithoutHp: true
-        VisualScoutHoldMs: 50000
+        VisualScoutHoldMs: 40000
         VisualScoutCooldownMs: 15000
-        # 接近 BuffOutpost 的參考距離；0 表示不提前 FaceMode，只在 reached BuffOutpost 後開始。
-        VisualScoutFaceDistanceCm: 200
+        # 接近 BuffOutpost 的參考距離；進入此距離後開正式前哨 FaceMode/no-target timeout。
+        VisualScoutFaceDistanceCm: 300
         # 開局窗口後，允許低優先級週期回 BuffOutpost 短暫看前哨；會讓回防/戰術任務先做。
         PostWindowScoutEnable: true
         PostWindowScoutIntervalSec: 60
-        # 到 BuffOutpost 後短暫開 FaceMode 看前哨，避免長時間卡住巡邏。
-        PostWindowScoutHoldMs: 5000
-        # 打前哨時普通車體目標小於此距離才打斷前哨；更遠的車體先忽略，繼續前哨out任務。
+        # 接近 BuffOutpost 後短暫開 FaceMode 看前哨，避免長時間卡住巡邏。
+        PostWindowScoutHoldMs: 3000
+        # 打前哨時普通車體目標小於此距離才打斷前哨；更遠的車體先忽略，繼續前哨任務。
         ArmorWarningDistanceCm: 5000
         # 因近距離車體打斷後，車體丟失且仍允許前哨任務時，回前哨 FaceMode 搜索的時間。
         PostArmorFaceSearchMs: 5000
@@ -72,5 +72,5 @@ behavior_tree:
       # true: 若 BT 已請求 FaceMode 但拿不到 /ly/face_mode/angles，改用 PatrolScan fallback 掃描。
       FallbackToPatrolScanMode2: true
       FallbackPatrolScanMode: 2
-      # Outpost FaceMode 失效時用 mode 3：yaw 慢速單向掃，pitch 固定高位。
-      OutpostFallbackPatrolScanMode: 3
+      # Outpost FaceMode 失效時回到 mode 2；BT 只把 pitch 中心抬高 15 deg，不使用 mode 3。
+      OutpostFallbackPatrolScanMode: 2

@@ -1,6 +1,6 @@
 # Vision / Task / Patrol Mode Flow
 
-Updated: 2026-05-11
+Updated: 2026-05-15
 
 本文說明目前 `regional` 鏈路裡幾個容易混淆的「模式」：`/ly/vision/mode`、BT JSON 的 `Task`、雲台巡邏、區域巡邏、`FollowMode`、`FaceMode`。這些不是同一層東西，不能混着改。
 
@@ -341,11 +341,11 @@ self_large_energy_status == 1 / 2
 
 - `Task.Outpost=true` 才允許進前哨任務。
 - `/ly/enemy/op_hp` 不是正式 gate；接口保留，若它新鮮且為 0，BT 可提前判定敵方前哨已毀並跳過任務。
-- 若 `VisualScoutWithoutHp=true`，且血量/彈量/時間窗/不可達 gate 都通過，會先以普通裝甲模式導航去 `BuffOutpost`；路上不開前哨 FaceMode。
-- 到達 `BuffOutpost` 後才切 `AimMode::Outpost`、開 `/ly/vision/mode=3` 和敵方前哨 FaceMode，並開始計算 `VisualScoutHoldMs` no-target timeout；默認到點駐守約 10 秒，仍沒有 `/ly/outpost/target` 則退出。
+- 若 `VisualScoutWithoutHp=true`，且血量/彈量/時間窗/不可達 gate 都通過，會先以普通裝甲模式導航去 `BuffOutpost`；進入 `VisualScoutFaceDistanceCm` 前不開前哨 FaceMode。
+- 進入 `VisualScoutFaceDistanceCm` 後切 `AimMode::Outpost`、開 `/ly/vision/mode=3` 和敵方前哨 FaceMode，並開始計算 `VisualScoutHoldMs` no-target timeout；這不依賴 `/ly/navi/reached=true`，避免導航 reached 長期 false 時卡在普通視覺。
 - 自身血量、彈量低於 `OutpostConfirm.MinSelfHp / MinAmmo` 時不主動進前哨任務，讓 Hard Recovery 優先處理。
 - 開局 `OutpostConfirm.MaxGameTimeSec=120` 秒內前哨是高優先級任務；但己方 Base 有新鮮敵方位置時，RegionalDefense 可打斷前哨任務。
-- 超過時間窗後，前哨改為低優先級週期偵查：`PostWindowScoutIntervalSec` 控制間隔，到 `BuffOutpost` 後用 `PostWindowScoutHoldMs` 短暫開 FaceMode。
+- 超過時間窗後，前哨改為低優先級週期偵查：`PostWindowScoutIntervalSec` 控制間隔，進入 `VisualScoutFaceDistanceCm` 後用 `PostWindowScoutHoldMs` 短暫開 FaceMode。
 - Roadland 強綁定穿越、RegionalDefense、受擊超過門檻、導航回報 `BuffOutpost` 不可達，都會退出前哨模式。
 - 行進/接近過程中若普通裝甲目標有效且距離不超過 `ArmorWarningDistanceCm`，先保持普通自瞄打車；更遠的車體會被忽略並繼續選前哨。近距離車體丟失後，若前哨 gate 仍允許，會用 `PostArmorFaceSearchMs` 回前哨 FaceMode 搜索一小段時間。舊鍵 `ArmorInterruptMaxDistanceCm` 仍可讀取作兼容。
 - 前哨血量接口回報歸零、視覺偵查超時、視覺偵查冷卻中，或沒有允許 visual scout/近期前哨視覺鎖定時，退回普通掃描。
@@ -359,8 +359,8 @@ self_large_energy_status == 1 / 2
 
 導航與朝向：
 
-- Travel/Approach 階段導航去 `BuffOutpost` 點，但保持普通裝甲視覺，不開前哨 FaceMode。
-- 到達 `BuffOutpost` 後才 FaceMode 朝向敵方 `OutpostPose`。
+- Travel 階段導航去 `BuffOutpost` 點；進入 `VisualScoutFaceDistanceCm` 前保持普通裝甲視覺，不開前哨 FaceMode。
+- 進入 `VisualScoutFaceDistanceCm` 後 FaceMode 朝向敵方 `OutpostPose`，即使 `/ly/navi/reached` 仍為 false 也會開前哨視覺。
 - 識別到前哨時，前哨視覺角度優先；沒識別到時，FaceMode 提供粗朝向。
 
 ## 雲台巡邏掃描
@@ -389,6 +389,10 @@ StopScan=false
 ```
 
 目前 `Mode=2` 是左右擺頭巡邏，yaw/pitch 都由 BT 在 GameLoop 裡計算。看到目標後，巡邏狀態會被重置，雲台改用目標角度。
+
+開局等待 `/ly/game/is_start=true` 期間，無目標巡航掃描會在 `PatrolScan` 配置的 pitch center 上額外抬高 `+10 deg`；進入正式 game loop 後不再加這個 start-gate offset。這個 offset 只在 scan 分支生效；一旦鎖到有效目標角度，就直接使用目標角度，不額外加 pitch。
+
+Outpost FaceMode fallback 默認回到 `Mode=2`，不再使用 `Mode=3`。此時 yaw 仍按 mode 2 左右擺頭；pitch 使用普通巡航波形，但 BT 會把前哨無目標搜索的 pitch center offset 取到 `+15 deg`。這個 offset 只在無目標搜索分支生效，一旦前哨視覺有有效目標角度，就直接使用目標角度，不再額外抬 pitch。
 
 ## 區域巡邏
 
