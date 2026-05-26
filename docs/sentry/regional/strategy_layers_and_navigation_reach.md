@@ -130,8 +130,8 @@ Default 是底層行為。它只應該在 Hard/Task/Tactical/Special 都沒接�
 
 1. goal id 必須有效。
 2. `/ly/navi/reachable` 如果對當前 goal 新鮮且為 `false`，直接判定未到達。
-3. `/ly/navi/reached` 如果對當前 goal 新鮮，就完全相信它：`true` 就到達，`false` 就未到達。
-4. 只有 `/ly/navi/reached` 沒有新鮮值，且新 goal 下發已超過 `DecisionAutonomy.NaviGoal.DistanceFallbackGraceMs` 後，才用自身融合坐標和 goal 坐標距離做兜底。默認 grace 是 3000 ms。
+3. `/ly/navi/reached` 如果對當前 goal 新鮮且為 `true`，立即判定到達。
+4. `/ly/navi/reached` 缺失或新鮮值為 `false` 時，先等 `DecisionAutonomy.NaviGoal.DistanceFallbackGraceMs`；超過 grace 後才用自身融合坐標和 goal 坐標距離做兜底。默認 grace 是 3000 ms。
 
 `/ly/navi/reached` 的新鮮條件不是單純 2 秒內收到就算，它還要求：
 
@@ -141,7 +141,7 @@ Default 是底層行為。它只應該在 Hard/Task/Tactical/Special 都沒接�
 - callback 時間晚於本次 goal start time。
 - callback 距今不超過 `kNaviExternalStatusTimeoutMs`，目前是 2000 ms。
 
-所以 `/ly/navi/reached` 是主判斷，而且是可信的。只要它新鮮，坐標距離不會覆蓋它。
+所以 `/ly/navi/reached=true` 是主判斷，而且是可信的；`false` 只在 grace 期內阻止坐標兜底，避免導航端一直回 false 時把 regional 任務永久卡到 travel timeout。
 
 ## 20cm 坐標兜底
 
@@ -154,22 +154,13 @@ Default 是底層行為。它只應該在 Hard/Task/Tactical/Special 都沒接�
 
 現在的行為是：
 
-- 如果 `/ly/navi/reached` 新鮮且為 `false`，即使坐標進了 20 cm，也不會到達。
-- 如果 `/ly/navi/reached` 缺失或超過 2 秒不新鮮，坐標一進 20 cm 會立即當作到達。
-
-這裡和你的理想有一個差異：你希望 20 cm 只是兜底，但進 20 cm 後仍要等待一小段時間，看 `/ly/navi/reached` 能不能回來，而不是馬上切下一個行為。
-
-建議語義應該是：
-
 ```text
 fresh /ly/navi/reached true  -> 立即到達
-fresh /ly/navi/reached false -> 未到達，繼續等導航
-no fresh reached + 進入 20cm -> 開始 near-goal grace timer
-grace 期間 reached 變 true -> 到達
-grace 超時仍沒有 fresh reached -> 才用 20cm 坐標兜底到達
+fresh /ly/navi/reached false -> goal-start grace 期內未到達；超時後允許 20 cm 坐標兜底
+no fresh reached             -> goal-start grace 期內未到達；超時後允許 20 cm 坐標兜底
 ```
 
-這樣可以避免定位誤差或短暫靠近 goal 時，BT 太早進入下一段 regional task。
+這樣可以避免導航端一直回 false 時，BT 已經到點卻仍等到 travel timeout 再切下一個 regional 點。
 
 ## `IsBaseGoalWithinDistance()` 和到達判斷不同
 
@@ -236,13 +227,13 @@ watchdog 的判斷順序：
 - watchdog 在 Task 和 Tactical 兩層都有入口，行為上不一定錯，但 owner 不夠乾淨。
 - `RunTactical()` 裡仍保留「Default 已處理但未 command goal 時再嘗試 Chase」的舊分支；現在 Default 已經在 Tactical 後面，這段基本不可達，可以後續清理。
 
-## 建議下一步
+## 當前改動
 
-最小正確改動是只加一個 near-goal reached grace：
+目前 `DistanceFallbackGraceMs` 是 goal-start grace，不是 near-goal grace：
 
-- 在 `Application` 或 `AreaManager` 裡記錄當前 goal 進入 20 cm 的時間。
-- goal 改變時清空這個時間。
-- `IsBaseGoalArrived()` 中，沒有 fresh `/ly/navi/reached` 且距離小於 20 cm 時，先等待一個配置時間。
-- 等待超時後才用 20 cm 坐標兜底。
+- goal 改變時，`UpdateNaviExternalStatusGoal()` 會更新當前 goal id、goal 坐標和 goal start time。
+- `IsBaseGoalArrived()` 中，`/ly/navi/reached=true` 立即到達。
+- `/ly/navi/reached=false` 或沒有 fresh `/ly/navi/reached` 時，goal start 後的 grace 期內不使用 20 cm 坐標兜底。
+- grace 超時後，如果自身融合坐標仍在 20 cm 內，使用坐標兜底判定到達。
 
-這個改動不需要改 ROS topic，也不需要改導航端協議，只是讓 BT 對導航 reached 的等待更穩。
+這個改動不需要改 ROS topic，也不需要改導航端協議。它解決的是導航端一直發布 fresh `false`，而 BT 明明已經到點卻只能等到 `TravelTimeoutSec` 後切點的情況。

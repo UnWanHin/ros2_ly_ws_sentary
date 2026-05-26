@@ -2681,8 +2681,8 @@ namespace BehaviorTree {
             return false;
         }
         const auto external_reach = GetExternalNaviReachForGoal(goal_id, goal_position);
-        if (external_reach.has_value()) {
-            return *external_reach;
+        if (external_reach.has_value() && *external_reach) {
+            return true;
         }
         const auto& runtime = areaManager_.ProgressWatchdogRuntime();
         const auto now = std::chrono::steady_clock::now();
@@ -2729,8 +2729,8 @@ namespace BehaviorTree {
             return false;
         }
         const auto external_reach = GetExternalNaviReachForGoal(goal_id, goal_point);
-        if (external_reach.has_value()) {
-            return *external_reach;
+        if (external_reach.has_value() && *external_reach) {
+            return true;
         }
         const auto& runtime = areaManager_.ProgressWatchdogRuntime();
         const auto now = std::chrono::steady_clock::now();
