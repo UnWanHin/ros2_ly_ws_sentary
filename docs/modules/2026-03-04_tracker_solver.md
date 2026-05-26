@@ -4,6 +4,8 @@
 
 `tracker_solver` 是視覺流水線中的中間環節，接收 `detector` 發布的**圖像座標系下**的裝甲板和車輛檢測結果，輸出**IMU（世界）座標系下**的跟蹤結果。
 
+> 当前定位：`Behavion` 正式 `sentry_all` 主链不启动本仓 `tracker_solver`。正式比赛的目标候选和最终 aim 结果由外部 `sentry.aim` 提供；本包保留给 legacy internal auto-aim、模块单测和历史链路对照。
+
 **功能**：
 1. 跟蹤（Tracker）：用匈牙利算法做裝甲板的多目標跟蹤，解決跨幀匹配
 2. 解算（Solver）：通過雲台角和相機矩陣把圖像坐標轉換為IMU座標

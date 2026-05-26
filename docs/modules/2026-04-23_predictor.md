@@ -4,6 +4,8 @@
 
 `predictor` 是自動瞄準鏈路中的最後計算環節，接收 `tracker_solver` 輸出的 **IMU 座標系下的跟蹤結果**，計算預測彈道，輸出雲台的最終期望角度。
 
+> 当前定位：`Behavion` 正式 `sentry_all` 主链不再通过 `/ly/predictor/target` 接入普通辅瞄。正式角度接管和开火门控来自外部 `/ly/aim/result`，本包保留给 legacy internal auto-aim、标定、单测和历史链路对照。
+
 **功能**：
 1. **預測（Predictor）**：根據目標的歷史運動（EKF擴展卡爾曼）預測未來位置（補前置量）
 2. **控制（Controller）**：根據目標狀態、當前雲台角、彈速，計算最優瞄準的 yaw/pitch

@@ -1,332 +1,180 @@
-# 系統行為說明（最終版）
+# 系统行为说明
 
-## ❓ 問題：現在 launch 後會自動打嗎？
+Updated: 2026-05-27
 
-### 📋 答案：取決於是否啟動「控制端」節點
+本文描述当前 `Behavion` 分支的正式运行行为。旧的本仓内部自瞄链路仍可用于调试，但不再是正式 `sentry_all` 主链。
 
-目前倉庫有兩種控制來源：
-- 測試控制：`mapper_node.py` / `fire_flip_test.py`
-- 比賽控制：`behavior_tree`
+## 当前结论
 
----
+### launch 后会不会自动打？
 
-## 🔍 兩種工作模式
+正式比赛入口会不会下发开火，取决于三层条件同时成立：
 
-### 模式 1: 快速測試（mapper_node / fire_flip_test）
+1. `behavior_tree` 正在运行，并允许当前策略开火。
+2. 外部 `sentry.aim` 发布 `/ly/aim/result`，且 `follow=true`。
+3. 同一帧 `/ly/aim/result.fire=true`，BT 才翻转 `/ly/control/firecode`。
 
-**啟動**:
+`follow=false` 时，BT 不接管该帧 yaw/pitch，也不会使用该帧 fire。`fire=false` 但 `follow=true` 时，BT 可以接管角度，但不会开火。
+
+## 正式主链路
+
+正式入口：
+
+```bash
+./scripts/start.sh gated --mode league
+./scripts/start.sh gated --mode regional
+./scripts/start.sh nogate --mode league
+./scripts/start.sh nogate --mode regional
+```
+
+底层最终进入：
+
+```bash
+ros2 launch behavior_tree sentry_all.launch.py
+```
+
+当前正式 `sentry_all` 默认启动：
+
+- `gimbal_driver`
+- `navi_tf_bridge` 的导航目标 bridge
+- `map_aim_point_node` 作为 BT FaceMode solver
+- `behavior_tree`
+
+当前正式 `sentry_all` 默认不启动：
+
+- `detector`
+- `tracker_solver`
+- `predictor`
+- `outpost_hitter`
+- `buff_hitter`
+- 本仓 `tf_tree` fallback，除非显式 `use_tf_tree:=true`
+
+主数据流：
+
+```text
+[sentry.aim] -> /ly/aim/armor_targets
+      |
+      v
+[behavior_tree] 根据区域任务、姿态、血量、目标优先级选择目标
+      |
+      v
+/ly/aim/select_target -> [sentry.aim]
+      |
+      v
+/ly/aim/result (follow, fire, yaw, pitch)
+      |
+      v
+[behavior_tree]
+      |
+      +-> /ly/control/angles
+      +-> /ly/control/firecode
+      +-> /ly/control/vel
+      +-> /ly/control/posture
+      +-> /ly/control/sentry_cmd
+      |
+      v
+[gimbal_driver] -> 串口主控制帧 -> 下位机
+```
+
+TF 关系：
+
+- 正式链路优先使用外部 `sentry_tf`。
+- 本仓 `tf_tree` 只作 fallback。
+- 不要让外部 `sentry_tf` 和本仓 `tf_tree` 同时发布同一套 frame。
+
+## `/ly/aim/*` 语义
+
+| Topic | Direction | Type | 当前语义 |
+|---|---|---|---|
+| `/ly/aim/armor_targets` | external aim -> BT | `sentry_msgs/msg/AimTargetArray` | 外部 aim 给出的可打目标候选。BT 用于目标优先级、Chase 相对点和 `/ly/aim/select_target` 回填。 |
+| `/ly/aim/select_target` | BT -> external aim | `sentry_msgs/msg/AimTarget` | BT 当前选择的装甲板目标。 |
+| `/ly/aim/result` | external aim -> BT | `sentry_msgs/msg/AimResult` | 外部 aim 的最终角度接管和开火门控：`follow`、`fire`、`yaw`、`pitch`。 |
+
+`sentry_msgs/msg/AimResult` 必须包含 `bool follow`。启动脚本和 selfcheck 都会检查这个字段，避免旧版 `sentry_msgs` 混入正式链路。
+
+## 控制输出
+
+`behavior_tree` 是正式链路唯一控制端。它统一发布：
+
+| Topic | Type | Consumer | 说明 |
+|---|---|---|---|
+| `/ly/control/angles` | `gimbal_driver/msg/GimbalAngles` | `gimbal_driver` | 云台目标角。 |
+| `/ly/control/firecode` | `gimbal_driver/msg/FireCode` | `gimbal_driver` | 开火、电容、follow、aim、rotate 语义字段。 |
+| `/ly/control/vel` | `gimbal_driver/msg/ControlVelocity` | `gimbal_driver` | 底盘速度。 |
+| `/ly/control/posture` | `gimbal_driver/msg/SentryCmd` | `gimbal_driver` | 姿态专用入口。 |
+| `/ly/control/sentry_cmd` | `gimbal_driver/msg/SentryCmd` | `gimbal_driver` | 完整哨兵裁判命令入口。 |
+
+调试脚本如 `mapper_node.py`、`fire_flip_test.py`、FaceMode 直接控制模式也可能发布 `/ly/control/*`。这些属于调试控制源，不应和正式 `behavior_tree` 控制链并行抢控制。
+
+## 导航与 FaceMode
+
+BT 不直接面向外部导航发布最终 `/goal_pose`，通常由 `navi_tf_bridge` 完成转换：
+
+```text
+/ly/navi/goal_pos_raw  -> navi_tf_bridge -> /goal_pose
+/ly/navi/target_rel    -> navi_tf_bridge -> /goal_pose
+/ly/face_mode/target_raw -> map_aim_point_node -> /ly/face_mode/angles -> behavior_tree -> /ly/control/angles
+```
+
+FaceMode 在正式链路中默认由 `map_aim_point_node` 输出 `/ly/face_mode/angles`，再由 BT 统一决定是否接管到 `/ly/control/angles`。FaceMode 本身不清零底盘小陀螺 `Rotate`，需要停小陀螺时由 BT 的 FollowMode/导航兼容逻辑处理。
+
+## Legacy Internal Auto-Aim
+
+以下链路仍保留作调试、标定和历史对照，但不是当前正式主链：
+
+```text
+gimbal_driver/camera
+  -> detector
+  -> /ly/detector/armors
+  -> tracker_solver
+  -> /ly/tracker/results
+  -> predictor
+  -> /ly/predictor/target
+  -> behavior_tree 或 mapper_node.py
+  -> /ly/control/angles + /ly/control/firecode
+  -> gimbal_driver
+```
+
+相关入口：
+
 ```bash
 ros2 launch detector auto_aim.launch.py
 python3 src/detector/script/mapper_node.py --target-id 6 --enable-fire true --auto-fire true
-# 或 python3 src/detector/script/fire_flip_test.py --fire-hz 8.0
+python3 src/detector/script/fire_flip_test.py --fire-hz 8.0
 ```
 
-**啟動的節點**:
-- gimbal_driver
-- detector
-- tracker_solver
-- predictor
-- **mapper_node / fire_flip_test** (測試控制)
+这些入口适合验证 legacy detector/tracker/predictor、射表、火控翻转等局部链路。它们不代表正式比赛启动方式。
 
-**結果**: ✅ **會自動打（看到就打）**
+## 自检
 
-**原因**:
-- predictor 發布 `/ly/predictor/target`
-- `mapper_node` 轉發到 `/ly/control/angles` 和 `/ly/control/firecode`
-- gimbal_driver 訂閱 `/ly/control/angles` 和 `/ly/control/firecode`
-- **直接發送到下位機開火**
-
----
-
-### 模式 2: 正常模式（behavior_tree）
-
-**啟動**:
-```bash
-# 終端 1: 感知模塊
-ros2 launch detector auto_aim.launch.py
-
-# 終端 2: 決策模塊
-ros2 launch behavior_tree behavior_tree.launch.py
-```
-
-**啟動的節點**:
-- gimbal_driver
-- detector
-- tracker_solver
-- predictor
-- **behavior_tree** (決策模塊)
-
-**結果**: ✅ **會智能決策後開火**
-
-**原因**:
-- behavior_tree 接管決策，根據遊戲狀態決定是否開火
-
----
-
-### 情況 2: 啟動 behavior_tree.launch.py（原有的 launch）
+离车静态检查：
 
 ```bash
-ros2 launch behavior_tree behavior_tree.launch.py
+./scripts/selfcheck.sh sentry --static-only
 ```
 
-**啟動的節點**:
-- behavior_tree
-
-**behavior_tree 的作用** ([`src/behavior_tree/src/SubscribeMessage.cpp:166-174`](../../src/behavior_tree/src/SubscribeMessage.cpp:166)):
-
-```cpp
-// 訂閱 predictor 的目標
-GenSub<ly_predictor_target>([](Application& app, auto msg) {
-    obj.autoAimData.Angles.Yaw = msg->yaw;
-    obj.autoAimData.Angles.Pitch = msg->pitch;
-    obj.autoAimData.FireStatus = true;  // ← 設置射擊狀態
-    obj.isFindTargetAtomic = true;
-});
-```
-
-**behavior_tree 發布控制指令** ([`src/behavior_tree/src/PublishMessage.cpp:52-66`](../../src/behavior_tree/src/PublishMessage.cpp:52)):
-
-```cpp
-void Application::PubGimbalControlData() {
-    // 發布角度
-    using topic = ly_control_angles;
-    topic::Msg msg;
-    msg.Yaw = gimbalControlData.GimbalAngles.Yaw;
-    msg.Pitch = gimbalControlData.GimbalAngles.Pitch;
-    node.Publisher<topic>().publish(msg);
-    
-    // 發布射擊指令（语义字段 + raw 快照）
-    using topic = ly_control_firecode;
-    topic::Msg msg;
-    msg.field_mask = gimbal_driver::msg::FireCode::FIELD_ALL;
-    msg.fire_status = gimbalControlData.FireCode.FireStatus;
-    msg.cap_state = gimbalControlData.FireCode.CapState;
-    msg.follow_mode = gimbalControlData.FireCode.FollowMode != 0;
-    msg.aim_mode = gimbalControlData.FireCode.AimMode != 0;
-    msg.rotate = gimbalControlData.FireCode.Rotate;
-    msg.raw = *reinterpret_cast<const std::uint8_t*>(&gimbalControlData.FireCode);
-    node.Publisher<topic>().publish(msg);
-}
-```
-
-**結果**: ✅ **會自動打**（如果 behavior_tree 邏輯允許）
-
----
-
-## 🎯 完整的系統架構
-
-### 正確的啟動方式
-
-**需要同時啟動兩個 launch**:
+检查当前已运行的 ROS 图：
 
 ```bash
-# 終端 1: 啟動感知和計算模塊
-ros2 launch detector auto_aim.launch.py
-
-# 終端 2: 啟動決策模塊
-ros2 launch behavior_tree behavior_tree.launch.py
+./scripts/selfcheck.sh sentry --skip-hz
 ```
 
-### 完整的消息流
-
-```
-相機
- ↓
-gimbal_driver (發布雲台角度)
- ↓
-detector (檢測裝甲板)
- ↓ /ly/detector/armors
-tracker_solver (追蹤)
- ↓ /ly/tracker/results
-predictor (預測)
- ↓ /ly/predictor/target
-behavior_tree (決策) ← 這是關鍵！
- ↓ /ly/control/angles (角度)
- ↓ /ly/control/firecode (射擊)
-gimbal_driver (發送下位機)
- ↓
-下位機
-```
-
----
-
-## 🚨 你創建的 launch 檔案的問題
-
-### 問題：缺少 behavior_tree
-
-你創建的三個 launch 檔案：
-- [`auto_aim.launch.py`](../../src/detector/launch/auto_aim.launch.py)
-- [`outpost.launch.py`](../../src/detector/launch/outpost.launch.py)
-- [`buff.launch.py`](../../src/detector/launch/buff.launch.py)
-
-**都沒有啟動 behavior_tree！**
-
-### 解決方案
-
-#### 方案 1: 修改 launch 檔案，添加 behavior_tree
-
-```python
-# auto_aim.launch.py
-return LaunchDescription([
-    Node(package='gimbal_driver', ...),
-    Node(package='detector', ...),
-    Node(package='tracker_solver', ...),
-    Node(package='predictor', ...),
-    Node(package='behavior_tree',  # ← 添加這個
-         executable='behavior_tree_node',
-         name='behavior_tree',
-         output='screen'),
-])
-```
-
-#### 方案 2: 分開啟動（當前方式）
+自动启动正式链再检查：
 
 ```bash
-# 終端 1
-ros2 launch detector auto_aim.launch.py
-
-# 終端 2
-ros2 launch behavior_tree behavior_tree.launch.py
+./scripts/selfcheck.sh sentry --launch --wait 10 --skip-hz
 ```
 
----
+如果未启动任何 ROS2 stack，`--skip-hz` 仍会在 runtime graph 阶段报 `No ROS2 nodes found`。这表示没有运行中的节点，不代表静态文件或接口契约失败。
 
-## 📊 behavior_tree 的決策邏輯
+## 文档优先级
 
-### behavior_tree 訂閱的 Topic
+当前链路以这些文档为准：
 
-**感知數據**:
-- `/ly/predictor/target` - 自瞄目標
-- `/ly/buff/target` - 能量機關目標
-- `/ly/outpost/target` - 前哨目標
-- `/ly/detector/armors` - 檢測結果
+- [2026-05-03_message_and_link_flow.md](2026-05-03_message_and_link_flow.md)
+- [../sentry/internal/ros2_topic_structure.md](../sentry/internal/ros2_topic_structure.md)
+- [../modules/2026-05-05_behavior_tree.md](../modules/2026-05-05_behavior_tree.md)
+- [../modules/2026-05-05_gimbal_driver.md](../modules/2026-05-05_gimbal_driver.md)
+- [../modules/2026-05-04_navi_tf_bridge.md](../modules/2026-05-04_navi_tf_bridge.md)
 
-**遊戲狀態**:
-- `/ly/game/is_start` - 比賽是否開始
-- `/ly/friend/hp` - 我方血量
-- `/ly/enemy/hp` - 敵方血量
-- `/ly/friend/ammo_left` - 剩餘彈藥
-- `/ly/friend/is_at_home` - 是否在家
-
-### behavior_tree 發布的 Topic
-
-**控制指令**:
-- `/ly/control/angles` - 雲台角度
-- `/ly/control/firecode` - 射擊指令
-- `/ly/control/vel` - 底盤速度
-
-**模式控制**:
-- `/ly/bt/target` - 目標選擇
-- `/ly/vision/mode` - 視覺模式，`0=DISABLED`, `1=ARMOR`, `2=BUFF`, `3=OUTPOST`
-
----
-
-## ⚠️ 重要結論
-
-### 你的 launch 檔案
-
-**現狀**: 
-- ❌ 只啟動了感知和計算模塊
-- ❌ 沒有啟動決策模塊 (behavior_tree)
-- ❌ **不會自動打**
-
-**需要修改**:
-1. 在 launch 檔案中添加 behavior_tree 節點
-2. 或者手動啟動 behavior_tree
-
-### 完整系統需要的節點
-
-**自瞄模式**:
-```
-gimbal_driver + detector + tracker_solver + predictor + behavior_tree
-```
-
-**前哨模式**:
-```
-gimbal_driver + outpost_hitter + behavior_tree
-```
-
-**能量機關模式**:
-```
-gimbal_driver + buff_hitter + behavior_tree
-```
-
----
-
-## 🔧 建議的修改
-
-### 更新 auto_aim.launch.py
-
-```python
-#!/usr/bin/env python3
-import os
-from launch import LaunchDescription
-from launch_ros.actions import Node
-
-def generate_launch_description():
-    home_dir = os.environ['HOME']
-    config_file = os.path.join(home_dir, 'ros2_ly_ws_sentary/src/detector/config/auto_aim_config.yaml')
-    
-    return LaunchDescription([
-        Node(package='gimbal_driver', executable='gimbal_driver_node', 
-             name='gimbal_driver', output='screen', parameters=[config_file]),
-        Node(package='detector', executable='detector_node',
-             name='detector', output='screen', parameters=[config_file]),
-        Node(package='tracker_solver', executable='tracker_solver_node',
-             name='tracker_solver', output='screen', parameters=[config_file]),
-        Node(package='predictor', executable='predictor_node',
-             name='predictor_node', output='screen', parameters=[config_file]),
-        Node(package='behavior_tree', executable='behavior_tree_node',  # ← 添加
-             name='behavior_tree', output='screen', emulate_tty=True),
-    ])
-```
-
----
-
-## 📝 測試方法
-
-### 測試當前系統（沒有 behavior_tree）
-
-```bash
-# 啟動
-ros2 launch detector auto_aim.launch.py
-
-# 監聽 topic
-ros2 topic echo /ly/predictor/target      # 有數據
-ros2 topic echo /ly/control/angles        # 沒有數據 ← 問題
-```
-
-### 測試完整系統（有 behavior_tree）
-
-```bash
-# 終端 1
-ros2 launch detector auto_aim.launch.py
-
-# 終端 2
-ros2 launch behavior_tree behavior_tree.launch.py
-
-# 終端 3: 監聽
-ros2 topic echo /ly/predictor/target      # 有數據
-ros2 topic echo /ly/control/angles        # 有數據 ← 正常
-ros2 topic echo /ly/control/firecode      # 有數據 ← 會射擊
-```
-
----
-
-## ✅ 最終答案
-
-### 你的問題：launch 後會自動打嗎？
-
-**答案**: 
-- ❌ 用你創建的 launch 檔案 → **不會打**（缺少 behavior_tree）
-- ✅ 添加 behavior_tree 後 → **會打**（完整系統）
-
-### 需要做的事
-
-1. **修改三個 launch 檔案**，添加 behavior_tree 節點
-2. 或者**手動啟動兩個 launch**（感知 + 決策）
-3. 確保 behavior_tree 編譯成功（目前編譯失敗）
-
----
-
-**總結**: 你的 launch 檔案是"半成品"，只有感知沒有決策，需要添加 behavior_tree 才能完整工作。
+历史方案和旧行为说明放在 `docs/record/` 和 `docs/plans/`，阅读时只作为背景，不作为当前正式链路依据。

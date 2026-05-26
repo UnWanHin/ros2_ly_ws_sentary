@@ -2,6 +2,8 @@
 
 本目录是 `ros2_ly_ws_sentry` 的唯一文档入口，按“上手 -> 架构 -> 模块 -> 实机”组织。
 
+当前 `Behavion` 正式主链是 decision-only：本仓 `sentry_all` 启动 `gimbal_driver`、`navi_tf_bridge` / FaceMode 和 `behavior_tree`，外部 `sentry.aim` / `sentry_tf` 提供相机、检测、追踪、弹道、gimbal TF 和最终 aim/fire 门控。`detector`、`tracker_solver`、`predictor`、`outpost_hitter`、`buff_hitter` 保留为 legacy/debug 模块。
+
 ## 目录结构
 
 ```text
@@ -28,19 +30,19 @@ docs/
 [architecture/2026-05-04_fire_control_flow.md](architecture/2026-05-04_fire_control_flow.md)
 4. 当前系统运行行为
 [architecture/2026-05-05_system_behavior.md](architecture/2026-05-05_system_behavior.md)
-5. 模块文档（建议按数据流）
+5. 当前主链模块文档
 [modules/2026-05-05_gimbal_driver.md](modules/2026-05-05_gimbal_driver.md)
+[modules/2026-05-05_behavior_tree.md](modules/2026-05-05_behavior_tree.md)
+[modules/2026-05-04_navi_tf_bridge.md](modules/2026-05-04_navi_tf_bridge.md)
+6. Legacy / 调试视觉链路模块
 [modules/2026-05-05_detector.md](modules/2026-05-05_detector.md)
 [modules/2026-03-04_tracker_solver.md](modules/2026-03-04_tracker_solver.md)
 [modules/2026-04-23_predictor.md](modules/2026-04-23_predictor.md)
-[modules/2026-05-05_behavior_tree.md](modules/2026-05-05_behavior_tree.md)
-补充模块文档
 [modules/2026-05-05_outpost_hitter.md](modules/2026-05-05_outpost_hitter.md)
 [modules/2026-05-05_buff_hitter.md](modules/2026-05-05_buff_hitter.md)
 [modules/2026-03-05_shooting_table_calib.md](modules/2026-03-05_shooting_table_calib.md)
 [modules/2026-04-23_auto_aim_common.md](modules/2026-04-23_auto_aim_common.md)
-[modules/2026-05-04_navi_tf_bridge.md](modules/2026-05-04_navi_tf_bridge.md)
-6. 哨兵专项（当前有效）
+7. 哨兵专项（当前有效）
 [sentry/README.md](sentry/README.md)
 [sentry/regional/current_behavior.md](sentry/regional/current_behavior.md)
 [sentry/regional/decision_framework.md](sentry/regional/decision_framework.md)
@@ -48,7 +50,7 @@ docs/
 [sentry/embedded/serial_data_mapping.md](sentry/embedded/serial_data_mapping.md)
 [sentry/embedded/downlink_control_frame.md](sentry/embedded/downlink_control_frame.md)
 [sentry/info/rule_resource_profile.md](sentry/info/rule_resource_profile.md)
-7. 落地执行与上车前检查
+8. 落地执行与上车前检查
 [guides/2026-03-04_config_setup_guide.md](guides/2026-03-04_config_setup_guide.md)
 [guides/2026-04-11_auto_aim_tuning_handover.md](guides/2026-04-11_auto_aim_tuning_handover.md)
 [guides/2026-03-17_auto_aim_yamlization_checklist.md](guides/2026-03-17_auto_aim_yamlization_checklist.md)
@@ -57,12 +59,12 @@ docs/
 [guides/2026-05-03_module_standalone_test.md](guides/2026-05-03_module_standalone_test.md)
 [guides/2026-03-04_test_guide.md](guides/2026-03-04_test_guide.md)
 [guides/2026-03-05_preflight_checklist.md](guides/2026-03-05_preflight_checklist.md)
-8. 近期稳定性修复记录（接口不变）
+9. 近期稳定性修复记录（接口不变）
 [reports/2026-03-05_stability_fix_no_interface_change.md](reports/2026-03-05_stability_fix_no_interface_change.md)
 [reports/2026-03-05_self_check_status.md](reports/2026-03-05_self_check_status.md)
 [reports/2026-03-05_repository_completeness_audit.md](reports/2026-03-05_repository_completeness_audit.md)
 [reports/2026-03-05_full_link_audit.md](reports/2026-03-05_full_link_audit.md)
-9. 重要行为变更与调参记录
+10. 重要行为变更与调参记录
 [record/2026-03-18_behavior_tree_bt_pinned_and_old_fire_logic.md](record/2026-03-18_behavior_tree_bt_pinned_and_old_fire_logic.md)
 [record/2026-03-18_autoaim_follow_fire_change.md](record/2026-03-18_autoaim_follow_fire_change.md)
 [record/2026-05-01_tf_tree_integration_for_navi.md](record/2026-05-01_tf_tree_integration_for_navi.md)
