@@ -10,10 +10,10 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from .control_bus import append_command
+from .control_bus import append_command, normalize_api_control_payload
 
 
-class DecisionVizWebStream:
+class SimulatorWebStream:
     def __init__(
         self,
         host: str = "0.0.0.0",
@@ -54,7 +54,7 @@ class DecisionVizWebStream:
             return
         handler_cls = self._build_handler()
         self._httpd = ThreadingHTTPServer((self.host, self.port), handler_cls)
-        self._thread = threading.Thread(target=self._httpd.serve_forever, name="decision-viz-web-stream", daemon=True)
+        self._thread = threading.Thread(target=self._httpd.serve_forever, name="simulator-web-stream", daemon=True)
         self._thread.start()
 
     def stop(self) -> None:
@@ -138,7 +138,7 @@ class DecisionVizWebStream:
                 body = (
                     "<!doctype html><html><head><meta charset='utf-8'>"
                     "<meta name='viewport' content='width=device-width, initial-scale=1'>"
-                    "<title>Decision Viz Live</title>"
+                    "<title>Simulator Live</title>"
                     "<style>body{margin:0;background:#111;color:#ddd;font:14px sans-serif}"
                     "#bar{padding:8px 12px;background:#1d232b;border-bottom:1px solid #333}"
                     "#wrap{padding:8px}img{max-width:100%;height:auto;display:block;background:#000}"
@@ -147,7 +147,7 @@ class DecisionVizWebStream:
                     "color:#e2e8f0;border:1px solid #3a4658;border-radius:4px;cursor:pointer}"
                     "button:disabled{opacity:.45;cursor:not-allowed}#msg{color:#a8b0ba;font-size:12px}"
                     "</style></head><body>"
-                    f"<div id='bar'>Decision Viz Live Stream :{outer.port}</div>"
+                    f"<div id='bar'>Simulator Live Stream :{outer.port}</div>"
                     "<div id='ctrl'>"
                     "<button data-cmd='start'>Start</button>"
                     "<button data-cmd='pause'>Pause</button>"
@@ -234,18 +234,10 @@ class DecisionVizWebStream:
                     self._json_response(HTTPStatus.BAD_REQUEST, {"ok": False, "message": "payload must be object"})
                     return
 
-                command = str(data.get("command", "")).strip().lower()
-                if command not in {"start", "pause", "reset", "rewind", "forward", "set_time_left"}:
-                    self._json_response(HTTPStatus.BAD_REQUEST, {"ok": False, "message": f"unsupported command: {command}"})
+                command, payload, error = normalize_api_control_payload(data, outer.default_step_sec)
+                if error is not None or command is None:
+                    self._json_response(HTTPStatus.BAD_REQUEST, {"ok": False, "message": error or "invalid command"})
                     return
-
-                payload: dict[str, Any] = {}
-                if command in {"rewind", "forward", "set_time_left"}:
-                    try:
-                        payload["seconds"] = float(data.get("seconds", outer.default_step_sec))
-                    except (TypeError, ValueError):
-                        self._json_response(HTTPStatus.BAD_REQUEST, {"ok": False, "message": "seconds must be number"})
-                        return
 
                 ok, message = outer.submit_control(command, payload or None)
                 status = HTTPStatus.OK if ok else HTTPStatus.SERVICE_UNAVAILABLE

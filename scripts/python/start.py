@@ -18,7 +18,7 @@ from pathlib import Path
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="One-command offline decision start (fixed to regional profile)."
+        description="One-command offline simulator start (fixed to regional profile)."
     )
     parser.add_argument(
         "--target",
@@ -45,7 +45,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--web-port",
         type=int,
         default=0,
-        help="Override decision_viz web stream port (default: YAML web_stream.port).",
+        help="Override simulator web stream port (default: YAML web_stream.port).",
     )
     parser.add_argument(
         "--match-duration-sec",
@@ -56,7 +56,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--control-file",
         default="",
-        help="Override viewer/mock control JSONL path (default: decision_viz.start default).",
+        help="Override viewer/mock control JSONL path (default: simulator.start default).",
     )
     parser.add_argument(
         "--bypass-is-start",
@@ -176,7 +176,7 @@ def _terminate_pids(pids: list[int], timeout_sec: float = 1.2) -> list[int]:
 def cleanup_stale_viewers(web_port: int = 9000) -> None:
     this_pid = os.getpid()
     candidates: set[int] = set()
-    for pattern in ("decision_viz.main", "decision-viz "):
+    for pattern in ("simulator.main", "simulator "):
         for pid in _collect_pids_by_pattern(pattern):
             if pid != this_pid:
                 candidates.add(pid)
@@ -195,7 +195,7 @@ def cleanup_stale_viewers(web_port: int = 9000) -> None:
 
 
 def load_default_web_port(root: Path) -> int:
-    config_path = root / "src" / "decision_viz" / "config" / "default.yaml"
+    config_path = root / "src" / "simulator" / "config" / "default.yaml"
     if not config_path.exists():
         return 9000
     try:
@@ -233,7 +233,7 @@ def main(argv: list[str] | None = None) -> int:
     if not install_setup.exists():
         print(f"missing workspace setup: {install_setup}", file=sys.stderr)
         print(
-            "build first: colcon build --packages-select behavior_tree auto_aim_common gimbal_driver decision_viz",
+            "build first: colcon build --packages-select behavior_tree auto_aim_common gimbal_driver simulator",
             file=sys.stderr,
         )
         return 2
@@ -241,7 +241,7 @@ def main(argv: list[str] | None = None) -> int:
     decision_cmd = [
         "python3",
         "-m",
-        "decision_viz.start",
+        "simulator.start",
         "--offline-decision",
         "--mode",
         "regional",
@@ -274,9 +274,9 @@ def main(argv: list[str] | None = None) -> int:
         f"source {shlex.quote(str(install_setup))}",
     ]
     run_cmd = " ".join(shlex.quote(item) for item in decision_cmd)
-    shell_cmd = " && ".join(env_prefix + [f"PYTHONPATH={shlex.quote(str(root / 'src' / 'decision_viz'))} {run_cmd}"])
+    shell_cmd = " && ".join(env_prefix + [f"PYTHONPATH={shlex.quote(str(root / 'src' / 'simulator'))} {run_cmd}"])
 
-    print("offline decision starter")
+    print("offline simulator starter")
     print(f"workspace: {root}")
     print(f"command: {shell_cmd}")
 

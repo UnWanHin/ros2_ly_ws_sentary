@@ -6,6 +6,49 @@ from pathlib import Path
 from typing import Any
 
 
+MATCH_CONTROL_COMMANDS = {
+    "start",
+    "pause",
+    "reset",
+    "rewind",
+    "forward",
+    "set_time_left",
+}
+
+SIMULATOR_INPUT_COMMANDS = {
+    "set_structure_health",
+    "set_structure_hp",
+    "set_unit",
+    "set_unit_hp",
+    "remove_unit",
+    "clear_units",
+}
+
+SUPPORTED_CONTROL_COMMANDS = MATCH_CONTROL_COMMANDS | SIMULATOR_INPUT_COMMANDS
+SECONDS_COMMANDS = {"rewind", "forward", "set_time_left"}
+
+
+def command_name(payload: dict[str, Any]) -> str:
+    return str(payload.get("command", "")).strip().lower()
+
+
+def normalize_api_control_payload(
+    data: dict[str, Any],
+    default_step_sec: int,
+) -> tuple[str | None, dict[str, Any], str | None]:
+    command = command_name(data)
+    if command not in SUPPORTED_CONTROL_COMMANDS:
+        return (None, {}, f"unsupported command: {command}")
+
+    payload = {key: value for key, value in data.items() if key not in {"command", "ts"}}
+    if command in SECONDS_COMMANDS:
+        try:
+            payload["seconds"] = float(data.get("seconds", default_step_sec))
+        except (TypeError, ValueError):
+            return (None, {}, "seconds must be number")
+    return (command, payload, None)
+
+
 def append_command(path: Path, command: str, payload: dict[str, Any] | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     body: dict[str, Any] = {

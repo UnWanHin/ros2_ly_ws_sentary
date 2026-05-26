@@ -82,7 +82,7 @@ def cleanup_stale_live_viewers() -> None:
     targets = sorted(
         {
             pid
-            for pattern in ("decision_viz.main", "decision-viz ")
+            for pattern in ("simulator.main", "simulator ")
             for pid in _collect_pids_by_pattern(pattern)
             if pid != this_pid
         }
@@ -91,9 +91,9 @@ def cleanup_stale_live_viewers() -> None:
         return
     remain = _terminate_pids(targets)
     if remain:
-        print(f"warning: stale decision_viz.main processes still alive: {remain}", file=sys.stderr)
+        print(f"warning: stale simulator.main processes still alive: {remain}", file=sys.stderr)
     else:
-        print(f"cleaned stale decision_viz.main processes: {targets}")
+        print(f"cleaned stale simulator.main processes: {targets}")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -215,8 +215,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--control-file",
-        default="/tmp/decision_viz_match_control.jsonl",
-        help="JSONL command channel between live viewer and mock inputs (default: /tmp/decision_viz_match_control.jsonl).",
+        default="/tmp/simulator_match_control.jsonl",
+        help="JSONL command channel between live viewer and mock inputs (default: /tmp/simulator_match_control.jsonl).",
     )
     parser.add_argument(
         "--list-configs",
@@ -269,8 +269,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--ros-state-file",
-        default="/tmp/decision_viz_ros_topics.json",
-        help="Live ROS topic state JSON path for --live-view (default: /tmp/decision_viz_ros_topics.json).",
+        default="/tmp/simulator_ros_topics.json",
+        help="Live ROS topic state JSON path for --live-view (default: /tmp/simulator_ros_topics.json).",
     )
     parser.add_argument(
         "--no-live-ros-monitor",
@@ -472,7 +472,7 @@ def build_mock_command(root: Path, args: argparse.Namespace) -> tuple[list[str],
     python_args = [
         python_exec,
         "-m",
-        "decision_viz.mock_inputs",
+        "simulator.mock_inputs",
         "--team",
         args.mock_team,
         "--target-source",
@@ -509,7 +509,7 @@ def build_mock_command(root: Path, args: argparse.Namespace) -> tuple[list[str],
     setup_cmds.append("mkdir -p /tmp/ros2_logs")
     setup_cmds.append("export ROS_LOG_DIR=/tmp/ros2_logs")
     setup_cmds.append(
-        f"export PYTHONPATH={shlex.quote(str((root / 'src' / 'decision_viz').resolve()))}:$PYTHONPATH"
+        f"export PYTHONPATH={shlex.quote(str((root / 'src' / 'simulator').resolve()))}:$PYTHONPATH"
     )
 
     quoted_python = " ".join(shlex.quote(item) for item in python_args)
@@ -524,7 +524,7 @@ def build_ros_topic_monitor_command(root: Path, state_file: str) -> tuple[list[s
     python_args = [
         python_exec,
         "-m",
-        "decision_viz.ros_topic_monitor",
+        "simulator.ros_topic_monitor",
         "--state-file",
         str(Path(state_file).expanduser().resolve()),
     ]
@@ -539,7 +539,7 @@ def build_ros_topic_monitor_command(root: Path, state_file: str) -> tuple[list[s
     setup_cmds.append("mkdir -p /tmp/ros2_logs")
     setup_cmds.append("export ROS_LOG_DIR=/tmp/ros2_logs")
     setup_cmds.append(
-        f"export PYTHONPATH={shlex.quote(str((root / 'src' / 'decision_viz').resolve()))}:$PYTHONPATH"
+        f"export PYTHONPATH={shlex.quote(str((root / 'src' / 'simulator').resolve()))}:$PYTHONPATH"
     )
     quoted_python = " ".join(shlex.quote(item) for item in python_args)
     setup_cmds.append(quoted_python)
@@ -560,7 +560,7 @@ def build_offline_bt_config(root: Path, source_config: Path) -> Path:
     navi["ToNavi"] = False
     navi.pop("UseTfGoalBridge", None)
 
-    out_dir = (root / "log" / "decision_viz").resolve()
+    out_dir = (root / "log" / "simulator").resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"{source_config.stem}.offline_official_goal_pos.json"
     with out_path.open("w", encoding="utf-8") as stream:
@@ -570,7 +570,7 @@ def build_offline_bt_config(root: Path, source_config: Path) -> Path:
 
 
 def run_viewer(trace_path: Path) -> int:
-    cmd = [sys.executable, "-m", "decision_viz.main", trace_path.as_posix()]
+    cmd = [sys.executable, "-m", "simulator.main", trace_path.as_posix()]
     return subprocess.run(cmd, check=False).returncode
 
 
@@ -588,7 +588,7 @@ def start_live_viewer(
     cmd = [
         sys.executable,
         "-m",
-        "decision_viz.main",
+        "simulator.main",
         trace_path.as_posix(),
         "--follow",
         "--follow-poll",

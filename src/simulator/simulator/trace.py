@@ -5,7 +5,17 @@ import math
 from pathlib import Path
 from typing import Any
 
-from .model import DecisionIntent, DecisionOutput, TraceRecord, UnitRecord
+from .model import (
+    DecisionIntent,
+    DecisionOutput,
+    EventSnapshot,
+    GimbalState,
+    RelativeTarget,
+    RuntimeGuard,
+    TargetState,
+    TraceRecord,
+    UnitRecord,
+)
 
 
 LOCATION_COUNT = 50
@@ -54,6 +64,16 @@ def optional_bool(value: Any) -> bool | None:
     return None
 
 
+def boolean(value: Any, default: bool = False) -> bool:
+    parsed = optional_bool(value)
+    return default if parsed is None else parsed
+
+
+def optional_number(value: Any) -> float | None:
+    out = number(value, float("nan"))
+    return out if math.isfinite(out) else None
+
+
 def compact_label(value: Any, default: str = "-") -> str:
     if isinstance(value, dict):
         name = value.get("name")
@@ -67,6 +87,13 @@ def compact_label(value: Any, default: str = "-") -> str:
     if value is None:
         return default
     return str(value)
+
+
+def compact_label_list(value: Any) -> tuple[str, ...]:
+    out: list[str] = []
+    for item in as_list(value):
+        out.append(compact_label(item))
+    return tuple(out)
 
 
 def parse_position(value: Any) -> tuple[float, float] | None:
@@ -188,6 +215,89 @@ def normalize_decision_intent(raw: dict[str, Any], output: DecisionOutput) -> De
     )
 
 
+def normalize_target_state(raw: dict[str, Any]) -> TargetState:
+    state = as_dict(raw.get("target_state"))
+    return TargetState(
+        has_recent_target=boolean(state.get("has_recent_target")),
+        fresh_auto_aim=boolean(state.get("fresh_auto_aim")),
+        fresh_buff=boolean(state.get("fresh_buff")),
+        fresh_outpost=boolean(state.get("fresh_outpost")),
+        hitable_targets=compact_label_list(state.get("hitable_targets")),
+        reliable_enemy_positions=compact_label_list(state.get("reliable_enemy_positions")),
+    )
+
+
+def normalize_events(raw: dict[str, Any]) -> EventSnapshot:
+    events = as_dict(raw.get("events"))
+    return EventSnapshot(
+        event_data_fresh=boolean(events.get("event_data_fresh")),
+        sentry_info_fresh=boolean(events.get("sentry_info_fresh")),
+        buff_task_enabled=boolean(events.get("buff_task_enabled")),
+        buff_can_activate=boolean(events.get("buff_can_activate")),
+        buff_activating=boolean(events.get("buff_activating")),
+        buff_activated=boolean(events.get("buff_activated")),
+        outpost_task_enabled=boolean(events.get("outpost_task_enabled")),
+        enemy_outpost_alive=boolean(events.get("enemy_outpost_alive")),
+        outpost_attack_window_open=boolean(events.get("outpost_attack_window_open")),
+        self_low_hp=boolean(events.get("self_low_hp")),
+        self_low_ammo=boolean(events.get("self_low_ammo")),
+        recent_damage_over_30=boolean(events.get("recent_damage_over_30")),
+        armor_target_visible=boolean(events.get("armor_target_visible")),
+        buff_target_locked=boolean(events.get("buff_target_locked")),
+        outpost_target_locked=boolean(events.get("outpost_target_locked")),
+        goal_reached=boolean(events.get("goal_reached")),
+        goal_unreachable=boolean(events.get("goal_unreachable")),
+        regional_defense_active=boolean(events.get("regional_defense_active")),
+        self_fortress_gain_point_status=integer(events.get("self_fortress_gain_point_status"), 0),
+        self_outpost_gain_point_status=integer(events.get("self_outpost_gain_point_status"), 0),
+        self_base_gain_point_status=boolean(events.get("self_base_gain_point_status")),
+    )
+
+
+def normalize_relative_target(raw: dict[str, Any]) -> RelativeTarget:
+    target = as_dict(raw.get("navi_relative_target"))
+    return RelativeTarget(
+        valid=boolean(target.get("valid")),
+        x=optional_number(target.get("x")),
+        y=optional_number(target.get("y")),
+        z=optional_number(target.get("z")),
+        distance=optional_number(target.get("distance")),
+        yaw_error_deg=optional_number(target.get("yaw_error_deg")),
+        pitch_error_deg=optional_number(target.get("pitch_error_deg")),
+        armor_type=integer(target.get("armor_type"), 0),
+        aim_mode=integer(target.get("aim_mode"), 0),
+        official_target_valid=boolean(target.get("official_target_valid")),
+        official_armor_type=integer(target.get("official_armor_type"), 0),
+    )
+
+
+def normalize_gimbal(raw: dict[str, Any]) -> GimbalState:
+    gimbal = as_dict(raw.get("gimbal"))
+    fire_code = as_dict(gimbal.get("fire_code"))
+    return GimbalState(
+        yaw_deg=optional_number(gimbal.get("yaw_deg")),
+        pitch_deg=optional_number(gimbal.get("pitch_deg")),
+        yaw_vel_deg_per_sec=optional_number(gimbal.get("yaw_vel_deg_per_sec")),
+        yaw_angle_deg=optional_number(gimbal.get("yaw_angle_deg")),
+        cap_v=integer(gimbal.get("cap_v"), 0),
+        navi_lower_head=integer(gimbal.get("navi_lower_head"), 0),
+        fire_status=integer(fire_code.get("fire_status"), 0),
+        cap_state=integer(fire_code.get("cap_state"), 0),
+        follow_mode=integer(fire_code.get("follow_mode"), 0),
+        aim_mode=integer(fire_code.get("aim_mode"), 0),
+        rotate=integer(fire_code.get("rotate"), 0),
+    )
+
+
+def normalize_runtime_guard(raw: dict[str, Any]) -> RuntimeGuard:
+    guard = as_dict(raw.get("runtime_guard"))
+    return RuntimeGuard(
+        fault=str(guard.get("fault", "-")),
+        recovery_requested=boolean(guard.get("recovery_requested")),
+        recovering=boolean(guard.get("recovering")),
+    )
+
+
 def normalize_record(raw: dict[str, Any], index: int, goal_names: dict[int, str]) -> TraceRecord:
     navi = as_dict(raw.get("navi_goal"))
     posture = as_dict(raw.get("posture"))
@@ -201,6 +311,11 @@ def normalize_record(raw: dict[str, Any], index: int, goal_names: dict[int, str]
 
     output = normalize_output(raw, navi, team, goal_names)
     decision_intent = normalize_decision_intent(raw, output)
+    target_state = normalize_target_state(raw)
+    events = normalize_events(raw)
+    navi_relative_target = normalize_relative_target(raw)
+    gimbal = normalize_gimbal(raw)
+    runtime_guard = normalize_runtime_guard(raw)
 
     return TraceRecord(
         raw=raw,
@@ -212,8 +327,11 @@ def normalize_record(raw: dict[str, Any], index: int, goal_names: dict[int, str]
         strategy=str(raw.get("strategy_mode", "-")),
         aim=str(raw.get("aim_mode", "-")),
         target=compact_label(target, str(raw.get("target_armor", "-"))),
+        target_state=target_state,
         output=output,
         decision_intent=decision_intent,
+        events=events,
+        navi_relative_target=navi_relative_target,
         goal_id=output.goal_id,
         goal_base_id=output.goal_base_id,
         goal_name=output.goal_name,
@@ -230,6 +348,8 @@ def normalize_record(raw: dict[str, Any], index: int, goal_names: dict[int, str]
         ammo=integer(referee.get("ammo", raw.get("ammo")), 0),
         time_left=integer(referee.get("time_left", raw.get("time_left")), 0),
         units=normalize_units(raw),
+        gimbal=gimbal,
+        runtime_guard=runtime_guard,
     )
 
 
@@ -292,31 +412,44 @@ def load_trace_incremental(
 
 def build_changes(records: list[TraceRecord]) -> list[dict[str, Any]]:
     changes: list[dict[str, Any]] = []
-    last: tuple[Any, ...] | None = None
+    last: dict[str, Any] | None = None
     for record in records:
-        state = (
-            record.strategy,
-            record.aim,
-            record.output.route_key,
-            record.output.kind,
-            record.target,
-            record.posture_command,
-            record.posture_state,
-        )
+        state = {
+            "strategy": record.strategy,
+            "aim": record.aim,
+            "route": record.output.route_key,
+            "kind": record.output.kind,
+            "target": record.target,
+            "posture": (record.posture_command, record.posture_state),
+            "intent": (
+                record.decision_intent.layer,
+                record.decision_intent.reason,
+                record.decision_intent.base_goal_id,
+                record.decision_intent.resolved_goal_id,
+            ),
+            "events": record.events.change_key(),
+            "guard": record.runtime_guard.fault,
+        }
         if last is None or state != last or record.event != "tick":
             parts = []
             if record.event != "tick":
                 parts.append(record.event)
-            if last is None or record.strategy != last[0]:
+            if last is None or state["strategy"] != last["strategy"]:
                 parts.append(f"strategy={record.strategy}")
-            if last is None or record.aim != last[1]:
+            if last is None or state["aim"] != last["aim"]:
                 parts.append(f"aim={record.aim}")
-            if last is None or record.output.route_key != last[2] or record.output.kind != last[3]:
+            if last is None or state["route"] != last["route"] or state["kind"] != last["kind"]:
                 parts.append(f"output={record.output.kind}:{record.output.goal_name}:{record.output.goal_id}")
-            if last is None or record.target != last[4]:
+            if last is None or state["target"] != last["target"]:
                 parts.append(f"target={record.target}")
-            if last is None or record.posture_command != last[5] or record.posture_state != last[6]:
+            if last is None or state["intent"] != last["intent"]:
+                parts.append(f"intent={record.decision_intent.layer}/{record.decision_intent.reason}")
+            if last is None or state["events"] != last["events"]:
+                parts.append(f"events={record.events.compact_text()}")
+            if last is None or state["posture"] != last["posture"]:
                 parts.append(f"posture={record.posture_command}/{record.posture_state}")
+            if last is None or state["guard"] != last["guard"]:
+                parts.append(f"guard={record.runtime_guard.fault}")
             changes.append({"index": record.index, "t": record.t, "text": ", ".join(parts)})
             last = state
     return changes

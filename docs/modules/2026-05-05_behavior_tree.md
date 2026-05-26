@@ -36,7 +36,7 @@ behavior_tree/
 │   └── Robot.hpp               # Robot類/UnitType/UnitTeam 等遊戲數據類型
 ├── src/
 │   ├── Application.cpp         # 構造函數、Run() 流程
-│   ├── DecisionTrace.cpp       # 可選 JSONL 決策 trace（離線 decision_viz 使用）
+│   ├── DecisionTrace.cpp       # 可選 JSONL 決策 trace（離線 simulator 使用）
 │   ├── GameLoop.cpp            # 主循環邏輯（UpdateBlackBoard/TreeTick/PublishTogether）
 │   ├── BehaviorTree.cpp        # BT初始化（RegisterTreeNodes, LoadBehaviorTree）
 │   ├── Configuration.cpp       # 讀取 config.json
@@ -156,7 +156,7 @@ Run()
 
 ### `src/DecisionTrace.cpp` — 離線決策可視化輸出
 
-`decision_trace_enabled:=true` 且 `decision_trace_file` 非空時，`behavior_tree` 每隔 `decision_trace_every_n_ticks` 個 tick 寫一行 JSONL。該文件由 `src/decision_viz` 離線播放，不改變任何 ROS topic 或決策控制鏈。默認 `decision_trace_enabled:=false`，正常比賽不開檔、不寫 trace。
+`decision_trace_enabled:=true` 且 `decision_trace_file` 非空時，`behavior_tree` 每隔 `decision_trace_every_n_ticks` 個 tick 寫一行 JSONL。該文件由 `src/simulator` 離線播放，不改變任何 ROS topic 或決策控制鏈。默認 `decision_trace_enabled:=false`，正常比賽不開檔、不寫 trace。
 
 Trace 會保留 `navi_goal` 原始資料，同時輸出穩定的 `decision_output` 模型。後續決策內部改成新的橋接或策略流程時，viewer 優先看 `decision_output.goal_pos_cm`、output topic、publish flags，而不是直接耦合到某個舊策略欄位。
 
@@ -170,7 +170,7 @@ Trace 會保留 `navi_goal` 原始資料，同時輸出穩定的 `decision_outpu
 ```
 
 維護文檔見：
-[docs/sentry/internal/decision_visualization.md](../sentry/internal/decision_visualization.md)
+[docs/sentry/internal/simulator.md](../sentry/internal/simulator.md)
 
 ---
 

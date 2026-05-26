@@ -8,12 +8,14 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .control_bus import append_command, read_commands
+from .control_bus import append_command, command_name, read_commands
+from .field import FieldGeometry
+from .field import field_to_screen as field_to_screen_point
+from .field import screen_to_field as screen_to_field_point
+from .inputs_panel import InputsPanel
+from .interactive_inputs import SimulatorInputState
 from .model import TraceRecord, UnitRecord
 from .trace import as_dict, as_list, build_changes, load_trace_incremental, parse_position
-
-
-DEFAULT_FIELD_CM = (2800, 1500)
 
 
 def fit_rect(pg: Any, src_size: tuple[int, int], dst_rect: Any) -> Any:
@@ -99,6 +101,8 @@ class Viewer:
 
         self.layers = as_dict(config.get("layers"))
         self.timeline_config = as_dict(config.get("timeline"))
+        self.panel_tab = "decision"
+        self.panel_tab_buttons: dict[str, Any] = {}
         self.ros_monitor = as_dict(config.get("ros_monitor"))
         ros_state_file = str(self.ros_monitor.get("state_file", "")).strip()
         self.ros_state_path: Path | None = Path(ros_state_file).expanduser().resolve() if ros_state_file else None
@@ -111,6 +115,16 @@ class Viewer:
         self.goal_tag_button_rect = None
         self.colors_raw = as_dict(config.get("colors"))
         self.unit_styles = as_dict(config.get("unit_styles"))
+        self.simulator_inputs = as_dict(config.get("simulator_inputs"))
+        self.simulator_inputs_enabled = bool(self.simulator_inputs.get("enabled", True))
+        self.default_field = FieldGeometry.from_config(config.get("field_cm"))
+        self.sim_input_state = SimulatorInputState.from_config(
+            self.simulator_inputs,
+            field=self.default_field,
+        )
+        self.inputs_panel = InputsPanel(self)
+        self.dragging_unit: Any | None = None
+        self.drag_position: tuple[int, int] | None = None
         self.times = [record.t for record in records]
         self.current_index = 0
         self.current_time = self.times[0]
@@ -160,7 +174,7 @@ class Viewer:
         self.scripted_enabled = bool(self.scripted_path.get("enabled", False)) and len(self.scripted_waypoints) >= 2
 
         self.screen = pygame.display.set_mode((self.width, self.height), pygame.RESIZABLE)
-        pygame.display.set_caption("LY Decision Visualization")
+        pygame.display.set_caption("LY Simulator")
         try:
             driver = pygame.display.get_driver()
             if str(driver).strip().lower() == "offscreen":
@@ -221,6 +235,10 @@ class Viewer:
                     self.handle_key(event.key)
                 elif event.type == self.pg.MOUSEBUTTONDOWN:
                     self.handle_mouse(event)
+                elif event.type == self.pg.MOUSEMOTION:
+                    self.handle_mouse_motion(event)
+                elif event.type == self.pg.MOUSEBUTTONUP:
+                    self.handle_mouse_up(event)
 
             if self.follow and (now - self.last_control_poll) >= self.control_poll_sec:
                 self.poll_control_commands()
@@ -284,6 +302,14 @@ class Viewer:
             self.show_labels = not self.show_labels
         elif key == pg.K_t:
             self.goal_tags_expanded = not self.goal_tags_expanded
+        elif key in (pg.K_1, pg.K_KP1):
+            self.panel_tab = "decision"
+        elif key in (pg.K_2, pg.K_KP2):
+            self.panel_tab = "events"
+        elif key in (pg.K_3, pg.K_KP3):
+            self.panel_tab = "runtime"
+        elif key in (pg.K_4, pg.K_KP4):
+            self.panel_tab = "inputs"
         elif key == pg.K_s:
             self.send_match_command("start")
         elif key == pg.K_p:
@@ -298,6 +324,14 @@ class Viewer:
     def handle_mouse(self, event: Any) -> None:
         if event.button != 1:
             return
+        for tab, rect in self.panel_tab_buttons.items():
+            if rect.collidepoint(event.pos):
+                self.panel_tab = tab
+                if tab != "inputs":
+                    self.inputs_panel.clear_buttons()
+                return
+        if self.handle_sim_panel_mouse_down(event.pos):
+            return
         for command, rect in self.control_buttons.items():
             if rect.collidepoint(event.pos):
                 if command == "rewind":
@@ -310,10 +344,30 @@ class Viewer:
         if self.goal_tag_button_rect is not None and self.goal_tag_button_rect.collidepoint(event.pos):
             self.goal_tags_expanded = not self.goal_tags_expanded
             return
+        if self.handle_sim_map_mouse_down(event.pos):
+            return
         track = self.timeline_rect()
         if track.collidepoint(event.pos):
             ratio = (event.pos[0] - track.x) / max(1, track.width)
             self.seek_index(round(ratio * (len(self.records) - 1)))
+
+    def handle_mouse_motion(self, event: Any) -> None:
+        if self.dragging_unit is not None:
+            self.drag_position = event.pos
+
+    def handle_mouse_up(self, event: Any) -> None:
+        if event.button != 1 or self.dragging_unit is None:
+            return
+        image_rect = self.map_image_rect()
+        field_pos = self.screen_to_field(event.pos, image_rect)
+        unit = self.dragging_unit
+        self.dragging_unit = None
+        self.drag_position = None
+        if field_pos is None:
+            return
+        x, y = field_pos
+        payload = unit.to_command_payload(int(round(x)), int(round(y)))
+        self.send_sim_command("set_unit", payload)
 
     def send_match_command(self, command: str, payload: dict[str, Any] | None = None) -> None:
         if not self.match_control_enabled or self.control_path is None or not self.follow:
@@ -321,6 +375,20 @@ class Viewer:
         try:
             append_command(self.control_path, command, payload)
             self.apply_local_match_command(command, payload)
+            self.last_control_status = f"cmd={command}"
+        except OSError:
+            self.last_control_status = f"cmd={command} failed"
+
+    def controls_available(self) -> bool:
+        return bool(self.match_control_enabled and self.control_path is not None and self.follow)
+
+    def send_sim_command(self, command: str, payload: dict[str, Any]) -> None:
+        if not self.controls_available():
+            self.last_control_status = "sim input disabled"
+            return
+        try:
+            append_command(self.control_path, command, payload)
+            self.apply_local_sim_command(command, payload)
             self.last_control_status = f"cmd={command}"
         except OSError:
             self.last_control_status = f"cmd={command} failed"
@@ -364,16 +432,36 @@ class Viewer:
                 self.match_running = False
             return
 
+    def apply_local_sim_command(self, command: str, payload: dict[str, Any] | None = None) -> None:
+        self.sim_input_state.apply_command(command, payload or {})
+
+    def handle_sim_panel_mouse_down(self, pos: tuple[int, int]) -> bool:
+        return self.inputs_panel.handle_mouse_down(pos)
+
+    def handle_sim_map_mouse_down(self, pos: tuple[int, int]) -> bool:
+        if not self.simulator_inputs_enabled:
+            return False
+        image_rect = self.map_image_rect()
+        if not image_rect.collidepoint(pos):
+            return False
+        hit = self.hit_sim_unit(pos, image_rect)
+        if hit is None:
+            return False
+        self.dragging_unit = self.sim_input_state.units[hit]
+        self.drag_position = pos
+        return True
+
     def poll_control_commands(self) -> None:
         if not self.match_control_enabled or self.control_path is None or not self.follow:
             return
         commands, new_offset = read_commands(self.control_path, self.control_read_offset)
         self.control_read_offset = new_offset
         for payload in commands:
-            command = str(payload.get("command", "")).strip().lower()
+            command = command_name(payload)
             if not command:
                 continue
             self.apply_local_match_command(command, payload)
+            self.apply_local_sim_command(command, payload)
             self.last_control_status = f"cmd={command}"
 
     def tick_match_clock(self, dt: float) -> None:
@@ -445,6 +533,9 @@ class Viewer:
     def map_area_rect(self) -> Any:
         return self.pg.Rect(18, 18, self.width - self.panel_w - 36, self.height - self.timeline_h - 32)
 
+    def map_image_rect(self) -> Any:
+        return fit_rect(self.pg, self.map_size, self.map_area_rect().inflate(-18, -18))
+
     def panel_rect(self) -> Any:
         return self.pg.Rect(self.width - self.panel_w, 0, self.panel_w, self.height - self.timeline_h)
 
@@ -456,12 +547,13 @@ class Viewer:
         self.draw_map()
         self.draw_panel()
         self.draw_timeline()
+        self.draw_drag_preview()
 
     def draw_map(self) -> None:
         pg = self.pg
         area = self.map_area_rect()
         pg.draw.rect(self.screen, self.palette["panel"], area, border_radius=8)
-        image_rect = fit_rect(pg, self.map_size, area.inflate(-18, -18))
+        image_rect = self.map_image_rect()
         rect_key = (image_rect.x, image_rect.y, image_rect.width, image_rect.height)
         if self.scaled_map is None or self.cached_map_key != rect_key:
             self.scaled_map = pg.transform.smoothscale(self.map_image, (image_rect.width, image_rect.height))
@@ -473,6 +565,8 @@ class Viewer:
             self.draw_terrain(image_rect)
         if self.layers.get("structures", True):
             self.draw_structures(image_rect)
+        if self.layers.get("simulator_inputs", True):
+            self.draw_sim_structure_badges(image_rect)
         if self.layers.get("grid", True):
             self.draw_grid(image_rect)
         if self.layers.get("all_goals", True):
@@ -483,21 +577,24 @@ class Viewer:
             self.draw_scripted_path(image_rect)
         if self.layers.get("units", True):
             self.draw_units(image_rect)
+            self.draw_sim_units(image_rect)
         if self.layers.get("current_goal", True):
             self.draw_current_goal(image_rect)
 
-    def field_size(self) -> tuple[int, int]:
+    def field_geometry(self) -> FieldGeometry:
         record = self.records[self.current_index]
         field = as_dict(record.raw.get("field_cm")) or as_dict(self.config.get("field_cm"))
-        return (int(field.get("width", DEFAULT_FIELD_CM[0])), int(field.get("height", DEFAULT_FIELD_CM[1])))
+        return FieldGeometry.from_config(field)
+
+    def field_size(self) -> tuple[int, int]:
+        field = self.field_geometry()
+        return (field.width, field.height)
 
     def field_to_screen(self, pos: tuple[float, float], image_rect: Any) -> tuple[int, int]:
-        field_w, field_h = self.field_size()
-        x = max(0.0, min(float(field_w), pos[0]))
-        y = max(0.0, min(float(field_h), pos[1]))
-        sx = image_rect.x + x / field_w * image_rect.width
-        sy = image_rect.y + (1.0 - y / field_h) * image_rect.height
-        return (round(sx), round(sy))
+        return field_to_screen_point(pos, image_rect, self.field_geometry())
+
+    def screen_to_field(self, pos: tuple[int, int], image_rect: Any) -> tuple[float, float] | None:
+        return screen_to_field_point(pos, image_rect, self.field_geometry())
 
     @staticmethod
     def to_float(value: Any, default: float = 0.0) -> float:
@@ -875,6 +972,104 @@ class Viewer:
         for unit in self.records[self.current_index].units:
             self.draw_unit(unit, image_rect)
 
+    def absolute_field_side(self, relative_side: str) -> str:
+        team = self.records[self.current_index].team
+        if team not in ("red", "blue"):
+            team = "red"
+        if relative_side == "friend":
+            return team
+        return "blue" if team == "red" else "red"
+
+    def sim_structure_position(self, item: Any) -> tuple[float, float] | None:
+        team = self.records[self.current_index].team
+        return self.sim_input_state.structure_position(item, team, self.goals)
+
+    def draw_sim_structure_badges(self, image_rect: Any) -> None:
+        if not self.simulator_inputs_enabled:
+            return
+        pg = self.pg
+        for item in self.sim_input_state.structures:
+            pos = self.sim_structure_position(item)
+            if pos is None:
+                continue
+            sx, sy = self.field_to_screen(pos, image_rect)
+            hp = int(self.sim_input_state.structure_health.get(item.key, item.hp))
+            max_hp = max(1, int(item.max_hp))
+            ratio = max(0.0, min(1.0, hp / max_hp))
+            side_color = self.palette[self.absolute_field_side(item.side)]
+            radius = 10 if item.structure == "outpost" else 12
+            pg.draw.circle(self.screen, self.palette["black"], (sx, sy), radius + 5)
+            pg.draw.circle(self.screen, side_color, (sx, sy), radius + 2)
+            pg.draw.circle(self.screen, self.palette["panel"], (sx, sy), max(2, radius - 4))
+            self.draw_health_bar(sx - 22, sy + radius + 5, 44, 5, ratio)
+            if self.show_labels or self.panel_tab == "inputs":
+                label = f"{item.label} {hp}/{max_hp}"
+                self.draw_label(label, sx + radius + 8, sy - 12, image_rect)
+
+    def draw_sim_units(self, image_rect: Any) -> None:
+        if not self.simulator_inputs_enabled:
+            return
+        for unit in self.sim_input_state.units.values():
+            self.draw_sim_unit(unit, image_rect)
+
+    def draw_sim_unit(self, unit: Any, image_rect: Any) -> None:
+        pg = self.pg
+        x = unit.x
+        y = unit.y
+        sx, sy = self.field_to_screen((x, y), image_rect)
+        type_name = unit.type_name
+        type_styles = as_dict(self.unit_styles.get("types"))
+        style = as_dict(type_styles.get(type_name, type_styles.get("default", {})))
+        side = unit.side
+        side_style = as_dict(self.unit_styles.get(side, {}))
+        radius = int(style.get("radius", 7)) + 2
+        label = str(style.get("label", type_name[:1] or "?"))
+        fill = pg.Color(side_style.get("color", self.colors_raw.get(side, "#4fb3d9")))
+        outline = pg.Color(side_style.get("outline", "#000000"))
+        pg.draw.circle(self.screen, self.palette["white"], (sx, sy), radius + 5)
+        pg.draw.circle(self.screen, outline, (sx, sy), radius + 3)
+        pg.draw.circle(self.screen, fill, (sx, sy), radius + 1)
+        text = self.small_font.render(label, True, self.palette["black"])
+        self.screen.blit(text, text.get_rect(center=(sx, sy)))
+        max_hp = max(1, int(unit.max_hp))
+        hp = max(0, min(max_hp, int(unit.hp)))
+        self.draw_health_bar(sx - 18, sy + radius + 6, 36, 5, hp / max_hp)
+        if self.show_labels or self.panel_tab == "inputs":
+            self.draw_label(f"SIM {side}:{type_name} {hp}/{max_hp}", sx + 11, sy + 10, image_rect)
+
+    def hit_sim_unit(self, pos: tuple[int, int], image_rect: Any) -> tuple[str, int] | None:
+        for key, unit in reversed(list(self.sim_input_state.units.items())):
+            x = unit.x
+            y = unit.y
+            sx, sy = self.field_to_screen((x, y), image_rect)
+            type_name = unit.type_name
+            type_styles = as_dict(self.unit_styles.get("types"))
+            style = as_dict(type_styles.get(type_name, type_styles.get("default", {})))
+            radius = int(style.get("radius", 7)) + 8
+            if math.hypot(pos[0] - sx, pos[1] - sy) <= radius:
+                return key
+        return None
+
+    def draw_drag_preview(self) -> None:
+        if self.dragging_unit is None or self.drag_position is None:
+            return
+        unit = self.dragging_unit
+        pg = self.pg
+        side = unit.side
+        type_name = unit.type_name
+        type_styles = as_dict(self.unit_styles.get("types"))
+        style = as_dict(type_styles.get(type_name, type_styles.get("default", {})))
+        side_style = as_dict(self.unit_styles.get(side, {}))
+        radius = int(style.get("radius", 8)) + 3
+        label = str(style.get("label", type_name[:1] or "?"))
+        fill = pg.Color(side_style.get("color", self.colors_raw.get(side, "#4fb3d9")))
+        outline = pg.Color(side_style.get("outline", "#000000"))
+        pg.draw.circle(self.screen, self.palette["white"], self.drag_position, radius + 5)
+        pg.draw.circle(self.screen, outline, self.drag_position, radius + 3)
+        pg.draw.circle(self.screen, fill, self.drag_position, radius + 1)
+        text = self.small_font.render(label, True, self.palette["black"])
+        self.screen.blit(text, text.get_rect(center=self.drag_position))
+
     def draw_unit(self, unit: UnitRecord, image_rect: Any) -> None:
         if unit.position_cm is None:
             return
@@ -924,12 +1119,14 @@ class Viewer:
     def draw_panel(self) -> None:
         pg = self.pg
         rect = self.panel_rect()
+        if self.panel_tab != "inputs":
+            self.inputs_panel.clear_buttons()
         pg.draw.rect(self.screen, self.palette["panel"], rect)
         pg.draw.line(self.screen, self.palette["line"], rect.topleft, rect.bottomleft, 1)
         record = self.records[self.current_index]
         x = rect.x + 18
         y = rect.y + 18
-        y = self.draw_text("Decision Viz", x, y, self.title_font, self.palette["text"], rect.width - 36)
+        y = self.draw_text("Simulator", x, y, self.title_font, self.palette["text"], rect.width - 36)
         y += 6
         state = "PLAY" if self.playing else "PAUSE"
         y = self.draw_text(
@@ -941,23 +1138,46 @@ class Viewer:
             rect.width - 36,
         )
         y = self.draw_match_controls(x, y + 6, rect.width - 36, record)
-        y = self.draw_map_tag_controls(x, y, rect.width - 36)
+        y = self.draw_panel_tabs(x, y, rect.width - 36)
         if self.bad_lines:
             y = self.draw_text(f"Skipped bad lines: {self.bad_lines}", x, y, self.small_font, self.palette["enemy"], rect.width - 36)
         y += 10
-        events = as_dict(record.raw.get("events"))
-        event_summary = (
-            f"RD:{int(bool(events.get('regional_defense_active')))} "
-            f"Buff:{int(bool(events.get('buff_can_activate') or events.get('buff_activating')))} "
-            f"Outpost:{int(bool(events.get('enemy_outpost_alive')))}"
-        )
+        if self.panel_tab == "events":
+            y = self.draw_map_tag_controls(x, y, rect.width - 36)
+            y = self.draw_section(x, y, "Decision Conditions", self.condition_rows(record), rect.width - 36)
+            y = self.draw_section(x, y, "Target State", self.target_rows(record), rect.width - 36)
+            y = self.draw_section(x, y, "Relative Target", self.relative_target_rows(record), rect.width - 36)
+            y = self.draw_section(x, y, "Referee / Energy", self.referee_rows(record), rect.width - 36)
+            self.draw_section(x, y, "Units", self.unit_rows(record), rect.width - 36)
+            return
+
+        if self.panel_tab == "runtime":
+            y = self.draw_section(x, y, "ROS Output", self.ros_output_rows(record), rect.width - 36)
+            y = self.draw_section(x, y, "Posture", [
+                ("Command", record.posture_command),
+                ("State", record.posture_state),
+                ("Current", record.posture_current),
+                ("Desired", record.posture_desired),
+                ("Pending", record.posture_pending),
+                ("Reason", record.posture_reason),
+            ], rect.width - 36)
+            y = self.draw_section(x, y, "Gimbal / FireCode", self.gimbal_rows(record), rect.width - 36)
+            y = self.draw_section(x, y, "Runtime Guard", self.runtime_guard_rows(record), rect.width - 36)
+            self.draw_resource_bars(x, y, rect.width - 36, record)
+            return
+
+        if self.panel_tab == "inputs":
+            self.inputs_panel.draw(x, y, rect.width - 36, rect)
+            return
+
+        y = self.draw_map_tag_controls(x, y, rect.width - 36)
         y = self.draw_section(x, y, "Decision", [
             ("Profile", str(record.raw.get("competition_profile", "-"))),
             ("Team", record.team),
             ("Strategy", record.strategy),
             ("Aim", record.aim),
             ("Target", record.target),
-            ("Events", event_summary),
+            ("Events", record.events.compact_text()),
         ], rect.width - 36)
         y = self.draw_section(x, y, "Decision Output", [
             ("Kind", record.output.kind),
@@ -978,27 +1198,151 @@ class Viewer:
             ("Priority", str(record.decision_intent.priority)),
             ("Detail", record.decision_intent.detail),
         ], rect.width - 36)
-        y = self.draw_section(x, y, "ROS Output", self.ros_output_rows(record), rect.width - 36)
-        y = self.draw_section(x, y, "Posture", [
-            ("Command", record.posture_command),
-            ("State", record.posture_state),
-            ("Current", record.posture_current),
-            ("Desired", record.posture_desired),
-            ("Pending", record.posture_pending),
-            ("Reason", record.posture_reason),
-        ], rect.width - 36)
-        y = self.draw_section(x, y, "Referee", [
-            ("HP", str(record.hp)),
-            ("Ammo", str(record.ammo)),
-            ("TimeLeft", str(record.time_left)),
-            ("Outpost", self.outpost_text(record.raw)),
-            ("FortressGP", str(
-                as_dict(record.raw.get("referee")).get("event_self_fortress_gain_point_status", "-")
-            )),
-        ], rect.width - 36)
-        y = self.draw_resource_bars(x, y, rect.width - 36, record)
         if self.layers.get("recent_changes", True):
             self.draw_recent_changes(x, y, rect)
+
+    def draw_panel_tabs(self, x: int, y: int, max_width: int) -> int:
+        pg = self.pg
+        y += 4
+        labels = [("decision", "Decision"), ("events", "Events"), ("runtime", "Runtime"), ("inputs", "Inputs")]
+        gap = 6
+        button_w = max(72, (max_width - gap * (len(labels) - 1)) // len(labels))
+        button_h = 26
+        self.panel_tab_buttons = {}
+        for idx, (tab, label) in enumerate(labels):
+            rect = pg.Rect(x + idx * (button_w + gap), y, button_w, button_h)
+            self.panel_tab_buttons[tab] = rect
+            fill = self.palette["accent"] if self.panel_tab == tab else self.palette["panel2"]
+            text_color = self.palette["black"] if self.panel_tab == tab else self.palette["text"]
+            pg.draw.rect(self.screen, fill, rect, border_radius=5)
+            pg.draw.rect(self.screen, self.palette["line"], rect, 1, border_radius=5)
+            text = self.small_font.render(label, True, text_color)
+            self.screen.blit(text, text.get_rect(center=rect.center))
+        y += button_h + 8
+        pg.draw.line(self.screen, self.palette["line"], (x, y), (x + max_width, y), 1)
+        return y + 8
+
+    def condition_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
+        events = record.events
+        return [
+            ("Summary", events.compact_text()),
+            ("Fresh", f"event={self.flag(events.event_data_fresh)} sentry={self.flag(events.sentry_info_fresh)}"),
+            (
+                "Buff",
+                " ".join(
+                    [
+                        f"task={self.flag(events.buff_task_enabled)}",
+                        f"can={self.flag(events.buff_can_activate)}",
+                        f"active={self.flag(events.buff_activating)}",
+                        f"done={self.flag(events.buff_activated)}",
+                    ]
+                ),
+            ),
+            (
+                "Outpost",
+                " ".join(
+                    [
+                        f"task={self.flag(events.outpost_task_enabled)}",
+                        f"alive={self.flag(events.enemy_outpost_alive)}",
+                        f"window={self.flag(events.outpost_attack_window_open)}",
+                    ]
+                ),
+            ),
+            (
+                "Risk",
+                " ".join(
+                    [
+                        f"low_hp={self.flag(events.self_low_hp)}",
+                        f"low_ammo={self.flag(events.self_low_ammo)}",
+                        f"damage30={self.flag(events.recent_damage_over_30)}",
+                    ]
+                ),
+            ),
+            (
+                "Goal",
+                f"reached={self.flag(events.goal_reached)} unreachable={self.flag(events.goal_unreachable)}",
+            ),
+        ]
+
+    def target_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
+        target_state = record.target_state
+        return [
+            ("Target", record.target),
+            ("Fresh", target_state.fresh_text()),
+            ("Locks", f"armor={self.flag(record.events.armor_target_visible)} buff={self.flag(record.events.buff_target_locked)} outpost={self.flag(record.events.outpost_target_locked)}"),
+            ("Hitable", self.join_items(target_state.hitable_targets)),
+            ("EnemyPos", self.join_items(target_state.reliable_enemy_positions)),
+        ]
+
+    def relative_target_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
+        target = record.navi_relative_target
+        rel_xyz = ", ".join(
+            [
+                self.format_optional_float(target.x, "x={:.2f}"),
+                self.format_optional_float(target.y, "y={:.2f}"),
+                self.format_optional_float(target.z, "z={:.2f}"),
+            ]
+        )
+        errors = ", ".join(
+            [
+                self.format_optional_float(target.distance, "dist={:.2f}"),
+                self.format_optional_float(target.yaw_error_deg, "yaw={:.1f}deg"),
+                self.format_optional_float(target.pitch_error_deg, "pitch={:.1f}deg"),
+            ]
+        )
+        return [
+            ("Mode", record.output.kind),
+            ("Trace valid", f"output={self.flag(record.output.relative_target_valid)} target={self.flag(target.valid)}"),
+            ("Relative", rel_xyz),
+            ("Errors", errors),
+            ("Armor", f"type={target.armor_type} aim={target.aim_mode}"),
+            ("Official", f"valid={self.flag(target.official_target_valid)} armor={target.official_armor_type}"),
+        ]
+
+    def referee_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
+        referee = as_dict(record.raw.get("referee"))
+        team_buff = as_dict(referee.get("team_buff"))
+        rfid = as_dict(referee.get("rfid_match"))
+        return [
+            ("HP", f"self={record.hp} outpost={referee.get('self_outpost_hp', '-')} base={referee.get('self_base_hp', '-')}"),
+            ("EnemyHP", f"outpost={referee.get('enemy_outpost_hp', '-')} base={referee.get('enemy_base_hp', '-')}"),
+            ("Ammo/Time", f"ammo={record.ammo} time={record.time_left}"),
+            ("Energy", f"can={self.flag(referee.get('sentry_can_activate_energy'))} pulse={self.flag(referee.get('energy_activate_confirm_pulse'))}"),
+            ("GainPoint", f"fortress={referee.get('event_self_fortress_gain_point_status', '-')} outpost={referee.get('event_self_outpost_gain_point_status', '-')} base={self.flag(referee.get('event_self_base_gain_point_status'))}"),
+            ("TeamBuff", f"atk={team_buff.get('attack', '-')} def={team_buff.get('defence', '-')} energy={team_buff.get('remaining_energy', '-')}"),
+            ("RFID", f"fresh={self.flag(rfid.get('fresh'))} any={self.flag(rfid.get('any'))} tunnel={self.flag(rfid.get('tunnel'))} center={self.flag(rfid.get('center_gain_point'))}"),
+        ]
+
+    def unit_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
+        friend = [unit for unit in record.units if unit.side == "friend"]
+        enemy = [unit for unit in record.units if unit.side == "enemy"]
+        friend_text = self.units_text(friend)
+        enemy_text = self.units_text(enemy)
+        return [
+            ("Friend", friend_text),
+            ("Enemy", enemy_text),
+        ]
+
+    def gimbal_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
+        gimbal = record.gimbal
+        return [
+            ("Angles", f"yaw={self.format_optional_float(gimbal.yaw_deg)} pitch={self.format_optional_float(gimbal.pitch_deg)}"),
+            ("YawRaw", f"vel={self.format_optional_float(gimbal.yaw_vel_deg_per_sec)} angle={self.format_optional_float(gimbal.yaw_angle_deg)}"),
+            ("Cap", f"cap_v={gimbal.cap_v} lower_head={gimbal.navi_lower_head}"),
+            ("FireCode", f"fire={gimbal.fire_status} cap={gimbal.cap_state} follow={gimbal.follow_mode}"),
+            ("Aim/Rotate", f"aim={gimbal.aim_mode} rotate={gimbal.rotate}"),
+        ]
+
+    def runtime_guard_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
+        guard = record.runtime_guard
+        posture_runtime = as_dict(as_dict(record.raw.get("posture")).get("runtime"))
+        degraded = as_dict(posture_runtime.get("degraded"))
+        return [
+            ("Fault", guard.fault),
+            ("Recovery", f"requested={self.flag(guard.recovery_requested)} recovering={self.flag(guard.recovering)}"),
+            ("PostureRT", f"pending={self.flag(posture_runtime.get('has_pending'))} stale={self.flag(posture_runtime.get('feedback_stale'))} retry={posture_runtime.get('retry_count', '-')}"),
+            ("Degraded", f"atk={self.flag(degraded.get('attack'))} def={self.flag(degraded.get('defense'))} move={self.flag(degraded.get('move'))}"),
+        ]
 
     def draw_match_controls(self, x: int, y: int, max_width: int, record: TraceRecord) -> int:
         pg = self.pg
@@ -1272,6 +1616,41 @@ class Viewer:
         while out and font.size(out + "...")[0] > max_width:
             out = out[:-1]
         return out + "..." if out else "..."
+
+    @staticmethod
+    def flag(value: Any) -> str:
+        if value is None:
+            return "-"
+        if isinstance(value, bool):
+            return "1" if value else "0"
+        if isinstance(value, (int, float)):
+            return "1" if bool(value) else "0"
+        text = str(value).strip().lower()
+        if text in {"true", "1", "yes", "on"}:
+            return "1"
+        if text in {"false", "0", "no", "off"}:
+            return "0"
+        return str(value)
+
+    @staticmethod
+    def join_items(items: tuple[str, ...]) -> str:
+        return ", ".join(items) if items else "-"
+
+    @staticmethod
+    def format_optional_float(value: float | None, template: str = "{:.1f}") -> str:
+        if value is None:
+            return "-"
+        return template.format(value)
+
+    @staticmethod
+    def units_text(units: list[UnitRecord]) -> str:
+        if not units:
+            return "-"
+        parts = []
+        for unit in units:
+            hp = f"{unit.hp}/{unit.max_hp}" if unit.max_hp else str(unit.hp)
+            parts.append(f"{unit.type_name}:{hp}")
+        return " ".join(parts)
 
     @staticmethod
     def format_position(pos: tuple[float, float] | None) -> str:

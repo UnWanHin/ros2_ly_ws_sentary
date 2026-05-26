@@ -1,4 +1,4 @@
-schema: ly_decision_viz_config_v1
+schema: ly_simulator_config_v1
 updated: "2026-05-13"
 
 window:
@@ -30,10 +30,10 @@ match_control:
   duration_sec: 420
   rewind_step_sec: 10
   forward_step_sec: 10
-  control_file: /tmp/decision_viz_match_control.jsonl
+  control_file: /tmp/simulator_match_control.jsonl
 
 ros_monitor:
-  state_file: /tmp/decision_viz_ros_topics.json
+  state_file: /tmp/simulator_ros_topics.json
   poll_sec: 0.05
   stale_sec: 1.0
 
@@ -72,6 +72,7 @@ resources:
 layers:
   terrain: true
   structures: true
+  simulator_inputs: true
   grid: true
   all_goals: true
   current_goal: true
@@ -96,6 +97,32 @@ colors:
   blue: "#5d8ee8"
   black: "#000000"
   white: "#ffffff"
+
+simulator_inputs:
+  enabled: true
+  structure_positions:
+    outpost:
+      red: [1090, 370]
+      blue: [1707, 1141]
+    base:
+      red: [245, 750]
+      blue: [2555, 750]
+  structures:
+    - {key: enemy_outpost, label: Enemy Outpost, side: enemy, structure: outpost, hp: 60, max_hp: 60, step: 10}
+    - {key: enemy_base, label: Enemy Base, side: enemy, structure: base, hp: 5000, max_hp: 5000, step: 500}
+    - {key: friend_outpost, label: Friend Outpost, side: friend, structure: outpost, hp: 60, max_hp: 60, step: 10}
+    - {key: friend_base, label: Friend Base, side: friend, structure: base, hp: 5000, max_hp: 5000, step: 500}
+  unit_palette:
+    - {side: friend, type_id: 1, type: Hero, hp: 200, max_hp: 200}
+    - {side: friend, type_id: 2, type: Engineer, hp: 250, max_hp: 250}
+    - {side: friend, type_id: 3, type: Infantry1, hp: 200, max_hp: 200}
+    - {side: friend, type_id: 4, type: Infantry2, hp: 200, max_hp: 200}
+    - {side: friend, type_id: 7, type: Sentry, hp: 400, max_hp: 400}
+    - {side: enemy, type_id: 1, type: Hero, hp: 200, max_hp: 200}
+    - {side: enemy, type_id: 2, type: Engineer, hp: 250, max_hp: 250}
+    - {side: enemy, type_id: 3, type: Infantry1, hp: 200, max_hp: 200}
+    - {side: enemy, type_id: 4, type: Infantry2, hp: 200, max_hp: 200}
+    - {side: enemy, type_id: 7, type: Sentry, hp: 400, max_hp: 400}
 
 terrain:
   enabled: true
@@ -217,7 +244,7 @@ unit_styles:
 
 goals:
   - {id: 0, name: Home, red: [393, 810], blue: [2408, 683]}
-  - {id: 1, name: Base, red: [401, 691], blue: [2400, 811]}
+  - {id: 1, name: Base, red: [245, 750], blue: [2555, 750]}
   - {id: 2, name: Recovery, red: [183, 245], blue: [2619, 1249]}
   - {id: 3, name: BuffShoot, red: [924, 1388], blue: [1872, 115]}
   - {id: 4, name: LeftHighLand, red: [406, 1332], blue: [2392, 187]}

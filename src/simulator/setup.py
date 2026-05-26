@@ -1,7 +1,7 @@
 from glob import glob
 from setuptools import find_packages, setup
 
-package_name = "decision_viz"
+package_name = "simulator"
 
 setup(
     name=package_name,
@@ -17,15 +17,15 @@ setup(
     zip_safe=True,
     maintainer="unwanhin",
     maintainer_email="unwanhin@example.com",
-    description="Offline pygame decision trace visualizer for the sentry behavior tree.",
+    description="Offline pygame simulator for sentry behavior-tree decision traces.",
     license="Proprietary",
     tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "decision-viz = decision_viz.main:main",
-            "decision-viz-start = decision_viz.start:main",
-            "decision-viz-mock-inputs = decision_viz.mock_inputs:main",
-            "decision-viz-ros-topic-monitor = decision_viz.ros_topic_monitor:main",
+            "simulator = simulator.main:main",
+            "simulator-start = simulator.start:main",
+            "simulator-mock-inputs = simulator.mock_inputs:main",
+            "simulator-ros-topic-monitor = simulator.ros_topic_monitor:main",
         ],
     },
 )

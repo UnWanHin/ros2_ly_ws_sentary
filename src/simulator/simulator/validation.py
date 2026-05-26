@@ -23,8 +23,20 @@ def validate_records(records: list[TraceRecord], config: dict[str, Any], bad_lin
     field_w = float(field.get("width", 2800))
     field_h = float(field.get("height", 1500))
     last_t: float | None = None
+    legacy_schema_seen = False
 
     for record in records:
+        try:
+            schema_version = int(record.raw.get("schema_version", 1) or 1)
+        except (TypeError, ValueError):
+            schema_version = 1
+        if schema_version < 2:
+            legacy_schema_seen = True
+        elif not as_dict(record.raw.get("decision_output")):
+            issues.append(ValidationIssue("error", record.index, "schema_version >= 2 missing decision_output"))
+        elif not as_dict(record.raw.get("decision_intent")):
+            issues.append(ValidationIssue("warning", record.index, "schema_version >= 2 missing decision_intent"))
+
         if last_t is not None and record.t < last_t:
             issues.append(ValidationIssue("error", record.index, "trace time is not monotonic"))
         last_t = record.t
@@ -42,6 +54,8 @@ def validate_records(records: list[TraceRecord], config: dict[str, Any], bad_lin
             )
         if record.output.publish_enabled and record.output.publish_allowed and not record.output.output_topic:
             issues.append(ValidationIssue("warning", record.index, "published output has no output_topic"))
+        if record.output.kind == "relative_target_bridge" and not record.navi_relative_target.valid:
+            issues.append(ValidationIssue("warning", record.index, "relative_target_bridge output has no valid navi_relative_target"))
 
         for unit in record.units:
             if unit.max_hp > 0 and not (0 <= unit.hp <= unit.max_hp):
@@ -63,6 +77,16 @@ def validate_records(records: list[TraceRecord], config: dict[str, Any], bad_lin
                         f"{unit.side}:{unit.type_name} position out of field: x={x:.0f} y={y:.0f}",
                     )
                 )
+
+    if legacy_schema_seen:
+        issues.insert(
+            0,
+            ValidationIssue(
+                "warning",
+                None,
+                "legacy schema_version < 2 records are readable but lack stable decision_output/decision_intent fields",
+            ),
+        )
 
     return issues
 

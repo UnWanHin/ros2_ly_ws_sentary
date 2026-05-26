@@ -47,16 +47,16 @@ This repository is a ROS2 workspace built with `colcon`.
 - Never commit secrets, device-specific credentials, or local absolute paths.
 - Keep runtime configuration centralized in `src/detector/config/auto_aim_config.yaml` and related launch parameters.
 
-## Decision Visualization Maintenance
-- `src/decision_viz` is the maintained offline pygame viewer for behavior-tree decision traces; keep it in `src/`, not `tools/`.
+## Simulator Maintenance
+- `src/simulator` is the maintained offline pygame viewer for behavior-tree decision traces; keep it in `src/`, not `tools/`.
 - When changing behavior-tree decision outputs, trace schema, navigation goal IDs/coordinates, posture fields, target fields, or unit state fields, update in the same change:
   - `src/behavior_tree/src/DecisionTrace.cpp`
-  - `src/decision_viz/decision_viz/model.py`
-  - `src/decision_viz/decision_viz/trace.py`
-  - `src/decision_viz/decision_viz/validation.py` when the new output affects offline checks
-  - `src/decision_viz/config/default.yaml` when map, field, point, unit, layer, or style assumptions change
-  - the dated docs under `docs/sentry/`, currently `docs/sentry/2026-04-27_decision_visualization.md`
-- Dated decision visualization docs must include an `Updated: YYYY-MM-DD` line.
+  - `src/simulator/simulator/model.py`
+  - `src/simulator/simulator/trace.py`
+  - `src/simulator/simulator/validation.py` when the new output affects offline checks
+  - `src/simulator/config/default.yaml` when map, field, point, unit, layer, or style assumptions change
+  - the current simulator docs under `docs/sentry/`, currently `docs/sentry/internal/simulator.md`
+- Dated simulator docs must include an `Updated: YYYY-MM-DD` line.
 
 ## Default Engineer Mode (Project)
 - Default to the `$cautious-super-engineer` working style for all tasks unless the user explicitly overrides it.

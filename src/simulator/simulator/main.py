@@ -15,7 +15,7 @@ def import_pygame():
         import pygame  # type: ignore
     except ImportError:
         print(
-            "pygame is required. Install it with: python3 -m pip install -r src/decision_viz/requirements.txt",
+            "pygame is required. Install it with: python3 -m pip install -r src/simulator/requirements.txt",
             file=sys.stderr,
         )
         raise
@@ -202,7 +202,7 @@ def main(argv: list[str] | None = None) -> int:
     control_file_path = Path(control_file) if control_file else None
     control_step_sec = int(match_cfg.get("rewind_step_sec", 10) or 10)
 
-    trace_path = resolve_path(args.trace or paths.get("sample_trace", "src/decision_viz/sample/sample_trace.jsonl"))
+    trace_path = resolve_path(args.trace or paths.get("sample_trace", "src/simulator/sample/sample_trace.jsonl"))
     map_path = resolve_path(args.map_path or paths.get("default_map", "tools/maps/basemaps/buff_map_field.png"))
     if not args.follow and not trace_path.exists():
         print(f"trace file not found: {trace_path}", file=sys.stderr)
@@ -225,9 +225,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if web_stream_enabled and not args.validate_only:
         try:
-            from .web_stream import DecisionVizWebStream
+            from .web_stream import SimulatorWebStream
 
-            streamer = DecisionVizWebStream(
+            streamer = SimulatorWebStream(
                 host=web_host,
                 port=web_port,
                 fps=web_fps,

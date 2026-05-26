@@ -111,7 +111,7 @@ scripts/
 ./scripts/start.sh gated --mode regional
 ```
 
-### 2.1 离线决策一键入口（固定 regional）
+### 2.1 离线 simulator 一键入口（固定 regional）
 
 ```bash
 python3 ./scripts/python/start.py
@@ -120,7 +120,7 @@ python3 ./scripts/python/start.py
 默认会同时打开：
 
 - pygame 窗口
-- 端口画面流：`http://127.0.0.1:<port>/`（默认读 `src/decision_viz/config/default.yaml` 的 `web_stream.port`，默认值 9000）
+- 端口画面流：`http://127.0.0.1:<port>/`（默认读 `src/simulator/config/default.yaml` 的 `web_stream.port`，默认值 9000）
 - 分区赛超对抗 7 分钟离线比赛时钟（默认 420 秒）
 - 右侧控制按钮：`Start` / `Pause` / `+10s` / `-10s` / `Reset`
 - 默认保留 `/ly/game/is_start` 门控；点击 `Start` 才会进入开赛状态
@@ -134,7 +134,7 @@ python3 ./scripts/python/start.py --trace
 python3 ./scripts/python/start.py --no-view
 python3 ./scripts/python/start.py --web-port 9010
 python3 ./scripts/python/start.py --match-duration-sec 420
-python3 ./scripts/python/start.py --control-file /tmp/decision_viz_match_control.jsonl
+python3 ./scripts/python/start.py --control-file /tmp/simulator_match_control.jsonl
 python3 ./scripts/python/start.py --bypass-is-start
 python3 ./scripts/python/start.py --keep-to-navi
 ```

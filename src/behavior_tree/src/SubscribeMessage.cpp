@@ -217,32 +217,24 @@ namespace BehaviorTree{
 
         // ly_enemy_op_hp
         GenSub<ly_enemy_op_hp>([](Application& app, auto msg) {
-            if (msg->data > 0) {
-                app.enemyOutpostHealth = msg->data;
-                app.hasReceivedEnemyOutpostHealth_ = true;
-                app.lastEnemyOutpostHealthRxTime_ = std::chrono::steady_clock::now();
-            }
+            app.enemyOutpostHealth = msg->data;
+            app.hasReceivedEnemyOutpostHealth_ = true;
+            app.lastEnemyOutpostHealthRxTime_ = std::chrono::steady_clock::now();
         });
 
         // ly_friend_op_hp
         GenSub<ly_friend_op_hp>([](Application& app, auto msg) {
-            if (msg->data > 0) {
-                app.selfOutpostHealth = msg->data;
-            }
+            app.selfOutpostHealth = msg->data;
         });
 
         // ly_friend_base_hp
         GenSub<ly_friend_base_hp>([](Application& app, auto msg) {
-            if (msg->data > 0) {
-                app.selfBaseHealth = msg->data;
-            }
+            app.selfBaseHealth = msg->data;
         });
 
         // ly_enemy_base_hp
         GenSub<ly_enemy_base_hp>([](Application& app, auto msg) {
-            if (msg->data > 0) {
-                app.enemyBaseHealth = msg->data;
-            }
+            app.enemyBaseHealth = msg->data;
         });
 
         // ly_friend_ammo_left

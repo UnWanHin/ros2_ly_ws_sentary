@@ -16,7 +16,7 @@ def package_share() -> Path | None:
     except ImportError:
         return None
     try:
-        return Path(get_package_share_directory("decision_viz"))
+        return Path(get_package_share_directory("simulator"))
     except Exception:
         return None
 

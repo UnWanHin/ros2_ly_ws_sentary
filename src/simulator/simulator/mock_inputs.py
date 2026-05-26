@@ -5,7 +5,9 @@ import math
 import time
 from pathlib import Path
 
-from .control_bus import read_commands
+from .control_bus import command_name, read_commands
+from .field import FieldGeometry
+from .interactive_inputs import SimulatorInputState
 
 
 def parse_bool(value: str) -> bool:
@@ -32,6 +34,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--ammo-left", type=int, default=200)
     parser.add_argument("--self-health", type=int, default=400)
     parser.add_argument("--enemy-health", type=int, default=400)
+    parser.add_argument("--self-outpost-health", type=int, default=60)
+    parser.add_argument("--enemy-outpost-health", type=int, default=60)
+    parser.add_argument("--self-base-health", type=int, default=5000)
+    parser.add_argument("--enemy-base-health", type=int, default=5000)
     parser.add_argument("--simulate-match", type=parse_bool, default=False)
     parser.add_argument("--start-running", type=parse_bool, default=False)
     parser.add_argument("--match-duration-sec", type=int, default=420)
@@ -49,7 +55,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         import rclpy
         from auto_aim_common.msg import Target
-        from gimbal_driver.msg import BuffData, GameData, GimbalAngles, Health, RfidStatus
+        from gimbal_driver.msg import BuffData, GameData, GimbalAngles, Health, PositionData, RfidStatus
         from rclpy.node import Node
         from std_msgs.msg import Bool, UInt8, UInt16
     except ImportError as exc:
@@ -63,7 +69,7 @@ def main(argv: list[str] | None = None) -> int:
 
     class MockDecisionInputs(Node):
         def __init__(self) -> None:
-            super().__init__("decision_viz_mock_inputs")
+            super().__init__("simulator_mock_inputs")
             self.team_red = args.team == "red"
             self.match_duration_sec = max(1, min(65535, int(args.match_duration_sec)))
             self.time_left_float = float(max(0, min(self.match_duration_sec, int(args.time_left))))
@@ -71,6 +77,16 @@ def main(argv: list[str] | None = None) -> int:
             self.ammo_left = max(0, min(65535, int(args.ammo_left)))
             self.self_health = max(0, min(65535, int(args.self_health)))
             self.enemy_health = max(0, min(65535, int(args.enemy_health)))
+            structure_health = {
+                ("friend", "outpost"): max(0, min(65535, int(args.self_outpost_health))),
+                ("enemy", "outpost"): max(0, min(65535, int(args.enemy_outpost_health))),
+                ("friend", "base"): max(0, min(65535, int(args.self_base_health))),
+                ("enemy", "base"): max(0, min(65535, int(args.enemy_base_health))),
+            }
+            self.sim_input_state = SimulatorInputState.with_defaults(
+                field=FieldGeometry(),
+                structure_health_overrides=structure_health,
+            )
             self.posture = max(0, min(255, int(args.posture)))
             self.simulate_match = bool(args.simulate_match)
             self.match_started = not self.simulate_match
@@ -99,8 +115,13 @@ def main(argv: list[str] | None = None) -> int:
             self.pub_game_all = self.create_publisher(GameData, "/ly/game/all", 10)
             self.pub_me_hp = self.create_publisher(Health, "/ly/friend/hp", 10)
             self.pub_enemy_hp = self.create_publisher(Health, "/ly/enemy/hp", 10)
+            self.pub_friend_op_hp = self.create_publisher(UInt16, "/ly/friend/op_hp", 10)
+            self.pub_enemy_op_hp = self.create_publisher(UInt16, "/ly/enemy/op_hp", 10)
+            self.pub_friend_base_hp = self.create_publisher(UInt16, "/ly/friend/base_hp", 10)
+            self.pub_enemy_base_hp = self.create_publisher(UInt16, "/ly/enemy/base_hp", 10)
             self.pub_team_buff = self.create_publisher(BuffData, "/ly/team/buff", 10)
             self.pub_rfid = self.create_publisher(RfidStatus, "/ly/game/rfid", 10)
+            self.pub_position_data = self.create_publisher(PositionData, "/ly/position/data", 10)
 
             self.target_source = args.target_source
             self.pub_target = None
@@ -117,6 +138,8 @@ def main(argv: list[str] | None = None) -> int:
                 "mock inputs started: "
                 f"team={args.team} target_source={args.target_source} hz={args.hz:.1f} "
                 f"time_left={self.time_left} ammo_left={self.ammo_left} "
+                f"enemy_outpost_hp={self.sim_input_state.structure_hp('enemy', 'outpost')} "
+                f"enemy_base_hp={self.sim_input_state.structure_hp('enemy', 'base')} "
                 f"simulate_match={str(self.simulate_match).lower()} "
                 f"running={str(self.match_running).lower()} "
                 f"control_file={(self.control_path.as_posix() if self.control_path else '-')}"
@@ -127,7 +150,7 @@ def main(argv: list[str] | None = None) -> int:
             self.time_left = max(0, min(self.match_duration_sec, int(math.ceil(self.time_left_float))))
 
         def _apply_command(self, payload: dict) -> None:
-            command = str(payload.get("command", "")).strip().lower()
+            command = command_name(payload)
             if not command:
                 return
             if command == "start":
@@ -175,6 +198,8 @@ def main(argv: list[str] | None = None) -> int:
                     return
                 self.time_left_float = target
                 self._clamp_time_left()
+                return
+            self.sim_input_state.apply_control_payload(payload)
 
         def _poll_commands(self) -> None:
             if self.control_path is None:
@@ -183,6 +208,32 @@ def main(argv: list[str] | None = None) -> int:
             self.control_offset = new_offset
             for payload in commands:
                 self._apply_command(payload)
+
+        @staticmethod
+        def _publish_u16(pub: object, value: int) -> None:
+            msg = UInt16()
+            msg.data = max(0, min(65535, int(value)))
+            pub.publish(msg)
+
+        def _health_msg(self, side: str, stamp: object) -> Health:
+            msg = Health()
+            msg.header.stamp = stamp
+            base_hp = self.self_health if side == "friend" else self.enemy_health
+            for field, value in self.sim_input_state.health_fields(side, base_hp).items():
+                setattr(msg, field, max(0, min(65535, int(value))))
+            return msg
+
+        def _publish_unit_positions(self, stamp: object) -> None:
+            for row in self.sim_input_state.position_rows():
+                msg = PositionData()
+                msg.header.stamp = stamp
+                msg.friendcarid = row.friend_car_id
+                msg.friendx = row.raw_x if row.friend_car_id else 0
+                msg.friendy = row.raw_y if row.friend_car_id else 0
+                msg.enemycarid = row.enemy_car_id
+                msg.enemyx = row.raw_x if row.enemy_car_id else 0
+                msg.enemyy = row.raw_y if row.enemy_car_id else 0
+                self.pub_position_data.publish(msg)
 
         def _publish_all(self) -> None:
             self._poll_commands()
@@ -230,23 +281,14 @@ def main(argv: list[str] | None = None) -> int:
             game_all.exteventdata = 0
             self.pub_game_all.publish(game_all)
 
-            me_hp = Health()
-            me_hp.hero = self.self_health
-            me_hp.engineer = self.self_health
-            me_hp.infantry1 = self.self_health
-            me_hp.infantry2 = self.self_health
-            me_hp.reserve = self.self_health
-            me_hp.sentry = self.self_health
-            self.pub_me_hp.publish(me_hp)
+            self._publish_u16(self.pub_friend_op_hp, self.sim_input_state.structure_hp("friend", "outpost"))
+            self._publish_u16(self.pub_enemy_op_hp, self.sim_input_state.structure_hp("enemy", "outpost"))
+            self._publish_u16(self.pub_friend_base_hp, self.sim_input_state.structure_hp("friend", "base"))
+            self._publish_u16(self.pub_enemy_base_hp, self.sim_input_state.structure_hp("enemy", "base"))
 
-            enemy_hp = Health()
-            enemy_hp.hero = self.enemy_health
-            enemy_hp.engineer = self.enemy_health
-            enemy_hp.infantry1 = self.enemy_health
-            enemy_hp.infantry2 = self.enemy_health
-            enemy_hp.reserve = self.enemy_health
-            enemy_hp.sentry = self.enemy_health
-            self.pub_enemy_hp.publish(enemy_hp)
+            self.pub_me_hp.publish(self._health_msg("friend", now))
+            self.pub_enemy_hp.publish(self._health_msg("enemy", now))
+            self._publish_unit_positions(now)
 
             team_buff = BuffData()
             team_buff.recoverybuff = 0
@@ -278,9 +320,13 @@ def main(argv: list[str] | None = None) -> int:
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
+    except Exception as exc:
+        if exc.__class__.__name__ != "ExternalShutdownException":
+            raise
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
     return 0
 
 

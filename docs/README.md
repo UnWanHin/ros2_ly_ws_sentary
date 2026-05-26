@@ -44,7 +44,7 @@ docs/
 [sentry/README.md](sentry/README.md)
 [sentry/regional/current_behavior.md](sentry/regional/current_behavior.md)
 [sentry/regional/decision_framework.md](sentry/regional/decision_framework.md)
-[sentry/internal/decision_visualization.md](sentry/internal/decision_visualization.md)
+[sentry/internal/simulator.md](sentry/internal/simulator.md)
 [sentry/embedded/serial_data_mapping.md](sentry/embedded/serial_data_mapping.md)
 [sentry/embedded/downlink_control_frame.md](sentry/embedded/downlink_control_frame.md)
 [sentry/info/rule_resource_profile.md](sentry/info/rule_resource_profile.md)

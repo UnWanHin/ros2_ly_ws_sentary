@@ -9,8 +9,8 @@ from typing import Any
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Write selected live ROS topic values for decision_viz.")
-    parser.add_argument("--state-file", default="/tmp/decision_viz_ros_topics.json")
+    parser = argparse.ArgumentParser(description="Write selected live ROS topic values for simulator.")
+    parser.add_argument("--state-file", default="/tmp/simulator_ros_topics.json")
     parser.add_argument("--hz", type=float, default=20.0)
     args = parser.parse_args(argv)
     if args.hz <= 0:
@@ -33,9 +33,9 @@ def main(argv: list[str] | None = None) -> int:
     state_file = Path(args.state_file).expanduser().resolve()
     state_file.parent.mkdir(parents=True, exist_ok=True)
 
-    class DecisionVizRosTopicMonitor(Node):
+    class SimulatorRosTopicMonitor(Node):
         def __init__(self) -> None:
-            super().__init__("decision_viz_ros_topic_monitor")
+            super().__init__("simulator_ros_topic_monitor")
             self.values: dict[str, dict[str, Any]] = {}
             self.create_subscription(PoseStamped, "/goal_pose", self.on_goal_pose, 10)
             self.create_subscription(UInt16MultiArray, "/ly/navi/goal_pos", self.on_goal_pos, 10)
@@ -82,7 +82,7 @@ def main(argv: list[str] | None = None) -> int:
 
         def write_state(self) -> None:
             payload = {
-                "schema": "ly_decision_viz_ros_topics_v1",
+                "schema": "ly_simulator_ros_topics_v1",
                 "wall_time": time.time(),
                 "topics": self.values,
             }
@@ -93,7 +93,7 @@ def main(argv: list[str] | None = None) -> int:
             os.replace(tmp_path, state_file)
 
     rclpy.init(args=None)
-    node = DecisionVizRosTopicMonitor()
+    node = SimulatorRosTopicMonitor()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

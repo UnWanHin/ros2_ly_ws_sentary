@@ -32,7 +32,7 @@ Use the existing project terms consistently:
 - lower machine / `gimbal_driver` for serial downlink and referee uplink generation
 - BT / `behavior_tree` for decision state, blackboard, strategy, and merged semantic state
 - navi / `navi_tf_bridge` for map and official coordinate conversion
-- decision trace for offline behavior-tree visualization
+- decision trace for offline behavior-tree simulation/replay
 - sentry, regional, league, RFID, sentry info, posture, firecode, and sentry cmd with the meanings already used in `docs/sentry/` and `docs/record/`
 
-When a change affects behavior-tree decision outputs, trace schema, navigation goal IDs/coordinates, posture fields, target fields, or unit state fields, follow the Decision Visualization Maintenance rules in `AGENTS.md`.
+When a change affects behavior-tree decision outputs, trace schema, navigation goal IDs/coordinates, posture fields, target fields, or unit state fields, follow the Simulator Maintenance rules in `AGENTS.md`.
