@@ -1,6 +1,6 @@
 # Regional Docs
 
-Updated: 2026-05-06
+Updated: 2026-05-27
 
 这里放 Regional 模式当前有效的决策行为说明。
 
@@ -14,6 +14,10 @@ Updated: 2026-05-06
 | `zone_blocks.md` | 区域点位、区域块和底层区域任务记录 |
 | `vision_mode_semantics.md` | `/ly/vision/mode`、task mode 等视觉/任务模式语义 |
 | `vision_task_patrol_modes.md` | Vision、Task、Patrol 的当前流转关系 |
+
+相关 debug 报告：
+
+- `../../reports/2026-05-27_regional_reached_dataflow_debug.md`：regional reached 源不统一、bag 证据和 RCH issue 列表。
 
 ## 维护重点
 

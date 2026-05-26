@@ -1,6 +1,6 @@
 # Regional 決策框架說明
 
-Updated: 2026-05-13
+Updated: 2026-05-27
 
 本文記錄目前 `behavior_tree` 裡 regional 決策的區域狀態機框架：它會做哪些任務、怎麼啟動、怎麼判斷到達、會輸出什麼控制，以及哪些階段會被高優先級邏輯打斷。
 
@@ -113,7 +113,7 @@ EvaluateEvents -> Hard -> Task -> PreprocessData -> SelectAimTarget -> Tactical 
 
 Regional 任務主要使用這些導航/定位輸入：
 
-- `/ly/navi/reached`：當前 goal 是否已到達，主到達判斷。
+- `/ly/navi/reached`：外部導航對當前 goal 的到達來源；它不是 BT 內部最終 reached 事實。
 - `/ly/navi/reachable`：當前 goal 是否有有效路徑，主不可達判斷。
 - `/ly/navi/should_rotate`：外部導航區域兼容控制；`true` 恢復 BT 正常小陀螺/巡邏，`false` 關小陀螺並請求 `FollowMode`。
 - `/ly/friend/uwb_pos`：雷達/UWB 推出的己方哨兵自身官方地圖坐標，單位 cm。
@@ -124,9 +124,9 @@ Regional 任務主要使用這些導航/定位輸入：
 
 - 選最近的巡邏起點；
 - 判斷自己目前在哪個大區域；
-- 在 `/ly/navi/reached` 缺失或超時時，作為距離到達判斷的備用條件。
+- 作為 BT 內部 composite reached 的坐標距離來源之一。
 
-也就是說，只要 `/ly/navi/reached` 和 `/ly/navi/reachable` 是新鮮有效的，到沒到點還是以它們為主，不靠 `/ly/navi/position` 硬判。
+也就是說，`/ly/navi/reached`、`/ly/navi/reachable` 和自身融合坐標應該一起進入 BT 的 goal-scoped reached 評估。`/ly/navi/reached=true` 可作為高優先級正向來源；`/ly/navi/reached=false` 不能永久否決坐標距離兜底。
 
 ## `/ly/navi/should_rotate` 的作用
 
@@ -376,17 +376,20 @@ CommonCentral 本身不開 `FollowMode`，也不開 `FaceMode`，就是普通中
 
 ## 到達與不可達
 
-每個當前 goal 的到達/不可達判斷順序是：
+每個當前 goal 的到達/不可達應統一成 goal-scoped state，而不是讓各個任務分別讀 raw topic。當前較完整的順序是：
 
 1. `/ly/navi/reachable`
    - 新鮮 `false` 表示當前路徑不可達；
    - 狀態機會根據所在 phase 推進、切換或完成。
 2. `/ly/navi/reached`
-   - 新鮮 `true` 表示當前 goal 到達。
+   - 新鮮 `true` 是外部導航到達來源。
+   - 新鮮 `false` 只能表示外部導航還沒確認到達，不能作為 BT 永久未到達結論。
 3. 自身坐標距離兜底
-   - 只有外部導航狀態缺失或超時時才用。
+   - goal-start grace 之後，如果融合自身坐標進入到達半徑，BT 可判定 composite reached。
+4. timeout / watchdog
+   - 用於任務保護性推進或 fallback；它是 `done/timeout`，不應直接等同於物理 reached。
 
-因此 `/ly/navi/position` 不替代 `/ly/navi/reached`。它主要是區域判斷、最近點插入、外部狀態失效時的兜底。
+因此 `/ly/navi/position` 不替代 `/ly/navi/reached`，但必須進入同一個內部 reached contract。後續應把 `EventGoalReached` / trace 裡的 ambiguous bool 改成 composite `GoalReachState`，至少記錄 status、reason、distance、external reached/reachable freshness。
 
 ## 打斷規則
 
