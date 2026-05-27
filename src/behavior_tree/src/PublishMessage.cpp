@@ -205,6 +205,9 @@ namespace BehaviorTree {
     gimbal_driver::msg::UnitInfoArray Application::MakeFriendInfoMsg() {
         const auto now = std::chrono::steady_clock::now();
         const auto enemy_team = team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
+        const int info_position_fresh_ms = static_cast<int>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                kUnitInfoFreshTimeout).count());
         gimbal_driver::msg::UnitInfoArray msg;
         msg.header.stamp = node_->now();
         msg.header.frame_id = "official_map";
@@ -218,8 +221,10 @@ namespace BehaviorTree {
             const auto& robot = friendRobots[unit_type];
             const bool has_hp =
                 lastFriendHealthRxTime_[index].time_since_epoch().count() != 0;
-            const bool has_position =
-                lastFriendPositionRxTime_[index].time_since_epoch().count() != 0;
+            const auto position = GetFriendPositionState(
+                unit_type,
+                info_position_fresh_ms,
+                now);
 
             gimbal_driver::msg::UnitInfo unit;
             unit.car_id = static_cast<std::uint8_t>(unit_type);
@@ -227,19 +232,16 @@ namespace BehaviorTree {
             unit.has_hp = has_hp;
             unit.hp_fresh = has_hp && now - lastFriendHealthRxTime_[index] <= kUnitInfoFreshTimeout;
             unit.hp_stamp = lastFriendHealthStamp_[index].Stamp;
-            unit.position_x = static_cast<std::int16_t>(robot.position_.X);
-            unit.position_y = static_cast<std::int16_t>(robot.position_.Y);
-            unit.has_position = has_position;
-            unit.position_fresh =
-                has_position && now - lastFriendPositionRxTime_[index] <= kUnitInfoFreshTimeout;
-            unit.position_stamp = lastFriendPositionStamp_[index].Stamp;
-            unit.position_source = unit_type == UnitType::Sentry
-                ? sentryPositionFusionSource_
-                : (has_position ? "position_data" : "none");
+            unit.position_x = static_cast<std::int16_t>(position.X);
+            unit.position_y = static_cast<std::int16_t>(position.Y);
+            unit.has_position = position.HasPosition;
+            unit.position_fresh = position.Fresh;
+            unit.position_stamp = position.Stamp;
+            unit.position_source = position.Source;
             unit.area_id = gimbal_driver::msg::UnitInfo::AREA_UNKNOWN;
             unit.area_name = "unknown";
             unit.area_used_nearest_fallback = false;
-            if (has_position) {
+            if (position.HasPosition) {
                 const auto area = AreaManager::ResolveAreaKeyForPointWithNearest(
                     team,
                     enemy_team,
@@ -266,6 +268,9 @@ namespace BehaviorTree {
     gimbal_driver::msg::UnitInfoArray Application::MakeEnemyInfoMsg() {
         const auto now = std::chrono::steady_clock::now();
         const auto enemy_team = team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
+        const int info_position_fresh_ms = static_cast<int>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                kUnitInfoFreshTimeout).count());
         gimbal_driver::msg::UnitInfoArray msg;
         msg.header.stamp = node_->now();
         msg.header.frame_id = "official_map";
@@ -279,8 +284,10 @@ namespace BehaviorTree {
             const auto& robot = enemyRobots[unit_type];
             const bool has_hp =
                 lastEnemyHealthRxTime_[index].time_since_epoch().count() != 0;
-            const bool has_position =
-                lastEnemyPositionRxTime_[index].time_since_epoch().count() != 0;
+            const auto position = GetEnemyPositionState(
+                unit_type,
+                info_position_fresh_ms,
+                now);
 
             gimbal_driver::msg::UnitInfo unit;
             unit.car_id = static_cast<std::uint8_t>(unit_type);
@@ -288,22 +295,16 @@ namespace BehaviorTree {
             unit.has_hp = has_hp;
             unit.hp_fresh = has_hp && now - lastEnemyHealthRxTime_[index] <= kUnitInfoFreshTimeout;
             unit.hp_stamp = lastEnemyHealthStamp_[index].Stamp;
-            unit.position_x = static_cast<std::int16_t>(robot.position_.X);
-            unit.position_y = static_cast<std::int16_t>(robot.position_.Y);
-            unit.has_position = has_position;
-            unit.position_fresh =
-                has_position && now - lastEnemyPositionRxTime_[index] <= kUnitInfoFreshTimeout;
-            unit.position_stamp = lastEnemyPositionStamp_[index].Stamp;
-            unit.position_source = "none";
-            if (has_position) {
-                unit.position_source = lastEnemyPositionSource_[index].empty()
-                    ? "position_data"
-                    : lastEnemyPositionSource_[index];
-            }
+            unit.position_x = static_cast<std::int16_t>(position.X);
+            unit.position_y = static_cast<std::int16_t>(position.Y);
+            unit.has_position = position.HasPosition;
+            unit.position_fresh = position.Fresh;
+            unit.position_stamp = position.Stamp;
+            unit.position_source = position.Source;
             unit.area_id = gimbal_driver::msg::UnitInfo::AREA_UNKNOWN;
             unit.area_name = "unknown";
             unit.area_used_nearest_fallback = false;
-            if (has_position) {
+            if (position.HasPosition) {
                 const auto area = AreaManager::ResolveAreaKeyForPointWithNearest(
                     team,
                     enemy_team,

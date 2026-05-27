@@ -407,6 +407,15 @@ private:
     struct UnitInfoStampCache {
         rclcpp::Time Stamp{};
     };
+    struct UnitPositionState {
+        bool HasPosition{false};
+        bool Fresh{false};
+        int X{0};
+        int Y{0};
+        std::string Source{"none"};
+        rclcpp::Time Stamp{};
+        std::int64_t AgeMs{-1};
+    };
     SentryPositionSourceCache sentryUwbPositionSource_{};
     SentryPositionSourceCache sentryPositionDataSource_{};
     SentryPositionSourceCache sentryNaviPositionSource_{};
@@ -576,6 +585,16 @@ private:
         const char* detail = nullptr) const;
     void RecordDecisionIntent(DecisionIntent intent);
     void UpdateSentryPositionFusion(std::chrono::steady_clock::time_point now);
+    UnitPositionState GetSentryPositionState(std::chrono::steady_clock::time_point now) const;
+    UnitPositionState GetSentryPositionState(std::chrono::steady_clock::time_point now, int fresh_ms) const;
+    UnitPositionState GetFriendPositionState(
+        UnitType unit_type,
+        int fresh_ms,
+        std::chrono::steady_clock::time_point now) const;
+    UnitPositionState GetEnemyPositionState(
+        UnitType unit_type,
+        int fresh_ms,
+        std::chrono::steady_clock::time_point now) const;
     bool IsSentryPositionFresh(std::chrono::steady_clock::time_point now) const;
     gimbal_driver::msg::UnitInfoArray MakeFriendInfoMsg();
     gimbal_driver::msg::UnitInfoArray MakeEnemyInfoMsg();

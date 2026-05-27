@@ -63,6 +63,40 @@ Evidence bags:
 
 第二份 bag 还有记录侧问题：`/ly/aim/armor_targets` 因 QoS reliability 不兼容没有录到消息，无法从 bag 完整复盘外部 aim 候选目标链路。但这不影响 reached 结论，因为 `/ly/navi/reached`、`/ly/navi/position`、`/ly/vision/mode` 和 `/ly/face_mode/target_raw` 都已经足够证明 reached 源不统一。
 
+## Position Dataflow Follow-up
+
+Updated: 2026-05-28
+
+本轮额外核查 `/ly/position/data`、相机目标、`/ly/enemy/info`、`/ly/friend/info` 和 `/goal_pose` 的关系。结论：
+
+- `/ly/position/data` 的 enemy 字段在两份 bag 中都没有有效坐标。
+- BT 中可见的敌方位置不是 `/ly/position/data` enemy，而是 `navi_tf_bridge` 输出的 `/ly/navi/target_official` 被 BT 写回 `enemyRobots` 后发布到 `/ly/enemy/info`，`position_source=navi_target_official`。
+- 相机源 `/ly/aim/armor_targets` 不直接覆盖 `enemyRobots`。它先进入 BT 的 `externalAimTargets_` / `armorList`，用于目标选择、`hitableTargets` 和 Chase 相对点；同时 `navi_tf_bridge` 会订阅该 topic，把有效 target point 反算成 `/ly/navi/target_official`，作为 BT 敌方 official-map fallback。
+- 自身位置进入 BT 的源是 `friendRobots[Sentry].position_`，由 `AreaManager.SentryPositionFusion` 融合 `/ly/friend/uwb_pos`、`/ly/position/data` 的 sentry friend slot、`/ly/navi/position`。两份 bag 的 `/ly/friend/info` 里 Sentry position source 全是 `uwb`，说明当时实际被 BT 采用的自身位置主源是 `/ly/friend/uwb_pos`。
+
+Bag 证据：
+
+| Bag | `/ly/position/data` count | enemy non-zero | friend Sentry non-zero | `/ly/enemy/info` position source | `/ly/aim/armor_targets` | `/ly/navi/target_rel` | `/ly/navi/target_map` |
+|---|---:|---:|---:|---|---:|---:|---:|
+| `20260517_083127/main` | 3,374 | 0 | 674 | `navi_target_official` for Sentry/Infantry1/Infantry2/Engineer/Hero | 17,046 | 144 | 58 |
+| `20260517_084309/main` | 4,853 | 0 | 971 | `navi_target_official` for Sentry/Infantry2 | 0 recorded | 0 | 0 |
+
+第二份 bag 的 `/ly/aim/armor_targets` 为 0 是记录 QoS 问题，不等于运行时没有相机目标。证据是 `/ly/enemy/info` 仍出现 `position_source=navi_target_official`，说明运行时 BT 收到了 bridge 反算后的 official fallback；只是 recorder 没把上游 `/ly/aim/armor_targets` 录下来。
+
+`/goal_pose` 来源需要分两类看：
+
+- 大多数 `/goal_pose` 由 BT 发布 `/ly/navi/goal_pos_raw`，再由 `navi_tf_bridge` 转成 `/goal_pose`。例如 `Blue BuffOutpost (1580,150)`、`Blue OutpostGuard (1831,1132)`、`Blue Castle (2132,749)`、`Blue HoleRoad (1677,204)`。
+- 追击相对点链路是 `/ly/navi/target_rel -> /goal_pose`。第一份 bag 只有 144 条，全部是 `armor=Infantry1`、`frame=gimbal_world`；第二份 bag 为 0。因此这两份 bag 里大部分 `/goal_pose` 不是 Chase relative target 直接生成，而是 BT 固定 official goal 经 bridge 生成。
+
+对“回防 goal_pose 是雷达/裁判数据还是自身数据触发”的判断：
+
+- 不是 `/ly/position/data` enemy 触发；两份 bag enemy 坐标为 0。
+- 有一部分 `Castle` / `HoleRoad` / `CastleRight2` 这类回防/防守点是在有新鲜 `navi_target_official` 敌方位置时出现的。例如第一份 bag 136s 以后 `/ly/enemy/info` 出现 `Sentry:...:navi_target_official`，随后出现 `Blue Castle`、`Blue HoleRoad` 等点；第二份 bag 316s-353s 也有同类现象。
+- 也有一部分 `Castle` / `OutpostGuard` / `BuffOutpost` 切换发生时没有近期敌方 official fallback，例如第一份 bag 124.281s `Blue Castle`、第二份 bag 308.840s `Blue Castle`。这些不能只凭 `/goal_pose` 判定为 regional defense，可能来自 Outpost visual scout、默认区域任务、progress watchdog fallback 或其他固定点策略。
+- 自身位置不会单独生成“敌人入侵回防”事实，但会影响区域任务、到点判断、candidate 排序、progress watchdog 和 Chase official goal 的 self/target 几何。两份 bag 中自身位置实际采用 UWB 源，所以“自身数据”主要解释的是“我在什么区/离哪个点近/是否到点”，不是敌方威胁来源。
+
+当前 bag 没有 decision trace topic，也没有能直接把每一条 `/goal_pose` 绑定到 `DecisionReason` 的记录。因此只能从 topic 侧做强推断：敌方威胁来源如果存在，就是 camera/bridge 的 `navi_target_official`；如果当时没有 fresh enemy fallback，则该 `/goal_pose` 不能归因为敌方数据。
+
 ## Current Code Findings
 
 ### Finding 1: Raw external reached leaks into event state
@@ -382,3 +416,42 @@ Acceptance:
 
 - 新 bag 中 `/ly/aim/armor_targets` count 不为 0。
 - debug report 能同时复盘 reached、vision mode、face mode、aim target array。
+
+### POS-001: `/ly/position/data` enemy 字段没有有效坐标
+
+Status: confirmed in both 2026-05-17 bags.
+
+Current: `/ly/position/data` 持续发布 friend/enemy car id，但 enemy x/y 全是 0；BT 不能从这个 topic 得到敌方官方坐标。
+
+Expected: 如果下位机/雷达链路负责官方敌方位置，应在 `/ly/position/data.enemyx/enemyy` 提供非零坐标；否则文档和调试界面必须明确敌方 official fallback 实际来自 `/ly/navi/target_official`。
+
+Acceptance:
+
+- 新 bag 中统计 `/ly/position/data` enemy non-zero count。
+- `/ly/enemy/info.position_source` 能区分 `position_data` 与 `navi_target_official`。
+
+### POS-002: `/ly/navi/target_official` 缺少直接 bag 证据
+
+Status: open.
+
+Current: `topics_at_start.txt` 能看到 `/ly/navi/target_official`，但两份 bag 的 sqlite topic 表和 `ros2 bag info` 没有该 topic 消息。只能通过 `/ly/enemy/info.position_source=navi_target_official` 间接证明 BT 收到了 bridge fallback。
+
+Expected: record 脚本必须直接记录 `/ly/navi/target_official` 消息，方便复盘 camera target point 如何变成 official-map enemy position。
+
+Acceptance:
+
+- 新 bag 中 `/ly/navi/target_official` count > 0 when camera target point valid。
+- 能把 `/ly/aim/armor_targets`、`/ly/navi/target_official`、`/ly/enemy/info` 按时间串起来。
+
+### POS-003: `/goal_pose` 缺少 decision reason 绑定
+
+Status: open.
+
+Current: `/goal_pose` 只能看到最终 map pose；`/ly/navi/goal_pos_raw` 只能看到 official goal 坐标。没有 decision trace 时，无法确定每条 `Castle` / `HoleRoad` 是 RegionalDefense、Outpost visual scout、Default regional task 还是 progress watchdog fallback。
+
+Expected: runtime bag 应记录 decision trace，至少包含 `decision_intent.reason`、`output_kind`、`output_topic`、`goal_reach_state`、`friend/enemy position source summary`。
+
+Acceptance:
+
+- 新 bag 能按 timestamp 把 `/ly/navi/goal_pos_raw` 或 `/ly/navi/target_rel` 对齐到 `DecisionReason`。
+- 对“回防是敌方威胁触发还是默认任务切点”不需要靠推断。

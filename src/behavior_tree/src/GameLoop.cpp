@@ -461,14 +461,103 @@ namespace BehaviorTree {
         lastDecisionIntent_ = std::move(intent);
     }
 
+    Application::UnitPositionState Application::GetSentryPositionState(
+        const std::chrono::steady_clock::time_point now) const {
+        return GetSentryPositionState(
+            now,
+            std::max(1, config.SentryPositionFusionSettings.FreshTimeoutMs));
+    }
+
+    Application::UnitPositionState Application::GetSentryPositionState(
+        const std::chrono::steady_clock::time_point now,
+        const int fresh_ms) const {
+        UnitPositionState state;
+        state.X = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
+        state.Y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
+        state.Source = sentryPositionFusionSource_.empty()
+            ? "unknown"
+            : sentryPositionFusionSource_;
+        const auto sentry_index = static_cast<std::size_t>(UnitType::Sentry);
+        if (sentry_index < lastFriendPositionStamp_.size()) {
+            state.Stamp = lastFriendPositionStamp_[sentry_index].Stamp;
+        }
+        state.HasPosition =
+            hasReceivedSentryPosition_ &&
+            lastSentryPositionRxTime_.time_since_epoch().count() != 0;
+        if (!state.HasPosition) {
+            state.Source = "none";
+            return state;
+        }
+        state.AgeMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - lastSentryPositionRxTime_).count();
+        state.Fresh = state.AgeMs <= std::max(1, fresh_ms);
+        return state;
+    }
+
+    Application::UnitPositionState Application::GetFriendPositionState(
+        const UnitType unit_type,
+        const int fresh_ms,
+        const std::chrono::steady_clock::time_point now) const {
+        if (unit_type == UnitType::Sentry) {
+            return GetSentryPositionState(now, fresh_ms);
+        }
+        UnitPositionState state;
+        const auto index = static_cast<std::size_t>(unit_type);
+        if (index >= lastFriendPositionRxTime_.size()) {
+            return state;
+        }
+        const auto& robot = friendRobots[unit_type];
+        state.X = static_cast<int>(robot.position_.X);
+        state.Y = static_cast<int>(robot.position_.Y);
+        state.Source = "position_data";
+        state.Stamp = lastFriendPositionStamp_[index].Stamp;
+        const auto& last_rx = lastFriendPositionRxTime_[index];
+        state.HasPosition = last_rx.time_since_epoch().count() != 0;
+        if (!state.HasPosition) {
+            state.Source = "none";
+            return state;
+        }
+        state.AgeMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - last_rx).count();
+        state.Fresh = state.AgeMs <= std::max(1, fresh_ms);
+        return state;
+    }
+
+    Application::UnitPositionState Application::GetEnemyPositionState(
+        const UnitType unit_type,
+        const int fresh_ms,
+        const std::chrono::steady_clock::time_point now) const {
+        UnitPositionState state;
+        const auto index = static_cast<std::size_t>(unit_type);
+        if (index >= lastEnemyPositionRxTime_.size()) {
+            return state;
+        }
+        const auto& robot = enemyRobots[unit_type];
+        state.X = static_cast<int>(robot.position_.X);
+        state.Y = static_cast<int>(robot.position_.Y);
+        state.Source = lastEnemyPositionSource_[index].empty()
+            ? "position_data"
+            : lastEnemyPositionSource_[index];
+        state.Stamp = lastEnemyPositionStamp_[index].Stamp;
+        const auto& last_rx = lastEnemyPositionRxTime_[index];
+        state.HasPosition = last_rx.time_since_epoch().count() != 0;
+        if (!state.HasPosition) {
+            state.Source = "none";
+            return state;
+        }
+        state.AgeMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - last_rx).count();
+        state.Fresh = state.AgeMs <= std::max(1, fresh_ms);
+        return state;
+    }
+
     bool Application::IsSentryPositionFresh(
         const std::chrono::steady_clock::time_point now) const {
         if (!hasReceivedSentryPosition_ ||
             lastSentryPositionRxTime_.time_since_epoch().count() == 0) {
             return false;
         }
-        const int timeout_ms = std::max(1, config.SentryPositionFusionSettings.FreshTimeoutMs);
-        return now - lastSentryPositionRxTime_ <= std::chrono::milliseconds(timeout_ms);
+        return GetSentryPositionState(now).Fresh;
     }
 
     void Application::UpdateSentryPositionFusion(
@@ -621,12 +710,12 @@ namespace BehaviorTree {
             now - lastRfidStatusRxTime_ <= kRfidFreshTimeout;
         const auto enemy_team = team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
         UpdateSentryPositionFusion(now);
-        const bool self_position_fresh = IsSentryPositionFresh(now);
+        const auto self_position = GetSentryPositionState(now);
         areaManager_.TickSelfArea(
             now,
-            self_position_fresh,
-            static_cast<int>(friendRobots[UnitType::Sentry].position_.X),
-            static_cast<int>(friendRobots[UnitType::Sentry].position_.Y),
+            self_position.Fresh,
+            self_position.X,
+            self_position.Y,
             team,
             enemy_team);
 
@@ -2056,17 +2145,23 @@ namespace BehaviorTree {
                 config.RegionalDefenseSettings.EnemyPositionFreshMs,
                 config.ChaseSettings.OfficialPositionFreshMs));
         for(auto robot : RobotLists) {
-            const int enemy_x = static_cast<int>(enemyRobots[robot].position_.X);
-            const int enemy_y = static_cast<int>(enemyRobots[robot].position_.Y);
-            if(IsEnemyPositionFresh(robot, reliable_enemy_position_fresh_ms) &&
-               IsOfficialFieldPointValid(enemy_x, enemy_y) &&
-               enemy_x > 100 && enemy_y > 100) {
+            const auto enemy_position = GetEnemyPositionState(
+                robot,
+                reliable_enemy_position_fresh_ms,
+                now);
+            if(enemy_position.Fresh &&
+               IsOfficialFieldPointValid(enemy_position.X, enemy_position.Y) &&
+               enemy_position.X > 100 && enemy_position.Y > 100) {
                 reliableEnemyPosuition.push_back(robot);
             }
         }
         LoggerPtr->Info("> reliableEnemyPosuition <");
         for(auto robot : reliableEnemyPosuition) {
-            LoggerPtr->Info("ID: {}, X: {}, Y:{}", static_cast<int>(robot), enemyRobots[robot].position_.X, enemyRobots[robot].position_.Y);
+            const auto enemy_position = GetEnemyPositionState(
+                robot,
+                reliable_enemy_position_fresh_ms,
+                now);
+            LoggerPtr->Info("ID: {}, X: {}, Y:{}", static_cast<int>(robot), enemy_position.X, enemy_position.Y);
         }
 
         // 处理距离和无敌状态的数据
@@ -2147,7 +2242,9 @@ namespace BehaviorTree {
 
     void Application::SetAimTarget() {
         UnitTeam MyTeam = team, EnemyTeam = team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
-        std::uint16_t nowx = friendRobots[UnitType::Sentry].position_.X, nowy = friendRobots[UnitType::Sentry].position_.Y;
+        const auto self_position = GetSentryPositionState(std::chrono::steady_clock::now());
+        const bool has_self_position =
+            self_position.Fresh && self_position.X > 0 && self_position.Y > 0;
         const auto is_ignored_armor = [this](const ArmorType armor_type) -> bool {
             return IsIgnoredArmorType(config.AimTargetIgnore, armor_type);
         };
@@ -2183,7 +2280,8 @@ namespace BehaviorTree {
             return true;
         };
         if(aimMode == AimMode::Buff) { // 打符，修改为默认值
-            if(BehaviorTree::Area::BuffOutpost.near(nowx, nowy, 100, MyTeam) &&
+            if(has_self_position &&
+               BehaviorTree::Area::BuffOutpost.near(self_position.X, self_position.Y, 100, MyTeam) &&
                !is_ignored_armor(ArmorType::Hero)) {
                 targetArmor.Type = ArmorType::Hero;
             } else {
@@ -2209,7 +2307,8 @@ namespace BehaviorTree {
             }
         }else { // 普通模式
             if(naviCommandGoal == LangYa::HoleRoad(EnemyTeam)) { // 英雄点位1
-                if(BehaviorTree::Area::HoleRoad.near(nowx, nowy, 100, MyTeam) &&
+                if(has_self_position &&
+                   BehaviorTree::Area::HoleRoad.near(self_position.X, self_position.Y, 100, MyTeam) &&
                    !is_ignored_armor(ArmorType::Hero)) {
                     targetArmor.Type = ArmorType::Hero;
                     targetArmor.Distance = enemyRobots[UnitType::Hero].distance_;
@@ -2622,30 +2721,31 @@ namespace BehaviorTree {
         if (area_team != UnitTeam::Red && area_team != UnitTeam::Blue) {
             return false;
         }
-        if (!IsSentryPositionFresh(std::chrono::steady_clock::now())) {
+        const auto self_position = GetSentryPositionState(std::chrono::steady_clock::now());
+        if (!self_position.Fresh) {
             return false;
         }
-        const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
-        const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
-        if (self_x <= 0 || self_y <= 0) {
+        if (self_position.X <= 0 || self_position.Y <= 0) {
             return false;
         }
-        return AreaManager::IsPositionInMainArea(area_team, kind, self_x, self_y);
+        return AreaManager::IsPositionInMainArea(area_team, kind, self_position.X, self_position.Y);
     }
 
     bool Application::IsSelfInRoadlandFollowModeArea(const UnitTeam area_team) const {
         if (area_team != UnitTeam::Red && area_team != UnitTeam::Blue) {
             return false;
         }
-        if (!IsSentryPositionFresh(std::chrono::steady_clock::now())) {
+        const auto self_position = GetSentryPositionState(std::chrono::steady_clock::now());
+        if (!self_position.Fresh) {
             return false;
         }
-        const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
-        const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
-        if (self_x <= 0 || self_y <= 0) {
+        if (self_position.X <= 0 || self_position.Y <= 0) {
             return false;
         }
-        return AreaManager::IsPositionInRoadlandFollowModeArea(area_team, self_x, self_y);
+        return AreaManager::IsPositionInRoadlandFollowModeArea(
+            area_team,
+            self_position.X,
+            self_position.Y);
     }
 
     bool Application::IsNaviExternalStatusFreshForGoal(
@@ -2765,9 +2865,10 @@ namespace BehaviorTree {
             state.Timeout = true;
         }
 
-        state.PositionFresh = IsSentryPositionFresh(now);
-        state.SelfX = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
-        state.SelfY = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
+        const auto self_position = GetSentryPositionState(now);
+        state.PositionFresh = self_position.Fresh;
+        state.SelfX = self_position.X;
+        state.SelfY = self_position.Y;
         state.HasPosition = state.PositionFresh && state.SelfX > 0 && state.SelfY > 0;
         if (state.HasPosition) {
             const double distance_sq = AreaManager::DistanceSq(
@@ -3086,13 +3187,9 @@ namespace BehaviorTree {
             central_ammo_known &&
             (myselfHealth < static_cast<std::uint16_t>(std::max(0, central_setting.HealthyHpMin)) ||
              ammoLeft < static_cast<std::uint16_t>(std::max(0, central_setting.HealthyAmmoMin)));
-        const bool self_position_fresh = IsSentryPositionFresh(now);
-        const int self_x = self_position_fresh
-            ? static_cast<int>(friendRobots[UnitType::Sentry].position_.X)
-            : 0;
-        const int self_y = self_position_fresh
-            ? static_cast<int>(friendRobots[UnitType::Sentry].position_.Y)
-            : 0;
+        const auto self_position = GetSentryPositionState(now);
+        const bool has_self_position =
+            self_position.Fresh && self_position.X > 0 && self_position.Y > 0;
         const bool hold_base_patrol_for_armor = [&]() {
             if (active_task_type != RegionalAreaTaskType::MyBase ||
                 targetArmor.Type == ArmorType::UnKnown ||
@@ -3142,9 +3239,9 @@ namespace BehaviorTree {
                 .CentralShouldLeave =
                     active_task_type == RegionalAreaTaskType::CommonCentral && central_data_unhealthy,
                 .HoldCurrentBaseGoal = hold_base_patrol_for_armor,
-                .HasSelfPosition = self_position_fresh && self_x > 0 && self_y > 0,
-                .SelfX = self_x,
-                .SelfY = self_y
+                .HasSelfPosition = has_self_position,
+                .SelfX = has_self_position ? self_position.X : 0,
+                .SelfY = has_self_position ? self_position.Y : 0
             });
 
         if (result.Completed) {
@@ -3196,21 +3293,17 @@ namespace BehaviorTree {
         }
 
         const auto now = std::chrono::steady_clock::now();
-        const bool self_position_fresh = IsSentryPositionFresh(now);
-        const int self_x = self_position_fresh
-            ? static_cast<int>(friendRobots[UnitType::Sentry].position_.X)
-            : 0;
-        const int self_y = self_position_fresh
-            ? static_cast<int>(friendRobots[UnitType::Sentry].position_.Y)
-            : 0;
+        const auto self_position = GetSentryPositionState(now);
+        const bool has_self_position =
+            self_position.Fresh && self_position.X > 0 && self_position.Y > 0;
         const auto plan = areaManager_.PlanRegionalAreaTaskForGoal(
             base_goal_id,
             goal_team,
             my_team,
             apply_team_offset,
-            self_position_fresh && self_x > 0 && self_y > 0,
-            self_x,
-            self_y,
+            has_self_position,
+            has_self_position ? self_position.X : 0,
+            has_self_position ? self_position.Y : 0,
             config.RegionalAreaTaskSettings.MyBase,
             config.RegionalAreaTaskSettings.PatrolSelection,
             now,
@@ -3425,15 +3518,19 @@ namespace BehaviorTree {
         const auto now = std::chrono::steady_clock::now();
         const UnitTeam my_team = team;
         const UnitTeam enemy_team = team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
-        if (IsEnemyPositionFresh(*maybe_target_unit, config.ChaseSettings.OfficialPositionFreshMs)) {
-            const int target_x = static_cast<int>(enemyRobots[*maybe_target_unit].position_.X);
-            const int target_y = static_cast<int>(enemyRobots[*maybe_target_unit].position_.Y);
-            if (IsOfficialFieldPointValid(target_x, target_y)) {
+        const int official_position_fresh_ms =
+            std::max(1, config.ChaseSettings.OfficialPositionFreshMs);
+        const auto target_position = GetEnemyPositionState(
+            *maybe_target_unit,
+            official_position_fresh_ms,
+            now);
+        if (target_position.Fresh) {
+            if (IsOfficialFieldPointValid(target_position.X, target_position.Y)) {
                 const auto target_area = AreaManager::ResolveAreaKeyForPointWithNearest(
                     my_team,
                     enemy_team,
-                    target_x,
-                    target_y);
+                    target_position.X,
+                    target_position.Y);
                 if (target_area.has_value() &&
                     !IsAreaKeyAllowedForChaseTarget(
                         target_area->Key,
@@ -3443,8 +3540,8 @@ namespace BehaviorTree {
                         LoggerPtr->Info(
                             "Chase blocked by area scope: target={} pos=({}, {}) side={} area={} nearest={}.",
                             static_cast<int>(targetArmor.Type),
-                            target_x,
-                            target_y,
+                            target_position.X,
+                            target_position.Y,
                             static_cast<int>(target_area->Key.Side),
                             Area::MainAreaKindName(target_area->Key.Kind),
                             target_area->UsedNearestFallback ? 1 : 0);
@@ -3576,11 +3673,13 @@ namespace BehaviorTree {
 
             if (chase_to_navi) {
                 if (config.NaviSettings.UseXY && !navi_to_navi) {
-                    const int enemy_x = static_cast<int>(enemyRobots[*maybe_target_unit].position_.X);
-                    const int enemy_y = static_cast<int>(enemyRobots[*maybe_target_unit].position_.Y);
-                    if (enemy_x >= 0 && enemy_y >= 0) {
-                        naviGoalPosition.x = static_cast<std::uint16_t>(std::clamp(enemy_x, 0, 65535));
-                        naviGoalPosition.y = static_cast<std::uint16_t>(std::clamp(enemy_y, 0, 65535));
+                    if (target_position.Fresh &&
+                        target_position.X >= 0 &&
+                        target_position.Y >= 0) {
+                        naviGoalPosition.x = static_cast<std::uint16_t>(
+                            std::clamp(target_position.X, 0, 65535));
+                        naviGoalPosition.y = static_cast<std::uint16_t>(
+                            std::clamp(target_position.Y, 0, 65535));
                     }
                 }
             } else {
@@ -3625,11 +3724,14 @@ namespace BehaviorTree {
                    config.NaviSettings.UseXY &&
                    !navi_to_navi &&
                    config.ChaseSettings.StopWhenNoTarget) {
-            const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
-            const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
-            if (self_x >= 0 && self_y >= 0) {
-                naviGoalPosition.x = static_cast<std::uint16_t>(std::clamp(self_x, 0, 65535));
-                naviGoalPosition.y = static_cast<std::uint16_t>(std::clamp(self_y, 0, 65535));
+            const auto self_position = GetSentryPositionState(now);
+            if (self_position.Fresh &&
+                self_position.X >= 0 &&
+                self_position.Y >= 0) {
+                naviGoalPosition.x = static_cast<std::uint16_t>(
+                    std::clamp(self_position.X, 0, 65535));
+                naviGoalPosition.y = static_cast<std::uint16_t>(
+                    std::clamp(self_position.Y, 0, 65535));
             }
             chase_output_active = true;
         } else if (chase_to_navi && config.ChaseSettings.StopWhenNoTarget) {
@@ -3640,33 +3742,22 @@ namespace BehaviorTree {
             const bool should_try_official =
                 !has_external_target_point &&
                 (config.ChaseSettings.PreferOfficialPositionSource || !naviRelativeTargetValid);
-            const auto sentry_index = static_cast<std::size_t>(UnitType::Sentry);
-            const bool self_position_fresh =
-                hasReceivedSentryPosition_ &&
-                sentry_index < lastFriendPositionRxTime_.size() &&
-                lastFriendPositionRxTime_[sentry_index].time_since_epoch().count() != 0 &&
-                now - lastFriendPositionRxTime_[sentry_index] <=
-                    std::chrono::milliseconds(std::max(1, config.ChaseSettings.OfficialPositionFreshMs));
+            const auto self_position = GetSentryPositionState(now, official_position_fresh_ms);
 
-            if (should_try_official &&
-                IsEnemyPositionFresh(*maybe_target_unit, config.ChaseSettings.OfficialPositionFreshMs)) {
-                const int target_x = static_cast<int>(enemyRobots[*maybe_target_unit].position_.X);
-                const int target_y = static_cast<int>(enemyRobots[*maybe_target_unit].position_.Y);
-                const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
-                const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
-                if (IsOfficialFieldPointValid(target_x, target_y) &&
-                    self_position_fresh &&
-                    IsOfficialFieldPointValid(self_x, self_y)) {
+            if (should_try_official && target_position.Fresh) {
+                if (IsOfficialFieldPointValid(target_position.X, target_position.Y) &&
+                    self_position.Fresh &&
+                    IsOfficialFieldPointValid(self_position.X, self_position.Y)) {
                     const auto official_chase_goal = BuildOfficialChaseGoal(
-                        self_x,
-                        self_y,
-                        target_x,
-                        target_y,
+                        self_position.X,
+                        self_position.Y,
+                        target_position.X,
+                        target_position.Y,
                         config.ChaseSettings.PreferredDistanceCm,
                         config.ChaseSettings.DistanceDeadbandCm);
                     const auto limited_chase_goal = ApplyOfficialChaseAreaLimit(
-                        self_x,
-                        self_y,
+                        self_position.X,
+                        self_position.Y,
                         official_chase_goal,
                         my_team,
                         enemy_team,
@@ -3679,8 +3770,8 @@ namespace BehaviorTree {
                             "Official chase area limit {} area={} self=({}, {}) raw_goal=({}, {}) limited=({}, {}).",
                             limited_chase_goal.Status,
                             limited_chase_goal.AreaName,
-                            self_x,
-                            self_y,
+                            self_position.X,
+                            self_position.Y,
                             static_cast<int>(official_chase_goal.x),
                             static_cast<int>(official_chase_goal.y),
                             static_cast<int>(naviGoalPosition.x),
@@ -3722,16 +3813,10 @@ namespace BehaviorTree {
     bool Application::IsFriendPositionFresh(
         const UnitType unit_type,
         const int fresh_ms) const {
-        const auto index = static_cast<std::size_t>(unit_type);
-        if (index >= lastFriendPositionRxTime_.size()) {
-            return false;
-        }
-        const auto& last_rx = lastFriendPositionRxTime_[index];
-        if (last_rx.time_since_epoch().count() == 0) {
-            return false;
-        }
-        return std::chrono::steady_clock::now() - last_rx <=
-            std::chrono::milliseconds(std::max(1, fresh_ms));
+        return GetFriendPositionState(
+            unit_type,
+            fresh_ms,
+            std::chrono::steady_clock::now()).Fresh;
     }
 
     bool Application::IsFriendHealthFresh(
@@ -3752,16 +3837,10 @@ namespace BehaviorTree {
     bool Application::IsEnemyPositionFresh(
         const UnitType unit_type,
         const int fresh_ms) const {
-        const auto index = static_cast<std::size_t>(unit_type);
-        if (index >= lastEnemyPositionRxTime_.size()) {
-            return false;
-        }
-        const auto& last_rx = lastEnemyPositionRxTime_[index];
-        if (last_rx.time_since_epoch().count() == 0) {
-            return false;
-        }
-        return std::chrono::steady_clock::now() - last_rx <=
-            std::chrono::milliseconds(std::max(1, fresh_ms));
+        return GetEnemyPositionState(
+            unit_type,
+            fresh_ms,
+            std::chrono::steady_clock::now()).Fresh;
     }
 
     std::optional<RegionalDefenseThreat> Application::EvaluateRegionalDefenseThreat(
@@ -3773,18 +3852,23 @@ namespace BehaviorTree {
         }
 
         std::vector<RegionalDefenseEnemyPosition> fresh_enemies;
+        const auto now = std::chrono::steady_clock::now();
         for (const auto unit_type : RobotLists) {
-            if (!IsEnemyPositionFresh(unit_type, defense.EnemyPositionFreshMs)) {
+            const auto enemy_position = GetEnemyPositionState(
+                unit_type,
+                defense.EnemyPositionFreshMs,
+                now);
+            if (!enemy_position.Fresh) {
                 continue;
             }
-            const int enemy_x = static_cast<int>(enemyRobots[unit_type].position_.X);
-            const int enemy_y = static_cast<int>(enemyRobots[unit_type].position_.Y);
-            if (enemy_x <= 0 || enemy_y <= 0) {
+            if (enemy_position.X <= 0 || enemy_position.Y <= 0) {
                 continue;
             }
             // /ly/position/data is normalized into official-field centimeters in SubscribeMessage.cpp.
             // Keep regional defense area tests in that frame; do not mix map/odom coordinates here.
-            fresh_enemies.push_back(RegionalDefenseEnemyPosition{.X = enemy_x, .Y = enemy_y});
+            fresh_enemies.push_back(RegionalDefenseEnemyPosition{
+                .X = enemy_position.X,
+                .Y = enemy_position.Y});
         }
 
         auto threat = areaManager_.AnalyzeRegionalDefenseThreat(
@@ -3904,10 +3988,8 @@ namespace BehaviorTree {
         int hold_sec = defense.HardHoldSec;
         std::vector<std::uint8_t> candidates;
         auto order_nearest_base_candidates = [&](std::vector<std::uint8_t> goals) {
-            const bool self_position_fresh = IsSentryPositionFresh(now);
-            const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
-            const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
-            if (!self_position_fresh || self_x <= 0 || self_y <= 0) {
+            const auto self_position = GetSentryPositionState(now);
+            if (!self_position.Fresh || self_position.X <= 0 || self_position.Y <= 0) {
                 return goals;
             }
             std::stable_sort(
@@ -3917,13 +3999,13 @@ namespace BehaviorTree {
                     const auto lhs_point = AreaManager::GoalPointByBaseId(lhs, my_team);
                     const auto rhs_point = AreaManager::GoalPointByBaseId(rhs, my_team);
                     return AreaManager::DistanceSq(
-                        self_x,
-                        self_y,
+                        self_position.X,
+                        self_position.Y,
                         static_cast<int>(lhs_point.x),
                         static_cast<int>(lhs_point.y)) <
                         AreaManager::DistanceSq(
-                            self_x,
-                            self_y,
+                            self_position.X,
+                            self_position.Y,
                             static_cast<int>(rhs_point.x),
                             static_cast<int>(rhs_point.y));
                 });
@@ -4109,17 +4191,23 @@ namespace BehaviorTree {
         }
 
         constexpr UnitType hero_unit = UnitType::Hero;
-        if (!IsFriendPositionFresh(hero_unit, protection.FriendPositionFreshMs)) {
+        const auto hero_position = GetFriendPositionState(
+            hero_unit,
+            protection.FriendPositionFreshMs,
+            std::chrono::steady_clock::now());
+        if (!hero_position.Fresh) {
             protectHeroActive_ = false;
             return false;
         }
-        const int hero_x = static_cast<int>(friendRobots[hero_unit].position_.X);
-        const int hero_y = static_cast<int>(friendRobots[hero_unit].position_.Y);
         const bool hero_in_highland =
-            Area::IsPointInsideMainArea(my_team, Area::MainAreaKind::Highland, hero_x, hero_y);
+            Area::IsPointInsideMainArea(
+                my_team,
+                Area::MainAreaKind::Highland,
+                hero_position.X,
+                hero_position.Y);
         const bool hero_in_protect_hero =
-            Area::IsPointInsideProtectHeroArea(my_team, hero_x, hero_y);
-        if (!IsOfficialFieldPointValid(hero_x, hero_y) ||
+            Area::IsPointInsideProtectHeroArea(my_team, hero_position.X, hero_position.Y);
+        if (!IsOfficialFieldPointValid(hero_position.X, hero_position.Y) ||
             (!hero_in_highland && !hero_in_protect_hero)) {
             protectHeroActive_ = false;
             return false;
@@ -4193,8 +4281,8 @@ namespace BehaviorTree {
             LoggerPtr->Info(
                 "ProtectHero: elapsed={}s hero=({}, {}) in_highland={} in_protect_hero={} goal={} hold={}s no_enemy_release={}s.",
                 ElapsedSeconds(),
-                hero_x,
-                hero_y,
+                hero_position.X,
+                hero_position.Y,
                 hero_in_highland ? 1 : 0,
                 hero_in_protect_hero ? 1 : 0,
                 static_cast<int>(naviCommandGoal),
@@ -4317,20 +4405,25 @@ namespace BehaviorTree {
         };
         auto nearest_goal = [&]() {
             const auto now = std::chrono::steady_clock::now();
-            if (!IsSentryPositionFresh(now)) {
+            const auto self_position = GetSentryPositionState(now);
+            if (!self_position.Fresh) {
                 return LangYa::CentralLeftA.ID;
             }
-            const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
-            const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
-            if (self_x <= 0 || self_y <= 0) {
+            if (self_position.X <= 0 || self_position.Y <= 0) {
                 return LangYa::CentralLeftA.ID;
             }
             const auto point_a = AreaManager::GoalPointByBaseId(LangYa::CentralLeftA.ID, my_team);
             const auto point_b = AreaManager::GoalPointByBaseId(LangYa::CentralLeftB.ID, my_team);
             const double dist_a = AreaManager::DistanceSq(
-                self_x, self_y, static_cast<int>(point_a.x), static_cast<int>(point_a.y));
+                self_position.X,
+                self_position.Y,
+                static_cast<int>(point_a.x),
+                static_cast<int>(point_a.y));
             const double dist_b = AreaManager::DistanceSq(
-                self_x, self_y, static_cast<int>(point_b.x), static_cast<int>(point_b.y));
+                self_position.X,
+                self_position.Y,
+                static_cast<int>(point_b.x),
+                static_cast<int>(point_b.y));
             return dist_b < dist_a ? LangYa::CentralLeftB.ID : LangYa::CentralLeftA.ID;
         };
 
@@ -4354,13 +4447,12 @@ namespace BehaviorTree {
             active_aim_data->Valid;
         if (target_locked) {
             const auto now = std::chrono::steady_clock::now();
-            const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
-            const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
-            if (IsSentryPositionFresh(now) && self_x > 0 && self_y > 0) {
+            const auto self_position = GetSentryPositionState(now);
+            if (self_position.Fresh && self_position.X > 0 && self_position.Y > 0) {
                 naviCommandGoal = ResolveGoalId(target_base_goal, my_team, apply_team_offset);
                 naviGoalPosition = Area::Point<std::uint16_t>{
-                    static_cast<std::uint16_t>(std::clamp(self_x, 0, kOfficialFieldWidthCm)),
-                    static_cast<std::uint16_t>(std::clamp(self_y, 0, kOfficialFieldHeightCm))
+                    static_cast<std::uint16_t>(std::clamp(self_position.X, 0, kOfficialFieldWidthCm)),
+                    static_cast<std::uint16_t>(std::clamp(self_position.Y, 0, kOfficialFieldHeightCm))
                 };
                 naviGoalPublishAllowed_ = true;
                 naviCommandIntervalClock.reset(Seconds{1});
@@ -4370,8 +4462,8 @@ namespace BehaviorTree {
                 if (LoggerPtr) {
                     LoggerPtr->Info(
                         "Special Patrol: target locked, hold current position=({}, {}) goal={}.",
-                        self_x,
-                        self_y,
+                        self_position.X,
+                        self_position.Y,
                         static_cast<int>(naviCommandGoal));
                 }
                 RecordDecisionIntent(MakeDecisionIntent(
@@ -4442,17 +4534,19 @@ namespace BehaviorTree {
         const UnitTeam goal_team,
         const bool apply_team_offset) {
         const std::uint8_t goal_id = ResolveGoalId(base_goal_id, goal_team, apply_team_offset);
-        const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
-        const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
+        const auto now = std::chrono::steady_clock::now();
+        const auto self_position = GetSentryPositionState(now);
+        const bool has_self_position =
+            self_position.Fresh && self_position.X > 0 && self_position.Y > 0;
         areaManager_.UpdateProgressWatchdogGoal(
             goal_id,
             base_goal_id,
             goal_team,
             apply_team_offset,
             naviGoalPosition,
-            self_x,
-            self_y,
-            std::chrono::steady_clock::now());
+            has_self_position ? self_position.X : 0,
+            has_self_position ? self_position.Y : 0,
+            now);
     }
 
     bool Application::TickNaviProgressWatchdog(
@@ -4475,10 +4569,9 @@ namespace BehaviorTree {
                 return false;
             }
         }
-        const bool self_position_fresh = IsSentryPositionFresh(now);
-        const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
-        const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
-        const bool has_self_position = self_position_fresh && self_x > 0 && self_y > 0;
+        const auto self_position = GetSentryPositionState(now);
+        const bool has_self_position =
+            self_position.Fresh && self_position.X > 0 && self_position.Y > 0;
         const auto external_reach =
             GetExternalNaviReachForGoal(runtime.GoalId, runtime.GoalPosition);
         const auto external_reachable =
@@ -4489,8 +4582,8 @@ namespace BehaviorTree {
                 .Enabled = watchdog.Enable,
                 .BlockedByAreaTransition = areaManager_.HighlandTransitionActive(),
                 .HasSelfPosition = has_self_position,
-                .SelfX = self_x,
-                .SelfY = self_y,
+                .SelfX = has_self_position ? self_position.X : 0,
+                .SelfY = has_self_position ? self_position.Y : 0,
                 .ExternalReach = external_reach,
                 .ExternalReachable = external_reachable,
                 .Setting = watchdog,
@@ -4526,7 +4619,11 @@ namespace BehaviorTree {
             }
         }
 
-        areaManager_.MarkProgressWatchdogFallbackFailed(now, has_self_position, self_x, self_y);
+        areaManager_.MarkProgressWatchdogFallbackFailed(
+            now,
+            has_self_position,
+            has_self_position ? self_position.X : 0,
+            has_self_position ? self_position.Y : 0);
         return false;
     }
 
@@ -4622,7 +4719,9 @@ namespace BehaviorTree {
                 last_rx.time_since_epoch().count() != 0 &&
                 now - last_rx <= std::chrono::seconds(2);
         };
-        const bool self_position_fresh = IsSentryPositionFresh(now);
+        const auto self_position = GetSentryPositionState(now);
+        const bool has_self_position =
+            self_position.Fresh && self_position.X > 0 && self_position.Y > 0;
         const auto candidates =
             defaultStrategyManager_.BuildRegionalAreaCandidates(
                 DefaultRegionalPolicyInput{
@@ -4633,13 +4732,9 @@ namespace BehaviorTree {
                     .AmmoFresh = referee_value_fresh(hasReceivedAmmoLeft_, lastAmmoLeftRxTime),
                     .Health = myselfHealth,
                     .Ammo = ammoLeft,
-                    .HasSelfPosition = self_position_fresh,
-                    .SelfX = self_position_fresh
-                        ? static_cast<int>(friendRobots[UnitType::Sentry].position_.X)
-                        : 0,
-                    .SelfY = self_position_fresh
-                        ? static_cast<int>(friendRobots[UnitType::Sentry].position_.Y)
-                        : 0,
+                    .HasSelfPosition = has_self_position,
+                    .SelfX = has_self_position ? self_position.X : 0,
+                    .SelfY = has_self_position ? self_position.Y : 0,
                     .SelfArea = areaManager_.SelfAreaRuntime(),
                     .Now = now
                 });

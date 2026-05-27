@@ -163,6 +163,29 @@ json RobotsToJson(const Robots& robots, const char* side) {
     return out;
 }
 
+json UnitInfoToJson(const gimbal_driver::msg::UnitInfoArray& info) {
+    json out = json::array();
+    for (const auto& unit : info.units) {
+        out.push_back({
+            {"car_id", static_cast<int>(unit.car_id)},
+            {"hp", static_cast<int>(unit.hp)},
+            {"has_hp", unit.has_hp},
+            {"hp_fresh", unit.hp_fresh},
+            {"position_cm", {
+                {"x", static_cast<int>(unit.position_x)},
+                {"y", static_cast<int>(unit.position_y)},
+            }},
+            {"has_position", unit.has_position},
+            {"position_fresh", unit.position_fresh},
+            {"position_source", unit.position_source},
+            {"area_id", static_cast<int>(unit.area_id)},
+            {"area_name", unit.area_name},
+            {"area_used_nearest_fallback", unit.area_used_nearest_fallback},
+        });
+    }
+    return out;
+}
+
 json RfidMatchToJson(const RfidMatchState& state) {
     return {
         {"fresh", state.Fresh},
@@ -422,6 +445,10 @@ void Application::WriteDecisionTrace(const std::string_view event) {
     record["units"] = {
         {"friend", RobotsToJson(friendRobots, "friend")},
         {"enemy", RobotsToJson(enemyRobots, "enemy")},
+    };
+    record["unit_info"] = {
+        {"friend", UnitInfoToJson(MakeFriendInfoMsg())},
+        {"enemy", UnitInfoToJson(MakeEnemyInfoMsg())},
     };
 
     record["decision_output"] = {
