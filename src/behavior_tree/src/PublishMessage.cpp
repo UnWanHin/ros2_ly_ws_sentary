@@ -64,6 +64,12 @@ namespace {
         return prefix + UnitAreaKindName(key.Kind);
     }
 
+    std::uint8_t GoalBaseIdFromResolvedGoal(const std::uint8_t goal_id) noexcept {
+        return goal_id >= LangYa::TeamedLocation::LocationCount
+            ? static_cast<std::uint8_t>(goal_id - LangYa::TeamedLocation::LocationCount)
+            : goal_id;
+    }
+
     gimbal_driver::msg::FireCode MakeFireCodeMsg(const LangYa::FireCodeType& firecode, const rclcpp::Time& stamp) {
         gimbal_driver::msg::FireCode msg;
         msg.header.stamp = stamp;
@@ -116,6 +122,7 @@ namespace BehaviorTree {
         UpdateEnergyActivateConfirmCommand(should_confirm_energy_activate);
         PubAimTargetData();
         PubNaviControlData();
+        PubNaviReachState();
         const bool enable_chase_to_navi =
             chaseTacticalAllowed_ &&
             config.ChaseSettings.Enable &&
@@ -148,6 +155,51 @@ namespace BehaviorTree {
             else if(config.NaviSettings.UseXY && !chase_bridge_active) PubNaviGoalPos();
             else PubNaviGoal();
         }
+    }
+
+    void Application::PubNaviReachState() {
+        if (!pub_navi_reach_state_) {
+            return;
+        }
+
+        const auto base_goal_id = GoalBaseIdFromResolvedGoal(naviCommandGoal);
+        const auto state = EvaluateNaviGoalReach(
+            naviCommandGoal,
+            naviGoalPosition,
+            std::max(1, config.DecisionAutonomySettings.NaviGoal.HighlandCompatArriveDistanceCm),
+            0,
+            base_goal_id,
+            GoalReachTimeoutSecForBaseGoal(base_goal_id));
+
+        auto_aim_common::msg::GoalReach msg;
+        msg.header.stamp = node_ ? node_->now() : rclcpp::Time{};
+        msg.header.frame_id = "map";
+        msg.status = static_cast<std::uint8_t>(state.Status);
+        msg.reason = static_cast<std::uint8_t>(state.Reason);
+        msg.goal_id = state.GoalId;
+        msg.base_goal_id = state.BaseGoalId;
+        msg.goal_x_cm = state.GoalPosition.x;
+        msg.goal_y_cm = state.GoalPosition.y;
+        msg.goal_start_stamp = state.GoalStartStamp;
+        msg.goal_age_ms = state.GoalAgeMs;
+        msg.external_reach_fresh = state.ExternalReach.has_value();
+        msg.external_reach = state.ExternalReach.value_or(false);
+        msg.external_reachable_fresh = state.ExternalReachable.has_value();
+        msg.external_reachable = state.ExternalReachable.value_or(true);
+        msg.position_fresh = state.PositionFresh;
+        msg.has_position = state.HasPosition;
+        msg.self_x_cm = state.SelfX;
+        msg.self_y_cm = state.SelfY;
+        msg.distance_cm = static_cast<float>(state.DistanceCm);
+        msg.arrive_distance_cm = static_cast<std::uint16_t>(
+            std::clamp(state.ArriveDistanceCm, 0, 65535));
+        msg.face_distance_cm = static_cast<std::uint16_t>(
+            std::clamp(state.FaceDistanceCm, 0, 65535));
+        msg.distance_fallback_allowed = state.DistanceFallbackAllowed;
+        msg.within_arrive_distance = state.WithinArriveDistance;
+        msg.within_face_distance = state.WithinFaceDistance;
+        msg.timeout = state.Timeout;
+        pub_navi_reach_state_->publish(msg);
     }
 
     gimbal_driver::msg::UnitInfoArray Application::MakeFriendInfoMsg() {

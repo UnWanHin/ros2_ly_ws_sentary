@@ -97,8 +97,13 @@ EventSnapshot EventManager::Evaluate(const EventEvaluateInput& input) const noex
         input.LastNaviReachableRxTime,
         input.Now,
         input.NaviStatusFreshTimeoutMs);
-    snapshot.GoalReached = snapshot.NaviReachFresh && input.NaviReach;
-    snapshot.GoalUnreachable = snapshot.NaviReachableFresh && !input.NaviReachable;
+    if (input.HasCompositeGoalReachState) {
+        snapshot.GoalReached = input.CompositeGoalReached;
+        snapshot.GoalUnreachable = input.CompositeGoalUnreachable;
+    } else {
+        snapshot.GoalReached = snapshot.NaviReachFresh && input.NaviReach;
+        snapshot.GoalUnreachable = snapshot.NaviReachableFresh && !input.NaviReachable;
+    }
 
     if (input.RegionalDefense.has_value()) {
         snapshot.RegionalDefenseActive = true;

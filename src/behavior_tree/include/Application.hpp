@@ -94,6 +94,74 @@ inline const char* CompetitionProfileToString(const CompetitionProfile profile) 
     }
 }
 
+enum class GoalReachStatus : std::uint8_t {
+    Unknown = 0,
+    Traveling = 1,
+    Reached = 2,
+    Unreachable = 3,
+    Timeout = 4
+};
+
+inline const char* GoalReachStatusToString(const GoalReachStatus status) {
+    switch (status) {
+        case GoalReachStatus::Unknown: return "unknown";
+        case GoalReachStatus::Traveling: return "traveling";
+        case GoalReachStatus::Reached: return "reached";
+        case GoalReachStatus::Unreachable: return "unreachable";
+        case GoalReachStatus::Timeout: return "timeout";
+        default: return "unknown";
+    }
+}
+
+enum class GoalReachReason : std::uint8_t {
+    None = 0,
+    ExternalReached = 1,
+    ExternalUnreachable = 2,
+    PositionDistance = 3,
+    GraceActive = 4,
+    PositionStale = 5,
+    InvalidGoal = 6,
+    Timeout = 7
+};
+
+inline const char* GoalReachReasonToString(const GoalReachReason reason) {
+    switch (reason) {
+        case GoalReachReason::None: return "none";
+        case GoalReachReason::ExternalReached: return "external_reached";
+        case GoalReachReason::ExternalUnreachable: return "external_unreachable";
+        case GoalReachReason::PositionDistance: return "position_distance";
+        case GoalReachReason::GraceActive: return "grace_active";
+        case GoalReachReason::PositionStale: return "position_stale";
+        case GoalReachReason::InvalidGoal: return "invalid_goal";
+        case GoalReachReason::Timeout: return "timeout";
+        default: return "none";
+    }
+}
+
+struct GoalReachState {
+    std::uint8_t GoalId{0};
+    std::uint8_t BaseGoalId{LangYa::Home.ID};
+    Area::Point<std::uint16_t> GoalPosition{};
+    std::chrono::steady_clock::time_point GoalStartTime{};
+    rclcpp::Time GoalStartStamp{};
+    int GoalAgeMs{-1};
+    GoalReachStatus Status{GoalReachStatus::Unknown};
+    GoalReachReason Reason{GoalReachReason::None};
+    std::optional<bool> ExternalReach{};
+    std::optional<bool> ExternalReachable{};
+    bool PositionFresh{false};
+    bool HasPosition{false};
+    int SelfX{0};
+    int SelfY{0};
+    double DistanceCm{-1.0};
+    int ArriveDistanceCm{0};
+    int FaceDistanceCm{0};
+    bool DistanceFallbackAllowed{false};
+    bool WithinArriveDistance{false};
+    bool WithinFaceDistance{false};
+    bool Timeout{false};
+};
+
 enum class RegionalDefenseSearchKind : std::uint8_t {
     None = 0,
     OwnBase = 1,
@@ -267,6 +335,7 @@ private:
     std::chrono::steady_clock::time_point lastNaviReachableRxTime_{};
     std::chrono::steady_clock::time_point lastNaviIsRotateRxTime_{};
     std::chrono::steady_clock::time_point naviExternalStatusGoalStartTime_{};
+    rclcpp::Time naviExternalStatusGoalStartRosTime_{};
     std::uint8_t naviExternalStatusGoalId_{0};
     Area::Point<std::uint16_t> naviExternalStatusGoalPosition_{};
     bool regionalRecoveryProbeActive_{false};
@@ -489,6 +558,7 @@ private:
     rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr pub_navi_goal_pos_raw_;
     rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr pub_navi_goal_pos_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_navi_goal_pose_;
+    rclcpp::Publisher<auto_aim_common::msg::GoalReach>::SharedPtr pub_navi_reach_state_;
     rclcpp::Publisher<std_msgs::msg::UInt16MultiArray>::SharedPtr pub_face_mode_target_raw_;
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_navi_speed_level_;
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_navi_lower_head_;
@@ -528,6 +598,7 @@ public:
     void PubNaviRelativeTarget();
     void PubNaviGoal();
     void PubNaviGoalPos();
+    void PubNaviReachState();
     bool PubManualOutpostGoalPose(const char* reason);
     void PubFriendInfo();
     void PubEnemyInfo();
@@ -630,6 +701,20 @@ public:
     void UpdateNaviExternalStatusGoal(
         std::uint8_t goal_id,
         Area::Point<std::uint16_t> goal_position);
+    GoalReachState EvaluateNaviGoalReach(
+        std::uint8_t goal_id,
+        Area::Point<std::uint16_t> goal_position,
+        int arrive_distance_cm,
+        int face_distance_cm = 0,
+        std::uint8_t base_goal_id = LangYa::Home.ID,
+        int timeout_sec = 0) const;
+    GoalReachState EvaluateBaseGoalReach(
+        std::uint8_t base_goal_id,
+        UnitTeam goal_team,
+        bool apply_team_offset = true,
+        int face_distance_cm = 0,
+        int timeout_sec = 0) const;
+    int GoalReachTimeoutSecForBaseGoal(std::uint8_t base_goal_id) const;
     bool IsNaviGoalPositionArrived(
         std::uint8_t goal_id,
         Area::Point<std::uint16_t> goal_position) const;

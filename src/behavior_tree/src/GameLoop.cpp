@@ -730,6 +730,13 @@ namespace BehaviorTree {
             }
             return false;
         }();
+        const auto current_goal_reach = EvaluateNaviGoalReach(
+            naviCommandGoal,
+            naviGoalPosition,
+            std::max(1, config.DecisionAutonomySettings.NaviGoal.HighlandCompatArriveDistanceCm),
+            0,
+            BaseGoalIdFromResolvedGoal(naviCommandGoal),
+            GoalReachTimeoutSecForBaseGoal(BaseGoalIdFromResolvedGoal(naviCommandGoal)));
 
         eventSnapshot_ = eventManager_.Evaluate(
             EventEvaluateInput{
@@ -771,6 +778,9 @@ namespace BehaviorTree {
                 .HasNaviReachable = hasReceivedNaviReachable_,
                 .NaviReachable = naviReachable,
                 .LastNaviReachableRxTime = lastNaviReachableRxTime_,
+                .HasCompositeGoalReachState = true,
+                .CompositeGoalReached = current_goal_reach.Status == GoalReachStatus::Reached,
+                .CompositeGoalUnreachable = current_goal_reach.Status == GoalReachStatus::Unreachable,
                 .RegionalDefense = EvaluateRegionalDefenseThreat(my_team, enemy_team)
             });
 
@@ -778,6 +788,22 @@ namespace BehaviorTree {
             GlobalBlackboard_ = BT::Blackboard::create();
         }
         GlobalBlackboard_->set<EventSnapshot>("EventSnapshot", eventSnapshot_);
+        GlobalBlackboard_->set<std::uint8_t>(
+            "NaviGoalReachStatus",
+            static_cast<std::uint8_t>(current_goal_reach.Status));
+        GlobalBlackboard_->set<std::uint8_t>(
+            "NaviGoalReachReason",
+            static_cast<std::uint8_t>(current_goal_reach.Reason));
+        GlobalBlackboard_->set<std::string>(
+            "NaviGoalReachStatusName",
+            GoalReachStatusToString(current_goal_reach.Status));
+        GlobalBlackboard_->set<std::string>(
+            "NaviGoalReachReasonName",
+            GoalReachReasonToString(current_goal_reach.Reason));
+        GlobalBlackboard_->set<double>("NaviGoalReachDistanceCm", current_goal_reach.DistanceCm);
+        GlobalBlackboard_->set<bool>("NaviGoalReachWithinArriveDistance", current_goal_reach.WithinArriveDistance);
+        GlobalBlackboard_->set<bool>("NaviGoalReachWithinFaceDistance", current_goal_reach.WithinFaceDistance);
+        GlobalBlackboard_->set<bool>("NaviGoalReachTimeout", current_goal_reach.Timeout);
         GlobalBlackboard_->set<bool>("EventBuffCanActivate", eventSnapshot_.BuffCanActivate);
         GlobalBlackboard_->set<bool>("EventBuffActivating", eventSnapshot_.BuffActivating);
         GlobalBlackboard_->set<bool>("EventBuffActivated", eventSnapshot_.BuffActivated);
@@ -1702,18 +1728,21 @@ namespace BehaviorTree {
                 outpost_confirm.PostWindowScoutEnable;
             const bool outpost_time_gate_open =
                 in_time_window || opening_hard_hold_active || post_window_scout_time;
-            const bool outpost_goal_unreachable =
-                IsBaseGoalExternallyUnreachable(LangYa::BuffOutpost.ID, team, true);
-            const bool outpost_visual_scout_point_reached =
-                IsBaseGoalArrived(LangYa::BuffOutpost.ID, team, true);
             const int visual_scout_face_distance_cm =
                 std::max(0, outpost_confirm.VisualScoutFaceDistanceCm);
+            const auto outpost_goal_reach = EvaluateBaseGoalReach(
+                LangYa::BuffOutpost.ID,
+                team,
+                true,
+                visual_scout_face_distance_cm,
+                GoalReachTimeoutSecForBaseGoal(LangYa::BuffOutpost.ID));
+            const bool outpost_goal_unreachable =
+                outpost_goal_reach.Status == GoalReachStatus::Unreachable;
+            const bool outpost_visual_scout_point_reached =
+                outpost_goal_reach.Status == GoalReachStatus::Reached;
             const bool outpost_visual_scout_face_ready =
                 outpost_visual_scout_point_reached ||
-                IsBaseGoalWithinDistance(
-                    LangYa::BuffOutpost.ID,
-                    team,
-                    visual_scout_face_distance_cm);
+                outpost_goal_reach.WithinFaceDistance;
             const int armor_warning_distance_cm =
                 std::max(0, outpost_confirm.ArmorWarningDistanceCm);
             const auto nearest_armor_distance_cm = [&]() -> std::optional<double> {
@@ -2671,96 +2700,178 @@ namespace BehaviorTree {
         naviExternalStatusGoalId_ = goal_id;
         naviExternalStatusGoalPosition_ = goal_position;
         naviExternalStatusGoalStartTime_ = std::chrono::steady_clock::now();
+        naviExternalStatusGoalStartRosTime_ = node_ ? node_->now() : rclcpp::Time{};
+    }
+
+    GoalReachState Application::EvaluateNaviGoalReach(
+        const std::uint8_t goal_id,
+        const Area::Point<std::uint16_t> goal_position,
+        const int arrive_distance_cm,
+        const int face_distance_cm,
+        const std::uint8_t base_goal_id,
+        const int timeout_sec) const {
+        GoalReachState state;
+        state.GoalId = goal_id;
+        state.BaseGoalId = base_goal_id;
+        state.GoalPosition = goal_position;
+        state.ArriveDistanceCm = std::max(1, arrive_distance_cm);
+        state.FaceDistanceCm = std::max(0, face_distance_cm);
+        state.Status = GoalReachStatus::Traveling;
+        state.Reason = GoalReachReason::None;
+
+        const auto now = std::chrono::steady_clock::now();
+        const bool external_goal_matches =
+            naviExternalStatusGoalInitialized_ &&
+            naviExternalStatusGoalId_ == goal_id &&
+            naviExternalStatusGoalPosition_.x == goal_position.x &&
+            naviExternalStatusGoalPosition_.y == goal_position.y &&
+            naviExternalStatusGoalStartTime_.time_since_epoch().count() != 0;
+        if (external_goal_matches) {
+            state.GoalStartTime = naviExternalStatusGoalStartTime_;
+            state.GoalStartStamp = naviExternalStatusGoalStartRosTime_;
+        }
+
+        const auto& runtime = areaManager_.ProgressWatchdogRuntime();
+        const bool runtime_goal_matches =
+            runtime.Active &&
+            runtime.GoalId == goal_id &&
+            runtime.GoalPosition.x == goal_position.x &&
+            runtime.GoalPosition.y == goal_position.y &&
+            runtime.GoalStartTime.time_since_epoch().count() != 0;
+        if (state.GoalStartTime.time_since_epoch().count() == 0 && runtime_goal_matches) {
+            state.GoalStartTime = runtime.GoalStartTime;
+        }
+        if (state.GoalStartTime.time_since_epoch().count() != 0) {
+            state.GoalAgeMs = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                now - state.GoalStartTime).count());
+        }
+
+        const auto external_reachable = GetExternalNaviReachableForGoal(goal_id, goal_position);
+        state.ExternalReachable = external_reachable;
+        const auto external_reach = GetExternalNaviReachForGoal(goal_id, goal_position);
+        state.ExternalReach = external_reach;
+
+        const int distance_fallback_grace_ms =
+            std::max(0, config.DecisionAutonomySettings.NaviGoal.DistanceFallbackGraceMs);
+        const bool grace_active =
+            distance_fallback_grace_ms > 0 &&
+            runtime_goal_matches &&
+            now - runtime.GoalStartTime < std::chrono::milliseconds(distance_fallback_grace_ms);
+        state.DistanceFallbackAllowed = !grace_active;
+
+        if (timeout_sec > 0 &&
+            state.GoalStartTime.time_since_epoch().count() != 0 &&
+            now - state.GoalStartTime >= std::chrono::seconds(timeout_sec)) {
+            state.Timeout = true;
+        }
+
+        state.PositionFresh = IsSentryPositionFresh(now);
+        state.SelfX = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
+        state.SelfY = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
+        state.HasPosition = state.PositionFresh && state.SelfX > 0 && state.SelfY > 0;
+        if (state.HasPosition) {
+            const double distance_sq = AreaManager::DistanceSq(
+                state.SelfX,
+                state.SelfY,
+                static_cast<int>(goal_position.x),
+                static_cast<int>(goal_position.y));
+            state.DistanceCm = std::sqrt(distance_sq);
+            state.WithinArriveDistance =
+                distance_sq <= static_cast<double>(state.ArriveDistanceCm) *
+                    static_cast<double>(state.ArriveDistanceCm);
+            state.WithinFaceDistance =
+                state.FaceDistanceCm > 0 &&
+                distance_sq <= static_cast<double>(state.FaceDistanceCm) *
+                    static_cast<double>(state.FaceDistanceCm);
+        }
+
+        if (external_reachable.has_value() && !*external_reachable) {
+            state.Status = GoalReachStatus::Unreachable;
+            state.Reason = GoalReachReason::ExternalUnreachable;
+            return state;
+        }
+        if (external_reach.has_value() && *external_reach) {
+            state.Status = GoalReachStatus::Reached;
+            state.Reason = GoalReachReason::ExternalReached;
+            return state;
+        }
+        if (distance_fallback_grace_ms > 0 &&
+            grace_active) {
+            state.Status = GoalReachStatus::Traveling;
+            state.Reason = GoalReachReason::GraceActive;
+            return state;
+        }
+        if (state.WithinArriveDistance) {
+            state.Status = GoalReachStatus::Reached;
+            state.Reason = GoalReachReason::PositionDistance;
+            return state;
+        }
+        if (state.Timeout) {
+            state.Status = GoalReachStatus::Timeout;
+            state.Reason = GoalReachReason::Timeout;
+            return state;
+        }
+        if (!state.HasPosition) {
+            state.Status = GoalReachStatus::Traveling;
+            state.Reason = GoalReachReason::PositionStale;
+            return state;
+        }
+        return state;
+    }
+
+    GoalReachState Application::EvaluateBaseGoalReach(
+        const std::uint8_t base_goal_id,
+        const UnitTeam goal_team,
+        const bool apply_team_offset,
+        const int face_distance_cm,
+        const int timeout_sec) const {
+        const auto arrive_distance = static_cast<std::uint16_t>(
+            std::max(1, config.DecisionAutonomySettings.NaviGoal.HighlandCompatArriveDistanceCm));
+        if (!AreaManager::IsValidBaseGoalId(base_goal_id)) {
+            GoalReachState state;
+            state.BaseGoalId = base_goal_id;
+            state.ArriveDistanceCm = arrive_distance;
+            state.FaceDistanceCm = std::max(0, face_distance_cm);
+            state.Status = GoalReachStatus::Unknown;
+            state.Reason = GoalReachReason::InvalidGoal;
+            return state;
+        }
+        const auto goal_id = ResolveGoalId(base_goal_id, goal_team, apply_team_offset);
+        const auto goal_point = AreaManager::GoalPointByBaseId(base_goal_id, goal_team);
+        return EvaluateNaviGoalReach(
+            goal_id,
+            goal_point,
+            arrive_distance,
+            face_distance_cm,
+            base_goal_id,
+            timeout_sec);
+    }
+
+    int Application::GoalReachTimeoutSecForBaseGoal(const std::uint8_t base_goal_id) const {
+        if (base_goal_id == LangYa::BuffOutpost.ID) {
+            return std::max(0, config.DecisionAutonomySettings.NaviGoal.BuffOutpostCompatTimeoutSec);
+        }
+        if (base_goal_id == LangYa::Highland.ID || base_goal_id == LangYa::LeftHighLand.ID) {
+            return std::max(0, config.DecisionAutonomySettings.NaviGoal.HighlandCompatTimeoutSec);
+        }
+        return 0;
     }
 
     bool Application::IsNaviGoalPositionArrived(
         const std::uint8_t goal_id,
         const Area::Point<std::uint16_t> goal_position) const {
-        const auto external_reachable = GetExternalNaviReachableForGoal(goal_id, goal_position);
-        if (external_reachable.has_value() && !*external_reachable) {
-            return false;
-        }
-        const auto external_reach = GetExternalNaviReachForGoal(goal_id, goal_position);
-        if (external_reach.has_value() && *external_reach) {
-            return true;
-        }
-        const auto& runtime = areaManager_.ProgressWatchdogRuntime();
-        const auto now = std::chrono::steady_clock::now();
-        const int distance_fallback_grace_ms =
-            std::max(0, config.DecisionAutonomySettings.NaviGoal.DistanceFallbackGraceMs);
-        if (distance_fallback_grace_ms > 0 &&
-            runtime.Active &&
-            runtime.GoalId == goal_id &&
-            runtime.GoalPosition.x == goal_position.x &&
-            runtime.GoalPosition.y == goal_position.y &&
-            runtime.GoalStartTime.time_since_epoch().count() != 0 &&
-            now - runtime.GoalStartTime < std::chrono::milliseconds(distance_fallback_grace_ms)) {
-            return false;
-        }
-        if (!IsSentryPositionFresh(now)) {
-            return false;
-        }
-        const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
-        const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
-        if (self_x <= 0 || self_y <= 0) {
-            return false;
-        }
         const auto arrive_distance = static_cast<std::uint16_t>(
             std::max(1, config.DecisionAutonomySettings.NaviGoal.HighlandCompatArriveDistanceCm));
-        return AreaManager::DistanceSq(
-            self_x,
-            self_y,
-            static_cast<int>(goal_position.x),
-            static_cast<int>(goal_position.y)) <=
-            static_cast<double>(arrive_distance) * static_cast<double>(arrive_distance);
+        return EvaluateNaviGoalReach(goal_id, goal_position, arrive_distance).Status ==
+            GoalReachStatus::Reached;
     }
 
     bool Application::IsBaseGoalArrived(
         const std::uint8_t base_goal_id,
         const UnitTeam goal_team,
         const bool apply_team_offset) const {
-        if (!AreaManager::IsValidBaseGoalId(base_goal_id)) {
-            return false;
-        }
-        const auto goal_id = ResolveGoalId(base_goal_id, goal_team, apply_team_offset);
-        const auto goal_point = AreaManager::GoalPointByBaseId(base_goal_id, goal_team);
-        const auto external_reachable = GetExternalNaviReachableForGoal(goal_id, goal_point);
-        if (external_reachable.has_value() && !*external_reachable) {
-            return false;
-        }
-        const auto external_reach = GetExternalNaviReachForGoal(goal_id, goal_point);
-        if (external_reach.has_value() && *external_reach) {
-            return true;
-        }
-        const auto& runtime = areaManager_.ProgressWatchdogRuntime();
-        const auto now = std::chrono::steady_clock::now();
-        const int distance_fallback_grace_ms =
-            std::max(0, config.DecisionAutonomySettings.NaviGoal.DistanceFallbackGraceMs);
-        if (distance_fallback_grace_ms > 0 &&
-            runtime.Active &&
-            runtime.GoalId == goal_id &&
-            runtime.GoalPosition.x == goal_point.x &&
-            runtime.GoalPosition.y == goal_point.y &&
-            runtime.GoalStartTime.time_since_epoch().count() != 0 &&
-            now - runtime.GoalStartTime < std::chrono::milliseconds(distance_fallback_grace_ms)) {
-            return false;
-        }
-        if (!IsSentryPositionFresh(now)) {
-            return false;
-        }
-        const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
-        const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
-        if (self_x <= 0 || self_y <= 0) {
-            return false;
-        }
-        const auto arrive_distance = static_cast<std::uint16_t>(
-            std::max(1, config.DecisionAutonomySettings.NaviGoal.HighlandCompatArriveDistanceCm));
-        return AreaManager::DistanceSq(
-            self_x,
-            self_y,
-            static_cast<int>(goal_point.x),
-            static_cast<int>(goal_point.y)) <=
-            static_cast<double>(arrive_distance) * static_cast<double>(arrive_distance);
+        return EvaluateBaseGoalReach(base_goal_id, goal_team, apply_team_offset).Status ==
+            GoalReachStatus::Reached;
     }
 
     bool Application::IsBaseGoalWithinDistance(
@@ -2770,34 +2881,19 @@ namespace BehaviorTree {
         if (!AreaManager::IsValidBaseGoalId(base_goal_id) || distance_cm <= 0) {
             return false;
         }
-        if (!IsSentryPositionFresh(std::chrono::steady_clock::now())) {
-            return false;
-        }
-        const int self_x = static_cast<int>(friendRobots[UnitType::Sentry].position_.X);
-        const int self_y = static_cast<int>(friendRobots[UnitType::Sentry].position_.Y);
-        if (self_x <= 0 || self_y <= 0) {
-            return false;
-        }
-        const auto goal_point = AreaManager::GoalPointByBaseId(base_goal_id, goal_team);
-        return AreaManager::DistanceSq(
-            self_x,
-            self_y,
-            static_cast<int>(goal_point.x),
-            static_cast<int>(goal_point.y)) <=
-            static_cast<double>(distance_cm) * static_cast<double>(distance_cm);
+        return EvaluateBaseGoalReach(
+            base_goal_id,
+            goal_team,
+            true,
+            distance_cm).WithinFaceDistance;
     }
 
     bool Application::IsBaseGoalExternallyUnreachable(
         const std::uint8_t base_goal_id,
         const UnitTeam goal_team,
         const bool apply_team_offset) const {
-        if (!AreaManager::IsValidBaseGoalId(base_goal_id)) {
-            return false;
-        }
-        const auto goal_id = ResolveGoalId(base_goal_id, goal_team, apply_team_offset);
-        const auto goal_point = AreaManager::GoalPointByBaseId(base_goal_id, goal_team);
-        const auto external_reachable = GetExternalNaviReachableForGoal(goal_id, goal_point);
-        return external_reachable.has_value() && !*external_reachable;
+        return EvaluateBaseGoalReach(base_goal_id, goal_team, apply_team_offset).Status ==
+            GoalReachStatus::Unreachable;
     }
 
     bool Application::IsHighlandCompatArrived(const UnitTeam goal_team) const {
@@ -3196,19 +3292,12 @@ namespace BehaviorTree {
         const auto via_base_goal = AreaManager::IsValidBaseGoalId(runtime.ViaBaseGoal)
             ? runtime.ViaBaseGoal
             : LangYa::Highland.ID;
-        const auto via_goal_id = ResolveGoalId(
+        const auto via_goal_reach = EvaluateBaseGoalReach(
             via_base_goal,
             runtime.GoalTeam,
             runtime.ApplyTeamOffset);
-        const auto via_goal_position = AreaManager::GoalPointByBaseId(via_base_goal, runtime.GoalTeam);
-        const auto external_reachable =
-            GetExternalNaviReachableForGoal(via_goal_id, via_goal_position);
-        const bool route_unreachable = external_reachable.has_value() && !*external_reachable;
-        const bool arrived = !route_unreachable &&
-            IsBaseGoalArrived(
-                via_base_goal,
-                runtime.GoalTeam,
-                runtime.ApplyTeamOffset);
+        const bool route_unreachable = via_goal_reach.Status == GoalReachStatus::Unreachable;
+        const bool arrived = via_goal_reach.Status == GoalReachStatus::Reached;
         const auto tick = areaManager_.TickHighlandTransition(now, route_unreachable, arrived);
         gimbalControlData.FireCode.FollowMode = tick.FollowMode ? 1 : 0;
 

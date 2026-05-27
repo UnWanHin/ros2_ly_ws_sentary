@@ -293,6 +293,17 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         wall_now.time_since_epoch()).count();
 
     const int goal_base_id = GoalBaseId(naviCommandGoal);
+    const auto current_goal_reach = EvaluateNaviGoalReach(
+        naviCommandGoal,
+        naviGoalPosition,
+        std::max(1, config.DecisionAutonomySettings.NaviGoal.HighlandCompatArriveDistanceCm),
+        0,
+        static_cast<std::uint8_t>(goal_base_id),
+        GoalReachTimeoutSecForBaseGoal(static_cast<std::uint8_t>(goal_base_id)));
+    const json reach_distance_cm =
+        current_goal_reach.DistanceCm >= 0.0 && std::isfinite(current_goal_reach.DistanceCm)
+            ? json(current_goal_reach.DistanceCm)
+            : json(nullptr);
     const auto posture_runtime = postureManager_.Runtime();
     const bool enable_chase_to_navi =
         chaseTacticalAllowed_ &&
@@ -385,6 +396,28 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         {"self_fortress_gain_point_status", static_cast<int>(eventSnapshot_.SelfFortressGainPointStatus)},
         {"self_outpost_gain_point_status", static_cast<int>(eventSnapshot_.SelfOutpostGainPointStatus)},
         {"self_base_gain_point_status", eventSnapshot_.SelfBaseGainPointStatus},
+    };
+    record["goal_reach_state"] = {
+        {"status", GoalReachStatusToString(current_goal_reach.Status)},
+        {"status_id", static_cast<int>(current_goal_reach.Status)},
+        {"reason", GoalReachReasonToString(current_goal_reach.Reason)},
+        {"reason_id", static_cast<int>(current_goal_reach.Reason)},
+        {"goal_id", static_cast<int>(current_goal_reach.GoalId)},
+        {"base_goal_id", static_cast<int>(current_goal_reach.BaseGoalId)},
+        {"goal_age_ms", current_goal_reach.GoalAgeMs},
+        {"external_reach_fresh", current_goal_reach.ExternalReach.has_value()},
+        {"external_reach", current_goal_reach.ExternalReach.value_or(false)},
+        {"external_reachable_fresh", current_goal_reach.ExternalReachable.has_value()},
+        {"external_reachable", current_goal_reach.ExternalReachable.value_or(true)},
+        {"position_fresh", current_goal_reach.PositionFresh},
+        {"has_position", current_goal_reach.HasPosition},
+        {"distance_cm", reach_distance_cm},
+        {"arrive_distance_cm", current_goal_reach.ArriveDistanceCm},
+        {"face_distance_cm", current_goal_reach.FaceDistanceCm},
+        {"distance_fallback_allowed", current_goal_reach.DistanceFallbackAllowed},
+        {"within_arrive_distance", current_goal_reach.WithinArriveDistance},
+        {"within_face_distance", current_goal_reach.WithinFaceDistance},
+        {"timeout", current_goal_reach.Timeout},
     };
     record["units"] = {
         {"friend", RobotsToJson(friendRobots, "friend")},

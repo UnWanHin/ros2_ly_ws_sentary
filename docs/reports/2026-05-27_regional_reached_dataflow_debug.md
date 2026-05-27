@@ -119,8 +119,8 @@ Impact:
 不要把 composite topic 命名为 `/ly/gimbal/reached`。这个语义属于 BT / navigation decision，不属于云台硬件或 gimbal driver。更合适的命名：
 
 - 内部 C++ 合约：`GoalReachState` 或 `NaviGoalReachState`。
-- 对外 debug topic：`/ly/bt/goal_reach_state`。
-- 如果必须给导航域发布 Bool：`/ly/navi/reached_composite`，但 Bool 会丢失来源，不建议作为唯一 debug 面。
+- 对外 debug topic：`/ly/navi/reach_state`，使用结构化 `auto_aim_common/msg/GoalReach`，不新增 composite Bool。
+- 如果后续必须给导航域发布 Bool：`/ly/navi/reached_composite`，但 Bool 会丢失来源，不建议作为唯一 debug 面。
 
 建议先做内部接口，不急着把 topic 作为控制面：
 
@@ -157,9 +157,148 @@ Then:
 - Decision trace 记录 `goal_reach.status`、`goal_reach.reason/source`、`distance_cm`，不再只记录 ambiguous bool。
 - Outpost / FaceMode 消费 `status == Reached` 或 `distance_cm <= VisualScoutFaceDistanceCm`，不要直接读 `/ly/navi/reached`。
 
+## Implementation Plan
+
+### Phase 1: Add internal reach contract
+
+Files likely touched:
+
+- `src/behavior_tree/include/Application.hpp`
+- `src/behavior_tree/src/GameLoop.cpp`
+
+Change:
+
+- Add `GoalReachStatus`, `GoalReachReason`, and `GoalReachState`.
+- Add `EvaluateNaviGoalReach(goal_id, goal_position, arrive_distance_cm)` as the single goal-scoped evaluator.
+- Keep existing external ROS topics unchanged.
+
+Acceptance:
+
+- `EvaluateNaviGoalReach()` reports external reached, external unreachable, position reached, grace-blocked traveling, stale/unknown separately.
+- `IsNaviGoalPositionArrived()` and `IsBaseGoalArrived()` become thin wrappers around `status == Reached`.
+- No caller loses current behavior, because the old bool functions still exist.
+
+### Phase 2: Move event snapshot away from raw reached
+
+Files likely touched:
+
+- `src/behavior_tree/include/EventManager.hpp`
+- `src/behavior_tree/src/EventManager.cpp`
+- `src/behavior_tree/src/GameLoop.cpp`
+- `src/behavior_tree/src/DecisionTrace.cpp`
+
+Change:
+
+- Stop deriving `EventSnapshot.GoalReached` directly from `NaviReachFresh && NaviReach`.
+- Either rename the raw fields to `ExternalNaviReachFresh/ExternalNaviReached`, or feed the composite state into `EventManager`.
+- Extend decision trace with composite reach fields.
+
+Acceptance:
+
+- Trace can show: raw external reached false, position reached true, final status reached.
+- Old-goal reached cannot contaminate current-goal reached.
+- `EventGoalReached` is either removed/renamed or guaranteed to mean composite reached.
+
+### Phase 3: Refactor Outpost / FaceMode gates to consume state
+
+Files likely touched:
+
+- `src/behavior_tree/src/GameLoop.cpp`
+- Possibly `src/behavior_tree/include/FaceModeManager.hpp` only if FaceMode needs explicit reason fields.
+
+Change:
+
+- Compute one `GoalReachState` for `BuffOutpost` in the outpost block.
+- Use `state.status == Reached` for point reached.
+- Use `state.distance_cm <= VisualScoutFaceDistanceCm` for face-distance readiness.
+- Do not let `Timeout` mean physical reached; timeout can release or advance travel, but not directly open physical arrived-only behavior.
+
+Acceptance:
+
+- When `/ly/navi/reached` is always false but `/ly/navi/position` enters the face-distance radius, outpost can enter FaceMode / `/ly/vision/mode=3`.
+- When position is stale, the system does not false-open FaceMode only because `/ly/navi/reached=false` stayed fresh.
+- Damage abort, armor interrupt, cooldown, and post-window scout semantics remain unchanged.
+
+### Phase 4: Add debug surface
+
+Files likely touched:
+
+- `src/behavior_tree/src/DecisionTrace.cpp`
+- Optional: `src/behavior_tree/include/Topic.hpp`, message package, publisher wiring.
+
+Change:
+
+- First add trace fields because it is lower risk than adding a new ROS contract.
+- Add ROS debug topic only after trace proves the state is useful.
+
+Implemented topic:
+
+- `/ly/navi/reach_state`
+
+Avoid:
+
+- `/ly/gimbal/reached`, because reached is a BT/navigation decision, not gimbal hardware state.
+
+Acceptance:
+
+- A replay/debug session can identify why a goal is traveling/reached/unreachable/timeout from one state record.
+- The record includes goal id, goal position, self position, distance, source freshness, status, and reason.
+
+### Phase 5: Tests and runtime verification
+
+Recommended tests:
+
+- Small C++ unit-style test for pure reach evaluation. If `Application` is too heavy, extract the pure evaluator into a small helper struct/function first.
+- Test cases:
+  - current-goal external reached true -> `Reached`.
+  - current-goal external reachable false -> `Unreachable`.
+  - external reached false + grace active + position near -> `Traveling`.
+  - external reached false + grace expired + position near -> `Reached`.
+  - stale position + external false -> `Traveling` or `Unknown`, not `Reached`.
+  - timeout -> `Timeout`, not `Reached`.
+
+Runtime verification:
+
+- `ccb --packages-select auto_aim_common behavior_tree --allow-overriding auto_aim_common`
+- `./scripts/selfcheck.sh sentry --static-only`
+- replay or inspect the two 2026 bags and confirm trace shows position-based reached where `/ly/navi/reached` remains false.
+
+## Implementation Update
+
+Updated: 2026-05-28
+
+本次改动把 reached 链路收敛成一个内部 `GoalReachState`，并通过 `/ly/navi/reach_state` 发布 `auto_aim_common/msg/GoalReach`。原始 topic 保持不变：
+
+- `/ly/navi/reached`：外部导航 reached 源。
+- `/ly/navi/reachable`：外部导航 reachable 源。
+- `/ly/navi/reach_state`：BT 内部 composite reach state，用于调试和统一消费。
+
+命名约定：
+
+- `ReachStatus` / `GoalReachStatus` 是状态枚举值：`UNKNOWN`、`TRAVELING`、`REACHED`、`UNREACHABLE`、`TIMEOUT`。
+- `GoalReachState` / `GoalReach` 是完整状态对象，包含 status、reason、goal id/坐标、goal age、external reached/reachable freshness、融合坐标、distance、arrive/face distance、grace、timeout。
+
+当前消费链路：
+
+- `IsNaviGoalPositionArrived()` 和 `IsBaseGoalArrived()` 只包装 `EvaluateNaviGoalReach(...).Status == Reached`。
+- `EventSnapshot.GoalReached` 改为 composite reached，不再由 raw `NaviReachFresh && NaviReach` 直接生成。
+- BT blackboard 增加 `NaviGoalReachStatus`、`NaviGoalReachReason`、`NaviGoalReachDistanceCm`、`NaviGoalReachWithinArriveDistance`、`NaviGoalReachWithinFaceDistance`、`NaviGoalReachTimeout`。
+- decision trace 新增 `goal_reach_state` 对象。
+- Outpost / FaceMode gate 对 `BuffOutpost` 只计算一次 `GoalReachState`：
+  - point reached 使用 `status == reached`。
+  - face ready 使用 `status == reached || within_face_distance`。
+  - timeout 不等于 physical reached，不直接打开 FaceMode。
+
+已验证：
+
+- `git diff --check`
+- `ccb --packages-select auto_aim_common behavior_tree --allow-overriding auto_aim_common`
+
 ## Issues To Track
 
 ### RCH-001: `EventSnapshot.GoalReached` 名字错误
+
+Status: fixed by composite `GoalReachState`.
 
 Current: 表示 raw `/ly/navi/reached` fresh true。
 
@@ -171,6 +310,8 @@ Acceptance:
 - decision trace 能区分 external reached、position reached、timeout、unreachable。
 
 ### RCH-002: Goal freshness 逻辑有两套
+
+Status: fixed for current goal reached/unreachable consumers that now use `EvaluateNaviGoalReach()`. Raw freshness fields remain in trace/event only as source evidence.
 
 Current:
 
@@ -185,6 +326,8 @@ Acceptance:
 - 单元或 selfcheck 能覆盖“旧 goal 的 reached 不能污染新 goal”。
 
 ### RCH-003: Reached、done、timeout 三种语义需要拆开
+
+Status: partially fixed. `GoalReachStatus::Timeout` is represented separately and is not treated as physical reached. Some regional task phase timeouts still live in `AreaManager` and should remain explicit phase logic.
 
 Current: 多处只拿 Bool 判断，容易把“可推进”和“物理到点”混在一起。
 
@@ -201,6 +344,8 @@ Acceptance:
 
 ### RCH-004: Outpost / FaceMode gate 必须消费统一接口
 
+Status: fixed for the `BuffOutpost` visual scout gate.
+
 Current: Outpost 相关逻辑同时使用 `IsBaseGoalArrived()`、`IsBaseGoalWithinDistance()` 和独立 timeout/cooldown 状态。
 
 Expected: Outpost gate 的输入来自同一个 `GoalReachState`，并明确使用哪个字段：
@@ -216,14 +361,16 @@ Acceptance:
 
 ### RCH-005: 缺少 composite reached debug topic
 
+Status: fixed by `/ly/navi/reach_state`.
+
 Current: 外部只能看到 raw `/ly/navi/reached`，看不到 BT 内部为什么认为到达、未到达或 timeout。
 
-Expected: 增加 debug topic 或 trace 字段，优先 trace，topic 可选。
+Expected: 增加 debug topic 和 trace 字段。
 
 Acceptance:
 
 - 每个 goal 至少记录 goal id、goal position、self position、distance、external reached/reachable fresh/value、status、reason。
-- 如果发布 ROS topic，优先 `/ly/bt/goal_reach_state`，不要使用 `/ly/gimbal/reached`。
+- ROS topic 使用 `/ly/navi/reach_state`，不要使用 `/ly/gimbal/reached`。
 
 ### RCH-006: Bag 记录 QoS 会遮蔽 aim 侧证据
 

@@ -46,6 +46,7 @@
 #include "auto_aim_common/msg/armors.hpp"
 #include "auto_aim_common/msg/target.hpp"
 #include "auto_aim_common/msg/relative_target.hpp"
+#include "auto_aim_common/msg/goal_reach.hpp"
 #include "gimbal_driver/msg/game_data.hpp"
 #include "gimbal_driver/msg/gimbal_angles.hpp"
 #include "gimbal_driver/msg/chassis.hpp"
@@ -137,6 +138,7 @@ namespace BehaviorTree {
     LY_DEF_ROS_TOPIC(ly_navi_lower_head, "/ly/navi/lower_head", std_msgs::msg::UInt8);
     LY_DEF_ROS_TOPIC(ly_navi_reached, "/ly/navi/reached", std_msgs::msg::Bool);
     LY_DEF_ROS_TOPIC(ly_navi_reachable, "/ly/navi/reachable", std_msgs::msg::Bool);
+    LY_DEF_ROS_TOPIC(ly_navi_reach_state, "/ly/navi/reach_state", auto_aim_common::msg::GoalReach);
     LY_DEF_ROS_TOPIC(ly_navi_should_rotate, "/ly/navi/should_rotate", std_msgs::msg::Bool);
 
     LY_DEF_ROS_TOPIC(ly_team_buff, "/ly/team/buff", gimbal_driver::msg::BuffData);

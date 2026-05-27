@@ -12,6 +12,7 @@ find_package(rclpy REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(builtin_interfaces REQUIRED)
 find_package(fmt REQUIRED) 
 
 # 2. 生成消息接口 (這部分保持不變)
@@ -20,6 +21,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Armors.msg"
   "msg/Target.msg"
   "msg/RelativeTarget.msg"
+  "msg/GoalReach.msg"
   "msg/DebugFilter.msg"
   "msg/Rect.msg"
   "msg/Car.msg"
@@ -31,7 +33,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/PredictorArmorVis.msg"
   "msg/PredictorCarVis.msg"
   "msg/PredictorVis.msg"
-  DEPENDENCIES geometry_msgs std_msgs sensor_msgs
+  DEPENDENCIES geometry_msgs std_msgs sensor_msgs builtin_interfaces
 )
 
 # 3. [關鍵] 保留 INTERFACE 庫定義
@@ -73,7 +75,7 @@ install(DIRECTORY include/
 ament_export_targets(${PROJECT_NAME}_targets)
 
 # 導出其他依賴，確保下游包知道要連結這些
-ament_export_dependencies(geometry_msgs rclcpp rclpy std_msgs sensor_msgs)
+ament_export_dependencies(geometry_msgs rclcpp rclpy std_msgs sensor_msgs builtin_interfaces)
 ament_export_dependencies(rosidl_default_runtime)
 
 ament_package()
