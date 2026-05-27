@@ -120,7 +120,7 @@ Regional 任務主要使用這些導航/定位輸入：
 - `/ly/navi/position`：導航/TF 推出的自身官方地圖坐標，單位 cm。
 - `/ly/position/data`：官方/雷達定位坐標。
 
-自身哨兵坐標由 `AreaManager.SentryPositionFusion` 統一融合後寫入 `friendRobots[Sentry].position_`。默认 `Mode=priority`，優先級是 `/ly/friend/uwb_pos`、`/ly/position/data` 裡 `friendcarid == Sentry`、`/ly/navi/position`；也可以改成 `Mode=weighted`，按各 source 的 `Weight` 對新鮮坐標做加權平均。這個融合後坐標主要用於：
+自身哨兵坐標由 `AreaManager.SentryPositionFusion` 統一融合後寫入 `friendRobots[Sentry].position_`。默认 `Mode=priority`，優先級是 `/ly/friend/uwb_pos`、`/ly/navi/position`、`/ly/position/data` 裡 `friendcarid == Sentry`；也可以改成 `Mode=weighted`，按各 source 的 `Weight` 對新鮮坐標做加權平均。這個融合後坐標主要用於：
 
 - 選最近的巡邏起點；
 - 判斷自己目前在哪個大區域；

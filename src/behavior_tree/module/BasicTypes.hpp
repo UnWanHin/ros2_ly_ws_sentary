@@ -590,8 +590,8 @@ namespace LangYa
         std::string Mode{"priority"}; // priority or weighted
         int FreshTimeoutMs{2000};
         SentryPositionFusionSourceSetting Uwb{true, 0, 1.0, 0};
-        SentryPositionFusionSourceSetting PositionData{true, 1, 0.7, 0};
-        SentryPositionFusionSourceSetting Navi{true, 2, 0.8, 0};
+        SentryPositionFusionSourceSetting PositionData{true, 2, 0.7, 0};
+        SentryPositionFusionSourceSetting Navi{true, 1, 0.8, 0};
     };
 
     struct LeagueStrategySetting {

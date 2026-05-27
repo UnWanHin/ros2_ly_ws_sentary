@@ -72,7 +72,7 @@ Updated: 2026-05-28
 - `/ly/position/data` 的 enemy 字段在两份 bag 中都没有有效坐标。
 - BT 中可见的敌方位置不是 `/ly/position/data` enemy，而是 `navi_tf_bridge` 输出的 `/ly/navi/target_official` 被 BT 写回 `enemyRobots` 后发布到 `/ly/enemy/info`，`position_source=navi_target_official`。
 - 相机源 `/ly/aim/armor_targets` 不直接覆盖 `enemyRobots`。它先进入 BT 的 `externalAimTargets_` / `armorList`，用于目标选择、`hitableTargets` 和 Chase 相对点；同时 `navi_tf_bridge` 会订阅该 topic，把有效 target point 反算成 `/ly/navi/target_official`，作为 BT 敌方 official-map fallback。
-- 自身位置进入 BT 的源是 `friendRobots[Sentry].position_`，由 `AreaManager.SentryPositionFusion` 融合 `/ly/friend/uwb_pos`、`/ly/position/data` 的 sentry friend slot、`/ly/navi/position`。两份 bag 的 `/ly/friend/info` 里 Sentry position source 全是 `uwb`，说明当时实际被 BT 采用的自身位置主源是 `/ly/friend/uwb_pos`。
+- 自身位置进入 BT 的源是 `friendRobots[Sentry].position_`，由 `AreaManager.SentryPositionFusion` 融合 `/ly/friend/uwb_pos`、`/ly/navi/position`、`/ly/position/data` 的 sentry friend slot。默认 priority 顺序是 UWB、Navi、PositionData。两份 bag 的 `/ly/friend/info` 里 Sentry position source 全是 `uwb`，说明当时实际被 BT 采用的自身位置主源是 `/ly/friend/uwb_pos`。
 
 Bag 证据：
 

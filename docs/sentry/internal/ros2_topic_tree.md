@@ -595,7 +595,7 @@ TypeID 8 BulletDataAndRfid2
 - `PositionType.X/Y` 在底层注释里写的是“乘了100”，当前 ROS `PositionData` 直接保留 `int16`。
 - `behavior_tree` 消费 `/ly/position/data` 时会做 `Y = 1500 - raw_y` 的官方地图方向转换。
 - `/ly/friend/uwb_pos` 和 `/ly/navi/position` 使用 `gimbal_driver/msg/StampedUInt16MultiArray`，`data=[x, y]`，`header.stamp` 是各自发布节点打的源时间戳。
-- `behavior_tree` 通过 `AreaManager.SentryPositionFusion` 融合 `/ly/friend/uwb_pos`、`/ly/position/data` 的 sentry friend slot 和 `/ly/navi/position`，再写入 `friendRobots[Sentry].position_`。
+- `behavior_tree` 通过 `AreaManager.SentryPositionFusion` 融合 `/ly/friend/uwb_pos`、`/ly/navi/position` 和 `/ly/position/data` 的 sentry friend slot，再写入 `friendRobots[Sentry].position_`；默认 priority 顺序是 UWB、Navi、PositionData。
 - `/ly/navi/position` 是 `navi_tf_bridge` 从 TF 算出位置后再逆变换成官方地图 cm 的 `data=[x, y]`，给区域判断辅助用；同包的 `map_point` 保留 map 系 m 坐标，BT 当前不消费它。
 
 ### 下行：ROS -> `gimbal_driver` -> 下位机
