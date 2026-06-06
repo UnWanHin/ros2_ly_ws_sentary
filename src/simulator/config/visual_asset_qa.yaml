@@ -1,0 +1,19 @@
+schema: ly_simulator_config_v1
+updated: "2026-06-02"
+
+map_tags:
+  goal_tags_expanded: false
+  hover_goal_tags: false
+
+layers:
+  terrain: false
+  structures: false
+  simulator_inputs: true
+  grid: false
+  all_goals: false
+  current_goal: false
+  goal_path: false
+  scripted_path: false
+  units: true
+  unit_health_bars: false
+  recent_changes: false

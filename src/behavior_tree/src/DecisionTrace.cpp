@@ -18,6 +18,7 @@ namespace {
 
 constexpr int kTraceFieldWidthCm = 2800;
 constexpr int kTraceFieldHeightCm = 1500;
+constexpr float kTraceVelocityRawToMps = 0.025f;
 
 const char* UnitTeamToString(const UnitTeam team) noexcept {
     switch (team) {
@@ -117,6 +118,17 @@ json FiniteFloat(const float value) {
         return value;
     }
     return nullptr;
+}
+
+json AgeMsOrNull(
+    const std::chrono::steady_clock::time_point now,
+    const std::chrono::steady_clock::time_point stamp,
+    const bool valid) {
+    if (!valid || stamp.time_since_epoch().count() == 0) {
+        return nullptr;
+    }
+    const auto age_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - stamp).count();
+    return static_cast<int>(std::max<std::chrono::milliseconds::rep>(0, age_ms));
 }
 
 json UnitListToJson(const std::vector<UnitType>& units) {
@@ -328,6 +340,15 @@ void Application::WriteDecisionTrace(const std::string_view event) {
             ? json(current_goal_reach.DistanceCm)
             : json(nullptr);
     const auto posture_runtime = postureManager_.Runtime();
+    const bool navi_should_rotate_fresh =
+        hasReceivedNaviIsRotate_ &&
+        lastNaviIsRotateRxTime_.time_since_epoch().count() != 0 &&
+        now - lastNaviIsRotateRxTime_ <=
+            std::chrono::milliseconds(config.NaviRotateControlSettings.FreshTimeoutMs);
+    const bool effective_navi_should_rotate =
+        navi_should_rotate_fresh
+            ? naviIsRotate
+            : config.NaviRotateControlSettings.DefaultIsRotate;
     const bool enable_chase_to_navi =
         chaseTacticalAllowed_ &&
         config.ChaseSettings.Enable && config.ChaseSettings.ToNavi;
@@ -389,11 +410,15 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         {"name", ArmorTypeToString(targetArmor.Type)},
         {"distance_m", FiniteFloat(targetArmor.Distance)},
     };
+    const auto aim_source = CurrentAimSource();
     record["target_state"] = {
         {"has_recent_target", HasRecentTarget()},
-        {"fresh_auto_aim", autoAimData.Fresh && autoAimData.Valid},
-        {"fresh_buff", buffAimData.Fresh && buffAimData.Valid && buffAimData.BuffFollow},
-        {"fresh_outpost", outpostAimData.Fresh && outpostAimData.Valid},
+        {"external_aim_active", aim_source.ExternalAimActive},
+        {"fresh_current_aim", aim_source.Active != nullptr && AimFreshAndValid(*aim_source.Active)},
+        {"fresh_auto_aim", aim_source.AutoAim != nullptr && AimFreshAndValid(*aim_source.AutoAim)},
+        {"fresh_buff", aim_source.Buff != nullptr &&
+            AimBuffTargetLocked(*aim_source.Buff, aim_source.ExternalAimActive)},
+        {"fresh_outpost", aim_source.Outpost != nullptr && AimFreshAndValid(*aim_source.Outpost)},
         {"hitable_targets", UnitListToJson(hitableTargets)},
         {"reliable_enemy_positions", UnitListToJson(reliableEnemyPosuition)},
     };
@@ -503,9 +528,19 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         {"input_y", static_cast<int>(naviVelocityInput.Y)},
         {"output_x", static_cast<int>(naviVelocity.X)},
         {"output_y", static_cast<int>(naviVelocity.Y)},
+        {"raw_to_mps", kTraceVelocityRawToMps},
+    };
+    record["navi_status"] = {
+        {"should_rotate", effective_navi_should_rotate},
+        {"should_rotate_fresh", navi_should_rotate_fresh},
+        {"reached", naviReach},
+        {"reached_fresh", current_goal_reach.ExternalReach.has_value()},
+        {"reachable", naviReachable},
+        {"reachable_fresh", current_goal_reach.ExternalReachable.has_value()},
     };
     record["navi_relative_target"] = {
         {"valid", naviRelativeTargetValid},
+        {"frame_id", naviRelativeTargetFrameId},
         {"x", FiniteFloat(naviRelativeTargetX)},
         {"y", FiniteFloat(naviRelativeTargetY)},
         {"z", FiniteFloat(naviRelativeTargetZ)},
@@ -598,6 +633,22 @@ void Application::WriteDecisionTrace(const std::string_view event) {
             {"aim_mode", static_cast<int>(RecFireCode.AimMode)},
             {"rotate", static_cast<int>(RecFireCode.Rotate)},
         }},
+    };
+
+    record["bullet_info"] = {
+        {"has_received", hasReceivedBulletInfo_},
+        {"age_ms", AgeMsOrNull(now, lastBulletInfoRxTime_, hasReceivedBulletInfo_)},
+        {"has_initial_speed", bulletInfo.has_initial_speed},
+        {"initial_speed", bulletInfo.has_initial_speed ? FiniteFloat(bulletInfo.initial_speed) : json(nullptr)},
+        {"has_shoot_data", bulletInfo.has_shoot_data},
+        {"bullet_type", static_cast<int>(bulletInfo.bullet_type)},
+        {"shooter_number", static_cast<int>(bulletInfo.shooter_number)},
+        {"launching_frequency", static_cast<int>(bulletInfo.launching_frequency)},
+        {"has_projectile_allowance", bulletInfo.has_projectile_allowance},
+        {"projectile_allowance_17mm", static_cast<int>(bulletInfo.projectile_allowance_17mm)},
+        {"projectile_allowance_42mm", static_cast<int>(bulletInfo.projectile_allowance_42mm)},
+        {"remaining_gold_coin", static_cast<int>(bulletInfo.remaining_gold_coin)},
+        {"projectile_allowance_fortress_17mm", static_cast<int>(bulletInfo.projectile_allowance_fortress_17mm)},
     };
 
     record["runtime_guard"] = {

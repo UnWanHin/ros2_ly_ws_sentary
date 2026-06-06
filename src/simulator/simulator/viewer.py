@@ -8,13 +8,15 @@ import time
 from pathlib import Path
 from typing import Any
 
+from .assets import load_unit_asset_catalog
 from .control_bus import append_command, command_name, read_commands
 from .field import FieldGeometry
 from .field import field_to_screen as field_to_screen_point
 from .field import screen_to_field as screen_to_field_point
 from .inputs_panel import InputsPanel
-from .interactive_inputs import SimulatorInputState
-from .model import TraceRecord, UnitRecord
+from .interactive_inputs import SimulatorInputState, unit_decision_summary
+from .model import TraceRecord, UnitInfoRecord, UnitRecord
+from .panel_scroll import PanelScrollState
 from .trace import as_dict, as_list, build_changes, load_trace_incremental, parse_position
 
 
@@ -48,6 +50,152 @@ def record_position(record: TraceRecord, goals: dict[int, dict[str, Any]]) -> tu
     if record.output.goal_pos_cm is not None:
         return record.output.goal_pos_cm
     return None
+
+
+def point_payload(pos: tuple[float, float] | None) -> list[float] | None:
+    return [float(pos[0]), float(pos[1])] if pos is not None else None
+
+
+def record_status_payload(record: TraceRecord) -> dict[str, Any]:
+    output = record.output
+    intent = record.decision_intent
+    relative_target = record.navi_relative_target
+    goal_reach = record.goal_reach
+    navi_status = record.navi_status
+    navi_velocity = record.navi_velocity
+    payload = {
+        "index": record.index,
+        "tick": record.tick,
+        "event": record.event,
+        "t": record.t,
+        "team": record.team,
+        "strategy": record.strategy,
+        "aim": record.aim,
+        "target": record.target,
+        "goal": {
+            "id": output.goal_id,
+            "base_id": output.goal_base_id,
+            "name": output.goal_name,
+            "side": output.goal_side,
+            "pos_cm": point_payload(output.goal_pos_cm),
+        },
+        "output": {
+            "kind": output.kind,
+            "topic": output.output_topic,
+            "final_topic": output.final_goal_pos_topic,
+            "frame": output.output_frame,
+            "publish_enabled": output.publish_enabled,
+            "publish_allowed": output.publish_allowed,
+            "speed_level": output.speed_level,
+            "uses_goal_pos": output.uses_goal_pos,
+            "uses_to_navi": output.uses_to_navi,
+            "relative_target_valid": output.relative_target_valid,
+            "chase_official_target_valid": output.chase_official_target_valid,
+            "chase_official_armor_type": output.chase_official_armor_type,
+        },
+        "goal_reach": {
+            "status": goal_reach.status,
+            "status_id": goal_reach.status_id,
+            "reason": goal_reach.reason,
+            "reason_id": goal_reach.reason_id,
+            "goal_id": goal_reach.goal_id,
+            "base_goal_id": goal_reach.base_goal_id,
+            "goal_age_ms": goal_reach.goal_age_ms,
+            "distance_cm": goal_reach.distance_cm,
+            "external_reach_fresh": goal_reach.external_reach_fresh,
+            "external_reach": goal_reach.external_reach,
+            "external_reachable_fresh": goal_reach.external_reachable_fresh,
+            "external_reachable": goal_reach.external_reachable,
+            "position_fresh": goal_reach.position_fresh,
+            "has_position": goal_reach.has_position,
+            "timeout": goal_reach.timeout,
+        },
+        "navi_status": {
+            "should_rotate": navi_status.should_rotate,
+            "should_rotate_fresh": navi_status.should_rotate_fresh,
+            "reached": navi_status.reached,
+            "reached_fresh": navi_status.reached_fresh,
+            "reachable": navi_status.reachable,
+            "reachable_fresh": navi_status.reachable_fresh,
+        },
+        "navi_velocity": {
+            "input_x": navi_velocity.input_x,
+            "input_y": navi_velocity.input_y,
+            "output_x": navi_velocity.output_x,
+            "output_y": navi_velocity.output_y,
+            "raw_to_mps": navi_velocity.raw_to_mps,
+        },
+        "relative_target": {
+            "valid": relative_target.valid,
+            "frame_id": relative_target.frame_id,
+            "x": relative_target.x,
+            "y": relative_target.y,
+            "z": relative_target.z,
+            "distance": relative_target.distance,
+            "yaw_error_deg": relative_target.yaw_error_deg,
+            "pitch_error_deg": relative_target.pitch_error_deg,
+            "armor_type": relative_target.armor_type,
+            "aim_mode": relative_target.aim_mode,
+            "official_target_valid": relative_target.official_target_valid,
+            "official_armor_type": relative_target.official_armor_type,
+        },
+        "intent": {"layer": intent.layer, "reason": intent.reason, "priority": intent.priority},
+        "posture": {
+            "command": record.posture_command,
+            "state": record.posture_state,
+            "current": record.posture_current,
+            "desired": record.posture_desired,
+        },
+        "referee": {
+            "hp": record.hp,
+            "ammo": record.ammo,
+            "time_left": record.time_left,
+            "rfid_status": record.referee.rfid_status,
+            "has_rfid_status_2": record.referee.has_rfid_status_2,
+            "rfid_status_2": record.referee.rfid_status_2,
+            "rfid_match": record.referee.rfid_match.as_payload(),
+        },
+        "bullet_info": bullet_info_status_payload(record),
+        "runtime_guard": {
+            "fault": record.runtime_guard.fault,
+            "recovering": record.runtime_guard.recovering,
+        },
+    }
+    if record.unit_info:
+        payload["unit_info"] = unit_info_status_payload(record)
+    return payload
+
+
+def unit_info_status_payload(record: TraceRecord) -> dict[str, Any]:
+    friend = [unit for unit in record.unit_info if unit.side == "friend"]
+    enemy = [unit for unit in record.unit_info if unit.side == "enemy"]
+    fresh_enemy = [unit.type_name for unit in enemy if unit.position_fresh and unit.has_position]
+    fresh_friend = [unit.type_name for unit in friend if unit.position_fresh and unit.has_position]
+    return {
+        "friend": len(friend),
+        "enemy": len(enemy),
+        "fresh_friend_positions": fresh_friend,
+        "fresh_enemy_positions": fresh_enemy,
+    }
+
+
+def bullet_info_status_payload(record: TraceRecord) -> dict[str, Any]:
+    bullet = record.bullet_info
+    return {
+        "has_received": bullet.has_received,
+        "age_ms": bullet.age_ms,
+        "has_initial_speed": bullet.has_initial_speed,
+        "initial_speed": bullet.initial_speed,
+        "has_shoot_data": bullet.has_shoot_data,
+        "bullet_type": bullet.bullet_type,
+        "shooter_number": bullet.shooter_number,
+        "launching_frequency": bullet.launching_frequency,
+        "has_projectile_allowance": bullet.has_projectile_allowance,
+        "projectile_allowance_17mm": bullet.projectile_allowance_17mm,
+        "projectile_allowance_42mm": bullet.projectile_allowance_42mm,
+        "remaining_gold_coin": bullet.remaining_gold_coin,
+        "projectile_allowance_fortress_17mm": bullet.projectile_allowance_fortress_17mm,
+    }
 
 
 class Viewer:
@@ -100,9 +248,12 @@ class Viewer:
         self.show_labels = bool(window.get("show_point_labels", False))
 
         self.layers = as_dict(config.get("layers"))
+        self.layer_buttons: dict[str, Any] = {}
         self.timeline_config = as_dict(config.get("timeline"))
         self.panel_tab = "decision"
         self.panel_tab_buttons: dict[str, Any] = {}
+        self.panel_scroll = PanelScrollState()
+        self.panel_body_rect: Any | None = None
         self.ros_monitor = as_dict(config.get("ros_monitor"))
         ros_state_file = str(self.ros_monitor.get("state_file", "")).strip()
         self.ros_state_path: Path | None = Path(ros_state_file).expanduser().resolve() if ros_state_file else None
@@ -115,6 +266,9 @@ class Viewer:
         self.goal_tag_button_rect = None
         self.colors_raw = as_dict(config.get("colors"))
         self.unit_styles = as_dict(config.get("unit_styles"))
+        self.unit_assets = load_unit_asset_catalog(as_dict(config.get("assets")))
+        self.unit_sprite_cache: dict[tuple[str, str, int, str], Any | None] = {}
+        self.armor_sprite_cache: dict[tuple[str, int, str], Any | None] = {}
         self.simulator_inputs = as_dict(config.get("simulator_inputs"))
         self.simulator_inputs_enabled = bool(self.simulator_inputs.get("enabled", True))
         self.default_field = FieldGeometry.from_config(config.get("field_cm"))
@@ -235,6 +389,8 @@ class Viewer:
                     self.handle_key(event.key)
                 elif event.type == self.pg.MOUSEBUTTONDOWN:
                     self.handle_mouse(event)
+                elif event.type == self.pg.MOUSEWHEEL:
+                    self.handle_mouse_wheel(event)
                 elif event.type == self.pg.MOUSEMOTION:
                     self.handle_mouse_motion(event)
                 elif event.type == self.pg.MOUSEBUTTONUP:
@@ -270,6 +426,7 @@ class Viewer:
 
             self.draw()
             if self.streamer is not None:
+                self.streamer.update_metadata(self.web_status_metadata())
                 self.streamer.publish_surface(self.screen, self.pg)
             self.pg.display.flip()
             self.clock.tick(int(as_dict(self.config.get("window")).get("fps", 60)))
@@ -279,6 +436,8 @@ class Viewer:
         jump = int(self.timeline_config.get("jump_step", 25))
         if key in (pg.K_ESCAPE, pg.K_q):
             pg.event.post(pg.event.Event(pg.QUIT))
+        elif self.panel_rect().collidepoint(pg.mouse.get_pos()) and self.handle_panel_scroll_key(key):
+            return
         elif key == pg.K_SPACE:
             self.playing = not self.playing
             self.current_time = self.records[self.current_index].t
@@ -303,13 +462,15 @@ class Viewer:
         elif key == pg.K_t:
             self.goal_tags_expanded = not self.goal_tags_expanded
         elif key in (pg.K_1, pg.K_KP1):
-            self.panel_tab = "decision"
+            self.set_panel_tab("decision")
         elif key in (pg.K_2, pg.K_KP2):
-            self.panel_tab = "events"
+            self.set_panel_tab("events")
         elif key in (pg.K_3, pg.K_KP3):
-            self.panel_tab = "runtime"
+            self.set_panel_tab("runtime")
         elif key in (pg.K_4, pg.K_KP4):
-            self.panel_tab = "inputs"
+            self.set_panel_tab("inputs")
+        elif key in (pg.K_5, pg.K_KP5):
+            self.set_panel_tab("layers")
         elif key == pg.K_s:
             self.send_match_command("start")
         elif key == pg.K_p:
@@ -322,16 +483,16 @@ class Viewer:
             self.send_match_command("forward", {"seconds": self.forward_step_sec})
 
     def handle_mouse(self, event: Any) -> None:
+        if event.button in (4, 5):
+            if self.panel_rect().collidepoint(event.pos):
+                self.scroll_panel(-48 if event.button == 4 else 48)
+            return
         if event.button != 1:
             return
         for tab, rect in self.panel_tab_buttons.items():
             if rect.collidepoint(event.pos):
-                self.panel_tab = tab
-                if tab != "inputs":
-                    self.inputs_panel.clear_buttons()
+                self.set_panel_tab(tab)
                 return
-        if self.handle_sim_panel_mouse_down(event.pos):
-            return
         for command, rect in self.control_buttons.items():
             if rect.collidepoint(event.pos):
                 if command == "rewind":
@@ -341,6 +502,16 @@ class Viewer:
                 else:
                     self.send_match_command(command)
                 return
+        if self.panel_rect().collidepoint(event.pos) and (
+            self.panel_body_rect is None or not self.panel_body_rect.collidepoint(event.pos)
+        ):
+            return
+        for layer_key, rect in self.layer_buttons.items():
+            if rect.collidepoint(event.pos):
+                self.layers[layer_key] = not bool(self.layers.get(layer_key, True))
+                return
+        if self.handle_sim_panel_mouse_down(event.pos):
+            return
         if self.goal_tag_button_rect is not None and self.goal_tag_button_rect.collidepoint(event.pos):
             self.goal_tags_expanded = not self.goal_tags_expanded
             return
@@ -350,6 +521,54 @@ class Viewer:
         if track.collidepoint(event.pos):
             ratio = (event.pos[0] - track.x) / max(1, track.width)
             self.seek_index(round(ratio * (len(self.records) - 1)))
+
+    def handle_mouse_wheel(self, event: Any) -> None:
+        if not self.panel_rect().collidepoint(self.pg.mouse.get_pos()):
+            return
+        delta = -int(getattr(event, "y", 0)) * 48
+        if getattr(event, "flipped", False):
+            delta = -delta
+        self.scroll_panel(delta)
+
+    def handle_panel_scroll_key(self, key: int) -> bool:
+        pg = self.pg
+        body_height = max(80, self.panel_scroll.body_height(self.panel_tab, 220))
+        if key == pg.K_UP:
+            self.scroll_panel(-36)
+            return True
+        if key == pg.K_DOWN:
+            self.scroll_panel(36)
+            return True
+        if key == pg.K_PAGEUP:
+            self.scroll_panel(-body_height)
+            return True
+        if key == pg.K_PAGEDOWN:
+            self.scroll_panel(body_height)
+            return True
+        if key == pg.K_HOME:
+            self.panel_scroll.set_offset(self.panel_tab, 0)
+            return True
+        if key == pg.K_END:
+            self.panel_scroll.set_offset(self.panel_tab, self.panel_max_scroll(self.panel_tab))
+            return True
+        return False
+
+    def set_panel_tab(self, tab: str) -> None:
+        self.panel_tab = tab
+        if tab != "inputs":
+            self.inputs_panel.clear_buttons()
+        self.clamp_panel_scroll(tab)
+
+    def panel_max_scroll(self, tab: str | None = None) -> int:
+        key = tab or self.panel_tab
+        return self.panel_scroll.max_scroll(key)
+
+    def clamp_panel_scroll(self, tab: str | None = None) -> None:
+        key = tab or self.panel_tab
+        self.panel_scroll.clamp(key)
+
+    def scroll_panel(self, delta: int) -> None:
+        self.panel_scroll.scroll(self.panel_tab, delta)
 
     def handle_mouse_motion(self, event: Any) -> None:
         if self.dragging_unit is not None:
@@ -480,6 +699,39 @@ class Viewer:
         self.current_index = max(0, min(len(self.records) - 1, index))
         self.current_time = self.records[self.current_index].t
 
+    def web_status_metadata(self) -> dict[str, Any]:
+        record = self.records[self.current_index]
+        return {
+            "trace": {
+                "name": self.trace_path.name if self.trace_path is not None else "",
+                "follow": self.follow,
+                "records": len(self.records),
+                "bad_lines": self.bad_lines,
+                "duration_sec": self.records[-1].t - self.records[0].t if self.records else 0.0,
+                "tick_range": {
+                    "first": self.records[0].tick if self.records else 0,
+                    "last": self.records[-1].tick if self.records else 0,
+                },
+            },
+            "replay": {
+                "playing": self.playing,
+                "speed": self.playback_speed,
+                "current_index": self.current_index,
+                "current_record": self.current_index + 1,
+                "total_records": len(self.records),
+                "panel_tab": self.panel_tab,
+                "match_time_left": round(self.match_time_left_sec, 2),
+                "match_running": self.match_running,
+                "controls_available": self.controls_available(),
+            },
+            "current_record": record_status_payload(record),
+            "simulator_inputs": {
+                "enabled": self.simulator_inputs_enabled,
+                "status": self.last_control_status,
+                "state": self.sim_input_state.snapshot(team=record.team, goals=self.goals),
+            },
+        }
+
     def poll_trace_updates(self) -> None:
         if self.trace_path is None:
             return
@@ -583,7 +835,7 @@ class Viewer:
 
     def field_geometry(self) -> FieldGeometry:
         record = self.records[self.current_index]
-        field = as_dict(record.raw.get("field_cm")) or as_dict(self.config.get("field_cm"))
+        field = record.field.as_config() or as_dict(self.config.get("field_cm"))
         return FieldGeometry.from_config(field)
 
     def field_size(self) -> tuple[int, int]:
@@ -978,7 +1230,15 @@ class Viewer:
             team = "red"
         if relative_side == "friend":
             return team
-        return "blue" if team == "red" else "red"
+        if relative_side == "enemy":
+            return "blue" if team == "red" else "red"
+        return team
+
+    def unit_field_side(self, side: str) -> str:
+        text = str(side).strip().lower()
+        if text in ("red", "blue"):
+            return text
+        return self.absolute_field_side(text)
 
     def sim_structure_position(self, item: Any) -> tuple[float, float] | None:
         team = self.records[self.current_index].team
@@ -1024,18 +1284,28 @@ class Viewer:
         side_style = as_dict(self.unit_styles.get(side, {}))
         radius = int(style.get("radius", 7)) + 2
         label = str(style.get("label", type_name[:1] or "?"))
-        fill = pg.Color(side_style.get("color", self.colors_raw.get(side, "#4fb3d9")))
-        outline = pg.Color(side_style.get("outline", "#000000"))
-        pg.draw.circle(self.screen, self.palette["white"], (sx, sy), radius + 5)
-        pg.draw.circle(self.screen, outline, (sx, sy), radius + 3)
-        pg.draw.circle(self.screen, fill, (sx, sy), radius + 1)
-        text = self.small_font.render(label, True, self.palette["black"])
-        self.screen.blit(text, text.get_rect(center=(sx, sy)))
+        field_side = self.unit_field_side(side)
+        marker_extent = max(radius, self.unit_assets.unit_size_px // 2)
+        if not self.draw_unit_art(sx, sy, field_side, type_name, self.unit_assets.unit_size_px, selected=True):
+            fill = pg.Color(side_style.get("color", self.colors_raw.get(side, "#4fb3d9")))
+            outline = pg.Color(side_style.get("outline", "#000000"))
+            pg.draw.circle(self.screen, self.palette["white"], (sx, sy), radius + 5)
+            pg.draw.circle(self.screen, outline, (sx, sy), radius + 3)
+            pg.draw.circle(self.screen, fill, (sx, sy), radius + 1)
+            text = self.small_font.render(label, True, self.palette["black"])
+            self.screen.blit(text, text.get_rect(center=(sx, sy)))
+            marker_extent = radius
         max_hp = max(1, int(unit.max_hp))
         hp = max(0, min(max_hp, int(unit.hp)))
-        self.draw_health_bar(sx - 18, sy + radius + 6, 36, 5, hp / max_hp)
+        self.draw_health_bar(sx - 22, sy + marker_extent + 6, 44, 5, hp / max_hp)
         if self.show_labels or self.panel_tab == "inputs":
-            self.draw_label(f"SIM {side}:{type_name} {hp}/{max_hp}", sx + 11, sy + 10, image_rect)
+            channels = unit_decision_summary(side, unit.type_id)
+            self.draw_label(
+                f"SIM {side}:{type_name} {hp}/{max_hp} {channels}",
+                sx + marker_extent + 7,
+                sy + 10,
+                image_rect,
+            )
 
     def hit_sim_unit(self, pos: tuple[int, int], image_rect: Any) -> tuple[str, int] | None:
         for key, unit in reversed(list(self.sim_input_state.units.items())):
@@ -1045,7 +1315,7 @@ class Viewer:
             type_name = unit.type_name
             type_styles = as_dict(self.unit_styles.get("types"))
             style = as_dict(type_styles.get(type_name, type_styles.get("default", {})))
-            radius = int(style.get("radius", 7)) + 8
+            radius = max(int(style.get("radius", 7)) + 8, self.unit_assets.unit_size_px // 2 + 8)
             if math.hypot(pos[0] - sx, pos[1] - sy) <= radius:
                 return key
         return None
@@ -1062,6 +1332,17 @@ class Viewer:
         side_style = as_dict(self.unit_styles.get(side, {}))
         radius = int(style.get("radius", 8)) + 3
         label = str(style.get("label", type_name[:1] or "?"))
+        field_side = self.unit_field_side(side)
+        if self.draw_unit_art(
+            self.drag_position[0],
+            self.drag_position[1],
+            field_side,
+            type_name,
+            self.unit_assets.drag_unit_size_px,
+            selected=True,
+            alpha=190,
+        ):
+            return
         fill = pg.Color(side_style.get("color", self.colors_raw.get(side, "#4fb3d9")))
         outline = pg.Color(side_style.get("outline", "#000000"))
         pg.draw.circle(self.screen, self.palette["white"], self.drag_position, radius + 5)
@@ -1082,17 +1363,95 @@ class Viewer:
         side_style = as_dict(self.unit_styles.get(unit.side, {}))
         radius = int(style.get("radius", 7))
         label = str(style.get("label", unit.type_name[:1] or "?"))
-        fill = pg.Color(side_style.get("color", self.colors_raw.get(unit.side, "#4fb3d9")))
-        outline = pg.Color(side_style.get("outline", "#000000"))
-        pg.draw.circle(self.screen, outline, (sx, sy), radius + 3)
-        pg.draw.circle(self.screen, fill, (sx, sy), radius + 1)
-        text = self.small_font.render(label, True, self.palette["black"])
-        self.screen.blit(text, text.get_rect(center=(sx, sy)))
+        field_side = self.unit_field_side(unit.side)
+        marker_extent = max(radius, self.unit_assets.trace_unit_size_px // 2)
+        if not self.draw_unit_art(sx, sy, field_side, unit.type_name, self.unit_assets.trace_unit_size_px):
+            fill = pg.Color(side_style.get("color", self.colors_raw.get(unit.side, "#4fb3d9")))
+            outline = pg.Color(side_style.get("outline", "#000000"))
+            pg.draw.circle(self.screen, outline, (sx, sy), radius + 3)
+            pg.draw.circle(self.screen, fill, (sx, sy), radius + 1)
+            text = self.small_font.render(label, True, self.palette["black"])
+            self.screen.blit(text, text.get_rect(center=(sx, sy)))
+            marker_extent = radius
         if self.layers.get("unit_health_bars", True) and unit.health_ratio is not None:
-            self.draw_health_bar(sx - 17, sy + radius + 6, 34, 5, unit.health_ratio)
+            self.draw_health_bar(sx - 19, sy + marker_extent + 6, 38, 5, unit.health_ratio)
         if self.show_labels:
             suffix = f" {unit.hp}/{unit.max_hp}" if unit.max_hp else ""
-            self.draw_label(f"{unit.side}:{unit.type_name}{suffix}", sx + 10, sy + 8, image_rect)
+            self.draw_label(f"{unit.side}:{unit.type_name}{suffix}", sx + marker_extent + 6, sy + 8, image_rect)
+
+    def unit_sprite(self, field_side: str, type_name: str, size_px: int) -> Any | None:
+        path = self.unit_assets.path_for(field_side, type_name)
+        if path is None:
+            return None
+        key = (
+            str(field_side).strip().lower(),
+            self.unit_assets.canonical_type_key(type_name),
+            max(1, int(size_px)),
+            path.as_posix(),
+        )
+        if key in self.unit_sprite_cache:
+            return self.unit_sprite_cache[key]
+        try:
+            raw = self.pg.image.load(str(path)).convert_alpha()
+            raw_rect = raw.get_rect()
+            scale = min(size_px / max(1, raw_rect.width), size_px / max(1, raw_rect.height))
+            target_size = (
+                max(1, int(round(raw_rect.width * scale))),
+                max(1, int(round(raw_rect.height * scale))),
+            )
+            sprite = self.pg.transform.smoothscale(raw, target_size)
+        except Exception:
+            sprite = None
+        self.unit_sprite_cache[key] = sprite
+        return sprite
+
+    def draw_unit_art(
+        self,
+        sx: int,
+        sy: int,
+        field_side: str,
+        type_name: str,
+        size_px: int,
+        *,
+        selected: bool = False,
+        alpha: int | None = None,
+    ) -> bool:
+        sprite = self.unit_sprite(field_side, type_name, size_px)
+        if sprite is None:
+            return False
+        pg = self.pg
+        radius = max(10, int(size_px) // 2)
+        side_color = self.palette[field_side] if field_side in ("red", "blue") else self.palette["neutral"]
+        pg.draw.circle(self.screen, self.palette["black"], (sx, sy), radius + (6 if selected else 4))
+        if selected:
+            pg.draw.circle(self.screen, self.palette["white"], (sx, sy), radius + 4)
+        pg.draw.circle(self.screen, side_color, (sx, sy), radius + 2, 2)
+        if alpha is not None:
+            sprite = sprite.copy()
+            sprite.set_alpha(max(0, min(255, int(alpha))))
+        self.screen.blit(sprite, sprite.get_rect(center=(sx, sy)))
+        return True
+
+    def armor_sprite(self, name: str, size_px: int) -> Any | None:
+        path = self.unit_assets.armor_path_for(name)
+        if path is None:
+            return None
+        key = (str(name).strip().lower(), max(1, int(size_px)), path.as_posix())
+        if key in self.armor_sprite_cache:
+            return self.armor_sprite_cache[key]
+        try:
+            raw = self.pg.image.load(str(path)).convert_alpha()
+            raw_rect = raw.get_rect()
+            scale = min(size_px / max(1, raw_rect.width), size_px / max(1, raw_rect.height))
+            target_size = (
+                max(1, int(round(raw_rect.width * scale))),
+                max(1, int(round(raw_rect.height * scale))),
+            )
+            sprite = self.pg.transform.smoothscale(raw, target_size)
+        except Exception:
+            sprite = None
+        self.armor_sprite_cache[key] = sprite
+        return sprite
 
     def draw_health_bar(self, x: int, y: int, width: int, height: int, ratio: float) -> None:
         pg = self.pg
@@ -1121,6 +1480,7 @@ class Viewer:
         rect = self.panel_rect()
         if self.panel_tab != "inputs":
             self.inputs_panel.clear_buttons()
+        self.layer_buttons = {}
         pg.draw.rect(self.screen, self.palette["panel"], rect)
         pg.draw.line(self.screen, self.palette["line"], rect.topleft, rect.bottomleft, 1)
         record = self.records[self.current_index]
@@ -1137,22 +1497,40 @@ class Viewer:
             self.palette["muted"],
             rect.width - 36,
         )
+        y = self.draw_target_preview(x, y + 8, rect.width - 36, record)
         y = self.draw_match_controls(x, y + 6, rect.width - 36, record)
         y = self.draw_panel_tabs(x, y, rect.width - 36)
         if self.bad_lines:
             y = self.draw_text(f"Skipped bad lines: {self.bad_lines}", x, y, self.small_font, self.palette["enemy"], rect.width - 36)
         y += 10
+        body_rect = pg.Rect(rect.x, y, rect.width, max(1, rect.bottom - y - 10))
+        self.panel_body_rect = body_rect
+        self.panel_scroll.set_body_height(self.panel_tab, body_rect.height)
+        scroll_offset = self.panel_scroll.offset(self.panel_tab)
+        previous_clip = self.screen.get_clip()
+        self.screen.set_clip(body_rect)
+        content_y = body_rect.y - scroll_offset
+        virtual_panel = pg.Rect(rect.x, rect.y, rect.width, 100000)
+        final_y = self.draw_panel_body(x, content_y, rect.width - 36, virtual_panel, record)
+        self.screen.set_clip(previous_clip)
+        content_height = max(0, final_y - content_y)
+        self.panel_scroll.set_content_height(self.panel_tab, content_height)
+        self.clamp_panel_scroll()
+        self.draw_panel_scrollbar(body_rect)
+
+    def draw_panel_body(self, x: int, y: int, max_width: int, panel: Any, record: TraceRecord) -> int:
         if self.panel_tab == "events":
-            y = self.draw_map_tag_controls(x, y, rect.width - 36)
-            y = self.draw_section(x, y, "Decision Conditions", self.condition_rows(record), rect.width - 36)
-            y = self.draw_section(x, y, "Target State", self.target_rows(record), rect.width - 36)
-            y = self.draw_section(x, y, "Relative Target", self.relative_target_rows(record), rect.width - 36)
-            y = self.draw_section(x, y, "Referee / Energy", self.referee_rows(record), rect.width - 36)
-            self.draw_section(x, y, "Units", self.unit_rows(record), rect.width - 36)
-            return
+            y = self.draw_map_tag_controls(x, y, max_width)
+            y = self.draw_section(x, y, "Decision Conditions", self.condition_rows(record), max_width)
+            y = self.draw_section(x, y, "Goal Reach", self.goal_reach_rows(record), max_width)
+            y = self.draw_section(x, y, "Navi State", self.navi_state_rows(record), max_width)
+            y = self.draw_section(x, y, "Target State", self.target_rows(record), max_width)
+            y = self.draw_section(x, y, "Relative Target", self.relative_target_rows(record), max_width)
+            y = self.draw_section(x, y, "Referee / Energy", self.referee_rows(record), max_width)
+            return self.draw_section(x, y, "Units", self.unit_rows(record), max_width)
 
         if self.panel_tab == "runtime":
-            y = self.draw_section(x, y, "ROS Output", self.ros_output_rows(record), rect.width - 36)
+            y = self.draw_section(x, y, "ROS Output", self.ros_output_rows(record), max_width)
             y = self.draw_section(x, y, "Posture", [
                 ("Command", record.posture_command),
                 ("State", record.posture_state),
@@ -1160,25 +1538,30 @@ class Viewer:
                 ("Desired", record.posture_desired),
                 ("Pending", record.posture_pending),
                 ("Reason", record.posture_reason),
-            ], rect.width - 36)
-            y = self.draw_section(x, y, "Gimbal / FireCode", self.gimbal_rows(record), rect.width - 36)
-            y = self.draw_section(x, y, "Runtime Guard", self.runtime_guard_rows(record), rect.width - 36)
-            self.draw_resource_bars(x, y, rect.width - 36, record)
-            return
+            ], max_width)
+            y = self.draw_section(x, y, "Gimbal / FireCode", self.gimbal_rows(record), max_width)
+            y = self.draw_section(x, y, "Bullet Info", self.bullet_info_rows(record), max_width)
+            y = self.draw_section(x, y, "Runtime Guard", self.runtime_guard_rows(record), max_width)
+            return self.draw_resource_bars(x, y, max_width, record)
 
         if self.panel_tab == "inputs":
-            self.inputs_panel.draw(x, y, rect.width - 36, rect)
-            return
+            return self.inputs_panel.draw(x, y, max_width, panel)
 
-        y = self.draw_map_tag_controls(x, y, rect.width - 36)
+        if self.panel_tab == "layers":
+            y = self.draw_map_tag_controls(x, y, max_width)
+            y = self.draw_layer_controls(x, y, max_width)
+            y = self.draw_section(x, y, "Asset Catalog", self.asset_status_rows(), max_width)
+            return self.draw_section(x, y, "Map Overlays", self.layer_summary_rows(), max_width)
+
+        y = self.draw_map_tag_controls(x, y, max_width)
         y = self.draw_section(x, y, "Decision", [
-            ("Profile", str(record.raw.get("competition_profile", "-"))),
+            ("Profile", record.competition_profile),
             ("Team", record.team),
             ("Strategy", record.strategy),
             ("Aim", record.aim),
             ("Target", record.target),
             ("Events", record.events.compact_text()),
-        ], rect.width - 36)
+        ], max_width)
         y = self.draw_section(x, y, "Decision Output", [
             ("Kind", record.output.kind),
             ("UseXY", self.use_xy_text(record.output)),
@@ -1187,8 +1570,15 @@ class Viewer:
             ("Speed", str(record.output.speed_level)),
             ("Position", self.format_position(record_position(record, self.goals))),
             ("Topic", record.output.topic_text()),
+            ("Source", record.output.source),
+            (
+                "Official",
+                "valid="
+                f"{self.flag(record.output.chase_official_target_valid)} "
+                f"armor={record.output.chase_official_armor_type}",
+            ),
             ("Publish", record.output.publish_text()),
-        ], rect.width - 36)
+        ], max_width)
         y = self.draw_section(x, y, "Decision Intent", [
             ("Layer", record.decision_intent.layer),
             ("Reason", record.decision_intent.reason),
@@ -1197,16 +1587,36 @@ class Viewer:
             ("Team", record.decision_intent.goal_team),
             ("Priority", str(record.decision_intent.priority)),
             ("Detail", record.decision_intent.detail),
-        ], rect.width - 36)
+        ], max_width)
         if self.layers.get("recent_changes", True):
-            self.draw_recent_changes(x, y, rect)
+            y = self.draw_recent_changes(x, y, panel)
+        return y
+
+    def draw_panel_scrollbar(self, body_rect: Any) -> None:
+        max_scroll = self.panel_max_scroll()
+        if max_scroll <= 0 or body_rect.height <= 0:
+            return
+        pg = self.pg
+        content_height = max(body_rect.height, self.panel_scroll.content_height(self.panel_tab, body_rect.height))
+        track = pg.Rect(body_rect.right - 7, body_rect.y + 4, 3, max(12, body_rect.height - 8))
+        thumb_h = max(24, round(track.height * body_rect.height / max(1, content_height)))
+        scroll = self.panel_scroll.offset(self.panel_tab)
+        thumb_y = track.y + round((track.height - thumb_h) * scroll / max(1, max_scroll))
+        pg.draw.rect(self.screen, self.palette["panel2"], track, border_radius=2)
+        pg.draw.rect(self.screen, self.palette["accent"], pg.Rect(track.x, thumb_y, track.width, thumb_h), border_radius=2)
 
     def draw_panel_tabs(self, x: int, y: int, max_width: int) -> int:
         pg = self.pg
         y += 4
-        labels = [("decision", "Decision"), ("events", "Events"), ("runtime", "Runtime"), ("inputs", "Inputs")]
+        labels = [
+            ("decision", "Decision"),
+            ("events", "Events"),
+            ("runtime", "Runtime"),
+            ("inputs", "Inputs"),
+            ("layers", "Layers"),
+        ]
         gap = 6
-        button_w = max(72, (max_width - gap * (len(labels) - 1)) // len(labels))
+        button_w = max(58, (max_width - gap * (len(labels) - 1)) // len(labels))
         button_h = 26
         self.panel_tab_buttons = {}
         for idx, (tab, label) in enumerate(labels):
@@ -1221,6 +1631,28 @@ class Viewer:
         y += button_h + 8
         pg.draw.line(self.screen, self.palette["line"], (x, y), (x + max_width, y), 1)
         return y + 8
+
+    def draw_target_preview(self, x: int, y: int, max_width: int, record: TraceRecord) -> int:
+        sprite = self.armor_sprite("armor_no_background", 46)
+        if sprite is None:
+            sprite = self.armor_sprite("armor_fine_edited", 46)
+        if sprite is None:
+            return y
+
+        pg = self.pg
+        rect = pg.Rect(x, y, max_width, 54)
+        pg.draw.rect(self.screen, self.palette["panel2"], rect, border_radius=5)
+        pg.draw.rect(self.screen, self.palette["line"], rect, 1, border_radius=5)
+
+        icon_center = (rect.x + 29, rect.centery)
+        pg.draw.circle(self.screen, self.palette["black"], icon_center, 23)
+        pg.draw.circle(self.screen, self.palette["accent"], icon_center, 21, 1)
+        self.screen.blit(sprite, sprite.get_rect(center=icon_center))
+
+        text_x = x + 62
+        top = self.draw_text(record.target, text_x, y + 8, self.small_font, self.palette["text"], max_width - 70)
+        self.draw_text(record.target_state.fresh_text(), text_x, top, self.small_font, self.palette["muted"], max_width - 70)
+        return rect.bottom + 6
 
     def condition_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
         events = record.events
@@ -1264,6 +1696,31 @@ class Viewer:
             ),
         ]
 
+    def goal_reach_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
+        reach = record.goal_reach
+        return [
+            ("Summary", reach.compact_text()),
+            ("Goal", f"id={reach.goal_id} base={reach.base_goal_id} age={self.value_text(reach.goal_age_ms)}ms"),
+            ("Status", f"{reach.status} ({reach.status_id}) reason={reach.reason} ({reach.reason_id})"),
+            ("External", f"reach={self.flag(reach.external_reach)} fresh={self.flag(reach.external_reach_fresh)} reachable={self.flag(reach.external_reachable)} fresh={self.flag(reach.external_reachable_fresh)}"),
+            ("Position", f"has={self.flag(reach.has_position)} fresh={self.flag(reach.position_fresh)} dist={self.format_optional_float(reach.distance_cm, '{:.0f}cm')}"),
+            ("Thresholds", f"arrive={reach.arrive_distance_cm}cm face={reach.face_distance_cm}cm fallback={self.flag(reach.distance_fallback_allowed)}"),
+            ("Within", f"arrive={self.flag(reach.within_arrive_distance)} face={self.flag(reach.within_face_distance)} timeout={self.flag(reach.timeout)}"),
+        ]
+
+    def navi_state_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
+        status = record.navi_status
+        velocity = record.navi_velocity
+        vx = self.scaled_velocity_text(velocity.output_x, velocity.raw_to_mps)
+        vy = self.scaled_velocity_text(velocity.output_y, velocity.raw_to_mps)
+        return [
+            ("Status", status.compact_text()),
+            ("Rotate", f"should={self.flag(status.should_rotate)} fresh={self.flag(status.should_rotate_fresh)}"),
+            ("Reachable", f"reached={self.flag(status.reached)} fresh={self.flag(status.reached_fresh)} reachable={self.flag(status.reachable)} fresh={self.flag(status.reachable_fresh)}"),
+            ("Vel raw", f"in=({velocity.input_x},{velocity.input_y}) out=({velocity.output_x},{velocity.output_y})"),
+            ("Vel m/s", f"x={vx} y={vy} scale={self.value_text(velocity.raw_to_mps)}"),
+        ]
+
     def target_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
         target_state = record.target_state
         return [
@@ -1293,24 +1750,31 @@ class Viewer:
         return [
             ("Mode", record.output.kind),
             ("Trace valid", f"output={self.flag(record.output.relative_target_valid)} target={self.flag(target.valid)}"),
+            ("Frame", target.frame_id or "-"),
             ("Relative", rel_xyz),
             ("Errors", errors),
             ("Armor", f"type={target.armor_type} aim={target.aim_mode}"),
             ("Official", f"valid={self.flag(target.official_target_valid)} armor={target.official_armor_type}"),
+            (
+                "Output official",
+                f"valid={self.flag(record.output.chase_official_target_valid)} armor={record.output.chase_official_armor_type}",
+            ),
         ]
 
     def referee_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
-        referee = as_dict(record.raw.get("referee"))
-        team_buff = as_dict(referee.get("team_buff"))
-        rfid = as_dict(referee.get("rfid_match"))
+        referee = record.referee
+        rfid = referee.rfid_match
         return [
-            ("HP", f"self={record.hp} outpost={referee.get('self_outpost_hp', '-')} base={referee.get('self_base_hp', '-')}"),
-            ("EnemyHP", f"outpost={referee.get('enemy_outpost_hp', '-')} base={referee.get('enemy_base_hp', '-')}"),
+            ("HP", f"self={record.hp} outpost={self.value_text(referee.self_outpost_hp)} base={self.value_text(referee.self_base_hp)}"),
+            ("EnemyHP", f"outpost={self.value_text(referee.enemy_outpost_hp)} base={self.value_text(referee.enemy_base_hp)}"),
             ("Ammo/Time", f"ammo={record.ammo} time={record.time_left}"),
-            ("Energy", f"can={self.flag(referee.get('sentry_can_activate_energy'))} pulse={self.flag(referee.get('energy_activate_confirm_pulse'))}"),
-            ("GainPoint", f"fortress={referee.get('event_self_fortress_gain_point_status', '-')} outpost={referee.get('event_self_outpost_gain_point_status', '-')} base={self.flag(referee.get('event_self_base_gain_point_status'))}"),
-            ("TeamBuff", f"atk={team_buff.get('attack', '-')} def={team_buff.get('defence', '-')} energy={team_buff.get('remaining_energy', '-')}"),
-            ("RFID", f"fresh={self.flag(rfid.get('fresh'))} any={self.flag(rfid.get('any'))} tunnel={self.flag(rfid.get('tunnel'))} center={self.flag(rfid.get('center_gain_point'))}"),
+            ("Energy", f"can={self.flag(referee.sentry_can_activate_energy)} pulse={self.flag(referee.energy_activate_confirm_pulse)}"),
+            ("GainPoint", f"fortress={self.value_text(referee.event_self_fortress_gain_point_status)} outpost={self.value_text(referee.event_self_outpost_gain_point_status)} base={self.flag(referee.event_self_base_gain_point_status)}"),
+            ("TeamBuff", f"atk={self.value_text(referee.team_buff_attack)} def={self.value_text(referee.team_buff_defence)} energy={self.value_text(referee.team_buff_remaining_energy)}"),
+            ("RFID raw", f"fresh={self.flag(rfid.fresh)} any={self.flag(rfid.any)} raw={self.value_text(referee.rfid_status)} r2={self.value_text(referee.rfid_status_2)}"),
+            ("RFID self", f"base={self.flag(rfid.self_base_gain_point)} supply={self.flag(rfid.self_supply)} high={self.flag(rfid.self_highland_gain_point)} road={self.flag(rfid.self_road_crossing)} tunnel={self.flag(rfid.self_tunnel)}"),
+            ("RFID enemy", f"high={self.flag(rfid.enemy_highland_gain_point)} road={self.flag(rfid.enemy_road_crossing)} tunnel={self.flag(rfid.enemy_tunnel)} fortress={self.flag(rfid.enemy_fortress_gain_point)} outpost={self.flag(rfid.enemy_outpost_gain_point)}"),
+            ("RFID zone", f"center={self.flag(rfid.center_gain_point)} self_side={self.flag(rfid.on_self_side)} enemy_side={self.flag(rfid.on_enemy_side)} fly={self.flag(rfid.self_fly_ramp)}/{self.flag(rfid.enemy_fly_ramp)}"),
         ]
 
     def unit_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
@@ -1318,10 +1782,20 @@ class Viewer:
         enemy = [unit for unit in record.units if unit.side == "enemy"]
         friend_text = self.units_text(friend)
         enemy_text = self.units_text(enemy)
-        return [
+        rows = [
             ("Friend", friend_text),
             ("Enemy", enemy_text),
         ]
+        if record.unit_info:
+            friend_info = [unit for unit in record.unit_info if unit.side == "friend"]
+            enemy_info = [unit for unit in record.unit_info if unit.side == "enemy"]
+            rows.extend(
+                [
+                    ("FriendInfo", self.unit_info_text(friend_info)),
+                    ("EnemyInfo", self.unit_info_text(enemy_info)),
+                ]
+            )
+        return rows
 
     def gimbal_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
         gimbal = record.gimbal
@@ -1333,15 +1807,39 @@ class Viewer:
             ("Aim/Rotate", f"aim={gimbal.aim_mode} rotate={gimbal.rotate}"),
         ]
 
+    def bullet_info_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
+        bullet = record.bullet_info
+        return [
+            ("Summary", bullet.compact_text()),
+            ("Fresh", f"received={self.flag(bullet.has_received)} age={self.value_text(bullet.age_ms)}ms"),
+            ("Speed", f"has={self.flag(bullet.has_initial_speed)} value={self.format_optional_float(bullet.initial_speed)}m/s"),
+            (
+                "Shoot",
+                f"has={self.flag(bullet.has_shoot_data)} type={bullet.bullet_type} "
+                f"shooter={bullet.shooter_number} hz={bullet.launching_frequency}",
+            ),
+            (
+                "Allowance",
+                " ".join(
+                    [
+                        f"has={self.flag(bullet.has_projectile_allowance)}",
+                        f"17={bullet.projectile_allowance_17mm}",
+                        f"42={bullet.projectile_allowance_42mm}",
+                        f"coin={bullet.remaining_gold_coin}",
+                        f"fort17={bullet.projectile_allowance_fortress_17mm}",
+                    ]
+                ),
+            ),
+        ]
+
     def runtime_guard_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
         guard = record.runtime_guard
-        posture_runtime = as_dict(as_dict(record.raw.get("posture")).get("runtime"))
-        degraded = as_dict(posture_runtime.get("degraded"))
+        posture_runtime = record.posture_runtime
         return [
             ("Fault", guard.fault),
             ("Recovery", f"requested={self.flag(guard.recovery_requested)} recovering={self.flag(guard.recovering)}"),
-            ("PostureRT", f"pending={self.flag(posture_runtime.get('has_pending'))} stale={self.flag(posture_runtime.get('feedback_stale'))} retry={posture_runtime.get('retry_count', '-')}"),
-            ("Degraded", f"atk={self.flag(degraded.get('attack'))} def={self.flag(degraded.get('defense'))} move={self.flag(degraded.get('move'))}"),
+            ("PostureRT", f"pending={self.flag(posture_runtime.has_pending)} stale={self.flag(posture_runtime.feedback_stale)} retry={self.value_text(posture_runtime.retry_count)}"),
+            ("Degraded", f"atk={self.flag(posture_runtime.degraded_attack)} def={self.flag(posture_runtime.degraded_defense)} move={self.flag(posture_runtime.degraded_move)}"),
         ]
 
     def draw_match_controls(self, x: int, y: int, max_width: int, record: TraceRecord) -> int:
@@ -1409,6 +1907,76 @@ class Viewer:
         pg.draw.line(self.screen, self.palette["line"], (x, y), (x + max_width, y), 1)
         return y + 8
 
+    def draw_layer_controls(self, x: int, y: int, max_width: int) -> int:
+        pg = self.pg
+        y += 3
+        self.draw_text("Map Layers", x, y, self.font, self.palette["accent"], max_width)
+        y += 25
+        labels = [
+            ("terrain", "Terrain"),
+            ("structures", "Structures"),
+            ("simulator_inputs", "Sim Inputs"),
+            ("grid", "Grid"),
+            ("all_goals", "All Goals"),
+            ("current_goal", "Current"),
+            ("goal_path", "Goal Path"),
+            ("scripted_path", "Scripted"),
+            ("units", "Units"),
+            ("unit_health_bars", "HP Bars"),
+            ("recent_changes", "Changes"),
+        ]
+        gap = 6
+        columns = 2
+        button_w = max(80, (max_width - gap * (columns - 1)) // columns)
+        button_h = 24
+        for idx, (key, label) in enumerate(labels):
+            col = idx % columns
+            row = idx // columns
+            rect = pg.Rect(x + col * (button_w + gap), y + row * (button_h + gap), button_w, button_h)
+            self.layer_buttons[key] = rect
+            active = bool(self.layers.get(key, True))
+            fill = self.palette["accent"] if active else self.palette["panel2"]
+            text_color = self.palette["black"] if active else self.palette["muted"]
+            pg.draw.rect(self.screen, fill, rect, border_radius=5)
+            pg.draw.rect(self.screen, self.palette["line"], rect, 1, border_radius=5)
+            prefix = "ON" if active else "OFF"
+            text = self.small_font.render(f"{prefix} {label}", True, text_color)
+            self.screen.blit(text, text.get_rect(center=rect.center))
+        rows = (len(labels) + columns - 1) // columns
+        y += rows * button_h + max(0, rows - 1) * gap + 10
+        pg.draw.line(self.screen, self.palette["line"], (x, y), (x + max_width, y), 1)
+        return y + 8
+
+    def asset_status_rows(self) -> list[tuple[str, str]]:
+        catalog = self.unit_assets
+        provenance = catalog.provenance
+        manifest = catalog.manifest_path.name if catalog.manifest_path is not None else "-"
+        source = str(provenance.get("archive_name", "-"))
+        imported = str(provenance.get("imported_at", "-"))
+        license_status = str(provenance.get("license_status", "unknown"))
+        redistribution = str(provenance.get("redistribution", "-"))
+        aliases = ", ".join(f"{alias}->{target}" for alias, target in sorted(catalog.aliases.items()))
+        return [
+            ("Enabled", self.flag(catalog.enabled)),
+            ("Manifest", manifest),
+            ("Units", f"{len(catalog.unit_paths)} sprites"),
+            ("Armor", f"{len(catalog.armor_paths)} sprites"),
+            ("Aliases", aliases if aliases else "-"),
+            ("Source", f"{source} imported={imported}"),
+            ("License", license_status),
+            ("Redistrib", redistribution),
+        ]
+
+    def layer_summary_rows(self) -> list[tuple[str, str]]:
+        enabled = sorted(key for key, value in self.layers.items() if bool(value))
+        disabled = sorted(key for key, value in self.layers.items() if not bool(value))
+        return [
+            ("Enabled", ", ".join(enabled) if enabled else "-"),
+            ("Disabled", ", ".join(disabled) if disabled else "-"),
+            ("Tags", "expanded" if self.goal_tags_expanded else "hover"),
+            ("Scripted", "on" if self.scripted_enabled else "off"),
+        ]
+
     def draw_control_button(self, rect: Any, label: str) -> None:
         pg = self.pg
         pg.draw.rect(self.screen, self.palette["panel2"], rect, border_radius=5)
@@ -1441,6 +2009,8 @@ class Viewer:
             ("Live raw", self.live_ros_value_text("/ly/navi/goal_pos_raw", "cm")),
             ("Live goal_id", self.live_ros_value_text("/ly/navi/goal")),
             ("Live speed", self.live_ros_value_text("/ly/navi/speed_level")),
+            ("Live rotate", self.live_ros_value_text("/ly/navi/should_rotate")),
+            ("Live vel", self.live_ros_value_text("/ly/control/vel")),
             ("Live game", f"start={live_start} time={live_time}"),
         ]
         rows.extend(
@@ -1454,6 +2024,8 @@ class Viewer:
         rows.extend(
             [
                 ("Trace speed", f"/ly/navi/speed_level={output.speed_level}"),
+                ("Trace rotate", f"/ly/navi/should_rotate={self.flag(record.navi_status.should_rotate)} fresh={self.flag(record.navi_status.should_rotate_fresh)}"),
+                ("Trace vel", record.navi_velocity.compact_text()),
                 ("SimPath", "visual only" if self.scripted_enabled else "off"),
                 ("Publish", output.publish_text()),
             ]
@@ -1535,7 +2107,8 @@ class Viewer:
     def ros_payload_text(self, record: TraceRecord) -> str:
         output = record.output
         if output.kind == "relative_target_bridge":
-            return f"target_rel valid={str(output.relative_target_valid).lower()}"
+            frame = record.navi_relative_target.frame_id or "-"
+            return f"target_rel valid={str(output.relative_target_valid).lower()} frame={frame}"
         pos = record_position(record, self.goals)
         if output.uses_goal_pos or pos is not None:
             if pos is None:
@@ -1544,8 +2117,7 @@ class Viewer:
         return f"id={output.goal_id}"
 
     def draw_resource_bars(self, x: int, y: int, max_width: int, record: TraceRecord) -> int:
-        referee = as_dict(record.raw.get("referee"))
-        max_hp = max(record.hp, int(referee.get("self_max_hp", 400) or 400))
+        max_hp = record.referee.self_max_hp
         ammo_max = int(as_dict(self.config.get("resources")).get("ammo_max", 50))
         self.draw_metric_bar(x + 96, y, max_width - 96, record.hp, max_hp)
         self.draw_metric_bar(x + 96, y + 8, max_width - 96, record.ammo, ammo_max)
@@ -1557,7 +2129,7 @@ class Viewer:
         ratio = max(0.0, min(1.0, value / maximum))
         self.draw_health_bar(x, y, width, 5, ratio)
 
-    def draw_recent_changes(self, x: int, y: int, rect: Any) -> None:
+    def draw_recent_changes(self, x: int, y: int, rect: Any) -> int:
         self.draw_text("Recent Changes", x, y, self.font, self.palette["accent"], rect.width - 36)
         y += 24
         indexes = [item["index"] for item in self.changes]
@@ -1569,6 +2141,7 @@ class Viewer:
             y += 3
             if y > rect.bottom - 30:
                 break
+        return y
 
     def draw_timeline(self) -> None:
         pg = self.pg
@@ -1633,6 +2206,10 @@ class Viewer:
         return str(value)
 
     @staticmethod
+    def value_text(value: Any) -> str:
+        return "-" if value is None else str(value)
+
+    @staticmethod
     def join_items(items: tuple[str, ...]) -> str:
         return ", ".join(items) if items else "-"
 
@@ -1643,6 +2220,13 @@ class Viewer:
         return template.format(value)
 
     @staticmethod
+    def scaled_velocity_text(raw: int, scale: float | None) -> str:
+        if scale is None:
+            return "-"
+        value = raw * scale
+        return f"{value:.2f}"
+
+    @staticmethod
     def units_text(units: list[UnitRecord]) -> str:
         if not units:
             return "-"
@@ -1650,6 +2234,19 @@ class Viewer:
         for unit in units:
             hp = f"{unit.hp}/{unit.max_hp}" if unit.max_hp else str(unit.hp)
             parts.append(f"{unit.type_name}:{hp}")
+        return " ".join(parts)
+
+    @staticmethod
+    def unit_info_text(units: list[UnitInfoRecord]) -> str:
+        if not units:
+            return "-"
+        parts = []
+        for unit in sorted(units, key=lambda item: item.type_id):
+            hp = f"hp={unit.hp}" if unit.has_hp else "hp=-"
+            pos = "pos=fresh" if unit.position_fresh else "pos=stale" if unit.has_position else "pos=-"
+            source = unit.position_source if unit.position_source else "-"
+            area = unit.area_name if unit.area_name else "-"
+            parts.append(f"{unit.type_name}:{hp},{pos},{source},{area}")
         return " ".join(parts)
 
     @staticmethod

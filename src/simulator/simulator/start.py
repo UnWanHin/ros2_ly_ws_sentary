@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import shlex
 import signal
@@ -12,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .config import repo_root
+from .mock_inputs import parse_armor_spec
 
 
 DEFAULT_BT_CONFIG_BY_MODE = {
@@ -19,6 +21,260 @@ DEFAULT_BT_CONFIG_BY_MODE = {
     "league": "league_competition.json",
     "showcase": "regional/debug/showcase_competition.json",
 }
+
+MOCK_PRESET_DESCRIPTIONS = {
+    "none": "No preset overlay; use explicit --mock-* values and parser defaults.",
+    "buff-ready": "Regional energy-window check with buff target, sentry activation, buff energy, and center RFID.",
+    "outpost-dead": "Regional resource state where the enemy outpost HP is already zero.",
+    "nav-unreachable": "Regional navigation failure context with an unreachable current goal.",
+    "official-target-sentry": "Official target fallback for a sentry armor position on /ly/navi/target_official.",
+    "uwb-fusion": "Regional self-position fusion rehearsal with opt-in /ly/friend/uwb_pos.",
+    "bullet-resource": "BulletInfo resource snapshot with speed, shoot data, projectile allowance, and gold coin fields.",
+    "detector-armors": "Detector Armors target-list rehearsal on the formal /ly/detector/armors topic.",
+    "multi-unit-regional": "Regional multi-unit scene using sample/unit_scene.json plus HP, RFID, buff, and target context.",
+    "full-roster-regional": (
+        "Full red/blue unit roster for checking packaged unit art, formal health-unit HP mapping, "
+        "and placed-unit PositionData."
+    ),
+    "low-resource": "Low HP and low ammo recovery context for resource-fallback decisions.",
+}
+
+MOCK_PRESETS: dict[str, dict[str, object]] = {
+    "none": {},
+    "buff-ready": {
+        "mode": "regional",
+        "mock_target": "buff",
+        "mock_target_status": True,
+        "mock_target_yaw": 6.0,
+        "mock_target_pitch": -1.0,
+        "mock_time_left": 411,
+        "mock_ammo": 43,
+        "mock_self_health": 382,
+        "mock_sentry_can_activate_energy": True,
+        "mock_event_self_small_energy_status": 2,
+        "mock_team_buff_attack": 1,
+        "mock_team_buff_remaining_energy": 35,
+        "mock_rfid_center_gain_point": True,
+        "mock_rfid_self_outpost": True,
+        "mock_self_position_x": 924,
+        "mock_self_position_y": 1388,
+    },
+    "outpost-dead": {
+        "mode": "regional",
+        "mock_target": "none",
+        "mock_time_left": 360,
+        "mock_ammo": 120,
+        "mock_self_health": 360,
+        "mock_enemy_outpost_health": 0,
+        "mock_enemy_base_health": 4200,
+        "mock_navi_reachable": True,
+        "mock_navi_should_rotate": True,
+        "mock_self_position_x": 1100,
+        "mock_self_position_y": 1130,
+    },
+    "nav-unreachable": {
+        "mode": "regional",
+        "mock_target": "predictor",
+        "mock_target_status": True,
+        "mock_target_yaw": 9.0,
+        "mock_target_pitch": -2.0,
+        "mock_time_left": 390,
+        "mock_ammo": 80,
+        "mock_navi_reached": False,
+        "mock_navi_reachable": False,
+        "mock_navi_should_rotate": False,
+        "mock_self_position_x": 1220,
+        "mock_self_position_y": 760,
+    },
+    "official-target-sentry": {
+        "mode": "regional",
+        "mock_target": "none",
+        "mock_time_left": 402,
+        "mock_ammo": 70,
+        "mock_self_position_x": 1220,
+        "mock_self_position_y": 760,
+        "mock_official_target_valid": True,
+        "mock_official_target_x": 1505,
+        "mock_official_target_y": 905,
+        "mock_official_target_armor_type": 6,
+    },
+    "uwb-fusion": {
+        "mode": "regional",
+        "mock_target": "none",
+        "mock_time_left": 386,
+        "mock_ammo": 90,
+        "mock_self_health": 360,
+        "mock_navi_reachable": True,
+        "mock_navi_should_rotate": True,
+        "mock_self_position_x": 1110,
+        "mock_self_position_y": 720,
+        "mock_publish_uwb_position": True,
+        "mock_uwb_position_x": 1220,
+        "mock_uwb_position_y": 760,
+    },
+    "bullet-resource": {
+        "mode": "regional",
+        "mock_target": "none",
+        "mock_time_left": 392,
+        "mock_ammo": 88,
+        "mock_self_health": 365,
+        "mock_bullet_initial_speed": 23.4,
+        "mock_bullet_has_shoot_data": True,
+        "mock_bullet_type": 1,
+        "mock_bullet_shooter_number": 7,
+        "mock_bullet_launching_frequency": 9,
+        "mock_bullet_projectile_allowance_17mm": 118,
+        "mock_bullet_projectile_allowance_42mm": 6,
+        "mock_bullet_remaining_gold_coin": 14,
+        "mock_bullet_projectile_allowance_fortress_17mm": 32,
+    },
+    "detector-armors": {
+        "mode": "regional",
+        "mock_target": "none",
+        "mock_time_left": 386,
+        "mock_ammo": 96,
+        "mock_self_health": 372,
+        "mock_armors": True,
+        "mock_armor_type": 1,
+        "mock_armor_distance": 6.0,
+        "mock_armor": ["1:6.0", "3:4.5", "6:5.2"],
+        "mock_self_position_x": 1075,
+        "mock_self_position_y": 898,
+        "mock_navi_reachable": True,
+    },
+    "multi-unit-regional": {
+        "mode": "regional",
+        "unit_scene": "src/simulator/sample/unit_scene.json",
+        "mock_target": "predictor",
+        "mock_target_status": True,
+        "mock_target_yaw": 8.0,
+        "mock_target_pitch": -1.5,
+        "mock_time_left": 398,
+        "mock_ammo": 80,
+        "mock_self_health": 360,
+        "mock_enemy_health": 180,
+        "mock_enemy_outpost_health": 44,
+        "mock_team_buff_attack": 1,
+        "mock_team_buff_remaining_energy": 27,
+        "mock_rfid_center_gain_point": True,
+        "mock_rfid_self_highland": True,
+        "mock_navi_reachable": True,
+        "mock_self_position_x": 820,
+        "mock_self_position_y": 830,
+    },
+    "full-roster-regional": {
+        "mode": "regional",
+        "unit_scene": "src/simulator/sample/unit_scenes/full_roster.json",
+        "mock_target": "predictor",
+        "mock_target_status": True,
+        "mock_target_yaw": 5.0,
+        "mock_target_pitch": -1.0,
+        "mock_time_left": 390,
+        "mock_ammo": 120,
+        "mock_self_health": 390,
+        "mock_enemy_health": 220,
+        "mock_enemy_outpost_health": 60,
+        "mock_enemy_base_health": 5000,
+        "mock_team_buff_attack": 1,
+        "mock_team_buff_remaining_energy": 18,
+        "mock_rfid_center_gain_point": True,
+        "mock_navi_reachable": True,
+        "mock_self_position_x": 700,
+        "mock_self_position_y": 820,
+    },
+    "low-resource": {
+        "mode": "regional",
+        "mock_target": "none",
+        "mock_time_left": 398,
+        "mock_ammo": 5,
+        "mock_self_health": 118,
+        "mock_enemy_outpost_health": 44,
+        "mock_self_position_x": 183,
+        "mock_self_position_y": 245,
+        "mock_navi_reachable": True,
+    },
+}
+
+
+def parse_bool(value: str) -> bool:
+    lowered = value.strip().lower()
+    if lowered in {"1", "true", "yes", "y", "on"}:
+        return True
+    if lowered in {"0", "false", "no", "n", "off"}:
+        return False
+    raise argparse.ArgumentTypeError(f"invalid bool value: {value}")
+
+
+def bool_text(value: bool) -> str:
+    return "true" if bool(value) else "false"
+
+
+def collect_explicit_cli_dests(parser: argparse.ArgumentParser, argv: list[str]) -> set[str]:
+    option_actions = parser._option_string_actions  # noqa: SLF001 - argparse has no public equivalent.
+    explicit: set[str] = set()
+    for token in argv:
+        if token == "--":
+            break
+        if not token.startswith("-"):
+            continue
+        option_name = token.split("=", 1)[0]
+        action = option_actions.get(option_name)
+        if action is not None and action.dest != "help":
+            explicit.add(action.dest)
+    return explicit
+
+
+def apply_mock_preset(args: argparse.Namespace, explicit_dests: set[str]) -> None:
+    preset = MOCK_PRESETS.get(str(args.mock_preset), {})
+    for dest, value in preset.items():
+        if dest in explicit_dests:
+            continue
+        setattr(args, dest, value)
+
+
+def _dest_to_cli_name(dest: str) -> str:
+    if dest.startswith("mock_"):
+        return "--mock-" + dest[len("mock_") :].replace("_", "-")
+    return "--" + dest.replace("_", "-")
+
+
+def _preset_value_text(value: object) -> str:
+    if isinstance(value, bool):
+        return bool_text(value)
+    if isinstance(value, list):
+        return " ".join(str(item) for item in value)
+    return str(value)
+
+
+def _preset_cli_parts(dest: str, value: object) -> list[str]:
+    cli_name = _dest_to_cli_name(dest)
+    if isinstance(value, list):
+        return [f"{cli_name} {_preset_value_text(item)}" for item in value]
+    return [f"{cli_name} {_preset_value_text(value)}"]
+
+
+def print_mock_presets() -> int:
+    print("Mock presets:")
+    for name, overlay in MOCK_PRESETS.items():
+        print(f"  {name}: {MOCK_PRESET_DESCRIPTIONS[name]}")
+        if overlay:
+            parts = [part for dest, value in overlay.items() for part in _preset_cli_parts(dest, value)]
+            print(f"    overlay: {' '.join(parts)}")
+        else:
+            print("    overlay: current parser defaults")
+    return 0
+
+
+def print_mock_sequences() -> int:
+    from .mock_sequence import print_sample_sequences
+
+    return print_sample_sequences()
+
+
+def print_unit_scenes() -> int:
+    from .unit_scene import print_unit_scene_samples
+
+    return print_unit_scene_samples()
 
 
 def _collect_pids_by_pattern(pattern: str) -> list[int]:
@@ -140,6 +396,27 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Run decision offline: behavior_tree only, with built-in mock input topics.",
     )
     parser.add_argument(
+        "--mock-preset",
+        choices=tuple(MOCK_PRESETS.keys()),
+        default="none",
+        help="Named simulator-only mock input preset overlay for --offline-decision (default: none).",
+    )
+    parser.add_argument(
+        "--list-mock-presets",
+        action="store_true",
+        help="List available --mock-preset overlays and exit.",
+    )
+    parser.add_argument(
+        "--list-mock-sequences",
+        action="store_true",
+        help="List bundled --mock-sequence examples and exit.",
+    )
+    parser.add_argument(
+        "--list-unit-scenes",
+        action="store_true",
+        help="List bundled --unit-scene examples and exit.",
+    )
+    parser.add_argument(
         "--trace-on",
         action="store_true",
         help="Force trace recording in --offline-decision mode.",
@@ -193,6 +470,317 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Mock /ly/gimbal/angles pitch (default: 0).",
     )
     parser.add_argument(
+        "--mock-target-status",
+        type=parse_bool,
+        default=True,
+        help="Mock target status for predictor/buff/outpost target sources (default: true).",
+    )
+    parser.add_argument(
+        "--mock-target-yaw",
+        type=float,
+        default=0.0,
+        help="Mock target yaw for predictor/buff/outpost target sources (default: 0).",
+    )
+    parser.add_argument(
+        "--mock-target-pitch",
+        type=float,
+        default=0.0,
+        help="Mock target pitch for predictor/buff/outpost target sources (default: 0).",
+    )
+    parser.add_argument("--mock-gimbal-fire-status", type=int, default=0, help="Mock /ly/gimbal/firecode fire_status.")
+    parser.add_argument("--mock-gimbal-cap-state", type=int, default=0, help="Mock /ly/gimbal/firecode cap_state.")
+    parser.add_argument(
+        "--mock-gimbal-follow-mode",
+        type=parse_bool,
+        default=False,
+        help="Mock /ly/gimbal/firecode follow_mode.",
+    )
+    parser.add_argument(
+        "--mock-gimbal-aim-mode",
+        type=parse_bool,
+        default=False,
+        help="Mock /ly/gimbal/firecode aim_mode.",
+    )
+    parser.add_argument("--mock-gimbal-rotate", type=int, default=0, help="Mock /ly/gimbal/firecode rotate.")
+    parser.add_argument(
+        "--mock-gimbal-yaw-velocity",
+        type=float,
+        default=0.0,
+        help="Mock /ly/gimbal/chassis angular_velocity in deg/s.",
+    )
+    parser.add_argument(
+        "--mock-gimbal-yaw-angle",
+        type=float,
+        default=0.0,
+        help="Mock /ly/gimbal/chassis steer_angle in deg.",
+    )
+    parser.add_argument("--mock-cap-v", type=int, default=0, help="Mock /ly/gimbal/capV.")
+    parser.add_argument("--mock-self-health", type=int, default=400, help="Mock sentry HP (default: 400).")
+    parser.add_argument("--mock-enemy-health", type=int, default=400, help="Default enemy unit HP (default: 400).")
+    parser.add_argument("--mock-self-outpost-health", type=int, default=60, help="Mock self outpost HP.")
+    parser.add_argument("--mock-enemy-outpost-health", type=int, default=60, help="Mock enemy outpost HP.")
+    parser.add_argument("--mock-self-base-health", type=int, default=5000, help="Mock self base HP.")
+    parser.add_argument("--mock-enemy-base-health", type=int, default=5000, help="Mock enemy base HP.")
+    parser.add_argument("--mock-team-buff-recovery", type=int, default=0, help="Mock /ly/team/buff recoverybuff.")
+    parser.add_argument("--mock-team-buff-cooling", type=int, default=0, help="Mock /ly/team/buff coolingbuff.")
+    parser.add_argument("--mock-team-buff-defence", type=int, default=0, help="Mock /ly/team/buff defencebuff.")
+    parser.add_argument(
+        "--mock-team-buff-vulnerability",
+        type=int,
+        default=0,
+        help="Mock /ly/team/buff vulnerabilitybuff.",
+    )
+    parser.add_argument("--mock-team-buff-attack", type=int, default=0, help="Mock /ly/team/buff attackbuff.")
+    parser.add_argument(
+        "--mock-team-buff-remaining-energy",
+        type=int,
+        default=0,
+        help="Mock /ly/team/buff remainingenergy.",
+    )
+    parser.add_argument("--mock-event-raw", type=int, default=0, help="Mock /ly/game/event_data raw.")
+    parser.add_argument(
+        "--mock-event-self-small-energy-status",
+        type=int,
+        default=0,
+        help="Mock event_data self_small_energy_status.",
+    )
+    parser.add_argument(
+        "--mock-event-self-large-energy-status",
+        type=int,
+        default=0,
+        help="Mock event_data self_large_energy_status.",
+    )
+    parser.add_argument(
+        "--mock-event-self-fortress-gain-point-status",
+        type=int,
+        default=0,
+        help="Mock event_data self_fortress_gain_point_status.",
+    )
+    parser.add_argument(
+        "--mock-event-self-outpost-gain-point-status",
+        type=int,
+        default=0,
+        help="Mock event_data self_outpost_gain_point_status.",
+    )
+    parser.add_argument(
+        "--mock-event-self-base-gain-point-status",
+        type=parse_bool,
+        default=False,
+        help="Mock event_data self_base_gain_point_status.",
+    )
+    parser.add_argument(
+        "--mock-sentry-can-activate-energy",
+        type=parse_bool,
+        default=False,
+        help="Mock /ly/game/sentry/info can_activate_energy_mechanism.",
+    )
+    parser.add_argument("--mock-rfid-raw", type=int, default=0, help="Mock /ly/game/rfid raw.")
+    parser.add_argument(
+        "--mock-rfid-has-status-2",
+        type=parse_bool,
+        default=False,
+        help="Mock /ly/game/rfid has_rfid_status_2.",
+    )
+    parser.add_argument("--mock-rfid-status-2-raw", type=int, default=0, help="Mock /ly/game/rfid rfid_status_2_raw.")
+    parser.add_argument(
+        "--mock-rfid-center-gain-point",
+        type=parse_bool,
+        default=False,
+        help="Mock RFID center gain point.",
+    )
+    parser.add_argument("--mock-rfid-self-base", type=parse_bool, default=False, help="Mock self base RFID.")
+    parser.add_argument("--mock-rfid-self-fortress", type=parse_bool, default=False, help="Mock self fortress RFID.")
+    parser.add_argument("--mock-rfid-self-outpost", type=parse_bool, default=False, help="Mock self outpost RFID.")
+    parser.add_argument("--mock-rfid-self-supply", type=parse_bool, default=False, help="Mock self supply RFID.")
+    parser.add_argument("--mock-rfid-self-highland", type=parse_bool, default=False, help="Mock self highland RFID.")
+    parser.add_argument(
+        "--mock-rfid-self-road-crossing",
+        type=parse_bool,
+        default=False,
+        help="Mock self road crossing RFID.",
+    )
+    parser.add_argument(
+        "--mock-rfid-self-central-highland-crossing",
+        type=parse_bool,
+        default=False,
+        help="Mock self central highland crossing RFID.",
+    )
+    parser.add_argument("--mock-rfid-self-tunnel", type=parse_bool, default=False, help="Mock self tunnel RFID.")
+    parser.add_argument("--mock-rfid-self-assembly", type=parse_bool, default=False, help="Mock self assembly RFID.")
+    parser.add_argument("--mock-rfid-self-fly-ramp", type=parse_bool, default=False, help="Mock self fly-ramp RFID.")
+    parser.add_argument("--mock-rfid-enemy-fortress", type=parse_bool, default=False, help="Mock enemy fortress RFID.")
+    parser.add_argument("--mock-rfid-enemy-outpost", type=parse_bool, default=False, help="Mock enemy outpost RFID.")
+    parser.add_argument("--mock-rfid-enemy-highland", type=parse_bool, default=False, help="Mock enemy highland RFID.")
+    parser.add_argument(
+        "--mock-rfid-enemy-road-crossing",
+        type=parse_bool,
+        default=False,
+        help="Mock enemy road crossing RFID.",
+    )
+    parser.add_argument(
+        "--mock-rfid-enemy-central-highland-crossing",
+        type=parse_bool,
+        default=False,
+        help="Mock enemy central highland crossing RFID.",
+    )
+    parser.add_argument("--mock-rfid-enemy-tunnel", type=parse_bool, default=False, help="Mock enemy tunnel RFID.")
+    parser.add_argument("--mock-rfid-enemy-assembly", type=parse_bool, default=False, help="Mock enemy assembly RFID.")
+    parser.add_argument("--mock-rfid-enemy-fly-ramp", type=parse_bool, default=False, help="Mock enemy fly-ramp RFID.")
+    parser.add_argument("--mock-navi-reached", type=parse_bool, default=False, help="Mock /ly/navi/reached.")
+    parser.add_argument("--mock-navi-reachable", type=parse_bool, default=True, help="Mock /ly/navi/reachable.")
+    parser.add_argument(
+        "--mock-navi-should-rotate",
+        type=parse_bool,
+        default=True,
+        help="Mock /ly/navi/should_rotate.",
+    )
+    parser.add_argument("--mock-navi-lower-head", type=int, default=0, help="Mock /ly/navi/lower_head.")
+    parser.add_argument("--mock-navi-vel-x", type=float, default=0.0, help="Mock /ly/navi/vel x.")
+    parser.add_argument("--mock-navi-vel-y", type=float, default=0.0, help="Mock /ly/navi/vel y.")
+    parser.add_argument(
+        "--mock-publish-self-position",
+        type=parse_bool,
+        default=True,
+        help="Publish mock /ly/navi/position (default: true).",
+    )
+    parser.add_argument(
+        "--mock-self-position-x",
+        type=int,
+        default=-1,
+        help="Mock /ly/navi/position official-map x cm; -1 uses team base default.",
+    )
+    parser.add_argument(
+        "--mock-self-position-y",
+        type=int,
+        default=-1,
+        help="Mock /ly/navi/position official-map y cm; -1 uses team base default.",
+    )
+    parser.add_argument(
+        "--mock-publish-uwb-position",
+        type=parse_bool,
+        default=False,
+        help="Publish mock /ly/friend/uwb_pos using raw y expected by behavior_tree (default: false).",
+    )
+    parser.add_argument(
+        "--mock-uwb-position-x",
+        type=int,
+        default=-1,
+        help="Mock /ly/friend/uwb_pos official-map x cm; -1 follows mock self position.",
+    )
+    parser.add_argument(
+        "--mock-uwb-position-y",
+        type=int,
+        default=-1,
+        help="Mock /ly/friend/uwb_pos official-map y cm; -1 follows mock self position.",
+    )
+    parser.add_argument(
+        "--mock-official-target-valid",
+        type=parse_bool,
+        default=False,
+        help="Publish mock /ly/navi/target_official.",
+    )
+    parser.add_argument("--mock-official-target-x", type=int, default=0, help="Mock official target x cm.")
+    parser.add_argument("--mock-official-target-y", type=int, default=0, help="Mock official target y cm.")
+    parser.add_argument(
+        "--mock-official-target-armor-type",
+        type=int,
+        default=1,
+        help="Mock official target armor type id.",
+    )
+    parser.add_argument(
+        "--mock-bullet-initial-speed",
+        type=float,
+        default=0.0,
+        help="Mock /ly/game/bullet initial_speed; <=0 leaves has_initial_speed false.",
+    )
+    parser.add_argument(
+        "--mock-bullet-has-shoot-data",
+        type=parse_bool,
+        default=False,
+        help="Mock /ly/game/bullet has_shoot_data.",
+    )
+    parser.add_argument("--mock-bullet-type", type=int, default=0, help="Mock /ly/game/bullet bullet_type.")
+    parser.add_argument(
+        "--mock-bullet-shooter-number",
+        type=int,
+        default=0,
+        help="Mock /ly/game/bullet shooter_number.",
+    )
+    parser.add_argument(
+        "--mock-bullet-launching-frequency",
+        type=int,
+        default=0,
+        help="Mock /ly/game/bullet launching_frequency.",
+    )
+    parser.add_argument(
+        "--mock-bullet-projectile-allowance-17mm",
+        type=int,
+        default=0,
+        help="Mock /ly/game/bullet projectile_allowance_17mm.",
+    )
+    parser.add_argument(
+        "--mock-bullet-projectile-allowance-42mm",
+        type=int,
+        default=0,
+        help="Mock /ly/game/bullet projectile_allowance_42mm.",
+    )
+    parser.add_argument(
+        "--mock-bullet-remaining-gold-coin",
+        type=int,
+        default=0,
+        help="Mock /ly/game/bullet remaining_gold_coin.",
+    )
+    parser.add_argument(
+        "--mock-bullet-projectile-allowance-fortress-17mm",
+        type=int,
+        default=0,
+        help="Mock /ly/game/bullet projectile_allowance_fortress_17mm.",
+    )
+    parser.add_argument(
+        "--mock-armors",
+        type=parse_bool,
+        default=False,
+        help="Publish mock /ly/detector/armors using --mock-armor-type/--mock-armor-distance.",
+    )
+    parser.add_argument(
+        "--mock-armor-type",
+        type=int,
+        default=1,
+        help="Mock single Armor.type id for /ly/detector/armors.",
+    )
+    parser.add_argument(
+        "--mock-armor-distance",
+        type=float,
+        default=6.0,
+        help="Mock single Armor.distance in meters for /ly/detector/armors.",
+    )
+    parser.add_argument(
+        "--mock-armor",
+        action="append",
+        default=[],
+        metavar="TYPE:DISTANCE_M",
+        help="Append one /ly/detector/armors entry; may be repeated.",
+    )
+    parser.add_argument(
+        "--mock-external-aim",
+        type=parse_bool,
+        default=False,
+        help="Publish optional sentry_msgs external aim topics /ly/aim/armor_targets and /ly/aim/result.",
+    )
+    parser.add_argument("--mock-external-aim-follow", type=parse_bool, default=True, help="Mock AimResult.follow.")
+    parser.add_argument("--mock-external-aim-fire", type=parse_bool, default=True, help="Mock AimResult.fire.")
+    parser.add_argument("--mock-external-aim-yaw", type=float, default=0.0, help="Mock AimResult.yaw.")
+    parser.add_argument("--mock-external-aim-pitch", type=float, default=0.0, help="Mock AimResult.pitch.")
+    parser.add_argument("--mock-external-aim-target-id", type=int, default=1, help="Mock AimTarget.id.")
+    parser.add_argument("--mock-external-aim-target-x", type=float, default=6.0, help="Mock AimTarget.position.x.")
+    parser.add_argument("--mock-external-aim-target-y", type=float, default=0.0, help="Mock AimTarget.position.y.")
+    parser.add_argument("--mock-external-aim-target-z", type=float, default=0.0, help="Mock AimTarget.position.z.")
+    parser.add_argument(
+        "--mock-external-aim-frame",
+        default="gimbal_world",
+        help="Mock external aim frame_id (default: gimbal_world).",
+    )
+    parser.add_argument(
         "--bypass-is-start",
         action="store_true",
         help="Debug only: bypass /ly/game/is_start gate in offline mode.",
@@ -217,6 +805,25 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--control-file",
         default="/tmp/simulator_match_control.jsonl",
         help="JSONL command channel between live viewer and mock inputs (default: /tmp/simulator_match_control.jsonl).",
+    )
+    parser.add_argument(
+        "--unit-scene",
+        default="",
+        help="JSON/YAML unit scene passed to both live viewer and offline mock inputs.",
+    )
+    parser.add_argument(
+        "--mock-sequence",
+        default="",
+        help=(
+            "JSON/YAML timed control-bus sequence for --offline-decision. "
+            "Actions append existing simulator control commands to --control-file."
+        ),
+    )
+    parser.add_argument(
+        "--mock-sequence-poll-sec",
+        type=float,
+        default=0.05,
+        help="Mock sequence scheduler poll interval in seconds (default: 0.05).",
     )
     parser.add_argument(
         "--list-configs",
@@ -282,7 +889,21 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         nargs=argparse.REMAINDER,
         help="Extra launch args passed through to scripts/start.sh. Put them after '--'.",
     )
-    args = parser.parse_args(argv)
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    explicit_dests = collect_explicit_cli_dests(parser, raw_argv)
+    args = parser.parse_args(raw_argv)
+    if (
+        args.mock_preset != "none"
+        and not args.offline_decision
+        and not args.list_mock_presets
+        and not args.list_mock_sequences
+        and not args.list_unit_scenes
+    ):
+        parser.error("--mock-preset requires --offline-decision")
+    if str(args.mock_sequence).strip() and not args.offline_decision:
+        parser.error("--mock-sequence requires --offline-decision")
+    if args.offline_decision:
+        apply_mock_preset(args, explicit_dests)
     if args.every < 1:
         parser.error("--every must be >= 1")
     if args.mock_hz <= 0:
@@ -299,6 +920,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error("--ros-state-file must not be empty")
     if args.match_duration_sec <= 0:
         parser.error("--match-duration-sec must be > 0")
+    if args.mock_sequence_poll_sec <= 0:
+        parser.error("--mock-sequence-poll-sec must be > 0")
+    if str(args.mock_sequence).strip() and not str(args.control_file).strip():
+        parser.error("--mock-sequence requires a non-empty --control-file")
+    if args.mock_armor_type < 0 or args.mock_armor_type > 8:
+        parser.error("--mock-armor-type must be in [0, 8]")
+    if not math.isfinite(args.mock_armor_distance) or args.mock_armor_distance <= 0.0:
+        parser.error("--mock-armor-distance must be finite and > 0")
+    for armor_spec in args.mock_armor:
+        try:
+            parse_armor_spec(str(armor_spec))
+        except argparse.ArgumentTypeError as exc:
+            parser.error(f"--mock-armor {armor_spec}: {exc}")
     if args.play and args.live_view:
         parser.error("--play and --live-view are mutually exclusive")
     return args
@@ -334,6 +968,13 @@ def choose_trace_path(root: Path, configured: str) -> Path:
         return (root / raw).resolve()
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     return (root / "log" / f"decision_trace_{stamp}.jsonl").resolve()
+
+
+def resolve_runtime_path(root: Path, configured: str) -> Path:
+    raw = Path(configured).expanduser()
+    if raw.is_absolute():
+        return raw.resolve()
+    return (root / raw).resolve()
 
 
 def resolve_bt_config_path(root: Path, mode: str, configured: str) -> tuple[Path, str]:
@@ -496,8 +1137,121 @@ def build_mock_command(root: Path, args: argparse.Namespace) -> tuple[list[str],
         "--match-duration-sec",
         str(args.match_duration_sec),
     ]
+    mock_pass_through: list[tuple[str, object]] = [
+        ("--target-status", bool_text(args.mock_target_status)),
+        ("--target-yaw", args.mock_target_yaw),
+        ("--target-pitch", args.mock_target_pitch),
+        ("--gimbal-fire-status", args.mock_gimbal_fire_status),
+        ("--gimbal-cap-state", args.mock_gimbal_cap_state),
+        ("--gimbal-follow-mode", bool_text(args.mock_gimbal_follow_mode)),
+        ("--gimbal-aim-mode", bool_text(args.mock_gimbal_aim_mode)),
+        ("--gimbal-rotate", args.mock_gimbal_rotate),
+        ("--gimbal-yaw-velocity", args.mock_gimbal_yaw_velocity),
+        ("--gimbal-yaw-angle", args.mock_gimbal_yaw_angle),
+        ("--mock-cap-v", args.mock_cap_v),
+        ("--self-health", args.mock_self_health),
+        ("--enemy-health", args.mock_enemy_health),
+        ("--self-outpost-health", args.mock_self_outpost_health),
+        ("--enemy-outpost-health", args.mock_enemy_outpost_health),
+        ("--self-base-health", args.mock_self_base_health),
+        ("--enemy-base-health", args.mock_enemy_base_health),
+        ("--team-buff-recovery", args.mock_team_buff_recovery),
+        ("--team-buff-cooling", args.mock_team_buff_cooling),
+        ("--team-buff-defence", args.mock_team_buff_defence),
+        ("--team-buff-vulnerability", args.mock_team_buff_vulnerability),
+        ("--team-buff-attack", args.mock_team_buff_attack),
+        ("--team-buff-remaining-energy", args.mock_team_buff_remaining_energy),
+        ("--event-raw", args.mock_event_raw),
+        ("--event-self-small-energy-status", args.mock_event_self_small_energy_status),
+        ("--event-self-large-energy-status", args.mock_event_self_large_energy_status),
+        (
+            "--event-self-fortress-gain-point-status",
+            args.mock_event_self_fortress_gain_point_status,
+        ),
+        (
+            "--event-self-outpost-gain-point-status",
+            args.mock_event_self_outpost_gain_point_status,
+        ),
+        ("--event-self-base-gain-point-status", bool_text(args.mock_event_self_base_gain_point_status)),
+        ("--sentry-can-activate-energy", bool_text(args.mock_sentry_can_activate_energy)),
+        ("--rfid-raw", args.mock_rfid_raw),
+        ("--rfid-has-status-2", bool_text(args.mock_rfid_has_status_2)),
+        ("--rfid-status-2-raw", args.mock_rfid_status_2_raw),
+        ("--rfid-center-gain-point", bool_text(args.mock_rfid_center_gain_point)),
+        ("--rfid-self-base", bool_text(args.mock_rfid_self_base)),
+        ("--rfid-self-fortress", bool_text(args.mock_rfid_self_fortress)),
+        ("--rfid-self-outpost", bool_text(args.mock_rfid_self_outpost)),
+        ("--rfid-self-supply", bool_text(args.mock_rfid_self_supply)),
+        ("--rfid-self-highland", bool_text(args.mock_rfid_self_highland)),
+        ("--rfid-self-road-crossing", bool_text(args.mock_rfid_self_road_crossing)),
+        (
+            "--rfid-self-central-highland-crossing",
+            bool_text(args.mock_rfid_self_central_highland_crossing),
+        ),
+        ("--rfid-self-tunnel", bool_text(args.mock_rfid_self_tunnel)),
+        ("--rfid-self-assembly", bool_text(args.mock_rfid_self_assembly)),
+        ("--rfid-self-fly-ramp", bool_text(args.mock_rfid_self_fly_ramp)),
+        ("--rfid-enemy-fortress", bool_text(args.mock_rfid_enemy_fortress)),
+        ("--rfid-enemy-outpost", bool_text(args.mock_rfid_enemy_outpost)),
+        ("--rfid-enemy-highland", bool_text(args.mock_rfid_enemy_highland)),
+        ("--rfid-enemy-road-crossing", bool_text(args.mock_rfid_enemy_road_crossing)),
+        (
+            "--rfid-enemy-central-highland-crossing",
+            bool_text(args.mock_rfid_enemy_central_highland_crossing),
+        ),
+        ("--rfid-enemy-tunnel", bool_text(args.mock_rfid_enemy_tunnel)),
+        ("--rfid-enemy-assembly", bool_text(args.mock_rfid_enemy_assembly)),
+        ("--rfid-enemy-fly-ramp", bool_text(args.mock_rfid_enemy_fly_ramp)),
+        ("--navi-reached", bool_text(args.mock_navi_reached)),
+        ("--navi-reachable", bool_text(args.mock_navi_reachable)),
+        ("--navi-should-rotate", bool_text(args.mock_navi_should_rotate)),
+        ("--mock-navi-lower-head", args.mock_navi_lower_head),
+        ("--mock-navi-vel-x", args.mock_navi_vel_x),
+        ("--mock-navi-vel-y", args.mock_navi_vel_y),
+        ("--publish-self-position", bool_text(args.mock_publish_self_position)),
+        ("--self-position-x", args.mock_self_position_x),
+        ("--self-position-y", args.mock_self_position_y),
+        ("--publish-uwb-position", bool_text(args.mock_publish_uwb_position)),
+        ("--uwb-position-x", args.mock_uwb_position_x),
+        ("--uwb-position-y", args.mock_uwb_position_y),
+        ("--official-target-valid", bool_text(args.mock_official_target_valid)),
+        ("--official-target-x", args.mock_official_target_x),
+        ("--official-target-y", args.mock_official_target_y),
+        ("--official-target-armor-type", args.mock_official_target_armor_type),
+        ("--mock-bullet-initial-speed", args.mock_bullet_initial_speed),
+        ("--mock-bullet-has-shoot-data", bool_text(args.mock_bullet_has_shoot_data)),
+        ("--mock-bullet-type", args.mock_bullet_type),
+        ("--mock-bullet-shooter-number", args.mock_bullet_shooter_number),
+        ("--mock-bullet-launching-frequency", args.mock_bullet_launching_frequency),
+        ("--mock-bullet-projectile-allowance-17mm", args.mock_bullet_projectile_allowance_17mm),
+        ("--mock-bullet-projectile-allowance-42mm", args.mock_bullet_projectile_allowance_42mm),
+        ("--mock-bullet-remaining-gold-coin", args.mock_bullet_remaining_gold_coin),
+        (
+            "--mock-bullet-projectile-allowance-fortress-17mm",
+            args.mock_bullet_projectile_allowance_fortress_17mm,
+        ),
+        ("--armors", bool_text(args.mock_armors)),
+        ("--armor-type", args.mock_armor_type),
+        ("--armor-distance", args.mock_armor_distance),
+        ("--mock-external-aim", bool_text(args.mock_external_aim)),
+        ("--mock-external-aim-follow", bool_text(args.mock_external_aim_follow)),
+        ("--mock-external-aim-fire", bool_text(args.mock_external_aim_fire)),
+        ("--mock-external-aim-yaw", args.mock_external_aim_yaw),
+        ("--mock-external-aim-pitch", args.mock_external_aim_pitch),
+        ("--mock-external-aim-target-id", args.mock_external_aim_target_id),
+        ("--mock-external-aim-target-x", args.mock_external_aim_target_x),
+        ("--mock-external-aim-target-y", args.mock_external_aim_target_y),
+        ("--mock-external-aim-target-z", args.mock_external_aim_target_z),
+        ("--mock-external-aim-frame", args.mock_external_aim_frame),
+    ]
+    for cli_name, value in mock_pass_through:
+        python_args.extend([cli_name, str(value)])
+    for armor_spec in args.mock_armor:
+        python_args.extend(["--armor", str(armor_spec)])
     if str(args.control_file).strip():
         python_args.extend(["--control-file", str(Path(args.control_file).expanduser().resolve())])
+    if str(args.unit_scene).strip():
+        python_args.extend(["--unit-scene", resolve_runtime_path(root, args.unit_scene).as_posix()])
 
     setup_cmds: list[str] = []
     ros_setup = Path("/opt/ros/humble/setup.bash")
@@ -516,6 +1270,39 @@ def build_mock_command(root: Path, args: argparse.Namespace) -> tuple[list[str],
     setup_cmds.append(quoted_python)
     shell_cmd = " && ".join(setup_cmds)
     return (["bash", "-lc", shell_cmd], shell_cmd)
+
+
+def build_mock_sequence_command(root: Path, sequence_path: Path, control_file: str, poll_sec: float) -> tuple[list[str], str]:
+    python_args = [
+        sys.executable,
+        "-m",
+        "simulator.mock_sequence",
+        sequence_path.as_posix(),
+        "--control-file",
+        str(Path(control_file).expanduser().resolve()),
+        "--poll-sec",
+        str(poll_sec),
+    ]
+    setup_cmds = [
+        f"export PYTHONPATH={shlex.quote(str((root / 'src' / 'simulator').resolve()))}:$PYTHONPATH",
+        " ".join(shlex.quote(item) for item in python_args),
+    ]
+    shell_cmd = " && ".join(setup_cmds)
+    return (["bash", "-lc", shell_cmd], shell_cmd)
+
+
+def load_mock_sequence_for_start(sequence_path: Path) -> int:
+    from .mock_sequence import load_mock_sequence_file
+
+    sequence = load_mock_sequence_file(sequence_path)
+    return sequence.action_count
+
+
+def load_unit_scene_for_start(unit_scene_path: Path) -> int:
+    from .interactive_inputs import load_unit_scene_file
+
+    units = load_unit_scene_file(unit_scene_path)
+    return len(units)
 
 
 def build_ros_topic_monitor_command(root: Path, state_file: str) -> tuple[list[str], str]:
@@ -569,12 +1356,14 @@ def build_offline_bt_config(root: Path, source_config: Path) -> Path:
     return out_path
 
 
-def run_viewer(trace_path: Path) -> int:
+def run_viewer(trace_path: Path, unit_scene: str = "") -> int:
     cmd = [sys.executable, "-m", "simulator.main", trace_path.as_posix()]
+    if unit_scene.strip():
+        cmd.extend(["--unit-scene", unit_scene])
     return subprocess.run(cmd, check=False).returncode
 
 
-def start_live_viewer(
+def build_live_viewer_command(
     trace_path: Path,
     follow_poll: float,
     web_host: str,
@@ -584,7 +1373,8 @@ def start_live_viewer(
     control_file: str,
     match_duration_sec: int,
     ros_state_file: str,
-) -> subprocess.Popen[bytes]:
+    unit_scene: str,
+) -> list[str]:
     cmd = [
         sys.executable,
         "-m",
@@ -610,12 +1400,50 @@ def start_live_viewer(
         cmd.extend(["--match-duration-sec", str(match_duration_sec)])
     if str(ros_state_file).strip():
         cmd.extend(["--ros-state-file", str(Path(ros_state_file).expanduser().resolve())])
+    if str(unit_scene).strip():
+        cmd.extend(["--unit-scene", unit_scene])
+    return cmd
+
+
+def start_live_viewer(
+    trace_path: Path,
+    follow_poll: float,
+    web_host: str,
+    web_port: int,
+    web_fps: float,
+    web_jpeg_quality: int,
+    control_file: str,
+    match_duration_sec: int,
+    ros_state_file: str,
+    unit_scene: str,
+) -> subprocess.Popen[bytes]:
+    cmd = build_live_viewer_command(
+        trace_path,
+        follow_poll,
+        web_host,
+        web_port,
+        web_fps,
+        web_jpeg_quality,
+        control_file,
+        match_duration_sec,
+        ros_state_file,
+        unit_scene,
+    )
     return subprocess.Popen(cmd)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     root = repo_root().resolve()
+
+    if args.list_mock_presets:
+        return print_mock_presets()
+
+    if args.list_mock_sequences:
+        return print_mock_sequences()
+
+    if args.list_unit_scenes:
+        return print_unit_scenes()
 
     if args.list_configs:
         return print_configs(root)
@@ -663,6 +1491,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"bt config: {config_file}")
     if args.offline_decision:
         print("run profile: offline decision test (behavior_tree + mock inputs)")
+        if args.mock_preset != "none":
+            print(f"mock preset: {args.mock_preset} - {MOCK_PRESET_DESCRIPTIONS[args.mock_preset]}")
     else:
         print("run profile: stack run")
     print(f"trace enabled: {str(trace_enabled).lower()}")
@@ -671,25 +1501,70 @@ def main(argv: list[str] | None = None) -> int:
     print(f"start command: {' '.join(start_cmd)}")
     mock_cmd: list[str] | None = None
     mock_cmd_desc = ""
+    sequence_cmd: list[str] | None = None
+    sequence_cmd_desc = ""
     ros_monitor_cmd: list[str] | None = None
     ros_monitor_cmd_desc = ""
     control_path: Path | None = None
+    unit_scene_path: Path | None = None
+    mock_sequence_path: Path | None = None
     ros_state_path = Path(args.ros_state_file).expanduser().resolve()
+    if str(args.unit_scene).strip():
+        unit_scene_path = resolve_runtime_path(root, args.unit_scene)
+        print(f"unit scene: {unit_scene_path}")
+        try:
+            unit_scene_count = load_unit_scene_for_start(unit_scene_path)
+        except (OSError, RuntimeError, ValueError) as exc:
+            print(f"failed to load unit scene {unit_scene_path}: {exc}", file=sys.stderr)
+            return 2
+        print(f"unit scene units: {unit_scene_count}")
+    if str(args.mock_sequence).strip():
+        mock_sequence_path = resolve_runtime_path(root, args.mock_sequence)
+        print(f"mock sequence: {mock_sequence_path}")
+        try:
+            mock_sequence_action_count = load_mock_sequence_for_start(mock_sequence_path)
+        except (OSError, RuntimeError, ValueError) as exc:
+            print(f"failed to load mock sequence {mock_sequence_path}: {exc}", file=sys.stderr)
+            return 2
+        print(f"mock sequence actions: {mock_sequence_action_count}")
     if args.offline_decision:
         if str(args.control_file).strip():
             control_path = Path(args.control_file).expanduser().resolve()
             print(f"control file: {control_path}")
         mock_cmd, mock_cmd_desc = build_mock_command(root, args)
         print(f"mock command: {mock_cmd_desc}")
+        if mock_sequence_path is not None:
+            sequence_cmd, sequence_cmd_desc = build_mock_sequence_command(
+                root,
+                mock_sequence_path,
+                args.control_file,
+                args.mock_sequence_poll_sec,
+            )
+            print(f"mock sequence command: {sequence_cmd_desc}")
     if args.live_view and not args.no_live_ros_monitor:
         ros_monitor_cmd, ros_monitor_cmd_desc = build_ros_topic_monitor_command(root, args.ros_state_file)
         print(f"live ROS topic state: {ros_state_path}")
         print(f"ROS topic monitor command: {ros_monitor_cmd_desc}")
+    if args.live_view and trace_path is not None:
+        live_viewer_cmd = build_live_viewer_command(
+            trace_path,
+            args.live_follow_poll,
+            args.live_web_host,
+            args.live_web_port,
+            args.live_web_fps,
+            args.live_web_jpeg_quality,
+            args.control_file,
+            args.match_duration_sec,
+            args.ros_state_file,
+            unit_scene_path.as_posix() if unit_scene_path is not None else "",
+        )
+        print(f"live viewer command: {' '.join(shlex.quote(item) for item in live_viewer_cmd)}")
 
     if args.dry_run:
         return 0
 
     mock_proc: subprocess.Popen[bytes] | None = None
+    sequence_proc: subprocess.Popen[bytes] | None = None
     viewer_proc: subprocess.Popen[bytes] | None = None
     ros_monitor_proc: subprocess.Popen[bytes] | None = None
     try:
@@ -717,6 +1592,16 @@ def main(argv: list[str] | None = None) -> int:
                         f"(rc={mock_rc}); offline /ly/gimbal/angles may be missing. "
                         "Likely Python/ROS env mismatch (e.g. conda)."
                     ),
+                    file=sys.stderr,
+                )
+                return 2
+        if sequence_cmd is not None:
+            sequence_proc = subprocess.Popen(sequence_cmd)
+            time.sleep(0.2)
+            sequence_rc = sequence_proc.poll()
+            if sequence_rc is not None and sequence_rc != 0:
+                print(
+                    f"mock sequence exited early (rc={sequence_rc}); scripted control commands were not published.",
                     file=sys.stderr,
                 )
                 return 2
@@ -753,6 +1638,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.control_file,
                 args.match_duration_sec,
                 args.ros_state_file,
+                unit_scene_path.as_posix() if unit_scene_path is not None else "",
             )
             # Give viewer a moment to start and enter follow wait state.
             time.sleep(0.5)
@@ -774,7 +1660,7 @@ def main(argv: list[str] | None = None) -> int:
             if not trace_path.exists():
                 print(f"trace file not found after run: {trace_path}", file=sys.stderr)
                 return 2
-            return run_viewer(trace_path)
+            return run_viewer(trace_path, unit_scene_path.as_posix() if unit_scene_path is not None else "")
         return 0
     finally:
         if viewer_proc is not None and viewer_proc.poll() is None:
@@ -791,6 +1677,13 @@ def main(argv: list[str] | None = None) -> int:
             except subprocess.TimeoutExpired:
                 mock_proc.kill()
                 mock_proc.wait(timeout=3)
+        if sequence_proc is not None and sequence_proc.poll() is None:
+            sequence_proc.terminate()
+            try:
+                sequence_proc.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                sequence_proc.kill()
+                sequence_proc.wait(timeout=3)
         if ros_monitor_proc is not None and ros_monitor_proc.poll() is None:
             ros_monitor_proc.terminate()
             try:

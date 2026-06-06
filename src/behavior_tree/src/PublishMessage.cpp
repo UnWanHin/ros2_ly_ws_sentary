@@ -107,18 +107,13 @@ namespace BehaviorTree {
             event_data_fresh &&
             (eventSelfSmallEnergyStatus_ == 1 || eventSelfLargeEnergyStatus_ == 1) &&
             !sentryCanActivateEnergyMechanism_;
-        const bool buff_visual_locked =
-            buffAimData.Fresh &&
-            buffAimData.Valid &&
-            buffAimData.BuffFollow &&
-            buffAimData.FireStatus;
         const bool should_confirm_energy_activate =
             aimMode == AimMode::Buff &&
             sentry_info_fresh &&
             sentryCanActivateEnergyMechanism_ &&
             !energy_done_without_next &&
             IsBaseGoalArrived(LangYa::BuffOutpost.ID, team, true) &&
-            buff_visual_locked;
+            BuffAimFreshAndFireReady();
         UpdateEnergyActivateConfirmCommand(should_confirm_energy_activate);
         PubAimTargetData();
         PubNaviControlData();

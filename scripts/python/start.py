@@ -59,6 +59,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Override viewer/mock control JSONL path (default: simulator.start default).",
     )
     parser.add_argument(
+        "--unit-scene",
+        default="",
+        help="JSON/YAML unit scene loaded into the live viewer and mock inputs.",
+    )
+    parser.add_argument(
         "--bypass-is-start",
         action="store_true",
         help="Debug only: bypass /ly/game/is_start gate in offline mode.",
@@ -260,6 +265,11 @@ def main(argv: list[str] | None = None) -> int:
         decision_cmd.extend(["--match-duration-sec", str(args.match_duration_sec)])
     if args.control_file.strip():
         decision_cmd.extend(["--control-file", str(Path(args.control_file).expanduser().resolve())])
+    if args.unit_scene.strip():
+        unit_scene = Path(args.unit_scene).expanduser()
+        if not unit_scene.is_absolute():
+            unit_scene = root / unit_scene
+        decision_cmd.extend(["--unit-scene", str(unit_scene.resolve())])
     if args.bypass_is_start:
         decision_cmd.append("--bypass-is-start")
     if args.keep_to_navi:

@@ -13,6 +13,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # =========================================
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+endif()
 get_filename_component(BTCPP_WS_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}" DIRECTORY)
 get_filename_component(BTCPP_WS_ROOT_DIR "${BTCPP_WS_SRC_DIR}" DIRECTORY)
 set(BTCPP_V4_ROOT "${BTCPP_WS_ROOT_DIR}/third_party/behaviortree_cpp_v4/install"
@@ -225,6 +228,14 @@ ament_target_dependencies(${PROJECT_NAME}_node
 )
 
 ament_target_dependencies(${PROJECT_NAME}_node sentry_msgs)
+
+if(BUILD_TESTING)
+  ament_add_gtest(test_aim_source test/test_aim_source.cpp)
+  target_include_directories(test_aim_source PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
+  )
+endif()
 
 add_executable(area_calculator
   tools/AreaCalculator.cpp

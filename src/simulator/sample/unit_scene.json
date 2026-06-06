@@ -1,0 +1,75 @@
+{
+  "units": [
+    {
+      "side": "friend",
+      "type": "Hero",
+      "hp": 190,
+      "max_hp": 200,
+      "position_cm": {
+        "x": 625,
+        "y": 1080
+      }
+    },
+    {
+      "side": "friend",
+      "type": "Engineer",
+      "hp": 230,
+      "max_hp": 250,
+      "position_cm": {
+        "x": 520,
+        "y": 360
+      }
+    },
+    {
+      "side": "friend",
+      "type_id": 7,
+      "type": "Sentry",
+      "hp": 400,
+      "max_hp": 400,
+      "position_cm": {
+        "x": 393,
+        "y": 810
+      }
+    },
+    {
+      "side": "enemy",
+      "type": "Hero",
+      "hp": 200,
+      "max_hp": 200,
+      "position_cm": {
+        "x": 2555,
+        "y": 900
+      }
+    },
+    {
+      "side": "enemy",
+      "type": "Infantry2",
+      "hp": 64,
+      "max_hp": 200,
+      "position_cm": {
+        "x": 1434,
+        "y": 497
+      }
+    },
+    {
+      "side": "enemy",
+      "type": "Infantry3",
+      "hp": 200,
+      "max_hp": 200,
+      "position_cm": {
+        "x": 1872,
+        "y": 115
+      }
+    },
+    {
+      "side": "enemy",
+      "type": "Drone",
+      "hp": 150,
+      "max_hp": 150,
+      "position_cm": {
+        "x": 1549,
+        "y": 923
+      }
+    }
+  ]
+}

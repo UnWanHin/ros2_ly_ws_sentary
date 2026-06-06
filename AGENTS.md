@@ -83,6 +83,15 @@ This is a single-context ROS2 sentry workspace; read the repo-level docs first, 
 ## Skill Auto-Match & Auto-Install
 - Automatically match and use the minimal relevant skill set when user intent clearly maps to available skills.
 - Prefer the installed Matt Pocock skills when they match: `$diagnose` for bugs/failures, `$tdd` for test-first work, `$triage` for issue workflow, `$to-issues` for breaking plans into issues, `$to-prd` for PRDs, `$improve-codebase-architecture` for architecture work, `$zoom-out` for broader context, `$grill-me` / `$grill-with-docs` for stress-testing plans, `$handoff` for handoff summaries, and `$caveman` only when the user asks for terse mode.
+- Prefer the installed Addy Osmani skills as secondary engineering review tools when they match:
+  - `$code-review-and-quality` for risk reviews, pre-merge review, and multi-axis checks of correctness/readability/architecture/security/performance.
+  - `$doubt-driven-development` for non-trivial claims about runtime chains, fallback behavior, safety-critical decisions, or cross-module invariants; use it to actively look for wrong assumptions before declaring a conclusion.
+  - `$code-simplification` when a fix would otherwise add broad duplicated logic; preserve behavior and use the smallest local helper that improves readability.
+  - `$incremental-implementation` for staged changes touching ROS2 launch/runtime paths, behavior-tree decisions, or large config/doc migrations.
+  - `$deprecation-and-migration` when deciding whether legacy detector/tracker/predictor/buff/outpost paths should remain, be marked legacy, or be removed.
+  - `$api-and-interface-design` when changing ROS topics, message semantics, launch arguments, config keys, or public package interfaces.
+  - `$source-driven-development` when correctness depends on current official documentation for an external framework/library.
+  - `$documentation-and-adrs` when decisions need durable docs or ADRs.
 - If a required skill is missing locally, automatically try to install it with `$skill-installer` (curated first, then explicit GitHub path if needed).
 - Prefer trusted/local sources in this order when possible: workspace/local skills, curated skills, pinned GitHub repo path.
 - If auto-install fails (network, permission, missing repo, incompatible skill), continue with the best fallback workflow instead of blocking the task.

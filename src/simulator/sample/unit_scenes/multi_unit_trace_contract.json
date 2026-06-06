@@ -1,0 +1,20 @@
+{
+  "schema": "ly_simulator_unit_scene_v1",
+  "description": "Unit scene aligned with sample/scenarios/multi_unit_decision_context.jsonl for checking offline unit_info trace evidence.",
+  "units": [
+    {"side": "friend", "type": "Hero", "hp": 190, "max_hp": 200, "position_cm": {"x": 625, "y": 1080}},
+    {"side": "friend", "type": "Engineer", "hp": 230, "max_hp": 250, "position_cm": {"x": 520, "y": 360}},
+    {"side": "friend", "type": "Infantry1", "hp": 180, "max_hp": 200, "position_cm": {"x": 760, "y": 530}},
+    {"side": "friend", "type": "Infantry2", "hp": 200, "max_hp": 200, "position_cm": {"x": 860, "y": 690}},
+    {"side": "friend", "type": "Infantry3", "hp": 200, "max_hp": 200, "position_cm": {"x": 430, "y": 1230}},
+    {"side": "friend", "type": "Drone", "hp": 150, "max_hp": 150, "position_cm": {"x": 1120, "y": 1260}},
+    {"side": "friend", "type": "Sentry", "hp": 386, "max_hp": 400, "position_cm": {"x": 990, "y": 760}},
+    {"side": "enemy", "type": "Hero", "hp": 118, "max_hp": 200, "position_cm": {"x": 1165, "y": 1063}},
+    {"side": "enemy", "type": "Engineer", "hp": 250, "max_hp": 250, "position_cm": {"x": 1644, "y": 476}},
+    {"side": "enemy", "type": "Infantry1", "hp": 200, "max_hp": 200, "position_cm": {"x": 1702, "y": 609}},
+    {"side": "enemy", "type": "Infantry2", "hp": 64, "max_hp": 200, "position_cm": {"x": 1434, "y": 497}},
+    {"side": "enemy", "type": "Infantry3", "hp": 200, "max_hp": 200, "position_cm": {"x": 1872, "y": 115}},
+    {"side": "enemy", "type": "Drone", "hp": 150, "max_hp": 150, "position_cm": {"x": 1680, "y": 240}},
+    {"side": "enemy", "type": "Sentry", "hp": 400, "max_hp": 400, "position_cm": {"x": 1831, "y": 1132}}
+  ]
+}

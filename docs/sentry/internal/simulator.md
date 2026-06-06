@@ -1,31 +1,39 @@
 # Simulator Trace And Viewer
 
-Updated: 2026-05-23
+Updated: 2026-06-06
 
 ## Purpose
 
 `simulator` is the maintained offline viewer for sentry decision behavior.
 It replays JSONL rows written by `behavior_tree` and draws the current decision on a 2D field map.
 The viewer shows whether the current navigation output is bridge `/goal_pose`, direct `UseXY` (`/ly/navi/goal_pos`), or goal-ID (`/ly/navi/goal`) mode.
-The right panel shows live ROS topic values from `/goal_pose`, `/ly/navi/goal_pos_raw`, `/ly/navi/goal`, and `/ly/navi/speed_level` when started through the offline live wrapper.
+The right panel shows live ROS topic values from `/goal_pose`, `/ly/navi/goal_pos_raw`, `/ly/navi/goal`, `/ly/navi/speed_level`, `/ly/navi/should_rotate`, and `/ly/control/vel` when started through the offline live wrapper.
 In live mode, the current-goal marker and recent path prefer live `/goal_pose`; if that topic is absent, the viewer falls back to legacy `/ly/navi/goal_pos`, trace records, and labels the marker as `TRACE`.
-The right panel is split into three tabs:
+The right panel is split into five tabs:
 
-- `Decision`: current strategy, aim mode, stable decision output, decision intent, and recent semantic changes.
-- `Events`: EventManager conditions, target freshness, hitable/reliable target sets, relative target bridge fields, referee resource state, energy/RFID data, and unit HP summaries.
-- `Runtime`: live ROS output monitor, posture runtime, gimbal/fire-code state, and runtime guard state.
+- `Decision`: current strategy, aim mode, stable decision output, official chase metadata, decision intent, and recent semantic changes.
+- `Events`: EventManager conditions, detailed goal reach state, navigation status/velocity, target freshness, hitable/reliable target sets, relative target bridge fields, referee resource state, energy/RFID data, and unit HP summaries.
+- `Runtime`: live ROS output monitor, trace navigation payload/velocity/rotate state, posture runtime, gimbal/fire-code state, and runtime guard state.
 - `Inputs`: offline mock input controls for structure HP and draggable friend/enemy unit pieces.
+- `Layers`: map-layer toggles, map-tag controls, asset catalog status, and asset provenance/license warnings.
 
 This is for decision review and offline decision simulation. The viewer itself does not publish ROS topics.
 In offline mode, it can send file-based control commands to `simulator.mock_inputs` for match clock and mock referee/unit inputs.
+It can also preload placed units from a JSON/YAML scene with `--unit-scene`; `simulator.start` passes that same file to the viewer and mock input publisher.
+The offline mock publisher also covers formal decision inputs for referee event data, sentry info, RFID, team buff, gimbal state, bullet state, navigation status, self position, official target fallback, and optional external aim without changing formal ROS2 subscribers.
 
 ## Components
 
 - Trace writer: `src/behavior_tree/src/DecisionTrace.cpp`
 - Launch parameters: `decision_trace_enabled`, `decision_trace_file`, `decision_trace_every_n_ticks`
 - Viewer package: `src/simulator`
+- Simulator-facing trace adapter: `src/simulator/simulator/trace.py`
+- Simulator-facing view model: `src/simulator/simulator/model.py`
+- Foxglove offline exporter: `src/simulator/simulator/foxglove_export.py`
 - Viewer config: `src/simulator/config/default.yaml`
 - Default map: `tools/maps/basemaps/buff_map_field.png`
+- Asset manifest: `src/simulator/assets/manifest.yaml`
+- Asset loader: `src/simulator/simulator/assets.py`
 - Rule-aware structure overlay source: `src/simulator/config/default.yaml` -> `structures`
 - The structure overlay includes `RoadlandFollow.*`, `Recovery.*`, `MiniRoadland.*`, `CentralLeft.*`, and `SettleArea.*`; Recovery, MiniRoadland and CentralLeft are rendered as `special_zone`, not as FollowMode regions.
 - Scripted route overlay source: `src/simulator/config/default.yaml` -> `scripted_path`
@@ -33,8 +41,11 @@ In offline mode, it can send file-based control commands to `simulator.mock_inpu
 - Field coordinate conversion: `src/simulator/simulator/field.py`
 - Offline input state and command application: `src/simulator/simulator/interactive_inputs.py`
 - Inputs tab rendering and hitboxes: `src/simulator/simulator/inputs_panel.py`
+- Right-panel scroll state and clamping: `src/simulator/simulator/panel_scroll.py`
+- Full-roster clean visual asset QA: `src/simulator/simulator/visual_asset_qa.py`
+- Clean visual asset QA config: `src/simulator/config/visual_asset_qa.yaml`
 - File/API command bus schema: `src/simulator/simulator/control_bus.py`
-- Energy mechanism debug fields are recorded in `decision_output`: `has_sentry_info`, `sentry_can_activate_energy`, and `energy_activate_confirm_pulse`.
+- Energy mechanism debug fields are recorded under `referee`: `has_sentry_info`, `sentry_can_activate_energy`, and `energy_activate_confirm_pulse`.
 
 ## Trace Recording
 
@@ -85,6 +96,198 @@ For regional super confrontation timing, use a 7-minute match clock (`420` secon
 ```bash
 PYTHONPATH=src/simulator python3 -m simulator.start --offline-decision --mode regional --live-view --match-duration-sec 420
 ```
+
+Preload units into the live viewer and mock input topics:
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.start --list-unit-scenes
+
+PYTHONPATH=src/simulator python3 -m simulator.unit_scene \
+  src/simulator/sample/unit_scene.json \
+  --team red
+
+PYTHONPATH=src/simulator python3 -m simulator.start \
+  --offline-decision \
+  --mode regional \
+  --live-view \
+  --unit-scene src/simulator/sample/unit_scene.json
+```
+
+Decision-context mock inputs can be combined with unit scenes. These knobs are forwarded only to `simulator.mock_inputs`; they do not alter the formal behavior-tree launch path.
+
+Named mock presets make common input states reproducible without long command lines:
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.start --list-mock-presets
+
+PYTHONPATH=src/simulator python3 -m simulator.start \
+  --offline-decision \
+  --mock-preset official-target-sentry \
+  --live-view
+
+PYTHONPATH=src/simulator python3 -m simulator.start \
+  --offline-decision \
+  --mock-preset multi-unit-regional \
+  --mock-ammo 120 \
+  --live-view
+
+PYTHONPATH=src/simulator python3 -m simulator.start \
+  --offline-decision \
+  --mock-preset uwb-fusion \
+  --live-view
+
+PYTHONPATH=src/simulator python3 -m simulator.start \
+  --offline-decision \
+  --mock-preset full-roster-regional \
+  --live-view
+```
+
+Presets are simulator-only input overlays and require `--offline-decision`; explicit CLI flags override preset values.
+The names describe mocked input state, not guaranteed behavior-tree outcomes. The selected BT config still controls task enablement, target selection, chase, recovery, and publication gates.
+Current preset coverage:
+
+- `buff-ready`: buff target, sentry activation flag, energy event, team buff energy, center/self-outpost RFID, and regional self position.
+- `outpost-dead`: enemy outpost HP is zero while resource fields remain present.
+- `nav-unreachable`: target-visible context with navigation reachability forced false.
+- `official-target-sentry`: official target fallback with behavior-tree `ArmorType::Sentry` ID `6`.
+- `uwb-fusion`: opt-in `/ly/friend/uwb_pos` self-position fusion rehearsal with CLI coordinates in official field centimeters.
+- `bullet-resource`: BulletInfo resource snapshot with speed, shoot data, projectile allowance, and remaining gold coin fields.
+- `detector-armors`: formal `/ly/detector/armors` target-list rehearsal with multiple ArmorType candidates and distance evidence.
+- `multi-unit-regional`: loads `src/simulator/sample/unit_scene.json` so live view art and mock HP/position topics include multiple unit classes.
+- `full-roster-regional`: loads `src/simulator/sample/unit_scenes/full_roster.json` for full packaged unit-art, formal health-unit HP mapping, and placed-unit PositionData coverage.
+- `low-resource`: low sentry HP and low ammo recovery input state.
+
+Scripted mock sequences cover temporal input facts that static presets cannot represent. `simulator.start --offline-decision --mock-sequence ...` starts a simulator-only control-bus producer after `simulator.mock_inputs` has opened the command file. The sequence emits existing JSONL control commands such as `start`, `set_time_left`, `set_self_position`, `set_self_health`, `set_ammo`, `set_posture`, `set_unit`, `set_unit_hp`, and `set_structure_health`; only `simulator.mock_inputs` publishes ROS topics.
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.mock_sequence --list-samples
+
+PYTHONPATH=src/simulator python3 -m simulator.start --list-mock-sequences
+
+PYTHONPATH=src/simulator python3 -m simulator.mock_sequence \
+  src/simulator/sample/mock_sequences/regional_timed_context.json \
+  --control-file /tmp/simulator_match_control.jsonl \
+  --dry-run
+
+PYTHONPATH=src/simulator python3 -m simulator.start \
+  --offline-decision \
+  --mode regional \
+  --mock-preset multi-unit-regional \
+  --mock-sequence src/simulator/sample/mock_sequences/regional_timed_context.json \
+  --live-view
+```
+
+Bundled sequence examples:
+
+- `regional_timed_context.json`: opens the start gate, updates match time and self position, places friend/enemy units, changes unit/self HP, lowers ammo, changes posture, and drops enemy outpost HP to zero.
+- `buff_timeout_context.json`: starts from a buff-ready regional context, moves through posture/ammo/target HP changes, jumps match time, and removes the enemy Sentry target to rehearse timeout/fallback behavior.
+- `low_resource_recovery_exit.json`: starts near base with low self HP/ammo, then restores HP/ammo, moves self position forward, and keeps an enemy Hero context to rehearse leaving recovery state.
+- `official_target_fallback_companion.json`: companion script for `--mock-preset official-target-sentry`; opens the gate and changes nearby unit/self facts while the preset publishes `/ly/navi/target_official`.
+- `multi_unit_target_priority_rehearsal.json`: multi-unit HP/position/resource rehearsal for watching target-priority behavior under changing enemy context.
+
+Sequence `at_sec` values are monotonic scheduler elapsed seconds, not referee match time. Use `set_time_left` actions when a test needs an explicit match-clock transition.
+
+Offline workflow playbooks pair presets, sequences, unit scenes, expected evidence, and verification commands for common regional debugging jobs:
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.offline_workflow
+
+PYTHONPATH=src/simulator python3 -m simulator.offline_workflow multi-unit-target-priority
+
+PYTHONPATH=src/simulator python3 -m simulator.offline_workflow uwb-position-fusion --json
+```
+
+Current workflow IDs are `regional-buff-timeout`, `regional-outpost-collapse`, `official-target-fallback`, `uwb-position-fusion`, `bullet-info-resource-snapshot`, `detector-armors-target-list`, `multi-unit-target-priority`, `low-resource-recovery-exit`, and `full-roster-visual-inputs`.
+Each workflow is simulator-only guidance: it prints a start command, preflight dry-runs, post-run trace checks, and evidence to inspect; it does not publish ROS topics and does not alter formal launch behavior.
+
+Decision-input coverage is tracked as a simulator-owned catalog:
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.decision_input_coverage
+
+PYTHONPATH=src/simulator python3 -m simulator.decision_input_coverage unit_hp_position
+
+PYTHONPATH=src/simulator python3 -m simulator.decision_input_coverage --json
+```
+
+The catalog maps formal behavior-tree input groups to mock flags, control-bus commands, trace fields, fixtures, workflows, viewer surfaces, and known gaps.
+It covers match state, structure HP, unit HP/position, self position, navigation status/velocity, referee event/energy data, team buff, RFID, target streams, detector armor lists, official target fallback, gimbal/fire/posture state, optional external aim, and BulletInfo resource state.
+Known non-complete areas are explicit: Drone and Infantry3 remain visual/offline context for current formal UnitInfo, and optional external aim depends on `sentry_msgs` and a matching BT config.
+BulletInfo is traceable through `bullet_info` records, `/status.json.current_record.bullet_info`, the Runtime tab, and Foxglove export. Current behavior-tree decisions still use the existing legacy ammo/speed gates unless the formal logic changes separately.
+
+Detector armor-list input can be published by the mock node on the formal `/ly/detector/armors` topic:
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.start \
+  --offline-decision \
+  --mode regional \
+  --live-view \
+  --mock-armors true \
+  --mock-armor 1:6.0 \
+  --mock-armor 3:4.5 \
+  --mock-armor 6:5.2
+```
+
+`--mock-armor` uses `ArmorType:DISTANCE_M`; distance is meters and is copied by `behavior_tree` into target distance evidence. The subscriber intentionally ignores `/ly/detector/armors` when `ExternalAimSettings.Enable` is true. `ArmorType::Sentry` is ID `6`, while simulator draggable Sentry units use `UnitType` ID `7`.
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.start \
+  --offline-decision \
+  --mode regional \
+  --live-view \
+  --unit-scene src/simulator/sample/unit_scene.json \
+  --mock-self-health 260 \
+  --mock-enemy-outpost-health 0 \
+  --mock-sentry-can-activate-energy true \
+  --mock-event-self-small-energy-status 2 \
+  --mock-team-buff-remaining-energy 35 \
+  --mock-rfid-center-gain-point true \
+  --mock-navi-reachable true
+```
+
+Official target fallback can be injected with `/ly/navi/target_official` semantics:
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.start \
+  --offline-decision \
+  --mode regional \
+  --live-view \
+  --mock-official-target-valid true \
+  --mock-official-target-x 1505 \
+  --mock-official-target-y 905 \
+  --mock-official-target-armor-type 6
+```
+
+`--mock-official-target-armor-type` uses behavior-tree `ArmorType` IDs, where Sentry is `6`.
+Draggable simulator units use `UnitType` IDs, where Drone is `6` and Sentry is `7`.
+Do not treat Drone art as a formal `Health.msg` or `UnitInfo` decision field.
+
+UWB self-position fusion can be rehearsed explicitly. The CLI takes official field centimeters, then `simulator.mock_inputs` publishes `/ly/friend/uwb_pos` with the raw-y convention expected by `behavior_tree/src/SubscribeMessage.cpp`:
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.start \
+  --offline-decision \
+  --mode regional \
+  --live-view \
+  --mock-publish-uwb-position true \
+  --mock-uwb-position-x 1220 \
+  --mock-uwb-position-y 760
+```
+
+External aim can be mocked when the selected BT config reads the sentry external aim path:
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.start \
+  --offline-decision \
+  --mode regional \
+  --live-view \
+  --mock-external-aim true \
+  --mock-external-aim-target-id 6 \
+  --mock-external-aim-yaw 7.5 \
+  --mock-external-aim-pitch -1.2
+```
+
+This publishes `/ly/aim/armor_targets` and `/ly/aim/result` from `simulator.mock_inputs` using existing `sentry_msgs` message types. It is optional, simulator-only, and requires `sentry_msgs` Python imports from the sourced workspace.
 
 One-command fixed regional wrapper:
 
@@ -143,6 +346,106 @@ Validate a trace without opening pygame:
 PYTHONPATH=src/simulator python3 -m simulator.main log/decision_trace.jsonl --validate-only
 ```
 
+`--validate-only` prints a simulator health report with:
+
+- `Status: PASS`, `WARN`, or `FAIL`.
+- record count, duration, tick range, schema-version counts, and output-kind counts.
+- stable issue codes such as `schema.missing_decision_output`, `trace.time_monotonic`, and `output.goal_pos_bounds`.
+- per-issue suggestions that describe what to fix before trusting replay, Foxglove export, or offline decision comparison.
+
+Use `FAIL` reports as blockers for trace-based regression evidence.
+Review `WARN` reports before comparing decision behavior.
+Warnings are grouped by domain (`schema`, `trace`, `output`, `unit`, `runtime`, `referee`, `scenario`) so reviewers can scan likely root cause quickly.
+
+For CI or scripts, use the JSON report format:
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.main \
+  src/simulator/sample/scenarios/route_churn_warning.jsonl \
+  --validate-only \
+  --validate-format json
+```
+
+The JSON report schema is `ly_simulator_validation_report_v1`.
+It includes `status`, `summary`, `issues`, `issue_groups`, and `next_actions`.
+`--validate-format json` is only valid with `--validate-only`; text remains the default format.
+
+Scenario-level diagnostics are warning-only and currently include:
+
+- `scenario.route_churn`: rapid route changes inside a short trace window.
+- `scenario.stale_chase_target`: chase/relative-target output while all target freshness flags are false.
+- `output.goal_reach_mismatch`: detailed goal reach state does not match the emitted decision output goal.
+- `output.relative_target_frame_missing`: valid relative target output lacks a frame ID.
+- `output.navi_velocity_scale`: traced raw navigation velocity has a non-positive conversion scale.
+- `output.should_rotate_missing`: `/ly/navi/should_rotate` is marked fresh without a value.
+- `runtime.posture_lag`: posture command/feedback remains pending for multiple seconds.
+- `scenario.match_time_jump`: referee match time delta does not match trace-time delta.
+- `referee.missing_resource_state`: outpost/base HP fields are missing from rows that are otherwise usable.
+
+## Scenario Fixtures
+
+`src/simulator/sample/scenarios/` contains compact named fixtures for repeatable offline checks.
+The fixture manifest is `src/simulator/sample/scenarios/manifest.json`.
+
+The current suite covers:
+
+- `startup_home_hold`: game-start home hold with no recent target.
+- `target_acquisition`: fresh auto-aim target and regional patrol output.
+- `buff_activation`: buff activation window and energy confirmation pulse.
+- `relative_target_bridge`: bridge-mode relative target output to `/goal_pose`.
+- `goal_id_output`: legacy goal-ID output path to `/ly/navi/goal`.
+- `goal_pos_raw_bridge`: normal goal position routed through the raw bridge to `/goal_pose`.
+- `chase_goal_pos`: official target chase output published directly as goal position.
+- `chase_goal_pos_raw_bridge`: official target chase output routed through the raw bridge to `/goal_pose`.
+- `outpost_attack`: enemy outpost attack window with outpost aim source.
+- `low_resource_recovery`: low HP/ammo/damage recovery decision.
+- `start_gate_lifecycle`: reset re-arms the start gate, Home is held, then the first active regional patrol goal is selected after game start.
+- `route_churn_warning`: expected-WARN fixture for rapid route selection churn.
+- `multi_unit_decision_context`: multi-unit HP/position/unit-info context, including reliable enemy position source evidence.
+
+The manifest records expected validation status, record count, schema-version coverage, output-kind coverage, intent layers/reasons, goals, aim modes, and important event/target/runtime flags.
+For multi-record fixtures, the manifest can also assert event, goal, intent-reason, publish-allowed, match-time, and warning-code sequences.
+`src/simulator/test/test_scenarios.py` reads the manifest and validates every bundled fixture.
+
+Scripted mock sequence examples are separate from replay fixtures and live under `src/simulator/sample/mock_sequences/`.
+They can be listed with `simulator.mock_sequence --list-samples` or `simulator.start --list-mock-sequences`.
+After selecting a file, check it with `simulator.mock_sequence --dry-run`; when launched through `simulator.start`, the sequence is validated before dry-run or real process orchestration continues.
+Current examples are `regional_timed_context.json`, `buff_timeout_context.json`, and `low_resource_recovery_exit.json`.
+
+Run all fixture checks:
+
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=src/simulator \
+  python3 -m pytest src/simulator/test/test_scenarios.py -q
+```
+
+Run a single fixture through the CLI report:
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.main \
+  src/simulator/sample/scenarios/relative_target_bridge.jsonl \
+  --validate-only
+```
+
+Export a recorded trace to Foxglove-readable MCAP:
+
+```bash
+python3 -m pip install -r src/simulator/requirements-foxglove.txt
+PYTHONPATH=src/simulator python3 -m simulator.foxglove_export \
+  log/decision_trace.jsonl \
+  -o log/decision_trace.mcap
+```
+
+The same export can be reached through the viewer entrypoint without opening pygame:
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.main \
+  log/decision_trace.jsonl \
+  --export-foxglove log/decision_trace.mcap
+```
+
+Foxglove export is an offline post-processing path. It reads JSONL through the simulator adapter and writes MCAP only when explicitly invoked; normal robot runs and BT ticks do not import or execute the exporter.
+
 Disable HTTP stream:
 
 ```bash
@@ -156,6 +459,49 @@ PYTHONPATH=src/simulator python3 -m simulator.main \
   log/decision_trace.jsonl \
   --web-host 0.0.0.0 \
   --web-port 9000
+```
+
+HTTP endpoints:
+
+- `GET /`: compact browser dashboard with the latest pygame frame, match-control buttons, stream readiness, trace/replay/current-decision summaries, simulator-input state, placed units, and alert lists.
+- `GET /frame.jpg`: latest pygame frame as JPEG; returns `503` until the first frame is published.
+- `GET /status.json`: machine-readable stream status, including `ready`, `has_frame`, `frame_id`, `frame_age_sec`, control-file availability, host/port, FPS, JPEG quality, trace metadata, validation status, replay state, selected-record summary, and simulator input state.
+- `GET /healthz`: readiness probe; returns `200` after the first frame is available and `503` before then.
+- `POST /api/control`: appends simulator command-bus JSONL commands when `match_control.control_file` is configured.
+
+`/healthz` reports readiness, not ongoing frame freshness. Automation that needs to detect a stalled viewer should also inspect `frame_age_sec` from `/status.json`.
+HTTP responses expose only whether control is enabled and the control-file basename; the resolved local path is kept server-side.
+
+When a trace is loaded, `/status.json` also includes simulator metadata:
+
+- `trace`: basename-only trace name, follow mode, record count, bad-line count, duration, and tick range.
+- `validation`: the same `ly_simulator_validation_report_v1` payload used by `--validate-format json`.
+- `replay`: play/pause state, replay speed, current record index, total records, active panel tab, match-clock state, and whether local controls are available.
+- `current_record`: compact selected-record debug summary with tick/event, team, strategy, aim, target, goal, output topic/frame, official chase metadata, goal reach state, navigation status/velocity, relative target payload, intent, posture, referee resources, and runtime guard state.
+- `simulator_inputs`: whether offline input controls are enabled, last command status, runtime self HP/ammo/posture/self-position, structure HP, placed units, unit palette, low-HP summaries, and `PositionData` raw-coordinate rows.
+
+The metadata payload is strict JSON: non-finite floats are serialized as `null`, and resolved local trace/control-file paths are not exposed.
+The browser page escapes the control-file basename before rendering it as HTML.
+
+Quick local readiness check:
+
+```bash
+curl http://127.0.0.1:9000/status.json
+curl -f http://127.0.0.1:9000/healthz
+```
+
+Optional browser visual QA starts a temporary stream with a synthetic simulator frame, opens the dashboard in Chromium through Playwright, checks desktop and narrow layouts, and writes screenshots to `/tmp/ly-simulator-web-visual`:
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.web_visual_check --json
+```
+
+If Playwright or its Chromium browser is not installed, the command reports `status: skip` by default. Install the optional browser tooling and make missing browser support a hard failure when you want a real-browser gate:
+
+```bash
+python3 -m pip install -r src/simulator/requirements-browser.txt
+playwright install chromium
+PYTHONPATH=src/simulator python3 -m simulator.web_visual_check --require-browser
 ```
 
 The viewer includes a structure layer for quick rule-context checks:
@@ -199,22 +545,131 @@ Live follow mode panel includes `Start`, `Pause`, `+10s`, `-10s`, `Reset` contro
 The HTTP page (`/`) provides the same control buttons and writes commands to `match_control.control_file`.
 Match clock is rendered as a real-time countdown; pressing `Start` starts countdown immediately.
 Live view opens the full viewer immediately, then updates when real trace rows arrive.
-The right panel tab can be changed with mouse clicks or keyboard `1` / `2` / `3` / `4`.
+The right panel tab can be changed with mouse clicks or keyboard `1` / `2` / `3` / `4` / `5`.
+Mouse wheel over the right panel scrolls dense tab content without seeking the replay timeline.
+When the mouse is over the right panel, `Up` / `Down` / `PageUp` / `PageDown` / `Home` / `End` scroll that tab; otherwise the timeline shortcuts keep their normal replay behavior.
+The `Layers` tab toggles terrain, structures, simulator inputs, grid, goals, paths, units, HP bars, and recent changes without editing YAML.
 The `Inputs` tab is only connected to behavior-tree decisions when running with `--offline-decision --live-view`;
 in normal trace playback it remains a visual UI and reports that the live control bus is unavailable.
 
 Interactive inputs use existing ROS contracts:
 
+- Gimbal controls publish `/ly/gimbal/angles`, `/ly/gimbal/posture`, `/ly/gimbal/firecode`, `/ly/gimbal/chassis`, and `/ly/gimbal/capV`.
 - Structure HP buttons publish `std_msgs/UInt16` through `simulator.mock_inputs` to `/ly/friend/op_hp`, `/ly/enemy/op_hp`, `/ly/friend/base_hp`, and `/ly/enemy/base_hp`.
 - Dragged unit HP publishes through `gimbal_driver/msg/Health` on `/ly/friend/hp` or `/ly/enemy/hp`.
 - Dragged unit positions publish through `gimbal_driver/msg/PositionData` on `/ly/position/data`.
 - Viewer coordinates are official field centimeters with left-bottom origin. `PositionData.friendy` / `enemyy` are sent as `1500 - official_y` because `behavior_tree/src/SubscribeMessage.cpp` normalizes them back to official-map y.
+- Event and referee CLI knobs publish `/ly/game/event_data`, `/ly/game/sentry/info`, `/ly/team/buff`, and `/ly/game/rfid`.
+- Bullet CLI knobs publish `/ly/game/bullet`.
+- Detector armor-list CLI knobs publish `/ly/detector/armors`.
+- Navigation CLI knobs publish `/ly/navi/reached`, `/ly/navi/reachable`, `/ly/navi/should_rotate`, `/ly/navi/vel`, `/ly/navi/lower_head`, `/ly/navi/position`, optional `/ly/friend/uwb_pos`, and optional `/ly/navi/target_official`.
+- External aim CLI knobs publish `/ly/aim/armor_targets` and `/ly/aim/result` only when `--mock-external-aim true`.
+- `/ly/navi/position` and `/ly/navi/target_official` use official field centimeters directly. `/ly/friend/uwb_pos` accepts official field centimeters in CLI flags but publishes raw y so behavior_tree reconstructs official y as `1500 - raw_y`. `/ly/position/data` also applies raw-y inversion before publish.
+
+Control-bus command groups:
+
+- Match clock: `start`, `pause`, `reset`, `rewind`, `forward`, `set_time_left`.
+- Self state: `set_self_health`, `set_ammo`, `set_posture`, `set_self_position`.
+- Structures: `set_structure_health` / `set_structure_hp`.
+- Units: `set_unit`, `set_units`, `set_unit_hp`, `remove_unit`, `clear_units`.
+
+`set_self_position` accepts `x`/`y`, `position_cm`, `position`, or `pos` payloads in official field centimeters. Invalid or non-finite coordinates are ignored instead of stopping the mock publisher.
+
+`--unit-scene` accepts JSON or YAML as a top-level list, `{ "units": [...] }`, or `{ "units": { "friend": [...], "enemy": [...] } }`.
+Each unit needs `side`, `type` or `type_id`, and either `x`/`y` or `position_cm`.
+List bundled scenes with `simulator.unit_scene --list-samples` or `simulator.start --list-unit-scenes`.
+Inspect a scene before launch with `simulator.unit_scene <scene> --team red|blue`; the summary shows the resulting `Health.msg` field, `/ly/position/data` car ID/raw-y value, field-side mapping, and sprite availability.
+Use `--json` for a machine-readable `ly_simulator_unit_scene_summary_v1` payload.
+The scene import only initializes simulator input state; publishing still uses the same mock topics above.
+`src/simulator/sample/unit_scenes/full_roster.json` is a visual QA scene that covers red/blue Hero, Engineer, Infantry, Sentry, and Drone sprites.
+Scene summaries, Inputs-tab rows, and map labels include decision-channel badges:
+
+- `BT:HP,POS,UI`: Hero, Engineer, Infantry1, Infantry2, and Sentry publish mock HP/position facts that the current behavior-tree UnitInfo path consumes and can emit back into trace `unit_info`.
+- `PUB:HP,POS noUI`: Infantry3 publishes `Health.msg.reserve` plus `/ly/position/data`, but the current formal `RobotLists`/UnitInfo path does not consume it as a decision unit.
+- `PUB:POS noUI`: Drone publishes `/ly/position/data` and is drawn as tactical/visual context, but it has no formal `Health.msg` field and no current UnitInfo output.
+
+For enemy units, `BT:HP` also means the current HP field can affect target/resource reasoning in the selected BT config.
+For friend units, the same badge means the fact is available on the formal mock input channel; the selected BT config still decides whether that friend-side fact changes behavior.
+Infantry3 and Drone are intentionally included in full-roster scenes because they are useful tactical context and asset coverage, but they are not current formal BT UnitInfo decision units.
+
+After recording an offline trace, compare a scene against formal `unit_info` evidence with:
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.unit_trace \
+  src/simulator/sample/scenarios/multi_unit_decision_context.jsonl \
+  --unit-scene src/simulator/sample/unit_scenes/multi_unit_trace_contract.json
+```
+
+`simulator.unit_trace` requires traceable units from the scene to appear in `unit_info` with matching HP and official-map position. `Infantry3` and `Drone` are reported as skipped because the current formal `RobotLists`/`UnitInfoArray` contract excludes those unit types.
+
+Visual unit art is loaded from `src/simulator/assets/manifest.yaml`.
+Red and blue Hero, Engineer, Infantry, Sentry, and Drone sprites are packaged under `src/simulator/assets/units/`.
+`Infantry1`, `Infantry2`, and `Infantry3` share the Infantry sprite through manifest aliases.
+Armor images from the same manifest are used in the right-panel target preview when available.
+The source archive is not used at runtime; if assets are disabled or missing, the viewer falls back to circle markers.
+The manifest records local provenance for `素材.zip`, including SHA-256 `8716faeaadce88422023023f923af5679c404241151b81d9a7a96b126fe963f4`.
+The current license status is `unknown`, so redistribution is documented as `local_project_only_until_license_confirmed`.
+The pygame `Layers` tab exposes asset catalog status, alias coverage, source archive name, import date, and license/redistribution status for operator review.
+
+Pixel-level full-roster sprite visibility can be checked directly:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src/simulator SDL_VIDEODRIVER=dummy \
+  python3 -m simulator.main \
+  --smoke-test \
+  --web-port 9023 \
+  --config src/simulator/config/visual_asset_qa.yaml \
+  --unit-scene src/simulator/sample/unit_scenes/full_roster.json \
+  --smoke-screenshot /tmp/ly-simulator-full-roster-visual-qa.png
+
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src/simulator SDL_VIDEODRIVER=dummy \
+  python3 -m simulator.visual_asset_qa \
+  --screenshot /tmp/ly-simulator-full-roster-visual-qa.png \
+  --unit-scene src/simulator/sample/unit_scenes/full_roster.json \
+  --config src/simulator/config/visual_asset_qa.yaml \
+  --team red \
+  --json
+```
+
+Use the clean QA screenshot for automated pass/fail decisions.
+Use `/tmp/ly-simulator-full-roster-smoke.png` for manual review of the normal UI because normal overlays may intentionally cover pieces.
 
 The `0` HP value is valid for outpost/base topics, so behavior_tree accepts zero on those four structure HP subscribers.
+Self HP and per-unit HP are different from structure HP in the current formal subscribers.
+`/ly/game/all.selfhealth` updates behavior_tree self health only when `selfhealth > 0`, and `/ly/friend/hp` / `/ly/enemy/hp` update formal Hero, Engineer, Infantry1, Infantry2, and Sentry HP only when each Health field is nonzero.
+The simulator still allows `set_self_health` and `set_unit_hp` to publish `0` so operators can rehearse visual/offline states, but validation warns with `referee.zero_self_hp_runtime_mismatch` or `unit.zero_hp_runtime_mismatch` when a trace row could be mistaken for formal BT zero-HP evidence.
+Use positive low-health values for recovery/posture rehearsal unless the formal behavior_tree subscriber contract is changed in a separate runtime patch.
 Per-unit HP callbacks still follow the existing robot-health freshness behavior; removing a placed piece stops future mock position publishes, so downstream freshness timeout controls when that piece disappears from decisions.
 `scripted_path` is disabled by default because it is a visual-only simulated route overlay, not a behavior_tree output.
 When scripted path is enabled, route marker movement uses `speed_cmps` and elapsed match time.
 By default, only the visited route plus the current target segment is drawn; set `show_future: true` to draw the full planned route.
+
+Run the standard simulator-only quality gate from the workspace root:
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.quality
+```
+
+The default gate runs the simulator pytest suite, Python bytecode compilation, sample validation, expected-WARN route-churn JSON validation, unit-scene catalog/summary checks, offline workflow catalog checks, decision-input coverage catalog checks, pygame asset decode/scale/blit smoke coverage, multi-unit UnitInfo trace evidence, headless web smoke tests including the full-roster scene, clean visual asset QA, and simulator-related text whitespace checks, including untracked files.
+The normal full-roster smoke writes `/tmp/ly-simulator-full-roster-smoke.png` so asset scale, overlay interaction, and panel layout can be inspected after a headless run.
+The automated pixel-level sprite check uses `src/simulator/config/visual_asset_qa.yaml` and `/tmp/ly-simulator-full-roster-visual-qa.png`, where non-essential overlays are disabled so map labels, current-goal markers, and HP bars do not hide unit art and create false failures.
+Add the optional real-browser dashboard visual gate when Playwright/Chromium is installed:
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.quality --with-browser-visual
+```
+
+Add package integration build when needed:
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.quality --with-build
+```
+
+Preview the exact commands without running them:
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.quality --dry-run --with-build
+```
 
 After build:
 
@@ -224,27 +679,64 @@ source install/setup.bash
 ros2 run simulator simulator log/decision_trace.jsonl
 ```
 
+After `source install/setup.bash`, the same quality gate is available as:
+
+```bash
+ros2 run simulator simulator-quality --with-build
+```
+
 ## Trace Schema
 
 Each line is one JSON object. Important top-level fields:
 
 - `schema`: currently `ly_decision_trace_v1`
-- `schema_version`: `2` adds `decision_output`, `decision_intent`, `events`, `target_state`, `navi_relative_target`, `gimbal`, and `runtime_guard`; the viewer still reads older rows without those fields
+- `schema_version`: `2` adds `decision_output`, `decision_intent`, `events`, `target_state`, `goal_reach_state`, `navi_status`, `navi_velocity`, `navi_relative_target`, `gimbal`, and `runtime_guard`; the viewer still reads older rows without those fields
 - `event`: `game_start`, `tick`, or `stop`
 - `t`: seconds from `gameStartTime`
 - `field_cm`: map frame and field size
 - `competition_profile`, `strategy_mode`, `team`; current live strategy names include `LeagueSimple` and `Regional`
 - `aim_mode`, `target_armor`, `target_state`
 - `events`: EventManager semantic snapshot, including Buff/Outpost/RegionalDefense/resource/damage/navigation event flags
-- `decision_output`: stable viewer-facing output model; includes final output kind, topic, goal ID, `goal_pos_cm`, publish flags, and bridge hints
+- `decision_output`: stable viewer-facing output model; includes final output kind, topic, goal ID, `goal_pos_cm`, publish flags, bridge hints, relative-target validity, and official chase target metadata
 - `decision_intent`: typed decision metadata for why the current output was selected; includes layer, reason, base goal ID, resolved goal ID, goal team, team-offset flag, priority, and detail
 - `navi_goal`: ID, base ID, side, speed, publish flags, and `position_cm`
-- `navi_relative_target`: chase/bridge relative target, including x/y/z, distance, yaw/pitch error, armor type, and aim mode
+- `goal_reach_state`: detailed navigation reach result, including status/reason IDs, external reach/reachable freshness, position freshness, distance, arrive/face thresholds, and timeout; `has_position` means a valid fused self position has been received, while distance/threshold fields require both `has_position` and `position_fresh`
+- `navi_status`: effective `/ly/navi/should_rotate`, `/ly/navi/reached`, and `/ly/navi/reachable` values with freshness flags
+- `navi_velocity`: `/ly/navi/vel` input and `/ly/control/vel` output raw values plus the raw-to-m/s scale
+- `navi_relative_target`: chase/bridge relative target, including frame ID, x/y/z, distance, yaw/pitch error, armor type, aim mode, and official target metadata
 - `posture`: command, state, runtime desired/current/pending, reason
 - `referee`: HP, ammo, time, outpost/base HP, RFID/RFID2 raw state, `rfid_match`, event-data energy/fortress gain-point state, and buff state
+- `unit_info`: optional formal FriendInfo/EnemyInfo-like unit records used by the viewer and validation when present
 - `gimbal.fire_code.follow_mode`: semantic firecode bit4; old `hole_mode` naming should no longer be used in new traces/docs
 - `units`: friend/enemy unit records with type, HP, distance, and `position_cm`
 - `runtime_guard`: current fault and recovery state
+
+## Stable Simulator Contract
+
+The simulator consumes `TraceRecord` from `src/simulator/simulator/model.py`, not behavior-tree internals directly.
+`src/simulator/simulator/trace.py` is the adapter boundary from raw JSONL into that view model.
+
+Stable viewer-facing fields are:
+
+- `decision_output`: final navigation output and publish semantics.
+- `decision_intent`: decision explanation for why that output was selected.
+- `events`: semantic decision conditions, not BT node-local booleans.
+- `goal_reach`: detailed reachability/reached/distance state for the emitted navigation goal.
+- `navi_status`: traced navigation status inputs that affect rotate/reached/reachable behavior.
+- `navi_velocity`: traced navigation velocity input/output values used to explain control velocity.
+- `target_state`: active aim-source state, current/typed aim freshness, and target-set summaries.
+- `navi_relative_target`: relative chase/bridge payload, including the source frame when valid.
+- `posture`, `referee`, `gimbal`, `runtime_guard`, and `units`: runtime state needed to explain decisions.
+
+Behavior-tree internals may add optional debug fields under names such as `debug` or `bt_debug`.
+Adding or renaming those debug-only fields must not require simulator changes.
+Simulator changes are required only when the stable contract above changes, when a new viewer-visible state is needed, or when validation/visual assumptions change.
+
+The Foxglove exporter uses the same normalized `TraceRecord` contract and writes:
+
+- `/sentry/simulator/decision`: full normalized decision frame.
+- `/sentry/simulator/metrics`: numeric scalars useful for plots, including goal reach status/reason, goal distance, should-rotate, reachable/reached, and converted navigation velocity.
+- `/sentry/simulator/goal_point_cm`: `foxglove.Point2`-shaped goal point in field centimeters when available.
 
 The viewer uses coordinates in this order:
 
@@ -260,14 +752,24 @@ Navigation goal ID `19` is `Highland`, a regional Highland compatibility/via poi
 
 ## Maintenance Rules
 
-When decision data changes, update the simulator in the same change:
+When behavior-tree internals change but the stable simulator contract is unchanged, no simulator change is required.
 
-- New/renamed trace fields: update `src/behavior_tree/src/DecisionTrace.cpp`, `src/simulator/simulator/model.py`, and `src/simulator/simulator/trace.py`.
+The longer simulator work plan is tracked in `docs/sentry/internal/simulator_offline_debug_roadmap.md`.
+
+Update the simulator in the same change only for these contract-level changes:
+
+- New or renamed stable trace fields: update `src/behavior_tree/src/DecisionTrace.cpp`, `src/simulator/simulator/model.py`, `src/simulator/simulator/trace.py`, contract tests under `src/simulator/test/`, and this document.
 - New output checks: update `src/simulator/simulator/validation.py`.
-- New schema sample coverage: update `src/simulator/sample/sample_trace.jsonl` so parser and smoke tests exercise the current trace version.
+- New schema sample coverage: update `src/simulator/sample/sample_trace.jsonl` so parser and smoke tests exercise the current stable trace version.
+- New scenario coverage: update `src/simulator/sample/scenarios/manifest.json`, the relevant scenario JSONL file, and `src/simulator/test/test_scenarios.py` if the expectation shape changes.
 - New point IDs or map assumptions: update `src/simulator/config/default.yaml`.
 - New visual layer or style: update `src/simulator/simulator/viewer.py` and this document.
+- New right-panel scroll behavior: update `src/simulator/simulator/panel_scroll.py`, `src/simulator/simulator/viewer.py`, panel-scroll tests, and this document.
+- New Foxglove-exported stable field: update `src/simulator/simulator/foxglove_export.py` and exporter tests.
 - New offline mock input control: update `src/simulator/simulator/interactive_inputs.py`, `src/simulator/simulator/inputs_panel.py`, `src/simulator/simulator/mock_inputs.py`, `src/simulator/simulator/control_bus.py`, `src/simulator/config/default.yaml`, and this document.
+- New formal decision input coverage, mock flag, trace-evidence mapping, workflow reference, or known simulator-only gap: update `src/simulator/simulator/decision_input_coverage.py`, tests, and this document.
+- New scripted mock sequence command or sequence schema: update `src/simulator/simulator/mock_sequence.py`, `src/simulator/simulator/control_bus.py`, `src/simulator/simulator/start.py`, `src/simulator/sample/mock_sequences/`, package data in `src/simulator/setup.py`, tests, and this document.
+- New unit art, asset mapping, or automated sprite visibility assumption: update `src/simulator/assets/manifest.yaml`, `src/simulator/config/visual_asset_qa.yaml` when overlay assumptions change, package data in `src/simulator/setup.py`, asset/visual-QA tests, and this document.
 - New field coordinate or raw `PositionData` conversion: update `src/simulator/simulator/field.py` and simulator tests.
 - New decision interface docs: update the current internal or regional document under `docs/sentry/` and add a dated implementation record under `docs/record/` when the change needs historical context.
 

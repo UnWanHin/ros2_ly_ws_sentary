@@ -17,6 +17,13 @@ paths:
   default_map: tools/maps/basemaps/buff_map_field.png
   sample_trace: sample/sample_trace.jsonl
 
+assets:
+  enabled: true
+  manifest: assets/manifest.yaml
+  unit_size_px: 42
+  trace_unit_size_px: 34
+  drag_unit_size_px: 46
+
 web_stream:
   enabled: true
   host: 0.0.0.0
@@ -100,6 +107,7 @@ colors:
 
 simulator_inputs:
   enabled: true
+  unit_scene_file: ""
   structure_positions:
     outpost:
       red: [1090, 370]
@@ -117,11 +125,15 @@ simulator_inputs:
     - {side: friend, type_id: 2, type: Engineer, hp: 250, max_hp: 250}
     - {side: friend, type_id: 3, type: Infantry1, hp: 200, max_hp: 200}
     - {side: friend, type_id: 4, type: Infantry2, hp: 200, max_hp: 200}
+    - {side: friend, type_id: 5, type: Infantry3, hp: 200, max_hp: 200}
+    - {side: friend, type_id: 6, type: Drone, hp: 150, max_hp: 150}
     - {side: friend, type_id: 7, type: Sentry, hp: 400, max_hp: 400}
     - {side: enemy, type_id: 1, type: Hero, hp: 200, max_hp: 200}
     - {side: enemy, type_id: 2, type: Engineer, hp: 250, max_hp: 250}
     - {side: enemy, type_id: 3, type: Infantry1, hp: 200, max_hp: 200}
     - {side: enemy, type_id: 4, type: Infantry2, hp: 200, max_hp: 200}
+    - {side: enemy, type_id: 5, type: Infantry3, hp: 200, max_hp: 200}
+    - {side: enemy, type_id: 6, type: Drone, hp: 150, max_hp: 150}
     - {side: enemy, type_id: 7, type: Sentry, hp: 400, max_hp: 400}
 
 terrain:
@@ -235,6 +247,9 @@ unit_styles:
     Infantry3:
       label: I3
       radius: 7
+    Drone:
+      label: D
+      radius: 8
     Sentry:
       label: S
       radius: 9

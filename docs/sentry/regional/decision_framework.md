@@ -209,11 +209,11 @@ AreaManager:
         Weight: 1.0
       PositionData:
         Enable: true
-        Priority: 1
+        Priority: 2
         Weight: 0.7
       Navi:
         Enable: true
-        Priority: 2
+        Priority: 1
         Weight: 0.8
   RegionalAreaTask:
     Enable: true

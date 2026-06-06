@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from .interactive_inputs import unit_decision_summary
 from .trace import as_dict
 
 
@@ -44,19 +45,33 @@ class InputsPanel:
                 return True
         return False
 
-    def draw(self, x: int, y: int, max_width: int, panel: Any) -> None:
+    def draw(self, x: int, y: int, max_width: int, panel: Any) -> int:
         viewer = self.viewer
         self.clear_buttons()
         if not viewer.simulator_inputs_enabled:
-            viewer.draw_text("Simulator inputs disabled in config.", x, y, viewer.small_font, viewer.palette["muted"], max_width)
-            return
+            return viewer.draw_text(
+                "Simulator inputs disabled in config.",
+                x,
+                y,
+                viewer.small_font,
+                viewer.palette["muted"],
+                max_width,
+            )
 
         status = "live control bus" if viewer.controls_available() else "needs --offline-decision --live-view"
         y = viewer.draw_text(f"Mock Inputs: {status}", x, y, viewer.small_font, viewer.palette["muted"], max_width)
+        snapshot = viewer.sim_input_state.snapshot(team=viewer.records[viewer.current_index].team, goals=viewer.goals)
+        summary = as_dict(snapshot.get("summary"))
+        summary_text = (
+            f"Units F{summary.get('friend_units', 0)}/E{summary.get('enemy_units', 0)} "
+            f"LowHP={len(summary.get('low_hp_units', []))} "
+            f"Destroyed={len(summary.get('destroyed_structures', []))}"
+        )
+        y = viewer.draw_text(summary_text, x, y, viewer.small_font, viewer.palette["muted"], max_width)
         y += 8
         y = self.draw_structure_controls(x, y, max_width)
         y = self.draw_unit_palette(x, y, max_width, panel)
-        self.draw_placed_units(x, y, max_width, panel)
+        return self.draw_placed_units(x, y, max_width, panel)
 
     def draw_structure_controls(self, x: int, y: int, max_width: int) -> int:
         viewer = self.viewer
@@ -104,14 +119,13 @@ class InputsPanel:
         gap = 6
         columns = 2
         chip_w = (max_width - gap * (columns - 1)) // columns
-        chip_h = 25
+        chip_h = 34
         for index, item in enumerate(state.unit_palette):
             row = index // columns
             col = index % columns
             rect = pg.Rect(x + col * (chip_w + gap), y + row * (chip_h + gap), chip_w, chip_h)
             self.unit_palette_buttons[index] = rect
-            label = f"{item.side[:1].upper()} {item.type_name} {item.hp}"
-            self.draw_unit_chip(rect, label, item.side)
+            self.draw_unit_chip(rect, item)
         rows = math.ceil(len(state.unit_palette) / columns)
         y += rows * (chip_h + gap)
         y += 6
@@ -120,34 +134,49 @@ class InputsPanel:
             return y + 8
         return y
 
-    def draw_placed_units(self, x: int, y: int, max_width: int, panel: Any) -> None:
+    def draw_placed_units(self, x: int, y: int, max_width: int, panel: Any) -> int:
         viewer = self.viewer
         pg = viewer.pg
         state = viewer.sim_input_state
         viewer.draw_text("Placed Pieces", x, y, viewer.font, viewer.palette["accent"], max_width)
         y += 24
         if not state.units:
-            viewer.draw_text("Drag a piece onto the field map.", x, y, viewer.small_font, viewer.palette["muted"], max_width)
-            return
+            return viewer.draw_text(
+                "Drag a piece onto the field map.",
+                x,
+                y,
+                viewer.small_font,
+                viewer.palette["muted"],
+                max_width,
+            )
         button_w = 42
         button_h = 22
         gap = 5
-        label_w = max_width - button_w * 3 - gap * 2 - 8
+        icon_w = 34
+        label_w = max_width - button_w * 3 - gap * 2 - icon_w - 12
         units = sorted(state.units.values(), key=lambda unit: (unit.side, unit.type_id))
         for unit in units:
-            if y > panel.bottom - button_h - 8:
+            row_h = 32
+            if y > panel.bottom - row_h - 8:
                 viewer.draw_text("...", x, y, viewer.small_font, viewer.palette["muted"], max_width)
                 break
             pos = f"{unit.x},{unit.y}"
-            text = f"{unit.side[:1].upper()} {unit.type_name} {unit.hp}/{unit.max_hp} @{pos}"
-            viewer.draw_text(text, x, y + 2, viewer.small_font, viewer.palette["text"], label_w)
+            channels = unit_decision_summary(unit.side, unit.type_id)
+            text = f"{unit.side[:1].upper()} {unit.type_name} {unit.hp}/{unit.max_hp} @{pos} {channels}"
+            icon_center = (x + 15, y + 14)
+            field_side = viewer.unit_field_side(unit.side)
+            if not viewer.draw_unit_art(icon_center[0], icon_center[1], field_side, unit.type_name, 25):
+                self.draw_unit_dot(icon_center, unit.side)
+            text_x = x + icon_w
+            self.draw_fitted_text(text, text_x, y + 2, label_w, viewer.palette["text"])
+            viewer.draw_health_bar(text_x, y + 21, max(24, label_w - 2), 4, int(unit.hp) / max(1, int(unit.max_hp)))
             step = 50 if unit.max_hp > 100 else 10
             actions = [
                 (f"-{step}", "set_unit_hp", max(1, unit.hp - step)),
                 (f"+{step}", "set_unit_hp", min(unit.max_hp, unit.hp + step)),
                 ("X", "remove_unit", unit.hp),
             ]
-            bx = x + label_w + 8
+            bx = x + icon_w + label_w + 8
             for index, (label, command, next_hp) in enumerate(actions):
                 rect = pg.Rect(bx + index * (button_w + gap), y, button_w, button_h)
                 viewer.draw_control_button(rect, label)
@@ -159,14 +188,38 @@ class InputsPanel:
                     "hp": int(next_hp),
                 }
                 self.unit_hp_buttons[f"{unit.side}:{unit.type_id}:{label}"] = (rect, payload)
-            y += button_h + 6
+            y += row_h + 4
+        return y
 
-    def draw_unit_chip(self, rect: Any, label: str, side: str) -> None:
+    def draw_unit_chip(self, rect: Any, item: Any) -> None:
         viewer = self.viewer
         pg = viewer.pg
+        side = item.side
         side_style = as_dict(viewer.unit_styles.get(side, {}))
         fill = pg.Color(side_style.get("color", viewer.colors_raw.get(side, "#4fb3d9")))
         pg.draw.rect(viewer.screen, viewer.palette["panel2"], rect, border_radius=5)
         pg.draw.rect(viewer.screen, fill, rect, 2, border_radius=5)
-        text = viewer.small_font.render(label, True, viewer.palette["text"])
-        viewer.screen.blit(text, text.get_rect(center=rect.center))
+        icon_center = (rect.x + 17, rect.centery)
+        field_side = viewer.unit_field_side(side)
+        if not viewer.draw_unit_art(icon_center[0], icon_center[1], field_side, item.type_name, 25):
+            self.draw_unit_dot(icon_center, side)
+        label = f"{side[:1].upper()} {item.type_name}"
+        text_x = rect.x + 35
+        self.draw_fitted_text(label, text_x, rect.y + 5, max(8, rect.right - text_x - 6), viewer.palette["text"])
+        hp_text = f"{item.hp}/{item.max_hp} {unit_decision_summary(item.side, item.type_id)}"
+        self.draw_fitted_text(hp_text, text_x, rect.y + 18, max(8, rect.right - text_x - 6), viewer.palette["muted"])
+
+    def draw_unit_dot(self, center: tuple[int, int], side: str) -> None:
+        viewer = self.viewer
+        pg = viewer.pg
+        side_style = as_dict(viewer.unit_styles.get(side, {}))
+        fill = pg.Color(side_style.get("color", viewer.colors_raw.get(side, "#4fb3d9")))
+        pg.draw.circle(viewer.screen, viewer.palette["black"], center, 11)
+        pg.draw.circle(viewer.screen, fill, center, 9)
+
+    def draw_fitted_text(self, text: str, x: int, y: int, max_width: int, draw_color: Any) -> None:
+        viewer = self.viewer
+        if max_width <= 0:
+            return
+        fitted = viewer.fit_word(str(text), viewer.small_font, max_width)
+        viewer.screen.blit(viewer.small_font.render(fitted, True, draw_color), (x, y))

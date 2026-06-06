@@ -6,19 +6,39 @@ from pathlib import Path
 from typing import Any
 
 from .model import (
+    BulletInfoState,
     DecisionIntent,
     DecisionOutput,
     EventSnapshot,
+    FieldState,
     GimbalState,
+    GoalReachState,
+    NaviStatus,
+    NaviVelocity,
+    PostureRuntime,
+    RefereeState,
     RelativeTarget,
+    RfidMatchState,
     RuntimeGuard,
     TargetState,
     TraceRecord,
+    UnitInfoRecord,
     UnitRecord,
 )
 
 
 LOCATION_COUNT = 50
+UNIT_TYPE_NAMES = {
+    1: "Hero",
+    2: "Engineer",
+    3: "Infantry1",
+    4: "Infantry2",
+    5: "Infantry3",
+    6: "Drone",
+    7: "Sentry",
+    8: "Dart",
+    9: "Radar",
+}
 
 
 def as_dict(value: Any) -> dict[str, Any]:
@@ -72,6 +92,15 @@ def boolean(value: Any, default: bool = False) -> bool:
 def optional_number(value: Any) -> float | None:
     out = number(value, float("nan"))
     return out if math.isfinite(out) else None
+
+
+def optional_integer(value: Any) -> int | None:
+    try:
+        if value is None:
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def compact_label(value: Any, default: str = "-") -> str:
@@ -148,6 +177,47 @@ def normalize_units(raw: dict[str, Any]) -> tuple[UnitRecord, ...]:
     return tuple(units)
 
 
+def unit_type_name(type_id: int) -> str:
+    return UNIT_TYPE_NAMES.get(type_id, f"Unit{type_id}" if type_id else "Unknown")
+
+
+def normalize_unit_info_item(raw: dict[str, Any], fallback_side: str) -> UnitInfoRecord:
+    car_id = integer(raw.get("car_id", raw.get("id", raw.get("type_id"))), 0)
+    type_id = car_id % 100 if car_id >= 100 else car_id
+    pos = parse_position(raw.get("position_cm"))
+    if pos is None:
+        pos = parse_position({"x": raw.get("position_x"), "y": raw.get("position_y")})
+    has_position = boolean(raw.get("has_position"), pos is not None)
+    if pos == (0, 0) and not has_position:
+        pos = None
+    return UnitInfoRecord(
+        side=str(raw.get("side", fallback_side)),
+        car_id=car_id,
+        type_id=type_id,
+        type_name=str(raw.get("type", raw.get("name", unit_type_name(type_id)))),
+        hp=integer(raw.get("hp"), 0),
+        has_hp=boolean(raw.get("has_hp"), raw.get("hp") is not None),
+        hp_fresh=boolean(raw.get("hp_fresh")),
+        position_cm=pos,
+        has_position=has_position,
+        position_fresh=boolean(raw.get("position_fresh")),
+        position_source=str(raw.get("position_source", "")),
+        area_id=integer(raw.get("area_id"), 0),
+        area_name=str(raw.get("area_name", "")),
+        area_used_nearest_fallback=boolean(raw.get("area_used_nearest_fallback")),
+    )
+
+
+def normalize_unit_info(raw: dict[str, Any]) -> tuple[UnitInfoRecord, ...]:
+    info_root = as_dict(raw.get("unit_info"))
+    units: list[UnitInfoRecord] = []
+    for side in ("friend", "enemy"):
+        for item in as_list(info_root.get(side)):
+            if isinstance(item, dict):
+                units.append(normalize_unit_info_item(item, side))
+    return tuple(units)
+
+
 def normalize_output(raw: dict[str, Any], navi: dict[str, Any], team: str, goal_names: dict[int, str]) -> DecisionOutput:
     output = as_dict(raw.get("decision_output"))
     flat_goal = None if isinstance(raw.get("navi_goal"), dict) else raw.get("navi_goal")
@@ -197,6 +267,8 @@ def normalize_output(raw: dict[str, Any], navi: dict[str, Any], team: str, goal_
         uses_goal_pos=uses_goal_pos,
         uses_to_navi=bool(output.get("uses_to_navi", output.get("uses_tf_goal_bridge", False))),
         relative_target_valid=bool(output.get("relative_target_valid", False)),
+        chase_official_target_valid=boolean(output.get("chase_official_target_valid")),
+        chase_official_armor_type=integer(output.get("chase_official_armor_type"), 0),
         source=str(output.get("source", "navi_goal")),
     )
 
@@ -219,6 +291,8 @@ def normalize_target_state(raw: dict[str, Any]) -> TargetState:
     state = as_dict(raw.get("target_state"))
     return TargetState(
         has_recent_target=boolean(state.get("has_recent_target")),
+        external_aim_active=optional_bool(state.get("external_aim_active")),
+        fresh_current_aim=optional_bool(state.get("fresh_current_aim")),
         fresh_auto_aim=boolean(state.get("fresh_auto_aim")),
         fresh_buff=boolean(state.get("fresh_buff")),
         fresh_outpost=boolean(state.get("fresh_outpost")),
@@ -258,6 +332,7 @@ def normalize_relative_target(raw: dict[str, Any]) -> RelativeTarget:
     target = as_dict(raw.get("navi_relative_target"))
     return RelativeTarget(
         valid=boolean(target.get("valid")),
+        frame_id=str(target.get("frame_id", target.get("frame", ""))),
         x=optional_number(target.get("x")),
         y=optional_number(target.get("y")),
         z=optional_number(target.get("z")),
@@ -268,6 +343,55 @@ def normalize_relative_target(raw: dict[str, Any]) -> RelativeTarget:
         aim_mode=integer(target.get("aim_mode"), 0),
         official_target_valid=boolean(target.get("official_target_valid")),
         official_armor_type=integer(target.get("official_armor_type"), 0),
+    )
+
+
+def normalize_goal_reach(raw: dict[str, Any], output: DecisionOutput) -> GoalReachState:
+    state = as_dict(raw.get("goal_reach_state"))
+    return GoalReachState(
+        status=str(state.get("status", "unknown")),
+        status_id=integer(state.get("status_id"), 0),
+        reason=str(state.get("reason", "none")),
+        reason_id=integer(state.get("reason_id"), 0),
+        goal_id=integer(state.get("goal_id"), output.goal_id),
+        base_goal_id=integer(state.get("base_goal_id"), output.goal_base_id),
+        goal_age_ms=optional_integer(state.get("goal_age_ms")),
+        external_reach_fresh=boolean(state.get("external_reach_fresh")),
+        external_reach=boolean(state.get("external_reach")),
+        external_reachable_fresh=boolean(state.get("external_reachable_fresh")),
+        external_reachable=boolean(state.get("external_reachable"), True),
+        position_fresh=boolean(state.get("position_fresh")),
+        has_position=boolean(state.get("has_position")),
+        distance_cm=optional_number(state.get("distance_cm")),
+        arrive_distance_cm=integer(state.get("arrive_distance_cm"), 0),
+        face_distance_cm=integer(state.get("face_distance_cm"), 0),
+        distance_fallback_allowed=boolean(state.get("distance_fallback_allowed")),
+        within_arrive_distance=boolean(state.get("within_arrive_distance")),
+        within_face_distance=boolean(state.get("within_face_distance")),
+        timeout=boolean(state.get("timeout")),
+    )
+
+
+def normalize_navi_velocity(raw: dict[str, Any]) -> NaviVelocity:
+    velocity = as_dict(raw.get("navi_velocity"))
+    return NaviVelocity(
+        input_x=integer(velocity.get("input_x"), 0),
+        input_y=integer(velocity.get("input_y"), 0),
+        output_x=integer(velocity.get("output_x"), 0),
+        output_y=integer(velocity.get("output_y"), 0),
+        raw_to_mps=optional_number(velocity.get("raw_to_mps")),
+    )
+
+
+def normalize_navi_status(raw: dict[str, Any]) -> NaviStatus:
+    status = as_dict(raw.get("navi_status"))
+    return NaviStatus(
+        should_rotate=optional_bool(status.get("should_rotate")),
+        should_rotate_fresh=optional_bool(status.get("should_rotate_fresh")),
+        reached=optional_bool(status.get("reached")),
+        reached_fresh=optional_bool(status.get("reached_fresh")),
+        reachable=optional_bool(status.get("reachable")),
+        reachable_fresh=optional_bool(status.get("reachable_fresh")),
     )
 
 
@@ -289,6 +413,26 @@ def normalize_gimbal(raw: dict[str, Any]) -> GimbalState:
     )
 
 
+def normalize_bullet_info(raw: dict[str, Any]) -> BulletInfoState:
+    info = as_dict(raw.get("bullet_info"))
+    has_initial_speed = boolean(info.get("has_initial_speed"))
+    return BulletInfoState(
+        has_received=boolean(info.get("has_received")),
+        age_ms=optional_integer(info.get("age_ms")),
+        has_initial_speed=has_initial_speed,
+        initial_speed=optional_number(info.get("initial_speed")) if has_initial_speed else None,
+        has_shoot_data=boolean(info.get("has_shoot_data")),
+        bullet_type=integer(info.get("bullet_type"), 0),
+        shooter_number=integer(info.get("shooter_number"), 0),
+        launching_frequency=integer(info.get("launching_frequency"), 0),
+        has_projectile_allowance=boolean(info.get("has_projectile_allowance")),
+        projectile_allowance_17mm=integer(info.get("projectile_allowance_17mm"), 0),
+        projectile_allowance_42mm=integer(info.get("projectile_allowance_42mm"), 0),
+        remaining_gold_coin=integer(info.get("remaining_gold_coin"), 0),
+        projectile_allowance_fortress_17mm=integer(info.get("projectile_allowance_fortress_17mm"), 0),
+    )
+
+
 def normalize_runtime_guard(raw: dict[str, Any]) -> RuntimeGuard:
     guard = as_dict(raw.get("runtime_guard"))
     return RuntimeGuard(
@@ -298,11 +442,99 @@ def normalize_runtime_guard(raw: dict[str, Any]) -> RuntimeGuard:
     )
 
 
+def normalize_field(raw: dict[str, Any]) -> FieldState:
+    field = as_dict(raw.get("field_cm"))
+    return FieldState(
+        width=integer(field.get("width"), 0),
+        height=integer(field.get("height"), 0),
+        frame=str(field.get("frame", "left_bottom_origin_cm")),
+    )
+
+
+def normalize_referee(raw: dict[str, Any]) -> RefereeState:
+    referee = as_dict(raw.get("referee"))
+    team_buff = as_dict(referee.get("team_buff"))
+    rfid_match = normalize_rfid_match(referee)
+    self_hp = integer(referee.get("self_hp", raw.get("self_hp")), 0)
+    return RefereeState(
+        self_hp=self_hp,
+        self_max_hp=max(self_hp, integer(referee.get("self_max_hp"), 400)),
+        self_outpost_hp=optional_integer(referee.get("self_outpost_hp")),
+        enemy_outpost_hp=optional_integer(referee.get("enemy_outpost_hp")),
+        self_base_hp=optional_integer(referee.get("self_base_hp")),
+        enemy_base_hp=optional_integer(referee.get("enemy_base_hp")),
+        ammo=integer(referee.get("ammo", raw.get("ammo")), 0),
+        time_left=integer(referee.get("time_left", raw.get("time_left")), 0),
+        sentry_can_activate_energy=boolean(referee.get("sentry_can_activate_energy")),
+        energy_activate_confirm_pulse=boolean(referee.get("energy_activate_confirm_pulse")),
+        event_self_fortress_gain_point_status=optional_integer(referee.get("event_self_fortress_gain_point_status")),
+        event_self_outpost_gain_point_status=optional_integer(referee.get("event_self_outpost_gain_point_status")),
+        event_self_base_gain_point_status=optional_bool(referee.get("event_self_base_gain_point_status")),
+        team_buff_attack=optional_integer(team_buff.get("attack")),
+        team_buff_defence=optional_integer(team_buff.get("defence")),
+        team_buff_remaining_energy=optional_integer(team_buff.get("remaining_energy")),
+        rfid_status=optional_integer(referee.get("rfid_status", rfid_match.raw)),
+        has_rfid_status_2=optional_bool(referee.get("has_rfid_status_2", rfid_match.has_rfid_status_2)),
+        rfid_status_2=optional_integer(referee.get("rfid_status_2", rfid_match.rfid_status_2_raw)),
+        rfid_match=rfid_match,
+    )
+
+
+def normalize_rfid_match(referee: dict[str, Any]) -> RfidMatchState:
+    rfid = as_dict(referee.get("rfid_match"))
+    raw = optional_integer(rfid.get("raw", referee.get("rfid_status")))
+    has_status_2 = optional_bool(rfid.get("has_rfid_status_2", referee.get("has_rfid_status_2")))
+    status_2 = optional_integer(rfid.get("rfid_status_2_raw", referee.get("rfid_status_2")))
+    return RfidMatchState(
+        fresh=optional_bool(rfid.get("fresh")),
+        any=optional_bool(rfid.get("any")),
+        raw=raw,
+        has_rfid_status_2=has_status_2,
+        rfid_status_2_raw=status_2,
+        self_base_gain_point=optional_bool(rfid.get("self_base_gain_point")),
+        self_supply=optional_bool(rfid.get("self_supply")),
+        self_non_resource_supply=optional_bool(rfid.get("self_non_resource_supply")),
+        self_resource_supply=optional_bool(rfid.get("self_resource_supply")),
+        self_highland_gain_point=optional_bool(rfid.get("self_highland_gain_point")),
+        enemy_highland_gain_point=optional_bool(rfid.get("enemy_highland_gain_point")),
+        self_road_crossing=optional_bool(rfid.get("self_road_crossing")),
+        enemy_road_crossing=optional_bool(rfid.get("enemy_road_crossing")),
+        self_central_highland_crossing=optional_bool(rfid.get("self_central_highland_crossing")),
+        enemy_central_highland_crossing=optional_bool(rfid.get("enemy_central_highland_crossing")),
+        self_tunnel=optional_bool(rfid.get("self_tunnel")),
+        enemy_tunnel=optional_bool(rfid.get("enemy_tunnel")),
+        tunnel=optional_bool(rfid.get("tunnel")),
+        center_gain_point=optional_bool(rfid.get("center_gain_point")),
+        self_fortress_gain_point=optional_bool(rfid.get("self_fortress_gain_point")),
+        enemy_fortress_gain_point=optional_bool(rfid.get("enemy_fortress_gain_point")),
+        self_outpost_gain_point=optional_bool(rfid.get("self_outpost_gain_point")),
+        enemy_outpost_gain_point=optional_bool(rfid.get("enemy_outpost_gain_point")),
+        self_assembly_gain_point=optional_bool(rfid.get("self_assembly_gain_point")),
+        enemy_assembly_gain_point=optional_bool(rfid.get("enemy_assembly_gain_point")),
+        self_fly_ramp=optional_bool(rfid.get("self_fly_ramp")),
+        enemy_fly_ramp=optional_bool(rfid.get("enemy_fly_ramp")),
+        on_self_side=optional_bool(rfid.get("on_self_side")),
+        on_enemy_side=optional_bool(rfid.get("on_enemy_side")),
+    )
+
+
+def normalize_posture_runtime(posture: dict[str, Any]) -> PostureRuntime:
+    runtime = as_dict(posture.get("runtime"))
+    degraded = as_dict(runtime.get("degraded"))
+    return PostureRuntime(
+        has_pending=boolean(runtime.get("has_pending")),
+        feedback_stale=boolean(runtime.get("feedback_stale")),
+        retry_count=optional_integer(runtime.get("retry_count")),
+        degraded_attack=boolean(degraded.get("attack")),
+        degraded_defense=boolean(degraded.get("defense")),
+        degraded_move=boolean(degraded.get("move")),
+    )
+
+
 def normalize_record(raw: dict[str, Any], index: int, goal_names: dict[int, str]) -> TraceRecord:
     navi = as_dict(raw.get("navi_goal"))
     posture = as_dict(raw.get("posture"))
     posture_runtime = as_dict(posture.get("runtime"))
-    referee = as_dict(raw.get("referee"))
     target = as_dict(raw.get("target_armor"))
 
     team = str(raw.get("team", "red")).lower()
@@ -314,15 +546,28 @@ def normalize_record(raw: dict[str, Any], index: int, goal_names: dict[int, str]
     target_state = normalize_target_state(raw)
     events = normalize_events(raw)
     navi_relative_target = normalize_relative_target(raw)
+    goal_reach = normalize_goal_reach(raw, output)
+    navi_velocity = normalize_navi_velocity(raw)
+    navi_status = normalize_navi_status(raw)
     gimbal = normalize_gimbal(raw)
+    bullet_info = normalize_bullet_info(raw)
     runtime_guard = normalize_runtime_guard(raw)
+    field = normalize_field(raw)
+    referee = normalize_referee(raw)
+    posture_runtime_state = normalize_posture_runtime(posture)
 
     return TraceRecord(
         raw=raw,
         index=index,
+        schema=str(raw.get("schema", "ly_decision_trace_v1")),
+        schema_version=integer(raw.get("schema_version"), 1),
+        has_decision_output=bool(as_dict(raw.get("decision_output"))),
+        has_decision_intent=bool(as_dict(raw.get("decision_intent"))),
         t=number(raw.get("t", raw.get("elapsed_sec")), float(index)),
         event=str(raw.get("event", "tick")),
         tick=integer(raw.get("tick"), index),
+        field=field,
+        competition_profile=str(raw.get("competition_profile", "-")),
         team=team,
         strategy=str(raw.get("strategy_mode", "-")),
         aim=str(raw.get("aim_mode", "-")),
@@ -332,6 +577,9 @@ def normalize_record(raw: dict[str, Any], index: int, goal_names: dict[int, str]
         decision_intent=decision_intent,
         events=events,
         navi_relative_target=navi_relative_target,
+        goal_reach=goal_reach,
+        navi_velocity=navi_velocity,
+        navi_status=navi_status,
         goal_id=output.goal_id,
         goal_base_id=output.goal_base_id,
         goal_name=output.goal_name,
@@ -344,11 +592,15 @@ def normalize_record(raw: dict[str, Any], index: int, goal_names: dict[int, str]
         posture_desired=compact_label(posture_runtime.get("desired")),
         posture_pending=compact_label(posture_runtime.get("pending")),
         posture_reason=str(posture.get("last_reason", "-")),
-        hp=integer(referee.get("self_hp", raw.get("self_hp")), 0),
-        ammo=integer(referee.get("ammo", raw.get("ammo")), 0),
-        time_left=integer(referee.get("time_left", raw.get("time_left")), 0),
+        posture_runtime=posture_runtime_state,
+        hp=referee.self_hp,
+        ammo=referee.ammo,
+        time_left=referee.time_left,
+        referee=referee,
         units=normalize_units(raw),
+        unit_info=normalize_unit_info(raw),
         gimbal=gimbal,
+        bullet_info=bullet_info,
         runtime_guard=runtime_guard,
     )
 
@@ -428,6 +680,16 @@ def build_changes(records: list[TraceRecord]) -> list[dict[str, Any]]:
                 record.decision_intent.resolved_goal_id,
             ),
             "events": record.events.change_key(),
+            "reach": (
+                record.goal_reach.status,
+                record.goal_reach.reason,
+                record.goal_reach.timeout,
+            ),
+            "navi_status": (
+                record.navi_status.should_rotate,
+                record.navi_status.reached,
+                record.navi_status.reachable,
+            ),
             "guard": record.runtime_guard.fault,
         }
         if last is None or state != last or record.event != "tick":
@@ -446,6 +708,10 @@ def build_changes(records: list[TraceRecord]) -> list[dict[str, Any]]:
                 parts.append(f"intent={record.decision_intent.layer}/{record.decision_intent.reason}")
             if last is None or state["events"] != last["events"]:
                 parts.append(f"events={record.events.compact_text()}")
+            if last is None or state["reach"] != last["reach"]:
+                parts.append(f"reach={record.goal_reach.compact_text()}")
+            if last is None or state["navi_status"] != last["navi_status"]:
+                parts.append(f"navi={record.navi_status.compact_text()}")
             if last is None or state["posture"] != last["posture"]:
                 parts.append(f"posture={record.posture_command}/{record.posture_state}")
             if last is None or state["guard"] != last["guard"]:

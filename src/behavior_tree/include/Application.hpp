@@ -45,6 +45,7 @@
 #include "Node.hpp"
 #include "Topic.hpp"
 #include "Robot.hpp"
+#include "AimSource.hpp"
 #include "AreaManager.hpp"
 #include "DefaultStrategyManager.hpp"
 #include "DecisionIntent.hpp"
@@ -821,6 +822,21 @@ public:
     void UpdatePostureCommand(bool has_target);
     SentryPosture SelectDesiredPosture(bool has_target) const;
     bool HasRecentTarget() const;
+    AimSourceView CurrentAimSource() const noexcept;
+    const AimData& CurrentAimData() const noexcept;
+    bool AutoAimFreshAndValid() const noexcept;
+    bool CurrentAimFreshAndValid() const noexcept;
+    bool CurrentAimFreshOrLatched(std::chrono::steady_clock::time_point now, int hold_ms) const noexcept;
+    bool CurrentAimTargetForAngles(
+        bool callback_seen,
+        std::chrono::steady_clock::time_point now,
+        int hold_ms,
+        bool* fresh_target = nullptr,
+        bool* latched_target = nullptr) const noexcept;
+    bool BuffAimTargetLocked() const noexcept;
+    bool BuffAimFreshAndFireReady() const noexcept;
+    bool OutpostAimFreshAndValid() const noexcept;
+    bool OutpostAimFreshOrLatched(std::chrono::steady_clock::time_point now, int hold_ms) const noexcept;
     bool IsUnderFireRecent() const;
     bool IsUnderFireBurst() const;
     std::uint8_t ResolvePointDefaultRotate(

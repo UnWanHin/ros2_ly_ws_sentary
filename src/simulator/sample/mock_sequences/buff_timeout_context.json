@@ -1,0 +1,74 @@
+{
+  "schema": "ly_simulator_mock_sequence_v1",
+  "description": "Regional buff window rehearsal with energy-ready start, posture change, ammo use, and target-resource timeout.",
+  "actions": [
+    {
+      "at_sec": 0.0,
+      "command": "start",
+      "description": "Open the offline start gate."
+    },
+    {
+      "at_sec": 0.2,
+      "command": "set_time_left",
+      "seconds": 411
+    },
+    {
+      "at_sec": 0.3,
+      "command": "set_self_position",
+      "payload": {
+        "position_cm": {
+          "x": 924,
+          "y": 1388
+        }
+      }
+    },
+    {
+      "at_sec": 0.4,
+      "command": "set_unit",
+      "payload": {
+        "side": "enemy",
+        "type": "Sentry",
+        "hp": 390,
+        "x": 1505,
+        "y": 905
+      }
+    },
+    {
+      "at_sec": 1.0,
+      "command": "set_posture",
+      "posture": 2
+    },
+    {
+      "at_sec": 2.0,
+      "command": "set_ammo",
+      "ammo": 42
+    },
+    {
+      "at_sec": 4.5,
+      "command": "set_unit_hp",
+      "payload": {
+        "side": "enemy",
+        "type": "Sentry",
+        "hp": 220
+      }
+    },
+    {
+      "at_sec": 7.0,
+      "command": "set_time_left",
+      "seconds": 390
+    },
+    {
+      "at_sec": 7.2,
+      "command": "set_posture",
+      "posture": 1
+    },
+    {
+      "at_sec": 7.5,
+      "command": "remove_unit",
+      "payload": {
+        "side": "enemy",
+        "type": "Sentry"
+      }
+    }
+  ]
+}

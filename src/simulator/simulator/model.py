@@ -8,6 +8,18 @@ PointCm = tuple[float, float]
 
 
 @dataclass(frozen=True)
+class FieldState:
+    width: int
+    height: int
+    frame: str
+
+    def as_config(self) -> dict[str, Any]:
+        if self.width <= 0 or self.height <= 0:
+            return {}
+        return {"width": self.width, "height": self.height, "frame": self.frame}
+
+
+@dataclass(frozen=True)
 class DecisionOutput:
     kind: str
     goal_id: int
@@ -24,6 +36,8 @@ class DecisionOutput:
     uses_goal_pos: bool
     uses_to_navi: bool
     relative_target_valid: bool
+    chase_official_target_valid: bool
+    chase_official_armor_type: int
     source: str
 
     @property
@@ -61,6 +75,31 @@ class UnitRecord:
 
 
 @dataclass(frozen=True)
+class UnitInfoRecord:
+    side: str
+    car_id: int
+    type_id: int
+    type_name: str
+    hp: int
+    has_hp: bool
+    hp_fresh: bool
+    position_cm: PointCm | None
+    has_position: bool
+    position_fresh: bool
+    position_source: str
+    area_id: int
+    area_name: str
+    area_used_nearest_fallback: bool
+
+    def compact_text(self) -> str:
+        hp_text = f"hp={self.hp}" if self.has_hp else "hp=-"
+        pos_text = "pos=fresh" if self.position_fresh else "pos=stale" if self.has_position else "pos=-"
+        source = self.position_source if self.position_source else "-"
+        area = self.area_name if self.area_name else "-"
+        return f"{self.type_name}:{hp_text} {pos_text} src={source} area={area}"
+
+
+@dataclass(frozen=True)
 class DecisionIntent:
     layer: str
     reason: str
@@ -75,6 +114,8 @@ class DecisionIntent:
 @dataclass(frozen=True)
 class TargetState:
     has_recent_target: bool
+    external_aim_active: bool | None
+    fresh_current_aim: bool | None
     fresh_auto_aim: bool
     fresh_buff: bool
     fresh_outpost: bool
@@ -82,8 +123,13 @@ class TargetState:
     reliable_enemy_positions: tuple[str, ...]
 
     def fresh_text(self) -> str:
+        def flag(value: bool | None) -> str:
+            return "-" if value is None else str(int(value))
+
         parts = [
             f"recent={int(self.has_recent_target)}",
+            f"external={flag(self.external_aim_active)}",
+            f"current={flag(self.fresh_current_aim)}",
             f"auto={int(self.fresh_auto_aim)}",
             f"buff={int(self.fresh_buff)}",
             f"outpost={int(self.fresh_outpost)}",
@@ -164,6 +210,7 @@ class EventSnapshot:
 @dataclass(frozen=True)
 class RelativeTarget:
     valid: bool
+    frame_id: str
     x: float | None
     y: float | None
     z: float | None
@@ -174,6 +221,72 @@ class RelativeTarget:
     aim_mode: int
     official_target_valid: bool
     official_armor_type: int
+
+
+@dataclass(frozen=True)
+class GoalReachState:
+    status: str
+    status_id: int
+    reason: str
+    reason_id: int
+    goal_id: int
+    base_goal_id: int
+    goal_age_ms: int | None
+    external_reach_fresh: bool
+    external_reach: bool
+    external_reachable_fresh: bool
+    external_reachable: bool
+    position_fresh: bool
+    has_position: bool
+    distance_cm: float | None
+    arrive_distance_cm: int
+    face_distance_cm: int
+    distance_fallback_allowed: bool
+    within_arrive_distance: bool
+    within_face_distance: bool
+    timeout: bool
+
+    @property
+    def has_detail(self) -> bool:
+        return self.status != "unknown" or self.reason != "none" or self.distance_cm is not None
+
+    def compact_text(self) -> str:
+        if not self.has_detail:
+            return "-"
+        distance = "-" if self.distance_cm is None else f"{self.distance_cm:.0f}cm"
+        return f"{self.status}/{self.reason} dist={distance} age={self.goal_age_ms if self.goal_age_ms is not None else '-'}ms"
+
+
+@dataclass(frozen=True)
+class NaviVelocity:
+    input_x: int
+    input_y: int
+    output_x: int
+    output_y: int
+    raw_to_mps: float | None
+
+    def compact_text(self) -> str:
+        scale = "" if self.raw_to_mps is None else f" scale={self.raw_to_mps:g}"
+        return f"in=({self.input_x},{self.input_y}) out=({self.output_x},{self.output_y}){scale}"
+
+
+@dataclass(frozen=True)
+class NaviStatus:
+    should_rotate: bool | None
+    should_rotate_fresh: bool | None
+    reached: bool | None
+    reached_fresh: bool | None
+    reachable: bool | None
+    reachable_fresh: bool | None
+
+    def compact_text(self) -> str:
+        def flag(value: bool | None) -> str:
+            return "-" if value is None else str(int(value))
+
+        return (
+            f"rotate={flag(self.should_rotate)} fresh={flag(self.should_rotate_fresh)} "
+            f"reached={flag(self.reached)} reachable={flag(self.reachable)}"
+        )
 
 
 @dataclass(frozen=True)
@@ -192,6 +305,33 @@ class GimbalState:
 
 
 @dataclass(frozen=True)
+class BulletInfoState:
+    has_received: bool
+    age_ms: int | None
+    has_initial_speed: bool
+    initial_speed: float | None
+    has_shoot_data: bool
+    bullet_type: int
+    shooter_number: int
+    launching_frequency: int
+    has_projectile_allowance: bool
+    projectile_allowance_17mm: int
+    projectile_allowance_42mm: int
+    remaining_gold_coin: int
+    projectile_allowance_fortress_17mm: int
+
+    def compact_text(self) -> str:
+        if not self.has_received:
+            return "not received"
+        speed = "-" if self.initial_speed is None else f"{self.initial_speed:.1f}m/s"
+        age = "-" if self.age_ms is None else f"{self.age_ms}ms"
+        return (
+            f"speed={speed} shoot={int(self.has_shoot_data)} "
+            f"allow17={self.projectile_allowance_17mm} age={age}"
+        )
+
+
+@dataclass(frozen=True)
 class RuntimeGuard:
     fault: str
     recovery_requested: bool
@@ -199,12 +339,134 @@ class RuntimeGuard:
 
 
 @dataclass(frozen=True)
+class RfidMatchState:
+    fresh: bool | None
+    any: bool | None
+    raw: int | None
+    has_rfid_status_2: bool | None
+    rfid_status_2_raw: int | None
+    self_base_gain_point: bool | None
+    self_supply: bool | None
+    self_non_resource_supply: bool | None
+    self_resource_supply: bool | None
+    self_highland_gain_point: bool | None
+    enemy_highland_gain_point: bool | None
+    self_road_crossing: bool | None
+    enemy_road_crossing: bool | None
+    self_central_highland_crossing: bool | None
+    enemy_central_highland_crossing: bool | None
+    self_tunnel: bool | None
+    enemy_tunnel: bool | None
+    tunnel: bool | None
+    center_gain_point: bool | None
+    self_fortress_gain_point: bool | None
+    enemy_fortress_gain_point: bool | None
+    self_outpost_gain_point: bool | None
+    enemy_outpost_gain_point: bool | None
+    self_assembly_gain_point: bool | None
+    enemy_assembly_gain_point: bool | None
+    self_fly_ramp: bool | None
+    enemy_fly_ramp: bool | None
+    on_self_side: bool | None
+    on_enemy_side: bool | None
+
+    def as_payload(self) -> dict[str, Any]:
+        return {
+            "fresh": self.fresh,
+            "any": self.any,
+            "raw": self.raw,
+            "has_rfid_status_2": self.has_rfid_status_2,
+            "rfid_status_2_raw": self.rfid_status_2_raw,
+            "self_base_gain_point": self.self_base_gain_point,
+            "self_supply": self.self_supply,
+            "self_non_resource_supply": self.self_non_resource_supply,
+            "self_resource_supply": self.self_resource_supply,
+            "self_highland_gain_point": self.self_highland_gain_point,
+            "enemy_highland_gain_point": self.enemy_highland_gain_point,
+            "self_road_crossing": self.self_road_crossing,
+            "enemy_road_crossing": self.enemy_road_crossing,
+            "self_central_highland_crossing": self.self_central_highland_crossing,
+            "enemy_central_highland_crossing": self.enemy_central_highland_crossing,
+            "self_tunnel": self.self_tunnel,
+            "enemy_tunnel": self.enemy_tunnel,
+            "tunnel": self.tunnel,
+            "center_gain_point": self.center_gain_point,
+            "self_fortress_gain_point": self.self_fortress_gain_point,
+            "enemy_fortress_gain_point": self.enemy_fortress_gain_point,
+            "self_outpost_gain_point": self.self_outpost_gain_point,
+            "enemy_outpost_gain_point": self.enemy_outpost_gain_point,
+            "self_assembly_gain_point": self.self_assembly_gain_point,
+            "enemy_assembly_gain_point": self.enemy_assembly_gain_point,
+            "self_fly_ramp": self.self_fly_ramp,
+            "enemy_fly_ramp": self.enemy_fly_ramp,
+            "on_self_side": self.on_self_side,
+            "on_enemy_side": self.on_enemy_side,
+        }
+
+
+@dataclass(frozen=True)
+class RefereeState:
+    self_hp: int
+    self_max_hp: int
+    self_outpost_hp: int | None
+    enemy_outpost_hp: int | None
+    self_base_hp: int | None
+    enemy_base_hp: int | None
+    ammo: int
+    time_left: int
+    sentry_can_activate_energy: bool
+    energy_activate_confirm_pulse: bool
+    event_self_fortress_gain_point_status: int | None
+    event_self_outpost_gain_point_status: int | None
+    event_self_base_gain_point_status: bool | None
+    team_buff_attack: int | None
+    team_buff_defence: int | None
+    team_buff_remaining_energy: int | None
+    rfid_status: int | None
+    has_rfid_status_2: bool | None
+    rfid_status_2: int | None
+    rfid_match: RfidMatchState
+
+    @property
+    def rfid_fresh(self) -> bool | None:
+        return self.rfid_match.fresh
+
+    @property
+    def rfid_any(self) -> bool | None:
+        return self.rfid_match.any
+
+    @property
+    def rfid_tunnel(self) -> bool | None:
+        return self.rfid_match.tunnel
+
+    @property
+    def rfid_center_gain_point(self) -> bool | None:
+        return self.rfid_match.center_gain_point
+
+
+@dataclass(frozen=True)
+class PostureRuntime:
+    has_pending: bool
+    feedback_stale: bool
+    retry_count: int | None
+    degraded_attack: bool
+    degraded_defense: bool
+    degraded_move: bool
+
+
+@dataclass(frozen=True)
 class TraceRecord:
     raw: dict[str, Any]
     index: int
+    schema: str
+    schema_version: int
+    has_decision_output: bool
+    has_decision_intent: bool
     t: float
     event: str
     tick: int
+    field: FieldState
+    competition_profile: str
     team: str
     strategy: str
     aim: str
@@ -214,6 +476,9 @@ class TraceRecord:
     decision_intent: DecisionIntent
     events: EventSnapshot
     navi_relative_target: RelativeTarget
+    goal_reach: GoalReachState
+    navi_velocity: NaviVelocity
+    navi_status: NaviStatus
     goal_id: int
     goal_base_id: int
     goal_name: str
@@ -226,9 +491,13 @@ class TraceRecord:
     posture_desired: str
     posture_pending: str
     posture_reason: str
+    posture_runtime: PostureRuntime
     hp: int
     ammo: int
     time_left: int
+    referee: RefereeState
     units: tuple[UnitRecord, ...]
+    unit_info: tuple[UnitInfoRecord, ...]
     gimbal: GimbalState
+    bullet_info: BulletInfoState
     runtime_guard: RuntimeGuard

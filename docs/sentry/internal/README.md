@@ -1,6 +1,6 @@
 # Internal Docs
 
-Updated: 2026-05-06
+Updated: 2026-06-02
 
 这里放本仓内部 ROS 链路、BT trace、离线工具和维护接口说明。
 
@@ -11,6 +11,9 @@ Updated: 2026-05-06
 | `ros2_topic_structure.md` | 当前 ROS2 topic 分层、内外部边界、关键消息结构 |
 | `ros2_topic_tree.md` | Tree 方式整理当前 ROS2 topic、msg 包结构、RFID 40 bit 和上下行 TypeID |
 | `simulator.md` | 决策 trace 与离线 pygame simulator 维护说明 |
+| `simulator_offline_debug_roadmap.md` | simulator 离线调试工作台的工程 roadmap、问题和后续切片 |
+| `PROGRESS_REPORT.md` | simulator 离线调试模式当前完成项、改动范围、风险和推荐下一步 |
+| `QUALITY_REVIEW.md` | simulator 离线调试模式质量评审、技术债和优化机会 |
 
 ## 维护重点
 

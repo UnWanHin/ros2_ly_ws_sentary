@@ -48,6 +48,76 @@ bool Application::HasRecentTarget() const {
     return (std::chrono::steady_clock::now() - lastTargetSeenTime) <= std::chrono::milliseconds(keep_ms);
 }
 
+AimSourceView Application::CurrentAimSource() const noexcept {
+    return MakeAimSourceView(
+        config.ExternalAimSettings.Enable,
+        aimMode,
+        autoAimData,
+        externalAimData,
+        buffAimData,
+        outpostAimData);
+}
+
+const AimData& Application::CurrentAimData() const noexcept {
+    return *CurrentAimSource().Active;
+}
+
+bool Application::AutoAimFreshAndValid() const noexcept {
+    return AimFreshAndValid(*CurrentAimSource().AutoAim);
+}
+
+bool Application::CurrentAimFreshAndValid() const noexcept {
+    return AimFreshAndValid(CurrentAimData());
+}
+
+bool Application::CurrentAimFreshOrLatched(
+    const std::chrono::steady_clock::time_point now,
+    const int hold_ms) const noexcept {
+    return AimFreshOrLatchedRecently(
+        CurrentAimData(),
+        now,
+        std::chrono::milliseconds(std::max(0, hold_ms)));
+}
+
+bool Application::CurrentAimTargetForAngles(
+    const bool callback_seen,
+    const std::chrono::steady_clock::time_point now,
+    const int hold_ms,
+    bool* fresh_target,
+    bool* latched_target) const noexcept {
+    return AimTargetForAngles(
+        CurrentAimData(),
+        callback_seen,
+        config.AimDebugSettings.ReuseLatchedAnglesOnNoTarget,
+        now,
+        std::chrono::milliseconds(std::max(0, hold_ms)),
+        fresh_target,
+        latched_target);
+}
+
+bool Application::BuffAimTargetLocked() const noexcept {
+    const auto source = CurrentAimSource();
+    return AimBuffTargetLocked(*source.Buff, source.ExternalAimActive);
+}
+
+bool Application::BuffAimFreshAndFireReady() const noexcept {
+    const auto source = CurrentAimSource();
+    return AimBuffFireReady(*source.Buff, source.ExternalAimActive);
+}
+
+bool Application::OutpostAimFreshAndValid() const noexcept {
+    return AimFreshAndValid(*CurrentAimSource().Outpost);
+}
+
+bool Application::OutpostAimFreshOrLatched(
+    const std::chrono::steady_clock::time_point now,
+    const int hold_ms) const noexcept {
+    return AimFreshOrLatchedRecently(
+        *CurrentAimSource().Outpost,
+        now,
+        std::chrono::milliseconds(std::max(0, hold_ms)));
+}
+
 bool Application::IsUnderFireRecent() const {
     if (lastDamageTime.time_since_epoch().count() == 0) return false;
     const int keep_sec = std::max(0, config.PostureSettings.DamageKeepSec);
@@ -131,12 +201,7 @@ SentryPosture Application::SelectDesiredPosture(const bool has_target) const {
     const auto& runtime = postureManager_.Runtime();
     const auto now = std::chrono::steady_clock::now();
     const int target_keep_ms = std::max(0, config.PostureSettings.TargetKeepMs);
-    const bool outpost_target_recent =
-        (outpostAimData.Fresh && outpostAimData.Valid) ||
-        (outpostAimData.HasLatchedAngles &&
-         outpostAimData.LastValidTime.time_since_epoch().count() != 0 &&
-         target_keep_ms > 0 &&
-         now - outpostAimData.LastValidTime <= std::chrono::milliseconds(target_keep_ms));
+    const bool outpost_target_recent = OutpostAimFreshOrLatched(now, target_keep_ms);
     const bool outpost_at_buff_outpost =
         IsBaseGoalArrived(LangYa::BuffOutpost.ID, team, true);
     const bool outpost_attack_ready =

@@ -1,0 +1,20 @@
+{
+  "schema": "ly_simulator_unit_scene_v1",
+  "description": "Full red/blue unit-art roster for checking Hero, Engineer, Infantry, Sentry, and Drone sprites plus formal health-unit HP and placed-unit PositionData mapping.",
+  "units": [
+    {"side": "friend", "type": "Hero", "hp": 200, "max_hp": 200, "position_cm": {"x": 420, "y": 1140}},
+    {"side": "friend", "type": "Engineer", "hp": 250, "max_hp": 250, "position_cm": {"x": 565, "y": 980}},
+    {"side": "friend", "type": "Infantry1", "hp": 200, "max_hp": 200, "position_cm": {"x": 700, "y": 820}},
+    {"side": "friend", "type": "Infantry2", "hp": 150, "max_hp": 200, "position_cm": {"x": 840, "y": 660}},
+    {"side": "friend", "type": "Infantry3", "hp": 95, "max_hp": 200, "position_cm": {"x": 980, "y": 500}},
+    {"side": "friend", "type": "Drone", "hp": 150, "max_hp": 150, "position_cm": {"x": 1120, "y": 1260}},
+    {"side": "friend", "type": "Sentry", "hp": 400, "max_hp": 400, "position_cm": {"x": 393, "y": 810}},
+    {"side": "enemy", "type": "Hero", "hp": 200, "max_hp": 200, "position_cm": {"x": 2380, "y": 360}},
+    {"side": "enemy", "type": "Engineer", "hp": 250, "max_hp": 250, "position_cm": {"x": 2235, "y": 520}},
+    {"side": "enemy", "type": "Infantry1", "hp": 200, "max_hp": 200, "position_cm": {"x": 2100, "y": 680}},
+    {"side": "enemy", "type": "Infantry2", "hp": 150, "max_hp": 200, "position_cm": {"x": 1960, "y": 840}},
+    {"side": "enemy", "type": "Infantry3", "hp": 95, "max_hp": 200, "position_cm": {"x": 1820, "y": 1000}},
+    {"side": "enemy", "type": "Drone", "hp": 150, "max_hp": 150, "position_cm": {"x": 1680, "y": 240}},
+    {"side": "enemy", "type": "Sentry", "hp": 400, "max_hp": 400, "position_cm": {"x": 1707, "y": 1141}}
+  ]
+}

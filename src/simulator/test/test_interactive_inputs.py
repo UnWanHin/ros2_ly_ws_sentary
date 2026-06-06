@@ -1,6 +1,8 @@
+import json
+
 from simulator.control_bus import normalize_api_control_payload
 from simulator.field import FieldGeometry, relative_side_to_field_side
-from simulator.interactive_inputs import SimulatorInputState
+from simulator.interactive_inputs import SimulatorInputState, load_unit_scene_file, unit_decision_summary
 
 
 def test_field_geometry_converts_position_data_y() -> None:
@@ -62,6 +64,73 @@ def test_unit_commands_feed_health_and_position_rows() -> None:
     assert state.health_fields("enemy", 400)["hero"] == 0
 
 
+def test_unit_scene_file_imports_units(tmp_path) -> None:
+    scene_path = tmp_path / "unit_scene.json"
+    scene_path.write_text(
+        json.dumps(
+            {
+                "units": [
+                    {"side": "enemy", "type": "Hero", "hp": 123, "max_hp": 200, "x": 2555, "y": 900},
+                    {"side": "friend", "type_id": 7, "hp": 399, "position_cm": {"x": 300, "y": 400}},
+                    {"side": "enemy", "type": "Unknown", "hp": 1, "x": 100, "y": 100},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    state = SimulatorInputState.with_defaults(field=FieldGeometry())
+
+    assert state.apply_unit_scene(load_unit_scene_file(scene_path)) == 2
+
+    assert state.health_fields("enemy", 400)["hero"] == 123
+    assert state.health_fields("friend", 400)["sentry"] == 399
+    rows = sorted(state.position_rows(), key=lambda row: (row.side, row.type_id))
+    assert [(row.side, row.type_id, row.raw_x, row.raw_y) for row in rows] == [
+        ("enemy", 1, 2555, 600),
+        ("friend", 7, 300, 1100),
+    ]
+
+
+def test_set_units_command_replaces_or_merges_units() -> None:
+    state = SimulatorInputState.with_defaults(field=FieldGeometry())
+
+    assert state.apply_command(
+        "set_units",
+        {"units": [{"side": "enemy", "type_id": 1, "x": 100, "y": 200}]},
+    )
+    assert len(state.units) == 1
+
+    assert state.apply_command(
+        "set_units",
+        {"clear": False, "units": [{"side": "friend", "type_id": 7, "x": 300, "y": 400}]},
+    )
+    assert sorted(state.units) == [("enemy", 1), ("friend", 7)]
+
+
+def test_default_palette_includes_extended_visual_units_without_new_health_fields() -> None:
+    state = SimulatorInputState.with_defaults(field=FieldGeometry())
+    palette = {(item.side, item.type_id, item.type_name) for item in state.unit_palette}
+
+    assert ("friend", 5, "Infantry3") in palette
+    assert ("friend", 6, "Drone") in palette
+    assert ("enemy", 5, "Infantry3") in palette
+    assert ("enemy", 6, "Drone") in palette
+
+    assert state.apply_command("set_unit", {"side": "enemy", "type": "Drone", "hp": 99, "x": 1549, "y": 923})
+    assert "drone" not in state.health_fields("enemy", 400)
+    rows = state.position_rows()
+    assert rows[0].enemy_car_id == 106
+    assert rows[0].raw_x == 1549
+    assert rows[0].raw_y == 577
+
+
+def test_unit_decision_summary_separates_published_and_bt_consumed_channels() -> None:
+    assert unit_decision_summary("enemy", 1) == "BT:HP,POS,UI"
+    assert unit_decision_summary("friend", 7) == "BT:HP,POS,UI"
+    assert unit_decision_summary("enemy", 5) == "PUB:HP,POS noUI"
+    assert unit_decision_summary("enemy", 6) == "PUB:POS noUI"
+
+
 def test_control_bus_accepts_simulator_input_commands() -> None:
     command, payload, error = normalize_api_control_payload(
         {"command": "set_unit", "side": "friend", "type_id": 7, "x": 300, "y": 400},
@@ -71,3 +140,77 @@ def test_control_bus_accepts_simulator_input_commands() -> None:
     assert error is None
     assert command == "set_unit"
     assert payload == {"side": "friend", "type_id": 7, "x": 300, "y": 400}
+
+    command, payload, error = normalize_api_control_payload(
+        {"command": "set_units", "units": [{"side": "enemy", "type_id": 1, "x": 100, "y": 200}]},
+        default_step_sec=10,
+    )
+
+    assert error is None
+    assert command == "set_units"
+    assert payload == {"units": [{"side": "enemy", "type_id": 1, "x": 100, "y": 200}]}
+
+    command, payload, error = normalize_api_control_payload(
+        {"command": "set_self_health", "hp": 210},
+        default_step_sec=10,
+    )
+    assert error is None
+    assert command == "set_self_health"
+    assert payload == {"hp": 210}
+
+    command, payload, error = normalize_api_control_payload(
+        {"command": "set_self_position", "x": 820, "y": 830},
+        default_step_sec=10,
+    )
+    assert error is None
+    assert command == "set_self_position"
+    assert payload == {"x": 820, "y": 830}
+
+
+def test_input_state_snapshot_exposes_json_safe_decision_context() -> None:
+    state = SimulatorInputState.with_defaults(field=FieldGeometry())
+
+    assert state.apply_command("set_structure_health", {"side": "enemy", "structure": "outpost", "hp": 0})
+    assert state.apply_command("set_self_health", {"hp": 210})
+    assert state.apply_command("set_ammo", {"ammo": 18})
+    assert state.apply_command("set_posture", {"posture": 2})
+    assert state.apply_command("set_self_position", {"x": 820, "y": 830})
+    assert state.apply_command("set_unit", {"side": "enemy", "type": "Hero", "hp": 120, "x": 2555, "y": 900})
+    assert state.apply_command("set_unit", {"side": "enemy", "type": "Drone", "hp": 30, "x": 1549, "y": 923})
+    assert state.apply_command("set_unit", {"side": "friend", "type": "Sentry", "hp": 390, "x": 300, "y": 400})
+
+    snapshot = state.snapshot(team="red", goals={})
+
+    assert snapshot["team"] == "red"
+    assert snapshot["summary"]["unit_count"] == 3
+    assert snapshot["summary"]["friend_units"] == 1
+    assert snapshot["summary"]["enemy_units"] == 2
+    assert snapshot["summary"]["destroyed_structures"] == ["enemy_outpost"]
+    assert "enemy:Drone" in snapshot["summary"]["low_hp_units"]
+    assert snapshot["runtime"] == {
+        "self_health": 210,
+        "ammo_left": 18,
+        "posture": 2,
+        "self_position_cm": {"x": 820.0, "y": 830.0},
+    }
+
+    enemy_outpost = [item for item in snapshot["structures"] if item["key"] == "enemy_outpost"][0]
+    assert enemy_outpost["field_side"] == "blue"
+    assert enemy_outpost["hp"] == 0
+    assert enemy_outpost["position_cm"] == {"x": 1707.0, "y": 1141.0}
+
+    units = {(item["side"], item["type"]): item for item in snapshot["units"]}
+    assert units[("enemy", "Hero")]["health_field"] == "hero"
+    assert units[("enemy", "Hero")]["position_data"] == {"car_id": 101, "raw_x": 2555, "raw_y": 600}
+    assert units[("enemy", "Hero")]["decision_badges"] == ["BT-HP", "BT-POS", "UnitInfo"]
+    assert units[("enemy", "Hero")]["decision_summary"] == "BT:HP,POS,UI"
+    assert units[("enemy", "Hero")]["decision_channels"]["target_selection_consumed_by_bt"] is True
+    assert units[("enemy", "Hero")]["decision_channels"]["regional_defense_position_used_by_bt"] is True
+    assert units[("enemy", "Drone")]["health_field"] is None
+    assert units[("enemy", "Drone")]["health_published"] is False
+    assert units[("enemy", "Drone")]["decision_badges"] == ["POS-pub", "NoUnitInfo"]
+    assert units[("enemy", "Drone")]["decision_summary"] == "PUB:POS noUI"
+    assert units[("enemy", "Drone")]["decision_channels"]["position_data_published"] is True
+    assert units[("enemy", "Drone")]["decision_channels"]["position_consumed_by_bt"] is False
+    assert units[("friend", "Sentry")]["field_side"] == "red"
+    assert units[("friend", "Sentry")]["position_data"] == {"car_id": 7, "raw_x": 300, "raw_y": 1100}

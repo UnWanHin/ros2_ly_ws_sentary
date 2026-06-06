@@ -857,9 +857,9 @@ namespace BehaviorTree {
                 .Ammo = ammoLeft,
                 .LowAmmoThreshold = config.LeagueStrategySettings.AmmoRecoveryThreshold,
                 .RecentDamageOver30 = recent_damage_over_30,
-                .ArmorTargetVisible = autoAimData.Fresh && autoAimData.Valid,
-                .BuffTargetLocked = buffAimData.Fresh && buffAimData.Valid && buffAimData.BuffFollow,
-                .OutpostTargetLocked = outpostAimData.Fresh && outpostAimData.Valid,
+                .ArmorTargetVisible = AutoAimFreshAndValid(),
+                .BuffTargetLocked = BuffAimTargetLocked(),
+                .OutpostTargetLocked = OutpostAimFreshAndValid(),
                 .NaviStatusFreshTimeoutMs = kNaviExternalStatusTimeoutMs,
                 .HasNaviReach = hasReceivedNaviReach_,
                 .NaviReach = naviReach,
@@ -1106,30 +1106,18 @@ namespace BehaviorTree {
             externalAimData.FireStatus = false;
             externalAimData.HasLatchedAngles = false;
         }
-        const AimData* activeAimData = external_aim_active ? &externalAimData : &autoAimData;
-        if (!external_aim_active) {
-            if (aimMode == AimMode::Buff) {
-                activeAimData = &buffAimData;
-            } else if (aimMode == AimMode::Outpost) {
-                activeAimData = &outpostAimData;
-            }
-        }
+        const AimData& activeAimData = CurrentAimData();
         GimbalAnglesType nextAngles = gimbalAngles;
         VelocityType nextVelocity = naviVelocityInput;
         const bool find_target_callback = isFindTargetAtomic.load(std::memory_order_relaxed);
-        const bool find_target =
-            find_target_callback && activeAimData->Fresh && activeAimData->Valid;
-        const bool has_recent_latched_target = [&]() {
-            if (find_target || !config.AimDebugSettings.ReuseLatchedAnglesOnNoTarget ||
-                !activeAimData->HasLatchedAngles ||
-                activeAimData->LastValidTime.time_since_epoch().count() == 0) {
-                return false;
-            }
-            const int hold_ms = std::max(0, config.AimDebugSettings.LatchedTargetHoldMs);
-            return hold_ms > 0 &&
-                   (now - activeAimData->LastValidTime) <= std::chrono::milliseconds(hold_ms);
-        }();
-        const bool has_target_for_angles = find_target || has_recent_latched_target;
+        bool find_target = false;
+        bool has_recent_latched_target = false;
+        const bool has_target_for_angles = CurrentAimTargetForAngles(
+            find_target_callback,
+            now,
+            config.AimDebugSettings.LatchedTargetHoldMs,
+            &find_target,
+            &has_recent_latched_target);
         const bool visual_target_has_face_priority =
             has_target_for_angles &&
             (external_aim_active || aimMode == AimMode::Buff || aimMode == AimMode::Outpost);
@@ -1199,7 +1187,7 @@ namespace BehaviorTree {
                         now - lastEnergyActivateConfirmTime_ <= std::chrono::milliseconds(post_confirm_grace_ms);
                     const bool buff_fire_allowed =
                         config.TaskSettings.BuffTimer.Enable || energy_activating || confirm_grace_active;
-                    if(buff_fire_allowed && activeAimData->FireStatus){
+                    if(buff_fire_allowed && activeAimData.FireStatus){
                         /// 立刻响应不需要tick
                         RecFireCode.FlipFireStatus();
                         gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
@@ -1210,7 +1198,7 @@ namespace BehaviorTree {
                         gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
                     }
                 } else if (external_aim_active) {
-                    if (activeAimData->FireStatus) {
+                    if (activeAimData.FireStatus) {
                         RecFireCode.FlipFireStatus();
                         gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
                         externalAimData.FireStatus = false;
@@ -1232,12 +1220,12 @@ namespace BehaviorTree {
                 lastFoundEnemyTime = now;
             }
             
-            nextAngles = activeAimData->Angles;
+            nextAngles = activeAimData.Angles;
             if (aimMode != AimMode::Buff && aimMode != AimMode::Outpost) {
                 LoggerPtr->Debug(
                     "AutoAim Angles -> Pitch: {}, Yaw: {}",
-                    activeAimData->Angles.Pitch,
-                    activeAimData->Angles.Yaw);
+                    activeAimData.Angles.Pitch,
+                    activeAimData.Angles.Yaw);
             }
         }
         else { // 未识别到目标
@@ -1384,8 +1372,8 @@ namespace BehaviorTree {
                     }
                     nextAngles.Pitch = 19.0f;
                 }else {
-                    nextAngles = (activeAimData->Fresh && activeAimData->Valid)
-                        ? activeAimData->Angles
+                    nextAngles = AimFreshAndValid(activeAimData)
+                        ? activeAimData.Angles
                         : gimbalAngles;
                 }
             }
@@ -2869,8 +2857,9 @@ namespace BehaviorTree {
         state.PositionFresh = self_position.Fresh;
         state.SelfX = self_position.X;
         state.SelfY = self_position.Y;
-        state.HasPosition = state.PositionFresh && state.SelfX > 0 && state.SelfY > 0;
-        if (state.HasPosition) {
+        state.HasPosition = self_position.HasPosition && state.SelfX > 0 && state.SelfY > 0;
+        const bool position_usable_for_distance = state.HasPosition && state.PositionFresh;
+        if (position_usable_for_distance) {
             const double distance_sq = AreaManager::DistanceSq(
                 state.SelfX,
                 state.SelfY,
@@ -2912,7 +2901,7 @@ namespace BehaviorTree {
             state.Reason = GoalReachReason::Timeout;
             return state;
         }
-        if (!state.HasPosition) {
+        if (!position_usable_for_distance) {
             state.Status = GoalReachStatus::Traveling;
             state.Reason = GoalReachReason::PositionStale;
             return state;
@@ -3196,28 +3185,10 @@ namespace BehaviorTree {
                 targetArmor.Type == ArmorType::Outpost) {
                 return false;
             }
-            const bool external_aim_active = config.ExternalAimSettings.Enable;
-            const AimData* active_aim_data = external_aim_active ? &externalAimData : &autoAimData;
-            if (!external_aim_active) {
-                if (aimMode == AimMode::Buff) {
-                    active_aim_data = &buffAimData;
-                } else if (aimMode == AimMode::Outpost) {
-                    active_aim_data = &outpostAimData;
-                }
-            }
-            if (isFindTargetAtomic.load(std::memory_order_relaxed) &&
-                active_aim_data->Fresh &&
-                active_aim_data->Valid) {
-                return true;
-            }
-            if (!config.AimDebugSettings.ReuseLatchedAnglesOnNoTarget ||
-                !active_aim_data->HasLatchedAngles ||
-                active_aim_data->LastValidTime.time_since_epoch().count() == 0) {
-                return false;
-            }
-            const int hold_ms = std::max(0, config.AimDebugSettings.LatchedTargetHoldMs);
-            return hold_ms > 0 &&
-                   (now - active_aim_data->LastValidTime) <= std::chrono::milliseconds(hold_ms);
+            return CurrentAimTargetForAngles(
+                isFindTargetAtomic.load(std::memory_order_relaxed),
+                now,
+                config.AimDebugSettings.LatchedTargetHoldMs);
         }();
         const auto result = areaManager_.TickRegionalAreaTask(
             RegionalAreaTaskTickInput{
@@ -3562,30 +3533,18 @@ namespace BehaviorTree {
             externalAimData.HasLatchedAngles = false;
         }
 
-        const AimData* active_aim_data = external_aim_active ? &externalAimData : &autoAimData;
-        if (!external_aim_active) {
-            if (aimMode == AimMode::Buff) {
-                active_aim_data = &buffAimData;
-            } else if (aimMode == AimMode::Outpost) {
-                active_aim_data = &outpostAimData;
-            }
-        }
+        const AimData& active_aim_data = CurrentAimData();
 
         const bool find_target_callback = isFindTargetAtomic.load(std::memory_order_relaxed);
-        const bool find_target =
-            find_target_callback && active_aim_data->Fresh && active_aim_data->Valid;
-        const bool has_recent_latched_target = [&]() {
-            if (find_target || !config.AimDebugSettings.ReuseLatchedAnglesOnNoTarget ||
-                !active_aim_data->HasLatchedAngles ||
-                active_aim_data->LastValidTime.time_since_epoch().count() == 0) {
-                return false;
-            }
-            const int hold_ms = std::max(0, config.AimDebugSettings.LatchedTargetHoldMs);
-            return hold_ms > 0 &&
-                   (now - active_aim_data->LastValidTime) <= std::chrono::milliseconds(hold_ms);
-        }();
-        const bool has_target_for_angles = find_target || has_recent_latched_target;
-        const auto chase_angles = has_target_for_angles ? active_aim_data->Angles : gimbalAngles;
+        bool find_target = false;
+        bool has_recent_latched_target = false;
+        const bool has_target_for_angles = CurrentAimTargetForAngles(
+            find_target_callback,
+            now,
+            config.AimDebugSettings.LatchedTargetHoldMs,
+            &find_target,
+            &has_recent_latched_target);
+        const auto chase_angles = has_target_for_angles ? active_aim_data.Angles : gimbalAngles;
 
         bool has_external_target_point = false;
         ExternalAimTargetCache external_target_point{};
@@ -3617,7 +3576,7 @@ namespace BehaviorTree {
         bool has_chase_target = has_target_for_angles || has_external_target_point;
         if (!has_chase_target &&
             config.ChaseSettings.LostTargetHoldMs > 0 &&
-            active_aim_data->HasLatchedAngles &&
+            active_aim_data.HasLatchedAngles &&
             lastTargetSeenTime.time_since_epoch().count() != 0) {
             has_chase_target = (now - lastTargetSeenTime) <=
                 std::chrono::milliseconds(config.ChaseSettings.LostTargetHoldMs);
@@ -4085,13 +4044,10 @@ namespace BehaviorTree {
             regionalDefenseSearchBaseGoal_ = candidates[regionalDefenseSearchIndex_];
         }
 
-        auto autoaim_recently_seen = [&]() {
-            if (!autoAimData.HasLatchedAngles ||
-                autoAimData.LastValidTime.time_since_epoch().count() == 0) {
-                return false;
-            }
-            return now - autoAimData.LastValidTime <=
-                std::chrono::seconds(std::max(1, defense.SearchNoTargetSec));
+        auto visual_target_recently_seen = [&]() {
+            return CurrentAimFreshOrLatched(
+                now,
+                std::max(1, defense.SearchNoTargetSec) * 1000);
         };
 
         auto current_goal_done = [&](const std::uint8_t base_goal_id) {
@@ -4109,7 +4065,7 @@ namespace BehaviorTree {
             same_search &&
             candidates.size() > 1U &&
             (current_search_done || search_held_long_enough) &&
-            !autoaim_recently_seen();
+            !visual_target_recently_seen();
 
         if (should_advance_search) {
             regionalDefenseSearchIndex_ =
@@ -4431,20 +4387,12 @@ namespace BehaviorTree {
         std::uint8_t target_base_goal =
             is_patrol_goal(current_base_goal) ? current_base_goal : nearest_goal();
 
-        const AimData* active_aim_data = config.ExternalAimSettings.Enable ? &externalAimData : &autoAimData;
-        if (!config.ExternalAimSettings.Enable) {
-            if (aimMode == AimMode::Buff) {
-                active_aim_data = &buffAimData;
-            } else if (aimMode == AimMode::Outpost) {
-                active_aim_data = &outpostAimData;
-            }
-        }
+        const AimData& active_aim_data = CurrentAimData();
         const bool target_locked =
             patrol.StopOnTarget &&
             targetArmor.Type != ArmorType::UnKnown &&
             isFindTargetAtomic.load(std::memory_order_relaxed) &&
-            active_aim_data->Fresh &&
-            active_aim_data->Valid;
+            AimFreshAndValid(active_aim_data);
         if (target_locked) {
             const auto now = std::chrono::steady_clock::now();
             const auto self_position = GetSentryPositionState(now);

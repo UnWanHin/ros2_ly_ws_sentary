@@ -1,0 +1,110 @@
+{
+  "schema": "ly_simulator_mock_sequence_v1",
+  "description": "Multi-unit target-priority rehearsal using existing unit HP/position, self resource, and posture commands.",
+  "actions": [
+    {
+      "at_sec": 0.0,
+      "command": "start",
+      "description": "Open the offline start gate."
+    },
+    {
+      "at_sec": 0.2,
+      "command": "set_time_left",
+      "seconds": 398
+    },
+    {
+      "at_sec": 0.3,
+      "command": "set_self_position",
+      "payload": {
+        "x": 820,
+        "y": 830
+      }
+    },
+    {
+      "at_sec": 0.4,
+      "command": "set_unit",
+      "payload": {
+        "side": "enemy",
+        "type": "Hero",
+        "hp": 180,
+        "max_hp": 200,
+        "x": 2360,
+        "y": 900
+      }
+    },
+    {
+      "at_sec": 0.5,
+      "command": "set_unit",
+      "payload": {
+        "side": "enemy",
+        "type": "Engineer",
+        "hp": 250,
+        "max_hp": 250,
+        "x": 2235,
+        "y": 520
+      }
+    },
+    {
+      "at_sec": 0.6,
+      "command": "set_unit",
+      "payload": {
+        "side": "enemy",
+        "type": "Infantry2",
+        "hp": 150,
+        "max_hp": 200,
+        "x": 1960,
+        "y": 840
+      }
+    },
+    {
+      "at_sec": 1.8,
+      "command": "set_unit_hp",
+      "payload": {
+        "side": "enemy",
+        "type": "Hero",
+        "hp": 90
+      }
+    },
+    {
+      "at_sec": 2.6,
+      "command": "set_unit",
+      "payload": {
+        "side": "enemy",
+        "type": "Sentry",
+        "hp": 400,
+        "max_hp": 400,
+        "x": 1707,
+        "y": 1141
+      }
+    },
+    {
+      "at_sec": 3.2,
+      "command": "set_unit_hp",
+      "payload": {
+        "side": "enemy",
+        "type": "Infantry2",
+        "hp": 60
+      }
+    },
+    {
+      "at_sec": 3.5,
+      "command": "set_self_health",
+      "hp": 320
+    },
+    {
+      "at_sec": 3.6,
+      "command": "set_ammo",
+      "ammo": 48
+    },
+    {
+      "at_sec": 4.3,
+      "command": "set_posture",
+      "posture": 1
+    },
+    {
+      "at_sec": 5.0,
+      "command": "set_time_left",
+      "seconds": 380
+    }
+  ]
+}

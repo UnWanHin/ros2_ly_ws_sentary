@@ -1,13 +1,31 @@
 from __future__ import annotations
 
 import argparse
+import json
+import math
 import sys
 from pathlib import Path
 
 from .config import goals_by_id, load_config, load_plugin_points, resolve_path
+from .foxglove_export import export_records_to_mcap
+from .interactive_inputs import load_unit_scene_file
 from .trace import build_changes, load_trace, load_trace_incremental, normalize_record
-from .validation import format_validation, validate_records
+from .validation import format_validation, validation_report, validate_records
 from .viewer import Viewer
+
+
+def trace_status_payload(trace_path: Path, records: list, bad_lines: int, follow: bool) -> dict:
+    first_tick = records[0].tick if records else 0
+    last_tick = records[-1].tick if records else 0
+    duration = records[-1].t - records[0].t if records else 0.0
+    return {
+        "name": trace_path.name,
+        "follow": bool(follow),
+        "records": len(records),
+        "bad_lines": int(bad_lines),
+        "duration_sec": duration,
+        "tick_range": {"first": first_tick, "last": last_tick},
+    }
 
 
 def import_pygame():
@@ -66,6 +84,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Path to match-control command JSONL (overrides YAML match_control.control_file).",
     )
     parser.add_argument(
+        "--unit-scene",
+        default="",
+        help="JSON/YAML unit scene loaded into the Inputs tab at startup.",
+    )
+    parser.add_argument(
         "--ros-state-file",
         default="",
         help="Path to live ROS topic monitor JSON state file (overrides YAML ros_monitor.state_file).",
@@ -77,7 +100,23 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Match duration in seconds (overrides YAML match_control.duration_sec).",
     )
     parser.add_argument("--validate-only", action="store_true", help="Load trace/config and run offline consistency checks, then exit.")
+    parser.add_argument(
+        "--validate-format",
+        choices=("text", "json"),
+        default="text",
+        help="Output format for --validate-only (default: text).",
+    )
+    parser.add_argument(
+        "--export-foxglove",
+        default="",
+        help="Write loaded trace records to a Foxglove-readable MCAP file, then exit. Requires optional mcap package.",
+    )
     parser.add_argument("--smoke-test", action="store_true", help="Load config, trace, map, and pygame, draw one frame, then exit.")
+    parser.add_argument(
+        "--smoke-screenshot",
+        default="",
+        help="With --smoke-test, write the rendered pygame frame to this PNG path before exiting.",
+    )
     return parser.parse_args(argv)
 
 
@@ -154,12 +193,24 @@ def main(argv: list[str] | None = None) -> int:
     if args.follow_poll <= 0:
         print("--follow-poll must be > 0", file=sys.stderr)
         return 2
+    if args.export_foxglove.strip() and args.follow:
+        print("--export-foxglove reads a complete trace file and cannot be combined with --follow", file=sys.stderr)
+        return 2
+    if args.validate_format != "text" and not args.validate_only:
+        print("--validate-format requires --validate-only", file=sys.stderr)
+        return 2
+    if args.smoke_screenshot.strip() and not args.smoke_test:
+        print("--smoke-screenshot requires --smoke-test", file=sys.stderr)
+        return 2
 
     config = load_config(resolve_path(args.config) if args.config else None)
     paths = config.get("paths", {}) if isinstance(config.get("paths"), dict) else {}
     web_cfg = config.get("web_stream", {}) if isinstance(config.get("web_stream"), dict) else {}
     match_cfg = config.get("match_control", {}) if isinstance(config.get("match_control"), dict) else {}
     ros_monitor_cfg = config.get("ros_monitor", {}) if isinstance(config.get("ros_monitor"), dict) else {}
+    simulator_inputs_cfg = (
+        dict(config.get("simulator_inputs", {})) if isinstance(config.get("simulator_inputs"), dict) else {}
+    )
 
     web_stream_enabled = (
         bool(args.web_stream)
@@ -168,6 +219,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     web_host = args.web_host.strip() if args.web_host.strip() else str(web_cfg.get("host", "0.0.0.0"))
     web_port = args.web_port if args.web_port > 0 else int(web_cfg.get("port", 9000))
+    if not math.isfinite(args.web_fps):
+        print("--web-fps must be > 0", file=sys.stderr)
+        return 2
     web_fps = args.web_fps if args.web_fps > 0 else float(web_cfg.get("fps", 12.0))
     web_jpeg_quality = (
         args.web_jpeg_quality if args.web_jpeg_quality > 0 else int(web_cfg.get("jpeg_quality", 80))
@@ -176,7 +230,7 @@ def main(argv: list[str] | None = None) -> int:
     if web_port <= 0 or web_port > 65535:
         print("--web-port must be in [1, 65535]", file=sys.stderr)
         return 2
-    if web_fps <= 0:
+    if not math.isfinite(web_fps) or web_fps <= 0:
         print("--web-fps must be > 0", file=sys.stderr)
         return 2
     if web_jpeg_quality < 1 or web_jpeg_quality > 100:
@@ -192,6 +246,18 @@ def main(argv: list[str] | None = None) -> int:
         match_cfg["duration_sec"] = int(args.match_duration_sec)
     if match_cfg:
         config["match_control"] = match_cfg
+    unit_scene_config = str(simulator_inputs_cfg.get("unit_scene_file", "")).strip()
+    unit_scene_arg = args.unit_scene.strip()
+    unit_scene_file = unit_scene_arg if unit_scene_arg else unit_scene_config
+    if unit_scene_file:
+        unit_scene_path = resolve_path(unit_scene_file)
+        try:
+            simulator_inputs_cfg["initial_units"] = load_unit_scene_file(unit_scene_path)
+        except (OSError, RuntimeError, ValueError) as exc:
+            print(f"failed to load unit scene {unit_scene_path}: {exc}", file=sys.stderr)
+            return 2
+        simulator_inputs_cfg["unit_scene_file"] = unit_scene_path.as_posix()
+        config["simulator_inputs"] = simulator_inputs_cfg
     if args.ros_state_file.strip():
         ros_monitor_cfg["state_file"] = args.ros_state_file.strip()
     if ros_monitor_cfg:
@@ -207,7 +273,8 @@ def main(argv: list[str] | None = None) -> int:
     if not args.follow and not trace_path.exists():
         print(f"trace file not found: {trace_path}", file=sys.stderr)
         return 2
-    if not map_path.exists():
+    needs_viewer = not args.validate_only and not args.export_foxglove.strip()
+    if needs_viewer and not map_path.exists():
         print(f"map image not found: {map_path}", file=sys.stderr)
         return 2
 
@@ -223,7 +290,7 @@ def main(argv: list[str] | None = None) -> int:
     pygame_initialized = False
     streamer = None
 
-    if web_stream_enabled and not args.validate_only:
+    if web_stream_enabled and not args.validate_only and not args.export_foxglove.strip():
         try:
             from .web_stream import SimulatorWebStream
 
@@ -269,8 +336,33 @@ def main(argv: list[str] | None = None) -> int:
             return 2
 
     validation_issues = validate_records(records, config, bad_lines)
+    validation_payload = validation_report(records, validation_issues)
+    if streamer is not None:
+        streamer.update_metadata(
+            {
+                "trace": trace_status_payload(trace_path, records, bad_lines, args.follow),
+                "validation": validation_payload,
+            }
+        )
+    if args.export_foxglove.strip():
+        output_path = Path(args.export_foxglove).expanduser().resolve()
+        try:
+            export_records_to_mcap(records, output_path)
+        except RuntimeError as exc:
+            print(str(exc), file=sys.stderr)
+            if pygame_initialized:
+                pygame.quit()
+            return 2
+        print(f"wrote {len(records)} records to {output_path}")
+        if pygame_initialized:
+            pygame.quit()
+        return 0
+
     if args.validate_only:
-        print(format_validation(records, validation_issues))
+        if args.validate_format == "json":
+            print(json.dumps(validation_payload, ensure_ascii=True, indent=2))
+        else:
+            print(format_validation(records, validation_issues))
         if pygame_initialized:
             pygame.quit()
         return 2 if any(issue.severity == "error" for issue in validation_issues) else 0
@@ -291,7 +383,7 @@ def main(argv: list[str] | None = None) -> int:
             bad_lines=bad_lines,
             start_paused=True if args.start_paused else None,
             speed=args.speed if args.speed > 0 else None,
-            trace_path=trace_path if args.follow else None,
+            trace_path=trace_path,
             goal_names=goal_names if args.follow else None,
             follow=args.follow,
             follow_poll_sec=args.follow_poll,
@@ -302,6 +394,15 @@ def main(argv: list[str] | None = None) -> int:
             viewer.draw()
             if streamer is not None:
                 streamer.publish_surface(viewer.screen, pygame)
+            if args.smoke_screenshot.strip():
+                screenshot_path = Path(args.smoke_screenshot).expanduser().resolve()
+                try:
+                    screenshot_path.parent.mkdir(parents=True, exist_ok=True)
+                    pygame.image.save(viewer.screen, str(screenshot_path))
+                except Exception as exc:
+                    print(f"failed to write smoke screenshot {screenshot_path}: {exc}", file=sys.stderr)
+                    return 2
+                print(f"smoke screenshot: {screenshot_path}")
             pygame.display.flip()
             return 0
         viewer.run()

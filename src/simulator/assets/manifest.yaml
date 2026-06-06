@@ -1,0 +1,35 @@
+schema: ly_simulator_asset_manifest_v1
+updated: "2026-06-02"
+source:
+  archive_name: "素材.zip"
+  archive_sha256: "8716faeaadce88422023023f923af5679c404241151b81d9a7a96b126fe963f4"
+  imported_at: "2026-06-02"
+  import_method: normalized_extract
+  license_status: unknown
+  redistribution: local_project_only_until_license_confirmed
+  attribution: not_provided_in_archive
+  note: Normalized from the local unit-art source archive. Runtime uses this extracted tree, not the archive.
+
+unit_aliases:
+  Infantry1: Infantry
+  Infantry2: Infantry
+  Infantry3: Infantry
+
+unit_assets:
+  red:
+    Hero: units/red/hero.png
+    Engineer: units/red/engineer.png
+    Infantry: units/red/infantry.png
+    Sentry: units/red/sentry.png
+    Drone: units/red/drone.png
+  blue:
+    Hero: units/blue/hero.png
+    Engineer: units/blue/engineer.png
+    Infantry: units/blue/infantry.png
+    Sentry: units/blue/sentry.png
+    Drone: units/blue/drone.png
+
+armor_assets:
+  armor_strip: armor/armor.png
+  armor_no_background: armor/armor_nobackground.png
+  armor_fine_edited: armor/fine_edited.png

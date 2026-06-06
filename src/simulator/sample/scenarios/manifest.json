@@ -1,0 +1,358 @@
+{
+  "schema": "ly_simulator_scenario_manifest_v1",
+  "updated": "2026-06-02",
+  "description": "Named compact fixtures for offline simulator validation and regression checks.",
+  "scenarios": [
+    {
+      "name": "startup_home_hold",
+      "path": "startup_home_hold.jsonl",
+      "description": "Game-start home hold with no recent target.",
+      "expected": {
+        "status": "PASS",
+        "records": 1,
+        "schema_versions": {"v2": 1},
+        "output_kinds": {"goal_pos": 1},
+        "intent_layers": ["Startup"],
+        "intent_reasons": ["WaitStart"],
+        "goal_names": ["Home"],
+        "aim_modes": ["RotateScan"]
+      }
+    },
+    {
+      "name": "target_acquisition",
+      "path": "target_acquisition.jsonl",
+      "description": "Regional target-visible patrol decision with fresh auto-aim target state.",
+      "expected": {
+        "status": "PASS",
+        "records": 1,
+        "schema_versions": {"v2": 1},
+        "output_kinds": {"goal_pos": 1},
+        "intent_layers": ["RegionalPatrol"],
+        "intent_reasons": ["TargetVisible"],
+        "goal_names": ["OccupyArea"],
+        "aim_modes": ["AutoAim"],
+        "target_state_true": ["has_recent_target", "fresh_auto_aim"]
+      }
+    },
+    {
+      "name": "multi_unit_decision_context",
+      "path": "multi_unit_decision_context.jsonl",
+      "description": "Regional target-visible decision with multi-unit HP, fresh UnitInfo positions, area names, RFID, team buff, and resource state.",
+      "expected": {
+        "status": "PASS",
+        "records": 1,
+        "schema_versions": {"v2": 1},
+        "output_kinds": {"goal_pos": 1},
+        "intent_layers": ["RegionalPatrol"],
+        "intent_reasons": ["TargetVisible"],
+        "goal_names": ["OccupyArea"],
+        "aim_modes": ["AutoAim"],
+        "target_state_true": ["has_recent_target", "fresh_current_aim", "fresh_auto_aim"],
+        "events_true": ["event_data_fresh", "sentry_info_fresh", "enemy_outpost_alive", "armor_target_visible", "regional_defense_active"],
+        "friend_unit_types": ["Engineer", "Hero", "Infantry1", "Infantry2", "Infantry3", "Sentry"],
+        "enemy_unit_types": ["Engineer", "Hero", "Infantry1", "Infantry2", "Infantry3", "Sentry"],
+        "unit_info_counts": {"enemy": 5, "friend": 5},
+        "fresh_friend_unit_info": ["Engineer", "Hero", "Infantry1", "Infantry2", "Sentry"],
+        "fresh_enemy_unit_info": ["Engineer", "Hero", "Infantry1", "Infantry2", "Sentry"]
+      }
+    },
+    {
+      "name": "unit_zero_hp_runtime_mismatch",
+      "path": "unit_zero_hp_runtime_mismatch.jsonl",
+      "description": "Simulator unit HP is set to zero while formal unit_info still carries the last nonzero HP, exposing the current behavior_tree zero-HP subscriber semantics.",
+      "expected": {
+        "status": "WARN",
+        "records": 1,
+        "schema_versions": {"v2": 1},
+        "output_kinds": {"goal_pos": 1},
+        "intent_layers": ["RegionalPatrol"],
+        "intent_reasons": ["TargetVisible"],
+        "goal_names": ["OccupyArea"],
+        "aim_modes": ["AutoAim"],
+        "target_state_true": ["has_recent_target", "fresh_current_aim", "fresh_auto_aim"],
+        "events_true": ["event_data_fresh", "sentry_info_fresh", "enemy_outpost_alive", "armor_target_visible", "regional_defense_active"],
+        "enemy_unit_types": ["Hero"],
+        "unit_info_counts": {"enemy": 1},
+        "fresh_enemy_unit_info": ["Hero"],
+        "warning_codes": ["unit.zero_hp_runtime_mismatch"]
+      }
+    },
+    {
+      "name": "self_zero_hp_runtime_mismatch",
+      "path": "self_zero_hp_runtime_mismatch.jsonl",
+      "description": "Simulator self HP is set to zero even though the current behavior_tree selfhealth subscriber ignores zero values.",
+      "expected": {
+        "status": "WARN",
+        "records": 1,
+        "schema_versions": {"v2": 1},
+        "output_kinds": {"goal_pos": 1},
+        "intent_layers": ["Recovery"],
+        "intent_reasons": ["LowResource"],
+        "goal_names": ["Recovery"],
+        "aim_modes": ["RotateScan"],
+        "target_state_true": [],
+        "events_true": ["event_data_fresh", "sentry_info_fresh", "enemy_outpost_alive", "self_low_hp"],
+        "warning_codes": ["referee.zero_self_hp_runtime_mismatch"]
+      }
+    },
+    {
+      "name": "buff_activation",
+      "path": "buff_activation.jsonl",
+      "description": "Buff activation window with buff target lock and energy confirmation pulse.",
+      "expected": {
+        "status": "PASS",
+        "records": 1,
+        "schema_versions": {"v2": 1},
+        "output_kinds": {"goal_pos": 1},
+        "intent_layers": ["BuffTask"],
+        "intent_reasons": ["BuffCanActivate"],
+        "goal_names": ["BuffShoot"],
+        "aim_modes": ["Buff"],
+        "events_true": ["buff_task_enabled", "buff_can_activate", "buff_activating", "buff_target_locked"]
+      }
+    },
+    {
+      "name": "relative_target_bridge",
+      "path": "relative_target_bridge.jsonl",
+      "description": "Relative target bridge decision that produces /goal_pose through the bridge path.",
+      "expected": {
+        "status": "PASS",
+        "records": 1,
+        "schema_versions": {"v2": 1},
+        "output_kinds": {"relative_target_bridge": 1},
+        "intent_layers": ["Chase"],
+        "intent_reasons": ["RelativeTarget"],
+        "goal_names": ["BuffOutpost"],
+        "aim_modes": ["AutoAim"],
+        "events_true": ["regional_defense_active"],
+        "target_state_true": ["has_recent_target", "fresh_auto_aim"]
+      }
+    },
+    {
+      "name": "goal_id_output",
+      "path": "goal_id_output.jsonl",
+      "description": "Legacy goal-id output path that publishes only /ly/navi/goal.",
+      "expected": {
+        "status": "PASS",
+        "records": 1,
+        "schema_versions": {"v2": 1},
+        "output_kinds": {"goal_id": 1},
+        "intent_layers": ["Startup"],
+        "intent_reasons": ["WaitStart"],
+        "goal_names": ["Home"],
+        "aim_modes": ["RotateScan"]
+      }
+    },
+    {
+      "name": "goal_pos_raw_bridge",
+      "path": "goal_pos_raw_bridge.jsonl",
+      "description": "Normal goal-position decision routed through the ToNavi raw goal-position bridge.",
+      "expected": {
+        "status": "PASS",
+        "records": 1,
+        "schema_versions": {"v2": 1},
+        "output_kinds": {"goal_pos_raw_bridge": 1},
+        "intent_layers": ["RegionalPatrol"],
+        "intent_reasons": ["TargetVisible"],
+        "goal_names": ["OccupyArea"],
+        "aim_modes": ["AutoAim"],
+        "events_true": ["regional_defense_active"],
+        "target_state_true": ["has_recent_target", "fresh_auto_aim"]
+      }
+    },
+    {
+      "name": "chase_goal_pos",
+      "path": "chase_goal_pos.jsonl",
+      "description": "Official target chase output published directly as a navigation goal position.",
+      "expected": {
+        "status": "PASS",
+        "records": 1,
+        "schema_versions": {"v2": 1},
+        "output_kinds": {"chase_goal_pos": 1},
+        "intent_layers": ["Chase"],
+        "intent_reasons": ["OfficialTarget"],
+        "goal_names": ["BuffOutpost"],
+        "aim_modes": ["AutoAim"],
+        "target_state_true": ["has_recent_target", "fresh_current_aim", "fresh_auto_aim"],
+        "unit_info_counts": {"enemy": 1},
+        "fresh_enemy_unit_info": ["Hero"]
+      }
+    },
+    {
+      "name": "chase_goal_pos_raw_bridge",
+      "path": "chase_goal_pos_raw_bridge.jsonl",
+      "description": "Official target chase output routed through the ToNavi raw goal-position bridge.",
+      "expected": {
+        "status": "PASS",
+        "records": 1,
+        "schema_versions": {"v2": 1},
+        "output_kinds": {"chase_goal_pos_raw_bridge": 1},
+        "intent_layers": ["Chase"],
+        "intent_reasons": ["OfficialTargetRawBridge"],
+        "goal_names": ["BuffOutpost"],
+        "aim_modes": ["AutoAim"],
+        "target_state_true": ["has_recent_target", "fresh_current_aim", "fresh_auto_aim"],
+        "unit_info_counts": {"enemy": 1},
+        "fresh_enemy_unit_info": ["Sentry"]
+      }
+    },
+    {
+      "name": "outpost_attack",
+      "path": "outpost_attack.jsonl",
+      "description": "Enemy outpost attack window with outpost aim source selected.",
+      "expected": {
+        "status": "PASS",
+        "records": 1,
+        "schema_versions": {"v2": 1},
+        "output_kinds": {"goal_pos": 1},
+        "intent_layers": ["OutpostTask"],
+        "intent_reasons": ["OutpostWindow"],
+        "goal_names": ["OutpostShoot"],
+        "aim_modes": ["Outpost"],
+        "events_true": ["buff_activated", "outpost_task_enabled", "enemy_outpost_alive", "outpost_attack_window_open", "outpost_target_locked"],
+        "target_state_true": ["has_recent_target", "fresh_outpost"]
+      }
+    },
+    {
+      "name": "detector_armors_target_list",
+      "path": "detector_armors_target_list.jsonl",
+      "description": "Formal detector armor-list input evidence with multiple hitable target candidates and target distance.",
+      "expected": {
+        "status": "PASS",
+        "records": 1,
+        "schema_versions": {"v2": 1},
+        "output_kinds": {"goal_pos": 1},
+        "intent_layers": ["RegionalPatrol"],
+        "intent_reasons": ["TargetVisible"],
+        "goal_names": ["OccupyArea"],
+        "aim_modes": ["AutoAim"],
+        "target_state_true": ["has_recent_target", "fresh_current_aim", "fresh_auto_aim"],
+        "events_true": ["event_data_fresh", "sentry_info_fresh", "enemy_outpost_alive", "armor_target_visible", "outpost_attack_window_open", "regional_defense_active"],
+        "enemy_unit_types": ["Hero", "Infantry1", "Sentry"],
+        "target_armor": {"id": 6, "name": "Sentry", "distance_m": 4.2},
+        "hitable_targets": ["Hero (1)", "Infantry1 (3)", "Sentry (7)"]
+      }
+    },
+    {
+      "name": "low_resource_recovery",
+      "path": "low_resource_recovery.jsonl",
+      "description": "Low-resource recovery decision after HP, ammo, and damage risk flags are active.",
+      "expected": {
+        "status": "PASS",
+        "records": 1,
+        "schema_versions": {"v2": 1},
+        "output_kinds": {"goal_pos": 1},
+        "intent_layers": ["Recovery"],
+        "intent_reasons": ["LowResource"],
+        "goal_names": ["Recovery"],
+        "aim_modes": ["RotateScan"],
+        "events_true": ["buff_activated", "self_low_hp", "self_low_ammo", "recent_damage_over_30"],
+        "runtime_guard_fault": "LowResource"
+      }
+    },
+    {
+      "name": "bullet_info_resource",
+      "path": "bullet_info_resource.jsonl",
+      "description": "BulletInfo resource snapshot with cached speed, shoot data, projectile allowance, and gold coin trace fields.",
+      "expected": {
+        "status": "PASS",
+        "records": 1,
+        "schema_versions": {"v2": 1},
+        "output_kinds": {"goal_pos": 1},
+        "intent_layers": ["RegionalPatrol"],
+        "intent_reasons": ["Patrol"],
+        "goal_names": ["OccupyArea"],
+        "aim_modes": ["RotateScan"],
+        "bullet_info": {
+          "has_received": true,
+          "has_initial_speed": true,
+          "initial_speed": 23.4,
+          "has_shoot_data": true,
+          "bullet_type": 1,
+          "shooter_number": 7,
+          "launching_frequency": 9,
+          "has_projectile_allowance": true,
+          "projectile_allowance_17mm": 118,
+          "projectile_allowance_42mm": 6,
+          "remaining_gold_coin": 14,
+          "projectile_allowance_fortress_17mm": 32
+        }
+      }
+    },
+    {
+      "name": "rfid_full_zone_context",
+      "path": "rfid_full_zone_context.jsonl",
+      "description": "Full RFID match-state coverage with raw/status2, self-side zones, enemy-side zones, tunnel, center, fly-ramp, and side aggregate evidence.",
+      "expected": {
+        "status": "PASS",
+        "records": 1,
+        "schema_versions": {"v2": 1},
+        "output_kinds": {"goal_pos": 1},
+        "intent_layers": ["BuffTask"],
+        "intent_reasons": ["BuffCanActivate"],
+        "goal_names": ["BuffShoot"],
+        "aim_modes": ["RotateScan"],
+        "events_true": ["event_data_fresh", "sentry_info_fresh", "enemy_outpost_alive"],
+        "rfid_match": {
+          "fresh": true,
+          "any": true,
+          "raw": 7340033,
+          "has_rfid_status_2": true,
+          "rfid_status_2_raw": 63,
+          "self_supply": true,
+          "self_road_crossing": true,
+          "self_tunnel": true,
+          "enemy_tunnel": true,
+          "center_gain_point": true,
+          "enemy_fortress_gain_point": true,
+          "enemy_outpost_gain_point": true,
+          "self_fly_ramp": true,
+          "enemy_fly_ramp": true,
+          "on_self_side": true,
+          "on_enemy_side": true
+        }
+      }
+    },
+    {
+      "name": "start_gate_lifecycle",
+      "path": "start_gate_lifecycle.jsonl",
+      "description": "Reset re-arms the start gate, Home is held, then the first active regional patrol goal is selected after game start.",
+      "expected": {
+        "status": "PASS",
+        "records": 3,
+        "schema_versions": {"v2": 3},
+        "output_kinds": {"goal_pos": 3},
+        "intent_layers": ["RegionalPatrol", "Startup"],
+        "intent_reasons": ["ResetHomeHold", "TargetVisible", "WaitStart"],
+        "goal_names": ["Home", "OccupyArea"],
+        "aim_modes": ["AutoAim", "RotateScan"],
+        "event_sequence": ["reset", "game_start", "tick"],
+        "goal_sequence": ["Home", "Home", "OccupyArea"],
+        "intent_reason_sequence": ["ResetHomeHold", "WaitStart", "TargetVisible"],
+        "publish_allowed_sequence": [false, true, true],
+        "time_left_sequence": [420, 419, 416],
+        "target_state_true": ["has_recent_target", "fresh_auto_aim"]
+      }
+    },
+    {
+      "name": "route_churn_warning",
+      "path": "route_churn_warning.jsonl",
+      "description": "Rapid route selection changes that should validate as WARN with scenario.route_churn.",
+      "expected": {
+        "status": "WARN",
+        "records": 4,
+        "schema_versions": {"v2": 4},
+        "output_kinds": {"goal_pos": 4},
+        "intent_layers": ["BuffTask", "RegionalPatrol", "Startup"],
+        "intent_reasons": ["BuffCanActivate", "TargetVisible", "WaitStart"],
+        "goal_names": ["BuffShoot", "Home", "OccupyArea"],
+        "aim_modes": ["AutoAim", "Buff", "RotateScan"],
+        "event_sequence": ["tick", "tick", "tick", "tick"],
+        "goal_sequence": ["Home", "OccupyArea", "BuffShoot", "OccupyArea"],
+        "time_left_sequence": [420, 419, 418, 417],
+        "target_state_true": ["has_recent_target", "fresh_auto_aim", "fresh_buff"],
+        "warning_codes": ["scenario.route_churn"]
+      }
+    }
+  ]
+}

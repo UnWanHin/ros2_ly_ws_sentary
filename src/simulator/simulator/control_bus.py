@@ -16,9 +16,14 @@ MATCH_CONTROL_COMMANDS = {
 }
 
 SIMULATOR_INPUT_COMMANDS = {
+    "set_self_health",
+    "set_ammo",
+    "set_posture",
+    "set_self_position",
     "set_structure_health",
     "set_structure_hp",
     "set_unit",
+    "set_units",
     "set_unit_hp",
     "remove_unit",
     "clear_units",

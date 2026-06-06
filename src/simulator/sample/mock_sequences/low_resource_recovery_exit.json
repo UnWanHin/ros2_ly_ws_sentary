@@ -1,0 +1,84 @@
+{
+  "schema": "ly_simulator_mock_sequence_v1",
+  "description": "Low-resource recovery rehearsal where self HP/ammo recover and the sentry returns to a forward regional context.",
+  "actions": [
+    {
+      "at_sec": 0.0,
+      "command": "start",
+      "description": "Start in a low-resource context near base."
+    },
+    {
+      "at_sec": 0.2,
+      "command": "set_time_left",
+      "seconds": 398
+    },
+    {
+      "at_sec": 0.3,
+      "command": "set_self_position",
+      "payload": {
+        "x": 183,
+        "y": 245
+      }
+    },
+    {
+      "at_sec": 0.4,
+      "command": "set_self_health",
+      "hp": 118
+    },
+    {
+      "at_sec": 0.5,
+      "command": "set_ammo",
+      "ammo": 5
+    },
+    {
+      "at_sec": 1.0,
+      "command": "set_unit",
+      "payload": {
+        "side": "enemy",
+        "type": "Hero",
+        "hp": 180,
+        "x": 2360,
+        "y": 900
+      }
+    },
+    {
+      "at_sec": 3.0,
+      "command": "set_self_health",
+      "hp": 260
+    },
+    {
+      "at_sec": 3.2,
+      "command": "set_ammo",
+      "ammo": 60
+    },
+    {
+      "at_sec": 3.5,
+      "command": "set_self_position",
+      "payload": {
+        "position": [
+          820,
+          830
+        ]
+      }
+    },
+    {
+      "at_sec": 4.0,
+      "command": "set_posture",
+      "posture": 1
+    },
+    {
+      "at_sec": 5.0,
+      "command": "set_unit_hp",
+      "payload": {
+        "side": "enemy",
+        "type": "Hero",
+        "hp": 120
+      }
+    },
+    {
+      "at_sec": 6.0,
+      "command": "set_time_left",
+      "seconds": 360
+    }
+  ]
+}

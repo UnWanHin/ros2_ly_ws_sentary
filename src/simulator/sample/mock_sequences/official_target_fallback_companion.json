@@ -1,0 +1,60 @@
+{
+  "schema": "ly_simulator_mock_sequence_v1",
+  "description": "Companion sequence for --mock-preset official-target-sentry; opens the gate and rehearses nearby unit/position facts while the preset publishes /ly/navi/target_official.",
+  "actions": [
+    {
+      "at_sec": 0.0,
+      "command": "start",
+      "description": "Open the offline start gate."
+    },
+    {
+      "at_sec": 0.2,
+      "command": "set_time_left",
+      "seconds": 402
+    },
+    {
+      "at_sec": 0.3,
+      "command": "set_self_position",
+      "payload": {
+        "x": 1220,
+        "y": 760
+      }
+    },
+    {
+      "at_sec": 0.5,
+      "command": "set_unit",
+      "payload": {
+        "side": "enemy",
+        "type": "Sentry",
+        "hp": 360,
+        "max_hp": 400,
+        "x": 1505,
+        "y": 905
+      }
+    },
+    {
+      "at_sec": 1.8,
+      "command": "set_unit_hp",
+      "payload": {
+        "side": "enemy",
+        "type": "Sentry",
+        "hp": 260
+      }
+    },
+    {
+      "at_sec": 3.0,
+      "command": "set_ammo",
+      "ammo": 64
+    },
+    {
+      "at_sec": 4.0,
+      "command": "set_posture",
+      "posture": 1
+    },
+    {
+      "at_sec": 5.0,
+      "command": "set_time_left",
+      "seconds": 388
+    }
+  ]
+}

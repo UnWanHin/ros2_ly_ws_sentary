@@ -1,0 +1,114 @@
+{
+  "schema": "ly_simulator_mock_sequence_v1",
+  "description": "Regional offline decision context with time-varying unit, resource, and structure facts.",
+  "actions": [
+    {
+      "at_sec": 0.0,
+      "command": "start",
+      "description": "Open the offline start gate and begin match countdown."
+    },
+    {
+      "at_sec": 0.2,
+      "command": "set_time_left",
+      "seconds": 420
+    },
+    {
+      "at_sec": 0.3,
+      "command": "set_self_position",
+      "payload": {
+        "x": 820,
+        "y": 830
+      }
+    },
+    {
+      "at_sec": 0.4,
+      "command": "set_unit",
+      "payload": {
+        "side": "friend",
+        "type": "Hero",
+        "hp": 300,
+        "max_hp": 300,
+        "x": 810,
+        "y": 1010
+      }
+    },
+    {
+      "at_sec": 0.5,
+      "command": "set_unit",
+      "payload": {
+        "side": "enemy",
+        "type": "Hero",
+        "hp": 200,
+        "x": 2360,
+        "y": 900
+      }
+    },
+    {
+      "at_sec": 1.2,
+      "command": "set_unit",
+      "payload": {
+        "side": "enemy",
+        "type": "Infantry3",
+        "hp": 160,
+        "x": 1740,
+        "y": 1180
+      }
+    },
+    {
+      "at_sec": 2.0,
+      "command": "set_unit_hp",
+      "payload": {
+        "side": "enemy",
+        "type": "Hero",
+        "hp": 120
+      }
+    },
+    {
+      "at_sec": 3.0,
+      "command": "set_structure_health",
+      "payload": {
+        "side": "enemy",
+        "structure": "outpost",
+        "hp": 20
+      }
+    },
+    {
+      "at_sec": 4.5,
+      "command": "set_unit_hp",
+      "payload": {
+        "side": "friend",
+        "type": "Hero",
+        "hp": 180
+      }
+    },
+    {
+      "at_sec": 4.8,
+      "command": "set_self_health",
+      "hp": 210
+    },
+    {
+      "at_sec": 5.0,
+      "command": "set_structure_health",
+      "payload": {
+        "side": "enemy",
+        "structure": "outpost",
+        "hp": 0
+      }
+    },
+    {
+      "at_sec": 5.5,
+      "command": "set_ammo",
+      "ammo": 18
+    },
+    {
+      "at_sec": 5.8,
+      "command": "set_posture",
+      "posture": 2
+    },
+    {
+      "at_sec": 6.0,
+      "command": "set_time_left",
+      "seconds": 300
+    }
+  ]
+}
