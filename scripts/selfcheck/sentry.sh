@@ -894,6 +894,7 @@ if (( STATIC_ONLY == 0 )); then
   check_node_sub "/behavior_tree" "/ly/gimbal/posture" hard
   check_node_sub "/behavior_tree" "/ly/game/is_start" hard
   check_node_sub "/behavior_tree" "/ly/game/time_left" hard
+  check_node_sub "/behavior_tree" "/ly/game/map_command" hard
   check_node_sub "/behavior_tree" "/ly/friend/is_team_red" hard
   check_node_sub "/behavior_tree" "/ly/aim/armor_targets" hard
   check_node_sub "/behavior_tree" "/ly/aim/result" hard
@@ -918,6 +919,7 @@ if (( STATIC_ONLY == 0 )); then
   check_topic_link "/ly/aim/select_target" "sentry_msgs/msg/AimTarget" "/behavior_tree" "" hard
   check_topic_link "/ly/aim/armor_targets" "sentry_msgs/msg/AimTargetArray" "" "/behavior_tree" hard
   check_topic_link "/ly/aim/result" "sentry_msgs/msg/AimResult" "" "/behavior_tree" hard
+  check_topic_link "/ly/game/map_command" "gimbal_driver/msg/MapCommand" "" "/behavior_tree" hard
 
   print_section "Conditional Topics (Data-Dependent)"
   check_topic_link "/ly/gimbal/angles" "gimbal_driver/msg/GimbalAngles" "/gimbal_driver" "/behavior_tree" warn

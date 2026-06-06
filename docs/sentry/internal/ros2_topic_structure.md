@@ -1,6 +1,6 @@
 # ROS2 Topic Structure
 
-Updated: 2026-05-27
+Updated: 2026-06-06
 
 本文记录当前哨兵上位机 ROS2 topic 结构，按接口边界分为：
 
@@ -90,6 +90,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/bullet/speed` | `std_msgs/msg/Float32` | predictor/调试 | 旧弹速 topic，来自 TypeID 5。 |
 | `/ly/game/sentry/info` | `gimbal_driver/msg/SentryInfo` | `behavior_tree`/调试 | 裁判 `0x020D sentry_info/sentry_info_2` 语义拆字段；其中有效 `posture` 会同步覆盖 `/ly/gimbal/posture`；BT 使用 `can_activate_energy_mechanism` 判斷打能量機關確認窗口。 |
 | `/ly/game/bullet` | `gimbal_driver/msg/BulletInfo` | `behavior_tree`/调试 | TypeID 7/8 合并出的弹速、发射事件、允许发弹量、金币；BT 当前只订阅并缓存，暂不参与正式决策；RFID2 不在这里。 |
+| `/ly/game/map_command` | `gimbal_driver/msg/MapCommand` | `behavior_tree`/调试 | TypeID 9 转出的裁判 `0x0303 map_command_t`；`header.stamp` 为 `gimbal_driver` 发布时间；BT 当前只订阅并缓存，不触发导航。 |
 
 ## 3.1 Raw Debug Topics
 
@@ -97,7 +98,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 
 | Topic | Type | Consumer | 结构/语义 |
 |---|---|---|---|
-| `/ly/log/gimbal_raw_rx` | `gimbal_driver/msg/GimbalRawFrame` | 调试/rosbag | 下位机 -> 上位机 raw `TypedMessage`，`type_id=0..8`，`data` 是原始 bytes。 |
+| `/ly/log/gimbal_raw_rx` | `gimbal_driver/msg/GimbalRawFrame` | 调试/rosbag | 下位机 -> 上位机 raw `TypedMessage`，`type_id=0..9`，`data` 是原始 bytes。 |
 | `/ly/log/gimbal_raw_tx` | `gimbal_driver/msg/GimbalRawFrame` | 调试/rosbag | 上位机 -> 下位机 raw `GimbalControlData`，`type_id=255`，`data` 是 17B 主控制幀。 |
 
 ## 4. External Aim And Legacy Vision Topics
@@ -168,6 +169,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `gimbal_driver/msg/RfidStatus` | `raw`, RFID gain/crossing bits, `has_rfid_status_2`, `rfid_status_2_raw` | 裁判 RFID 状态。 |
 | `gimbal_driver/msg/SentryInfo` | `sentry_info_raw`, `sentry_info_2_raw`, exchange/revive/out_of_combat/posture/energy fields | 裁判 `0x020D` 哨兵状态。 |
 | `gimbal_driver/msg/BulletInfo` | `initial_speed`, shoot data, projectile allowance, remaining coin | TypeID 7/8 弹丸与资源状态。 |
+| `gimbal_driver/msg/MapCommand` | `header`, `has_target_position`, `target_position_x_m`, `target_position_y_m`, `has_target_robot`, `target_robot_id`, `cmd_keyboard`, `cmd_source` | TypeID 9 / 裁判 `0x0303` 小地图命令输入。 |
 | `gimbal_driver/msg/GimbalRawFrame` | `header`, `direction`, `type_id`, `data`, `firecode_raw`, `sentry_cmd_raw` | 可选 raw 串口诊断 topic。 |
 | `sentry_msgs/msg/AimTargetArray` | `header`, `aim_targets[]` | 外部 aim 可打目标列表；`/ly/aim/armor_targets` 使用 `SensorDataQoS`。 |
 | `sentry_msgs/msg/AimTarget` | `header`, `position`, `id` | 外部 aim 候选目标和 BT 目标选择共用结构；`id` 对齐 `ArmorType`，`position` 为米制 point，`header.frame_id` 非空时才作为 Chase 真值点参与 TF 转换。 |

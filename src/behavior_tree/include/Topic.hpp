@@ -54,6 +54,7 @@
 #include "gimbal_driver/msg/event_data.hpp"
 #include "gimbal_driver/msg/fire_code.hpp"
 #include "gimbal_driver/msg/health.hpp"
+#include "gimbal_driver/msg/map_command.hpp"
 #include "gimbal_driver/msg/rfid_status.hpp"
 #include "gimbal_driver/msg/sentry_cmd.hpp"
 #include "gimbal_driver/msg/sentry_info.hpp"
@@ -90,6 +91,7 @@ namespace BehaviorTree {
     LY_DEF_ROS_TOPIC(ly_gimbal_capV, "/ly/gimbal/capV", std_msgs::msg::UInt8);
     LY_DEF_ROS_TOPIC(ly_game_event_data, "/ly/game/event_data", gimbal_driver::msg::EventData);
     LY_DEF_ROS_TOPIC(ly_game_sentry_info, "/ly/game/sentry/info", gimbal_driver::msg::SentryInfo);
+    LY_DEF_ROS_TOPIC(ly_game_map_command, "/ly/game/map_command", gimbal_driver::msg::MapCommand);
 
     LY_DEF_ROS_TOPIC(ly_friend_is_precaution, "/ly/friend/is_precaution", std_msgs::msg::Bool);
     LY_DEF_ROS_TOPIC(ly_friend_is_at_home, "/ly/friend/is_at_home", std_msgs::msg::Bool);

@@ -1,6 +1,6 @@
 # 裁判系统串口对接清单（给下位机）
 
-Updated: 2026-05-06
+Updated: 2026-06-06
 
 本文只写下位机需要和裁判系统串口对接的项目，以及这些项目如何映射到本仓库上下位机串口。
 
@@ -9,7 +9,7 @@ Updated: 2026-05-06
 ```text
 裁判系统串口
   -> 下位机解析裁判 cmd_id
-  -> 下位机打包 TypeID 7/8 等上发给上位机
+  -> 下位机打包 TypeID 7/8/9 等上发给上位机
   -> gimbal_driver 发布 ROS 语义 topic
   -> behavior_tree 决策
   -> /ly/control/posture（姿态 SentryCmd）或 /ly/control/sentry_cmd（完整哨兵裁判命令）
@@ -26,11 +26,13 @@ Updated: 2026-05-06
 | `0x0208` | `projectile_allowance_t` | TypeID 8 | `/ly/game/bullet` | 17mm、42mm、剩余金币、堡垒储备 17mm |
 | `0x0209` | `rfid_status_t` | TypeID 4/8 | `/ly/game/rfid` | 低 32 bit 仍走 TypeID 4，`rfid_status_2` 走 TypeID 8 |
 | `0x020D` | `sentry_info_t` | TypeID 7 | `/ly/game/sentry/info` | 兑换成功次数、脱战、复活、姿态、能量机关可激活 |
+| `0x0303` | `map_command_t` | TypeID 9 | `/ly/game/map_command` | 云台手/操作手小地图坐标、目标机器人 ID、按键值；重复包由消费端去重 |
 
-TypeID 7/8 的具体 12B 布局见：
+TypeID 7/8/9 的具体 12B 布局见：
 
 - `docs/record/2026-05-06_referee_uplink_typeid7_8.md`
 - `docs/sentry/embedded/serial_data_mapping.md`
+- `docs/sentry/embedded/map_command_typeid9.md`
 
 ## 3. 上位机 -> 下位机：主控制幀
 

@@ -1,6 +1,6 @@
 # ROS2 Topic And Message Tree
 
-Updated: 2026-05-08
+Updated: 2026-06-06
 
 这份文档用 tree 方式整理当前哨兵上位机 ROS2 topic 和消息结构，重点回答两个问题：
 
@@ -93,7 +93,8 @@ Updated: 2026-05-08
 ├── event_data  : gimbal_driver/msg/EventData   [Embedded] 裁判 0x0101 event_data 语义拆字段
 ├── rfid        : gimbal_driver/msg/RfidStatus  [Embedded] 裁判 0x0209 RFID bit 语义
 ├── sentry/info : gimbal_driver/msg/SentryInfo  [Embedded] 裁判 0x020D 哨兵状态
-└── bullet      : gimbal_driver/msg/BulletInfo  [Embedded] 裁判发射/弹量/金币信息
+├── bullet      : gimbal_driver/msg/BulletInfo  [Embedded] 裁判发射/弹量/金币信息
+└── map_command : gimbal_driver/msg/MapCommand  [Embedded] 裁判 0x0303 小地图命令；BT 当前只缓存
 ```
 
 ### `/ly/enemy`, `/ly/team`, `/ly/position`, `/ly/bullet`

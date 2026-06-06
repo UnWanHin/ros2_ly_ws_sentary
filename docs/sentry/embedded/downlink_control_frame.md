@@ -1,6 +1,6 @@
 # 上位机下发协议总览（给下位机）
 
-Updated: 2026-05-11
+Updated: 2026-06-06
 
 ## 1. 目的与范围
 
@@ -12,7 +12,7 @@ Updated: 2026-05-11
 
 当前实现中：
 
-- 上行：`TypedMessage` + `TypeID=0..8`
+- 上行：`TypedMessage` + `TypeID=0..9`
 - 下行：直接写 `GimbalControlData` 原始主幀，不再发送独立下发 `TypeID`
 
 ## 2. 通道说明
@@ -133,6 +133,7 @@ posture = 1/2/3
 5. 上行把下位机实际姿态状态写入 `TypeID=6 ChassisData.Posture`，作为兼容回读。
 6. 上行继续把裁判 `0x020D` 拆到 TypeID=7；其中 `sentry_info_2 bit12-13 posture` 会作为 `/ly/gimbal/posture` 的优先回读来源。
 7. 上行把 `0x0208/0x0209` 拆到 TypeID=8。
+8. 上行把 `0x0303 map_command_t` 拆到 TypeID=9。
 
 ## 7. 固件实现速查
 

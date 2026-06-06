@@ -626,6 +626,7 @@ ros2 topic hz /ly/predictor/target
    - `/ly/enemy/hp` - 敵方血量
    - `/ly/friend/is_at_home` - 是否在家
    - `/ly/friend/ammo_left` - 剩餘彈藥
+   - `/ly/game/map_command` - 裁判 `0x0303` 小地图命令；当前 BT 只缓存，不触发导航
 
 2. **檢測結果**:
    - `/ly/detector/armors` - 裝甲板檢測

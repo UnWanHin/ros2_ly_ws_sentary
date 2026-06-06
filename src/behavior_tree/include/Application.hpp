@@ -236,6 +236,9 @@ private:
     gimbal_driver::msg::BulletInfo bulletInfo{};
     bool hasReceivedBulletInfo_{false};
     std::chrono::steady_clock::time_point lastBulletInfoRxTime_{};
+    gimbal_driver::msg::MapCommand mapCommand{};
+    bool hasReceivedMapCommand_{false};
+    std::chrono::steady_clock::time_point lastMapCommandRxTime_{};
     std::uint32_t extEventData{};
     bool hasReceivedEventData_{false};
     std::uint8_t eventSelfSmallEnergyStatus_{0};

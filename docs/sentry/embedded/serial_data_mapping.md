@@ -1,6 +1,6 @@
 # 串口上下行数据映射总表
 
-Updated: 2026-05-11
+Updated: 2026-06-06
 
 ## 1. 说明
 
@@ -43,7 +43,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData>
 
 - 串口结构体、字节布局、`TypeID` 分配、字段单位或编码方式
 - 新增/删除/重命名 ROS topic、msg 字段、参数开关
-- 裁判协议到本仓库串口字段的映射，例如 `0x0208`、`0x020D`、`0x0301/0x0120`
+- 裁判协议到本仓库串口字段的映射，例如 `0x0208`、`0x020D`、`0x0301/0x0120`、`0x0303`
 - 下位机固件需要遵守的主控制幀、回读幀、状态位、命令位约定
 - 行为树或其它上位机模块对这些 topic/字段的消费方式
 
@@ -217,6 +217,7 @@ TypedMessage<sizeof(GimbalData)>
 | `6` | `ChassisData` | `PubChassisData()` |
 | `7` | `SentryData` | `PubSentryData()` |
 | `8` | `BulletDataAndRfid2` | `PubBulletDataAndRfid2()` |
+| `9` | `MapCommandData` | `PubMapCommandData()` |
 
 ---
 
@@ -650,6 +651,42 @@ TypeID=4 的低 32 位 `rfid_status` 和 TypeID=8 的 `rfid_status_2` 分别维�
 任一侧到达都会用“新的这一半 + 旧的另一半”发布完整 `/ly/game/rfid`。如果 TypeID=8
 先于 TypeID=4 到达，低 32 位暂按默认 0 发布，并标记 `has_rfid_status_2=true`。
 
+## 5.10 `TypeID=9` - `MapCommandData`
+
+结构：
+
+```cpp
+struct MapCommandData {
+    float TargetPositionX;
+    float TargetPositionY;
+    uint8_t CmdKeyboard;
+    uint8_t TargetRobotId;
+    uint16_t CmdSource;
+};
+```
+
+来源：
+
+| 串口字段 | 裁判系统字段 | 发布 topic / ROS 字段 |
+|---|---|---|
+| `TargetPositionX` | `0x0303 map_command_t.target_position_x` offset 0，单位 m | `/ly/game/map_command.target_position_x_m` |
+| `TargetPositionY` | `0x0303 map_command_t.target_position_y` offset 4，单位 m | `/ly/game/map_command.target_position_y_m` |
+| `CmdKeyboard` | `0x0303 map_command_t.cmd_keyboard` offset 8 | `/ly/game/map_command.cmd_keyboard` |
+| `TargetRobotId` | `0x0303 map_command_t.target_robot_id` offset 9 | `/ly/game/map_command.target_robot_id` |
+| `CmdSource` | `0x0303 map_command_t.cmd_source` offset 10 | `/ly/game/map_command.cmd_source` |
+
+ROS 语义：
+
+- `/ly/game/map_command.header.stamp` 是 `gimbal_driver` 收到 TypeID=9 后发布 ROS 消息的时间。
+- `TargetRobotId == 0` 表示坐标模式，`MapCommand.has_target_position=true`。
+- `TargetRobotId != 0` 表示目标机器人模式，`MapCommand.has_target_robot=true`；按裁判协议，此时 `TargetPositionX/Y` 应为 `0`。
+- `CmdSource` 是信息来源 ID，ID 对应关系见通信协议附录。
+- `0x0303` 触发发送后会以 `100ms` 间隔额外重发到共 5 包，并在下一次触发前以 `1Hz` 持续发送最近一次内容。任何会触发导航/行为的消费端必须自行去重。
+
+注意：RM2026 通信协议 V1.3.0 的 `0x0303` 总表写数据段长度为 `15`，但详细 `map_command_t`
+字段合计为 `12B`。本仓库 `TypeID=9` 使用详细结构的 `12B` payload；外层
+`TypedMessage<sizeof(GimbalData)>` 总长度仍为 `15B`。
+
 ---
 
 ## 6. 当前已对接数据汇总
@@ -701,6 +738,7 @@ TypeID=4 的低 32 位 `rfid_status` 和 TypeID=8 的 `rfid_status_2` 分别维�
 | `8` | 发射事件字段 | `BulletDataAndRfid2.BulletType/ShooterNumber/LaunchingFrequency` | `/ly/game/bullet` |
 | `8` | 允许发弹量/金币 | `BulletDataAndRfid2.ProjectileAllowance* / RemainingGoldCoin` | `/ly/game/bullet` |
 | `8` | RFID 扩展字节 | `BulletDataAndRfid2.RfidStatus2` | `/ly/game/rfid` |
+| `9` | 选手端小地图交互数据 | `MapCommandData` | `/ly/game/map_command` |
 
 ---
 
@@ -729,6 +767,7 @@ TypeID=4 的低 32 位 `rfid_status` 和 TypeID=8 的 `rfid_status_2` 分别维�
 | `0x0208 projectile_allowance` | 裁判系统 -> 机器人状态 | 已通过 TypeID=8 进入 `/ly/game/bullet`；旧 `/ly/friend/ammo_left` 仍保留 TypeID=1 来源 |
 | `0x020D sentry_info/sentry_info_2` | 裁判系统 -> 哨兵状态 | 已通过 TypeID=7 进入 `/ly/game/sentry/info`；有效 `posture` 会覆盖 `/ly/gimbal/posture` |
 | `0x0301 + data_cmd_id=0x0120 sentry_cmd` | 机器人 -> 裁判系统命令 | 姿态经 `/ly/control/posture` 写入 `SentryCmd bit21-22`；完整命令也可通过 `/ly/control/sentry_cmd` 进入主控制幀 byte `12~15`；下位机负责封装裁判 `0x0301/0x0120` |
+| `0x0303 map_command_t` | 选手端 -> 机器人状态/指令输入 | 通过 TypeID=9 进入 `/ly/game/map_command`；BT 当前只缓存消息，不触发导航 |
 
 ### 8.1 当前看弹量和兑弹怎么走
 
@@ -889,3 +928,6 @@ out_of_combat = alive && (now - last_combat_time >= 6s)
 - `TypeID=4`：`PubRFIDAndBuffData()`
 - `TypeID=5`：`PubPositionData()`
 - `TypeID=6`：`PubChassisData()`
+- `TypeID=7`：`PubSentryData()`
+- `TypeID=8`：`PubBulletDataAndRfid2()`
+- `TypeID=9`：`PubMapCommandData()`

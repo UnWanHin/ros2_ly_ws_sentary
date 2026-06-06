@@ -93,6 +93,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/FaceModeStatus.msg"
   "msg/GimbalRawFrame.msg"
   "msg/GimbalYaw.msg"
+  "msg/MapCommand.msg"
   "msg/RfidStatus.msg"
   "msg/UWBPos.msg"
   "msg/Vel.msg"

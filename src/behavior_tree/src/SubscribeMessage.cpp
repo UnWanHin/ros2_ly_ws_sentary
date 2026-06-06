@@ -200,6 +200,13 @@ namespace BehaviorTree{
             app.lastSentryInfoRxTime_ = std::chrono::steady_clock::now();
         });
 
+        // ly_game_map_command: cache referee 0x0303 input only; no decision behavior yet.
+        GenSub<ly_game_map_command>([](Application& app, auto msg) {
+            app.mapCommand = *msg;
+            app.hasReceivedMapCommand_ = true;
+            app.lastMapCommandRxTime_ = std::chrono::steady_clock::now();
+        });
+
         // ly_friend_is_team_red
         GenSub<ly_friend_is_team_red>([](Application& app, auto msg) {
             app.team = msg->data ? UnitTeam::Red : UnitTeam::Blue;

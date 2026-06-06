@@ -44,6 +44,7 @@
 #include "gimbal_driver/msg/vel.hpp"
 #include "gimbal_driver/msg/health.hpp"
 #include "gimbal_driver/msg/game_data.hpp"
+#include "gimbal_driver/msg/map_command.hpp"
 #include "gimbal_driver/msg/buff_data.hpp"
 #include "gimbal_driver/msg/bullet_info.hpp"
 #include "gimbal_driver/msg/position_data.hpp"
@@ -108,6 +109,7 @@ namespace
     LY_DEF_ROS_TOPIC(ly_position_data, "/ly/position/data", gimbal_driver::msg::PositionData);
     LY_DEF_ROS_TOPIC(ly_game_sentry_info, "/ly/game/sentry/info", gimbal_driver::msg::SentryInfo);
     LY_DEF_ROS_TOPIC(ly_game_bullet, "/ly/game/bullet", gimbal_driver::msg::BulletInfo);
+    LY_DEF_ROS_TOPIC(ly_game_map_command, "/ly/game/map_command", gimbal_driver::msg::MapCommand);
         
 
     using namespace std::chrono_literals;
@@ -247,6 +249,7 @@ namespace
                 case ChassisData::TypeID: return "ChassisData";
                 case SentryData::TypeID: return "SentryData";
                 case BulletDataAndRfid2::TypeID: return "BulletDataAndRfid2";
+                case MapCommandData::TypeID: return "MapCommandData";
                 default: return "Unknown";
             }
         }
@@ -1210,6 +1213,20 @@ namespace
             PublishRfidStatus(now);
         }
 
+        void PubMapCommandData(const MapCommandData& data) {
+            using topic = ly_game_map_command;
+            topic::Msg msg;
+            msg.header.stamp = Node.GetNode()->now();
+            msg.has_target_position = data.TargetRobotId == 0;
+            msg.target_position_x_m = data.TargetPositionX;
+            msg.target_position_y_m = data.TargetPositionY;
+            msg.has_target_robot = data.TargetRobotId != 0;
+            msg.target_robot_id = data.TargetRobotId;
+            msg.cmd_keyboard = data.CmdKeyboard;
+            msg.cmd_source = data.CmdSource;
+            Node.Publisher<topic>()->publish(msg);
+        }
+
         void LoopRead()
         {
             Device.LoopRead(DeviceError, [this](const TypedMessage<sizeof(GimbalData)>& m)
@@ -1257,6 +1274,11 @@ namespace
                     case BulletDataAndRfid2::TypeID:
                     {
                         PubBulletDataAndRfid2(m.GetDataAs<BulletDataAndRfid2>());
+                        break;
+                    }
+                    case MapCommandData::TypeID:
+                    {
+                        PubMapCommandData(m.GetDataAs<MapCommandData>());
                         break;
                     }
 
