@@ -72,6 +72,7 @@ namespace
     LY_DEF_ROS_TOPIC(ly_control_vel, "/ly/control/vel", gimbal_driver::msg::ControlVelocity);
     LY_DEF_ROS_TOPIC(ly_control_posture, "/ly/control/posture", gimbal_driver::msg::SentryCmd);
     LY_DEF_ROS_TOPIC(ly_control_sentry_cmd, "/ly/control/sentry_cmd", gimbal_driver::msg::SentryCmd);
+    LY_DEF_ROS_TOPIC(ly_navi_vel, "/ly/navi/vel", gimbal_driver::msg::Vel);
 
     LY_DEF_ROS_TOPIC(ly_gimbal_angles, "/ly/gimbal/angles", gimbal_driver::msg::GimbalAngles);
     LY_DEF_ROS_TOPIC(ly_gimbal_firecode, "/ly/gimbal/firecode", gimbal_driver::msg::FireCode);
@@ -129,11 +130,15 @@ namespace
         int postureTxRepeatCount_{3};
         std::chrono::milliseconds postureTxInterval_{20};
         std::chrono::milliseconds firecodePartialHold_{100};
+        std::chrono::milliseconds navigationTestStaleTimeout_{500};
         float velocityRawToMps_{0.025f};
+        bool navigationTestEnable_{false};
+        bool navigationTestVelocityActive_{false};
         std::uint8_t posturePendingToSend_{0};
         std::uint8_t postureLastSent_{0};
         int posturePendingRepeat_{0};
         std::array<std::chrono::steady_clock::time_point, 5> firecodeLastUpdate_{};
+        std::chrono::steady_clock::time_point navigationTestLastVelRxTime_{};
         std::chrono::steady_clock::time_point postureNextSendTime_{
             std::chrono::steady_clock::time_point::min()
         };
@@ -191,6 +196,19 @@ namespace
 
         static std::int8_t ClampInt8(int value) noexcept {
             return static_cast<std::int8_t>(std::clamp(value, -128, 127));
+        }
+
+        static std::int8_t EncodeNavigationTestVelocityRaw(float value) noexcept {
+            if (!std::isfinite(value)) {
+                return 0;
+            }
+            if (value > 127.0f) {
+                return 127;
+            }
+            if (value < -128.0f) {
+                return -128;
+            }
+            return ClampInt8(static_cast<int>(std::lround(value)));
         }
 
         static bool Bit(const std::uint32_t raw, const unsigned shift) noexcept {
@@ -785,6 +803,25 @@ namespace
             });
         }
 
+        void MaybeApplyNavigationTestStaleFallback() {
+            if (!navigationTestEnable_ || !navigationTestVelocityActive_) {
+                return;
+            }
+            const auto now = std::chrono::steady_clock::now();
+            if (navigationTestLastVelRxTime_.time_since_epoch().count() == 0 ||
+                now - navigationTestLastVelRxTime_ <= navigationTestStaleTimeout_) {
+                return;
+            }
+
+            CallbackGenerator.Modify([&](GimbalControlData& g) {
+                g.Velocity.X = 0;
+                g.Velocity.Y = 0;
+            });
+            navigationTestVelocityActive_ = false;
+            roslog::warn("navigation_test: /ly/navi/vel stale for >%d ms, publish zero velocity",
+                         static_cast<int>(navigationTestStaleTimeout_.count()));
+        }
+
         template<typename TTopic>
         void GenSub(auto modifier)
         {
@@ -871,6 +908,16 @@ namespace
                                        g.Velocity.X = EncodeVelocityRaw(m.x_mps);
                                        g.Velocity.Y = EncodeVelocityRaw(m.y_mps);
                                    });
+
+            if (navigationTestEnable_) {
+                GenSub<ly_navi_vel>([this](GimbalControlData& g, const gimbal_driver::msg::Vel& m)
+                                    {
+                                        g.Velocity.X = EncodeNavigationTestVelocityRaw(m.x);
+                                        g.Velocity.Y = EncodeNavigationTestVelocityRaw(m.y);
+                                        navigationTestLastVelRxTime_ = std::chrono::steady_clock::now();
+                                        navigationTestVelocityActive_ = true;
+                                    });
+            }
 
             GenSub<ly_control_posture>([this](GimbalControlData& g, const gimbal_driver::msg::SentryCmd& m)
                                        {
@@ -1326,7 +1373,6 @@ namespace
         {
             Node.Initialize(argc, argv);
             Node.Publisher<ly_gimbal_big_yaw_angles>();
-            GenSubs();
             auto node = Node.GetNode();
             rclcpp::Rate rate(250);
             bool useVirtualDevice = false;
@@ -1345,7 +1391,9 @@ namespace
             int postureRepeatCount = postureTxRepeatCount_;
             int postureRepeatIntervalMs = static_cast<int>(postureTxInterval_.count());
             int firecodePartialHoldMs = static_cast<int>(firecodePartialHold_.count());
+            int navigationTestStaleTimeoutMs = static_cast<int>(navigationTestStaleTimeout_.count());
             double velocityRawToMps = velocityRawToMps_;
+            bool navigationTestEnable = navigationTestEnable_;
             bool rawSerialLogEnable = rawSerialLogEnable_;
             bool rawSerialLogUplink = rawSerialLogUplink_;
             bool rawSerialLogDownlink = rawSerialLogDownlink_;
@@ -1377,6 +1425,16 @@ namespace
                 "io_config.velocity_raw_to_mps",
                 velocityRawToMps,
                 velocityRawToMps);
+            getParamCompat(
+                "io_config/navigation_test",
+                "io_config.navigation_test",
+                navigationTestEnable,
+                navigationTestEnable);
+            getParamCompat(
+                "io_config/navigation_test_stale_timeout_ms",
+                "io_config.navigation_test_stale_timeout_ms",
+                navigationTestStaleTimeoutMs,
+                navigationTestStaleTimeoutMs);
             getParamCompat(
                 "io_config/raw_serial_log_enable",
                 "io_config.raw_serial_log_enable",
@@ -1450,11 +1508,19 @@ namespace
                 roslog::warn("Invalid velocity_raw_to_mps=%f, fallback to 0.025", velocityRawToMps);
                 velocityRawToMps = 0.025;
             }
+            if (navigationTestStaleTimeoutMs <= 0) {
+                roslog::warn(
+                    "Invalid navigation_test_stale_timeout_ms=%d, fallback to 500",
+                    navigationTestStaleTimeoutMs);
+                navigationTestStaleTimeoutMs = 500;
+            }
 
             postureTxRepeatCount_ = postureRepeatCount;
             postureTxInterval_ = std::chrono::milliseconds(postureRepeatIntervalMs);
             firecodePartialHold_ = std::chrono::milliseconds(firecodePartialHoldMs);
+            navigationTestStaleTimeout_ = std::chrono::milliseconds(navigationTestStaleTimeoutMs);
             velocityRawToMps_ = static_cast<float>(velocityRawToMps);
+            navigationTestEnable_ = navigationTestEnable;
             ConfigureRawSerialLog(
                 rawSerialLogEnable,
                 rawSerialLogUplink,
@@ -1468,12 +1534,18 @@ namespace
                 rawSerialTopicUplink,
                 rawSerialTopicDownlink,
                 rawSerialTopicTypeIds);
+            GenSubs();
             roslog::warn("posture_tx merged mode: repeat_count=%d repeat_interval_ms=%d",
                          postureTxRepeatCount_,
                          static_cast<int>(postureTxInterval_.count()));
             roslog::warn("semantic control: firecode_partial_hold_ms=%d velocity_raw_to_mps=%.4f",
                          static_cast<int>(firecodePartialHold_.count()),
                          static_cast<double>(velocityRawToMps_));
+            if (navigationTestEnable_) {
+                roslog::warn(
+                    "navigation_test enabled: /ly/navi/vel writes lower velocity directly; stale_timeout_ms=%d",
+                    static_cast<int>(navigationTestStaleTimeout_.count()));
+            }
             roslog::warn("gimbal raw serial log: enable=%s uplink=%s downlink=%s screen=%s dir=%s type_ids=%s",
                          rawSerialLogEnable_ ? "true" : "false",
                          rawSerialLogUplink_ ? "true" : "false",
@@ -1495,6 +1567,8 @@ namespace
                 DeviceError = false;
                 posturePendingRepeat_ = 0;
                 postureLastSent_ = 0;
+                navigationTestVelocityActive_ = false;
+                navigationTestLastVelRxTime_ = {};
                 controlShadow_.SentryCmd.Posture = IsValidPosture(postureCommand_) ? postureCommand_ : 0;
                 if (IsValidPosture(postureCommand_)) {
                     ArmPostureTx(postureCommand_);
@@ -1503,6 +1577,7 @@ namespace
                 while (!DeviceError) {
                     rclcpp::spin_some(node);
                     MaybeApplyFireCodeStaleFallback();
+                    MaybeApplyNavigationTestStaleFallback();
                     MaybeSendPostureTx();
                     rate.sleep();
                 }

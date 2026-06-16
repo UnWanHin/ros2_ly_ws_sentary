@@ -201,6 +201,8 @@
       posture_repeat_interval_ms: 20
       firecode_partial_hold_ms: 100
       velocity_raw_to_mps: 0.025
+      navigation_test: false
+      navigation_test_stale_timeout_ms: 500
       raw_serial_log_enable: false
       raw_serial_log_uplink: true
       raw_serial_log_downlink: true
@@ -220,6 +222,8 @@
     "io_config/posture_repeat_interval_ms": 20
     "io_config/firecode_partial_hold_ms": 100
     "io_config/velocity_raw_to_mps": 0.025
+    "io_config/navigation_test": false
+    "io_config/navigation_test_stale_timeout_ms": 500
     "io_config/raw_serial_log_enable": false
     "io_config/raw_serial_log_uplink": true
     "io_config/raw_serial_log_downlink": true

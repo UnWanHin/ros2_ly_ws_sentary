@@ -1,6 +1,6 @@
 # ROS2 Topic Structure
 
-Updated: 2026-06-06
+Updated: 2026-06-16
 
 本文记录当前哨兵上位机 ROS2 topic 结构，按接口边界分为：
 
@@ -141,7 +141,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/navi/should_rotate` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree` | 区域兼容旋转控制；true=恢复 BT 正常小陀螺/巡逻，false=关闭小陀螺并请求 `FollowMode`。 |
 | `/ly/navi/speed_level` | `std_msgs/msg/UInt8` | `behavior_tree` -> navigation/兼容 | 导航速度档位。 |
 | `/ly/navi/lower_head` | `std_msgs/msg/UInt8` | navigation/兼容 -> `behavior_tree` | 低头/通过特定路径时的兼容状态。 |
-| `/ly/navi/vel` | `gimbal_driver/msg/Vel` | 兼容/调试 | 当前 BT 代码保留 publisher，但主控制速度走 `/ly/control/vel`。 |
+| `/ly/navi/vel` | `gimbal_driver/msg/Vel` | 导航/兼容/调试 | 正式链路由 BT 接收后转 `/ly/control/vel`；`gimbal_driver` 在 `io_config/navigation_test=true` 时可直接订阅，用于单独导航速度下发调试。 |
 
 追击多源退化顺序：`Chase.ToNavi=true` 时，BT 优先使用 `/ly/aim/armor_targets` 里当前选中目标的 point 发布 `/ly/navi/target_rel`，消息携带来源 frame（默认 `gimbal_world`），由 `navi_tf_bridge` 转成 `/goal_pose`。bridge 也会直接订阅 `/ly/aim/armor_targets`，把 array 中每个有效 target point 反算成 `/ly/navi/target_official`；BT 仅在对应敌方没有新鲜非零 `/ly/position/data` 时把它写回 `enemyRobots` 和 `/ly/enemy/info`。`Chase.AreaLimit` 来自 BT JSON：`/ly/aim/armor_targets` 追击路径由 `navi_tf_bridge` 限制 `/goal_pose`，全量 `/ly/navi/target_official` 只作为敌方位置 fallback，不直接发布导航目标；官方坐标 fallback 追击路径由 BT 在发布 `/ly/navi/goal_pos_raw` 前限制目标点。`ChaseEnableCrossArea=false` 时限制在自身当前大区域边界内侧；`true` 时可追到 `DecisionAutonomy.NaviGoal` 已开启的大区域，未开启区域仍不允许。该限制不关闭云台跟踪/开火。只有 `/ly/aim/armor_targets` 追击点不可用时，才退化到 `/ly/position/data` 官方坐标源。两条追击链路不会在同一 tick 同时作为有效导航目标发布。
 

@@ -11,7 +11,8 @@ gimbal_driver 独立启动入口。
 - 单独调试串口收发和 /ly/control/* -> /ly/gimbal/* 转发行为。
 
 关键参数：
-- config_file：共享参数 YAML（可提供串口设备名、波特率等）。
+- base_config_file：共享基础参数 YAML（可提供串口设备名、波特率等）。
+- config_file：可选 overlay YAML，用于覆盖少量调试参数。
 - use_virtual_device：是否使用虚拟设备（离车调试建议 true）。
 """
 from launch import LaunchDescription
@@ -25,9 +26,10 @@ import os
 
 def generate_launch_description():
     behavior_tree_share = get_package_share_directory("behavior_tree")
-    default_config_file = os.path.join(behavior_tree_share, "config", "base_config.yaml")
+    default_base_config_file = os.path.join(behavior_tree_share, "config", "base_config.yaml")
 
     def build_node(context):
+        base_config_file_value = LaunchConfiguration("base_config_file").perform(context).strip()
         config_file_value = LaunchConfiguration("config_file").perform(context).strip()
         output_value = LaunchConfiguration("output")
         use_virtual_device_value = LaunchConfiguration("use_virtual_device")
@@ -43,8 +45,14 @@ def generate_launch_description():
         raw_topic_downlink = LaunchConfiguration("raw_topic_downlink")
         raw_topic_type_ids = LaunchConfiguration("raw_topic_type_ids")
 
-        parameters = [{
+        parameters = []
+        if base_config_file_value:
+            parameters.append(base_config_file_value)
+        if config_file_value:
+            parameters.append(config_file_value)
+        parameters.append({
             "io_config/use_virtual_device": use_virtual_device_value,
+            "io_config.use_virtual_device": use_virtual_device_value,
             "io_config/raw_serial_log_enable": ParameterValue(raw_log_enable, value_type=bool),
             "io_config.raw_serial_log_enable": ParameterValue(raw_log_enable, value_type=bool),
             "io_config/raw_serial_log_uplink": ParameterValue(raw_log_uplink, value_type=bool),
@@ -67,9 +75,7 @@ def generate_launch_description():
             "io_config.raw_serial_topic_downlink": ParameterValue(raw_topic_downlink, value_type=bool),
             "io_config/raw_serial_topic_type_ids": ParameterValue(raw_topic_type_ids, value_type=str),
             "io_config.raw_serial_topic_type_ids": ParameterValue(raw_topic_type_ids, value_type=str),
-        }]
-        if config_file_value:
-            parameters.insert(0, config_file_value)
+        })
 
         return [
             Node(
@@ -86,9 +92,14 @@ def generate_launch_description():
 
     return LaunchDescription([
         DeclareLaunchArgument(
+            "base_config_file",
+            default_value=default_base_config_file,
+            description="Base YAML config file for gimbal_driver.",
+        ),
+        DeclareLaunchArgument(
             "config_file",
-            default_value=default_config_file,
-            description="YAML config file for gimbal_driver. Defaults to shared base_config.yaml.",
+            default_value="",
+            description="Optional overlay YAML config file for gimbal_driver.",
         ),
         DeclareLaunchArgument(
             "output",

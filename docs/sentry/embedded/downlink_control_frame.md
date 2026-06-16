@@ -1,6 +1,6 @@
 # 上位机下发协议总览（给下位机）
 
-Updated: 2026-06-06
+Updated: 2026-06-16
 
 ## 1. 目的与范围
 
@@ -25,6 +25,7 @@ Updated: 2026-06-06
   - `/ly/control/firecode`
   - `/ly/control/posture`，BT 姿态切换主入口，消息类型也是 `SentryCmd`，只使用 `FIELD_POSTURE`
   - `/ly/control/sentry_cmd`，完整哨兵裁判命令入口，供复活、兑弹、能量机关确认等字段使用
+  - `/ly/navi/vel`，仅 `io_config/navigation_test=true` 时由 `gimbal_driver` 直接订阅，用于导航单测速度直通
 
 ## 3. 主控制幀
 
@@ -55,6 +56,7 @@ Updated: 2026-06-06
 |---|---|---|---|
 | `/ly/control/angles` | `GimbalAngles` | `GimbalAngles.Yaw/Pitch` | 直接写 float |
 | `/ly/control/vel` | `ControlVelocity` | `Velocity.X/Y` | `use_raw=true` 时直接写 `raw_x/raw_y` |
+| `/ly/navi/vel` | `Vel` | `Velocity.X/Y` | 仅 `navigation_test=true` 单测直通；`x/y` 按 raw 速度 round+clamp 到 `int8` |
 | `/ly/control/firecode` | `FireCode` | `FireCode` | 支持 `field_mask` 局部更新 |
 | `/ly/control/posture` | `SentryCmd` | `SentryCmd.Posture` | 姿态切换主入口，只使用 `FIELD_POSTURE`，只改 `bit21-22` |
 | `/ly/control/sentry_cmd` | `SentryCmd` | `SentryCmd` | 支持 `field_mask` 局部更新，给非姿态裁判命令使用 |
