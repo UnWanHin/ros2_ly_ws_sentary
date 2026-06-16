@@ -2,6 +2,7 @@ import json
 
 from simulator.control_bus import normalize_api_control_payload
 from simulator.field import FieldGeometry, relative_side_to_field_side
+from simulator.inputs_panel import compact_decision_summary
 from simulator.interactive_inputs import SimulatorInputState, load_unit_scene_file, unit_decision_summary
 
 
@@ -129,6 +130,12 @@ def test_unit_decision_summary_separates_published_and_bt_consumed_channels() ->
     assert unit_decision_summary("friend", 7) == "BT:HP,POS,UI"
     assert unit_decision_summary("enemy", 5) == "PUB:HP,POS noUI"
     assert unit_decision_summary("enemy", 6) == "PUB:POS noUI"
+
+
+def test_input_panel_compact_decision_summary_shortens_badges_for_dense_ui() -> None:
+    assert compact_decision_summary("enemy", 1) == "BT HP/POS/UI"
+    assert compact_decision_summary("enemy", 5) == "PUB HP/POS"
+    assert compact_decision_summary("enemy", 6) == "PUB POS"
 
 
 def test_control_bus_accepts_simulator_input_commands() -> None:

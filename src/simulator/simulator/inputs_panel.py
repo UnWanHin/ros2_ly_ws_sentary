@@ -7,6 +7,19 @@ from .interactive_inputs import unit_decision_summary
 from .trace import as_dict
 
 
+def compact_decision_summary(side: str, type_id: int) -> str:
+    summary = unit_decision_summary(side, type_id)
+    replacements = {
+        "BT:HP,POS,UI": "BT HP/POS/UI",
+        "PUB:HP,POS noUI": "PUB HP/POS",
+        "PUB:POS noUI": "PUB POS",
+        "noUI": "no UI",
+    }
+    for source, target in replacements.items():
+        summary = summary.replace(source, target)
+    return summary
+
+
 class InputsPanel:
     def __init__(self, viewer: Any) -> None:
         self.viewer = viewer
@@ -117,9 +130,9 @@ class InputsPanel:
         viewer.draw_text("Drag Unit Pieces", x, y, viewer.font, viewer.palette["accent"], max_width)
         y += 24
         gap = 6
-        columns = 2
+        columns = 3 if max_width >= 330 else 2
         chip_w = (max_width - gap * (columns - 1)) // columns
-        chip_h = 34
+        chip_h = 38
         for index, item in enumerate(state.unit_palette):
             row = index // columns
             col = index % columns
@@ -127,7 +140,7 @@ class InputsPanel:
             self.unit_palette_buttons[index] = rect
             self.draw_unit_chip(rect, item)
         rows = math.ceil(len(state.unit_palette) / columns)
-        y += rows * (chip_h + gap)
+        y += rows * chip_h + max(0, rows - 1) * gap
         y += 6
         if y < panel.bottom - 36:
             pg.draw.line(viewer.screen, viewer.palette["line"], (x, y), (x + max_width, y), 1)
@@ -161,7 +174,7 @@ class InputsPanel:
                 viewer.draw_text("...", x, y, viewer.small_font, viewer.palette["muted"], max_width)
                 break
             pos = f"{unit.x},{unit.y}"
-            channels = unit_decision_summary(unit.side, unit.type_id)
+            channels = compact_decision_summary(unit.side, unit.type_id)
             text = f"{unit.side[:1].upper()} {unit.type_name} {unit.hp}/{unit.max_hp} @{pos} {channels}"
             icon_center = (x + 15, y + 14)
             field_side = viewer.unit_field_side(unit.side)
@@ -205,9 +218,16 @@ class InputsPanel:
             self.draw_unit_dot(icon_center, side)
         label = f"{side[:1].upper()} {item.type_name}"
         text_x = rect.x + 35
-        self.draw_fitted_text(label, text_x, rect.y + 5, max(8, rect.right - text_x - 6), viewer.palette["text"])
-        hp_text = f"{item.hp}/{item.max_hp} {unit_decision_summary(item.side, item.type_id)}"
-        self.draw_fitted_text(hp_text, text_x, rect.y + 18, max(8, rect.right - text_x - 6), viewer.palette["muted"])
+        self.draw_fitted_text(label, text_x, rect.y + 4, max(8, rect.right - text_x - 6), viewer.palette["text"])
+        hp_text = f"{item.hp}/{item.max_hp}"
+        self.draw_fitted_text(hp_text, text_x, rect.y + 17, max(8, rect.right - text_x - 6), viewer.palette["muted"])
+        self.draw_fitted_text(
+            compact_decision_summary(item.side, item.type_id),
+            text_x,
+            rect.y + 28,
+            max(8, rect.right - text_x - 6),
+            viewer.palette["muted"],
+        )
 
     def draw_unit_dot(self, center: tuple[int, int], side: str) -> None:
         viewer = self.viewer

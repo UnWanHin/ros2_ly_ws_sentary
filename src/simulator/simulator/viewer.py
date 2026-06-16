@@ -1485,20 +1485,9 @@ class Viewer:
         pg.draw.line(self.screen, self.palette["line"], rect.topleft, rect.bottomleft, 1)
         record = self.records[self.current_index]
         x = rect.x + 18
-        y = rect.y + 18
-        y = self.draw_text("Simulator", x, y, self.title_font, self.palette["text"], rect.width - 36)
-        y += 6
-        state = "PLAY" if self.playing else "PAUSE"
-        y = self.draw_text(
-            f"{state} {self.current_index + 1}/{len(self.records)} t={record.t:.2f}s x{self.playback_speed:.2g}",
-            x,
-            y,
-            self.mono_font,
-            self.palette["muted"],
-            rect.width - 36,
-        )
+        y = self.draw_panel_header(x, rect.y + 14, rect.width - 36, record)
         y = self.draw_target_preview(x, y + 8, rect.width - 36, record)
-        y = self.draw_match_controls(x, y + 6, rect.width - 36, record)
+        y = self.draw_match_controls(x, y + 3, rect.width - 36, record)
         y = self.draw_panel_tabs(x, y, rect.width - 36)
         if self.bad_lines:
             y = self.draw_text(f"Skipped bad lines: {self.bad_lines}", x, y, self.small_font, self.palette["enemy"], rect.width - 36)
@@ -1517,6 +1506,26 @@ class Viewer:
         self.panel_scroll.set_content_height(self.panel_tab, content_height)
         self.clamp_panel_scroll()
         self.draw_panel_scrollbar(body_rect)
+
+    def draw_panel_header(self, x: int, y: int, max_width: int, record: TraceRecord) -> int:
+        title = self.title_font.render("LY Simulator", True, self.palette["text"])
+        self.screen.blit(title, (x, y))
+        mode = "LIVE" if self.follow else "TRACE"
+        state = "PLAY" if self.playing else "PAUSE"
+        summary = f"{mode} {state} {self.current_index + 1}/{len(self.records)} x{self.playback_speed:.2g}"
+        pill_w = min(max_width - title.get_width() - 10, max(120, self.small_font.size(summary)[0] + 18))
+        if pill_w > 80:
+            rect = self.pg.Rect(x + max_width - pill_w, y + 2, pill_w, 24)
+            fill = self.palette["panel2"]
+            border = self.palette["accent"] if self.follow else self.palette["line"]
+            self.pg.draw.rect(self.screen, fill, rect, border_radius=6)
+            self.pg.draw.rect(self.screen, border, rect, 1, border_radius=6)
+            label = self.fit_word(summary, self.small_font, max(8, pill_w - 12))
+            text = self.small_font.render(label, True, self.palette["text"])
+            self.screen.blit(text, text.get_rect(center=rect.center))
+        y += max(title.get_height(), 24) + 4
+        timeline = f"tick={record.tick} t={record.t:.2f}s event={record.event}"
+        return self.draw_text(timeline, x, y, self.small_font, self.palette["muted"], max_width)
 
     def draw_panel_body(self, x: int, y: int, max_width: int, panel: Any, record: TraceRecord) -> int:
         if self.panel_tab == "events":
@@ -1640,18 +1649,18 @@ class Viewer:
             return y
 
         pg = self.pg
-        rect = pg.Rect(x, y, max_width, 54)
+        rect = pg.Rect(x, y, max_width, 48)
         pg.draw.rect(self.screen, self.palette["panel2"], rect, border_radius=5)
         pg.draw.rect(self.screen, self.palette["line"], rect, 1, border_radius=5)
 
-        icon_center = (rect.x + 29, rect.centery)
-        pg.draw.circle(self.screen, self.palette["black"], icon_center, 23)
-        pg.draw.circle(self.screen, self.palette["accent"], icon_center, 21, 1)
+        icon_center = (rect.x + 25, rect.centery)
+        pg.draw.circle(self.screen, self.palette["black"], icon_center, 20)
+        pg.draw.circle(self.screen, self.palette["accent"], icon_center, 18, 1)
         self.screen.blit(sprite, sprite.get_rect(center=icon_center))
 
-        text_x = x + 62
-        top = self.draw_text(record.target, text_x, y + 8, self.small_font, self.palette["text"], max_width - 70)
-        self.draw_text(record.target_state.fresh_text(), text_x, top, self.small_font, self.palette["muted"], max_width - 70)
+        text_x = x + 54
+        top = self.draw_text(record.target, text_x, y + 6, self.small_font, self.palette["text"], max_width - 62)
+        self.draw_text(record.target_state.fresh_text(), text_x, top, self.small_font, self.palette["muted"], max_width - 62)
         return rect.bottom + 6
 
     def condition_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
@@ -1844,9 +1853,6 @@ class Viewer:
 
     def draw_match_controls(self, x: int, y: int, max_width: int, record: TraceRecord) -> int:
         pg = self.pg
-        y += 3
-        self.draw_text("Match Clock", x, y, self.font, self.palette["accent"], max_width)
-        y += 24
         controls_available = bool(self.match_control_enabled and self.control_path is not None and self.follow)
         if controls_available:
             remaining = max(0, min(self.match_duration_sec, int(math.ceil(self.match_time_left_sec))))
@@ -1855,7 +1861,7 @@ class Viewer:
             remaining = record.time_left if record.time_left > 0 else self.match_duration_sec
             remaining = max(0, min(self.match_duration_sec, int(remaining)))
             state = "TRACE"
-        summary = f"{state} {self.format_mmss(remaining)} / {self.format_mmss(self.match_duration_sec)}"
+        summary = f"Match {state} {self.format_mmss(remaining)} / {self.format_mmss(self.match_duration_sec)}"
         y = self.draw_text(summary, x, y, self.mono_font, self.palette["text"], max_width)
         if self.scripted_enabled:
             mode = "loop" if self.scripted_loop else "once"
@@ -1864,7 +1870,7 @@ class Viewer:
 
         self.control_buttons = {}
         if controls_available:
-            y += 8
+            y += 5
             gap = 6
             labels = [
                 ("start", "Start"),
@@ -1881,15 +1887,16 @@ class Viewer:
                 rect = pg.Rect(bx, y, button_w, button_h)
                 self.control_buttons[command] = rect
                 self.draw_control_button(rect, label)
-            y += button_h + 6
-            y = self.draw_text(self.last_control_status, x, y, self.small_font, self.palette["muted"], max_width)
+            y += button_h + 4
+            if self.last_control_status != "idle":
+                y = self.draw_text(self.last_control_status, x, y, self.small_font, self.palette["muted"], max_width)
         else:
-            y += 5
+            y += 2
             y = self.draw_text("controls: disabled", x, y, self.small_font, self.palette["muted"], max_width)
 
-        y += 8
+        y += 6
         pg.draw.line(self.screen, self.palette["line"], (x, y), (x + max_width, y), 1)
-        return y + 8
+        return y + 7
 
     def draw_map_tag_controls(self, x: int, y: int, max_width: int) -> int:
         pg = self.pg
@@ -1979,9 +1986,11 @@ class Viewer:
 
     def draw_control_button(self, rect: Any, label: str) -> None:
         pg = self.pg
+        hovered = rect.collidepoint(pg.mouse.get_pos())
         pg.draw.rect(self.screen, self.palette["panel2"], rect, border_radius=5)
-        pg.draw.rect(self.screen, self.palette["line"], rect, 1, border_radius=5)
-        txt = self.small_font.render(label, True, self.palette["text"])
+        border = self.palette["accent"] if hovered else self.palette["line"]
+        pg.draw.rect(self.screen, border, rect, 1, border_radius=5)
+        txt = self.small_font.render(label, True, self.palette["white"] if hovered else self.palette["text"])
         self.screen.blit(txt, txt.get_rect(center=rect.center))
 
     def draw_section(self, x: int, y: int, title: str, rows: list[tuple[str, str]], max_width: int) -> int:
@@ -1989,10 +1998,11 @@ class Viewer:
         y += 3
         self.draw_text(title, x, y, self.font, self.palette["accent"], max_width)
         y += 24
+        key_w = min(90, max(72, max_width // 4))
         for key, value in rows:
             key_surface = self.small_font.render(key, True, self.palette["muted"])
             self.screen.blit(key_surface, (x, y + 2))
-            y = self.draw_text(value, x + 96, y, self.small_font, self.palette["text"], max_width - 96)
+            y = self.draw_text(value, x + key_w, y, self.small_font, self.palette["text"], max_width - key_w)
             y += 2
         y += 8
         pg.draw.line(self.screen, self.palette["line"], (x, y), (x + max_width, y), 1)
