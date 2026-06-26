@@ -1,0 +1,3724 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "name": "ros2_ly_ws_sentry",
+    "languages": [
+      "c",
+      "cpp",
+      "json",
+      "markdown",
+      "python",
+      "ros_msg",
+      "shell",
+      "text",
+      "xml",
+      "yaml"
+    ],
+    "frameworks": [
+      "ROS2 Humble",
+      "colcon",
+      "rclcpp",
+      "rclpy",
+      "BehaviorTree.CPP",
+      "pygame simulator"
+    ],
+    "description": "ROS2 Humble sentry workspace. Current formal runtime is decision-only: external sentry.aim/sentry_tf provide vision/TF and aim/fire gate; this repo owns BT decision, navigation/FaceMode bridge, gimbal_driver serial downlink, legacy debug auto-aim, and offline simulator.",
+    "analyzedAt": "2026-06-26T07:26:03+00:00",
+    "gitCommitHash": "36a7c6613d7d182c42e761f9226e8120846666d7",
+    "outputLanguage": "zh"
+  },
+  "nodes": [
+    {
+      "id": "module:auto_aim_common",
+      "type": "module",
+      "name": "auto_aim_common",
+      "summary": "ROS2 package `auto_aim_common` in this colcon sentry workspace.",
+      "tags": [
+        "ros2",
+        "package"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/auto_aim_common"
+    },
+    {
+      "id": "file:src/auto_aim_common/package.xml",
+      "type": "file",
+      "name": "auto_aim_common/package.xml",
+      "summary": "Manifest for ROS2 package `auto_aim_common`.",
+      "tags": [
+        "manifest",
+        "ros2"
+      ],
+      "complexity": "simple",
+      "filePath": "src/auto_aim_common/package.xml"
+    },
+    {
+      "id": "module:behavior_tree",
+      "type": "module",
+      "name": "behavior_tree",
+      "summary": "ROS2 package `behavior_tree` in this colcon sentry workspace.",
+      "tags": [
+        "ros2",
+        "package"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/behavior_tree"
+    },
+    {
+      "id": "file:src/behavior_tree/package.xml",
+      "type": "file",
+      "name": "behavior_tree/package.xml",
+      "summary": "Manifest for ROS2 package `behavior_tree`.",
+      "tags": [
+        "manifest",
+        "ros2"
+      ],
+      "complexity": "simple",
+      "filePath": "src/behavior_tree/package.xml"
+    },
+    {
+      "id": "module:buff_hitter",
+      "type": "module",
+      "name": "buff_hitter",
+      "summary": "ROS2 package `buff_hitter` in this colcon sentry workspace.",
+      "tags": [
+        "ros2",
+        "package"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/buff_hitter"
+    },
+    {
+      "id": "file:src/buff_hitter/package.xml",
+      "type": "file",
+      "name": "buff_hitter/package.xml",
+      "summary": "Manifest for ROS2 package `buff_hitter`.",
+      "tags": [
+        "manifest",
+        "ros2"
+      ],
+      "complexity": "simple",
+      "filePath": "src/buff_hitter/package.xml"
+    },
+    {
+      "id": "module:buff_shooting_table_calib",
+      "type": "module",
+      "name": "buff_shooting_table_calib",
+      "summary": "ROS2 package `buff_shooting_table_calib` in this colcon sentry workspace.",
+      "tags": [
+        "ros2",
+        "package"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/buff_shooting_table_calib"
+    },
+    {
+      "id": "file:src/buff_shooting_table_calib/package.xml",
+      "type": "file",
+      "name": "buff_shooting_table_calib/package.xml",
+      "summary": "Manifest for ROS2 package `buff_shooting_table_calib`.",
+      "tags": [
+        "manifest",
+        "ros2"
+      ],
+      "complexity": "simple",
+      "filePath": "src/buff_shooting_table_calib/package.xml"
+    },
+    {
+      "id": "module:detector",
+      "type": "module",
+      "name": "detector",
+      "summary": "ROS2 package `detector` in this colcon sentry workspace.",
+      "tags": [
+        "ros2",
+        "package"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/detector"
+    },
+    {
+      "id": "file:src/detector/package.xml",
+      "type": "file",
+      "name": "detector/package.xml",
+      "summary": "Manifest for ROS2 package `detector`.",
+      "tags": [
+        "manifest",
+        "ros2"
+      ],
+      "complexity": "simple",
+      "filePath": "src/detector/package.xml"
+    },
+    {
+      "id": "module:gimbal_driver",
+      "type": "module",
+      "name": "gimbal_driver",
+      "summary": "ROS2 package `gimbal_driver` in this colcon sentry workspace.",
+      "tags": [
+        "ros2",
+        "package"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/gimbal_driver"
+    },
+    {
+      "id": "file:src/gimbal_driver/package.xml",
+      "type": "file",
+      "name": "gimbal_driver/package.xml",
+      "summary": "Manifest for ROS2 package `gimbal_driver`.",
+      "tags": [
+        "manifest",
+        "ros2"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/package.xml"
+    },
+    {
+      "id": "module:navi_tf_bridge",
+      "type": "module",
+      "name": "navi_tf_bridge",
+      "summary": "ROS2 package `navi_tf_bridge` in this colcon sentry workspace.",
+      "tags": [
+        "ros2",
+        "package"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/navi_tf_bridge"
+    },
+    {
+      "id": "file:src/navi_tf_bridge/package.xml",
+      "type": "file",
+      "name": "navi_tf_bridge/package.xml",
+      "summary": "Manifest for ROS2 package `navi_tf_bridge`.",
+      "tags": [
+        "manifest",
+        "ros2"
+      ],
+      "complexity": "simple",
+      "filePath": "src/navi_tf_bridge/package.xml"
+    },
+    {
+      "id": "module:outpost_hitter",
+      "type": "module",
+      "name": "outpost_hitter",
+      "summary": "ROS2 package `outpost_hitter` in this colcon sentry workspace.",
+      "tags": [
+        "ros2",
+        "package"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/outpost_hitter"
+    },
+    {
+      "id": "file:src/outpost_hitter/package.xml",
+      "type": "file",
+      "name": "outpost_hitter/package.xml",
+      "summary": "Manifest for ROS2 package `outpost_hitter`.",
+      "tags": [
+        "manifest",
+        "ros2"
+      ],
+      "complexity": "simple",
+      "filePath": "src/outpost_hitter/package.xml"
+    },
+    {
+      "id": "module:predictor",
+      "type": "module",
+      "name": "predictor",
+      "summary": "ROS2 package `predictor` in this colcon sentry workspace.",
+      "tags": [
+        "ros2",
+        "package"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/predictor"
+    },
+    {
+      "id": "file:src/predictor/package.xml",
+      "type": "file",
+      "name": "predictor/package.xml",
+      "summary": "Manifest for ROS2 package `predictor`.",
+      "tags": [
+        "manifest",
+        "ros2"
+      ],
+      "complexity": "simple",
+      "filePath": "src/predictor/package.xml"
+    },
+    {
+      "id": "module:shooting_table_calib",
+      "type": "module",
+      "name": "shooting_table_calib",
+      "summary": "ROS2 package `shooting_table_calib` in this colcon sentry workspace.",
+      "tags": [
+        "ros2",
+        "package"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/shooting_table_calib"
+    },
+    {
+      "id": "file:src/shooting_table_calib/package.xml",
+      "type": "file",
+      "name": "shooting_table_calib/package.xml",
+      "summary": "Manifest for ROS2 package `shooting_table_calib`.",
+      "tags": [
+        "manifest",
+        "ros2"
+      ],
+      "complexity": "simple",
+      "filePath": "src/shooting_table_calib/package.xml"
+    },
+    {
+      "id": "module:simulator",
+      "type": "module",
+      "name": "simulator",
+      "summary": "ROS2 package `simulator` in this colcon sentry workspace.",
+      "tags": [
+        "ros2",
+        "package"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/simulator"
+    },
+    {
+      "id": "file:src/simulator/package.xml",
+      "type": "file",
+      "name": "simulator/package.xml",
+      "summary": "Manifest for ROS2 package `simulator`.",
+      "tags": [
+        "manifest",
+        "ros2"
+      ],
+      "complexity": "simple",
+      "filePath": "src/simulator/package.xml"
+    },
+    {
+      "id": "module:tf_tree",
+      "type": "module",
+      "name": "tf_tree",
+      "summary": "ROS2 package `tf_tree` in this colcon sentry workspace.",
+      "tags": [
+        "ros2",
+        "package"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/tf_tree"
+    },
+    {
+      "id": "file:src/tf_tree/package.xml",
+      "type": "file",
+      "name": "tf_tree/package.xml",
+      "summary": "Manifest for ROS2 package `tf_tree`.",
+      "tags": [
+        "manifest",
+        "ros2"
+      ],
+      "complexity": "simple",
+      "filePath": "src/tf_tree/package.xml"
+    },
+    {
+      "id": "module:tracker_solver",
+      "type": "module",
+      "name": "tracker_solver",
+      "summary": "ROS2 package `tracker_solver` in this colcon sentry workspace.",
+      "tags": [
+        "ros2",
+        "package"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/tracker_solver"
+    },
+    {
+      "id": "file:src/tracker_solver/package.xml",
+      "type": "file",
+      "name": "tracker_solver/package.xml",
+      "summary": "Manifest for ROS2 package `tracker_solver`.",
+      "tags": [
+        "manifest",
+        "ros2"
+      ],
+      "complexity": "simple",
+      "filePath": "src/tracker_solver/package.xml"
+    },
+    {
+      "id": "service:external-sentry-aim",
+      "type": "service",
+      "name": "external sentry.aim",
+      "summary": "External aim stack owns camera, detection, tracking, ballistic solve, follow/fire decision for the formal decision-only runtime.",
+      "tags": [
+        "external",
+        "aim",
+        "formal-runtime"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "service:external-sentry-tf",
+      "type": "service",
+      "name": "external sentry_tf",
+      "summary": "External TF provider preferred by formal runtime; repo `tf_tree` is fallback only.",
+      "tags": [
+        "external",
+        "tf"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "service:lower-machine",
+      "type": "service",
+      "name": "lower machine",
+      "summary": "Embedded lower machine receiving serial downlink control frames from `gimbal_driver` and returning referee/gimbal state.",
+      "tags": [
+        "embedded",
+        "serial"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "concept:decision-only-runtime",
+      "type": "concept",
+      "name": "decision-only runtime",
+      "summary": "Current formal chain: repo runs gimbal_driver, navi_tf_bridge/FaceMode, behavior_tree; external sentry.aim/sentry_tf own vision and final aim/fire gates.",
+      "tags": [
+        "architecture",
+        "formal-runtime"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "concept:legacy-internal-autoaim",
+      "type": "concept",
+      "name": "legacy internal auto-aim",
+      "summary": "Historical/debug chain detector -> tracker_solver -> predictor -> behavior_tree/mapper -> control topics.",
+      "tags": [
+        "legacy",
+        "debug"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "concept:simulator-trace-contract",
+      "type": "concept",
+      "name": "decision trace simulator contract",
+      "summary": "Behavior-tree decision outputs feed the offline pygame simulator/replay contract.",
+      "tags": [
+        "simulator",
+        "trace"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "document:README.md",
+      "type": "document",
+      "name": "README.md",
+      "summary": "Key project file: `README.md`.",
+      "tags": [
+        "docs",
+        "markdown"
+      ],
+      "complexity": "moderate",
+      "filePath": "README.md"
+    },
+    {
+      "id": "document:docs/README.md",
+      "type": "document",
+      "name": "README.md",
+      "summary": "Key project file: `docs/README.md`.",
+      "tags": [
+        "docs",
+        "markdown"
+      ],
+      "complexity": "moderate",
+      "filePath": "docs/README.md"
+    },
+    {
+      "id": "document:docs/agents/domain.md",
+      "type": "document",
+      "name": "domain.md",
+      "summary": "Key project file: `docs/agents/domain.md`.",
+      "tags": [
+        "docs",
+        "markdown"
+      ],
+      "complexity": "moderate",
+      "filePath": "docs/agents/domain.md"
+    },
+    {
+      "id": "document:docs/architecture/2026-05-03_message_and_link_flow.md",
+      "type": "document",
+      "name": "2026-05-03_message_and_link_flow.md",
+      "summary": "Key project file: `docs/architecture/2026-05-03_message_and_link_flow.md`.",
+      "tags": [
+        "docs",
+        "markdown"
+      ],
+      "complexity": "moderate",
+      "filePath": "docs/architecture/2026-05-03_message_and_link_flow.md"
+    },
+    {
+      "id": "document:docs/architecture/2026-05-05_system_behavior.md",
+      "type": "document",
+      "name": "2026-05-05_system_behavior.md",
+      "summary": "Key project file: `docs/architecture/2026-05-05_system_behavior.md`.",
+      "tags": [
+        "docs",
+        "markdown"
+      ],
+      "complexity": "moderate",
+      "filePath": "docs/architecture/2026-05-05_system_behavior.md"
+    },
+    {
+      "id": "document:docs/sentry/internal/ros2_topic_structure.md",
+      "type": "document",
+      "name": "ros2_topic_structure.md",
+      "summary": "Key project file: `docs/sentry/internal/ros2_topic_structure.md`.",
+      "tags": [
+        "docs",
+        "markdown"
+      ],
+      "complexity": "moderate",
+      "filePath": "docs/sentry/internal/ros2_topic_structure.md"
+    },
+    {
+      "id": "document:docs/modules/2026-05-05_behavior_tree.md",
+      "type": "document",
+      "name": "2026-05-05_behavior_tree.md",
+      "summary": "Key project file: `docs/modules/2026-05-05_behavior_tree.md`.",
+      "tags": [
+        "docs",
+        "markdown"
+      ],
+      "complexity": "moderate",
+      "filePath": "docs/modules/2026-05-05_behavior_tree.md"
+    },
+    {
+      "id": "document:docs/modules/2026-05-05_gimbal_driver.md",
+      "type": "document",
+      "name": "2026-05-05_gimbal_driver.md",
+      "summary": "Key project file: `docs/modules/2026-05-05_gimbal_driver.md`.",
+      "tags": [
+        "docs",
+        "markdown"
+      ],
+      "complexity": "moderate",
+      "filePath": "docs/modules/2026-05-05_gimbal_driver.md"
+    },
+    {
+      "id": "document:docs/modules/2026-05-04_navi_tf_bridge.md",
+      "type": "document",
+      "name": "2026-05-04_navi_tf_bridge.md",
+      "summary": "Key project file: `docs/modules/2026-05-04_navi_tf_bridge.md`.",
+      "tags": [
+        "docs",
+        "markdown"
+      ],
+      "complexity": "moderate",
+      "filePath": "docs/modules/2026-05-04_navi_tf_bridge.md"
+    },
+    {
+      "id": "file:src/behavior_tree/include/Topic.hpp",
+      "type": "file",
+      "name": "Topic.hpp",
+      "summary": "Key project file: `src/behavior_tree/include/Topic.hpp`.",
+      "tags": [
+        "code",
+        "cpp"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/behavior_tree/include/Topic.hpp"
+    },
+    {
+      "id": "file:src/behavior_tree/src/Application.cpp",
+      "type": "file",
+      "name": "Application.cpp",
+      "summary": "Key project file: `src/behavior_tree/src/Application.cpp`.",
+      "tags": [
+        "code",
+        "cpp"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/behavior_tree/src/Application.cpp"
+    },
+    {
+      "id": "file:src/behavior_tree/src/SubscribeMessage.cpp",
+      "type": "file",
+      "name": "SubscribeMessage.cpp",
+      "summary": "Key project file: `src/behavior_tree/src/SubscribeMessage.cpp`.",
+      "tags": [
+        "code",
+        "cpp"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/behavior_tree/src/SubscribeMessage.cpp"
+    },
+    {
+      "id": "file:src/behavior_tree/src/PublishMessage.cpp",
+      "type": "file",
+      "name": "PublishMessage.cpp",
+      "summary": "Key project file: `src/behavior_tree/src/PublishMessage.cpp`.",
+      "tags": [
+        "code",
+        "cpp"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/behavior_tree/src/PublishMessage.cpp"
+    },
+    {
+      "id": "file:src/behavior_tree/src/DecisionTrace.cpp",
+      "type": "file",
+      "name": "DecisionTrace.cpp",
+      "summary": "Key project file: `src/behavior_tree/src/DecisionTrace.cpp`.",
+      "tags": [
+        "code",
+        "cpp"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/behavior_tree/src/DecisionTrace.cpp"
+    },
+    {
+      "id": "config:src/behavior_tree/launch/sentry_all.launch.py",
+      "type": "config",
+      "name": "sentry_all.launch.py",
+      "summary": "Key project file: `src/behavior_tree/launch/sentry_all.launch.py`.",
+      "tags": [
+        "config",
+        "python"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/behavior_tree/launch/sentry_all.launch.py"
+    },
+    {
+      "id": "config:src/behavior_tree/Scripts/main.xml",
+      "type": "config",
+      "name": "main.xml",
+      "summary": "Key project file: `src/behavior_tree/Scripts/main.xml`.",
+      "tags": [
+        "config",
+        "xml"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/behavior_tree/Scripts/main.xml"
+    },
+    {
+      "id": "file:src/gimbal_driver/main.cpp",
+      "type": "file",
+      "name": "main.cpp",
+      "summary": "Key project file: `src/gimbal_driver/main.cpp`.",
+      "tags": [
+        "code",
+        "cpp"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/gimbal_driver/main.cpp"
+    },
+    {
+      "id": "config:src/gimbal_driver/launch/gimbal_driver.launch.py",
+      "type": "config",
+      "name": "gimbal_driver.launch.py",
+      "summary": "Key project file: `src/gimbal_driver/launch/gimbal_driver.launch.py`.",
+      "tags": [
+        "config",
+        "python"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/gimbal_driver/launch/gimbal_driver.launch.py"
+    },
+    {
+      "id": "file:src/navi_tf_bridge/src/target_rel_to_goal_pos_node.cpp",
+      "type": "file",
+      "name": "target_rel_to_goal_pos_node.cpp",
+      "summary": "Key project file: `src/navi_tf_bridge/src/target_rel_to_goal_pos_node.cpp`.",
+      "tags": [
+        "code",
+        "cpp"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/navi_tf_bridge/src/target_rel_to_goal_pos_node.cpp"
+    },
+    {
+      "id": "file:src/navi_tf_bridge/src/pointer_solver_node.cpp",
+      "type": "file",
+      "name": "pointer_solver_node.cpp",
+      "summary": "Key project file: `src/navi_tf_bridge/src/pointer_solver_node.cpp`.",
+      "tags": [
+        "code",
+        "cpp"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/navi_tf_bridge/src/pointer_solver_node.cpp"
+    },
+    {
+      "id": "config:src/navi_tf_bridge/launch/target_rel_to_goal_pos.launch.py",
+      "type": "config",
+      "name": "target_rel_to_goal_pos.launch.py",
+      "summary": "Key project file: `src/navi_tf_bridge/launch/target_rel_to_goal_pos.launch.py`.",
+      "tags": [
+        "config",
+        "python"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/navi_tf_bridge/launch/target_rel_to_goal_pos.launch.py"
+    },
+    {
+      "id": "config:src/navi_tf_bridge/launch/map_aim_point.launch.py",
+      "type": "config",
+      "name": "map_aim_point.launch.py",
+      "summary": "Key project file: `src/navi_tf_bridge/launch/map_aim_point.launch.py`.",
+      "tags": [
+        "config",
+        "python"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/navi_tf_bridge/launch/map_aim_point.launch.py"
+    },
+    {
+      "id": "file:src/detector/detector_node.cpp",
+      "type": "file",
+      "name": "detector_node.cpp",
+      "summary": "Key project file: `src/detector/detector_node.cpp`.",
+      "tags": [
+        "code",
+        "cpp"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/detector/detector_node.cpp"
+    },
+    {
+      "id": "config:src/detector/launch/auto_aim.launch.py",
+      "type": "config",
+      "name": "auto_aim.launch.py",
+      "summary": "Key project file: `src/detector/launch/auto_aim.launch.py`.",
+      "tags": [
+        "config",
+        "python"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/detector/launch/auto_aim.launch.py"
+    },
+    {
+      "id": "file:src/tracker_solver/car_tracker_solver_node.cpp",
+      "type": "file",
+      "name": "car_tracker_solver_node.cpp",
+      "summary": "Key project file: `src/tracker_solver/car_tracker_solver_node.cpp`.",
+      "tags": [
+        "code",
+        "cpp"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/tracker_solver/car_tracker_solver_node.cpp"
+    },
+    {
+      "id": "file:src/predictor/predictor_node.cpp",
+      "type": "file",
+      "name": "predictor_node.cpp",
+      "summary": "Key project file: `src/predictor/predictor_node.cpp`.",
+      "tags": [
+        "code",
+        "cpp"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/predictor/predictor_node.cpp"
+    },
+    {
+      "id": "file:src/outpost_hitter/outpost_hitter_node.cpp",
+      "type": "file",
+      "name": "outpost_hitter_node.cpp",
+      "summary": "Key project file: `src/outpost_hitter/outpost_hitter_node.cpp`.",
+      "tags": [
+        "code",
+        "cpp"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/outpost_hitter/outpost_hitter_node.cpp"
+    },
+    {
+      "id": "file:src/buff_hitter/main.cpp",
+      "type": "file",
+      "name": "main.cpp",
+      "summary": "Key project file: `src/buff_hitter/main.cpp`.",
+      "tags": [
+        "code",
+        "cpp"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/buff_hitter/main.cpp"
+    },
+    {
+      "id": "file:src/simulator/simulator/model.py",
+      "type": "file",
+      "name": "model.py",
+      "summary": "Key project file: `src/simulator/simulator/model.py`.",
+      "tags": [
+        "code",
+        "python"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/simulator/simulator/model.py"
+    },
+    {
+      "id": "file:src/simulator/simulator/trace.py",
+      "type": "file",
+      "name": "trace.py",
+      "summary": "Key project file: `src/simulator/simulator/trace.py`.",
+      "tags": [
+        "code",
+        "python"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/simulator/simulator/trace.py"
+    },
+    {
+      "id": "file:src/simulator/simulator/validation.py",
+      "type": "file",
+      "name": "validation.py",
+      "summary": "Key project file: `src/simulator/simulator/validation.py`.",
+      "tags": [
+        "code",
+        "python"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/simulator/simulator/validation.py"
+    },
+    {
+      "id": "config:src/simulator/config/default.yaml",
+      "type": "config",
+      "name": "default.yaml",
+      "summary": "Key project file: `src/simulator/config/default.yaml`.",
+      "tags": [
+        "config",
+        "yaml"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/simulator/config/default.yaml"
+    },
+    {
+      "id": "document:docs/sentry/internal/simulator.md",
+      "type": "document",
+      "name": "simulator.md",
+      "summary": "Key project file: `docs/sentry/internal/simulator.md`.",
+      "tags": [
+        "docs",
+        "markdown"
+      ],
+      "complexity": "moderate",
+      "filePath": "docs/sentry/internal/simulator.md"
+    },
+    {
+      "id": "file:scripts/selfcheck.sh",
+      "type": "file",
+      "name": "selfcheck.sh",
+      "summary": "Key project file: `scripts/selfcheck.sh`.",
+      "tags": [
+        "script",
+        "shell"
+      ],
+      "complexity": "moderate",
+      "filePath": "scripts/selfcheck.sh"
+    },
+    {
+      "id": "file:scripts/start.sh",
+      "type": "file",
+      "name": "start.sh",
+      "summary": "Key project file: `scripts/start.sh`.",
+      "tags": [
+        "script",
+        "shell"
+      ],
+      "complexity": "moderate",
+      "filePath": "scripts/start.sh"
+    },
+    {
+      "id": "schema:src/auto_aim_common/msg/AngleImage.msg",
+      "type": "schema",
+      "name": "AngleImage.msg",
+      "summary": "ROS message schema `src/auto_aim_common/msg/AngleImage.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/auto_aim_common/msg/AngleImage.msg"
+    },
+    {
+      "id": "schema:src/auto_aim_common/msg/Armor.msg",
+      "type": "schema",
+      "name": "Armor.msg",
+      "summary": "ROS message schema `src/auto_aim_common/msg/Armor.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/auto_aim_common/msg/Armor.msg"
+    },
+    {
+      "id": "schema:src/auto_aim_common/msg/ArmorTracker.msg",
+      "type": "schema",
+      "name": "ArmorTracker.msg",
+      "summary": "ROS message schema `src/auto_aim_common/msg/ArmorTracker.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/auto_aim_common/msg/ArmorTracker.msg"
+    },
+    {
+      "id": "schema:src/auto_aim_common/msg/Armors.msg",
+      "type": "schema",
+      "name": "Armors.msg",
+      "summary": "ROS message schema `src/auto_aim_common/msg/Armors.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/auto_aim_common/msg/Armors.msg"
+    },
+    {
+      "id": "schema:src/auto_aim_common/msg/BuffDebug.msg",
+      "type": "schema",
+      "name": "BuffDebug.msg",
+      "summary": "ROS message schema `src/auto_aim_common/msg/BuffDebug.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/auto_aim_common/msg/BuffDebug.msg"
+    },
+    {
+      "id": "schema:src/auto_aim_common/msg/Car.msg",
+      "type": "schema",
+      "name": "Car.msg",
+      "summary": "ROS message schema `src/auto_aim_common/msg/Car.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/auto_aim_common/msg/Car.msg"
+    },
+    {
+      "id": "schema:src/auto_aim_common/msg/CarTracker.msg",
+      "type": "schema",
+      "name": "CarTracker.msg",
+      "summary": "ROS message schema `src/auto_aim_common/msg/CarTracker.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/auto_aim_common/msg/CarTracker.msg"
+    },
+    {
+      "id": "schema:src/auto_aim_common/msg/DebugFilter.msg",
+      "type": "schema",
+      "name": "DebugFilter.msg",
+      "summary": "ROS message schema `src/auto_aim_common/msg/DebugFilter.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/auto_aim_common/msg/DebugFilter.msg"
+    },
+    {
+      "id": "schema:src/auto_aim_common/msg/GoalReach.msg",
+      "type": "schema",
+      "name": "GoalReach.msg",
+      "summary": "ROS message schema `src/auto_aim_common/msg/GoalReach.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/auto_aim_common/msg/GoalReach.msg"
+    },
+    {
+      "id": "schema:src/auto_aim_common/msg/PredictorArmorVis.msg",
+      "type": "schema",
+      "name": "PredictorArmorVis.msg",
+      "summary": "ROS message schema `src/auto_aim_common/msg/PredictorArmorVis.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/auto_aim_common/msg/PredictorArmorVis.msg"
+    },
+    {
+      "id": "schema:src/auto_aim_common/msg/PredictorCarVis.msg",
+      "type": "schema",
+      "name": "PredictorCarVis.msg",
+      "summary": "ROS message schema `src/auto_aim_common/msg/PredictorCarVis.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/auto_aim_common/msg/PredictorCarVis.msg"
+    },
+    {
+      "id": "schema:src/auto_aim_common/msg/PredictorVis.msg",
+      "type": "schema",
+      "name": "PredictorVis.msg",
+      "summary": "ROS message schema `src/auto_aim_common/msg/PredictorVis.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/auto_aim_common/msg/PredictorVis.msg"
+    },
+    {
+      "id": "schema:src/auto_aim_common/msg/Rect.msg",
+      "type": "schema",
+      "name": "Rect.msg",
+      "summary": "ROS message schema `src/auto_aim_common/msg/Rect.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/auto_aim_common/msg/Rect.msg"
+    },
+    {
+      "id": "schema:src/auto_aim_common/msg/RelativeTarget.msg",
+      "type": "schema",
+      "name": "RelativeTarget.msg",
+      "summary": "ROS message schema `src/auto_aim_common/msg/RelativeTarget.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/auto_aim_common/msg/RelativeTarget.msg"
+    },
+    {
+      "id": "schema:src/auto_aim_common/msg/Target.msg",
+      "type": "schema",
+      "name": "Target.msg",
+      "summary": "ROS message schema `src/auto_aim_common/msg/Target.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/auto_aim_common/msg/Target.msg"
+    },
+    {
+      "id": "schema:src/auto_aim_common/msg/Trackers.msg",
+      "type": "schema",
+      "name": "Trackers.msg",
+      "summary": "ROS message schema `src/auto_aim_common/msg/Trackers.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/auto_aim_common/msg/Trackers.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/BuffData.msg",
+      "type": "schema",
+      "name": "BuffData.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/BuffData.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/BuffData.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/BulletInfo.msg",
+      "type": "schema",
+      "name": "BulletInfo.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/BulletInfo.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/BulletInfo.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/Chassis.msg",
+      "type": "schema",
+      "name": "Chassis.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/Chassis.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/Chassis.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/ControlVelocity.msg",
+      "type": "schema",
+      "name": "ControlVelocity.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/ControlVelocity.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/ControlVelocity.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/EventData.msg",
+      "type": "schema",
+      "name": "EventData.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/EventData.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/EventData.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/FaceModeStatus.msg",
+      "type": "schema",
+      "name": "FaceModeStatus.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/FaceModeStatus.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/FaceModeStatus.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/FireCode.msg",
+      "type": "schema",
+      "name": "FireCode.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/FireCode.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/FireCode.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/GameData.msg",
+      "type": "schema",
+      "name": "GameData.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/GameData.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/GameData.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/GimbalAngles.msg",
+      "type": "schema",
+      "name": "GimbalAngles.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/GimbalAngles.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/GimbalAngles.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/GimbalRawFrame.msg",
+      "type": "schema",
+      "name": "GimbalRawFrame.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/GimbalRawFrame.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/GimbalRawFrame.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/GimbalYaw.msg",
+      "type": "schema",
+      "name": "GimbalYaw.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/GimbalYaw.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/GimbalYaw.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/Health.msg",
+      "type": "schema",
+      "name": "Health.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/Health.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/Health.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/MapCommand.msg",
+      "type": "schema",
+      "name": "MapCommand.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/MapCommand.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/MapCommand.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/PositionData.msg",
+      "type": "schema",
+      "name": "PositionData.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/PositionData.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/PositionData.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/RfidStatus.msg",
+      "type": "schema",
+      "name": "RfidStatus.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/RfidStatus.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/RfidStatus.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/SentryCmd.msg",
+      "type": "schema",
+      "name": "SentryCmd.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/SentryCmd.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/SentryCmd.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/SentryInfo.msg",
+      "type": "schema",
+      "name": "SentryInfo.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/SentryInfo.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/SentryInfo.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/StampedUInt16MultiArray.msg",
+      "type": "schema",
+      "name": "StampedUInt16MultiArray.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/StampedUInt16MultiArray.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/StampedUInt16MultiArray.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/UWBPos.msg",
+      "type": "schema",
+      "name": "UWBPos.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/UWBPos.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/UWBPos.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/UnitInfo.msg",
+      "type": "schema",
+      "name": "UnitInfo.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/UnitInfo.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/UnitInfo.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/UnitInfoArray.msg",
+      "type": "schema",
+      "name": "UnitInfoArray.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/UnitInfoArray.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/UnitInfoArray.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/Vel.msg",
+      "type": "schema",
+      "name": "Vel.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/Vel.msg`.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/Vel.msg"
+    },
+    {
+      "id": "endpoint:ros-topic:/goal_pose",
+      "type": "endpoint",
+      "name": "/goal_pose",
+      "summary": "ROS2 topic `/goal_pose` with message type `geometry_msgs/msg/PoseStamped`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "geometry_msgs/msg/PoseStamped"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/aim/armor_targets",
+      "type": "endpoint",
+      "name": "/ly/aim/armor_targets",
+      "summary": "ROS2 topic `/ly/aim/armor_targets` with message type `sentry_msgs/msg/AimTargetArray`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "sentry_msgs/msg/AimTargetArray"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/aim/result",
+      "type": "endpoint",
+      "name": "/ly/aim/result",
+      "summary": "ROS2 topic `/ly/aim/result` with message type `sentry_msgs/msg/AimResult`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "sentry_msgs/msg/AimResult"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/aim/select_target",
+      "type": "endpoint",
+      "name": "/ly/aim/select_target",
+      "summary": "ROS2 topic `/ly/aim/select_target` with message type `sentry_msgs/msg/AimTarget`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "sentry_msgs/msg/AimTarget"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/back_cam/target",
+      "type": "endpoint",
+      "name": "/ly/back_cam/target",
+      "summary": "ROS2 topic `/ly/back_cam/target` with message type `auto_aim_common::msg::Target`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "auto_aim_common::msg::Target"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/backcamera/image",
+      "type": "endpoint",
+      "name": "/ly/backcamera/image",
+      "summary": "ROS2 topic `/ly/backcamera/image` with message type `sensor_msgs::msg::Image`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "sensor_msgs::msg::Image"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/bt/target",
+      "type": "endpoint",
+      "name": "/ly/bt/target",
+      "summary": "ROS2 topic `/ly/bt/target` with message type `std_msgs/msg/UInt8`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs/msg/UInt8"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/buff/debug",
+      "type": "endpoint",
+      "name": "/ly/buff/debug",
+      "summary": "ROS2 topic `/ly/buff/debug` with message type `auto_aim_common::msg::BuffDebug`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "auto_aim_common::msg::BuffDebug"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/buff/target",
+      "type": "endpoint",
+      "name": "/ly/buff/target",
+      "summary": "ROS2 topic `/ly/buff/target` with message type `auto_aim_common/msg/Target`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "auto_aim_common/msg/Target"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/bullet/speed",
+      "type": "endpoint",
+      "name": "/ly/bullet/speed",
+      "summary": "ROS2 topic `/ly/bullet/speed` with message type `std_msgs::msg::Float32`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::Float32"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/camera/image",
+      "type": "endpoint",
+      "name": "/ly/camera/image",
+      "summary": "ROS2 topic `/ly/camera/image` with message type `sensor_msgs::msg::Image`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "sensor_msgs::msg::Image"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/compressed/image",
+      "type": "endpoint",
+      "name": "/ly/compressed/image",
+      "summary": "ROS2 topic `/ly/compressed/image` with message type `sensor_msgs::msg::CompressedImage`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "sensor_msgs::msg::CompressedImage"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/control/angles",
+      "type": "endpoint",
+      "name": "/ly/control/angles",
+      "summary": "ROS2 topic `/ly/control/angles` with message type `gimbal_driver/msg/GimbalAngles`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver/msg/GimbalAngles"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/control/firecode",
+      "type": "endpoint",
+      "name": "/ly/control/firecode",
+      "summary": "ROS2 topic `/ly/control/firecode` with message type `gimbal_driver/msg/FireCode`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver/msg/FireCode"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/control/posture",
+      "type": "endpoint",
+      "name": "/ly/control/posture",
+      "summary": "ROS2 topic `/ly/control/posture` with message type `gimbal_driver/msg/SentryCmd`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver/msg/SentryCmd"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/control/sentry_cmd",
+      "type": "endpoint",
+      "name": "/ly/control/sentry_cmd",
+      "summary": "ROS2 topic `/ly/control/sentry_cmd` with message type `gimbal_driver/msg/SentryCmd`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver/msg/SentryCmd"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/control/vel",
+      "type": "endpoint",
+      "name": "/ly/control/vel",
+      "summary": "ROS2 topic `/ly/control/vel` with message type `gimbal_driver/msg/ControlVelocity`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver/msg/ControlVelocity"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/detector/armors",
+      "type": "endpoint",
+      "name": "/ly/detector/armors",
+      "summary": "ROS2 topic `/ly/detector/armors` with message type `auto_aim_common/msg/Armors`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "auto_aim_common/msg/Armors"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/detector/high_armors",
+      "type": "endpoint",
+      "name": "/ly/detector/high_armors",
+      "summary": "ROS2 topic `/ly/detector/high_armors` with message type `auto_aim_common::msg::Armors`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "auto_aim_common::msg::Armors"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/enemy/base_hp",
+      "type": "endpoint",
+      "name": "/ly/enemy/base_hp",
+      "summary": "ROS2 topic `/ly/enemy/base_hp` with message type `std_msgs::msg::UInt16`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::UInt16"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/enemy/hp",
+      "type": "endpoint",
+      "name": "/ly/enemy/hp",
+      "summary": "ROS2 topic `/ly/enemy/hp` with message type `gimbal_driver::msg::Health`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver::msg::Health"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/enemy/info",
+      "type": "endpoint",
+      "name": "/ly/enemy/info",
+      "summary": "ROS2 topic `/ly/enemy/info` with message type `gimbal_driver::msg::UnitInfoArray`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver::msg::UnitInfoArray"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/enemy/op_hp",
+      "type": "endpoint",
+      "name": "/ly/enemy/op_hp",
+      "summary": "ROS2 topic `/ly/enemy/op_hp` with message type `std_msgs::msg::UInt16`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::UInt16"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/face_mode/angles",
+      "type": "endpoint",
+      "name": "/ly/face_mode/angles",
+      "summary": "ROS2 topic `/ly/face_mode/angles` with message type `gimbal_driver/msg/GimbalAngles`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver/msg/GimbalAngles"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/face_mode/target_raw",
+      "type": "endpoint",
+      "name": "/ly/face_mode/target_raw",
+      "summary": "ROS2 topic `/ly/face_mode/target_raw` with message type `std_msgs/msg/UInt16MultiArray`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs/msg/UInt16MultiArray"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/friend/ammo_left",
+      "type": "endpoint",
+      "name": "/ly/friend/ammo_left",
+      "summary": "ROS2 topic `/ly/friend/ammo_left` with message type `std_msgs::msg::UInt16`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::UInt16"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/friend/base_hp",
+      "type": "endpoint",
+      "name": "/ly/friend/base_hp",
+      "summary": "ROS2 topic `/ly/friend/base_hp` with message type `std_msgs::msg::UInt16`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::UInt16"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/friend/hp",
+      "type": "endpoint",
+      "name": "/ly/friend/hp",
+      "summary": "ROS2 topic `/ly/friend/hp` with message type `gimbal_driver::msg::Health`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver::msg::Health"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/friend/info",
+      "type": "endpoint",
+      "name": "/ly/friend/info",
+      "summary": "ROS2 topic `/ly/friend/info` with message type `gimbal_driver::msg::UnitInfoArray`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver::msg::UnitInfoArray"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/friend/is_at_home",
+      "type": "endpoint",
+      "name": "/ly/friend/is_at_home",
+      "summary": "ROS2 topic `/ly/friend/is_at_home` with message type `std_msgs::msg::Bool`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::Bool"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/friend/is_precaution",
+      "type": "endpoint",
+      "name": "/ly/friend/is_precaution",
+      "summary": "ROS2 topic `/ly/friend/is_precaution` with message type `std_msgs::msg::Bool`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::Bool"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/friend/is_team_red",
+      "type": "endpoint",
+      "name": "/ly/friend/is_team_red",
+      "summary": "ROS2 topic `/ly/friend/is_team_red` with message type `std_msgs::msg::Bool`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::Bool"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/friend/op_hp",
+      "type": "endpoint",
+      "name": "/ly/friend/op_hp",
+      "summary": "ROS2 topic `/ly/friend/op_hp` with message type `std_msgs::msg::UInt16`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::UInt16"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/friend/uwb_pos",
+      "type": "endpoint",
+      "name": "/ly/friend/uwb_pos",
+      "summary": "ROS2 topic `/ly/friend/uwb_pos` with message type `gimbal_driver::msg::StampedUInt16MultiArray`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver::msg::StampedUInt16MultiArray"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/friend/uwb_yaw",
+      "type": "endpoint",
+      "name": "/ly/friend/uwb_yaw",
+      "summary": "ROS2 topic `/ly/friend/uwb_yaw` with message type `std_msgs::msg::UInt16`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::UInt16"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/game/all",
+      "type": "endpoint",
+      "name": "/ly/game/all",
+      "summary": "ROS2 topic `/ly/game/all` with message type `gimbal_driver::msg::GameData`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver::msg::GameData"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/game/bullet",
+      "type": "endpoint",
+      "name": "/ly/game/bullet",
+      "summary": "ROS2 topic `/ly/game/bullet` with message type `gimbal_driver/msg/BulletInfo`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver/msg/BulletInfo"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/game/event_data",
+      "type": "endpoint",
+      "name": "/ly/game/event_data",
+      "summary": "ROS2 topic `/ly/game/event_data` with message type `gimbal_driver::msg::EventData`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver::msg::EventData"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/game/is_start",
+      "type": "endpoint",
+      "name": "/ly/game/is_start",
+      "summary": "ROS2 topic `/ly/game/is_start` with message type `std_msgs::msg::Bool`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::Bool"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/game/map_command",
+      "type": "endpoint",
+      "name": "/ly/game/map_command",
+      "summary": "ROS2 topic `/ly/game/map_command` with message type `gimbal_driver/msg/MapCommand`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver/msg/MapCommand"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/game/rfid",
+      "type": "endpoint",
+      "name": "/ly/game/rfid",
+      "summary": "ROS2 topic `/ly/game/rfid` with message type `gimbal_driver/msg/RfidStatus`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver/msg/RfidStatus"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/game/sentry/info",
+      "type": "endpoint",
+      "name": "/ly/game/sentry/info",
+      "summary": "ROS2 topic `/ly/game/sentry/info` with message type `gimbal_driver/msg/SentryInfo`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver/msg/SentryInfo"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/game/time_left",
+      "type": "endpoint",
+      "name": "/ly/game/time_left",
+      "summary": "ROS2 topic `/ly/game/time_left` with message type `std_msgs::msg::UInt16`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::UInt16"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/gimbal/angles",
+      "type": "endpoint",
+      "name": "/ly/gimbal/angles",
+      "summary": "ROS2 topic `/ly/gimbal/angles` with message type `gimbal_driver/msg/GimbalAngles`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver/msg/GimbalAngles"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/gimbal/big_yaw_angles",
+      "type": "endpoint",
+      "name": "/ly/gimbal/big_yaw_angles",
+      "summary": "ROS2 topic `/ly/gimbal/big_yaw_angles` with message type `std_msgs/msg/Float32`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs/msg/Float32"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/gimbal/capV",
+      "type": "endpoint",
+      "name": "/ly/gimbal/capV",
+      "summary": "ROS2 topic `/ly/gimbal/capV` with message type `std_msgs::msg::UInt8`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::UInt8"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/gimbal/chassis",
+      "type": "endpoint",
+      "name": "/ly/gimbal/chassis",
+      "summary": "ROS2 topic `/ly/gimbal/chassis` with message type `gimbal_driver::msg::Chassis`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver::msg::Chassis"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/gimbal/eventdata",
+      "type": "endpoint",
+      "name": "/ly/gimbal/eventdata",
+      "summary": "ROS2 topic `/ly/gimbal/eventdata` with message type `std_msgs::msg::UInt32`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::UInt32"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/gimbal/firecode",
+      "type": "endpoint",
+      "name": "/ly/gimbal/firecode",
+      "summary": "ROS2 topic `/ly/gimbal/firecode` with message type `gimbal_driver/msg/FireCode`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver/msg/FireCode"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/gimbal/posture",
+      "type": "endpoint",
+      "name": "/ly/gimbal/posture",
+      "summary": "ROS2 topic `/ly/gimbal/posture` with message type `std_msgs::msg::UInt8`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::UInt8"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/gimbal/vel",
+      "type": "endpoint",
+      "name": "/ly/gimbal/vel",
+      "summary": "ROS2 topic `/ly/gimbal/vel` with message type `gimbal_driver::msg::Vel`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver::msg::Vel"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/navi/goal",
+      "type": "endpoint",
+      "name": "/ly/navi/goal",
+      "summary": "ROS2 topic `/ly/navi/goal` with message type `std_msgs::msg::UInt8`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::UInt8"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/navi/goal_pos",
+      "type": "endpoint",
+      "name": "/ly/navi/goal_pos",
+      "summary": "ROS2 topic `/ly/navi/goal_pos` with message type `std_msgs/msg/UInt16MultiArray`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs/msg/UInt16MultiArray"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/navi/goal_pos_raw",
+      "type": "endpoint",
+      "name": "/ly/navi/goal_pos_raw",
+      "summary": "ROS2 topic `/ly/navi/goal_pos_raw` with message type `std_msgs/msg/UInt16MultiArray`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs/msg/UInt16MultiArray"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/navi/lower_head",
+      "type": "endpoint",
+      "name": "/ly/navi/lower_head",
+      "summary": "ROS2 topic `/ly/navi/lower_head` with message type `std_msgs::msg::UInt8`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::UInt8"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/navi/position",
+      "type": "endpoint",
+      "name": "/ly/navi/position",
+      "summary": "ROS2 topic `/ly/navi/position` with message type `gimbal_driver/msg/StampedUInt16MultiArray`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver/msg/StampedUInt16MultiArray"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/navi/reach_state",
+      "type": "endpoint",
+      "name": "/ly/navi/reach_state",
+      "summary": "ROS2 topic `/ly/navi/reach_state` with message type `auto_aim_common::msg::GoalReach`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "auto_aim_common::msg::GoalReach"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/navi/reachable",
+      "type": "endpoint",
+      "name": "/ly/navi/reachable",
+      "summary": "ROS2 topic `/ly/navi/reachable` with message type `std_msgs::msg::Bool`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::Bool"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/navi/reached",
+      "type": "endpoint",
+      "name": "/ly/navi/reached",
+      "summary": "ROS2 topic `/ly/navi/reached` with message type `std_msgs::msg::Bool`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::Bool"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/navi/should_rotate",
+      "type": "endpoint",
+      "name": "/ly/navi/should_rotate",
+      "summary": "ROS2 topic `/ly/navi/should_rotate` with message type `std_msgs::msg::Bool`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::Bool"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/navi/speed_level",
+      "type": "endpoint",
+      "name": "/ly/navi/speed_level",
+      "summary": "ROS2 topic `/ly/navi/speed_level` with message type `std_msgs::msg::UInt8`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::UInt8"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/navi/target_official",
+      "type": "endpoint",
+      "name": "/ly/navi/target_official",
+      "summary": "ROS2 topic `/ly/navi/target_official` with message type `gimbal_driver/msg/StampedUInt16MultiArray`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver/msg/StampedUInt16MultiArray"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/navi/target_rel",
+      "type": "endpoint",
+      "name": "/ly/navi/target_rel",
+      "summary": "ROS2 topic `/ly/navi/target_rel` with message type `auto_aim_common/msg/RelativeTarget`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "auto_aim_common/msg/RelativeTarget"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/navi/vel",
+      "type": "endpoint",
+      "name": "/ly/navi/vel",
+      "summary": "ROS2 topic `/ly/navi/vel` with message type `gimbal_driver::msg::Vel`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver::msg::Vel"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/outpost/armors",
+      "type": "endpoint",
+      "name": "/ly/outpost/armors",
+      "summary": "ROS2 topic `/ly/outpost/armors` with message type `auto_aim_common::msg::Armors`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "auto_aim_common::msg::Armors"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/outpost/target",
+      "type": "endpoint",
+      "name": "/ly/outpost/target",
+      "summary": "ROS2 topic `/ly/outpost/target` with message type `auto_aim_common/msg/Target`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "auto_aim_common/msg/Target"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/position/data",
+      "type": "endpoint",
+      "name": "/ly/position/data",
+      "summary": "ROS2 topic `/ly/position/data` with message type `gimbal_driver::msg::PositionData`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver::msg::PositionData"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/predictor/debug",
+      "type": "endpoint",
+      "name": "/ly/predictor/debug",
+      "summary": "ROS2 topic `/ly/predictor/debug` with message type `auto_aim_common::msg::DebugFilter`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "auto_aim_common::msg::DebugFilter"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/predictor/target",
+      "type": "endpoint",
+      "name": "/ly/predictor/target",
+      "summary": "ROS2 topic `/ly/predictor/target` with message type `auto_aim_common/msg/Target`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "auto_aim_common/msg/Target"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/predictor/vis",
+      "type": "endpoint",
+      "name": "/ly/predictor/vis",
+      "summary": "ROS2 topic `/ly/predictor/vis` with message type `auto_aim_common::msg::PredictorVis`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "auto_aim_common::msg::PredictorVis"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/ra/angle_image",
+      "type": "endpoint",
+      "name": "/ly/ra/angle_image",
+      "summary": "ROS2 topic `/ly/ra/angle_image` with message type `auto_aim_common::msg::AngleImage`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "auto_aim_common::msg::AngleImage"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/ra/image",
+      "type": "endpoint",
+      "name": "/ly/ra/image",
+      "summary": "ROS2 topic `/ly/ra/image` with message type `sensor_msgs::msg::Image`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "sensor_msgs::msg::Image"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/ra/mode",
+      "type": "endpoint",
+      "name": "/ly/ra/mode",
+      "summary": "ROS2 topic `/ly/ra/mode` with message type `std_msgs::msg::UInt8`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::UInt8"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/team/buff",
+      "type": "endpoint",
+      "name": "/ly/team/buff",
+      "summary": "ROS2 topic `/ly/team/buff` with message type `gimbal_driver::msg::BuffData`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver::msg::BuffData"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/tracker/results",
+      "type": "endpoint",
+      "name": "/ly/tracker/results",
+      "summary": "ROS2 topic `/ly/tracker/results` with message type `auto_aim_common/msg/Trackers`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "auto_aim_common/msg/Trackers"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/vision/mode",
+      "type": "endpoint",
+      "name": "/ly/vision/mode",
+      "summary": "ROS2 topic `/ly/vision/mode` with message type `std_msgs/msg/UInt8`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs/msg/UInt8"
+    }
+  ],
+  "edges": [
+    {
+      "source": "module:auto_aim_common",
+      "target": "file:src/auto_aim_common/package.xml",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`auto_aim_common` owns its package manifest."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "file:src/behavior_tree/package.xml",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`behavior_tree` owns its package manifest."
+    },
+    {
+      "source": "module:buff_hitter",
+      "target": "file:src/buff_hitter/package.xml",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`buff_hitter` owns its package manifest."
+    },
+    {
+      "source": "module:buff_shooting_table_calib",
+      "target": "file:src/buff_shooting_table_calib/package.xml",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`buff_shooting_table_calib` owns its package manifest."
+    },
+    {
+      "source": "module:detector",
+      "target": "file:src/detector/package.xml",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`detector` owns its package manifest."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "file:src/gimbal_driver/package.xml",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`gimbal_driver` owns its package manifest."
+    },
+    {
+      "source": "module:navi_tf_bridge",
+      "target": "file:src/navi_tf_bridge/package.xml",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`navi_tf_bridge` owns its package manifest."
+    },
+    {
+      "source": "module:outpost_hitter",
+      "target": "file:src/outpost_hitter/package.xml",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`outpost_hitter` owns its package manifest."
+    },
+    {
+      "source": "module:predictor",
+      "target": "file:src/predictor/package.xml",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`predictor` owns its package manifest."
+    },
+    {
+      "source": "module:shooting_table_calib",
+      "target": "file:src/shooting_table_calib/package.xml",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`shooting_table_calib` owns its package manifest."
+    },
+    {
+      "source": "module:simulator",
+      "target": "file:src/simulator/package.xml",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`simulator` owns its package manifest."
+    },
+    {
+      "source": "module:tf_tree",
+      "target": "file:src/tf_tree/package.xml",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`tf_tree` owns its package manifest."
+    },
+    {
+      "source": "module:tracker_solver",
+      "target": "file:src/tracker_solver/package.xml",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`tracker_solver` owns its package manifest."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "module:auto_aim_common",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`behavior_tree` declares a ROS package dependency on `auto_aim_common`."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "module:gimbal_driver",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`behavior_tree` declares a ROS package dependency on `gimbal_driver`."
+    },
+    {
+      "source": "module:buff_hitter",
+      "target": "module:auto_aim_common",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`buff_hitter` declares a ROS package dependency on `auto_aim_common`."
+    },
+    {
+      "source": "module:buff_hitter",
+      "target": "module:gimbal_driver",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`buff_hitter` declares a ROS package dependency on `gimbal_driver`."
+    },
+    {
+      "source": "module:buff_shooting_table_calib",
+      "target": "module:auto_aim_common",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`buff_shooting_table_calib` declares a ROS package dependency on `auto_aim_common`."
+    },
+    {
+      "source": "module:buff_shooting_table_calib",
+      "target": "module:gimbal_driver",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`buff_shooting_table_calib` declares a ROS package dependency on `gimbal_driver`."
+    },
+    {
+      "source": "module:detector",
+      "target": "module:auto_aim_common",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`detector` declares a ROS package dependency on `auto_aim_common`."
+    },
+    {
+      "source": "module:detector",
+      "target": "module:gimbal_driver",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`detector` declares a ROS package dependency on `gimbal_driver`."
+    },
+    {
+      "source": "module:navi_tf_bridge",
+      "target": "module:auto_aim_common",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`navi_tf_bridge` declares a ROS package dependency on `auto_aim_common`."
+    },
+    {
+      "source": "module:navi_tf_bridge",
+      "target": "module:gimbal_driver",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`navi_tf_bridge` declares a ROS package dependency on `gimbal_driver`."
+    },
+    {
+      "source": "module:outpost_hitter",
+      "target": "module:auto_aim_common",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`outpost_hitter` declares a ROS package dependency on `auto_aim_common`."
+    },
+    {
+      "source": "module:outpost_hitter",
+      "target": "module:gimbal_driver",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`outpost_hitter` declares a ROS package dependency on `gimbal_driver`."
+    },
+    {
+      "source": "module:predictor",
+      "target": "module:auto_aim_common",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`predictor` declares a ROS package dependency on `auto_aim_common`."
+    },
+    {
+      "source": "module:predictor",
+      "target": "module:gimbal_driver",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`predictor` declares a ROS package dependency on `gimbal_driver`."
+    },
+    {
+      "source": "module:shooting_table_calib",
+      "target": "module:auto_aim_common",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`shooting_table_calib` declares a ROS package dependency on `auto_aim_common`."
+    },
+    {
+      "source": "module:shooting_table_calib",
+      "target": "module:detector",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`shooting_table_calib` declares a ROS package dependency on `detector`."
+    },
+    {
+      "source": "module:shooting_table_calib",
+      "target": "module:predictor",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`shooting_table_calib` declares a ROS package dependency on `predictor`."
+    },
+    {
+      "source": "module:shooting_table_calib",
+      "target": "module:tracker_solver",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`shooting_table_calib` declares a ROS package dependency on `tracker_solver`."
+    },
+    {
+      "source": "module:tf_tree",
+      "target": "module:gimbal_driver",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`tf_tree` declares a ROS package dependency on `gimbal_driver`."
+    },
+    {
+      "source": "module:tracker_solver",
+      "target": "module:auto_aim_common",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`tracker_solver` declares a ROS package dependency on `auto_aim_common`."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "file:src/behavior_tree/include/Topic.hpp",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`behavior_tree` owns `src/behavior_tree/include/Topic.hpp`."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "file:src/behavior_tree/src/Application.cpp",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`behavior_tree` owns `src/behavior_tree/src/Application.cpp`."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "file:src/behavior_tree/src/SubscribeMessage.cpp",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`behavior_tree` owns `src/behavior_tree/src/SubscribeMessage.cpp`."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "file:src/behavior_tree/src/PublishMessage.cpp",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`behavior_tree` owns `src/behavior_tree/src/PublishMessage.cpp`."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "file:src/behavior_tree/src/DecisionTrace.cpp",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`behavior_tree` owns `src/behavior_tree/src/DecisionTrace.cpp`."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "config:src/behavior_tree/launch/sentry_all.launch.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`behavior_tree` owns `src/behavior_tree/launch/sentry_all.launch.py`."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "config:src/behavior_tree/Scripts/main.xml",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`behavior_tree` owns `src/behavior_tree/Scripts/main.xml`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "file:src/gimbal_driver/main.cpp",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`gimbal_driver` owns `src/gimbal_driver/main.cpp`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "config:src/gimbal_driver/launch/gimbal_driver.launch.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`gimbal_driver` owns `src/gimbal_driver/launch/gimbal_driver.launch.py`."
+    },
+    {
+      "source": "module:navi_tf_bridge",
+      "target": "file:src/navi_tf_bridge/src/target_rel_to_goal_pos_node.cpp",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`navi_tf_bridge` owns `src/navi_tf_bridge/src/target_rel_to_goal_pos_node.cpp`."
+    },
+    {
+      "source": "module:navi_tf_bridge",
+      "target": "file:src/navi_tf_bridge/src/pointer_solver_node.cpp",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`navi_tf_bridge` owns `src/navi_tf_bridge/src/pointer_solver_node.cpp`."
+    },
+    {
+      "source": "module:navi_tf_bridge",
+      "target": "config:src/navi_tf_bridge/launch/target_rel_to_goal_pos.launch.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`navi_tf_bridge` owns `src/navi_tf_bridge/launch/target_rel_to_goal_pos.launch.py`."
+    },
+    {
+      "source": "module:navi_tf_bridge",
+      "target": "config:src/navi_tf_bridge/launch/map_aim_point.launch.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`navi_tf_bridge` owns `src/navi_tf_bridge/launch/map_aim_point.launch.py`."
+    },
+    {
+      "source": "module:detector",
+      "target": "file:src/detector/detector_node.cpp",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`detector` owns `src/detector/detector_node.cpp`."
+    },
+    {
+      "source": "module:detector",
+      "target": "config:src/detector/launch/auto_aim.launch.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`detector` owns `src/detector/launch/auto_aim.launch.py`."
+    },
+    {
+      "source": "module:tracker_solver",
+      "target": "file:src/tracker_solver/car_tracker_solver_node.cpp",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`tracker_solver` owns `src/tracker_solver/car_tracker_solver_node.cpp`."
+    },
+    {
+      "source": "module:predictor",
+      "target": "file:src/predictor/predictor_node.cpp",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`predictor` owns `src/predictor/predictor_node.cpp`."
+    },
+    {
+      "source": "module:outpost_hitter",
+      "target": "file:src/outpost_hitter/outpost_hitter_node.cpp",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`outpost_hitter` owns `src/outpost_hitter/outpost_hitter_node.cpp`."
+    },
+    {
+      "source": "module:buff_hitter",
+      "target": "file:src/buff_hitter/main.cpp",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`buff_hitter` owns `src/buff_hitter/main.cpp`."
+    },
+    {
+      "source": "module:simulator",
+      "target": "file:src/simulator/simulator/model.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`simulator` owns `src/simulator/simulator/model.py`."
+    },
+    {
+      "source": "module:simulator",
+      "target": "file:src/simulator/simulator/trace.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`simulator` owns `src/simulator/simulator/trace.py`."
+    },
+    {
+      "source": "module:simulator",
+      "target": "file:src/simulator/simulator/validation.py",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`simulator` owns `src/simulator/simulator/validation.py`."
+    },
+    {
+      "source": "module:simulator",
+      "target": "config:src/simulator/config/default.yaml",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`simulator` owns `src/simulator/config/default.yaml`."
+    },
+    {
+      "source": "module:auto_aim_common",
+      "target": "schema:src/auto_aim_common/msg/AngleImage.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`auto_aim_common` defines message `AngleImage.msg`."
+    },
+    {
+      "source": "module:auto_aim_common",
+      "target": "schema:src/auto_aim_common/msg/Armor.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`auto_aim_common` defines message `Armor.msg`."
+    },
+    {
+      "source": "module:auto_aim_common",
+      "target": "schema:src/auto_aim_common/msg/ArmorTracker.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`auto_aim_common` defines message `ArmorTracker.msg`."
+    },
+    {
+      "source": "module:auto_aim_common",
+      "target": "schema:src/auto_aim_common/msg/Armors.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`auto_aim_common` defines message `Armors.msg`."
+    },
+    {
+      "source": "module:auto_aim_common",
+      "target": "schema:src/auto_aim_common/msg/BuffDebug.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`auto_aim_common` defines message `BuffDebug.msg`."
+    },
+    {
+      "source": "module:auto_aim_common",
+      "target": "schema:src/auto_aim_common/msg/Car.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`auto_aim_common` defines message `Car.msg`."
+    },
+    {
+      "source": "module:auto_aim_common",
+      "target": "schema:src/auto_aim_common/msg/CarTracker.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`auto_aim_common` defines message `CarTracker.msg`."
+    },
+    {
+      "source": "module:auto_aim_common",
+      "target": "schema:src/auto_aim_common/msg/DebugFilter.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`auto_aim_common` defines message `DebugFilter.msg`."
+    },
+    {
+      "source": "module:auto_aim_common",
+      "target": "schema:src/auto_aim_common/msg/GoalReach.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`auto_aim_common` defines message `GoalReach.msg`."
+    },
+    {
+      "source": "module:auto_aim_common",
+      "target": "schema:src/auto_aim_common/msg/PredictorArmorVis.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`auto_aim_common` defines message `PredictorArmorVis.msg`."
+    },
+    {
+      "source": "module:auto_aim_common",
+      "target": "schema:src/auto_aim_common/msg/PredictorCarVis.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`auto_aim_common` defines message `PredictorCarVis.msg`."
+    },
+    {
+      "source": "module:auto_aim_common",
+      "target": "schema:src/auto_aim_common/msg/PredictorVis.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`auto_aim_common` defines message `PredictorVis.msg`."
+    },
+    {
+      "source": "module:auto_aim_common",
+      "target": "schema:src/auto_aim_common/msg/Rect.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`auto_aim_common` defines message `Rect.msg`."
+    },
+    {
+      "source": "module:auto_aim_common",
+      "target": "schema:src/auto_aim_common/msg/RelativeTarget.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`auto_aim_common` defines message `RelativeTarget.msg`."
+    },
+    {
+      "source": "module:auto_aim_common",
+      "target": "schema:src/auto_aim_common/msg/Target.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`auto_aim_common` defines message `Target.msg`."
+    },
+    {
+      "source": "module:auto_aim_common",
+      "target": "schema:src/auto_aim_common/msg/Trackers.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`auto_aim_common` defines message `Trackers.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/BuffData.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `BuffData.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/BulletInfo.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `BulletInfo.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/Chassis.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `Chassis.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/ControlVelocity.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `ControlVelocity.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/EventData.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `EventData.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/FaceModeStatus.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `FaceModeStatus.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/FireCode.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `FireCode.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/GameData.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `GameData.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/GimbalAngles.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `GimbalAngles.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/GimbalRawFrame.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `GimbalRawFrame.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/GimbalYaw.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `GimbalYaw.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/Health.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `Health.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/MapCommand.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `MapCommand.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/PositionData.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `PositionData.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/RfidStatus.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `RfidStatus.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/SentryCmd.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `SentryCmd.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/SentryInfo.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `SentryInfo.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/StampedUInt16MultiArray.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `StampedUInt16MultiArray.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/UWBPos.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `UWBPos.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/UnitInfo.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `UnitInfo.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/UnitInfoArray.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `UnitInfoArray.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/Vel.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `Vel.msg`."
+    },
+    {
+      "source": "concept:decision-only-runtime",
+      "target": "module:behavior_tree",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Formal repo runtime centers on BT decisions."
+    },
+    {
+      "source": "concept:decision-only-runtime",
+      "target": "module:gimbal_driver",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Formal repo runtime includes lower-machine serial bridge."
+    },
+    {
+      "source": "concept:decision-only-runtime",
+      "target": "module:navi_tf_bridge",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Formal repo runtime includes navigation and FaceMode bridge nodes."
+    },
+    {
+      "source": "concept:decision-only-runtime",
+      "target": "service:external-sentry-aim",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "Formal vision/aim/fire gate is external."
+    },
+    {
+      "source": "concept:decision-only-runtime",
+      "target": "service:external-sentry-tf",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "Formal TF is preferably provided externally."
+    },
+    {
+      "source": "service:external-sentry-aim",
+      "target": "endpoint:ros-topic:/ly/aim/armor_targets",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "External aim publishes candidate armor targets for BT selection."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/aim/armor_targets",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "BT consumes candidate armor targets."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/aim/select_target",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "BT publishes selected armor target back to external aim."
+    },
+    {
+      "source": "service:external-sentry-aim",
+      "target": "endpoint:ros-topic:/ly/aim/select_target",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "External aim consumes BT-selected target."
+    },
+    {
+      "source": "service:external-sentry-aim",
+      "target": "endpoint:ros-topic:/ly/aim/result",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "External aim publishes follow/fire/yaw/pitch result."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/aim/result",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "BT gates yaw/pitch and fire through AimResult.follow/fire."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/control/angles",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "BT is formal owner of control output topics."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "endpoint:ros-topic:/ly/control/angles",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "gimbal_driver consumes semantic control topics and serializes downlink frames."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/control/firecode",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "BT is formal owner of control output topics."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "endpoint:ros-topic:/ly/control/firecode",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "gimbal_driver consumes semantic control topics and serializes downlink frames."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/control/vel",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "BT is formal owner of control output topics."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "endpoint:ros-topic:/ly/control/vel",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "gimbal_driver consumes semantic control topics and serializes downlink frames."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/control/posture",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "BT is formal owner of control output topics."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "endpoint:ros-topic:/ly/control/posture",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "gimbal_driver consumes semantic control topics and serializes downlink frames."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/control/sentry_cmd",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "BT is formal owner of control output topics."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "endpoint:ros-topic:/ly/control/sentry_cmd",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "gimbal_driver consumes semantic control topics and serializes downlink frames."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "service:lower-machine",
+      "type": "serves",
+      "weight": 0.5,
+      "summary": "gimbal_driver writes serial main control frames to lower machine."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "endpoint:ros-topic:/ly/gimbal/angles",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "gimbal_driver publishes lower-machine/referee/gimbal state."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/gimbal/angles",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "BT reads lower-machine/referee/gimbal state into decision blackboard."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "endpoint:ros-topic:/ly/gimbal/firecode",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "gimbal_driver publishes lower-machine/referee/gimbal state."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/gimbal/firecode",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "BT reads lower-machine/referee/gimbal state into decision blackboard."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "endpoint:ros-topic:/ly/gimbal/big_yaw_angles",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "gimbal_driver publishes lower-machine/referee/gimbal state."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/gimbal/big_yaw_angles",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "BT reads lower-machine/referee/gimbal state into decision blackboard."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "endpoint:ros-topic:/ly/game/rfid",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "gimbal_driver publishes lower-machine/referee/gimbal state."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/game/rfid",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "BT reads lower-machine/referee/gimbal state into decision blackboard."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "endpoint:ros-topic:/ly/game/sentry/info",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "gimbal_driver publishes lower-machine/referee/gimbal state."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/game/sentry/info",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "BT reads lower-machine/referee/gimbal state into decision blackboard."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "endpoint:ros-topic:/ly/game/map_command",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "gimbal_driver publishes lower-machine/referee/gimbal state."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/game/map_command",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "BT reads lower-machine/referee/gimbal state into decision blackboard."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "endpoint:ros-topic:/ly/game/bullet",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "gimbal_driver publishes lower-machine/referee/gimbal state."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/game/bullet",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "BT reads lower-machine/referee/gimbal state into decision blackboard."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "endpoint:ros-topic:/ly/friend/is_team_red",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "gimbal_driver publishes lower-machine/referee/gimbal state."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/friend/is_team_red",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "BT reads lower-machine/referee/gimbal state into decision blackboard."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "endpoint:ros-topic:/ly/team/buff",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "gimbal_driver publishes lower-machine/referee/gimbal state."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/team/buff",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "BT reads lower-machine/referee/gimbal state into decision blackboard."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "endpoint:ros-topic:/ly/position/data",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "gimbal_driver publishes lower-machine/referee/gimbal state."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/position/data",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "BT reads lower-machine/referee/gimbal state into decision blackboard."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/navi/target_rel",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "BT publishes navigation intent or control metadata."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/navi/goal_pos_raw",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "BT publishes navigation intent or control metadata."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/navi/goal",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "BT publishes navigation intent or control metadata."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/navi/speed_level",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "BT publishes navigation intent or control metadata."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/navi/lower_head",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "BT publishes navigation intent or control metadata."
+    },
+    {
+      "source": "module:navi_tf_bridge",
+      "target": "endpoint:ros-topic:/ly/navi/target_rel",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "navi_tf_bridge converts relative chase targets into map/goal outputs."
+    },
+    {
+      "source": "module:navi_tf_bridge",
+      "target": "endpoint:ros-topic:/ly/navi/goal_pos_raw",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "navi_tf_bridge converts raw official/map goal coordinates."
+    },
+    {
+      "source": "module:navi_tf_bridge",
+      "target": "endpoint:ros-topic:/ly/friend/is_team_red",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "navi_tf_bridge uses team color for area-limited chase conversion."
+    },
+    {
+      "source": "module:navi_tf_bridge",
+      "target": "endpoint:ros-topic:/ly/navi/goal_pos",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "navi_tf_bridge publishes converted navigation/map outputs."
+    },
+    {
+      "source": "module:navi_tf_bridge",
+      "target": "endpoint:ros-topic:/goal_pose",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "navi_tf_bridge publishes converted navigation/map outputs."
+    },
+    {
+      "source": "module:navi_tf_bridge",
+      "target": "endpoint:ros-topic:/ly/navi/target_official",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "navi_tf_bridge publishes converted navigation/map outputs."
+    },
+    {
+      "source": "module:navi_tf_bridge",
+      "target": "endpoint:ros-topic:/ly/navi/position",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "navi_tf_bridge publishes converted navigation/map outputs."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/face_mode/target_raw",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "BT publishes FaceMode target raw official-map point."
+    },
+    {
+      "source": "module:navi_tf_bridge",
+      "target": "endpoint:ros-topic:/ly/face_mode/target_raw",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "map_aim_point_node consumes FaceMode target raw point."
+    },
+    {
+      "source": "module:navi_tf_bridge",
+      "target": "endpoint:ros-topic:/ly/face_mode/angles",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "map_aim_point_node publishes solved yaw/pitch for FaceMode."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/face_mode/angles",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "BT arbitrates FaceMode angles before forwarding to control."
+    },
+    {
+      "source": "module:tf_tree",
+      "target": "service:external-sentry-tf",
+      "type": "related",
+      "weight": 0.5,
+      "summary": "tf_tree is a fallback, not concurrent with external sentry_tf for same frames."
+    },
+    {
+      "source": "concept:legacy-internal-autoaim",
+      "target": "module:detector",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Legacy debug chain starts at detector."
+    },
+    {
+      "source": "concept:legacy-internal-autoaim",
+      "target": "module:tracker_solver",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Legacy debug chain tracks detector armors."
+    },
+    {
+      "source": "concept:legacy-internal-autoaim",
+      "target": "module:predictor",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "Legacy debug chain predicts target yaw/pitch."
+    },
+    {
+      "source": "module:detector",
+      "target": "endpoint:ros-topic:/ly/gimbal/angles",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "detector uses gimbal/team/mode/target context."
+    },
+    {
+      "source": "module:detector",
+      "target": "endpoint:ros-topic:/ly/friend/is_team_red",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "detector uses gimbal/team/mode/target context."
+    },
+    {
+      "source": "module:detector",
+      "target": "endpoint:ros-topic:/ly/vision/mode",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "detector uses gimbal/team/mode/target context."
+    },
+    {
+      "source": "module:detector",
+      "target": "endpoint:ros-topic:/ly/bt/target",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "detector uses gimbal/team/mode/target context."
+    },
+    {
+      "source": "module:detector",
+      "target": "endpoint:ros-topic:/ly/detector/armors",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "detector publishes armor detections for legacy/debug consumers."
+    },
+    {
+      "source": "module:detector",
+      "target": "endpoint:ros-topic:/ly/outpost/armors",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "detector publishes armor detections for legacy/debug consumers."
+    },
+    {
+      "source": "module:tracker_solver",
+      "target": "endpoint:ros-topic:/ly/detector/armors",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "tracker_solver consumes detector armors."
+    },
+    {
+      "source": "module:tracker_solver",
+      "target": "endpoint:ros-topic:/ly/tracker/results",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "tracker_solver publishes tracked armor/car state."
+    },
+    {
+      "source": "module:predictor",
+      "target": "endpoint:ros-topic:/ly/tracker/results",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "predictor consumes tracker results."
+    },
+    {
+      "source": "module:predictor",
+      "target": "endpoint:ros-topic:/ly/bt/target",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "predictor consumes BT target selection in legacy flow."
+    },
+    {
+      "source": "module:predictor",
+      "target": "endpoint:ros-topic:/ly/bullet/speed",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "predictor consumes bullet speed for ballistic solve."
+    },
+    {
+      "source": "module:predictor",
+      "target": "endpoint:ros-topic:/ly/predictor/target",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "predictor publishes yaw/pitch target in legacy flow."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/predictor/target",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "BT still has legacy predictor input but formal runtime uses /ly/aim/* instead."
+    },
+    {
+      "source": "module:outpost_hitter",
+      "target": "endpoint:ros-topic:/ly/outpost/armors",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "outpost_hitter consumes outpost armor detections."
+    },
+    {
+      "source": "module:outpost_hitter",
+      "target": "endpoint:ros-topic:/ly/outpost/target",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "outpost_hitter publishes outpost target for debug bridge/BT legacy paths."
+    },
+    {
+      "source": "module:buff_hitter",
+      "target": "endpoint:ros-topic:/ly/buff/target",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "buff_hitter publishes buff target for debug bridge/BT legacy paths."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/outpost/target",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "BT can consume outpost target in legacy/debug modes."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/buff/target",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "BT can consume buff target in legacy/debug modes."
+    },
+    {
+      "source": "document:README.md",
+      "target": "concept:decision-only-runtime",
+      "type": "documents",
+      "weight": 0.5,
+      "summary": "`README.md` documents the current runtime chain."
+    },
+    {
+      "source": "document:docs/README.md",
+      "target": "concept:decision-only-runtime",
+      "type": "documents",
+      "weight": 0.5,
+      "summary": "`docs/README.md` documents the current runtime chain."
+    },
+    {
+      "source": "document:docs/architecture/2026-05-03_message_and_link_flow.md",
+      "target": "concept:decision-only-runtime",
+      "type": "documents",
+      "weight": 0.5,
+      "summary": "`docs/architecture/2026-05-03_message_and_link_flow.md` documents the current runtime chain."
+    },
+    {
+      "source": "document:docs/architecture/2026-05-05_system_behavior.md",
+      "target": "concept:decision-only-runtime",
+      "type": "documents",
+      "weight": 0.5,
+      "summary": "`docs/architecture/2026-05-05_system_behavior.md` documents the current runtime chain."
+    },
+    {
+      "source": "file:src/behavior_tree/src/DecisionTrace.cpp",
+      "target": "concept:simulator-trace-contract",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`src/behavior_tree/src/DecisionTrace.cpp` participates in simulator trace contract."
+    },
+    {
+      "source": "file:src/simulator/simulator/model.py",
+      "target": "concept:simulator-trace-contract",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`src/simulator/simulator/model.py` participates in simulator trace contract."
+    },
+    {
+      "source": "file:src/simulator/simulator/trace.py",
+      "target": "concept:simulator-trace-contract",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`src/simulator/simulator/trace.py` participates in simulator trace contract."
+    },
+    {
+      "source": "file:src/simulator/simulator/validation.py",
+      "target": "concept:simulator-trace-contract",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`src/simulator/simulator/validation.py` participates in simulator trace contract."
+    },
+    {
+      "source": "config:src/simulator/config/default.yaml",
+      "target": "concept:simulator-trace-contract",
+      "type": "depends_on",
+      "weight": 0.6,
+      "summary": "`src/simulator/config/default.yaml` participates in simulator trace contract."
+    },
+    {
+      "source": "document:docs/sentry/internal/simulator.md",
+      "target": "concept:simulator-trace-contract",
+      "type": "documents",
+      "weight": 0.5,
+      "summary": "`docs/sentry/internal/simulator.md` participates in simulator trace contract."
+    }
+  ],
+  "layers": [
+    {
+      "id": "layer:formal-runtime",
+      "name": "正式 decision-only 主链",
+      "description": "外部 sentry.aim/sentry_tf 加本仓 BT、导航/FaceMode 和下位机串口。",
+      "nodeIds": [
+        "concept:decision-only-runtime",
+        "service:external-sentry-aim",
+        "service:external-sentry-tf",
+        "module:behavior_tree",
+        "module:gimbal_driver",
+        "module:navi_tf_bridge",
+        "module:tf_tree",
+        "file:src/behavior_tree/package.xml",
+        "document:README.md",
+        "document:docs/README.md",
+        "document:docs/architecture/2026-05-03_message_and_link_flow.md",
+        "document:docs/architecture/2026-05-05_system_behavior.md",
+        "file:src/behavior_tree/include/Topic.hpp",
+        "file:src/behavior_tree/src/Application.cpp",
+        "file:src/behavior_tree/src/SubscribeMessage.cpp",
+        "file:src/behavior_tree/src/PublishMessage.cpp",
+        "file:src/behavior_tree/src/DecisionTrace.cpp",
+        "config:src/behavior_tree/launch/sentry_all.launch.py",
+        "config:src/behavior_tree/Scripts/main.xml",
+        "endpoint:ros-topic:/ly/aim/armor_targets",
+        "endpoint:ros-topic:/ly/aim/result",
+        "endpoint:ros-topic:/ly/aim/select_target",
+        "endpoint:ros-topic:/ly/control/angles",
+        "endpoint:ros-topic:/ly/control/firecode",
+        "endpoint:ros-topic:/ly/control/posture",
+        "endpoint:ros-topic:/ly/control/sentry_cmd",
+        "endpoint:ros-topic:/ly/control/vel"
+      ]
+    },
+    {
+      "id": "layer:control-and-referee",
+      "name": "控制下发与裁判状态",
+      "description": "gimbal_driver 消息、串口下发、裁判/状态上行。",
+      "nodeIds": [
+        "service:lower-machine",
+        "file:src/gimbal_driver/package.xml",
+        "file:src/gimbal_driver/main.cpp",
+        "config:src/gimbal_driver/launch/gimbal_driver.launch.py",
+        "schema:src/gimbal_driver/msg/BuffData.msg",
+        "schema:src/gimbal_driver/msg/BulletInfo.msg",
+        "schema:src/gimbal_driver/msg/Chassis.msg",
+        "schema:src/gimbal_driver/msg/ControlVelocity.msg",
+        "schema:src/gimbal_driver/msg/EventData.msg",
+        "schema:src/gimbal_driver/msg/FaceModeStatus.msg",
+        "schema:src/gimbal_driver/msg/FireCode.msg",
+        "schema:src/gimbal_driver/msg/GameData.msg",
+        "schema:src/gimbal_driver/msg/GimbalAngles.msg",
+        "schema:src/gimbal_driver/msg/GimbalRawFrame.msg",
+        "schema:src/gimbal_driver/msg/GimbalYaw.msg",
+        "schema:src/gimbal_driver/msg/Health.msg",
+        "schema:src/gimbal_driver/msg/MapCommand.msg",
+        "schema:src/gimbal_driver/msg/PositionData.msg",
+        "schema:src/gimbal_driver/msg/RfidStatus.msg",
+        "schema:src/gimbal_driver/msg/SentryCmd.msg",
+        "schema:src/gimbal_driver/msg/SentryInfo.msg",
+        "schema:src/gimbal_driver/msg/StampedUInt16MultiArray.msg",
+        "schema:src/gimbal_driver/msg/UWBPos.msg",
+        "schema:src/gimbal_driver/msg/UnitInfo.msg",
+        "schema:src/gimbal_driver/msg/UnitInfoArray.msg",
+        "schema:src/gimbal_driver/msg/Vel.msg",
+        "endpoint:ros-topic:/ly/friend/ammo_left",
+        "endpoint:ros-topic:/ly/friend/base_hp",
+        "endpoint:ros-topic:/ly/friend/hp",
+        "endpoint:ros-topic:/ly/friend/info",
+        "endpoint:ros-topic:/ly/friend/is_at_home",
+        "endpoint:ros-topic:/ly/friend/is_precaution",
+        "endpoint:ros-topic:/ly/friend/is_team_red",
+        "endpoint:ros-topic:/ly/friend/op_hp",
+        "endpoint:ros-topic:/ly/friend/uwb_pos",
+        "endpoint:ros-topic:/ly/friend/uwb_yaw",
+        "endpoint:ros-topic:/ly/game/all",
+        "endpoint:ros-topic:/ly/game/bullet",
+        "endpoint:ros-topic:/ly/game/event_data",
+        "endpoint:ros-topic:/ly/game/is_start",
+        "endpoint:ros-topic:/ly/game/map_command",
+        "endpoint:ros-topic:/ly/game/rfid",
+        "endpoint:ros-topic:/ly/game/sentry/info",
+        "endpoint:ros-topic:/ly/game/time_left",
+        "endpoint:ros-topic:/ly/gimbal/angles",
+        "endpoint:ros-topic:/ly/gimbal/big_yaw_angles",
+        "endpoint:ros-topic:/ly/gimbal/capV",
+        "endpoint:ros-topic:/ly/gimbal/chassis",
+        "endpoint:ros-topic:/ly/gimbal/eventdata",
+        "endpoint:ros-topic:/ly/gimbal/firecode",
+        "endpoint:ros-topic:/ly/gimbal/posture",
+        "endpoint:ros-topic:/ly/gimbal/vel",
+        "endpoint:ros-topic:/ly/position/data",
+        "endpoint:ros-topic:/ly/team/buff"
+      ]
+    },
+    {
+      "id": "layer:navigation-and-facemode",
+      "name": "导航与 FaceMode bridge",
+      "description": "目标点、相对追击、官方坐标、FaceMode 解算与 /goal_pose 输出。",
+      "nodeIds": [
+        "file:src/navi_tf_bridge/package.xml",
+        "file:src/tf_tree/package.xml",
+        "file:src/navi_tf_bridge/src/target_rel_to_goal_pos_node.cpp",
+        "file:src/navi_tf_bridge/src/pointer_solver_node.cpp",
+        "config:src/navi_tf_bridge/launch/target_rel_to_goal_pos.launch.py",
+        "config:src/navi_tf_bridge/launch/map_aim_point.launch.py",
+        "endpoint:ros-topic:/goal_pose",
+        "endpoint:ros-topic:/ly/face_mode/angles",
+        "endpoint:ros-topic:/ly/face_mode/target_raw",
+        "endpoint:ros-topic:/ly/navi/goal",
+        "endpoint:ros-topic:/ly/navi/goal_pos",
+        "endpoint:ros-topic:/ly/navi/goal_pos_raw",
+        "endpoint:ros-topic:/ly/navi/lower_head",
+        "endpoint:ros-topic:/ly/navi/position",
+        "endpoint:ros-topic:/ly/navi/reach_state",
+        "endpoint:ros-topic:/ly/navi/reachable",
+        "endpoint:ros-topic:/ly/navi/reached",
+        "endpoint:ros-topic:/ly/navi/should_rotate",
+        "endpoint:ros-topic:/ly/navi/speed_level",
+        "endpoint:ros-topic:/ly/navi/target_official",
+        "endpoint:ros-topic:/ly/navi/target_rel",
+        "endpoint:ros-topic:/ly/navi/vel"
+      ]
+    },
+    {
+      "id": "layer:legacy-autoaim",
+      "name": "Legacy / 调试自瞄链",
+      "description": "detector/tracker/predictor/buff/outpost 等历史和调试链路。",
+      "nodeIds": [
+        "concept:legacy-internal-autoaim",
+        "module:detector",
+        "module:tracker_solver",
+        "module:predictor",
+        "module:buff_hitter",
+        "module:outpost_hitter",
+        "module:shooting_table_calib",
+        "module:buff_shooting_table_calib",
+        "file:src/buff_hitter/package.xml",
+        "file:src/buff_shooting_table_calib/package.xml",
+        "file:src/detector/package.xml",
+        "file:src/outpost_hitter/package.xml",
+        "file:src/predictor/package.xml",
+        "file:src/shooting_table_calib/package.xml",
+        "file:src/tracker_solver/package.xml",
+        "file:src/detector/detector_node.cpp",
+        "config:src/detector/launch/auto_aim.launch.py",
+        "file:src/tracker_solver/car_tracker_solver_node.cpp",
+        "file:src/predictor/predictor_node.cpp",
+        "file:src/outpost_hitter/outpost_hitter_node.cpp",
+        "file:src/buff_hitter/main.cpp",
+        "endpoint:ros-topic:/ly/bt/target",
+        "endpoint:ros-topic:/ly/buff/debug",
+        "endpoint:ros-topic:/ly/buff/target",
+        "endpoint:ros-topic:/ly/detector/armors",
+        "endpoint:ros-topic:/ly/detector/high_armors",
+        "endpoint:ros-topic:/ly/outpost/armors",
+        "endpoint:ros-topic:/ly/outpost/target",
+        "endpoint:ros-topic:/ly/predictor/debug",
+        "endpoint:ros-topic:/ly/predictor/target",
+        "endpoint:ros-topic:/ly/predictor/vis",
+        "endpoint:ros-topic:/ly/tracker/results",
+        "endpoint:ros-topic:/ly/vision/mode"
+      ]
+    },
+    {
+      "id": "layer:shared-messages-and-config",
+      "name": "共享消息与配置",
+      "description": "auto_aim_common、消息 schema、package manifest、launch/config 文档。",
+      "nodeIds": [
+        "module:auto_aim_common",
+        "file:src/auto_aim_common/package.xml",
+        "schema:src/auto_aim_common/msg/AngleImage.msg",
+        "schema:src/auto_aim_common/msg/Armor.msg",
+        "schema:src/auto_aim_common/msg/ArmorTracker.msg",
+        "schema:src/auto_aim_common/msg/Armors.msg",
+        "schema:src/auto_aim_common/msg/BuffDebug.msg",
+        "schema:src/auto_aim_common/msg/Car.msg",
+        "schema:src/auto_aim_common/msg/CarTracker.msg",
+        "schema:src/auto_aim_common/msg/DebugFilter.msg",
+        "schema:src/auto_aim_common/msg/GoalReach.msg",
+        "schema:src/auto_aim_common/msg/PredictorArmorVis.msg",
+        "schema:src/auto_aim_common/msg/PredictorCarVis.msg",
+        "schema:src/auto_aim_common/msg/PredictorVis.msg",
+        "schema:src/auto_aim_common/msg/Rect.msg",
+        "schema:src/auto_aim_common/msg/RelativeTarget.msg",
+        "schema:src/auto_aim_common/msg/Target.msg",
+        "schema:src/auto_aim_common/msg/Trackers.msg",
+        "endpoint:ros-topic:/ly/back_cam/target",
+        "endpoint:ros-topic:/ly/backcamera/image",
+        "endpoint:ros-topic:/ly/bullet/speed",
+        "endpoint:ros-topic:/ly/camera/image",
+        "endpoint:ros-topic:/ly/compressed/image",
+        "endpoint:ros-topic:/ly/enemy/base_hp",
+        "endpoint:ros-topic:/ly/enemy/hp",
+        "endpoint:ros-topic:/ly/enemy/info",
+        "endpoint:ros-topic:/ly/enemy/op_hp",
+        "endpoint:ros-topic:/ly/ra/angle_image",
+        "endpoint:ros-topic:/ly/ra/image",
+        "endpoint:ros-topic:/ly/ra/mode"
+      ]
+    },
+    {
+      "id": "layer:simulator-and-docs",
+      "name": "离线模拟器与文档",
+      "description": "decision trace、pygame simulator、架构/模块文档和自检脚本。",
+      "nodeIds": [
+        "concept:simulator-trace-contract",
+        "module:simulator",
+        "file:src/simulator/package.xml",
+        "document:docs/agents/domain.md",
+        "document:docs/sentry/internal/ros2_topic_structure.md",
+        "document:docs/modules/2026-05-05_behavior_tree.md",
+        "document:docs/modules/2026-05-05_gimbal_driver.md",
+        "document:docs/modules/2026-05-04_navi_tf_bridge.md",
+        "file:src/simulator/simulator/model.py",
+        "file:src/simulator/simulator/trace.py",
+        "file:src/simulator/simulator/validation.py",
+        "config:src/simulator/config/default.yaml",
+        "document:docs/sentry/internal/simulator.md",
+        "file:scripts/selfcheck.sh",
+        "file:scripts/start.sh"
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "order": 1,
+      "title": "从当前主链开始",
+      "description": "先看 README 和系统行为文档：正式运行已经是 decision-only，本仓不再启动 legacy 内部自瞄链。",
+      "nodeIds": [
+        "document:README.md",
+        "document:docs/architecture/2026-05-05_system_behavior.md",
+        "concept:decision-only-runtime"
+      ]
+    },
+    {
+      "order": 2,
+      "title": "理解 BT 的 ROS 边界",
+      "description": "看 Topic.hpp 和 Application.cpp：BT 订阅外部 aim/裁判/导航状态，统一发布 /ly/control/* 和导航意图。",
+      "nodeIds": [
+        "file:src/behavior_tree/include/Topic.hpp",
+        "file:src/behavior_tree/src/Application.cpp",
+        "module:behavior_tree"
+      ]
+    },
+    {
+      "order": 3,
+      "title": "追踪正式 aim/fire 控制流",
+      "description": "外部 sentry.aim 发布候选目标和 AimResult，BT 根据 follow/fire 门控决定角度接管与 firecode 翻转。",
+      "nodeIds": [
+        "service:external-sentry-aim",
+        "endpoint:ros-topic:/ly/aim/armor_targets",
+        "endpoint:ros-topic:/ly/aim/select_target",
+        "endpoint:ros-topic:/ly/aim/result",
+        "endpoint:ros-topic:/ly/control/angles",
+        "endpoint:ros-topic:/ly/control/firecode"
+      ]
+    },
+    {
+      "order": 4,
+      "title": "看下位机和裁判状态边界",
+      "description": "gimbal_driver 消费 /ly/control/*，发布 /ly/gimbal/*、/ly/game/*、/ly/friend/* 等状态，是 ROS 与下位机的边界。",
+      "nodeIds": [
+        "module:gimbal_driver",
+        "file:src/gimbal_driver/main.cpp",
+        "service:lower-machine"
+      ]
+    },
+    {
+      "order": 5,
+      "title": "看导航和 FaceMode bridge",
+      "description": "navi_tf_bridge 把 BT 的 raw/relative 目标转成 /goal_pose，也把 FaceMode target raw 解成 /ly/face_mode/angles。",
+      "nodeIds": [
+        "module:navi_tf_bridge",
+        "file:src/navi_tf_bridge/src/target_rel_to_goal_pos_node.cpp",
+        "file:src/navi_tf_bridge/src/pointer_solver_node.cpp"
+      ]
+    },
+    {
+      "order": 6,
+      "title": "区分 legacy 调试链",
+      "description": "detector/tracker_solver/predictor/outpost/buff 仍保留，但作为调试、标定和历史对照，不是 sentry_all 正式主链。",
+      "nodeIds": [
+        "concept:legacy-internal-autoaim",
+        "module:detector",
+        "module:tracker_solver",
+        "module:predictor",
+        "module:outpost_hitter",
+        "module:buff_hitter"
+      ]
+    },
+    {
+      "order": 7,
+      "title": "维护 simulator trace 合约",
+      "description": "改 BT 决策输出、trace schema、点位、posture 或 unit state 时，同步 simulator model/trace/validation/config/docs。",
+      "nodeIds": [
+        "concept:simulator-trace-contract",
+        "file:src/behavior_tree/src/DecisionTrace.cpp",
+        "file:src/simulator/simulator/model.py",
+        "file:src/simulator/simulator/trace.py",
+        "file:src/simulator/simulator/validation.py",
+        "document:docs/sentry/internal/simulator.md"
+      ]
+    }
+  ],
+  "analysisNotes": [
+    "Generated locally from README/docs/package.xml/topic definitions because copied understand-anything skill lacked plugin root/core package in this Codex session.",
+    "Graph emphasizes ROS package dependencies and topic data flow; it is not an AST-level function call graph.",
+    "Matt Pocock zoom-out style was used: module/caller map first, preserving current decision-only domain vocabulary."
+  ]
+}

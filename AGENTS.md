@@ -80,8 +80,34 @@ Use the default Matt Pocock triage roles: `needs-triage`, `needs-info`, `ready-f
 
 This is a single-context ROS2 sentry workspace; read the repo-level docs first, and treat `CONTEXT.md` / `docs/adr/` as optional lazy-created docs. See `docs/agents/domain.md`.
 
+### Required project-understanding workflow
+
+For non-trivial work, combine the repo's default `$cautious-super-engineer` style with the installed Matt Pocock skills and the Understand Anything graph:
+
+- Read `README.md`, `docs/README.md`, and `docs/agents/domain.md` before changing runtime links, launch files, behavior-tree logic, message semantics, or simulator contracts.
+- Use `$zoom-out` when you need a module/caller map or when the task touches unfamiliar code paths.
+- Consult `.understand-anything/project-knowledge-graph.md` for the quick architecture map and `.understand-anything/knowledge-graph.json` for structured package/topic/file relationships.
+- Treat the graph as guidance, not authority. Source files, launch files, package manifests, and current docs remain authoritative.
+- If graph evidence conflicts with source evidence, trust source evidence, update the graph, and report the mismatch.
+
+### Understand Anything graph
+
+Use Understand Anything as the long-lived project map for this workspace.
+
+- Preferred skills when available in the current runtime: `$understand`, `$understand-chat`, `$understand-dashboard`, `$understand-diff`, `$understand-domain`, `$understand-explain`, and `$understand-onboard`.
+- Canonical graph outputs live under `.understand-anything/`:
+  - `knowledge-graph.json` for structured graph consumers
+  - `project-knowledge-graph.md` for the human-readable Mermaid overview
+  - `intermediate/scan-result.json` for scan inventory
+  - `meta.json` for analyzed commit metadata
+- Update or regenerate the graph when changing ROS package boundaries, launch composition, topic publishers/subscribers, message schemas, behavior-tree decision outputs, navigation/FaceMode flows, simulator trace contracts, or architecture docs.
+- Prefer Chinese output for generated summaries in this repo (`--language zh`) unless the user asks otherwise.
+- If the installed Understand Anything skill cannot run because its plugin root/core package is unavailable, create or update an Understand Anything-compatible fallback graph from repo docs, `package.xml`, launch files, topic definitions, and key source files. State clearly that fallback mode was used.
+- Do not let graph generation alter ROS runtime behavior. Keep graph updates as analysis artifacts unless the user explicitly asks for runtime changes.
+
 ## Skill Auto-Match & Auto-Install
 - Automatically match and use the minimal relevant skill set when user intent clearly maps to available skills.
+- Prefer Understand Anything for codebase orientation, architecture graphing, onboarding maps, graph-backed explanations, and diff impact analysis. Use the existing graph first; regenerate only when it is missing, stale, or the task changes graph-relevant interfaces.
 - Prefer the installed Matt Pocock skills when they match: `$diagnose` for bugs/failures, `$tdd` for test-first work, `$triage` for issue workflow, `$to-issues` for breaking plans into issues, `$to-prd` for PRDs, `$improve-codebase-architecture` for architecture work, `$zoom-out` for broader context, `$grill-me` / `$grill-with-docs` for stress-testing plans, `$handoff` for handoff summaries, and `$caveman` only when the user asks for terse mode.
 - Prefer the installed Addy Osmani skills as secondary engineering review tools when they match:
   - `$code-review-and-quality` for risk reviews, pre-merge review, and multi-axis checks of correctness/readability/architecture/security/performance.
