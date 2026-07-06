@@ -1,6 +1,26 @@
 # ros2_ly_ws_sentry Knowledge Graph
 
-Generated: 2026-06-26T07:26:03+00:00
+Generated: 2026-06-26T12:45:17+00:00
+
+Checked against HEAD: `84af1f3e758edad06802479b2357102a47c29778`
+
+Current graph shape: 181 nodes, 184 edges, 6 layers.
+
+Current ROS packages covered by graph:
+
+- `auto_aim_common`
+- `behavior_tree`
+- `buff_hitter`
+- `buff_shooting_table_calib`
+- `detector`
+- `gimbal_driver`
+- `navi_tf_bridge`
+- `outpost_hitter`
+- `predictor`
+- `shooting_table_calib`
+- `simulator`
+- `tf_tree`
+- `tracker_solver`
 
 ```mermaid
 flowchart LR
@@ -43,3 +63,5 @@ flowchart LR
 - 正式主鏈是 decision-only。
 - `detector/tracker_solver/predictor/outpost_hitter/buff_hitter` 是 legacy/debug，不是 `sentry_all` 正式主鏈。
 - 這份圖譜是 package/topic/file 級，不是完整 AST function call graph。
+- 本次核對時工作區有未提交改動；已確認當前 graph module 清單與 `src/*/package.xml` 的 13 個 ROS 包一致。
+- 未提交改動目前未觀察到 ROS package/topic/msg/launch 邊界變更，因此未重掃 `intermediate/scan-result.json`。

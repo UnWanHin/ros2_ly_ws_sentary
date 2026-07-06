@@ -23,8 +23,10 @@
       "pygame simulator"
     ],
     "description": "ROS2 Humble sentry workspace. Current formal runtime is decision-only: external sentry.aim/sentry_tf provide vision/TF and aim/fire gate; this repo owns BT decision, navigation/FaceMode bridge, gimbal_driver serial downlink, legacy debug auto-aim, and offline simulator.",
-    "analyzedAt": "2026-06-26T07:26:03+00:00",
-    "gitCommitHash": "36a7c6613d7d182c42e761f9226e8120846666d7",
+    "analyzedAt": "2026-06-26T12:45:17+00:00",
+    "gitCommitHash": "84af1f3e758edad06802479b2357102a47c29778",
+    "workingTreeStatus": "dirty",
+    "lastCheckedNote": "Package/module coverage checked against src/*/package.xml; graph-relevant ROS package list still matches. Uncommitted edits exist but no package/topic/msg/launch boundary change was observed in this check.",
     "outputLanguage": "zh"
   },
   "nodes": [
@@ -3719,6 +3721,8 @@
   "analysisNotes": [
     "Generated locally from README/docs/package.xml/topic definitions because copied understand-anything skill lacked plugin root/core package in this Codex session.",
     "Graph emphasizes ROS package dependencies and topic data flow; it is not an AST-level function call graph.",
-    "Matt Pocock zoom-out style was used: module/caller map first, preserving current decision-only domain vocabulary."
+    "Matt Pocock zoom-out style was used: module/caller map first, preserving current decision-only domain vocabulary.",
+    "Checked on 2026-06-26T12:45:17+00:00 against HEAD 84af1f3e758edad06802479b2357102a47c29778: graph module nodes match the 13 current ROS packages under src/*/package.xml.",
+    "Working tree was dirty during this check; observed uncommitted edits did not change ROS package/topic/msg/launch boundaries."
   ]
 }

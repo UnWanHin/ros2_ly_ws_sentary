@@ -33,13 +33,13 @@ template<typename T>
 inline T min(T a, T b)
 {
     //return a < b ? a : b;
-    return remainder_PI(a - b) < 0 ? a : b;
+    return remainder_PI(a - b) < T(0.0) ? a : b;
 }
 template<typename T>
 inline T max(T a, T b)
 {
     //return a > b ? a : b;
-    return remainder_PI(a - b) > 0 ? a : b;
+    return remainder_PI(a - b) > T(0.0) ? a : b;
 }
 
 //state: x,vx,y,vy,theta,omega,r1,r2,z1,z2, ax,ay
