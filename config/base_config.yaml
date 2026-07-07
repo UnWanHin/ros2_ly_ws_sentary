@@ -203,6 +203,10 @@
       velocity_raw_to_mps: 0.025
       navigation_test: false
       navigation_test_stale_timeout_ms: 500
+      sentry_coord_send_interval_ms: 100
+      sentry_coord_field_width_x: 2800
+      sentry_coord_field_width_y: 1500
+      sentry_coord_fresh_timeout_ms: 2000
       raw_serial_log_enable: false
       raw_serial_log_uplink: true
       raw_serial_log_downlink: true
@@ -224,6 +228,10 @@
     "io_config/velocity_raw_to_mps": 0.025
     "io_config/navigation_test": false
     "io_config/navigation_test_stale_timeout_ms": 500
+    "io_config/sentry_coord_send_interval_ms": 100
+    "io_config/sentry_coord_field_width_x": 2800
+    "io_config/sentry_coord_field_width_y": 1500
+    "io_config/sentry_coord_fresh_timeout_ms": 2000
     "io_config/raw_serial_log_enable": false
     "io_config/raw_serial_log_uplink": true
     "io_config/raw_serial_log_downlink": true

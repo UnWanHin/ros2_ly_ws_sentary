@@ -888,6 +888,7 @@ if (( STATIC_ONLY == 0 )); then
   check_node_sub "/gimbal_driver" "/ly/control/vel" hard
   check_node_sub "/gimbal_driver" "/ly/control/posture" hard
   check_node_sub "/gimbal_driver" "/ly/control/sentry_cmd" hard
+  check_node_sub "/gimbal_driver" "/ly/bt/sentry_position" hard
 
   # behavior_tree inputs
   check_node_sub "/behavior_tree" "/ly/gimbal/angles" hard
@@ -905,6 +906,7 @@ if (( STATIC_ONLY == 0 )); then
   check_node_pub "/behavior_tree" "/ly/control/posture" hard
   check_node_pub "/behavior_tree" "/ly/vision/mode" hard
   check_node_pub "/behavior_tree" "/ly/bt/target" hard
+  check_node_pub "/behavior_tree" "/ly/bt/sentry_position" hard
   check_node_pub "/behavior_tree" "/ly/aim/select_target" hard
   check_node_pub "/behavior_tree" "/ly/navi/vel" hard
 
@@ -915,6 +917,7 @@ if (( STATIC_ONLY == 0 )); then
 
   # 兼容鏈路檢查：電控側仍訂閱 /ly/control/vel，若沒有發布者視為缺口
   check_topic_link "/ly/control/vel" "gimbal_driver/msg/ControlVelocity" "/behavior_tree" "/gimbal_driver" hard
+  check_topic_link "/ly/bt/sentry_position" "geometry_msgs/msg/PointStamped" "/behavior_tree" "/gimbal_driver" hard
 
   check_topic_link "/ly/aim/select_target" "sentry_msgs/msg/AimTarget" "/behavior_tree" "" hard
   check_topic_link "/ly/aim/armor_targets" "sentry_msgs/msg/AimTargetArray" "" "/behavior_tree" hard

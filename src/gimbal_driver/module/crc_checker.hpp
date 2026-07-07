@@ -41,6 +41,20 @@ public:
             return crc;
         }
 
+        // Downlink coordinate frame CRC8: poly=0x31, init=0xFF, non-reflected.
+        static uint8_t calculate_downlink(const uint8_t* data, uint32_t length) {
+            std::uint8_t crc = CRC8_INIT;
+            while (length--) {
+                crc ^= *data++;
+                for (int bit = 0; bit < 8; ++bit) {
+                    crc = (crc & 0x80u)
+                        ? static_cast<std::uint8_t>((crc << 1u) ^ 0x31u)
+                        : static_cast<std::uint8_t>(crc << 1u);
+                }
+            }
+            return crc;
+        }
+
         // 自动追加CRC校验码到数据末尾
         static void append(uint8_t* data, uint32_t length) {
             if(length < 1) return;

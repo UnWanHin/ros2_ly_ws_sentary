@@ -1,10 +1,10 @@
 # ros2_ly_ws_sentry Knowledge Graph
 
-Generated: 2026-06-26T12:45:17+00:00
+Generated: 2026-07-07T16:58:59+00:00
 
 Checked against HEAD: `84af1f3e758edad06802479b2357102a47c29778`
 
-Current graph shape: 181 nodes, 184 edges, 6 layers.
+Current graph shape: 182 nodes, 186 edges, 6 layers.
 
 Current ROS packages covered by graph:
 
@@ -28,7 +28,8 @@ flowchart LR
   BT -->|/ly/aim/select_target| AIM
   AIM -->|/ly/aim/result follow/fire/yaw/pitch| BT
   BT -->|/ly/control/angles/firecode/vel/posture/sentry_cmd| GD[gimbal_driver]
-  GD -->|serial downlink| LOWER[lower machine]
+  BT -->|/ly/bt/sentry_position PointStamped map m| GD
+  GD -->|serial downlink DownlinkTypeID 0x00 control / 0x01 coordinate| LOWER[lower machine]
   LOWER -->|referee/gimbal state| GD
   GD -->|/ly/gimbal/* /ly/game/* /ly/friend/*| BT
 
@@ -64,4 +65,4 @@ flowchart LR
 - `detector/tracker_solver/predictor/outpost_hitter/buff_hitter` 是 legacy/debug，不是 `sentry_all` 正式主鏈。
 - 這份圖譜是 package/topic/file 級，不是完整 AST function call graph。
 - 本次核對時工作區有未提交改動；已確認當前 graph module 清單與 `src/*/package.xml` 的 13 個 ROS 包一致。
-- 未提交改動目前未觀察到 ROS package/topic/msg/launch 邊界變更，因此未重掃 `intermediate/scan-result.json`。
+- 2026-07-08 fallback update：新增 `/ly/bt/sentry_position`（`behavior_tree` -> `gimbal_driver`）和 `DownlinkTypeID=0x00/0x01` 下行 frame 摘要；package/module 清單未重掃，仍以現有 `src/*/package.xml` 覆蓋為準。

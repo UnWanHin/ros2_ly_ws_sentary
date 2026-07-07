@@ -23,10 +23,10 @@
       "pygame simulator"
     ],
     "description": "ROS2 Humble sentry workspace. Current formal runtime is decision-only: external sentry.aim/sentry_tf provide vision/TF and aim/fire gate; this repo owns BT decision, navigation/FaceMode bridge, gimbal_driver serial downlink, legacy debug auto-aim, and offline simulator.",
-    "analyzedAt": "2026-06-26T12:45:17+00:00",
+    "analyzedAt": "2026-07-07T16:58:59+00:00",
     "gitCommitHash": "84af1f3e758edad06802479b2357102a47c29778",
     "workingTreeStatus": "dirty",
-    "lastCheckedNote": "Package/module coverage checked against src/*/package.xml; graph-relevant ROS package list still matches. Uncommitted edits exist but no package/topic/msg/launch boundary change was observed in this check.",
+    "lastCheckedNote": "Fallback graph updated after adding /ly/bt/sentry_position and DownlinkTypeID-based gimbal_driver downlink frames; package/module coverage unchanged.",
     "outputLanguage": "zh"
   },
   "nodes": [
@@ -369,7 +369,7 @@
       "id": "service:lower-machine",
       "type": "service",
       "name": "lower machine",
-      "summary": "Embedded lower machine receiving serial downlink control frames from `gimbal_driver` and returning referee/gimbal state.",
+      "summary": "Embedded lower machine receiving 17B DownlinkTypeID-based serial frames from `gimbal_driver` (`0x00=GimbalControlFrame`, `0x01=SentryCoordinateFrame`) and returning referee/gimbal state.",
       "tags": [
         "embedded",
         "serial"
@@ -2120,6 +2120,18 @@
       ],
       "complexity": "moderate",
       "messageType": "std_msgs/msg/UInt8"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/bt/sentry_position",
+      "type": "endpoint",
+      "name": "/ly/bt/sentry_position",
+      "summary": "ROS2 topic `/ly/bt/sentry_position` with message type `geometry_msgs/msg/PointStamped`; BT publishes fused sentry self position in map frame (m) for gimbal_driver coordinate downlink.",
+      "tags": [
+        "ros_topic",
+        "embedded_facing"
+      ],
+      "complexity": "moderate",
+      "messageType": "geometry_msgs/msg/PointStamped"
     }
   ],
   "edges": [
@@ -2933,7 +2945,7 @@
       "target": "service:lower-machine",
       "type": "serves",
       "weight": 0.5,
-      "summary": "gimbal_driver writes serial main control frames to lower machine."
+      "summary": "gimbal_driver writes DownlinkTypeID-based serial frames to the lower machine."
     },
     {
       "source": "module:gimbal_driver",
@@ -3410,6 +3422,20 @@
       "type": "documents",
       "weight": 0.5,
       "summary": "`docs/sentry/internal/simulator.md` participates in simulator trace contract."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/bt/sentry_position",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "BT publishes fused sentry self position for lower-machine coordinate downlink."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "endpoint:ros-topic:/ly/bt/sentry_position",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "gimbal_driver consumes fused sentry self position and serializes SentryCoordinateFrame with DownlinkTypeID=0x01."
     }
   ],
   "layers": [
@@ -3723,6 +3749,7 @@
     "Graph emphasizes ROS package dependencies and topic data flow; it is not an AST-level function call graph.",
     "Matt Pocock zoom-out style was used: module/caller map first, preserving current decision-only domain vocabulary.",
     "Checked on 2026-06-26T12:45:17+00:00 against HEAD 84af1f3e758edad06802479b2357102a47c29778: graph module nodes match the 13 current ROS packages under src/*/package.xml.",
-    "Working tree was dirty during this check; observed uncommitted edits did not change ROS package/topic/msg/launch boundaries."
+    "Working tree was dirty during this check; observed uncommitted edits did not change ROS package/topic/msg/launch boundaries.",
+    "2026-07-08 fallback update: added /ly/bt/sentry_position BT->gimbal_driver topic and DownlinkTypeID 0x00/0x01 downlink-frame summary."
   ]
 }

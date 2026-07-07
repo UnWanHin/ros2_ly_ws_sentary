@@ -78,7 +78,7 @@ Updated: 2026-06-06
 ```text
 /ly/log
 ├── gimbal_raw_rx : gimbal_driver/msg/GimbalRawFrame  [Debug] 下位机 -> 上位机 raw TypeID 幀
-└── gimbal_raw_tx : gimbal_driver/msg/GimbalRawFrame  [Debug] 上位机 -> 下位机 raw 主控制幀
+└── gimbal_raw_tx : gimbal_driver/msg/GimbalRawFrame  [Debug] 上位机 -> 下位机 raw downlink frame
 ```
 
 默认关闭，由 `config/common.yaml` 的 `gimbal_raw.topic.enable` 控制。`data` 是原始 bytes，不是 hex 字符串。
@@ -122,7 +122,8 @@ Updated: 2026-06-06
 └── mode : std_msgs/msg/UInt8  [Internal] BT -> detector/buff/outpost，0=disabled, 1=armor, 2=buff, 3=outpost
 
 /ly/bt
-└── target : std_msgs/msg/UInt8  [Internal] BT -> detector/predictor，装甲板目标类型
+├── target           : std_msgs/msg/UInt8              [Internal] BT -> detector/predictor，装甲板目标类型
+└── sentry_position  : geometry_msgs/msg/PointStamped  [Embedded] BT -> gimbal_driver，融合后自身坐标，map frame，单位 m
 
 /ly/detector
 ├── armors       : auto_aim_common/msg/Armors  [Internal] detector -> tracker/predictor
@@ -601,20 +602,28 @@ TypeID 8 BulletDataAndRfid2
 
 ### 下行：ROS -> `gimbal_driver` -> 下位机
 
-当前下行是单个 17B 主控制帧 `GimbalControlData`，不带 TypeID：
+当前下行是 17B `DownlinkTypeID` 分型 frame。上行 `TypeID` 和下行 `DownlinkTypeID` 是独立编号空间：
 
 ```text
-GimbalControlData
+GimbalControlFrame (DownlinkTypeID=0x00)
 ├── HeadFlag       : uint8   # '!'
+├── DownlinkTypeID : uint8   # 0x00
 ├── Velocity.X     : int8    # /ly/control/vel
 ├── Velocity.Y     : int8    # /ly/control/vel
 ├── GimbalAngles   : 8B      # /ly/control/angles yaw/pitch float32
 ├── FireCode       : 1B      # /ly/control/firecode
-├── SentryCmd      : 4B      # /ly/control/posture 或 /ly/control/sentry_cmd
-└── Tail           : uint8   # 0
+└── SentryCmd      : 4B      # /ly/control/posture 或 /ly/control/sentry_cmd
+
+SentryCoordinateFrame (DownlinkTypeID=0x01)
+├── HeadFlag       : uint8   # '!'
+├── DownlinkTypeID : uint8   # 0x01
+├── X_cm           : int16   # /ly/bt/sentry_position x, m -> cm
+├── Y_cm           : int16   # /ly/bt/sentry_position y, m -> cm
+├── Reserved       : 10B     # 0
+└── CRC8           : uint8   # byte0-15, poly=0x31 init=0xFF
 ```
 
-若 `gimbal_raw.topic.enable=true` 且 `gimbal_raw.topic.downlink=true`，下行 raw 主控制幀会同时发布到 `/ly/log/gimbal_raw_tx`，其中 `type_id=255` 表示下行 control frame。
+若 `gimbal_raw.topic.enable=true` 且 `gimbal_raw.topic.downlink=true`，下行 raw frame 会同时发布到 `/ly/log/gimbal_raw_tx`，其中诊断 `type_id=255` 表示 control frame，`type_id=254` 表示 sentry coordinate frame。
 
 `SentryCmd` bit tree：
 

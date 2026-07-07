@@ -16,6 +16,15 @@ namespace LangYa
     using AngleType = float;
     using Angle100Type = std::int16_t;
 
+    enum class DownlinkFrameType : std::uint8_t {
+        Control = 0x00,
+        SentryCoordinate = 0x01,
+    };
+
+    constexpr std::uint8_t ToRawDownlinkTypeID(DownlinkFrameType type_id) noexcept {
+        return static_cast<std::uint8_t>(type_id);
+    }
+
 #pragma pack(push, 1)
     struct GimbalAnglesType
     {
@@ -97,6 +106,8 @@ namespace LangYa
         std::uint32_t Reserved : 2 = 0;                    // bit30-31
     };
 
+    // Uplink: lower machine -> gimbal_driver. These TypeID values belong to
+    // the uplink type space only.
     struct GimbalData
     {
         static constexpr auto TypeID = 0;
@@ -175,16 +186,41 @@ namespace LangYa
         std::uint16_t SentryEnemy{};
     };
 
-    struct GimbalControlData
+    // Downlink: gimbal_driver -> lower machine. These DownlinkTypeID values
+    // are independent from uplink TypeID values.
+    struct GimbalControlFrame
     {
+        static constexpr auto FrameType = DownlinkFrameType::Control;
+        static constexpr std::uint8_t DownlinkTypeIDValue = 0x00;
+
         std::uint8_t HeadFlag{ '!' };
+        std::uint8_t DownlinkTypeID{ DownlinkTypeIDValue };
         VelocityType Velocity;
         GimbalAnglesType GimbalAngles;
         FireCodeType FireCode;
         SentryCmdType SentryCmd; //復活是下位機自己做的
-        std::uint8_t Tail{ 0 };
     };
-    static_assert(sizeof(GimbalControlData) == 17, "GimbalControlData must stay 17B");
+    static_assert(
+        GimbalControlFrame::DownlinkTypeIDValue == ToRawDownlinkTypeID(GimbalControlFrame::FrameType),
+        "GimbalControlFrame DownlinkTypeIDValue must match DownlinkFrameType");
+    static_assert(sizeof(GimbalControlFrame) == 17, "GimbalControlFrame must stay 17B");
+
+    struct SentryCoordinateFrame
+    {
+        static constexpr auto FrameType = DownlinkFrameType::SentryCoordinate;
+        static constexpr std::uint8_t DownlinkTypeIDValue = 0x01;
+
+        std::uint8_t HeadFlag{ '!' };
+        std::uint8_t DownlinkTypeID{ DownlinkTypeIDValue };
+        std::int16_t X_cm{ 0 };
+        std::int16_t Y_cm{ 0 };
+        std::uint8_t Reserved[10]{ 0 };
+        std::uint8_t CRC8{ 0 };
+    };
+    static_assert(
+        SentryCoordinateFrame::DownlinkTypeIDValue == ToRawDownlinkTypeID(SentryCoordinateFrame::FrameType),
+        "SentryCoordinateFrame DownlinkTypeIDValue must match DownlinkFrameType");
+    static_assert(sizeof(SentryCoordinateFrame) == 17, "SentryCoordinateFrame must stay 17B");
 
     struct BuffType{
         std::uint8_t reserve;

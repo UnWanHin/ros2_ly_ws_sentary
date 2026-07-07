@@ -28,6 +28,7 @@
 #include <std_msgs/msg/u_int16.hpp>
 #include <std_msgs/msg/u_int8.hpp>
 #include <std_msgs/msg/u_int16_multi_array.hpp>
+#include <geometry_msgs/msg/point_stamped.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 
 
@@ -116,6 +117,7 @@ namespace BehaviorTree {
     LY_DEF_ROS_TOPIC(ly_predictor_target, "/ly/predictor/target", auto_aim_common::msg::Target);  // 辅瞄云台数据数据
     LY_DEF_ROS_TOPIC(ly_back_cam_target, "/ly/back_cam/target", auto_aim_common::msg::Target); // 后置相机数据
     LY_DEF_ROS_TOPIC(ly_bt_target, "/ly/bt/target", std_msgs::msg::UInt8);
+    LY_DEF_ROS_TOPIC(ly_bt_sentry_position, "/ly/bt/sentry_position", geometry_msgs::msg::PointStamped);
 
     LY_DEF_ROS_TOPIC(ly_buff_target, "/ly/buff/target", auto_aim_common::msg::Target); // 打符云台数据
     LY_DEF_ROS_TOPIC(ly_outpost_target, "/ly/outpost/target", auto_aim_common::msg::Target); // 打前哨站云台数据

@@ -1,6 +1,6 @@
 # 串口上下行数据映射总表
 
-Updated: 2026-06-06
+Updated: 2026-07-08
 
 ## 1. 说明
 
@@ -24,18 +24,20 @@ Updated: 2026-06-06
 当前 `gimbal_driver` 的串口模板实例是：
 
 ```cpp
-IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData>
+IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 ```
 
 含义：
 
 - 上行：下位机 -> 上位机，使用 `TypedMessage`
-- 下行：上位机 -> 下位机，直接写 `GimbalControlData`
+- 下行：上位机 -> 下位机，直接写 17B downlink frame
 
 也就是说：
 
 1. 上行是**带 `TypeID` 的分型幀**
-2. 下行是**不带独立 `TypeID` 的主控制幀**
+2. 下行是**带 `DownlinkTypeID` 的 17B 分型 frame**，当前 `0x00=GimbalControlFrame`、`0x01=SentryCoordinateFrame`
+
+上行 `TypeID` 和下行 `DownlinkTypeID` 是独立编号空间，不共用语义。
 
 ### 2.1 维护约定
 
@@ -64,7 +66,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData>
 |---|---|---|
 | `gimbal_raw.file.enable` | `false` | 文件日志总开关 |
 | `gimbal_raw.file.uplink` | `true` | 记录下位机 -> 上位机 TypeID 幀 |
-| `gimbal_raw.file.downlink` | `true` | 记录上位机 -> 下位机 `GimbalControlData` 主控制幀 |
+| `gimbal_raw.file.downlink` | `true` | 记录上位机 -> 下位机 downlink frame |
 | `gimbal_raw.file.screen` | `false` | 同时输出到 ROS screen 日志 |
 | `gimbal_raw.file.flush` | `true` | 每行写入后 flush，便于掉电/崩溃前保留日志 |
 | `gimbal_raw.file.dir` | `~/Log/GimbalRaw` | 日志目录 |
@@ -74,10 +76,11 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData>
 
 ```text
 time_ns rx 7 size=15 hex="21 07 ..." name=SentryData
-time_ns tx control size=17 hex="21 ..." reason=control_callback firecode_raw=0 sentry_cmd_raw=0
+time_ns tx control size=17 hex="21 00 ..." reason=control_callback firecode_raw=0 sentry_cmd_raw=0
+time_ns tx sentry_coordinate size=17 hex="21 01 ..." reason=sentry_coordinate downlink_type_id=1 x_cm=1230 y_cm=450 crc8=42
 ```
 
-注意：当前下行不是 TypeID 分型幀，而是单个 17B 主控制幀，所以日志里下行类型固定为 `control`。`gimbal_raw.file.type_ids` 只过滤上行。
+注意：`gimbal_raw.file.type_ids` 只过滤上行 `TypeID`。下行是否记录只由 `gimbal_raw.file.downlink` 控制。
 
 同一套 raw 数据也可以选择发布成 ROS2 topic，避免每帧转 hex 和写磁盘：
 
@@ -85,7 +88,7 @@ time_ns tx control size=17 hex="21 ..." reason=control_callback firecode_raw=0 s
 |---|---|---|
 | `gimbal_raw.topic.enable` | `false` | raw topic 总开关 |
 | `gimbal_raw.topic.uplink` | `true` | 发布下位机 -> 上位机 TypeID 幀到 `/ly/log/gimbal_raw_rx` |
-| `gimbal_raw.topic.downlink` | `true` | 发布上位机 -> 下位机主控制幀到 `/ly/log/gimbal_raw_tx` |
+| `gimbal_raw.topic.downlink` | `true` | 发布上位机 -> 下位机 downlink frame 到 `/ly/log/gimbal_raw_tx` |
 | `gimbal_raw.topic.type_ids` | `all` | 上行 TypeID 过滤，支持 `all` 或逗号列表如 `1,7,8` |
 
 raw topic 使用 `gimbal_driver/msg/GimbalRawFrame`，`data` 是原始二进制 bytes，不是 hex 字符串。`gimbal_driver` 只有在对应 topic 存在 subscriber 时才组包发布；若用 rosbag 录这些 topic，负载会转移到 DDS/rosbag 写盘。
@@ -96,36 +99,41 @@ raw topic 使用 `gimbal_driver/msg/GimbalRawFrame`，`data` 是原始二进制 
 
 ## 3.1 当前下发结构
 
-结构体：`GimbalControlData`
+当前有两个 17B downlink frame。固件先读 byte1 的 `DownlinkTypeID` 再分支解析：
+
+- `0x00`：`GimbalControlFrame`
+- `0x01`：`SentryCoordinateFrame`
+
+## 3.1.1 `GimbalControlFrame`（DownlinkTypeID=0x00）
 
 ```cpp
-struct GimbalControlData
+struct GimbalControlFrame
 {
     std::uint8_t HeadFlag{ '!' };
+    std::uint8_t DownlinkTypeID{ 0x00 };
     VelocityType Velocity;
     GimbalAnglesType GimbalAngles;
     FireCodeType FireCode;
     SentryCmdType SentryCmd;
-    std::uint8_t Tail{ 0 };
 };
 ```
 
-按当前定义，主控制幀长度是 **17B**。
+按当前定义，主控制 frame 长度是 **17B**。
 
-### 3.1.1 字节布局
+### 3.1.2 主控制 frame 字节布局
 
 | byte offset | 字段 | 类型 | 来源 | 当前上位机写法 |
 |---|---|---|---|---|
 | 0 | `HeadFlag` | `uint8` | 固定值 | `'!'` / `0x21` |
-| 1 | `Velocity.X` | `int8` | `/ly/control/vel.raw_x` 或 `x_mps` 编码 | `use_raw=true` 直接写；否则按 `velocity_raw_to_mps` 编码 |
-| 2 | `Velocity.Y` | `int8` | `/ly/control/vel.raw_y` 或 `y_mps` 编码 | `use_raw=true` 直接写；否则按 `velocity_raw_to_mps` 编码 |
-| 3~6 | `GimbalAngles.Yaw` | `float` | `/ly/control/angles.yaw` | 直接写 `float` |
-| 7~10 | `GimbalAngles.Pitch` | `float` | `/ly/control/angles.pitch` | 直接写 `float` |
-| 11 | `FireCode` | `uint8` | `/ly/control/firecode` 分字段 | `FireCode` msg 组包；partial 字段 100ms 超时退回 0 |
-| 12~15 | `SentryCmd` | `uint32` | `/ly/control/posture` 或 `/ly/control/sentry_cmd` | little-endian，映射裁判 `0x0120 sentry_cmd` |
-| 16 | `Tail` | `uint8` | 固定值 | `0x00` |
+| 1 | `DownlinkTypeID` | `uint8` | 固定值 | `0x00` |
+| 2 | `Velocity.X` | `int8` | `/ly/control/vel.raw_x` 或 `x_mps` 编码 | `use_raw=true` 直接写；否则按 `velocity_raw_to_mps` 编码 |
+| 3 | `Velocity.Y` | `int8` | `/ly/control/vel.raw_y` 或 `y_mps` 编码 | `use_raw=true` 直接写；否则按 `velocity_raw_to_mps` 编码 |
+| 4~7 | `GimbalAngles.Yaw` | `float` | `/ly/control/angles.yaw` | 直接写 `float` |
+| 8~11 | `GimbalAngles.Pitch` | `float` | `/ly/control/angles.pitch` | 直接写 `float` |
+| 12 | `FireCode` | `uint8` | `/ly/control/firecode` 分字段 | `FireCode` msg 组包；partial 字段 100ms 超时退回 0 |
+| 13~16 | `SentryCmd` | `uint32` | `/ly/control/posture` 或 `/ly/control/sentry_cmd` | little-endian，映射裁判 `0x0120 sentry_cmd` |
 
-### 3.1.2 ROS 输入与字段映射
+### 3.1.3 主控制 ROS 输入与字段映射
 
 | ROS topic | ROS 消息字段 | 串口字段 | 备注 |
 |---|---|---|---|
@@ -137,7 +145,37 @@ struct GimbalControlData
 | `/ly/control/posture` | `field_mask/posture` | `SentryCmd.Posture` | BT 姿态切换主入口，消息类型为 `SentryCmd`，只使用 `FIELD_POSTURE` |
 | `/ly/control/sentry_cmd` | `confirm/revive/exchange/posture/energy` | `SentryCmd` | 分字段组包，直接对应裁判 `0x0120` |
 
-### 3.1.3 `FireCode` 位定义
+### 3.1.4 `SentryCoordinateFrame`（DownlinkTypeID=0x01）
+
+```cpp
+struct SentryCoordinateFrame
+{
+    std::uint8_t HeadFlag{ '!' };
+    std::uint8_t DownlinkTypeID{ 0x01 };
+    std::int16_t X_cm{ 0 };
+    std::int16_t Y_cm{ 0 };
+    std::uint8_t Reserved[10]{ 0 };
+    std::uint8_t CRC8{ 0 };
+};
+```
+
+| byte offset | 字段 | 类型 | 来源 | 当前上位机写法 |
+|---|---|---|---|---|
+| 0 | `HeadFlag` | `uint8` | 固定值 | `'!'` / `0x21` |
+| 1 | `DownlinkTypeID` | `uint8` | 固定值 | `0x01` |
+| 2~3 | `X_cm` | `int16` | `/ly/bt/sentry_position.point.x` | m 转 cm，clamp 到 `sentry_coord_field_width_x` |
+| 4~5 | `Y_cm` | `int16` | `/ly/bt/sentry_position.point.y` | m 转 cm，clamp 到 `sentry_coord_field_width_y` |
+| 6~15 | `Reserved` | `uint8[10]` | 固定值 | `0` |
+| 16 | `CRC8` | `uint8` | byte0~15 | poly `0x31`，init `0xFF`，非反射 |
+
+相关参数：
+
+- `io_config/sentry_coord_send_interval_ms`：默认 `100`
+- `io_config/sentry_coord_field_width_x`：默认 `2800`
+- `io_config/sentry_coord_field_width_y`：默认 `1500`
+- `io_config/sentry_coord_fresh_timeout_ms`：默认 `2000`
+
+### 3.1.5 `FireCode` 位定义
 
 `FireCode` 在代码里是位域结构，但下发时上位机按**整字节**写入：
 
@@ -151,9 +189,9 @@ struct GimbalControlData
 
 `behavior_tree` 发布 `FollowMode=1` 时，现在只改 `FireCode.FollowMode` 这个 bit；不会因为该 bit 自动把 `Rotate` 压到 `0`、关闭 `AimMode`、停止新的 `FireStatus` 翻转或保持当前云台角度。小陀螺、FaceMode 和停火分别由 `Rotate`、FaceMode、`SuppressFire`/开火逻辑独立控制。
 
-### 3.1.4 `SentryCmd` 位定义
+### 3.1.6 `SentryCmd` 位定义
 
-`SentryCmd` 是 4B 命令字，按 little-endian 写入主幀 byte `12~15`：
+`SentryCmd` 是 4B 命令字，按 little-endian 写入 `GimbalControlFrame` byte `13~16`：
 
 | bit | 名称 | 含义 |
 |---|---|---|
@@ -166,7 +204,7 @@ struct GimbalControlData
 | 23 | `ConfirmEnergyActivate` | 确认己方能量机关进入正在激活状态 |
 | 24~31 | `Reserved` | 保留 |
 
-### 3.1.5 `Posture` 当前规则
+### 3.1.7 `Posture` 当前规则
 
 当前代码行为：
 
@@ -695,13 +733,14 @@ ROS 语义：
 
 | 数据项 | 串口字段 | 来源 topic |
 |---|---|---|
-| 云台目标角 yaw | `GimbalControlData.GimbalAngles.Yaw` | `/ly/control/angles` |
-| 云台目标角 pitch | `GimbalControlData.GimbalAngles.Pitch` | `/ly/control/angles` |
-| 底盘速度 x | `GimbalControlData.Velocity.X` | `/ly/control/vel` (`ControlVelocity`) |
-| 底盘速度 y | `GimbalControlData.Velocity.Y` | `/ly/control/vel` (`ControlVelocity`) |
-| 火控字段 | `GimbalControlData.FireCode` | `/ly/control/firecode` (`FireCode`) |
-| 姿态命令 | `GimbalControlData.SentryCmd.Posture` | `/ly/control/posture` |
-| 哨兵裁判命令 | `GimbalControlData.SentryCmd` | `/ly/control/sentry_cmd` (`SentryCmd`) |
+| 云台目标角 yaw | `GimbalControlFrame.GimbalAngles.Yaw` | `/ly/control/angles` |
+| 云台目标角 pitch | `GimbalControlFrame.GimbalAngles.Pitch` | `/ly/control/angles` |
+| 底盘速度 x | `GimbalControlFrame.Velocity.X` | `/ly/control/vel` (`ControlVelocity`) |
+| 底盘速度 y | `GimbalControlFrame.Velocity.Y` | `/ly/control/vel` (`ControlVelocity`) |
+| 火控字段 | `GimbalControlFrame.FireCode` | `/ly/control/firecode` (`FireCode`) |
+| 姿态命令 | `GimbalControlFrame.SentryCmd.Posture` | `/ly/control/posture` |
+| 哨兵裁判命令 | `GimbalControlFrame.SentryCmd` | `/ly/control/sentry_cmd` (`SentryCmd`) |
+| 哨兵自身坐标 x/y | `SentryCoordinateFrame.X_cm/Y_cm` | `/ly/bt/sentry_position` (`PointStamped`) |
 
 ## 6.2 下位机 -> 上位机已对接
 
@@ -757,7 +796,7 @@ ROS 语义：
 这里区分两层协议：
 
 1. 裁判系统协议：例如 `0x0208`、`0x020D`、`0x0301/0x0120`。
-2. 本仓库上下位机串口协议：例如上行 `TypeID=1 GameData`、`TypeID=4 RFIDAndBuffData`、下行 `GimbalControlData`。
+2. 本仓库上下位机串口协议：例如上行 `TypeID=1 GameData`、`TypeID=4 RFIDAndBuffData`、下行 `DownlinkTypeID=0x00 GimbalControlFrame`。
 
 当前上位机不是直接收发完整裁判协议幀，而是依赖下位机把裁判/底盘/云台状态整理成上面的 `TypeID` 或主控制幀字段。
 
@@ -766,7 +805,7 @@ ROS 语义：
 | `0x0207 shoot_data` | 裁判系统 -> 机器人状态 | 已通过 TypeID=7/8 进入 `/ly/game/bullet`；旧 `/ly/bullet/speed` 仍保留 TypeID=5 来源 |
 | `0x0208 projectile_allowance` | 裁判系统 -> 机器人状态 | 已通过 TypeID=8 进入 `/ly/game/bullet`；旧 `/ly/friend/ammo_left` 仍保留 TypeID=1 来源 |
 | `0x020D sentry_info/sentry_info_2` | 裁判系统 -> 哨兵状态 | 已通过 TypeID=7 进入 `/ly/game/sentry/info`；有效 `posture` 会覆盖 `/ly/gimbal/posture` |
-| `0x0301 + data_cmd_id=0x0120 sentry_cmd` | 机器人 -> 裁判系统命令 | 姿态经 `/ly/control/posture` 写入 `SentryCmd bit21-22`；完整命令也可通过 `/ly/control/sentry_cmd` 进入主控制幀 byte `12~15`；下位机负责封装裁判 `0x0301/0x0120` |
+| `0x0301 + data_cmd_id=0x0120 sentry_cmd` | 机器人 -> 裁判系统命令 | 姿态经 `/ly/control/posture` 写入 `SentryCmd bit21-22`；完整命令也可通过 `/ly/control/sentry_cmd` 进入 `GimbalControlFrame` byte `13~16`；下位机负责封装裁判 `0x0301/0x0120` |
 | `0x0303 map_command_t` | 选手端 -> 机器人状态/指令输入 | 通过 TypeID=9 进入 `/ly/game/map_command`；BT 当前只缓存消息，不触发导航 |
 
 ### 8.1 当前看弹量和兑弹怎么走
@@ -780,7 +819,7 @@ ROS 语义：
   -> behavior_tree ammoLeft
 ```
 
-当前“兑弹”的下发接口已经接到 `/ly/control/sentry_cmd` 和主控制幀 `SentryCmd`。BT 姿态切换主链路走 `/ly/control/posture`；能量机关确认会在打符链路满足到点、识别锁定、`can_activate_energy_mechanism=true` 后，通过 `/ly/control/sentry_cmd` 主动下发 `confirm_energy_activate` 脉冲。兑弹/远程回血/复活确认仍未由自动策略主动下发；BT 目前仍只会根据低弹量进入 Recovery/回补策略。
+当前“兑弹”的下发接口已经接到 `/ly/control/sentry_cmd` 和 `GimbalControlFrame.SentryCmd`。BT 姿态切换主链路走 `/ly/control/posture`；能量机关确认会在打符链路满足到点、识别锁定、`can_activate_energy_mechanism=true` 后，通过 `/ly/control/sentry_cmd` 主动下发 `confirm_energy_activate` 脉冲。兑弹/远程回血/复活确认仍未由自动策略主动下发；BT 目前仍只会根据低弹量进入 Recovery/回补策略。
 
 如果后续要实现自动兑弹，建议按两个方向补齐：
 

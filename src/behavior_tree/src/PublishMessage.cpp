@@ -118,6 +118,7 @@ namespace BehaviorTree {
         PubAimTargetData();
         PubNaviControlData();
         PubNaviReachState();
+        PubSentryPosition();
         const bool enable_chase_to_navi =
             chaseTacticalAllowed_ &&
             config.ChaseSettings.Enable &&
@@ -572,5 +573,25 @@ namespace BehaviorTree {
             last_manual_goal_log = now;
         }
         return true;
+    }
+
+    void Application::PubSentryPosition() {
+        if (!pub_sentry_position_) {
+            return;
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        const auto self_position = GetSentryPositionState(now);
+        if (!self_position.HasPosition || !self_position.Fresh) {
+            return;
+        }
+
+        geometry_msgs::msg::PointStamped msg;
+        msg.header.stamp = node_ ? node_->now() : rclcpp::Time{};
+        msg.header.frame_id = "map";
+        msg.point.x = static_cast<double>(self_position.X) / 100.0;
+        msg.point.y = static_cast<double>(self_position.Y) / 100.0;
+        msg.point.z = 0.0;
+        pub_sentry_position_->publish(msg);
     }
 }

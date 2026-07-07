@@ -1,6 +1,6 @@
 # ROS2 Topic Structure
 
-Updated: 2026-06-16
+Updated: 2026-07-08
 
 本文记录当前哨兵上位机 ROS2 topic 结构，按接口边界分为：
 
@@ -19,7 +19,7 @@ Updated: 2026-06-16
 
 | Prefix | 边界 | 说明 |
 |---|---|---|
-| `/ly/control/*` | Embedded-facing | 上位机控制输入，`gimbal_driver` 订阅后写入下行主控制帧。 |
+| `/ly/control/*` | Embedded-facing | 上位机控制输入，`gimbal_driver` 订阅后写入 `DownlinkTypeID=0x00` 主控制 frame。 |
 | `/ly/gimbal/*` | Embedded-facing | 下位机/云台/底盘回读状态，由 `gimbal_driver` 发布。 |
 | `/ly/game/*` | Embedded-facing | 裁判系统比赛状态、RFID、哨兵裁判信息和弹丸资源语义，由 `gimbal_driver` 从下位机上行拆出。 |
 | `/ly/friend/*`, `/ly/enemy/*`, `/ly/team/*` | Embedded-facing | 我方/敌方血量、弹量、队伍增益等语义状态。 |
@@ -41,6 +41,7 @@ Updated: 2026-06-16
 | `/ly/control/vel` | `gimbal_driver/msg/ControlVelocity` | `behavior_tree` | `gimbal_driver` | `x_mps`, `y_mps`, `raw_x`, `raw_y`, `use_raw`。当前 BT 用 `use_raw=true`。 |
 | `/ly/control/posture` | `gimbal_driver/msg/SentryCmd` | `behavior_tree` | `gimbal_driver` | 姿态专用入口，只读 `FIELD_POSTURE/posture`。写入 `SentryCmd bit21-22`。 |
 | `/ly/control/sentry_cmd` | `gimbal_driver/msg/SentryCmd` | 手动工具/后续策略 | `gimbal_driver` | 完整哨兵裁判命令入口，用于复活、兑弹、远程回血、能量机关确认等。 |
+| `/ly/bt/sentry_position` | `geometry_msgs/msg/PointStamped` | `behavior_tree` | `gimbal_driver` | BT 融合后的哨兵自身位置，`frame_id=map`，单位 m；`gimbal_driver` 转 cm 后写入 `DownlinkTypeID=0x01` 坐标 frame。 |
 
 当前 posture 测试命令：
 
@@ -99,7 +100,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | Topic | Type | Consumer | 结构/语义 |
 |---|---|---|---|
 | `/ly/log/gimbal_raw_rx` | `gimbal_driver/msg/GimbalRawFrame` | 调试/rosbag | 下位机 -> 上位机 raw `TypedMessage`，`type_id=0..9`，`data` 是原始 bytes。 |
-| `/ly/log/gimbal_raw_tx` | `gimbal_driver/msg/GimbalRawFrame` | 调试/rosbag | 上位机 -> 下位机 raw `GimbalControlData`，`type_id=255`，`data` 是 17B 主控制幀。 |
+| `/ly/log/gimbal_raw_tx` | `gimbal_driver/msg/GimbalRawFrame` | 调试/rosbag | 上位机 -> 下位机 raw downlink frame；`type_id=255` 表示 control 诊断 frame，`type_id=254` 表示 sentry coordinate 诊断 frame，`data` 是真实 17B 串口 bytes。 |
 
 ## 4. External Aim And Legacy Vision Topics
 
@@ -170,7 +171,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `gimbal_driver/msg/SentryInfo` | `sentry_info_raw`, `sentry_info_2_raw`, exchange/revive/out_of_combat/posture/energy fields | 裁判 `0x020D` 哨兵状态。 |
 | `gimbal_driver/msg/BulletInfo` | `initial_speed`, shoot data, projectile allowance, remaining coin | TypeID 7/8 弹丸与资源状态。 |
 | `gimbal_driver/msg/MapCommand` | `header`, `has_target_position`, `target_position_x_m`, `target_position_y_m`, `has_target_robot`, `target_robot_id`, `cmd_keyboard`, `cmd_source` | TypeID 9 / 裁判 `0x0303` 小地图命令输入。 |
-| `gimbal_driver/msg/GimbalRawFrame` | `header`, `direction`, `type_id`, `data`, `firecode_raw`, `sentry_cmd_raw` | 可选 raw 串口诊断 topic。 |
+| `gimbal_driver/msg/GimbalRawFrame` | `header`, `direction`, `type_id`, `data`, `firecode_raw`, `sentry_cmd_raw` | 可选 raw 串口诊断 topic；TX 诊断 `type_id=255` 为 control，`254` 为 sentry coordinate。 |
 | `sentry_msgs/msg/AimTargetArray` | `header`, `aim_targets[]` | 外部 aim 可打目标列表；`/ly/aim/armor_targets` 使用 `SensorDataQoS`。 |
 | `sentry_msgs/msg/AimTarget` | `header`, `position`, `id` | 外部 aim 候选目标和 BT 目标选择共用结构；`id` 对齐 `ArmorType`，`position` 为米制 point，`header.frame_id` 非空时才作为 Chase 真值点参与 TF 转换。 |
 | `sentry_msgs/msg/AimResult` | `header`, `follow`, `fire`, `pitch`, `yaw` | 外部 aim 的角度接管、最终角度与开火门控。 |

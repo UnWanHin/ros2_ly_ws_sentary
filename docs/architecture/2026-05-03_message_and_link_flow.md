@@ -264,14 +264,16 @@ if(control_result.valid){
 - `/ly/control/firecode`
 - `/ly/control/vel`
 - `/ly/control/posture`
+- `/ly/bt/sentry_position` - BT 融合後自身坐標，`PointStamped frame_id=map`，單位 m，供 `gimbal_driver` 下發給下位機
 - `/ly/navi/goal`, `/ly/navi/goal_pos_raw`, `/ly/navi/target_rel`, `/ly/navi/speed_level`
 - `/ly/face_mode/target_raw` - 区域任务动态更新 FaceMode 目标，`UInt16MultiArray [official_map_x, official_map_y, map_z]`
 
 **gimbal_driver 訂閱**:
 - `/ly/control/*`
+- `/ly/bt/sentry_position`
 
 **輸出**:
-- 串口通訊發送到下位機主控制幀 `GimbalControlData`
+- 串口通訊發送到下位機 17B downlink frame：`DownlinkTypeID=0x00 GimbalControlFrame` 和 `DownlinkTypeID=0x01 SentryCoordinateFrame`
 
 ---
 

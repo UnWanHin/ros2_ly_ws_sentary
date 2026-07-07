@@ -208,7 +208,7 @@ Node.Publisher<ly_gimbal_angles>()->publish(msg);
 - `msg.yaw`
 - `msg.pitch`
 
-写入 `GimbalControlData.GimbalAngles`，随后立刻 `Device.Write(...)` 下发。
+写入 `GimbalControlFrame.GimbalAngles`，随后立刻 `Device.Write(...)` 以 `DownlinkTypeID=0x00` 下发。
 
 关键代码：
 

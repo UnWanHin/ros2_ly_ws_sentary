@@ -301,6 +301,7 @@ void TreeTick() {
 | `/ly/control/posture` | 姿態指令，`SentryCmd` 只帶 `FIELD_POSTURE`（0不下發/1進攻/2防禦/3移動） |
 | `/ly/vision/mode` | 視覺鏈路模式，`UInt8`：0=DISABLED, 1=ARMOR, 2=BUFF, 3=OUTPOST |
 | `/ly/bt/target` | 當前打擊目標類型（→ `detector` 和 `predictor`） |
+| `/ly/bt/sentry_position` | 融合後自身哨兵坐標，`PointStamped frame_id=map`，單位 m，供 `gimbal_driver` 下發給下位機 |
 | `/ly/face_mode/target_raw` | FaceMode 动态目标，`[official_map_x, official_map_y, map_z]` cm |
 | `/ly/navi/target_rel` | 追擊相對目標點（x/y/z，供導航側閉環） |
 | `/ly/navi/goal` | 導航目標點位 |
@@ -458,7 +459,7 @@ SET_POSITION(BuffShoot, MyTeam);  // 設置導航目標為打符點位
 ### 發布（共10+個）
 控制類：`/ly/control/angles`, `/ly/control/firecode`, `/ly/control/vel`, `/ly/control/posture`
 模式切換：`/ly/vision/mode`
-目標廣播：`/ly/bt/target`（→ `detector`, `predictor`）
+目標/自身狀態廣播：`/ly/bt/target`（→ `detector`, `predictor`），`/ly/bt/sentry_position`（→ `gimbal_driver`）
 導航：`/ly/navi/*`
 
 ---

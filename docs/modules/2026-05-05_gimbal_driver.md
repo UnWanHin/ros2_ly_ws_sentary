@@ -96,19 +96,23 @@ main()
 
 #### 「寫入」路徑：`GenSubs()` → `Device.Write()`
 
-訂閱上層控制指令，寫入共享的 `GimbalControlData` 結構體，然後由 `CallbackGenerator` 觸發寫入串口。
-當前下行不是 `TypedMessage<TypeID=7>`，而是直接寫原始 `GimbalControlData` 主控制幀：
+訂閱上層控制指令，寫入共享的 `GimbalControlFrame` 結構體，然後由 `CallbackGenerator` 觸發寫入串口。
+當前下行不是上行那套 `TypedMessage<TypeID=...>`，而是 17B `DownlinkTypeID` 分型 frame：
+
+- `DownlinkTypeID=0x00`：`GimbalControlFrame` 主控制 frame
+- `DownlinkTypeID=0x01`：`SentryCoordinateFrame` 哨兵自身坐標 frame
 
 | 訂閱 Topic | 對應字段 | 說明 |
 |---|---|---|
-| `/ly/control/angles` (`GimbalAngles`) | `GimbalControlData.GimbalAngles.Yaw/Pitch` | 期望雲台角 |
-| `/ly/control/firecode` (`FireCode`) | `GimbalControlData.FireCode` | 分字段開火/電容/模式/旋轉指令 |
-| `/ly/control/vel` (`ControlVelocity`) | `GimbalControlData.Velocity.X/Y` | 語義速度；`use_raw=true` 時保留原 int8 下發 |
-| `/ly/control/posture` (`SentryCmd`) | `GimbalControlData.SentryCmd.Posture` | 姿態指令，只使用 `FIELD_POSTURE`（0=保留, 1=進攻, 2=防禦, 3=移動） |
-| `/ly/control/sentry_cmd` (`SentryCmd`) | `GimbalControlData.SentryCmd` | 完整哨兵裁判命令入口 |
+| `/ly/control/angles` (`GimbalAngles`) | `GimbalControlFrame.GimbalAngles.Yaw/Pitch` | 期望雲台角 |
+| `/ly/control/firecode` (`FireCode`) | `GimbalControlFrame.FireCode` | 分字段開火/電容/模式/旋轉指令 |
+| `/ly/control/vel` (`ControlVelocity`) | `GimbalControlFrame.Velocity.X/Y` | 語義速度；`use_raw=true` 時保留原 int8 下發 |
+| `/ly/control/posture` (`SentryCmd`) | `GimbalControlFrame.SentryCmd.Posture` | 姿態指令，只使用 `FIELD_POSTURE`（0=保留, 1=進攻, 2=防禦, 3=移動） |
+| `/ly/control/sentry_cmd` (`SentryCmd`) | `GimbalControlFrame.SentryCmd` | 完整哨兵裁判命令入口 |
+| `/ly/bt/sentry_position` (`PointStamped`) | `SentryCoordinateFrame.X_cm/Y_cm` | BT 融合後自身坐標，m 轉 cm 後下發 |
 
 姿態下發採用「主控制幀並入字段」策略：
-- `Posture` 並入 `GimbalControlData`，與角度/速度/火控同包下發
+- `Posture` 並入 `GimbalControlFrame.SentryCmd`，與角度/速度/火控同包下發
 - 收到有效姿態命令（1/2/3）後更新 `Posture` 字段並按配置重發
 - 失聯重連後會按當前姿態重發
 
@@ -121,7 +125,8 @@ main()
 | 結構體 | 說明 |
 |--------|------|
 | `GimbalData` | 電控→上位機：雲台角、速度、開火狀態等 |
-| `GimbalControlData` | 上位機→電控：期望雲台角、開火指令、速度、姿態 |
+| `GimbalControlFrame` | 上位機→電控：`DownlinkTypeID=0x00`，期望雲台角、開火指令、速度、姿態 |
+| `SentryCoordinateFrame` | 上位機→電控：`DownlinkTypeID=0x01`，哨兵自身 official-map 坐標 |
 | `GameData` | 裁判系統數據：比賽狀態、血量、子彈數、時間 |
 | `HealthMyselfData` / `HealthEnemyData` | 我方/敵方各機器人血量 |
 | `RFIDAndBuffData` | `0x0209 rfid_status` 低 32 位 + `0x0204` 增益數據（防禦、攻擊、回血等） |
@@ -147,12 +152,12 @@ class IODevice {
 當前 `gimbal_driver` 實例化為：
 
 ```cpp
-IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData>
+IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 ```
 
 含義：
-- 上行：讀 `TypedMessage`，依 `TypeID` 分發 `0..7`
-- 下行：直接寫 `GimbalControlData`，姿態已并入 `Posture` 字段，沒有獨立 `TypeID=7`
+- 上行：讀 `TypedMessage`，依 `TypeID` 分發 `0..9`
+- 下行：直接寫 17B downlink frame；控制 frame 使用 `DownlinkTypeID=0x00`，坐標 frame 使用 `DownlinkTypeID=0x01`
 
 **虛擬設備模式**（`useVirtualDevice=true`）：用於在沒有硬件時做本地迴環測試，通過 `TestVirtualLoopback()` 驗證數據收發。
 
@@ -162,7 +167,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData>
 
 `gimbal_driver/module/ROSTools.hpp` 和 `auto_aim_common/include/RosTools/RosTools.hpp` 功能類似，但 `gimbal_driver` 自帶了一份本地版本用於自身的 `MultiCallback` 機制。
 
-**`MultiCallback<GimbalControlData>`**：線程安全的多訂閱者回調彙總器。多個訂閱者回調各自更新 `GimbalControlData` 的不同字段，最後由回調函數觸發一次 `Device.Write()`。
+**`MultiCallback<GimbalControlFrame>`**：線程安全的多訂閱者回調彙總器。多個訂閱者回調各自更新 `GimbalControlFrame` 的不同字段，最後由回調函數觸發一次 `Device.Write()`。
 
 ---
 
@@ -249,6 +254,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData>
 | `/ly/control/vel` | `ControlVelocity` | 接收語義速度/原始速度指令 |
 | `/ly/control/posture` | `SentryCmd` | 接收姿態指令（上位決策輸入，只使用 `FIELD_POSTURE`） |
 | `/ly/control/sentry_cmd` | `SentryCmd` | 接收完整哨兵裁判命令 |
+| `/ly/bt/sentry_position` | `PointStamped` | 接收 BT 融合後自身坐標，用於座標 downlink frame |
 
 ### 姿態下發参数
 
@@ -256,14 +262,14 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData>
 |---|---:|---|
 | `repeat_count` | `3` | 每次切换默认重发 3 次 |
 | `repeat_interval_ms` | `20` | 重发间隔 20ms |
-| `field` | `GimbalControlData.SentryCmd.Posture` | 姿态并入主控制幀 `SentryCmd` 字段 |
+| `field` | `GimbalControlFrame.SentryCmd.Posture` | 姿态并入主控制 frame `SentryCmd` 字段 |
 
 ---
 
 ## 修改注意事項
 
 - **串口協議調整**：修改 `module/BasicTypes.hpp` 的結構體時一定要注意字節對齊和電控端的協議版本一致
-- **姿態指令協議策略**：姿態併入 `GimbalControlData.SentryCmd.Posture`，主包長度變更需與下位機同步升級
+- **姿態指令協議策略**：姿態併入 `GimbalControlFrame.SentryCmd.Posture`，主包長度變更需與下位機同步升級
 - **新增 Topic**：在 `main.cpp` 增加 `LY_DEF_ROS_TOPIC` 定義和對應的 `Pub*()` 函數，並在 `LoopRead()` 的 switch-case 中處理
 - **`/ly/bullet/speed`**：当前实现直接发布 `data.BulletSpeed / 100.0f`；若下游表现为固定弹速，优先检查下游是否又做默认值或平滑策略
 - **虛擬設備**：調試時可設置 YAML 參數 `io_config/use_virtual_device: true` 來使用迴環模式而無需電控硬件

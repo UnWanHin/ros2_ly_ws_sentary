@@ -579,6 +579,7 @@ private:
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_bt_target_;
     rclcpp::Publisher<gimbal_driver::msg::UnitInfoArray>::SharedPtr pub_friend_info_;
     rclcpp::Publisher<gimbal_driver::msg::UnitInfoArray>::SharedPtr pub_enemy_info_;
+    rclcpp::Publisher<geometry_msgs::msg::PointStamped>::SharedPtr pub_sentry_position_;
 
     void RecordDamageSample(std::chrono::steady_clock::time_point now, std::uint16_t damage);
     DecisionIntent MakeDecisionIntent(
@@ -625,6 +626,7 @@ public:
     bool PubManualOutpostGoalPose(const char* reason);
     void PubFriendInfo();
     void PubEnemyInfo();
+    void PubSentryPosition();
 
 
     // 等待比赛开始

@@ -555,7 +555,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "gimbal_raw_log_downlink",
             default_value="true",
-            description="Log upper -> lower GimbalControlData raw frames when gimbal_raw_log_enable is true.",
+            description="Log upper -> lower downlink raw frames when gimbal_raw_log_enable is true.",
         ),
         DeclareLaunchArgument(
             "gimbal_raw_log_screen",

@@ -58,8 +58,10 @@
 #include <std_msgs/msg/u_int32.hpp>
 #include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/u_int16_multi_array.hpp>
+#include <geometry_msgs/msg/point_stamped.hpp>
 
 #include "module/BasicTypes.hpp"
+#include "module/crc_checker.hpp"
 #include "module/IODevice.hpp"
 #include "module/ROSTools.hpp"
 
@@ -73,6 +75,7 @@ namespace
     LY_DEF_ROS_TOPIC(ly_control_posture, "/ly/control/posture", gimbal_driver::msg::SentryCmd);
     LY_DEF_ROS_TOPIC(ly_control_sentry_cmd, "/ly/control/sentry_cmd", gimbal_driver::msg::SentryCmd);
     LY_DEF_ROS_TOPIC(ly_navi_vel, "/ly/navi/vel", gimbal_driver::msg::Vel);
+    LY_DEF_ROS_TOPIC(ly_bt_sentry_position, "/ly/bt/sentry_position", geometry_msgs::msg::PointStamped);
 
     LY_DEF_ROS_TOPIC(ly_gimbal_angles, "/ly/gimbal/angles", gimbal_driver::msg::GimbalAngles);
     LY_DEF_ROS_TOPIC(ly_gimbal_firecode, "/ly/gimbal/firecode", gimbal_driver::msg::FireCode);
@@ -122,15 +125,27 @@ namespace
     private:
         ROSNode<Name> Node;
         std::atomic_bool DeviceError{ false };
-        IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlData> Device{};
-        MultiCallback<GimbalControlData> CallbackGenerator;
-        GimbalControlData controlShadow_{};
+        IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame> Device{};
+        MultiCallback<GimbalControlFrame> CallbackGenerator;
+        GimbalControlFrame controlShadow_{};
         std::uint8_t postureCommand_{0}; // 0=不控制, 1=进攻, 2=防御, 3=移动
         std::uint8_t postureState_{0};   // 0=未知, 1=进攻, 2=防御, 3=移动
         int postureTxRepeatCount_{3};
         std::chrono::milliseconds postureTxInterval_{20};
         std::chrono::milliseconds firecodePartialHold_{100};
         std::chrono::milliseconds navigationTestStaleTimeout_{500};
+        float sentryCoordX_{0.0f};
+        float sentryCoordY_{0.0f};
+        bool sentryCoordPending_{false};
+        bool sentryCoordValid_{false};
+        std::chrono::steady_clock::time_point sentryCoordNextSendTime_{
+            std::chrono::steady_clock::time_point::min()
+        };
+        std::chrono::milliseconds sentryCoordSendInterval_{100};
+        std::chrono::steady_clock::time_point sentryCoordLastRxTime_{};
+        int sentryCoordFieldWidthX_{2800};
+        int sentryCoordFieldWidthY_{1500};
+        int sentryCoordFreshTimeoutMs_{2000};
         float velocityRawToMps_{0.025f};
         bool navigationTestEnable_{false};
         bool navigationTestVelocityActive_{false};
@@ -167,6 +182,7 @@ namespace
         std::array<bool, 256> rawSerialTopicTypeIdEnabled_{};
         rclcpp::Publisher<gimbal_driver::msg::GimbalRawFrame>::SharedPtr rawSerialRxPublisher_{};
         rclcpp::Publisher<gimbal_driver::msg::GimbalRawFrame>::SharedPtr rawSerialTxPublisher_{};
+        rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr subSentryPosition_{};
 
         enum FireCodeFieldIndex : std::size_t {
             kFireStatusField = 0,
@@ -489,7 +505,7 @@ namespace
             rawSerialRxPublisher_->publish(msg);
         }
 
-        void PublishRawTxTopic(const GimbalControlData& data) {
+        void PublishRawTxTopic(const GimbalControlFrame& data) {
             if (!rawSerialTxPublisher_ || rawSerialTxPublisher_->get_subscription_count() == 0) {
                 return;
             }
@@ -500,6 +516,18 @@ namespace
             AssignRawBytes(msg, data);
             msg.firecode_raw = FireCodeRaw(data.FireCode);
             msg.sentry_cmd_raw = std::bit_cast<std::uint32_t>(data.SentryCmd);
+            rawSerialTxPublisher_->publish(msg);
+        }
+
+        void PublishRawTxTopic(const SentryCoordinateFrame& data) {
+            if (!rawSerialTxPublisher_ || rawSerialTxPublisher_->get_subscription_count() == 0) {
+                return;
+            }
+            gimbal_driver::msg::GimbalRawFrame msg;
+            msg.header.stamp = Node.GetNode()->now();
+            msg.direction = gimbal_driver::msg::GimbalRawFrame::DIRECTION_TX;
+            msg.type_id = gimbal_driver::msg::GimbalRawFrame::TYPE_ID_TX_SENTRY_COORDINATE;
+            AssignRawBytes(msg, data);
             rawSerialTxPublisher_->publish(msg);
         }
 
@@ -520,7 +548,7 @@ namespace
             }
         }
 
-        void LogDownlinkRaw(const GimbalControlData& data, const char* reason) {
+        void LogDownlinkRaw(const GimbalControlFrame& data, const char* reason) {
             if (rawSerialLogEnable_ && rawSerialLogDownlink_) {
                 const auto sentry_cmd_raw = std::bit_cast<std::uint32_t>(data.SentryCmd);
                 std::ostringstream extra;
@@ -528,6 +556,23 @@ namespace
                       << " firecode_raw=" << static_cast<unsigned>(FireCodeRaw(data.FireCode))
                       << " sentry_cmd_raw=" << sentry_cmd_raw;
                 WriteRawSerialLogLine("tx", "control", data, extra.str());
+            }
+
+            if (rawSerialTopicEnable_ && rawSerialTopicDownlink_) {
+                PublishRawTxTopic(data);
+            }
+        }
+
+        void LogDownlinkRaw(const SentryCoordinateFrame& data, const char* reason) {
+            if (rawSerialLogEnable_ && rawSerialLogDownlink_) {
+                std::ostringstream extra;
+                extra << "reason=" << (reason ? reason : "sentry_coordinate")
+                      << " downlink_type_id="
+                      << static_cast<unsigned>(data.DownlinkTypeID)
+                      << " x_cm=" << static_cast<int>(data.X_cm)
+                      << " y_cm=" << static_cast<int>(data.Y_cm)
+                      << " crc8=" << static_cast<unsigned>(data.CRC8);
+                WriteRawSerialLogLine("tx", "sentry_coordinate", data, extra.str());
             }
 
             if (rawSerialTopicEnable_ && rawSerialTopicDownlink_) {
@@ -651,6 +696,15 @@ namespace
             return static_cast<float>(DecodeI16(raw)) / divisor;
         }
 
+        static std::int16_t EncodeCoordinateCm(float value, int max_cm) noexcept {
+            if (!std::isfinite(value)) {
+                return 0;
+            }
+            const auto upper = static_cast<float>(std::max(0, max_cm));
+            const auto clamped = std::clamp(value, 0.0f, upper);
+            return static_cast<std::int16_t>(std::lround(clamped));
+        }
+
         void ArmPostureTx(std::uint8_t posture) {
             if (!IsValidPosture(posture)) {
                 return;
@@ -711,7 +765,7 @@ namespace
             if (stale(kRotateField)) firecode.Rotate = 0;
         }
 
-        void ApplyFireCodeCommand(GimbalControlData& g, const gimbal_driver::msg::FireCode& m) {
+        void ApplyFireCodeCommand(GimbalControlFrame& g, const gimbal_driver::msg::FireCode& m) {
             const auto now = std::chrono::steady_clock::now();
             const bool full_snapshot = (m.field_mask == 0) ||
                 ((m.field_mask & gimbal_driver::msg::FireCode::FIELD_ALL) == gimbal_driver::msg::FireCode::FIELD_ALL);
@@ -746,7 +800,7 @@ namespace
             }
         }
 
-        void ApplySentryCmdCommand(GimbalControlData& g, const gimbal_driver::msg::SentryCmd& m) {
+        void ApplySentryCmdCommand(GimbalControlFrame& g, const gimbal_driver::msg::SentryCmd& m) {
             const bool full_snapshot = (m.field_mask == 0) ||
                 ((m.field_mask & gimbal_driver::msg::SentryCmd::FIELD_ALL) == gimbal_driver::msg::SentryCmd::FIELD_ALL);
 
@@ -790,6 +844,51 @@ namespace
             }
         }
 
+        void MaybeSendSentryCoordinate() {
+            if (!sentryCoordPending_ || !sentryCoordValid_) {
+                return;
+            }
+            const auto now = std::chrono::steady_clock::now();
+            if (now < sentryCoordNextSendTime_) {
+                return;
+            }
+            if (sentryCoordLastRxTime_.time_since_epoch().count() != 0 &&
+                now - sentryCoordLastRxTime_ > std::chrono::milliseconds(sentryCoordFreshTimeoutMs_)) {
+                sentryCoordPending_ = false;
+                sentryCoordValid_ = false;
+                return;
+            }
+
+            SentryCoordinateFrame frame;
+            frame.X_cm = EncodeCoordinateCm(sentryCoordX_, sentryCoordFieldWidthX_);
+            frame.Y_cm = EncodeCoordinateCm(sentryCoordY_, sentryCoordFieldWidthY_);
+            frame.CRC8 = CRCChecker::CRC8::calculate_downlink(
+                reinterpret_cast<const std::uint8_t*>(&frame),
+                sizeof(frame) - sizeof(frame.CRC8));
+            if (!Device.WriteRaw(frame)) {
+                DeviceError = true;
+                return;
+            }
+            LogDownlinkRaw(frame, "sentry_coordinate");
+            sentryCoordPending_ = false;
+            sentryCoordNextSendTime_ = now + sentryCoordSendInterval_;
+        }
+
+        void HandleSentryPosition(const geometry_msgs::msg::PointStamped::SharedPtr msg) {
+            if (!msg) {
+                return;
+            }
+            if (!std::isfinite(msg->point.x) || !std::isfinite(msg->point.y)) {
+                return;
+            }
+
+            sentryCoordX_ = static_cast<float>(msg->point.x * 100.0);
+            sentryCoordY_ = static_cast<float>(msg->point.y * 100.0);
+            sentryCoordPending_ = true;
+            sentryCoordValid_ = true;
+            sentryCoordLastRxTime_ = std::chrono::steady_clock::now();
+        }
+
         void MaybeApplyFireCodeStaleFallback() {
             const auto now = std::chrono::steady_clock::now();
             auto next = controlShadow_.FireCode;
@@ -798,7 +897,7 @@ namespace
             if (FireCodeRaw(next) == before_raw) {
                 return;
             }
-            CallbackGenerator.Modify([&](GimbalControlData& g) {
+            CallbackGenerator.Modify([&](GimbalControlFrame& g) {
                 g.FireCode = next;
             });
         }
@@ -813,7 +912,7 @@ namespace
                 return;
             }
 
-            CallbackGenerator.Modify([&](GimbalControlData& g) {
+            CallbackGenerator.Modify([&](GimbalControlFrame& g) {
                 g.Velocity.X = 0;
                 g.Velocity.Y = 0;
             });
@@ -884,13 +983,13 @@ namespace
 
         void GenSubs()
         {
-            GenSub<ly_control_angles>([](GimbalControlData& g, const gimbal_driver::msg::GimbalAngles& m)
+            GenSub<ly_control_angles>([](GimbalControlFrame& g, const gimbal_driver::msg::GimbalAngles& m)
                                         {
                                             g.GimbalAngles.Yaw = static_cast<float>(m.yaw);
                                             g.GimbalAngles.Pitch = static_cast<float>(m.pitch);  
                                         });
 
-            GenSub<ly_control_firecode>([this](GimbalControlData& g, const gimbal_driver::msg::FireCode& m)
+            GenSub<ly_control_firecode>([this](GimbalControlFrame& g, const gimbal_driver::msg::FireCode& m)
                                         {
                                             ApplyFireCodeCommand(g, m);
                                             if (false && !state_timer.check()) {
@@ -898,7 +997,7 @@ namespace
                                             }
                                         });
 
-            GenSub<ly_control_vel>([this](GimbalControlData& g, const gimbal_driver::msg::ControlVelocity& m)
+            GenSub<ly_control_vel>([this](GimbalControlFrame& g, const gimbal_driver::msg::ControlVelocity& m)
                                    {
                                        if (m.use_raw) {
                                            g.Velocity.X = m.raw_x;
@@ -910,7 +1009,7 @@ namespace
                                    });
 
             if (navigationTestEnable_) {
-                GenSub<ly_navi_vel>([this](GimbalControlData& g, const gimbal_driver::msg::Vel& m)
+                GenSub<ly_navi_vel>([this](GimbalControlFrame& g, const gimbal_driver::msg::Vel& m)
                                     {
                                         g.Velocity.X = EncodeNavigationTestVelocityRaw(m.x);
                                         g.Velocity.Y = EncodeNavigationTestVelocityRaw(m.y);
@@ -919,7 +1018,7 @@ namespace
                                     });
             }
 
-            GenSub<ly_control_posture>([this](GimbalControlData& g, const gimbal_driver::msg::SentryCmd& m)
+            GenSub<ly_control_posture>([this](GimbalControlFrame& g, const gimbal_driver::msg::SentryCmd& m)
                                        {
                                            const bool has_posture =
                                                m.field_mask == 0 ||
@@ -944,7 +1043,7 @@ namespace
                                            ArmPostureTx(cmd);
                                        });
 
-            GenSub<ly_control_sentry_cmd>([this](GimbalControlData& g, const gimbal_driver::msg::SentryCmd& m)
+            GenSub<ly_control_sentry_cmd>([this](GimbalControlFrame& g, const gimbal_driver::msg::SentryCmd& m)
                                           {
                                               ApplySentryCmdCommand(g, m);
                                           });
@@ -1339,7 +1438,7 @@ namespace
 
         void TestVirtualLoopback(){
             TypedMessage<sizeof(GimbalData)> test_msg{};
-            GimbalControlData test_msg2{};
+            GimbalControlFrame test_msg2{};
             test_msg.TypeID = GimbalData::TypeID;
             test_msg.GetDataAs<GimbalData>().GimbalAngles.Yaw = 45.0f;
             test_msg2.GimbalAngles.Yaw = 30.0f;
@@ -1392,6 +1491,10 @@ namespace
             int postureRepeatIntervalMs = static_cast<int>(postureTxInterval_.count());
             int firecodePartialHoldMs = static_cast<int>(firecodePartialHold_.count());
             int navigationTestStaleTimeoutMs = static_cast<int>(navigationTestStaleTimeout_.count());
+            int sentryCoordSendIntervalMs = static_cast<int>(sentryCoordSendInterval_.count());
+            int sentryCoordFieldWidthX = sentryCoordFieldWidthX_;
+            int sentryCoordFieldWidthY = sentryCoordFieldWidthY_;
+            int sentryCoordFreshTimeoutMs = sentryCoordFreshTimeoutMs_;
             double velocityRawToMps = velocityRawToMps_;
             bool navigationTestEnable = navigationTestEnable_;
             bool rawSerialLogEnable = rawSerialLogEnable_;
@@ -1435,6 +1538,26 @@ namespace
                 "io_config.navigation_test_stale_timeout_ms",
                 navigationTestStaleTimeoutMs,
                 navigationTestStaleTimeoutMs);
+            getParamCompat(
+                "io_config/sentry_coord_send_interval_ms",
+                "io_config.sentry_coord_send_interval_ms",
+                sentryCoordSendIntervalMs,
+                sentryCoordSendIntervalMs);
+            getParamCompat(
+                "io_config/sentry_coord_field_width_x",
+                "io_config.sentry_coord_field_width_x",
+                sentryCoordFieldWidthX,
+                sentryCoordFieldWidthX);
+            getParamCompat(
+                "io_config/sentry_coord_field_width_y",
+                "io_config.sentry_coord_field_width_y",
+                sentryCoordFieldWidthY,
+                sentryCoordFieldWidthY);
+            getParamCompat(
+                "io_config/sentry_coord_fresh_timeout_ms",
+                "io_config.sentry_coord_fresh_timeout_ms",
+                sentryCoordFreshTimeoutMs,
+                sentryCoordFreshTimeoutMs);
             getParamCompat(
                 "io_config/raw_serial_log_enable",
                 "io_config.raw_serial_log_enable",
@@ -1514,11 +1637,39 @@ namespace
                     navigationTestStaleTimeoutMs);
                 navigationTestStaleTimeoutMs = 500;
             }
+            if (sentryCoordSendIntervalMs < 20) {
+                roslog::warn(
+                    "Invalid sentry_coord_send_interval_ms=%d, fallback to 20",
+                    sentryCoordSendIntervalMs);
+                sentryCoordSendIntervalMs = 20;
+            }
+            if (sentryCoordFieldWidthX <= 0) {
+                roslog::warn(
+                    "Invalid sentry_coord_field_width_x=%d, fallback to 2800",
+                    sentryCoordFieldWidthX);
+                sentryCoordFieldWidthX = 2800;
+            }
+            if (sentryCoordFieldWidthY <= 0) {
+                roslog::warn(
+                    "Invalid sentry_coord_field_width_y=%d, fallback to 1500",
+                    sentryCoordFieldWidthY);
+                sentryCoordFieldWidthY = 1500;
+            }
+            if (sentryCoordFreshTimeoutMs <= 0) {
+                roslog::warn(
+                    "Invalid sentry_coord_fresh_timeout_ms=%d, fallback to 2000",
+                    sentryCoordFreshTimeoutMs);
+                sentryCoordFreshTimeoutMs = 2000;
+            }
 
             postureTxRepeatCount_ = postureRepeatCount;
             postureTxInterval_ = std::chrono::milliseconds(postureRepeatIntervalMs);
             firecodePartialHold_ = std::chrono::milliseconds(firecodePartialHoldMs);
             navigationTestStaleTimeout_ = std::chrono::milliseconds(navigationTestStaleTimeoutMs);
+            sentryCoordSendInterval_ = std::chrono::milliseconds(sentryCoordSendIntervalMs);
+            sentryCoordFieldWidthX_ = sentryCoordFieldWidthX;
+            sentryCoordFieldWidthY_ = sentryCoordFieldWidthY;
+            sentryCoordFreshTimeoutMs_ = sentryCoordFreshTimeoutMs;
             velocityRawToMps_ = static_cast<float>(velocityRawToMps);
             navigationTestEnable_ = navigationTestEnable;
             ConfigureRawSerialLog(
@@ -1546,6 +1697,14 @@ namespace
                     "navigation_test enabled: /ly/navi/vel writes lower velocity directly; stale_timeout_ms=%d",
                     static_cast<int>(navigationTestStaleTimeout_.count()));
             }
+            roslog::warn(
+                "sentry coordinate downlink: topic=%s DownlinkTypeID=0x%02x interval_ms=%d field_cm=(%d,%d) fresh_timeout_ms=%d",
+                ly_bt_sentry_position::Name,
+                SentryCoordinateFrame::DownlinkTypeIDValue,
+                static_cast<int>(sentryCoordSendInterval_.count()),
+                sentryCoordFieldWidthX_,
+                sentryCoordFieldWidthY_,
+                sentryCoordFreshTimeoutMs_);
             roslog::warn("gimbal raw serial log: enable=%s uplink=%s downlink=%s screen=%s dir=%s type_ids=%s",
                          rawSerialLogEnable_ ? "true" : "false",
                          rawSerialLogUplink_ ? "true" : "false",
@@ -1558,6 +1717,13 @@ namespace
                          rawSerialTopicUplink_ ? "true" : "false",
                          rawSerialTopicDownlink_ ? "true" : "false",
                          rawSerialTopicTypeIds_.c_str());
+
+            subSentryPosition_ = node->create_subscription<ly_bt_sentry_position::Msg>(
+                ly_bt_sentry_position::Name,
+                10,
+                [this](const ly_bt_sentry_position::Msg::SharedPtr msg) {
+                    HandleSentryPosition(msg);
+                });
 
             while (rclcpp::ok())
             {
@@ -1579,6 +1745,7 @@ namespace
                     MaybeApplyFireCodeStaleFallback();
                     MaybeApplyNavigationTestStaleFallback();
                     MaybeSendPostureTx();
+                    MaybeSendSentryCoordinate();
                     rate.sleep();
                 }
             }
