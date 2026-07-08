@@ -49,7 +49,7 @@ Options:
   --firecode-topic TOPIC   FireCode topic. Default: ${FIRECODE_TOPIC}
   --no-firecode            Do not publish safe firecode.
   --safe-firecode VALUE    Raw firecode when firecode is published. Default: ${SAFE_FIRECODE}
-  --outpost                Simulate formal Outpost patrol fallback pitch bias (+15 deg).
+  --outpost                Simulate formal Outpost patrol fallback pitch bias from PatrolScan.TaskOverrides.
   --launch-gimbal / --no-launch-gimbal
                            Whether to start gimbal_driver. Default: launch.
   --wait SEC               Wait after starting gimbal_driver. Default: ${WAIT_SEC}

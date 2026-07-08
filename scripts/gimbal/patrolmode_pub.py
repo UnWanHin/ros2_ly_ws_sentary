@@ -43,6 +43,21 @@ def get_float(config: Dict[str, Any], section: str, key: str, default: float) ->
     return value
 
 
+def get_bool(config: Dict[str, Any], section: str, key: str, default: bool) -> bool:
+    value = config.get(section, {}).get(key, default)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in ("true", "1", "yes", "y", "on"):
+            return True
+        if normalized in ("false", "0", "no", "n", "off"):
+            return False
+    return default
+
+
 class PatrolModePublisher(Node):
     def __init__(
         self,
@@ -65,6 +80,12 @@ class PatrolModePublisher(Node):
         self.start_time = self.get_clock().now()
         self.safe_firecode = max(0, min(255, safe_firecode))
         self.outpost_mode = outpost_mode
+        self.outpost_pitch_offset = get_float(
+            self.config, "TaskOverrides", "OutpostPitchOffsetDeg", 15.0
+        )
+        self.outpost_pitch_apply_to_mode3 = get_bool(
+            self.config, "TaskOverrides", "OutpostPitchOffsetApplyToMode3", True
+        )
 
         self.angles_pub = self.create_publisher(GimbalAngles, angles_topic, 10)
         self.firecode_pub = (
@@ -78,7 +99,9 @@ class PatrolModePublisher(Node):
             f"patrol mode {self.mode} started: yaw_start={yaw_start:.2f} "
             f"hz={hz:.1f} angles={angles_topic} "
             f"firecode={'on' if publish_firecode else 'off'} "
-            f"outpost_bias={'on' if self.outpost_mode else 'off'}"
+            f"outpost_bias={'on' if self.outpost_mode else 'off'} "
+            f"outpost_pitch_offset={self.outpost_pitch_offset:.2f} "
+            f"outpost_apply_mode3={self.outpost_pitch_apply_to_mode3}"
         )
 
     def on_timer(self) -> None:
@@ -113,17 +136,17 @@ class PatrolModePublisher(Node):
             half_range = get_float(self.config, "Mode2", "PitchHalfRangeDeg", 13.0)
             period_ms = get_float(self.config, "Mode2", "PitchPeriodMs", 500.0)
         elif self.mode == 3:
-            center = get_float(self.config, "Mode3", "PitchOffsetDeg", 15.0)
-            half_range = get_float(self.config, "Mode3", "PitchHalfRangeDeg", 3.0)
-            period_ms = get_float(self.config, "Mode3", "PitchPeriodMs", 500.0)
+            center = get_float(self.config, "Mode3", "PitchOffsetDeg", 0.0)
+            half_range = get_float(self.config, "Mode3", "PitchHalfRangeDeg", 12.0)
+            period_ms = get_float(self.config, "Mode3", "PitchPeriodMs", 2000.0)
         else:
-            center = get_float(self.config, "Mode1", "PitchCenterDeg", 0.0)
-            half_range = get_float(self.config, "Mode1", "PitchHalfRangeDeg", 13.0)
-            period_ms = get_float(self.config, "Mode1", "PitchPeriodMs", 500.0)
+            center = get_float(self.config, "Mode1", "PitchCenterDeg", 5.0)
+            half_range = get_float(self.config, "Mode1", "PitchHalfRangeDeg", 15.0)
+            period_ms = get_float(self.config, "Mode1", "PitchPeriodMs", 2000.0)
         period_ms = max(period_ms, 1.0)
         pitch = center + half_range * math.sin(self.elapsed_ms() * 2.0 * math.pi / period_ms)
-        if self.outpost_mode:
-            pitch += 15.0
+        if self.outpost_mode and (self.mode != 3 or self.outpost_pitch_apply_to_mode3):
+            pitch += self.outpost_pitch_offset
         return pitch
 
     def advance_yaw(self) -> None:
@@ -142,7 +165,12 @@ class PatrolModePublisher(Node):
             return
 
         section = "Mode3" if self.mode == 3 else "Mode1"
-        step = abs(get_float(self.config, section, "YawStepDegPerTick", 1.0))
+        step = abs(get_float(
+            self.config,
+            section,
+            "YawStepDegPerTick",
+            6.0 if self.mode == 3 else 9.0,
+        ))
         self.yaw = normalize_angle(self.yaw + step)
 
 

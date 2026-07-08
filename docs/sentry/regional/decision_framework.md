@@ -1,6 +1,6 @@
 # Regional 決策框架說明
 
-Updated: 2026-05-27
+Updated: 2026-07-08
 
 本文記錄目前 `behavior_tree` 裡 regional 決策的區域狀態機框架：它會做哪些任務、怎麼啟動、怎麼判斷到達、會輸出什麼控制，以及哪些階段會被高優先級邏輯打斷。
 
@@ -115,6 +115,7 @@ Regional 任務主要使用這些導航/定位輸入：
 
 - `/ly/navi/reached`：外部導航對當前 goal 的到達來源；它不是 BT 內部最終 reached 事實。
 - `/ly/navi/reachable`：當前 goal 是否有有效路徑，主不可達判斷。
+- `/ly/navi/reach_state`：BT 對當前 goal 評估後發布的 composite `GoalReachState`，包含 status、reason、goal id/坐標、external freshness、融合自身坐標距離、grace 和 timeout。
 - `/ly/navi/should_rotate`：外部導航區域兼容控制；`true` 恢復 BT 正常小陀螺/巡邏，`false` 關小陀螺並請求 `FollowMode`。
 - `/ly/friend/uwb_pos`：雷達/UWB 推出的己方哨兵自身官方地圖坐標，單位 cm。
 - `/ly/navi/position`：導航/TF 推出的自身官方地圖坐標，單位 cm。
@@ -126,7 +127,7 @@ Regional 任務主要使用這些導航/定位輸入：
 - 判斷自己目前在哪個大區域；
 - 作為 BT 內部 composite reached 的坐標距離來源之一。
 
-也就是說，`/ly/navi/reached`、`/ly/navi/reachable` 和自身融合坐標應該一起進入 BT 的 goal-scoped reached 評估。`/ly/navi/reached=true` 可作為高優先級正向來源；`/ly/navi/reached=false` 不能永久否決坐標距離兜底。
+也就是說，`/ly/navi/reached`、`/ly/navi/reachable` 和自身融合坐標已一起進入 BT 的 goal-scoped `GoalReachState` 評估。`/ly/navi/reached=true` 可作為高優先級正向來源；`/ly/navi/reached=false` 不能永久否決坐標距離兜底。
 
 ## `/ly/navi/should_rotate` 的作用
 
@@ -376,7 +377,7 @@ CommonCentral 本身不開 `FollowMode`，也不開 `FaceMode`，就是普通中
 
 ## 到達與不可達
 
-每個當前 goal 的到達/不可達應統一成 goal-scoped state，而不是讓各個任務分別讀 raw topic。當前較完整的順序是：
+每個當前 goal 的到達/不可達已統一成 goal-scoped `GoalReachState`，任務層不應分別讀 raw topic。當前順序是：
 
 1. `/ly/navi/reachable`
    - 新鮮 `false` 表示當前路徑不可達；
@@ -387,9 +388,9 @@ CommonCentral 本身不開 `FollowMode`，也不開 `FaceMode`，就是普通中
 3. 自身坐標距離兜底
    - goal-start grace 之後，如果融合自身坐標進入到達半徑，BT 可判定 composite reached。
 4. timeout / watchdog
-   - 用於任務保護性推進或 fallback；它是 `done/timeout`，不應直接等同於物理 reached。
+   - `GoalReachState.timeout` 用於顯示 goal timeout；watchdog 用於保護性 fallback。它們不應直接等同於物理 reached。
 
-因此 `/ly/navi/position` 不替代 `/ly/navi/reached`，但必須進入同一個內部 reached contract。後續應把 `EventGoalReached` / trace 裡的 ambiguous bool 改成 composite `GoalReachState`，至少記錄 status、reason、distance、external reached/reachable freshness。
+因此 `/ly/navi/position` 不替代 `/ly/navi/reached`，而是作為自身融合坐標來源進入同一個內部 reached contract。`EventGoalReached` / `EventGoalUnreachable` 在正式 runtime 中由 composite `GoalReachState` 生成；decision trace 同時記錄 `goal_reach_state` 和 raw `navi_status` 觀測欄位。
 
 ## 打斷規則
 

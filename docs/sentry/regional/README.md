@@ -1,6 +1,6 @@
 # Regional Docs
 
-Updated: 2026-05-27
+Updated: 2026-07-08
 
 这里放 Regional 模式当前有效的决策行为说明。
 
@@ -10,6 +10,7 @@ Updated: 2026-05-27
 |---|---|
 | `current_behavior.md` | 当前 regional/BT 分层、任务触发、打断关系和运行行为 |
 | `decision_framework.md` | Regional 大区域状态机框架和任务组织 |
+| `patrol_scan_modes.md` | 雲台巡邏掃描 mode、Patrol.yaml 任務覆蓋和 pitch offset 鏈路 |
 | `strategy_layers_and_navigation_reach.md` | Strategy 分层、`/ly/navi/reached`、坐标兜底和 watchdog 语义 |
 | `zone_blocks.md` | 区域点位、区域块和底层区域任务记录 |
 | `vision_mode_semantics.md` | `/ly/vision/mode`、task mode 等视觉/任务模式语义 |

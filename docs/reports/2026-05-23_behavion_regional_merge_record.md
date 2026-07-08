@@ -2,6 +2,13 @@
 
 Date: 2026-05-23
 
+Current status note (2026-07-08): patrol scan task overrides and pitch offsets have
+since been centralized under `src/behavior_tree/config/Patrol.yaml`
+`PatrolScan.TaskOverrides`. Historical mentions below of code constants or
+`FaceMode.*PatrolScanMode*` keys describe the 2026-05-23 merge state, not the
+current preferred configuration surface. See
+`docs/sentry/regional/patrol_scan_modes.md`.
+
 Base branch: `Behavion`
 Base commit before merge work: `c98c85e` (`優先級有問題`)
 Merged source: `origin/Regional`

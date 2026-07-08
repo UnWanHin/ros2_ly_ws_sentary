@@ -1134,7 +1134,7 @@ namespace BehaviorTree {
         const bool face_mode_fallback_patrol_scan =
             face_mode_requested &&
             !face_mode_angles.has_value() &&
-            config.FaceModeSettings.FallbackToPatrolScanMode2;
+            config.PatrolScanSettings.FaceModeFallbackEnable;
         const bool face_mode_active =
             face_mode_requested && !face_mode_fallback_patrol_scan;
         auto reset_patrol_scan_state = [this]() {
@@ -1238,11 +1238,11 @@ namespace BehaviorTree {
                         face_mode_fallback_patrol_scan && aimMode == AimMode::Outpost;
                     int patrol_mode = config.PatrolScanSettings.Mode;
                     if (outpost_damage_abort_scan_active) {
-                        patrol_mode = 2;
+                        patrol_mode = config.PatrolScanSettings.OutpostDamageAbortMode;
                     } else if (outpost_face_mode_fallback) {
-                        patrol_mode = config.FaceModeSettings.OutpostFallbackPatrolScanMode;
+                        patrol_mode = config.PatrolScanSettings.OutpostFaceModeFallbackMode;
                     } else if (face_mode_fallback_patrol_scan) {
-                        patrol_mode = config.FaceModeSettings.FallbackPatrolScanMode;
+                        patrol_mode = config.PatrolScanSettings.FaceModeFallbackMode;
                     }
                     const bool boost_patrol_scan =
                         aimMode == AimMode::RotateScan &&
@@ -1341,8 +1341,9 @@ namespace BehaviorTree {
                         static_cast<AngleType>(next_scan_pitch)
                     };
 
-                    if (aimMode == AimMode::Outpost) {
-                        nextAngles.Pitch += 15.0f;
+                    if (aimMode == AimMode::Outpost &&
+                        (patrol_mode != 3 || patrol_scan.OutpostPitchOffsetApplyToMode3)) {
+                        nextAngles.Pitch += static_cast<AngleType>(patrol_scan.OutpostPitchOffsetDeg);
                     }
                 } else {
                     reset_patrol_scan_state();

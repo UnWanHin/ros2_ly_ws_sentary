@@ -16,18 +16,36 @@ behavior_tree:
 
       Mode2:
         # Swing mode yaw/pitch scan.
-        YawStepDegPerTick: 0.3
-        YawBoostStepDegPerTick: 1.5
+        YawStepDegPerTick: 1.0
+        YawBoostStepDegPerTick: 1.1
         YawHalfRangeDeg: 30.0
         CenterDriftPerCycleDeg: -70.0
-        PitchCenterDeg: 5.0
-        PitchHalfRangeDeg: 15.0
-        PitchPeriodMs: 2000.0
+        PitchCenterDeg: 0.0
+        PitchHalfRangeDeg: 13.0
+        PitchPeriodMs: 500.0
 
       Mode3:
-        # Outpost FaceMode fallback. Pitch = offset + half_range * sin(t / period).
+        # High-pitch scan profile. Pitch = offset + half_range * sin(t / period).
         YawStepDegPerTick: 6.0
         PitchOffsetDeg: 0.0
         # Set 0.0 to keep a fixed high pitch.
         PitchHalfRangeDeg: 12.0
         PitchPeriodMs: 2000.0
+
+      TaskOverrides:
+        # FaceMode requested but /ly/face_mode/angles is missing: fallback to PatrolScan.
+        FaceModeFallbackEnable: true
+        FaceModeFallbackMode: 2
+        OutpostFaceModeFallbackMode: 2
+
+        # Outpost task damage-abort search uses a deterministic patrol mode instead of
+        # whichever default PatrolScan.Mode is selected by the competition profile.
+        OutpostDamageAbortMode: 2
+
+        # Start-gate scan keeps chassis/fire stopped but raises scan pitch before game start.
+        StartGatePitchOffsetDeg: 10.0
+        StartGatePitchOffsetApplyToMode3: false
+
+        # Outpost no-target scan keeps the selected mode yaw curve and raises pitch.
+        OutpostPitchOffsetDeg: 15.0
+        OutpostPitchOffsetApplyToMode3: false

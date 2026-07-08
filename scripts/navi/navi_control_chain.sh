@@ -19,11 +19,13 @@ OUTPUT="${OUTPUT:-screen}"
 LAUNCH_ARGS=()
 START_ARGS=(--mode regional --no-prompt)
 TEMP_BT_CONFIG=""
+TEMP_PATROL_CONFIG=""
 BT_CONFIG_SOURCE=""
 
 CONFIG_DIR="${ROOT_DIR}/src/behavior_tree/Scripts/ConfigJson/regional/test"
 DEFAULT_BASE_CONFIG_FILE="${ROOT_DIR}/config/base_config.yaml"
 DEFAULT_OVERRIDE_CONFIG_FILE="${ROOT_DIR}/config/override_config.yaml"
+DEFAULT_PATROL_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/Patrol.yaml"
 
 usage() {
   cat <<EOF
@@ -42,7 +44,7 @@ Options:
   --area <base|highland|roadland|central>
   --rotate [true|false]       Enable BT rotate output. Default: ${ROTATE_ENABLED}
   --scan [true|false]         Enable BT gimbal patrol scan. Default: ${SCAN_ENABLED}
-  --scan-mode <1|2|3>         PatrolScan.Mode. Default: ${SCAN_MODE}
+  --scan-mode <1|2|3>         PatrolScan.Mode injected through a temp Patrol.yaml. Default: ${SCAN_MODE}
   --with-vision               Ignored; formal chain uses external /ly/aim/*.
   --no-vision                 Ignored; formal chain uses external /ly/aim/*.
   --nogate                    Bypass /ly/game/is_start. Default.
@@ -165,11 +167,11 @@ validate_scan_mode() {
 
 make_bt_config() {
   TEMP_BT_CONFIG="$(mktemp /tmp/ly_navi_control_area_pure_XXXXXX.json)"
-  python3 - "${BT_CONFIG_SOURCE}" "${TEMP_BT_CONFIG}" "${ROTATE_ENABLED}" "${SCAN_ENABLED}" "${SCAN_MODE}" <<'PY'
+  python3 - "${BT_CONFIG_SOURCE}" "${TEMP_BT_CONFIG}" "${ROTATE_ENABLED}" "${SCAN_ENABLED}" <<'PY'
 import json
 import sys
 
-src, dst, rotate_raw, scan_raw, scan_mode_raw = sys.argv[1:6]
+src, dst, rotate_raw, scan_raw = sys.argv[1:5]
 
 def as_bool(value: str) -> bool:
     return value.lower() in ("true", "1", "yes", "on")
@@ -179,7 +181,6 @@ with open(src, "r", encoding="utf-8") as f:
 
 rotate_enabled = as_bool(rotate_raw)
 scan_enabled = as_bool(scan_raw)
-scan_mode = int(scan_mode_raw)
 
 aim_debug = data.setdefault("AimDebug", {})
 aim_debug["StopFire"] = True
@@ -188,7 +189,6 @@ aim_debug["StopScan"] = not scan_enabled
 aim_debug["HitCar"] = False
 aim_debug["FireRequireTargetStatus"] = True
 
-data.setdefault("PatrolScan", {})["Mode"] = scan_mode
 data.setdefault("RegionalAreaTask", {})["IgnoreRecovery"] = True
 data.setdefault("Chase", {})["Enable"] = False
 data.setdefault("Posture", {})["Enable"] = False
@@ -200,9 +200,32 @@ with open(dst, "w", encoding="utf-8") as f:
 PY
 }
 
+make_patrol_config() {
+  TEMP_PATROL_CONFIG="$(mktemp /tmp/ly_navi_control_patrol_XXXXXX.yaml)"
+  python3 - "${DEFAULT_PATROL_CONFIG_FILE}" "${TEMP_PATROL_CONFIG}" "${SCAN_MODE}" <<'PY'
+import sys
+import yaml
+
+src, dst, scan_mode_raw = sys.argv[1:4]
+
+with open(src, "r", encoding="utf-8") as f:
+    data = yaml.safe_load(f) or {}
+
+params = data.setdefault("behavior_tree", {}).setdefault("ros__parameters", {})
+patrol_scan = params.setdefault("PatrolScan", {})
+patrol_scan["Mode"] = int(scan_mode_raw)
+
+with open(dst, "w", encoding="utf-8") as f:
+    yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True)
+PY
+}
+
 cleanup() {
   if [[ -n "${TEMP_BT_CONFIG}" && -f "${TEMP_BT_CONFIG}" ]]; then
     rm -f "${TEMP_BT_CONFIG}"
+  fi
+  if [[ -n "${TEMP_PATROL_CONFIG}" && -f "${TEMP_PATROL_CONFIG}" ]]; then
+    rm -f "${TEMP_PATROL_CONFIG}"
   fi
 }
 
@@ -365,11 +388,17 @@ if [[ ! -f "${BT_CONFIG_SOURCE}" ]]; then
   echo "[ERROR] BT config not found: ${BT_CONFIG_SOURCE}" >&2
   exit 1
 fi
+if [[ ! -f "${DEFAULT_PATROL_CONFIG_FILE}" ]]; then
+  echo "[ERROR] Patrol config not found: ${DEFAULT_PATROL_CONFIG_FILE}" >&2
+  exit 1
+fi
 
 trap cleanup EXIT
 make_bt_config
+make_patrol_config
 
 add_launch_arg_if_missing "bt_config_file" "${TEMP_BT_CONFIG}"
+add_launch_arg_if_missing "patrol_config_file" "${TEMP_PATROL_CONFIG}"
 add_launch_arg_if_missing "debug_bypass_is_start" "$([[ "${USE_NOGATE}" == "1" ]] && printf true || printf false)"
 add_launch_arg_if_missing "wait_for_game_start_timeout_sec" "0"
 add_launch_arg_if_missing "competition_profile" "regional"
@@ -388,5 +417,6 @@ echo "[INFO] /goal_pose disabled: publish_navi_goal=true, navi_publish_goal_pose
 echo "[INFO] fire=false rotate=${ROTATE_ENABLED} scan=${SCAN_ENABLED} scan_mode=${SCAN_MODE}" >&2
 echo "[INFO] source bt_config=${BT_CONFIG_SOURCE}" >&2
 echo "[INFO] generated bt_config=${TEMP_BT_CONFIG}" >&2
+echo "[INFO] generated patrol_config=${TEMP_PATROL_CONFIG}" >&2
 
 "${ROOT_DIR}/scripts/launch/start_sentry_all.sh" "${START_ARGS[@]}" -- "${LAUNCH_ARGS[@]}"

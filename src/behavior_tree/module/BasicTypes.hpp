@@ -449,17 +449,28 @@ namespace LangYa
         double Mode1PitchCenterDeg{5.0};
         double Mode1PitchHalfRangeDeg{15.0};
         double Mode1PitchPeriodMs{2000.0};
-        double Mode2YawStepDegPerTick{0.3};
-        double Mode2YawBoostStepDegPerTick{1.5};
+        double Mode2YawStepDegPerTick{1.0};
+        double Mode2YawBoostStepDegPerTick{1.1};
         double Mode2YawHalfRangeDeg{30.0};
         double Mode2CenterDriftPerCycleDeg{-70.0};
-        double Mode2PitchCenterDeg{5.0};
-        double Mode2PitchHalfRangeDeg{15.0};
-        double Mode2PitchPeriodMs{2000.0};
+        double Mode2PitchCenterDeg{0.0};
+        double Mode2PitchHalfRangeDeg{13.0};
+        double Mode2PitchPeriodMs{500.0};
         double Mode3YawStepDegPerTick{6.0};
         double Mode3PitchOffsetDeg{0.0};
         double Mode3PitchHalfRangeDeg{12.0};
         double Mode3PitchPeriodMs{2000.0};
+        bool FaceModeFallbackEnable{true};
+        int FaceModeFallbackMode{2};
+        int OutpostFaceModeFallbackMode{2};
+        int OutpostDamageAbortMode{2};
+        double StartGatePitchOffsetDeg{10.0};
+        bool StartGatePitchOffsetApplyToMode3{false};
+        double OutpostPitchOffsetDeg{15.0};
+        bool OutpostPitchOffsetApplyToMode3{true};
+        bool FaceModeFallbackEnableProvided{false};
+        bool FaceModeFallbackModeProvided{false};
+        bool OutpostFaceModeFallbackModeProvided{false};
     };
 
     // 频率相关
@@ -546,7 +557,10 @@ namespace LangYa
         bool SuppressFire{true};
         bool FallbackToPatrolScanMode2{true};
         int FallbackPatrolScanMode{2};
-        int OutpostFallbackPatrolScanMode{3};
+        int OutpostFallbackPatrolScanMode{2};
+        bool FallbackToPatrolScanMode2Provided{false};
+        bool FallbackPatrolScanModeProvided{false};
+        bool OutpostFallbackPatrolScanModeProvided{false};
     };
 
     struct ExternalAimSetting {

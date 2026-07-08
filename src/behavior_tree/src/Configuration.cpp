@@ -401,6 +401,31 @@ bool ReadOptionalBoolParam(
     return false;
 }
 
+void ApplyLegacyFaceModePatrolOverrides(
+    LangYa::PatrolScanSetting& patrol_scan,
+    const LangYa::FaceModeSetting& face_mode) {
+    if (!patrol_scan.FaceModeFallbackEnableProvided &&
+        face_mode.FallbackToPatrolScanMode2Provided) {
+        patrol_scan.FaceModeFallbackEnable = face_mode.FallbackToPatrolScanMode2;
+    }
+    if (!patrol_scan.FaceModeFallbackModeProvided &&
+        face_mode.FallbackPatrolScanModeProvided) {
+        patrol_scan.FaceModeFallbackMode = face_mode.FallbackPatrolScanMode;
+    }
+    if (!patrol_scan.OutpostFaceModeFallbackModeProvided &&
+        face_mode.OutpostFallbackPatrolScanModeProvided) {
+        patrol_scan.OutpostFaceModeFallbackMode = face_mode.OutpostFallbackPatrolScanMode;
+    }
+}
+
+void MirrorPatrolScanTaskOverridesToFaceMode(
+    const LangYa::PatrolScanSetting& patrol_scan,
+    LangYa::FaceModeSetting& face_mode) {
+    face_mode.FallbackToPatrolScanMode2 = patrol_scan.FaceModeFallbackEnable;
+    face_mode.FallbackPatrolScanMode = patrol_scan.FaceModeFallbackMode;
+    face_mode.OutpostFallbackPatrolScanMode = patrol_scan.OutpostFaceModeFallbackMode;
+}
+
 std::string ResolveBehaviorTreeConfigPath(const std::string& configured_path) {
     if (configured_path.empty()) {
         return {};
@@ -559,6 +584,33 @@ namespace LangYa {
 
     void from_json(const json& j, PatrolScanSetting& ps) {
         ps.Mode = j.value("Mode", ps.Mode);
+        auto read_task_override = [&](const json& source) {
+            if (source.contains("FaceModeFallbackEnable")) {
+                ps.FaceModeFallbackEnable =
+                    source.value("FaceModeFallbackEnable", ps.FaceModeFallbackEnable);
+                ps.FaceModeFallbackEnableProvided = true;
+            }
+            if (source.contains("FaceModeFallbackMode")) {
+                ps.FaceModeFallbackMode =
+                    source.value("FaceModeFallbackMode", ps.FaceModeFallbackMode);
+                ps.FaceModeFallbackModeProvided = true;
+            }
+            if (source.contains("OutpostFaceModeFallbackMode")) {
+                ps.OutpostFaceModeFallbackMode =
+                    source.value("OutpostFaceModeFallbackMode", ps.OutpostFaceModeFallbackMode);
+                ps.OutpostFaceModeFallbackModeProvided = true;
+            }
+            ps.OutpostDamageAbortMode =
+                source.value("OutpostDamageAbortMode", ps.OutpostDamageAbortMode);
+            ps.StartGatePitchOffsetDeg =
+                source.value("StartGatePitchOffsetDeg", ps.StartGatePitchOffsetDeg);
+            ps.StartGatePitchOffsetApplyToMode3 =
+                source.value("StartGatePitchOffsetApplyToMode3", ps.StartGatePitchOffsetApplyToMode3);
+            ps.OutpostPitchOffsetDeg =
+                source.value("OutpostPitchOffsetDeg", ps.OutpostPitchOffsetDeg);
+            ps.OutpostPitchOffsetApplyToMode3 =
+                source.value("OutpostPitchOffsetApplyToMode3", ps.OutpostPitchOffsetApplyToMode3);
+        };
         if (j.contains("Mode1") && j.at("Mode1").is_object()) {
             const auto& mode = j.at("Mode1");
             ps.Mode1YawStepDegPerTick =
@@ -600,6 +652,10 @@ namespace LangYa {
             ps.Mode3PitchPeriodMs =
                 mode.value("PitchPeriodMs", ps.Mode3PitchPeriodMs);
         }
+        if (j.contains("TaskOverrides") && j.at("TaskOverrides").is_object()) {
+            read_task_override(j.at("TaskOverrides"));
+        }
+        read_task_override(j);
     }
 
     void from_json(const json& j, Rate& r) {
@@ -697,12 +753,21 @@ namespace LangYa {
         fs.Enable = j.value("Enable", fs.Enable);
         fs.LostTargetHoldMs = j.value("LostTargetHoldMs", fs.LostTargetHoldMs);
         fs.SuppressFire = j.value("SuppressFire", fs.SuppressFire);
-        fs.FallbackToPatrolScanMode2 =
-            j.value("FallbackToPatrolScanMode2", fs.FallbackToPatrolScanMode2);
-        fs.FallbackPatrolScanMode =
-            j.value("FallbackPatrolScanMode", fs.FallbackPatrolScanMode);
-        fs.OutpostFallbackPatrolScanMode =
-            j.value("OutpostFallbackPatrolScanMode", fs.OutpostFallbackPatrolScanMode);
+        if (j.contains("FallbackToPatrolScanMode2")) {
+            fs.FallbackToPatrolScanMode2 =
+                j.value("FallbackToPatrolScanMode2", fs.FallbackToPatrolScanMode2);
+            fs.FallbackToPatrolScanMode2Provided = true;
+        }
+        if (j.contains("FallbackPatrolScanMode")) {
+            fs.FallbackPatrolScanMode =
+                j.value("FallbackPatrolScanMode", fs.FallbackPatrolScanMode);
+            fs.FallbackPatrolScanModeProvided = true;
+        }
+        if (j.contains("OutpostFallbackPatrolScanMode")) {
+            fs.OutpostFallbackPatrolScanMode =
+                j.value("OutpostFallbackPatrolScanMode", fs.OutpostFallbackPatrolScanMode);
+            fs.OutpostFallbackPatrolScanModeProvided = true;
+        }
     }
 
     void from_json(const json& j, ExternalAimSetting& ea) {
@@ -1721,27 +1786,33 @@ namespace BehaviorTree {
                 "FaceMode/SuppressFire"
             },
             config.FaceModeSettings.SuppressFire);
-        ReadOptionalBoolParam(
-            node_,
-            {
-                "FaceMode.FallbackToPatrolScanMode2",
-                "FaceMode/FallbackToPatrolScanMode2"
-            },
-            config.FaceModeSettings.FallbackToPatrolScanMode2);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "FaceMode.FallbackPatrolScanMode",
-                "FaceMode/FallbackPatrolScanMode"
-            },
-            config.FaceModeSettings.FallbackPatrolScanMode);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "FaceMode.OutpostFallbackPatrolScanMode",
-                "FaceMode/OutpostFallbackPatrolScanMode"
-            },
-            config.FaceModeSettings.OutpostFallbackPatrolScanMode);
+        if (ReadOptionalBoolParam(
+                node_,
+                {
+                    "FaceMode.FallbackToPatrolScanMode2",
+                    "FaceMode/FallbackToPatrolScanMode2"
+                },
+                config.FaceModeSettings.FallbackToPatrolScanMode2)) {
+            config.FaceModeSettings.FallbackToPatrolScanMode2Provided = true;
+        }
+        if (ReadOptionalIntParam(
+                node_,
+                {
+                    "FaceMode.FallbackPatrolScanMode",
+                    "FaceMode/FallbackPatrolScanMode"
+                },
+                config.FaceModeSettings.FallbackPatrolScanMode)) {
+            config.FaceModeSettings.FallbackPatrolScanModeProvided = true;
+        }
+        if (ReadOptionalIntParam(
+                node_,
+                {
+                    "FaceMode.OutpostFallbackPatrolScanMode",
+                    "FaceMode/OutpostFallbackPatrolScanMode"
+                },
+                config.FaceModeSettings.OutpostFallbackPatrolScanMode)) {
+            config.FaceModeSettings.OutpostFallbackPatrolScanModeProvided = true;
+        }
     }
 
     void Application::ApplyNaviRotateControlParameterOverrides() {
@@ -1930,6 +2001,85 @@ namespace BehaviorTree {
             node_,
             {"PatrolScan.Mode3.PitchPeriodMs", "PatrolScan/Mode3/PitchPeriodMs"},
             setting.Mode3PitchPeriodMs);
+
+        if (ReadOptionalBoolParam(
+                node_,
+                {
+                    "PatrolScan.TaskOverrides.FaceModeFallbackEnable",
+                    "PatrolScan/TaskOverrides/FaceModeFallbackEnable",
+                    "PatrolScan.FaceModeFallbackEnable",
+                    "PatrolScan/FaceModeFallbackEnable"
+                },
+                setting.FaceModeFallbackEnable)) {
+            setting.FaceModeFallbackEnableProvided = true;
+        }
+        if (ReadOptionalIntParam(
+                node_,
+                {
+                    "PatrolScan.TaskOverrides.FaceModeFallbackMode",
+                    "PatrolScan/TaskOverrides/FaceModeFallbackMode",
+                    "PatrolScan.FaceModeFallbackMode",
+                    "PatrolScan/FaceModeFallbackMode"
+                },
+                setting.FaceModeFallbackMode)) {
+            setting.FaceModeFallbackModeProvided = true;
+        }
+        if (ReadOptionalIntParam(
+                node_,
+                {
+                    "PatrolScan.TaskOverrides.OutpostFaceModeFallbackMode",
+                    "PatrolScan/TaskOverrides/OutpostFaceModeFallbackMode",
+                    "PatrolScan.OutpostFaceModeFallbackMode",
+                    "PatrolScan/OutpostFaceModeFallbackMode"
+                },
+                setting.OutpostFaceModeFallbackMode)) {
+            setting.OutpostFaceModeFallbackModeProvided = true;
+        }
+        ReadOptionalIntParam(
+            node_,
+            {
+                "PatrolScan.TaskOverrides.OutpostDamageAbortMode",
+                "PatrolScan/TaskOverrides/OutpostDamageAbortMode",
+                "PatrolScan.OutpostDamageAbortMode",
+                "PatrolScan/OutpostDamageAbortMode"
+            },
+            setting.OutpostDamageAbortMode);
+        ReadOptionalDoubleParam(
+            node_,
+            {
+                "PatrolScan.TaskOverrides.StartGatePitchOffsetDeg",
+                "PatrolScan/TaskOverrides/StartGatePitchOffsetDeg",
+                "PatrolScan.StartGatePitchOffsetDeg",
+                "PatrolScan/StartGatePitchOffsetDeg"
+            },
+            setting.StartGatePitchOffsetDeg);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "PatrolScan.TaskOverrides.StartGatePitchOffsetApplyToMode3",
+                "PatrolScan/TaskOverrides/StartGatePitchOffsetApplyToMode3",
+                "PatrolScan.StartGatePitchOffsetApplyToMode3",
+                "PatrolScan/StartGatePitchOffsetApplyToMode3"
+            },
+            setting.StartGatePitchOffsetApplyToMode3);
+        ReadOptionalDoubleParam(
+            node_,
+            {
+                "PatrolScan.TaskOverrides.OutpostPitchOffsetDeg",
+                "PatrolScan/TaskOverrides/OutpostPitchOffsetDeg",
+                "PatrolScan.OutpostPitchOffsetDeg",
+                "PatrolScan/OutpostPitchOffsetDeg"
+            },
+            setting.OutpostPitchOffsetDeg);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "PatrolScan.TaskOverrides.OutpostPitchOffsetApplyToMode3",
+                "PatrolScan/TaskOverrides/OutpostPitchOffsetApplyToMode3",
+                "PatrolScan.OutpostPitchOffsetApplyToMode3",
+                "PatrolScan/OutpostPitchOffsetApplyToMode3"
+            },
+            setting.OutpostPitchOffsetApplyToMode3);
     }
 
     void Application::ApplyStartGateParameterOverrides() {
@@ -2575,6 +2725,10 @@ namespace BehaviorTree {
         ApplyPointManagerParameterOverrides();
         ApplyPatrolScanParameterOverrides();
         ApplyFaceModeParameterOverrides();
+        auto& patrol_scan = config.PatrolScanSettings;
+        auto& face_mode = config.FaceModeSettings;
+        ApplyLegacyFaceModePatrolOverrides(patrol_scan, face_mode);
+        MirrorPatrolScanTaskOverridesToFaceMode(patrol_scan, face_mode);
         ApplyExternalAimParameterOverrides();
         LoggerPtr->Debug("Switch_Point: {}", config.SwitchPoint);
         LoggerPtr->Debug("------ AimDebug ------");
@@ -2611,6 +2765,16 @@ namespace BehaviorTree {
             config.PatrolScanSettings.Mode3PitchOffsetDeg,
             config.PatrolScanSettings.Mode3PitchHalfRangeDeg,
             config.PatrolScanSettings.Mode3PitchPeriodMs);
+        LoggerPtr->Debug(
+            "TaskOverrides: face_fallback_enable={} face_fallback_mode={} outpost_face_fallback_mode={} outpost_damage_abort_mode={} start_gate_pitch_offset={} start_gate_apply_mode3={} outpost_pitch_offset={} outpost_apply_mode3={}",
+            config.PatrolScanSettings.FaceModeFallbackEnable,
+            config.PatrolScanSettings.FaceModeFallbackMode,
+            config.PatrolScanSettings.OutpostFaceModeFallbackMode,
+            config.PatrolScanSettings.OutpostDamageAbortMode,
+            config.PatrolScanSettings.StartGatePitchOffsetDeg,
+            config.PatrolScanSettings.StartGatePitchOffsetApplyToMode3,
+            config.PatrolScanSettings.OutpostPitchOffsetDeg,
+            config.PatrolScanSettings.OutpostPitchOffsetApplyToMode3);
         LoggerPtr->Debug("------ Rate ------");
         LoggerPtr->Debug("FireRate: {}", config.RateSettings.FireRate);
         LoggerPtr->Debug("TickRate: {}", config.RateSettings.TreeTickRate);
@@ -2678,9 +2842,9 @@ namespace BehaviorTree {
         LoggerPtr->Debug("Enable: {}", config.FaceModeSettings.Enable);
         LoggerPtr->Debug("LostTargetHoldMs: {}", config.FaceModeSettings.LostTargetHoldMs);
         LoggerPtr->Debug("SuppressFire: {}", config.FaceModeSettings.SuppressFire);
-        LoggerPtr->Debug("FallbackToPatrolScanMode2: {}", config.FaceModeSettings.FallbackToPatrolScanMode2);
-        LoggerPtr->Debug("FallbackPatrolScanMode: {}", config.FaceModeSettings.FallbackPatrolScanMode);
-        LoggerPtr->Debug("OutpostFallbackPatrolScanMode: {}", config.FaceModeSettings.OutpostFallbackPatrolScanMode);
+        LoggerPtr->Debug("FallbackToPatrolScanMode2: {} (legacy mirror of PatrolScan.TaskOverrides.FaceModeFallbackEnable)", config.FaceModeSettings.FallbackToPatrolScanMode2);
+        LoggerPtr->Debug("FallbackPatrolScanMode: {} (legacy mirror of PatrolScan.TaskOverrides.FaceModeFallbackMode)", config.FaceModeSettings.FallbackPatrolScanMode);
+        LoggerPtr->Debug("OutpostFallbackPatrolScanMode: {} (legacy mirror of PatrolScan.TaskOverrides.OutpostFaceModeFallbackMode)", config.FaceModeSettings.OutpostFallbackPatrolScanMode);
         LoggerPtr->Debug("------ ExternalAim ------");
         LoggerPtr->Debug("Enable: {}", config.ExternalAimSettings.Enable);
         LoggerPtr->Debug("ResultFreshTimeoutMs: {}", config.ExternalAimSettings.ResultFreshTimeoutMs);
@@ -3749,19 +3913,25 @@ namespace BehaviorTree {
             LoggerPtr->Warning("Invalid PatrolScan.Mode={}, fallback to 1.", config.PatrolScanSettings.Mode);
             config.PatrolScanSettings.Mode = 1;
         }
-        if (!valid_patrol_scan_mode(config.FaceModeSettings.FallbackPatrolScanMode)) {
-            LoggerPtr->Warning(
-                "Invalid FaceMode.FallbackPatrolScanMode={}, fallback to 2.",
-                config.FaceModeSettings.FallbackPatrolScanMode);
-            config.FaceModeSettings.FallbackPatrolScanMode = 2;
-        }
-        if (!valid_patrol_scan_mode(config.FaceModeSettings.OutpostFallbackPatrolScanMode)) {
-            LoggerPtr->Warning(
-                "Invalid FaceMode.OutpostFallbackPatrolScanMode={}, fallback to 3.",
-                config.FaceModeSettings.OutpostFallbackPatrolScanMode);
-            config.FaceModeSettings.OutpostFallbackPatrolScanMode = 3;
-        }
         auto& patrol = config.PatrolScanSettings;
+        if (!valid_patrol_scan_mode(patrol.FaceModeFallbackMode)) {
+            LoggerPtr->Warning(
+                "Invalid PatrolScan.TaskOverrides.FaceModeFallbackMode={}, fallback to 2.",
+                patrol.FaceModeFallbackMode);
+            patrol.FaceModeFallbackMode = 2;
+        }
+        if (!valid_patrol_scan_mode(patrol.OutpostFaceModeFallbackMode)) {
+            LoggerPtr->Warning(
+                "Invalid PatrolScan.TaskOverrides.OutpostFaceModeFallbackMode={}, fallback to 2.",
+                patrol.OutpostFaceModeFallbackMode);
+            patrol.OutpostFaceModeFallbackMode = 2;
+        }
+        if (!valid_patrol_scan_mode(patrol.OutpostDamageAbortMode)) {
+            LoggerPtr->Warning(
+                "Invalid PatrolScan.TaskOverrides.OutpostDamageAbortMode={}, fallback to 2.",
+                patrol.OutpostDamageAbortMode);
+            patrol.OutpostDamageAbortMode = 2;
+        }
         auto sanitize_positive_double = [this](double& value, const double fallback, const char* key) {
             if (!std::isfinite(value) || value <= 0.0) {
                 LoggerPtr->Warning("Invalid {}={}, fallback to {}.", key, value, fallback);
@@ -3791,19 +3961,19 @@ namespace BehaviorTree {
         sanitize_positive_double(
             patrol.Mode1PitchPeriodMs, 2000.0, "PatrolScan.Mode1.PitchPeriodMs");
         sanitize_positive_double(
-            patrol.Mode2YawStepDegPerTick, 0.3, "PatrolScan.Mode2.YawStepDegPerTick");
+            patrol.Mode2YawStepDegPerTick, 1.0, "PatrolScan.Mode2.YawStepDegPerTick");
         sanitize_positive_double(
-            patrol.Mode2YawBoostStepDegPerTick, 1.5, "PatrolScan.Mode2.YawBoostStepDegPerTick");
+            patrol.Mode2YawBoostStepDegPerTick, 1.1, "PatrolScan.Mode2.YawBoostStepDegPerTick");
         sanitize_positive_double(
             patrol.Mode2YawHalfRangeDeg, 30.0, "PatrolScan.Mode2.YawHalfRangeDeg");
         sanitize_finite_double(
             patrol.Mode2CenterDriftPerCycleDeg, -70.0, "PatrolScan.Mode2.CenterDriftPerCycleDeg");
         sanitize_finite_double(
-            patrol.Mode2PitchCenterDeg, 5.0, "PatrolScan.Mode2.PitchCenterDeg");
+            patrol.Mode2PitchCenterDeg, 0.0, "PatrolScan.Mode2.PitchCenterDeg");
         sanitize_non_negative_double(
-            patrol.Mode2PitchHalfRangeDeg, 15.0, "PatrolScan.Mode2.PitchHalfRangeDeg");
+            patrol.Mode2PitchHalfRangeDeg, 13.0, "PatrolScan.Mode2.PitchHalfRangeDeg");
         sanitize_positive_double(
-            patrol.Mode2PitchPeriodMs, 2000.0, "PatrolScan.Mode2.PitchPeriodMs");
+            patrol.Mode2PitchPeriodMs, 500.0, "PatrolScan.Mode2.PitchPeriodMs");
         sanitize_positive_double(
             patrol.Mode3YawStepDegPerTick, 6.0, "PatrolScan.Mode3.YawStepDegPerTick");
         sanitize_finite_double(
@@ -3812,6 +3982,11 @@ namespace BehaviorTree {
             patrol.Mode3PitchHalfRangeDeg, 12.0, "PatrolScan.Mode3.PitchHalfRangeDeg");
         sanitize_positive_double(
             patrol.Mode3PitchPeriodMs, 2000.0, "PatrolScan.Mode3.PitchPeriodMs");
+        sanitize_finite_double(
+            patrol.StartGatePitchOffsetDeg, 10.0, "PatrolScan.TaskOverrides.StartGatePitchOffsetDeg");
+        sanitize_finite_double(
+            patrol.OutpostPitchOffsetDeg, 15.0, "PatrolScan.TaskOverrides.OutpostPitchOffsetDeg");
+        MirrorPatrolScanTaskOverridesToFaceMode(patrol, config.FaceModeSettings);
 
         const std::vector<int> default_aim_target_priority{
             static_cast<int>(ArmorType::Hero),

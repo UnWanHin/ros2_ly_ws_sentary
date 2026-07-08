@@ -89,6 +89,7 @@ For non-trivial work, combine the repo's default `$cautious-super-engineer` styl
 - Consult `.understand-anything/project-knowledge-graph.md` for the quick architecture map and `.understand-anything/knowledge-graph.json` for structured package/topic/file relationships.
 - Treat the graph as guidance, not authority. Source files, launch files, package manifests, and current docs remain authoritative.
 - If graph evidence conflicts with source evidence, trust source evidence, update the graph, and report the mismatch.
+- Before declaring non-trivial runtime/link/interface/architecture work complete, re-check the relevant docs and graph against current source evidence. If they are stale, update them in the same change and report the verification used.
 
 ### Understand Anything graph
 
@@ -101,9 +102,19 @@ Use Understand Anything as the long-lived project map for this workspace.
   - `intermediate/scan-result.json` for scan inventory
   - `meta.json` for analyzed commit metadata
 - Update or regenerate the graph when changing ROS package boundaries, launch composition, topic publishers/subscribers, message schemas, behavior-tree decision outputs, navigation/FaceMode flows, simulator trace contracts, or architecture docs.
+- Treat graph freshness as part of the contract: keep `project-knowledge-graph.md`, `knowledge-graph.json`, and `meta.json` aligned with the current source-verified architecture, current HEAD, working tree status, and graph shape. Do not leave stale `Generated`, `Checked against HEAD`, `lastCheckedNote`, node counts, or edge counts after graph-relevant work.
 - Prefer Chinese output for generated summaries in this repo (`--language zh`) unless the user asks otherwise.
 - If the installed Understand Anything skill cannot run because its plugin root/core package is unavailable, create or update an Understand Anything-compatible fallback graph from repo docs, `package.xml`, launch files, topic definitions, and key source files. State clearly that fallback mode was used.
 - Do not let graph generation alter ROS runtime behavior. Keep graph updates as analysis artifacts unless the user explicitly asks for runtime changes.
+
+### Documentation and graph freshness
+
+- Runtime behavior, ROS topic/msg/param semantics, launch composition, behavior-tree decisions, simulator trace contracts, navigation/FaceMode flows, and embedded serial mappings must not leave stale docs or stale graph entries behind.
+- When source evidence changes a documented behavior, update the closest current docs under `docs/` and any dated `Updated: YYYY-MM-DD` line in the same change. Historical reports may keep old analysis only if a clear current-status note explains what has been superseded.
+- When changing docs that describe architecture or interfaces, also check whether `.understand-anything/` must be updated. Architecture docs and graph files should agree on current package/topic/message/decision-flow facts.
+- Keep `.understand-anything/knowledge-graph.json`, `.understand-anything/project-knowledge-graph.md`, and `.understand-anything/meta.json` mutually consistent; also update `.understand-anything/intermediate/scan-result.json` when package/topic inventory is regenerated.
+- Before final response for graph-relevant work, validate JSON graph files with `python3 -m json.tool` or `jq`, run `git diff --check`, and run at least `./scripts/selfcheck.sh sentry --static-only`; use `./scripts/selfcheck.sh sentry --skip-hz` or launched self-check when runtime graph evidence is required.
+- If a full graph regeneration cannot run, keep the fallback graph update source-driven: cite source files, launch files, package manifests, and current docs used; record fallback mode in `meta.json` / graph notes.
 
 ## Skill Auto-Match & Auto-Install
 - Automatically match and use the minimal relevant skill set when user intent clearly maps to available skills.

@@ -1,6 +1,6 @@
 # ros2_ly_ws_sentry 接手阅读指南
 
-Updated: 2026-05-27
+Updated: 2026-07-08
 
 这是一个 ROS2 Humble / `colcon` 哨兵上位机工作区。当前 `Behavion` 主链路已经切到 **decision-only**：本仓负责下位机串口、导航/FaceMode bridge 和行为树决策；相机、检测、追踪、弹道、gimbal TF 和最终 aim/firing 判定由外部 `sentry.aim` / `sentry_tf` 提供。
 
@@ -43,6 +43,7 @@ sentry.aim
    [docs/sentry/README.md](docs/sentry/README.md)
    [docs/sentry/regional/current_behavior.md](docs/sentry/regional/current_behavior.md)
    [docs/sentry/regional/decision_framework.md](docs/sentry/regional/decision_framework.md)
+   [docs/sentry/regional/patrol_scan_modes.md](docs/sentry/regional/patrol_scan_modes.md)
    [docs/sentry/internal/simulator.md](docs/sentry/internal/simulator.md)
 6. 串口、裁判系统和实机检查
    [docs/sentry/embedded/serial_data_mapping.md](docs/sentry/embedded/serial_data_mapping.md)

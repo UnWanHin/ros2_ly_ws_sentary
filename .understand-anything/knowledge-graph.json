@@ -23,10 +23,10 @@
       "pygame simulator"
     ],
     "description": "ROS2 Humble sentry workspace. Current formal runtime is decision-only: external sentry.aim/sentry_tf provide vision/TF and aim/fire gate; this repo owns BT decision, navigation/FaceMode bridge, gimbal_driver serial downlink, legacy debug auto-aim, and offline simulator.",
-    "analyzedAt": "2026-07-07T16:58:59+00:00",
-    "gitCommitHash": "84af1f3e758edad06802479b2357102a47c29778",
+    "analyzedAt": "2026-07-08T15:27:12+00:00",
+    "gitCommitHash": "cd8cfa54702c30e8931c1593fe50e01afd5969ec",
     "workingTreeStatus": "dirty",
-    "lastCheckedNote": "Fallback graph updated after adding /ly/bt/sentry_position and DownlinkTypeID-based gimbal_driver downlink frames; package/module coverage unchanged.",
+    "lastCheckedNote": "Fallback graph updated for composite GoalReachState reach contract, SentryPositionFusion sources, /ly/navi/reach_state, /ly/bt/sentry_position coordinate downlink, AGENTS documentation/graph freshness requirements, PatrolScan.TaskOverrides centralization in Patrol.yaml, and PatrolScan.Mode2 restored to the older 500 ms scan profile.",
     "outputLanguage": "zh"
   },
   "nodes": [
@@ -410,6 +410,30 @@
       "complexity": "moderate"
     },
     {
+      "id": "concept:composite-goal-reach-contract",
+      "type": "concept",
+      "name": "composite GoalReachState contract",
+      "summary": "BT internal current-goal reached/unreachable contract: scoped external /ly/navi/reached and /ly/navi/reachable, fused sentry self-position distance, goal-start grace, and timeout are evaluated by EvaluateNaviGoalReach()/EvaluateBaseGoalReach().",
+      "tags": [
+        "behavior_tree",
+        "navigation",
+        "reach"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "concept:sentry-position-fusion",
+      "type": "concept",
+      "name": "SentryPositionFusion",
+      "summary": "BT fuses sentry self position from UWB/radar, navi TF-derived position, and friend sentry PositionData. Default mode is priority with UWB > Navi > PositionData and 2000 ms freshness.",
+      "tags": [
+        "behavior_tree",
+        "position",
+        "fusion"
+      ],
+      "complexity": "moderate"
+    },
+    {
       "id": "document:README.md",
       "type": "document",
       "name": "README.md",
@@ -480,6 +504,45 @@
       ],
       "complexity": "moderate",
       "filePath": "docs/sentry/internal/ros2_topic_structure.md"
+    },
+    {
+      "id": "document:docs/sentry/regional/strategy_layers_and_navigation_reach.md",
+      "type": "document",
+      "name": "strategy_layers_and_navigation_reach.md",
+      "summary": "Current regional strategy-layer and composite navigation reach contract documentation.",
+      "tags": [
+        "docs",
+        "regional",
+        "navigation"
+      ],
+      "complexity": "moderate",
+      "filePath": "docs/sentry/regional/strategy_layers_and_navigation_reach.md"
+    },
+    {
+      "id": "document:docs/sentry/regional/decision_framework.md",
+      "type": "document",
+      "name": "decision_framework.md",
+      "summary": "Current regional decision framework and data-source semantics.",
+      "tags": [
+        "docs",
+        "regional",
+        "behavior_tree"
+      ],
+      "complexity": "moderate",
+      "filePath": "docs/sentry/regional/decision_framework.md"
+    },
+    {
+      "id": "document:docs/sentry/external/navi_status_topics.md",
+      "type": "document",
+      "name": "navi_status_topics.md",
+      "summary": "External navigation status topic contract, including raw external sources and BT composite reach_state.",
+      "tags": [
+        "docs",
+        "navigation",
+        "external"
+      ],
+      "complexity": "simple",
+      "filePath": "docs/sentry/external/navi_status_topics.md"
     },
     {
       "id": "document:docs/modules/2026-05-05_behavior_tree.md",
@@ -1652,7 +1715,7 @@
       "id": "endpoint:ros-topic:/ly/friend/uwb_pos",
       "type": "endpoint",
       "name": "/ly/friend/uwb_pos",
-      "summary": "ROS2 topic `/ly/friend/uwb_pos` with message type `gimbal_driver::msg::StampedUInt16MultiArray`.",
+      "summary": "Dedicated radar/UWB sentry self-position source for BT SentryPositionFusion; default highest priority source.",
       "tags": [
         "ros_topic"
       ],
@@ -1894,7 +1957,7 @@
       "id": "endpoint:ros-topic:/ly/navi/position",
       "type": "endpoint",
       "name": "/ly/navi/position",
-      "summary": "ROS2 topic `/ly/navi/position` with message type `gimbal_driver/msg/StampedUInt16MultiArray`.",
+      "summary": "navi_tf_bridge publishes TF-derived sentry self position in official-map centimeters; BT uses it as the Navi source in SentryPositionFusion.",
       "tags": [
         "ros_topic"
       ],
@@ -1905,7 +1968,7 @@
       "id": "endpoint:ros-topic:/ly/navi/reach_state",
       "type": "endpoint",
       "name": "/ly/navi/reach_state",
-      "summary": "ROS2 topic `/ly/navi/reach_state` with message type `auto_aim_common::msg::GoalReach`.",
+      "summary": "BT publishes composite current-goal reach state with status/reason, goal scope, external reached/reachable freshness, fused self-position distance, grace, and timeout.",
       "tags": [
         "ros_topic"
       ],
@@ -1916,7 +1979,7 @@
       "id": "endpoint:ros-topic:/ly/navi/reachable",
       "type": "endpoint",
       "name": "/ly/navi/reachable",
-      "summary": "ROS2 topic `/ly/navi/reachable` with message type `std_msgs::msg::Bool`.",
+      "summary": "External navigation source: whether the current navigation goal has a valid route. BT scopes it to the current goal before using it in GoalReachState.",
       "tags": [
         "ros_topic"
       ],
@@ -1927,7 +1990,7 @@
       "id": "endpoint:ros-topic:/ly/navi/reached",
       "type": "endpoint",
       "name": "/ly/navi/reached",
-      "summary": "ROS2 topic `/ly/navi/reached` with message type `std_msgs::msg::Bool`.",
+      "summary": "External navigation reached source. It is not BT final reached; BT scopes it to the current goal and combines it with reachable and fused position in GoalReachState.",
       "tags": [
         "ros_topic"
       ],
@@ -2015,7 +2078,7 @@
       "id": "endpoint:ros-topic:/ly/position/data",
       "type": "endpoint",
       "name": "/ly/position/data",
-      "summary": "ROS2 topic `/ly/position/data` with message type `gimbal_driver::msg::PositionData`.",
+      "summary": "Lower-machine/referee position data. The friend sentry slot is BT SentryPositionFusion's PositionData source; other unit positions feed decision state.",
       "tags": [
         "ros_topic"
       ],
@@ -2132,6 +2195,153 @@
       ],
       "complexity": "moderate",
       "messageType": "geometry_msgs/msg/PointStamped"
+    },
+    {
+      "id": "concept:patrol-scan-configuration",
+      "type": "concept",
+      "name": "PatrolScan YAML-centralized scan contract",
+      "summary": "BT gimbal patrol scan mode selection is centralized in PatrolScan/TaskOverrides: default scan mode, FaceMode missing-angle fallback, Outpost fallback, damage-abort search mode, start-gate pitch offset, Outpost pitch offset, and Mode2's older 500 ms scan profile.",
+      "tags": [
+        "behavior_tree",
+        "patrol",
+        "configuration",
+        "facemode"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "config:src/behavior_tree/config/Patrol.yaml",
+      "type": "config",
+      "name": "Patrol.yaml",
+      "summary": "Canonical behavior_tree PatrolScan YAML: Mode1/2/3 scan curves and TaskOverrides for FaceMode/Outpost/start-gate patrol scan behavior. Mode2 uses the older 500 ms profile: yaw 1.0/1.1, pitch 0 +/- 13 deg, period 500 ms.",
+      "tags": [
+        "yaml",
+        "behavior_tree",
+        "patrol"
+      ],
+      "complexity": "simple",
+      "filePath": "src/behavior_tree/config/Patrol.yaml"
+    },
+    {
+      "id": "config:src/behavior_tree/config/Task.yaml",
+      "type": "config",
+      "name": "Task.yaml",
+      "summary": "Behavior-tree task switches. FaceMode fallback patrol scan modes are no longer configured here; comments point to Patrol.yaml.",
+      "tags": [
+        "yaml",
+        "behavior_tree",
+        "task"
+      ],
+      "complexity": "simple",
+      "filePath": "src/behavior_tree/config/Task.yaml"
+    },
+    {
+      "id": "config:src/behavior_tree/config/OutpostRegionalTest.yaml",
+      "type": "config",
+      "name": "OutpostRegionalTest.yaml",
+      "summary": "Outpost debug profile that overrides PatrolScan.TaskOverrides.OutpostFaceModeFallbackMode to mode 3 for high-scan testing.",
+      "tags": [
+        "yaml",
+        "behavior_tree",
+        "outpost",
+        "patrol"
+      ],
+      "complexity": "simple",
+      "filePath": "src/behavior_tree/config/OutpostRegionalTest.yaml"
+    },
+    {
+      "id": "file:src/behavior_tree/src/Configuration.cpp",
+      "type": "file",
+      "name": "Configuration.cpp",
+      "summary": "Parses and validates behavior_tree JSON/YAML/ROS parameter configuration, including PatrolScan.TaskOverrides and legacy FaceMode patrol-key mirrors.",
+      "tags": [
+        "cpp",
+        "behavior_tree",
+        "config"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/behavior_tree/src/Configuration.cpp"
+    },
+    {
+      "id": "file:src/behavior_tree/src/GameLoop.cpp",
+      "type": "file",
+      "name": "GameLoop.cpp",
+      "summary": "Main behavior_tree runtime loop; selects patrol scan mode for no-target, FaceMode fallback, Outpost fallback, and damage-abort scan branches.",
+      "tags": [
+        "cpp",
+        "behavior_tree",
+        "runtime",
+        "patrol"
+      ],
+      "complexity": "complex",
+      "filePath": "src/behavior_tree/src/GameLoop.cpp"
+    },
+    {
+      "id": "file:src/behavior_tree/src/WaitBeforeGame.cpp",
+      "type": "file",
+      "name": "WaitBeforeGame.cpp",
+      "summary": "Start-gate wait loop; when gimbal patrol before start is enabled, applies PatrolScan mode curves and PatrolScan.TaskOverrides start-gate pitch offset.",
+      "tags": [
+        "cpp",
+        "behavior_tree",
+        "start-gate",
+        "patrol"
+      ],
+      "complexity": "moderate",
+      "filePath": "src/behavior_tree/src/WaitBeforeGame.cpp"
+    },
+    {
+      "id": "document:docs/sentry/regional/patrol_scan_modes.md",
+      "type": "document",
+      "name": "patrol_scan_modes.md",
+      "summary": "Current patrol scan mode documentation: Patrol.yaml canonical config, mode 1/2/3 behavior, Mode2 500 ms rollback, runtime selection priority, pitch offsets, legacy key compatibility, and link chain.",
+      "tags": [
+        "docs",
+        "regional",
+        "patrol"
+      ],
+      "complexity": "simple",
+      "filePath": "docs/sentry/regional/patrol_scan_modes.md"
+    },
+    {
+      "id": "document:docs/sentry/regional/vision_task_patrol_modes.md",
+      "type": "document",
+      "name": "vision_task_patrol_modes.md",
+      "summary": "Regional mode overview distinguishing vision mode, task mode, gimbal patrol scan, regional patrol, FollowMode, and FaceMode.",
+      "tags": [
+        "docs",
+        "regional",
+        "mode-semantics"
+      ],
+      "complexity": "moderate",
+      "filePath": "docs/sentry/regional/vision_task_patrol_modes.md"
+    },
+    {
+      "id": "concept:patrol-scan-task-overrides",
+      "type": "concept",
+      "name": "PatrolScan TaskOverrides",
+      "summary": "Behavior-tree patrol scan task override contract: FaceMode missing-angle fallback, Outpost FaceMode fallback, Outpost damage-abort scan mode, start-gate pitch offset, and Outpost no-target pitch offset are centralized under Patrol.yaml PatrolScan.TaskOverrides.",
+      "tags": [
+        "behavior_tree",
+        "patrol",
+        "facemode",
+        "config"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:scripts/gimbal/patrolmode_pub.py",
+      "type": "file",
+      "name": "patrolmode_pub.py",
+      "summary": "Manual PatrolScan-style /ly/control/angles publisher for gimbal downlink testing; reads Patrol.yaml mode parameters and OutpostPitchOffsetDeg for --outpost.",
+      "tags": [
+        "script",
+        "python",
+        "patrol",
+        "gimbal-test"
+      ],
+      "complexity": "moderate",
+      "filePath": "scripts/gimbal/patrolmode_pub.py"
     }
   ],
   "edges": [
@@ -3088,6 +3298,20 @@
       "summary": "BT reads lower-machine/referee/gimbal state into decision blackboard."
     },
     {
+      "source": "module:gimbal_driver",
+      "target": "endpoint:ros-topic:/ly/friend/uwb_pos",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "gimbal_driver publishes the dedicated radar/UWB sentry self-position source."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/friend/uwb_pos",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "BT uses /ly/friend/uwb_pos as the highest-priority SentryPositionFusion source."
+    },
+    {
       "source": "module:behavior_tree",
       "target": "endpoint:ros-topic:/ly/navi/target_rel",
       "type": "publishes",
@@ -3170,6 +3394,34 @@
       "type": "publishes",
       "weight": 0.8,
       "summary": "navi_tf_bridge publishes converted navigation/map outputs."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/navi/position",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "BT uses /ly/navi/position as the Navi source in SentryPositionFusion."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/navi/reached",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "BT stores raw external reached only as a current-goal-scoped source for GoalReachState."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/navi/reachable",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "BT stores raw external reachable only as a current-goal-scoped source for GoalReachState."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "endpoint:ros-topic:/ly/navi/reach_state",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "BT publishes the evaluated composite GoalReachState on /ly/navi/reach_state."
     },
     {
       "source": "module:behavior_tree",
@@ -3424,6 +3676,97 @@
       "summary": "`docs/sentry/internal/simulator.md` participates in simulator trace contract."
     },
     {
+      "source": "concept:composite-goal-reach-contract",
+      "target": "module:behavior_tree",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "behavior_tree owns the composite current-goal reach evaluation."
+    },
+    {
+      "source": "endpoint:ros-topic:/ly/navi/reached",
+      "target": "concept:composite-goal-reach-contract",
+      "type": "feeds",
+      "weight": 0.8,
+      "summary": "External reached is a scoped positive source, not the final BT reached fact."
+    },
+    {
+      "source": "endpoint:ros-topic:/ly/navi/reachable",
+      "target": "concept:composite-goal-reach-contract",
+      "type": "feeds",
+      "weight": 0.8,
+      "summary": "External reachable=false is a scoped unreachable source."
+    },
+    {
+      "source": "concept:sentry-position-fusion",
+      "target": "module:behavior_tree",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "behavior_tree owns SentryPositionFusion and writes the fused result into sentry self position."
+    },
+    {
+      "source": "endpoint:ros-topic:/ly/friend/uwb_pos",
+      "target": "concept:sentry-position-fusion",
+      "type": "feeds",
+      "weight": 0.8,
+      "summary": "Dedicated UWB/radar source feeds SentryPositionFusion with default highest priority."
+    },
+    {
+      "source": "endpoint:ros-topic:/ly/navi/position",
+      "target": "concept:sentry-position-fusion",
+      "type": "feeds",
+      "weight": 0.8,
+      "summary": "navi TF-derived self position feeds SentryPositionFusion."
+    },
+    {
+      "source": "endpoint:ros-topic:/ly/position/data",
+      "target": "concept:sentry-position-fusion",
+      "type": "feeds",
+      "weight": 0.8,
+      "summary": "Friend sentry PositionData slot feeds SentryPositionFusion."
+    },
+    {
+      "source": "concept:sentry-position-fusion",
+      "target": "concept:composite-goal-reach-contract",
+      "type": "feeds",
+      "weight": 0.8,
+      "summary": "Fused sentry self position supplies the distance fallback for GoalReachState."
+    },
+    {
+      "source": "concept:composite-goal-reach-contract",
+      "target": "concept:simulator-trace-contract",
+      "type": "feeds",
+      "weight": 0.6,
+      "summary": "DecisionTrace exports goal_reach_state while keeping raw navi_status as observation."
+    },
+    {
+      "source": "document:docs/sentry/regional/strategy_layers_and_navigation_reach.md",
+      "target": "concept:composite-goal-reach-contract",
+      "type": "documents",
+      "weight": 0.5,
+      "summary": "Regional strategy layers doc records the current composite navigation reach contract."
+    },
+    {
+      "source": "document:docs/sentry/regional/decision_framework.md",
+      "target": "concept:composite-goal-reach-contract",
+      "type": "documents",
+      "weight": 0.5,
+      "summary": "Decision framework doc describes the current reach data sources and state semantics."
+    },
+    {
+      "source": "document:docs/sentry/external/navi_status_topics.md",
+      "target": "concept:composite-goal-reach-contract",
+      "type": "documents",
+      "weight": 0.5,
+      "summary": "External navi status doc distinguishes raw external sources from /ly/navi/reach_state."
+    },
+    {
+      "source": "document:docs/sentry/internal/ros2_topic_structure.md",
+      "target": "concept:composite-goal-reach-contract",
+      "type": "documents",
+      "weight": 0.5,
+      "summary": "ROS2 topic structure documents /ly/navi/reach_state and navigation status protection."
+    },
+    {
       "source": "module:behavior_tree",
       "target": "endpoint:ros-topic:/ly/bt/sentry_position",
       "type": "publishes",
@@ -3431,11 +3774,165 @@
       "summary": "BT publishes fused sentry self position for lower-machine coordinate downlink."
     },
     {
+      "source": "concept:sentry-position-fusion",
+      "target": "endpoint:ros-topic:/ly/bt/sentry_position",
+      "type": "feeds",
+      "weight": 0.8,
+      "summary": "Fused sentry self position is republished as map-frame meters for gimbal_driver coordinate downlink."
+    },
+    {
       "source": "module:gimbal_driver",
       "target": "endpoint:ros-topic:/ly/bt/sentry_position",
       "type": "subscribes",
       "weight": 0.8,
       "summary": "gimbal_driver consumes fused sentry self position and serializes SentryCoordinateFrame with DownlinkTypeID=0x01."
+    },
+    {
+      "source": "concept:patrol-scan-configuration",
+      "target": "module:behavior_tree",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "behavior_tree owns PatrolScanSetting, mode selection, and /ly/control/angles fallback scan publication."
+    },
+    {
+      "source": "config:src/behavior_tree/config/Patrol.yaml",
+      "target": "concept:patrol-scan-configuration",
+      "type": "configures",
+      "weight": 1.0,
+      "summary": "Patrol.yaml is the canonical source for PatrolScan Mode1/2/3 and TaskOverrides."
+    },
+    {
+      "source": "config:src/behavior_tree/config/Task.yaml",
+      "target": "concept:patrol-scan-configuration",
+      "type": "documents",
+      "weight": 0.4,
+      "summary": "Task.yaml FaceMode section now points missing-angle PatrolScan fallback configuration to Patrol.yaml."
+    },
+    {
+      "source": "config:src/behavior_tree/config/OutpostRegionalTest.yaml",
+      "target": "concept:patrol-scan-configuration",
+      "type": "overrides",
+      "weight": 0.6,
+      "summary": "Outpost debug profile overrides OutpostFaceModeFallbackMode to mode 3 for high-scan testing."
+    },
+    {
+      "source": "file:src/behavior_tree/src/Configuration.cpp",
+      "target": "concept:patrol-scan-configuration",
+      "type": "implements",
+      "weight": 0.9,
+      "summary": "Configuration.cpp parses PatrolScan.TaskOverrides, accepts legacy FaceMode fallback keys only as compatibility input, and mirrors sanitized PatrolScan values back to FaceModeSetting."
+    },
+    {
+      "source": "file:src/behavior_tree/src/GameLoop.cpp",
+      "target": "concept:patrol-scan-configuration",
+      "type": "implements",
+      "weight": 0.9,
+      "summary": "GameLoop.cpp selects the runtime patrol mode from PatrolScanSettings and applies OutpostPitchOffsetDeg during no-target scan."
+    },
+    {
+      "source": "file:src/behavior_tree/src/WaitBeforeGame.cpp",
+      "target": "concept:patrol-scan-configuration",
+      "type": "implements",
+      "weight": 0.8,
+      "summary": "WaitBeforeGame.cpp uses PatrolScanSettings and StartGatePitchOffsetDeg for gated pre-start gimbal scan."
+    },
+    {
+      "source": "concept:patrol-scan-configuration",
+      "target": "endpoint:ros-topic:/ly/control/angles",
+      "type": "feeds",
+      "weight": 0.8,
+      "summary": "PatrolScan fallback computes /ly/control/angles when no target or FaceMode angle is available."
+    },
+    {
+      "source": "document:docs/sentry/regional/patrol_scan_modes.md",
+      "target": "concept:patrol-scan-configuration",
+      "type": "documents",
+      "weight": 0.8,
+      "summary": "Patrol scan doc records the current YAML-centralized mode/fallback/pitch-offset chain."
+    },
+    {
+      "source": "document:docs/sentry/regional/vision_task_patrol_modes.md",
+      "target": "concept:patrol-scan-configuration",
+      "type": "documents",
+      "weight": 0.5,
+      "summary": "Mode overview points detailed patrol scan behavior to patrol_scan_modes.md."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "concept:patrol-scan-task-overrides",
+      "type": "owns",
+      "weight": 0.8,
+      "summary": "behavior_tree owns the no-target patrol scan runtime contract."
+    },
+    {
+      "source": "config:src/behavior_tree/config/Patrol.yaml",
+      "target": "concept:patrol-scan-task-overrides",
+      "type": "configures",
+      "weight": 0.9,
+      "summary": "Patrol.yaml is the canonical configuration surface for scan mode curves and task overrides."
+    },
+    {
+      "source": "file:src/behavior_tree/src/Configuration.cpp",
+      "target": "concept:patrol-scan-task-overrides",
+      "type": "parses",
+      "weight": 0.8,
+      "summary": "Configuration.cpp parses PatrolScan.TaskOverrides and mirrors legacy FaceMode patrol keys only for compatibility."
+    },
+    {
+      "source": "file:src/behavior_tree/src/GameLoop.cpp",
+      "target": "concept:patrol-scan-task-overrides",
+      "type": "implements",
+      "weight": 0.8,
+      "summary": "GameLoop.cpp selects the effective patrol mode for no-target, FaceMode fallback, Outpost fallback, and damage-abort scan branches."
+    },
+    {
+      "source": "file:src/behavior_tree/src/WaitBeforeGame.cpp",
+      "target": "concept:patrol-scan-task-overrides",
+      "type": "implements",
+      "weight": 0.7,
+      "summary": "WaitBeforeGame.cpp applies the start-gate patrol scan pitch offset from PatrolScan.TaskOverrides."
+    },
+    {
+      "source": "concept:patrol-scan-task-overrides",
+      "target": "endpoint:ros-topic:/ly/control/angles",
+      "type": "feeds",
+      "weight": 0.7,
+      "summary": "Patrol scan generates fallback gimbal angles on /ly/control/angles when no target/FaceMode angle is available."
+    },
+    {
+      "source": "config:src/behavior_tree/launch/sentry_all.launch.py",
+      "target": "config:src/behavior_tree/config/Patrol.yaml",
+      "type": "injects",
+      "weight": 0.7,
+      "summary": "sentry_all launch injects Patrol.yaml through patrol_config_file into behavior_tree_node."
+    },
+    {
+      "source": "document:docs/sentry/regional/patrol_scan_modes.md",
+      "target": "concept:patrol-scan-task-overrides",
+      "type": "documents",
+      "weight": 0.8,
+      "summary": "Current regional patrol scan documentation describes the canonical Patrol.yaml config and runtime selection chain."
+    },
+    {
+      "source": "document:docs/sentry/regional/vision_task_patrol_modes.md",
+      "target": "document:docs/sentry/regional/patrol_scan_modes.md",
+      "type": "references",
+      "weight": 0.5,
+      "summary": "The broader Vision/Task/Patrol doc now delegates detailed patrol scan behavior to patrol_scan_modes.md."
+    },
+    {
+      "source": "file:scripts/gimbal/patrolmode_pub.py",
+      "target": "config:src/behavior_tree/config/Patrol.yaml",
+      "type": "reads",
+      "weight": 0.5,
+      "summary": "Manual patrolmode publisher reads Patrol.yaml so direct gimbal tests match configured scan curves and Outpost pitch offset."
+    },
+    {
+      "source": "file:scripts/gimbal/patrolmode_pub.py",
+      "target": "endpoint:ros-topic:/ly/control/angles",
+      "type": "publishes-test",
+      "weight": 0.4,
+      "summary": "Manual patrolmode publisher emits PatrolScan-style /ly/control/angles for lower-machine downlink testing."
     }
   ],
   "layers": [
@@ -3445,6 +3942,8 @@
       "description": "外部 sentry.aim/sentry_tf 加本仓 BT、导航/FaceMode 和下位机串口。",
       "nodeIds": [
         "concept:decision-only-runtime",
+        "concept:composite-goal-reach-contract",
+        "concept:sentry-position-fusion",
         "service:external-sentry-aim",
         "service:external-sentry-tf",
         "module:behavior_tree",
@@ -3456,6 +3955,9 @@
         "document:docs/README.md",
         "document:docs/architecture/2026-05-03_message_and_link_flow.md",
         "document:docs/architecture/2026-05-05_system_behavior.md",
+        "document:docs/sentry/regional/strategy_layers_and_navigation_reach.md",
+        "document:docs/sentry/regional/decision_framework.md",
+        "document:docs/sentry/external/navi_status_topics.md",
         "file:src/behavior_tree/include/Topic.hpp",
         "file:src/behavior_tree/src/Application.cpp",
         "file:src/behavior_tree/src/SubscribeMessage.cpp",
@@ -3470,7 +3972,14 @@
         "endpoint:ros-topic:/ly/control/firecode",
         "endpoint:ros-topic:/ly/control/posture",
         "endpoint:ros-topic:/ly/control/sentry_cmd",
-        "endpoint:ros-topic:/ly/control/vel"
+        "endpoint:ros-topic:/ly/control/vel",
+        "concept:patrol-scan-configuration",
+        "config:src/behavior_tree/config/Patrol.yaml",
+        "config:src/behavior_tree/config/Task.yaml",
+        "file:src/behavior_tree/src/Configuration.cpp",
+        "file:src/behavior_tree/src/GameLoop.cpp",
+        "file:src/behavior_tree/src/WaitBeforeGame.cpp",
+        "concept:patrol-scan-task-overrides"
       ]
     },
     {
@@ -3530,6 +4039,7 @@
         "endpoint:ros-topic:/ly/gimbal/firecode",
         "endpoint:ros-topic:/ly/gimbal/posture",
         "endpoint:ros-topic:/ly/gimbal/vel",
+        "endpoint:ros-topic:/ly/bt/sentry_position",
         "endpoint:ros-topic:/ly/position/data",
         "endpoint:ros-topic:/ly/team/buff"
       ]
@@ -3537,8 +4047,13 @@
     {
       "id": "layer:navigation-and-facemode",
       "name": "导航与 FaceMode bridge",
-      "description": "目标点、相对追击、官方坐标、FaceMode 解算与 /goal_pose 输出。",
+      "description": "目标点、相对追击、官方坐标、FaceMode 解算、外部导航状态和 composite reach 输出。",
       "nodeIds": [
+        "concept:composite-goal-reach-contract",
+        "concept:sentry-position-fusion",
+        "document:docs/sentry/regional/strategy_layers_and_navigation_reach.md",
+        "document:docs/sentry/regional/decision_framework.md",
+        "document:docs/sentry/external/navi_status_topics.md",
         "file:src/navi_tf_bridge/package.xml",
         "file:src/tf_tree/package.xml",
         "file:src/navi_tf_bridge/src/target_rel_to_goal_pos_node.cpp",
@@ -3637,7 +4152,9 @@
         "endpoint:ros-topic:/ly/enemy/op_hp",
         "endpoint:ros-topic:/ly/ra/angle_image",
         "endpoint:ros-topic:/ly/ra/image",
-        "endpoint:ros-topic:/ly/ra/mode"
+        "endpoint:ros-topic:/ly/ra/mode",
+        "config:src/behavior_tree/config/OutpostRegionalTest.yaml",
+        "config:src/behavior_tree/config/Patrol.yaml"
       ]
     },
     {
@@ -3659,7 +4176,10 @@
         "config:src/simulator/config/default.yaml",
         "document:docs/sentry/internal/simulator.md",
         "file:scripts/selfcheck.sh",
-        "file:scripts/start.sh"
+        "file:scripts/start.sh",
+        "document:docs/sentry/regional/patrol_scan_modes.md",
+        "document:docs/sentry/regional/vision_task_patrol_modes.md",
+        "file:scripts/gimbal/patrolmode_pub.py"
       ]
     }
   ],
@@ -3750,6 +4270,10 @@
     "Matt Pocock zoom-out style was used: module/caller map first, preserving current decision-only domain vocabulary.",
     "Checked on 2026-06-26T12:45:17+00:00 against HEAD 84af1f3e758edad06802479b2357102a47c29778: graph module nodes match the 13 current ROS packages under src/*/package.xml.",
     "Working tree was dirty during this check; observed uncommitted edits did not change ROS package/topic/msg/launch boundaries.",
-    "2026-07-08 fallback update: added /ly/bt/sentry_position BT->gimbal_driver topic and DownlinkTypeID 0x00/0x01 downlink-frame summary."
+    "2026-07-08 fallback update: added /ly/bt/sentry_position BT->gimbal_driver topic and DownlinkTypeID 0x00/0x01 downlink-frame summary.",
+    "2026-07-08 fallback update: source-checked composite GoalReachState contract in behavior_tree, /ly/navi/reach_state publication, scoped raw /ly/navi/reached and /ly/navi/reachable inputs, SentryPositionFusion sources (/ly/friend/uwb_pos, /ly/navi/position, /ly/position/data), and AGENTS documentation/graph freshness requirements.",
+    "2026-07-08 fallback update: source-checked PatrolScan YAML centralization in Patrol.yaml, TaskOverrides FaceMode/Outpost fallback modes, start-gate/outpost pitch offsets, legacy FaceMode mirror compatibility, and patrol_scan_modes.md documentation.",
+    "2026-07-08 fallback update: source-checked PatrolScan.TaskOverrides centralization in src/behavior_tree/config/Patrol.yaml, parser/legacy mirror handling in Configuration.cpp, runtime selection in GameLoop.cpp, start-gate offset in WaitBeforeGame.cpp, and patrolmode test-tool alignment.",
+    "2026-07-08 fallback update: source-checked PatrolScan.Mode2 restored to older 500 ms scan profile in Patrol.yaml, PatrolScanSetting defaults, Configuration.cpp sanitize fallbacks, patrolmode_pub.py fallbacks, and patrol_scan_modes.md."
   ]
 }

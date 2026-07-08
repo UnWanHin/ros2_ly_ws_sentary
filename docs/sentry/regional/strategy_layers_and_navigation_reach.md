@@ -1,10 +1,10 @@
 # Strategy Layers And Navigation Reach
 
-Updated: 2026-05-27
+Updated: 2026-07-08
 
 本文記錄 `behavior_tree` 裡 regional 策略分層、各層目前實際做的事情，以及導航到達判斷 `/ly/navi/reached`、坐標距離兜底和 progress watchdog 的關係。
 
-核心原則：`/ly/navi/reached` 是外部導航源，不是 BT 內部最終 reached 事實。BT 內部 reached 應由外部 reached、外部 reachable、自身融合坐標距離、goal-start grace、timeout / watchdog 等來源統一評估；不同消費者不應分別重做一套判斷。
+核心原則：`/ly/navi/reached` 是外部導航源，不是 BT 內部最終 reached 事實。BT 內部 reached 已收斂到 `GoalReachState`：外部 reached、外部 reachable、自身融合坐標距離、goal-start grace 和 timeout 由 `EvaluateNaviGoalReach()` / `EvaluateBaseGoalReach()` 統一評估；任務層不應直接消費 raw `/ly/navi/reached`。
 
 ## 結論
 
@@ -128,12 +128,13 @@ Default 是底層行為。它只應該在 Hard/Task/Tactical/Special 都沒接�
 - `hasReceivedNaviReach_ = true`
 - `lastNaviReachRxTime_ = now`
 
-目前比較完整的使用路徑會走 `IsBaseGoalArrived()`，順序是：
+目前正式使用路徑會走 `EvaluateNaviGoalReach()` / `EvaluateBaseGoalReach()`，`IsBaseGoalArrived()` 只是 `status == reached` 的薄包裝。判斷順序是：
 
 1. goal id 必須有效。
-2. `/ly/navi/reachable` 如果對當前 goal 新鮮且為 `false`，直接判定未到達。
+2. `/ly/navi/reachable` 如果對當前 goal 新鮮且為 `false`，直接判定 `unreachable`。
 3. `/ly/navi/reached` 如果對當前 goal 新鮮且為 `true`，立即判定到達。
 4. `/ly/navi/reached` 缺失或新鮮值為 `false` 時，先等 `DecisionAutonomy.NaviGoal.DistanceFallbackGraceMs`；超過 grace 後才用自身融合坐標和 goal 坐標距離做兜底。默認 grace 是 3000 ms。
+5. 如果配置了 goal timeout，超時會進入 `timeout` status；timeout 是任務保護語義，不等同於物理 reached。
 
 `/ly/navi/reached` 的新鮮條件不是單純 2 秒內收到就算，它還要求：
 
@@ -145,11 +146,11 @@ Default 是底層行為。它只應該在 Hard/Task/Tactical/Special 都沒接�
 
 所以 `/ly/navi/reached=true` 是一個高優先級正向來源；`false` 不是最終未到達事實，只在 grace 期內阻止坐標兜底，避免 goal 剛下發時因定位抖動誤判到達。grace 後如果自身融合坐標已在到達半徑內，BT 仍可判定內部 reached。
 
-這裡仍有設計缺口：`EventManager::GoalReached` 目前只等於 raw `/ly/navi/reached` fresh true，沒有使用 `IsBaseGoalArrived()` 的坐標兜底，也沒有 goal id / goal position 約束。它應改名為 external source，或改為消費統一的 composite reached 結果。
+`GameLoop` 每 tick 先計算一次當前 goal 的 composite `GoalReachState`，再把 `CompositeGoalReached` / `CompositeGoalUnreachable` 塞進 `EventManager`。因此正常 BT runtime 裡 `EventManager::GoalReached` 已不是 raw `/ly/navi/reached` 直通。`EventManager` 仍保留 `HasCompositeGoalReachState=false` 時的 raw fallback，屬於兼容/測試保底路徑，不是正式任務推進鏈路。
 
-## 20cm 坐標兜底
+## 坐標距離兜底
 
-`IsBaseGoalArrived()` 的最後兜底是自身坐標距離：
+`EvaluateNaviGoalReach()` 的距離兜底使用自身融合坐標：
 
 - 需要自身哨兵坐標新鮮。
 - 坐標不能是 0/0。
@@ -166,16 +167,16 @@ no fresh reached             -> goal-start grace 期內未到達；超時後允�
 
 這樣可以避免導航端一直回 false 時，BT 已經到點卻仍等到 travel timeout 再切下一個 regional 點。
 
-更完整的接口不應只返回 Bool。建議後續封裝 `GoalReachState`：
+目前 `GoalReachState` 已是內部 contract：
 
 - `status`: `traveling / reached / unreachable / timeout / unknown`
-- `reason`: `external_reached / position_distance / external_unreachable / travel_timeout / stale`
+- `reason`: `external_reached / position_distance / external_unreachable / grace_active / position_stale / invalid_goal / timeout`
 - `goal_id` 和 `goal_position`
 - external reached / reachable 的 fresh/value
 - self position freshness 和 `distance_cm`
 - distance fallback grace 是否已過
 
-`IsBaseGoalArrived()` 可以作為 `status == reached` 的薄包裝，但 Outpost、FaceMode、regional task、watchdog 和 trace 應共享同一份 state。
+`IsBaseGoalArrived()`、`IsNaviGoalPositionArrived()` 和 `IsBaseGoalExternallyUnreachable()` 都只包裝這個 state。Outpost / FaceMode gate 直接讀同一份 `GoalReachState`：point reached 用 `status == reached`，face ready 用 `status == reached || within_face_distance`。DecisionTrace 也輸出 `goal_reach_state`，並把 raw `navi_status.reached/reachable` 保留為觀測欄位。
 
 ## `IsBaseGoalWithinDistance()` 和到達判斷不同
 
@@ -227,19 +228,26 @@ watchdog 的判斷順序：
 
 `ArriveDistanceCm = 140` 也不是「到達後切下一個行為」。它只是在 watchdog 裡表示「已經很接近目標，不要因為短時間位移小就 fallback」。真正的狀態機到達仍然走 `IsBaseGoalArrived()`。
 
-## 當前需要注意的差異
+## 當前狀態
 
-目前鏈路大體符合：
+目前鏈路已符合：
 
 - `/ly/navi/reached=true` 新鮮時優先作為 reached 來源。
+- `/ly/navi/reachable=false` 新鮮時作為 `unreachable` 來源。
+- `EventManager::GoalReached` / `GoalUnreachable` 在正式 runtime 中消費 composite 結果。
+- `/ly/navi/reach_state` 發布完整 `auto_aim_common/msg/GoalReach`，供診斷和外部觀測使用。
 - watchdog 用移動距離刷新，不要求朝 goal 方向。
 - watchdog 的 140 cm 只防止 fallback，不推進 regional task。
 - Default 已經是 Highland/Base/Roadland/Central 的底層 owner。
 
-目前還不完全符合的是：
+需要保持分開的語義：
 
-- reached 沒有封裝成單一內部 contract；`IsBaseGoalArrived()`、`IsBaseGoalWithinDistance()`、watchdog、regional task timeout、`EventManager::GoalReached` 仍是分散語義。
-- `EventManager::GoalReached` 名字不準確，現在只看 raw `/ly/navi/reached`，不代表 current goal 的 composite reached。
+- `IsBaseGoalWithinDistance()` 是接近距離工具，不是 final reached。
+- watchdog 的 `ArriveDistanceCm` 是防 fallback 保護，不是任務切點依據。
+- regional task 自己的 travel timeout 是狀態機保護，不等同於物理 reached。
+
+仍可後續清理但不影響 reached 收斂的是：
+
 - watchdog 在 Task 和 Tactical 兩層都有入口，行為上不一定錯，但 owner 不夠乾淨。
 - `RunTactical()` 裡仍保留「Default 已處理但未 command goal 時再嘗試 Chase」的舊分支；現在 Default 已經在 Tactical 後面，這段基本不可達，可以後續清理。
 
@@ -254,4 +262,4 @@ watchdog 的判斷順序：
 
 這個改動不需要改 ROS topic，也不需要改導航端協議。它解決的是導航端一直發布 fresh `false`，而 BT 明明已經到點卻只能等到 `TravelTimeoutSec` 後切點的情況。
 
-但這仍只是局部修正，不是完整架構收口。完整修正見 `docs/reports/2026-05-27_regional_reached_dataflow_debug.md` 的 RCH issues。
+`docs/reports/2026-05-27_regional_reached_dataflow_debug.md` 保留歷史排查和 RCH issue 背景；其中關於 `GoalReachState` 的主要收斂項已在後續實現中完成。

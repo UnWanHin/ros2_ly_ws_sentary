@@ -2,6 +2,8 @@
 
 Date: 2026-05-27
 
+Status note: superseded by the 2026-05-28 implementation update and the current 2026-07-08 source check. The diagnosis below is kept as historical context; current runtime reached/unreachable decisions use composite `GoalReachState`, and `EventSnapshot.GoalReached` is fed from that composite state in `GameLoop`.
+
 Scope: `scripts/start.sh gate --mode regional` regional 主链路、`behavior_tree` 到达判定、Outpost / FaceMode 入口。原排查描述里的 `regioanl` 是拼写错误；`scripts/start.sh` 只识别 `regional`。
 
 Evidence bags:
@@ -11,7 +13,7 @@ Evidence bags:
 
 ## Conclusion
 
-用户判断方向是对的：当前项目里“到达”不是一个统一事实，而是多条源在不同位置被分别消费。
+用户判断方向是对的：当时项目里“到达”不是一个统一事实，而是多条源在不同位置被分别消费。
 
 `/ly/navi/reached` 只能定义为外部导航源之一，不能定义为 BT 内部最终 reached。内部最终判断至少要聚合：
 
@@ -20,7 +22,7 @@ Evidence bags:
 - 自身融合坐标：来自 `/ly/friend/uwb_pos`、`/ly/position/data`、`/ly/navi/position`，用于距离 goal 判断。
 - goal-start grace / travel timeout / progress watchdog：用于防止长期卡住，但应区分“物理到达”和“任务终止/超时放行”。
 
-当前 `IsBaseGoalArrived()` 已经有一部分聚合：先看当前 goal 的 reachable/reached，再在 grace 后用融合坐标距离兜底。但这个聚合没有被封装成明确的 `GoalReachState` 合约，`EventManager`、blackboard、trace 和部分任务语义仍然把 raw `/ly/navi/reached` 当作 `GoalReached`。这就是核心数据流问题。
+当时 `IsBaseGoalArrived()` 已经有一部分聚合：先看当前 goal 的 reachable/reached，再在 grace 后用融合坐标距离兜底。但这个聚合尚未封装成明确的 `GoalReachState` 合约，`EventManager`、blackboard、trace 和部分任务语义仍然把 raw `/ly/navi/reached` 当作 `GoalReached`。这就是当时的核心数据流问题；后续实现已修正。
 
 ## Fresh Means
 
@@ -42,7 +44,7 @@ Evidence bags:
 - `last_rx >= naviExternalStatusGoalStartTime_`，即消息必须在本次 goal 下发之后到达。
 - `now - last_rx <= kNaviExternalStatusTimeoutMs`，当前为 2000 ms。
 
-注意：`EventManager::Fresh()` 是另一套更弱的 freshness，只检查收到过、时间戳非零、未超时；它没有 goal id / goal position 约束。因此 `EventSnapshot.GoalReached` 现在不能代表“当前 goal 的内部 reached”。
+注意：`EventManager::Fresh()` 是另一套更弱的 freshness，只检查收到过、时间戳非零、未超时；它没有 goal id / goal position 约束。因此在本报告诊断时，`EventSnapshot.GoalReached` 不能代表“当前 goal 的内部 reached”。当前正式 runtime 已由 `GameLoop` 传入 composite result。
 
 ## Bag Evidence
 
@@ -135,16 +137,16 @@ Impact:
 
 否则 timeout 会让系统在没有到点时误进入 FaceMode / Outpost 射击姿态。正确接口应同时给出 `status` 和 `reason/source`，而不是只有一个 Bool。
 
-### Finding 4: Outpost / FaceMode 当前需要统一读 composite state
+### Finding 4: Outpost / FaceMode 当时需要统一读 composite state
 
-当前代码里 Outpost visual scout 已经有一些避免 strict reached 的逻辑，例如 `outpost_visual_scout_face_ready = point_reached || IsBaseGoalWithinDistance(...)`。这说明方向已经开始从 raw reached 转向距离条件。
+当时代码里 Outpost visual scout 已经有一些避免 strict reached 的逻辑，例如 `outpost_visual_scout_face_ready = point_reached || IsBaseGoalWithinDistance(...)`。这说明方向已经开始从 raw reached 转向距离条件。
 
 但这仍然不是统一接口：
 
 - `outpost_visual_scout_point_reached` 用 `IsBaseGoalArrived()`。
 - `outpost_visual_scout_face_ready` 额外用 `IsBaseGoalWithinDistance()`。
 - progress watchdog 用 `AreaManager::TickProgressWatchdog()` 自己判断接近/移动/timeout。
-- event snapshot 的 `GoalReached` 仍只看 raw external reached。
+- event snapshot 的 `GoalReached` 当时仍只看 raw external reached。
 
 因此排查时会出现“一个地方认为接近了，另一个地方还认为没 reached”的状态。
 
@@ -334,7 +336,7 @@ Updated: 2026-05-28
 
 Status: fixed by composite `GoalReachState`.
 
-Current: 表示 raw `/ly/navi/reached` fresh true。
+Original diagnosis: 表示 raw `/ly/navi/reached` fresh true。
 
 Expected: 表示当前 goal 的内部 composite reached，或改名为 `ExternalNaviReached`。
 
@@ -347,7 +349,7 @@ Acceptance:
 
 Status: fixed for current goal reached/unreachable consumers that now use `EvaluateNaviGoalReach()`. Raw freshness fields remain in trace/event only as source evidence.
 
-Current:
+Original diagnosis:
 
 - `GetExternalNaviReachForGoal()` 有 goal id / position / start time 约束。
 - `EventManager::Fresh()` 只有时间约束。
@@ -363,7 +365,7 @@ Acceptance:
 
 Status: partially fixed. `GoalReachStatus::Timeout` is represented separately and is not treated as physical reached. Some regional task phase timeouts still live in `AreaManager` and should remain explicit phase logic.
 
-Current: 多处只拿 Bool 判断，容易把“可推进”和“物理到点”混在一起。
+Original diagnosis: 多处只拿 Bool 判断，容易把“可推进”和“物理到点”混在一起。
 
 Expected:
 
@@ -380,7 +382,7 @@ Acceptance:
 
 Status: fixed for the `BuffOutpost` visual scout gate.
 
-Current: Outpost 相关逻辑同时使用 `IsBaseGoalArrived()`、`IsBaseGoalWithinDistance()` 和独立 timeout/cooldown 状态。
+Original diagnosis: Outpost 相关逻辑同时使用 `IsBaseGoalArrived()`、`IsBaseGoalWithinDistance()` 和独立 timeout/cooldown 状态。
 
 Expected: Outpost gate 的输入来自同一个 `GoalReachState`，并明确使用哪个字段：
 
@@ -397,7 +399,7 @@ Acceptance:
 
 Status: fixed by `/ly/navi/reach_state`.
 
-Current: 外部只能看到 raw `/ly/navi/reached`，看不到 BT 内部为什么认为到达、未到达或 timeout。
+Original diagnosis: 外部只能看到 raw `/ly/navi/reached`，看不到 BT 内部为什么认为到达、未到达或 timeout。
 
 Expected: 增加 debug topic 和 trace 字段。
 

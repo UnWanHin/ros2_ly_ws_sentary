@@ -11,7 +11,6 @@ using namespace LangYa;
 namespace BehaviorTree {
     namespace {
     constexpr float kGatePatrolTwoPi = 6.2831853071795864769f;
-    constexpr float kGatePatrolOpeningPitchOffsetDeg = 10.0f;
 
     float NormalizeGatePatrolAngleNear(const float angle, const float reference) {
         return reference + static_cast<float>(std::remainder(angle - reference, 360.0f));
@@ -146,7 +145,9 @@ namespace BehaviorTree {
                     pitch_period_ms = static_cast<float>(patrol_scan.Mode3PitchPeriodMs);
                 }
                 const float opening_pitch_offset =
-                    patrol_mode == 3 ? 0.0f : kGatePatrolOpeningPitchOffsetDeg;
+                    (patrol_mode != 3 || patrol_scan.StartGatePitchOffsetApplyToMode3)
+                        ? static_cast<float>(patrol_scan.StartGatePitchOffsetDeg)
+                        : 0.0f;
                 const float next_pitch =
                     pitch_center +
                     opening_pitch_offset +

@@ -2,6 +2,8 @@
 
 Active presets in this directory are used by launch files, start scripts, or self-checks.
 
+These JSON files should not carry patrol scan mode parameters. `PatrolScan.Mode`, mode curves, FaceMode fallback scan modes, and patrol pitch offsets are centralized in `src/behavior_tree/config/Patrol.yaml`; JSON debug presets may only add narrow `PatrolScan.TaskOverrides` when a test profile needs a deliberate exception.
+
 ## Root Competition Presets
 
 - `regional_competition.json`: default regional competition config used by `sentry_all.launch.py`.

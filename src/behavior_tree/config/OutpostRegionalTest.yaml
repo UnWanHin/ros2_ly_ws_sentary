@@ -1,5 +1,8 @@
 behavior_tree:
   ros__parameters:
+    PatrolScan:
+      TaskOverrides:
+        OutpostFaceModeFallbackMode: 3
     Task:
       Buff: false
       Outpost: true
@@ -31,9 +34,6 @@ behavior_tree:
       Enable: true
       LostTargetHoldMs: 300
       SuppressFire: true
-      FallbackToPatrolScanMode2: true
-      FallbackPatrolScanMode: 2
-      OutpostFallbackPatrolScanMode: 3
     AreaManager:
       RegionalAreaTask:
         IgnoreRecovery: true

@@ -334,7 +334,7 @@ void TreeTick() {
 - `debug_bypass_is_start:=false`
   - true=直接跳過 `is_start` 門控（調試用，默認 false）
 - `StartGate.AllowGimbalPatrolBeforeStart`
-  - YAML 開關在 `src/behavior_tree/config/Task.yaml`；`true` 時 gated 啟動等待 `/ly/game/is_start=true` 期間只壓零底盤速度/小陀螺，雲台仍按 `PatrolScan.Mode` 掃描
+  - YAML 開關在 `src/behavior_tree/config/Task.yaml`；`true` 時 gated 啟動等待 `/ly/game/is_start=true` 期間只壓零底盤速度/小陀螺，雲台仍按 `PatrolScan.Mode` 掃描；start-gate pitch offset 在 `src/behavior_tree/config/Patrol.yaml` 的 `PatrolScan.TaskOverrides.StartGatePitchOffsetDeg`
 - `league_referee_stale_timeout_ms:=0`
   - 0=禁用新鮮度檢查（默認）；>0 時聯盟賽回補會檢查 hp/ammo 回傳是否過期
 

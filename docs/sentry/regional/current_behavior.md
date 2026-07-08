@@ -44,7 +44,7 @@ Updated: 2026-05-27
 - 进入我方高地、经高地兼容点、从我方高地离开时，会进入区域过渡状态。
 - 区域过渡状态可以打开 `FollowMode` bit，但这个 bit 只随 `FireCode` 下发，不再让 BT 自动停小陀螺、停云台巡逻或停止新的开火翻转。是否停小陀螺看 `Rotate` 输出，是否接管云台/停火看 FaceMode 和显式停火控制。
 - 从我方高地回我方基地侧目标时，会先走 `CastleLeft1`，到达后关闭 `FollowMode`，再继续原目标。
-- `/ly/navi/reached` 和 `/ly/navi/reachable` 只是外部导航状态源；BT 内部到达应聚合这些状态和自身融合坐标距离。`/ly/navi/reached=true` 可优先确认到达，但 `false` 不能永久否决坐标兜底。
+- `/ly/navi/reached` 和 `/ly/navi/reachable` 只是外部导航状态源；BT 内部到达由 `GoalReachState` 聚合这些状态和自身融合坐标距离。`/ly/navi/reached=true` 可优先确认到达，但 `false` 不能永久否决坐标兜底。
 
 ---
 

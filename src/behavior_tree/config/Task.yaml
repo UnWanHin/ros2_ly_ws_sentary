@@ -69,8 +69,5 @@ behavior_tree:
     FaceMode:
       # true: BT 在 Buff/Outpost 或區域任務請求朝向固定地圖點時，允許使用 /ly/face_mode/angles。
       Enable: true
-      # true: 若 BT 已請求 FaceMode 但拿不到 /ly/face_mode/angles，改用 PatrolScan fallback 掃描。
-      FallbackToPatrolScanMode2: true
-      FallbackPatrolScanMode: 2
-      # Outpost FaceMode 失效時回到 mode 2；BT 只把 pitch 中心抬高 15 deg，不使用 mode 3。
-      OutpostFallbackPatrolScanMode: 2
+      # FaceMode missing-angle PatrolScan fallback is configured in Patrol.yaml:
+      # PatrolScan.TaskOverrides.FaceModeFallbackEnable / FaceModeFallbackMode / OutpostFaceModeFallbackMode.

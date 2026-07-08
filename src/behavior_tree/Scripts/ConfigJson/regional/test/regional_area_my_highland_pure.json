@@ -10,9 +10,6 @@
         "FireRequireTargetStatus": true,
         "LatchedTargetHoldMs": 100
     },
-    "PatrolScan": {
-        "Mode": 2
-    },
     "Rate": {
         "FireRate": 20,
         "TreeTickRate": 100,

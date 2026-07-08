@@ -1,9 +1,9 @@
 {
-  "lastAnalyzedAt": "2026-07-07T16:58:59+00:00",
-  "gitCommitHash": "84af1f3e758edad06802479b2357102a47c29778",
+  "lastAnalyzedAt": "2026-07-08T15:27:12+00:00",
+  "gitCommitHash": "cd8cfa54702c30e8931c1593fe50e01afd5969ec",
   "workingTreeStatus": "dirty",
-  "lastCheckedNote": "Fallback graph updated after adding /ly/bt/sentry_position and DownlinkTypeID-based gimbal_driver downlink frames; package/module coverage unchanged.",
+  "lastCheckedNote": "Fallback graph updated for composite GoalReachState reach contract, SentryPositionFusion sources, /ly/navi/reach_state, /ly/bt/sentry_position coordinate downlink, AGENTS documentation/graph freshness requirements, PatrolScan.TaskOverrides centralization in Patrol.yaml, and PatrolScan.Mode2 restored to the older 500 ms scan profile.",
   "version": "1.0.0",
-  "analyzedFiles": 700,
+  "analyzedFiles": 701,
   "generator": "local-understand-anything-compatible-fallback"
 }

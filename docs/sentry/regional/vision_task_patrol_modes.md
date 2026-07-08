@@ -1,6 +1,6 @@
 # Vision / Task / Patrol Mode Flow
 
-Updated: 2026-05-15
+Updated: 2026-07-08
 
 本文說明目前 `regional` 鏈路裡幾個容易混淆的「模式」：`/ly/vision/mode`、BT JSON 的 `Task`、雲台巡邏、區域巡邏、`FollowMode`、`FaceMode`。這些不是同一層東西，不能混着改。
 
@@ -371,6 +371,19 @@ self_large_energy_status == 1 / 2
 /ly/control/angles
 ```
 
+完整 mode 參數、任務覆蓋、pitch offset 和鏈路說明見：
+
+```text
+docs/sentry/regional/patrol_scan_modes.md
+```
+
+當前核心語義：
+
+- 配置入口是 `src/behavior_tree/config/Patrol.yaml` 的 `PatrolScan`。
+- `PatrolScan.Mode` 是無特定任務覆蓋時的默認 scan mode。
+- `PatrolScan.TaskOverrides` 統一配置 FaceMode fallback、Outpost fallback、前哨受擊退出搜索，以及 start-gate/outpost pitch offset。
+- 舊 `FaceMode.*PatrolScanMode*` 鍵只保留兼容讀取；新配置不要再寫到 `Task.yaml`。
+
 觸發條件大致是：
 
 ```text
@@ -380,19 +393,7 @@ StopScan=false
 距離上次看到目標超過 2s
 ```
 
-配置：
-
-```json
-"PatrolScan": {
-  "Mode": 2
-}
-```
-
-目前 `Mode=2` 是左右擺頭巡邏，yaw/pitch 都由 BT 在 GameLoop 裡計算。看到目標後，巡邏狀態會被重置，雲台改用目標角度。
-
-開局等待 `/ly/game/is_start=true` 期間，無目標巡航掃描會在 `PatrolScan` 配置的 pitch center 上額外抬高 `+10 deg`；進入正式 game loop 後不再加這個 start-gate offset。這個 offset 只在 scan 分支生效；一旦鎖到有效目標角度，就直接使用目標角度，不額外加 pitch。
-
-Outpost FaceMode fallback 默認回到 `Mode=2`，不再使用 `Mode=3`。此時 yaw 仍按 mode 2 左右擺頭；pitch 使用普通巡航波形，但 BT 會把前哨無目標搜索的 pitch center offset 取到 `+15 deg`。這個 offset 只在無目標搜索分支生效，一旦前哨視覺有有效目標角度，就直接使用目標角度，不再額外抬 pitch。
+看到 FaceMode 角度或視覺/外部 aim 目標角度後，巡邏狀態會被重置，雲台改用該角度。
 
 ## 區域巡邏
 

@@ -139,6 +139,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/goal_pose` | `geometry_msgs/msg/PoseStamped` | `navi_tf_bridge` -> external navigation | 最终导航目标。 |
 | `/ly/navi/reached` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree` | 外部导航到达源；true=导航端确认到达，false=导航端尚未确认到达。BT 内部最终 reached 还要结合自身融合坐标距离和保护逻辑。 |
 | `/ly/navi/reachable` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree` | 当前目标是否有有效路径；true=可达，false=不可达。 |
+| `/ly/navi/reach_state` | `auto_aim_common/msg/GoalReach` | `behavior_tree` -> diagnostics/consumers | BT 内部 composite goal reach state；包含 status、reason、goal id/坐标、external reached/reachable freshness、融合自身坐标距离、grace 和 timeout。 |
 | `/ly/navi/should_rotate` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree` | 区域兼容旋转控制；true=恢复 BT 正常小陀螺/巡逻，false=关闭小陀螺并请求 `FollowMode`。 |
 | `/ly/navi/speed_level` | `std_msgs/msg/UInt8` | `behavior_tree` -> navigation/兼容 | 导航速度档位。 |
 | `/ly/navi/lower_head` | `std_msgs/msg/UInt8` | navigation/兼容 -> `behavior_tree` | 低头/通过特定路径时的兼容状态。 |
@@ -149,7 +150,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 导航状态保护：
 
 - `/ly/navi/reached` 和 `/ly/navi/reachable` 必须在当前 goal 发布后收到并保持新鲜，才能作为当前 goal 的外部状态源。
-- `/ly/navi/reached=false` 不是最终未到达事实；goal-start grace 后，BT 可用自身位置和目标点距离生成 composite reached。
+- `/ly/navi/reached=false` 不是最终未到达事实；goal-start grace 后，BT 可用自身位置和目标点距离生成 composite reached，并通过 `/ly/navi/reach_state` 暴露完整状态。
 - `/ly/navi/should_rotate` 的新鲜度由 `NaviRotateControl.FreshTimeoutMs` 控制；新鲜 `true` 默认会清掉 `FollowMode` 和 regional 区域兼容 FaceMode，默认超时后按允许旋转处理但不继续保留旧 `false`。
 - topic 名是 `/ly/navi/reached`，不是 `/ly/navi/reach`。
 

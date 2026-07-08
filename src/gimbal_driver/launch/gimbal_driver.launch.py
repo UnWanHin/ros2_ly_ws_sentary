@@ -33,49 +33,75 @@ def generate_launch_description():
         config_file_value = LaunchConfiguration("config_file").perform(context).strip()
         output_value = LaunchConfiguration("output")
         use_virtual_device_value = LaunchConfiguration("use_virtual_device")
-        raw_log_enable = LaunchConfiguration("raw_log_enable")
-        raw_log_uplink = LaunchConfiguration("raw_log_uplink")
-        raw_log_downlink = LaunchConfiguration("raw_log_downlink")
-        raw_log_screen = LaunchConfiguration("raw_log_screen")
-        raw_log_flush = LaunchConfiguration("raw_log_flush")
-        raw_log_dir = LaunchConfiguration("raw_log_dir")
-        raw_log_type_ids = LaunchConfiguration("raw_log_type_ids")
-        raw_topic_enable = LaunchConfiguration("raw_topic_enable")
-        raw_topic_uplink = LaunchConfiguration("raw_topic_uplink")
-        raw_topic_downlink = LaunchConfiguration("raw_topic_downlink")
-        raw_topic_type_ids = LaunchConfiguration("raw_topic_type_ids")
+
+        runtime_overrides = {
+            "io_config/use_virtual_device": use_virtual_device_value,
+            "io_config.use_virtual_device": use_virtual_device_value,
+        }
+
+        def add_bool_override(arg_name, slash_key, dot_key):
+            value = LaunchConfiguration(arg_name).perform(context).strip()
+            if value:
+                runtime_overrides[slash_key] = ParameterValue(value, value_type=bool)
+                runtime_overrides[dot_key] = ParameterValue(value, value_type=bool)
+
+        def add_str_override(arg_name, slash_key, dot_key):
+            value = LaunchConfiguration(arg_name).perform(context).strip()
+            if value:
+                runtime_overrides[slash_key] = ParameterValue(value, value_type=str)
+                runtime_overrides[dot_key] = ParameterValue(value, value_type=str)
+
+        add_bool_override(
+            "raw_log_enable",
+            "io_config/raw_serial_log_enable",
+            "io_config.raw_serial_log_enable")
+        add_bool_override(
+            "raw_log_uplink",
+            "io_config/raw_serial_log_uplink",
+            "io_config.raw_serial_log_uplink")
+        add_bool_override(
+            "raw_log_downlink",
+            "io_config/raw_serial_log_downlink",
+            "io_config.raw_serial_log_downlink")
+        add_bool_override(
+            "raw_log_screen",
+            "io_config/raw_serial_log_screen",
+            "io_config.raw_serial_log_screen")
+        add_bool_override(
+            "raw_log_flush",
+            "io_config/raw_serial_log_flush",
+            "io_config.raw_serial_log_flush")
+        add_str_override(
+            "raw_log_dir",
+            "io_config/raw_serial_log_dir",
+            "io_config.raw_serial_log_dir")
+        add_str_override(
+            "raw_log_type_ids",
+            "io_config/raw_serial_log_type_ids",
+            "io_config.raw_serial_log_type_ids")
+        add_bool_override(
+            "raw_topic_enable",
+            "io_config/raw_serial_topic_enable",
+            "io_config.raw_serial_topic_enable")
+        add_bool_override(
+            "raw_topic_uplink",
+            "io_config/raw_serial_topic_uplink",
+            "io_config.raw_serial_topic_uplink")
+        add_bool_override(
+            "raw_topic_downlink",
+            "io_config/raw_serial_topic_downlink",
+            "io_config.raw_serial_topic_downlink")
+        add_str_override(
+            "raw_topic_type_ids",
+            "io_config/raw_serial_topic_type_ids",
+            "io_config.raw_serial_topic_type_ids")
 
         parameters = []
         if base_config_file_value:
             parameters.append(base_config_file_value)
         if config_file_value:
             parameters.append(config_file_value)
-        parameters.append({
-            "io_config/use_virtual_device": use_virtual_device_value,
-            "io_config.use_virtual_device": use_virtual_device_value,
-            "io_config/raw_serial_log_enable": ParameterValue(raw_log_enable, value_type=bool),
-            "io_config.raw_serial_log_enable": ParameterValue(raw_log_enable, value_type=bool),
-            "io_config/raw_serial_log_uplink": ParameterValue(raw_log_uplink, value_type=bool),
-            "io_config.raw_serial_log_uplink": ParameterValue(raw_log_uplink, value_type=bool),
-            "io_config/raw_serial_log_downlink": ParameterValue(raw_log_downlink, value_type=bool),
-            "io_config.raw_serial_log_downlink": ParameterValue(raw_log_downlink, value_type=bool),
-            "io_config/raw_serial_log_screen": ParameterValue(raw_log_screen, value_type=bool),
-            "io_config.raw_serial_log_screen": ParameterValue(raw_log_screen, value_type=bool),
-            "io_config/raw_serial_log_flush": ParameterValue(raw_log_flush, value_type=bool),
-            "io_config.raw_serial_log_flush": ParameterValue(raw_log_flush, value_type=bool),
-            "io_config/raw_serial_log_dir": ParameterValue(raw_log_dir, value_type=str),
-            "io_config.raw_serial_log_dir": ParameterValue(raw_log_dir, value_type=str),
-            "io_config/raw_serial_log_type_ids": ParameterValue(raw_log_type_ids, value_type=str),
-            "io_config.raw_serial_log_type_ids": ParameterValue(raw_log_type_ids, value_type=str),
-            "io_config/raw_serial_topic_enable": ParameterValue(raw_topic_enable, value_type=bool),
-            "io_config.raw_serial_topic_enable": ParameterValue(raw_topic_enable, value_type=bool),
-            "io_config/raw_serial_topic_uplink": ParameterValue(raw_topic_uplink, value_type=bool),
-            "io_config.raw_serial_topic_uplink": ParameterValue(raw_topic_uplink, value_type=bool),
-            "io_config/raw_serial_topic_downlink": ParameterValue(raw_topic_downlink, value_type=bool),
-            "io_config.raw_serial_topic_downlink": ParameterValue(raw_topic_downlink, value_type=bool),
-            "io_config/raw_serial_topic_type_ids": ParameterValue(raw_topic_type_ids, value_type=str),
-            "io_config.raw_serial_topic_type_ids": ParameterValue(raw_topic_type_ids, value_type=str),
-        })
+        parameters.append(runtime_overrides)
 
         return [
             Node(
@@ -113,58 +139,58 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             "raw_log_enable",
-            default_value="false",
-            description="Enable raw serial rx/tx file log.",
+            default_value="",
+            description="Enable raw serial rx/tx file log. Empty uses YAML config.",
         ),
         DeclareLaunchArgument(
             "raw_log_uplink",
-            default_value="true",
-            description="Log lower -> upper TypeID frames.",
+            default_value="",
+            description="Log lower -> upper TypeID frames. Empty uses YAML config.",
         ),
         DeclareLaunchArgument(
             "raw_log_downlink",
-            default_value="true",
-            description="Log upper -> lower control frames.",
+            default_value="",
+            description="Log upper -> lower control frames. Empty uses YAML config.",
         ),
         DeclareLaunchArgument(
             "raw_log_screen",
-            default_value="false",
-            description="Also print raw log lines to ROS screen output.",
+            default_value="",
+            description="Also print raw log lines to ROS screen output. Empty uses YAML config.",
         ),
         DeclareLaunchArgument(
             "raw_log_flush",
-            default_value="true",
-            description="Flush raw log file after each line.",
+            default_value="",
+            description="Flush raw log file after each line. Empty uses YAML config.",
         ),
         DeclareLaunchArgument(
             "raw_log_dir",
-            default_value="~/Log/GimbalRaw",
-            description="Raw serial log output directory.",
+            default_value="",
+            description="Raw serial log output directory. Empty uses YAML config.",
         ),
         DeclareLaunchArgument(
             "raw_log_type_ids",
-            default_value="all",
-            description="Comma-separated uplink TypeID list or all.",
+            default_value="",
+            description="Comma-separated uplink TypeID list or all. Empty uses YAML config.",
         ),
         DeclareLaunchArgument(
             "raw_topic_enable",
-            default_value="false",
-            description="Enable binary raw serial ROS2 topics.",
+            default_value="",
+            description="Enable binary raw serial ROS2 topics. Empty uses YAML config.",
         ),
         DeclareLaunchArgument(
             "raw_topic_uplink",
-            default_value="true",
-            description="Publish lower -> upper raw TypeID frames to /ly/log/gimbal_raw_rx.",
+            default_value="",
+            description="Publish lower -> upper raw TypeID frames to /ly/log/gimbal_raw_rx. Empty uses YAML config.",
         ),
         DeclareLaunchArgument(
             "raw_topic_downlink",
-            default_value="true",
-            description="Publish upper -> lower raw control frames to /ly/log/gimbal_raw_tx.",
+            default_value="",
+            description="Publish upper -> lower raw control frames to /ly/log/gimbal_raw_tx. Empty uses YAML config.",
         ),
         DeclareLaunchArgument(
             "raw_topic_type_ids",
-            default_value="all",
-            description="Comma-separated uplink TypeID list or all.",
+            default_value="",
+            description="Comma-separated uplink TypeID list or all. Empty uses YAML config.",
         ),
         OpaqueFunction(function=build_node),
     ])

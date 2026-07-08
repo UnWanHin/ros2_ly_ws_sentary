@@ -12,7 +12,9 @@
         "LatchedTargetHoldMs": 100
     },
     "PatrolScan": {
-        "Mode": 2
+        "TaskOverrides": {
+            "OutpostFaceModeFallbackMode": 3
+        }
     },
     "Rate": {
         "FireRate": 20,
@@ -30,10 +32,7 @@
     "FaceMode": {
         "Enable": true,
         "LostTargetHoldMs": 300,
-        "SuppressFire": true,
-        "FallbackToPatrolScanMode2": true,
-        "FallbackPatrolScanMode": 2,
-        "OutpostFallbackPatrolScanMode": 3
+        "SuppressFire": true
     },
     "ExternalAim": {
         "Enable": true,

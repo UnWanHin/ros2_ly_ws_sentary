@@ -207,6 +207,12 @@
       sentry_coord_field_width_x: 2800
       sentry_coord_field_width_y: 1500
       sentry_coord_fresh_timeout_ms: 2000
+
+      # gimbal_driver.launch.py 默认不覆盖这些 raw 配置；只有命令行显式传
+      # raw_log_enable:=... / raw_topic_enable:=... 时才会覆盖这里。
+      # 串口原始帧文件日志：会把上下行帧转成 hex 写入文件，必要时才打开。
+      # raw_serial_log_screen=true 会把每帧也打印到终端，调试方便但不建议长期开。
+      # raw_serial_log_type_ids 只过滤下位机->上位机的上行 TypeID；下行由 raw_serial_log_downlink 控制。
       raw_serial_log_enable: false
       raw_serial_log_uplink: true
       raw_serial_log_downlink: true
@@ -214,11 +220,17 @@
       raw_serial_log_flush: true
       raw_serial_log_dir: "~/Log/GimbalRaw"
       raw_serial_log_type_ids: "all"
-      raw_serial_topic_enable: false
+
+      # 串口原始帧 ROS topic：适合长开。没有 subscriber 时不会实际组包发布，负担很小。
+      # 当前默认只开上行 /ly/log/gimbal_raw_rx，用来确认下位机 TypeID 回传是否存在。
+      # 需要看下行 frame 时再把 raw_serial_topic_downlink 改成 true，订阅 /ly/log/gimbal_raw_tx。
+      # raw_serial_topic_type_ids 只过滤上行 TypeID，支持 "all" 或 "0,1,7" 这类逗号列表。
+      raw_serial_topic_enable: true
       raw_serial_topic_uplink: true
-      raw_serial_topic_downlink: true
+      raw_serial_topic_downlink: false
       raw_serial_topic_type_ids: "all"
 
+    # 下面的 flat key 是兼容旧参数读取方式，保持和 io_config 分层 key 同步。
     "io_config/use_virtual_device": false
     "io_config/device_name": "/dev/ttyACM0"
     "io_config/baud_rate": 115200
@@ -232,6 +244,8 @@
     "io_config/sentry_coord_field_width_x": 2800
     "io_config/sentry_coord_field_width_y": 1500
     "io_config/sentry_coord_fresh_timeout_ms": 2000
+
+    # 串口 raw 文件日志兼容键；含义同上面的 io_config.raw_serial_log_*。
     "io_config/raw_serial_log_enable": false
     "io_config/raw_serial_log_uplink": true
     "io_config/raw_serial_log_downlink": true
@@ -239,7 +253,9 @@
     "io_config/raw_serial_log_flush": true
     "io_config/raw_serial_log_dir": "~/Log/GimbalRaw"
     "io_config/raw_serial_log_type_ids": "all"
-    "io_config/raw_serial_topic_enable": false
+
+    # 串口 raw ROS topic 兼容键；含义同上面的 io_config.raw_serial_topic_*。
+    "io_config/raw_serial_topic_enable": true
     "io_config/raw_serial_topic_uplink": true
-    "io_config/raw_serial_topic_downlink": true
+    "io_config/raw_serial_topic_downlink": false
     "io_config/raw_serial_topic_type_ids": "all"

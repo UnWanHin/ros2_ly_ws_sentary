@@ -44,7 +44,7 @@ Purpose:
   - selects /ly/aim/select_target=Outpost while Outpost aim/scout is active
   - uses /ly/aim/result for angles/fire when a target is present
   - returns to FaceMode after armor interruption releases
-  - falls back to PatrolScan mode 3 when FaceMode has no /ly/face_mode/angles
+  - falls back through PatrolScan.TaskOverrides when FaceMode has no /ly/face_mode/angles
   - does not start external sentry.aim; run it separately when testing /ly/aim/result
   - positional args use signed map-frame meters:
       GOAL_X/Y -> /goal_pose, FACE_X/Y/Z -> FaceMode target

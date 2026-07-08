@@ -1,10 +1,10 @@
 # ros2_ly_ws_sentry Knowledge Graph
 
-Generated: 2026-07-07T16:58:59+00:00
+Generated: 2026-07-08T15:27:12+00:00
 
-Checked against HEAD: `84af1f3e758edad06802479b2357102a47c29778`
+Checked against HEAD: `cd8cfa54702c30e8931c1593fe50e01afd5969ec`
 
-Current graph shape: 182 nodes, 186 edges, 6 layers.
+Current graph shape: 198 nodes, 227 edges, 6 layers.
 
 Current ROS packages covered by graph:
 
@@ -28,13 +28,23 @@ flowchart LR
   BT -->|/ly/aim/select_target| AIM
   AIM -->|/ly/aim/result follow/fire/yaw/pitch| BT
   BT -->|/ly/control/angles/firecode/vel/posture/sentry_cmd| GD[gimbal_driver]
+  PATROLYAML[Patrol.yaml PatrolScan] -->|Mode1/2/3 + TaskOverrides| PATROL[BT PatrolScanSettings]
+  PATROL -->|no-target / FaceMode fallback angles| BT
+  PATROLTEST[patrolmode_pub.py] -.manual test reads Patrol.yaml.-> PATROLYAML
+  PATROLTEST -.test /ly/control/angles.-> GD
   BT -->|/ly/bt/sentry_position PointStamped map m| GD
   GD -->|serial downlink DownlinkTypeID 0x00 control / 0x01 coordinate| LOWER[lower machine]
   LOWER -->|referee/gimbal state| GD
   GD -->|/ly/gimbal/* /ly/game/* /ly/friend/*| BT
+  GD -->|/ly/friend/uwb_pos + /ly/position/data| FUSION[SentryPositionFusion]
+  NAVI -->|/ly/navi/position| FUSION
+  FUSION -->|fused sentry self position cm| BT
 
   BT -->|/ly/navi/target_rel /ly/navi/goal_pos_raw| NAVI[navi_tf_bridge]
   NAVI -->|/goal_pose /ly/navi/goal_pos| NAVSTACK[external navigation]
+  NAVSTACK -->|/ly/navi/reached /ly/navi/reachable| REACH[Composite GoalReachState]
+  FUSION -->|distance fallback| REACH
+  REACH -->|EventGoalReached/EventGoalUnreachable + /ly/navi/reach_state| BT
   BT -->|/ly/face_mode/target_raw| FACE[map_aim_point_node]
   FACE -->|/ly/face_mode/angles| BT
   TF[external sentry_tf] -.preferred TF.-> BT
@@ -64,5 +74,9 @@ flowchart LR
 - 正式主鏈是 decision-only。
 - `detector/tracker_solver/predictor/outpost_hitter/buff_hitter` 是 legacy/debug，不是 `sentry_all` 正式主鏈。
 - 這份圖譜是 package/topic/file 級，不是完整 AST function call graph。
-- 本次核對時工作區有未提交改動；已確認當前 graph module 清單與 `src/*/package.xml` 的 13 個 ROS 包一致。
-- 2026-07-08 fallback update：新增 `/ly/bt/sentry_position`（`behavior_tree` -> `gimbal_driver`）和 `DownlinkTypeID=0x00/0x01` 下行 frame 摘要；package/module 清單未重掃，仍以現有 `src/*/package.xml` 覆蓋為準。
+- 本次核對時工作區有未提交改動；圖譜以 source-checked fallback 模式更新，package/module 清單仍與 `src/*/package.xml` 的 13 個 ROS 包一致。
+- 2026-07-08 fallback update：新增 composite `GoalReachState` contract、`/ly/navi/reach_state`、三源 `SentryPositionFusion`、`/ly/bt/sentry_position`（`behavior_tree` -> `gimbal_driver`）和 `DownlinkTypeID=0x00/0x01` 下行 frame 摘要。
+- `AGENTS.md` 現在要求 graph-relevant work 同步檢查 docs 和 `.understand-anything/` freshness，並驗證 JSON、diff 和 selfcheck。
+- 2026-07-08 fallback update：補上 `Patrol.yaml` / `PatrolScan.TaskOverrides` 作為雲台巡邏 mode、FaceMode/Outpost fallback 和 pitch offset 的主配置鏈路，並新增 `docs/sentry/regional/patrol_scan_modes.md`。
+- 2026-07-08 fallback update：手動 `scripts/gimbal/patrolmode_pub.py` 也對齊 `Patrol.yaml`，`--outpost` 從 `PatrolScan.TaskOverrides.OutpostPitchOffsetDeg` 取值。
+- 2026-07-08 fallback update：`PatrolScan.Mode2` 已回到較早 500ms 參數組：`YawStep=1.0`、`YawBoost=1.1`、`YawHalfRange=30.0`、`CenterDrift=-70.0`、`PitchCenter=0.0`、`PitchHalfRange=13.0`、`PitchPeriodMs=500.0`。
