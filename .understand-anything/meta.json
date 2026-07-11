@@ -1,8 +1,8 @@
 {
-  "lastAnalyzedAt": "2026-07-08T15:27:12+00:00",
+  "lastAnalyzedAt": "2026-07-12T00:00:00+08:00",
   "gitCommitHash": "cd8cfa54702c30e8931c1593fe50e01afd5969ec",
   "workingTreeStatus": "dirty",
-  "lastCheckedNote": "Fallback graph updated for composite GoalReachState reach contract, SentryPositionFusion sources, /ly/navi/reach_state, /ly/bt/sentry_position coordinate downlink, AGENTS documentation/graph freshness requirements, PatrolScan.TaskOverrides centralization in Patrol.yaml, and PatrolScan.Mode2 restored to the older 500 ms scan profile.",
+  "lastCheckedNote": "Fallback graph source-checked against the current dirty worktree. Covers composite GoalReachState, SentryPositionFusion, current DownlinkTypeID=0x00~0x04 frames, TypeID 6/10 referee mappings, sentry_info_3 posture timer priority with local fallback, detailed project/regional diagrams, and the read-only local dashboard.",
   "version": "1.0.0",
   "analyzedFiles": 701,
   "generator": "local-understand-anything-compatible-fallback"

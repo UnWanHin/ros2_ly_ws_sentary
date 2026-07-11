@@ -940,6 +940,11 @@ namespace LangYa {
         ps.SwitchCooldownSec = j.value("SwitchCooldownSec", ps.SwitchCooldownSec);
         ps.MaxSinglePostureSec = j.value("MaxSinglePostureSec", ps.MaxSinglePostureSec);
         ps.EarlyRotateSec = j.value("EarlyRotateSec", ps.EarlyRotateSec);
+        ps.RefereeInfo3FreshMs = j.value("RefereeInfo3FreshMs", ps.RefereeInfo3FreshMs);
+        ps.RefereeRemainWarnSec = j.value("RefereeRemainWarnSec", ps.RefereeRemainWarnSec);
+        ps.RefereeRemainPenalty = j.value("RefereeRemainPenalty", ps.RefereeRemainPenalty);
+        ps.RefereeZeroRemainPenalty = j.value("RefereeZeroRemainPenalty", ps.RefereeZeroRemainPenalty);
+        ps.EnhancedCurrentPostureBonus = j.value("EnhancedCurrentPostureBonus", ps.EnhancedCurrentPostureBonus);
         ps.MinHoldSec = j.value("MinHoldSec", ps.MinHoldSec);
         ps.PendingAckTimeoutMs = j.value("PendingAckTimeoutMs", ps.PendingAckTimeoutMs);
         ps.RetryIntervalMs = j.value("RetryIntervalMs", ps.RetryIntervalMs);
@@ -3120,6 +3125,11 @@ namespace BehaviorTree {
         LoggerPtr->Debug("SwitchCooldownSec: {}", config.PostureSettings.SwitchCooldownSec);
         LoggerPtr->Debug("MaxSinglePostureSec: {}", config.PostureSettings.MaxSinglePostureSec);
         LoggerPtr->Debug("EarlyRotateSec: {}", config.PostureSettings.EarlyRotateSec);
+        LoggerPtr->Debug("RefereeInfo3FreshMs: {}", config.PostureSettings.RefereeInfo3FreshMs);
+        LoggerPtr->Debug("RefereeRemainWarnSec: {}", config.PostureSettings.RefereeRemainWarnSec);
+        LoggerPtr->Debug("RefereeRemainPenalty: {}", config.PostureSettings.RefereeRemainPenalty);
+        LoggerPtr->Debug("RefereeZeroRemainPenalty: {}", config.PostureSettings.RefereeZeroRemainPenalty);
+        LoggerPtr->Debug("EnhancedCurrentPostureBonus: {}", config.PostureSettings.EnhancedCurrentPostureBonus);
         LoggerPtr->Debug("MinHoldSec: {}", config.PostureSettings.MinHoldSec);
         LoggerPtr->Debug("PendingAckTimeoutMs: {}", config.PostureSettings.PendingAckTimeoutMs);
         LoggerPtr->Debug("RetryIntervalMs: {}", config.PostureSettings.RetryIntervalMs);

@@ -27,6 +27,7 @@
 #include <fstream>
 #include <iomanip>
 #include <cmath>
+#include <limits>
 #include <mutex>
 #include <rclcpp/qos.hpp>
 #include <rclcpp/utilities.hpp>
@@ -170,6 +171,7 @@ namespace
         bool hasRfidStatus2_{false};
         std::uint64_t latestSentryInfo3_{0};
         bool hasSentryInfo3_{false};
+        std::chrono::steady_clock::time_point lastSentryInfo3RxTime_{};
         float latestBulletInitialSpeed_{0.0f};
         bool hasBulletInitialSpeed_{false};
         BulletDataAndRfid2 latestBulletDataAndRfid2_{};
@@ -734,7 +736,8 @@ namespace
         static gimbal_driver::msg::SentryInfo ToSentryInfoMsg(
             const SentryData& data,
             const bool has_sentry_info_3,
-            const std::uint64_t sentry_info_3) {
+            const std::uint64_t sentry_info_3,
+            const std::uint32_t sentry_info_3_age_ms) {
             gimbal_driver::msg::SentryInfo msg;
             msg.sentry_info_raw = data.SentryInfo;
             msg.sentry_info_2_raw = data.SentryInfo2;
@@ -757,6 +760,7 @@ namespace
             msg.sentry_info_2_reserved = msg.enhanced_posture;
 
             msg.has_sentry_info_3 = has_sentry_info_3;
+            msg.sentry_info_3_age_ms = sentry_info_3_age_ms;
             if (has_sentry_info_3) {
                 msg.attack_posture_remaining_s = BitsU8FromU64(sentry_info_3, 0, 8);
                 msg.defense_posture_remaining_s = BitsU8FromU64(sentry_info_3, 8, 8);
@@ -1514,7 +1518,18 @@ namespace
 
         void PubSentryData(const SentryData& data) {
             const auto now = Node.GetNode()->now();
-            auto sentry_info_msg = ToSentryInfoMsg(data, hasSentryInfo3_, latestSentryInfo3_);
+            const auto sentry_info_3_age_ms = [&]() -> std::uint32_t {
+                if (!hasSentryInfo3_ || lastSentryInfo3RxTime_.time_since_epoch().count() == 0) {
+                    return std::numeric_limits<std::uint32_t>::max();
+                }
+                const auto age = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::steady_clock::now() - lastSentryInfo3RxTime_).count();
+                return age >= static_cast<decltype(age)>(std::numeric_limits<std::uint32_t>::max())
+                    ? std::numeric_limits<std::uint32_t>::max()
+                    : static_cast<std::uint32_t>(std::max<decltype(age)>(age, 0));
+            }();
+            auto sentry_info_msg = ToSentryInfoMsg(
+                data, hasSentryInfo3_, latestSentryInfo3_, sentry_info_3_age_ms);
             sentry_info_msg.header.stamp = now;
             {
                 using topic = ly_game_sentry_info;
@@ -1533,6 +1548,7 @@ namespace
         void PubSentryInfo3AndOutpostHpData(const SentryInfo3AndOutpostHpData& data) {
             latestSentryInfo3_ = data.SentryInfo3;
             hasSentryInfo3_ = true;
+            lastSentryInfo3RxTime_ = std::chrono::steady_clock::now();
             preciseOutpostHpLastRxTime_ = std::chrono::steady_clock::now();
             PublishOutpostHp(data.SelfOutpostHealth, data.EnemyOutpostHealth);
         }

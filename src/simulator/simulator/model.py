@@ -449,6 +449,9 @@ class PostureRuntime:
     has_pending: bool
     feedback_stale: bool
     retry_count: int | None
+    referee_timer_fresh: bool
+    referee_enhanced_posture: bool
+    using_referee_timer: bool
     degraded_attack: bool
     degraded_defense: bool
     degraded_move: bool

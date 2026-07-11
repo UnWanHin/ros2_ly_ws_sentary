@@ -32,7 +32,7 @@ void PostureManager::accumulate_time(const double dt_seconds) {
     if (idx == 0U) return;
 
     runtime_.AccumSec[idx] += dt_seconds;
-    runtime_.Degraded[idx] = runtime_.AccumSec[idx] >= static_cast<double>(config_.MaxSinglePostureSec);
+    runtime_.LocalDegraded[idx] = runtime_.AccumSec[idx] >= static_cast<double>(config_.MaxSinglePostureSec);
 }
 
 void PostureManager::update_feedback(const TimePoint now, const std::uint8_t feedback_posture_value) {
@@ -56,6 +56,47 @@ void PostureManager::update_feedback(const TimePoint now, const std::uint8_t fee
     }
 }
 
+void PostureManager::update_referee_timer(const PostureRefereeTimer& referee_timer) {
+    runtime_.RefereeTimerFresh = referee_timer.Fresh;
+    runtime_.RefereeEnhancedPosture = referee_timer.Enhanced;
+    runtime_.RefereeRemainingSec = referee_timer.RemainingSec;
+    runtime_.RefereeEnhancedRemainingSec = referee_timer.EnhancedRemainingSec;
+    runtime_.UsingRefereeTimer = referee_timer.Fresh;
+}
+
+double PostureManager::effective_accum_sec(const SentryPosture posture) const {
+    const auto idx = ToPostureValue(posture);
+    if (idx == 0U) return 0.0;
+    if (!runtime_.UsingRefereeTimer) return runtime_.AccumSec[idx];
+
+    const auto remaining = runtime_.RefereeEnhancedPosture
+        ? runtime_.RefereeEnhancedRemainingSec[idx]
+        : runtime_.RefereeRemainingSec[idx];
+    return std::max(0.0, static_cast<double>(config_.MaxSinglePostureSec) - remaining);
+}
+
+bool PostureManager::effective_degraded(const SentryPosture posture) const {
+    const auto idx = ToPostureValue(posture);
+    if (idx == 0U) return false;
+    if (!runtime_.UsingRefereeTimer) return runtime_.LocalDegraded[idx];
+    const auto remaining = runtime_.RefereeEnhancedPosture
+        ? runtime_.RefereeEnhancedRemainingSec[idx]
+        : runtime_.RefereeRemainingSec[idx];
+    return remaining == 0U;
+}
+
+bool PostureManager::effective_early_rotate(const SentryPosture posture) const {
+    if (!runtime_.UsingRefereeTimer) {
+        return effective_accum_sec(posture) >= static_cast<double>(config_.EarlyRotateSec);
+    }
+    const auto idx = ToPostureValue(posture);
+    if (idx == 0U) return false;
+    const auto remaining = runtime_.RefereeEnhancedPosture
+        ? runtime_.RefereeEnhancedRemainingSec[idx]
+        : runtime_.RefereeRemainingSec[idx];
+    return remaining <= std::max(0, config_.MaxSinglePostureSec - config_.EarlyRotateSec);
+}
+
 SentryPosture PostureManager::choose_alternative_posture(const SentryPosture avoid) const {
     constexpr SentryPosture candidates[] = {
         SentryPosture::Attack,
@@ -68,7 +109,7 @@ SentryPosture PostureManager::choose_alternative_posture(const SentryPosture avo
         if (posture == avoid) continue;
         const auto idx = ToPostureValue(posture);
         if (idx == 0U) continue;
-        const double accum = runtime_.AccumSec[idx];
+        const double accum = effective_accum_sec(posture);
         if (accum < best_accum) {
             best_accum = accum;
             best = posture;
@@ -80,7 +121,8 @@ SentryPosture PostureManager::choose_alternative_posture(const SentryPosture avo
 PostureDecision PostureManager::Tick(
     const TimePoint now,
     const SentryPosture desired_posture,
-    const std::uint8_t feedback_posture_value) {
+    const std::uint8_t feedback_posture_value,
+    const PostureRefereeTimer& referee_timer) {
 
     if (!initialized_) {
         const auto initial = IsValidPosture(ToPosture(feedback_posture_value))
@@ -98,6 +140,11 @@ PostureDecision PostureManager::Tick(
     last_tick_ = now;
 
     update_feedback(now, feedback_posture_value);
+    update_referee_timer(referee_timer);
+    for (const auto posture : {SentryPosture::Attack, SentryPosture::Defense, SentryPosture::Move}) {
+        const auto idx = ToPostureValue(posture);
+        runtime_.Degraded[idx] = effective_degraded(posture);
+    }
 
     if (!config_.Enable) {
         runtime_.Desired = runtime_.Current;
@@ -110,7 +157,7 @@ PostureDecision PostureManager::Tick(
     const auto current_idx = ToPostureValue(runtime_.Current);
     if (current_idx > 0U &&
         runtime_.Desired == runtime_.Current &&
-        runtime_.AccumSec[current_idx] >= static_cast<double>(config_.EarlyRotateSec)) {
+        effective_early_rotate(runtime_.Current)) {
         const auto alternative = choose_alternative_posture(runtime_.Current);
         if (IsValidPosture(alternative) && alternative != runtime_.Current) {
             runtime_.Desired = alternative;
@@ -197,4 +244,3 @@ PostureDecision PostureManager::Tick(
 }
 
 }  // namespace BehaviorTree
-

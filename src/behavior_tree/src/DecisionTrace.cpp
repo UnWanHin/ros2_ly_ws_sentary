@@ -567,6 +567,13 @@ void Application::WriteDecisionTrace(const std::string_view event) {
             {"has_pending", posture_runtime.HasPending},
             {"feedback_stale", posture_runtime.FeedbackStale},
             {"retry_count", posture_runtime.RetryCount},
+            {"referee_timer_fresh", posture_runtime.RefereeTimerFresh},
+            {"referee_enhanced_posture", posture_runtime.RefereeEnhancedPosture},
+            {"using_referee_timer", posture_runtime.UsingRefereeTimer},
+            {"referee_remain_warn_sec", config.PostureSettings.RefereeRemainWarnSec},
+            {"referee_remain_penalty", config.PostureSettings.RefereeRemainPenalty},
+            {"referee_zero_remain_penalty", config.PostureSettings.RefereeZeroRemainPenalty},
+            {"enhanced_current_posture_bonus", config.PostureSettings.EnhancedCurrentPostureBonus},
             {"accum_sec", {
                 {"attack", posture_runtime.AccumSec[static_cast<int>(SentryPosture::Attack)]},
                 {"defense", posture_runtime.AccumSec[static_cast<int>(SentryPosture::Defense)]},
@@ -576,6 +583,16 @@ void Application::WriteDecisionTrace(const std::string_view event) {
                 {"attack", posture_runtime.Degraded[static_cast<int>(SentryPosture::Attack)]},
                 {"defense", posture_runtime.Degraded[static_cast<int>(SentryPosture::Defense)]},
                 {"move", posture_runtime.Degraded[static_cast<int>(SentryPosture::Move)]},
+            }},
+            {"referee_remaining_sec", {
+                {"attack", posture_runtime.RefereeRemainingSec[static_cast<int>(SentryPosture::Attack)]},
+                {"defense", posture_runtime.RefereeRemainingSec[static_cast<int>(SentryPosture::Defense)]},
+                {"move", posture_runtime.RefereeRemainingSec[static_cast<int>(SentryPosture::Move)]},
+            }},
+            {"referee_enhanced_remaining_sec", {
+                {"attack", posture_runtime.RefereeEnhancedRemainingSec[static_cast<int>(SentryPosture::Attack)]},
+                {"defense", posture_runtime.RefereeEnhancedRemainingSec[static_cast<int>(SentryPosture::Defense)]},
+                {"move", posture_runtime.RefereeEnhancedRemainingSec[static_cast<int>(SentryPosture::Move)]},
             }},
         }},
     };

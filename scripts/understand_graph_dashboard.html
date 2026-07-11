@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LY Sentry Graph</title>
+  <style>
+    :root { color-scheme: light; font-family: Arial, "Noto Sans TC", sans-serif; background: #f4f6f8; color: #19212a; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    header { background: #12354d; color: #fff; padding: 18px 24px; border-bottom: 4px solid #d28b2d; }
+    h1 { font-size: 22px; margin: 0; font-weight: 700; }
+    header p { margin: 6px 0 0; color: #dce8ef; font-size: 14px; }
+    main { display: grid; grid-template-columns: minmax(300px, 37%) 1fr; gap: 16px; max-width: 1600px; margin: 0 auto; padding: 16px; }
+    section { background: #fff; border: 1px solid #cdd6de; border-radius: 6px; min-width: 0; }
+    .catalog { padding: 16px; }
+    .detail { display: flex; min-height: calc(100vh - 130px); flex-direction: column; }
+    .tabs { display: flex; border-bottom: 1px solid #cdd6de; }
+    button { border: 0; background: transparent; color: #243a4a; cursor: pointer; font: inherit; }
+    .tab { border-right: 1px solid #cdd6de; padding: 12px 16px; }
+    .tab[aria-selected="true"] { background: #dcebf4; color: #0d3d5d; font-weight: 700; }
+    input { width: 100%; border: 1px solid #aebcc7; border-radius: 4px; padding: 9px 10px; font: inherit; }
+    .meta, .note { color: #586673; font-size: 13px; line-height: 1.5; }
+    .node-list { list-style: none; padding: 0; margin: 12px 0 0; max-height: calc(100vh - 255px); overflow: auto; }
+    .node-list button { display: block; text-align: left; padding: 10px; width: 100%; border-bottom: 1px solid #e1e6ea; }
+    .node-list button:hover, .node-list button:focus { background: #eef5f8; outline: none; }
+    .kind { color: #9b5a08; font-size: 12px; display: block; margin-bottom: 2px; }
+    .content { padding: 18px 20px; overflow: auto; }
+    .content h2 { margin: 0 0 10px; font-size: 20px; }
+    .content h3 { margin: 22px 0 8px; font-size: 16px; }
+    .content pre { white-space: pre-wrap; word-break: break-word; background: #f1f4f6; border: 1px solid #d5dde3; padding: 12px; border-radius: 4px; }
+    .content ul { padding-left: 20px; }
+    .edge { border-top: 1px solid #dce3e8; padding: 8px 0; font-family: ui-monospace, monospace; font-size: 13px; }
+    .error { color: #9e1b1b; }
+    @media (max-width: 900px) { main { grid-template-columns: 1fr; } .detail { min-height: 480px; } .node-list { max-height: 260px; } }
+  </style>
+</head>
+<body>
+  <header><h1>LY Sentry Knowledge Graph</h1><p>來源檔唯讀；工程總覽與 Regional 決策圖由 source-checked graph 文件提供。</p></header>
+  <main>
+    <section class="catalog">
+      <input id="filter" type="search" placeholder="搜尋 package、topic、檔案或概念">
+      <p id="meta" class="meta">正在讀取圖譜…</p>
+      <ul id="nodes" class="node-list"></ul>
+    </section>
+    <section class="detail">
+      <nav class="tabs" aria-label="圖譜檢視">
+        <button class="tab" data-view="project" aria-selected="true">工程總覽</button>
+        <button class="tab" data-view="regional" aria-selected="false">Regional 決策</button>
+        <button class="tab" data-view="node" aria-selected="false">節點上下游</button>
+      </nav>
+      <article id="content" class="content"></article>
+    </section>
+  </main>
+  <script>
+    const state = { graph: null, docs: {}, active: "project", selected: null };
+    const esc = (value) => String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[char]));
+    const markdown = (source) => esc(source)
+      .replace(/^### (.*)$/gm, "<h3>$1</h3>")
+      .replace(/^## (.*)$/gm, "<h2>$1</h2>")
+      .replace(/^# (.*)$/gm, "<h2>$1</h2>")
+      .replace(/```([\s\S]*?)```/g, "<pre>$1</pre>")
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/^[-*] (.*)$/gm, "<li>$1</li>")
+      .replace(/(<li>[\s\S]*?<\/li>)(\n(?!<li>))?/g, "$1")
+      .replace(/\n\n/g, "</p><p>")
+      .replace(/^(?!<h|<pre|<li|<\/|<p)(.+)$/gm, "$1");
+    function setTab(view) {
+      state.active = view;
+      document.querySelectorAll(".tab").forEach(tab => tab.setAttribute("aria-selected", tab.dataset.view === view));
+      renderContent();
+    }
+    function renderContent() {
+      const content = document.querySelector("#content");
+      if (state.active === "project" || state.active === "regional") {
+        const title = state.active === "project" ? "工程總覽圖" : "Regional 決策圖";
+        content.innerHTML = `<h2>${title}</h2><div class="note">Markdown 原文保留 Mermaid 程式碼，可直接在 VS Code Markdown Preview 或支援 Mermaid 的閱覽器渲染。</div><pre>${esc(state.docs[state.active] || "讀取中…")}</pre>`;
+        return;
+      }
+      const node = state.graph?.nodes.find(item => item.id === state.selected);
+      if (!node) { content.innerHTML = "<h2>節點上下游</h2><p class='note'>從左側選擇一個節點或 topic。</p>"; return; }
+      const incoming = state.graph.edges.filter(edge => edge.target === node.id);
+      const outgoing = state.graph.edges.filter(edge => edge.source === node.id);
+      const edgeHtml = (edge, direction) => `<div class="edge">${esc(direction === "in" ? edge.source : edge.target)} <strong>${esc(edge.type)}</strong><br><span class="note">${esc(edge.summary || "")}</span></div>`;
+      content.innerHTML = `<h2>${esc(node.name)}</h2><p class="meta">${esc(node.type)} · ${esc(node.filePath || "無本地路徑")}</p><p>${esc(node.summary || "無摘要")}</p><h3>上游 (${incoming.length})</h3>${incoming.map(edge => edgeHtml(edge, "in")).join("") || "<p class='note'>圖譜中未收錄上游。</p>"}<h3>下游 (${outgoing.length})</h3>${outgoing.map(edge => edgeHtml(edge, "out")).join("") || "<p class='note'>圖譜中未收錄下游。</p>"}`;
+    }
+    function renderList(filter = "") {
+      const needle = filter.trim().toLowerCase();
+      const nodes = state.graph.nodes.filter(node => !needle || [node.name, node.type, node.summary, node.filePath].join(" ").toLowerCase().includes(needle)).slice(0, 400);
+      document.querySelector("#nodes").innerHTML = nodes.map(node => `<li><button data-id="${esc(node.id)}"><span class="kind">${esc(node.type)}</span>${esc(node.name)}</button></li>`).join("") || "<li class='note'>沒有相符節點。</li>";
+      document.querySelectorAll("#nodes button").forEach(button => button.addEventListener("click", () => { state.selected = button.dataset.id; setTab("node"); }));
+    }
+    async function boot() {
+      try {
+        const [graph, project, regional] = await Promise.all([fetch("/graph.json").then(r => r.json()), fetch("/project.md").then(r => r.text()), fetch("/regional.md").then(r => r.text())]);
+        state.graph = graph; state.docs = { project, regional };
+        document.querySelector("#meta").textContent = `${graph.nodes.length} nodes · ${graph.edges.length} edges · ${graph.project.lastCheckedNote || ""}`;
+        renderList(); renderContent();
+      } catch (error) { document.querySelector("#content").innerHTML = `<p class="error">圖譜載入失敗：${esc(error)}</p>`; }
+    }
+    document.querySelector("#filter").addEventListener("input", event => renderList(event.target.value));
+    document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => setTab(tab.dataset.view)));
+    boot();
+  </script>
+</body>
+</html>

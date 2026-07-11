@@ -22,7 +22,8 @@ public:
     PostureDecision Tick(
         TimePoint now,
         SentryPosture desired_posture,
-        std::uint8_t feedback_posture_value);
+        std::uint8_t feedback_posture_value,
+        const PostureRefereeTimer& referee_timer = {});
 
     const PostureRuntime& Runtime() const noexcept { return runtime_; }
 
@@ -40,8 +41,11 @@ private:
 
     void accumulate_time(double dt_seconds);
     void update_feedback(TimePoint now, std::uint8_t feedback_posture_value);
+    void update_referee_timer(const PostureRefereeTimer& referee_timer);
+    double effective_accum_sec(SentryPosture posture) const;
+    bool effective_degraded(SentryPosture posture) const;
+    bool effective_early_rotate(SentryPosture posture) const;
     SentryPosture choose_alternative_posture(SentryPosture avoid) const;
 };
 
 }  // namespace BehaviorTree
-

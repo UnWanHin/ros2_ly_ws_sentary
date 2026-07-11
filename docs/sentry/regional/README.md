@@ -15,6 +15,7 @@ Updated: 2026-07-08
 | `zone_blocks.md` | 区域点位、区域块和底层区域任务记录 |
 | `vision_mode_semantics.md` | `/ly/vision/mode`、task mode 等视觉/任务模式语义 |
 | `vision_task_patrol_modes.md` | Vision、Task、Patrol 的当前流转关系 |
+| `2026-07-12_regional_decision_graph.md` | Regional 每 tick 順序、分層優先級、導航閉環、姿態計時與下發的細節 Mermaid 圖 |
 
 相关 debug 报告：
 

@@ -250,6 +250,7 @@ private:
     bool sentryCanActivateEnergyMechanism_{false};
     bool hasReceivedSentryInfo_{false};
     std::chrono::steady_clock::time_point lastSentryInfoRxTime_{};
+    PostureRefereeTimer postureRefereeTimer_{};
     std::array<ArmorData, 10> armorList; // 辅瞄返回的装甲板序列
     bool is_game_begin{false}; // 比赛开始的标志
     FireCodeType RecFireCode{}; // 云台的火控数据

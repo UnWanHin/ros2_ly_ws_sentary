@@ -325,6 +325,35 @@ SentryPosture Application::SelectDesiredPosture(const bool has_target) const {
         AddScore(score, runtime.Pending, 2);
     }
 
+    // 8) 裁判 sentry_info_3 新鲜时，按剩余时长降低接近弱化姿态的候选分数。
+    // 强化状态只偏向保持当前攻/防/移类别，不在这里自动下发 4/5/6 命令。
+    if (runtime.UsingRefereeTimer) {
+        const auto& remaining = runtime.RefereeEnhancedPosture
+            ? runtime.RefereeEnhancedRemainingSec
+            : runtime.RefereeRemainingSec;
+        const int warn_sec = std::max(0, config.PostureSettings.RefereeRemainWarnSec);
+        const int max_penalty = std::max(0, config.PostureSettings.RefereeRemainPenalty);
+        const int zero_penalty = std::max(max_penalty, config.PostureSettings.RefereeZeroRemainPenalty);
+
+        for (const auto posture : {SentryPosture::Attack, SentryPosture::Defense, SentryPosture::Move}) {
+            const auto idx = ToPostureValue(posture);
+            const int seconds = remaining[idx];
+            if (seconds == 0) {
+                AddScore(score, posture, -zero_penalty);
+            } else if (warn_sec > 0 && seconds <= warn_sec && max_penalty > 0) {
+                const int penalty = (max_penalty * (warn_sec - seconds + 1) + warn_sec - 1) / warn_sec;
+                AddScore(score, posture, -penalty);
+            }
+        }
+
+        if (runtime.RefereeEnhancedPosture && IsValidPosture(runtime.Current)) {
+            AddScore(
+                score,
+                runtime.Current,
+                std::max(0, config.PostureSettings.EnhancedCurrentPostureBonus));
+        }
+    }
+
     SentryPosture best = SentryPosture::Attack;
     int best_score = score.Attack;
     if (score.Defense > best_score) {
@@ -336,7 +365,7 @@ SentryPosture Application::SelectDesiredPosture(const bool has_target) const {
         best_score = score.Move;
     }
 
-    // 8) 分差迟滞：分差不够大时保持当前姿态，避免抖动
+    // 9) 分差迟滞：分差不够大时保持当前姿态，避免抖动
     const int hysteresis = std::max(0, config.PostureSettings.ScoreHysteresis);
     if (IsValidPosture(runtime.Current)) {
         const int current_score = GetScore(score, runtime.Current);
@@ -366,7 +395,16 @@ void Application::UpdatePostureCommand(const bool has_target) {
 
     const bool has_target_recent = has_target || HasRecentTarget();
     const auto desired = SelectDesiredPosture(has_target_recent);
-    const auto decision = postureManager_.Tick(now, desired, postureState);
+    auto referee_timer = postureRefereeTimer_;
+    const auto fresh_limit_ms = std::max(0, config.PostureSettings.RefereeInfo3FreshMs);
+    if (referee_timer.HasInfo3 && referee_timer.AgeMeasuredAt.time_since_epoch().count() != 0) {
+        const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - referee_timer.AgeMeasuredAt).count();
+        const auto current_age_ms = static_cast<std::uint64_t>(referee_timer.AgeMs) +
+            static_cast<std::uint64_t>(std::max<decltype(elapsed_ms)>(elapsed_ms, 0));
+        referee_timer.Fresh = current_age_ms <= static_cast<std::uint64_t>(fresh_limit_ms);
+    }
+    const auto decision = postureManager_.Tick(now, desired, postureState, referee_timer);
     postureCommand = decision.Command;
     const auto& runtime = postureManager_.Runtime();
 
@@ -377,7 +415,7 @@ void Application::UpdatePostureCommand(const bool has_target) {
 
     if (LoggerPtr && (decision.Sent || desired_changed || reason_changed)) {
         LoggerPtr->Info(
-            "[Posture] cmd={} desired={} current={} pending={} has_target_recent={} under_fire={} under_fire_burst={} feedback_stale={} reason={}",
+            "[Posture] cmd={} desired={} current={} pending={} has_target_recent={} under_fire={} under_fire_burst={} feedback_stale={} referee_timer={} enhanced={} reason={}",
             static_cast<int>(postureCommand),
             PostureToString(desired),
             PostureToString(runtime.Current),
@@ -386,6 +424,8 @@ void Application::UpdatePostureCommand(const bool has_target) {
             IsUnderFireRecent() ? 1 : 0,
             IsUnderFireBurst() ? 1 : 0,
             runtime.FeedbackStale ? 1 : 0,
+            runtime.UsingRefereeTimer ? 1 : 0,
+            runtime.RefereeEnhancedPosture ? 1 : 0,
             decision.Reason);
     }
 }

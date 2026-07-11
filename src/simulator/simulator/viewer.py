@@ -145,6 +145,8 @@ def record_status_payload(record: TraceRecord) -> dict[str, Any]:
             "state": record.posture_state,
             "current": record.posture_current,
             "desired": record.posture_desired,
+            "using_referee_timer": record.posture_runtime.using_referee_timer,
+            "referee_enhanced_posture": record.posture_runtime.referee_enhanced_posture,
         },
         "referee": {
             "hp": record.hp,

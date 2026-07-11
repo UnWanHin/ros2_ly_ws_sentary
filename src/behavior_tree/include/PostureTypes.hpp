@@ -5,7 +5,9 @@
 #pragma once
 
 #include <array>
+#include <chrono>
 #include <cstdint>
+#include <limits>
 
 namespace BehaviorTree {
 
@@ -50,16 +52,31 @@ struct PostureDecision {
     const char* Reason{"hold"};
 };
 
+struct PostureRefereeTimer {
+    bool HasInfo3{false};
+    bool Fresh{false};
+    std::uint32_t AgeMs{std::numeric_limits<std::uint32_t>::max()};
+    std::chrono::steady_clock::time_point AgeMeasuredAt{};
+    bool Enhanced{false};
+    std::array<std::uint8_t, 4> RemainingSec{};
+    std::array<std::uint8_t, 4> EnhancedRemainingSec{};
+};
+
 struct PostureRuntime {
     SentryPosture Current{SentryPosture::Move};
     SentryPosture Desired{SentryPosture::Move};
     SentryPosture Pending{SentryPosture::Unknown};
     std::array<double, 4> AccumSec{};  // index = posture value(1..3)
-    std::array<bool, 4> Degraded{};    // index = posture value(1..3)
+    std::array<bool, 4> Degraded{};    // effective state: referee timer when fresh, local timer otherwise
+    std::array<bool, 4> LocalDegraded{};
+    std::array<std::uint8_t, 4> RefereeRemainingSec{};
+    std::array<std::uint8_t, 4> RefereeEnhancedRemainingSec{};
+    bool RefereeTimerFresh{false};
+    bool RefereeEnhancedPosture{false};
+    bool UsingRefereeTimer{false};
     bool HasPending{false};
     bool FeedbackStale{false};
     int RetryCount{0};
 };
 
 }  // namespace BehaviorTree
-

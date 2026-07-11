@@ -4,6 +4,7 @@
 
 #include "../include/Application.hpp"
 #include <algorithm>
+#include <limits>
 #include <cmath>
 #include <optional>
 
@@ -196,6 +197,21 @@ namespace BehaviorTree{
         // ly_game_sentry_info: referee 0x020D sentry_info/sentry_info_2 semantic topic.
         GenSub<ly_game_sentry_info>([](Application& app, auto msg) {
             app.sentryCanActivateEnergyMechanism_ = msg->can_activate_energy_mechanism;
+            app.postureRefereeTimer_.HasInfo3 = msg->has_sentry_info_3 &&
+                msg->sentry_info_3_age_ms != std::numeric_limits<std::uint32_t>::max();
+            app.postureRefereeTimer_.AgeMs = msg->sentry_info_3_age_ms;
+            app.postureRefereeTimer_.AgeMeasuredAt = std::chrono::steady_clock::now();
+            app.postureRefereeTimer_.Enhanced = msg->enhanced_posture;
+            app.postureRefereeTimer_.RemainingSec = {
+                0,
+                msg->attack_posture_remaining_s,
+                msg->defense_posture_remaining_s,
+                msg->move_posture_remaining_s};
+            app.postureRefereeTimer_.EnhancedRemainingSec = {
+                0,
+                msg->enhanced_attack_posture_remaining_s,
+                msg->enhanced_defense_posture_remaining_s,
+                msg->enhanced_move_posture_remaining_s};
             app.hasReceivedSentryInfo_ = true;
             app.lastSentryInfoRxTime_ = std::chrono::steady_clock::now();
         });

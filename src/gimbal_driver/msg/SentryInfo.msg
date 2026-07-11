@@ -27,6 +27,7 @@ bool sentry_info_2_reserved # compatibility alias for bit15
 
 # 0x020D sentry_info_3, bit0-63
 bool has_sentry_info_3
+uint32 sentry_info_3_age_ms # TypeID=10 age when this message was published; UINT32_MAX means unavailable
 uint8 attack_posture_remaining_s
 uint8 defense_posture_remaining_s
 uint8 move_posture_remaining_s

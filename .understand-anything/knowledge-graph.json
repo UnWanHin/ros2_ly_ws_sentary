@@ -23,10 +23,10 @@
       "pygame simulator"
     ],
     "description": "ROS2 Humble sentry workspace. Current formal runtime is decision-only: external sentry.aim/sentry_tf provide vision/TF and aim/fire gate; this repo owns BT decision, navigation/FaceMode bridge, gimbal_driver serial downlink, legacy debug auto-aim, and offline simulator.",
-    "analyzedAt": "2026-07-08T15:27:12+00:00",
+    "analyzedAt": "2026-07-12T00:00:00+08:00",
     "gitCommitHash": "cd8cfa54702c30e8931c1593fe50e01afd5969ec",
     "workingTreeStatus": "dirty",
-    "lastCheckedNote": "Fallback graph updated for composite GoalReachState reach contract, SentryPositionFusion sources, /ly/navi/reach_state, /ly/bt/sentry_position coordinate downlink, AGENTS documentation/graph freshness requirements, PatrolScan.TaskOverrides centralization in Patrol.yaml, and PatrolScan.Mode2 restored to the older 500 ms scan profile.",
+    "lastCheckedNote": "Fallback graph source-checked against the current dirty worktree. Covers composite GoalReachState, SentryPositionFusion, current DownlinkTypeID=0x00~0x04 frames, TypeID 6/10 referee mappings, sentry_info_3 posture timer priority with local fallback, and the 2026-07-12 project/regional detailed graph documents plus read-only local dashboard.",
     "outputLanguage": "zh"
   },
   "nodes": [
@@ -482,6 +482,15 @@
       "filePath": "docs/architecture/2026-05-03_message_and_link_flow.md"
     },
     {
+      "id": "document:docs/architecture/2026-07-12_project_link_graph.md",
+      "type": "document",
+      "name": "2026-07-12_project_link_graph.md",
+      "summary": "Current detailed project-wide topology: formal decision-only runtime, external boundaries, TypeID 6/10 mappings, downstream 0x00~0x04 frames, position/reached convergence, and legacy separation.",
+      "tags": ["docs", "architecture", "topology", "mermaid"],
+      "complexity": "complex",
+      "filePath": "docs/architecture/2026-07-12_project_link_graph.md"
+    },
+    {
       "id": "document:docs/architecture/2026-05-05_system_behavior.md",
       "type": "document",
       "name": "2026-05-05_system_behavior.md",
@@ -530,6 +539,32 @@
       ],
       "complexity": "moderate",
       "filePath": "docs/sentry/regional/decision_framework.md"
+    },
+    {
+      "id": "document:docs/sentry/regional/2026-07-12_regional_decision_graph.md",
+      "type": "document",
+      "name": "2026-07-12_regional_decision_graph.md",
+      "summary": "Detailed Regional decision topology: tick order, Hard/Task/Tactical/Special/Default priorities, navigation closed loop, speed_level versus control velocity responsibility, and posture timer/scoring/downlink.",
+      "tags": ["docs", "regional", "behavior_tree", "decision", "mermaid"],
+      "complexity": "complex",
+      "filePath": "docs/sentry/regional/2026-07-12_regional_decision_graph.md"
+    },
+    {
+      "id": "concept:regional-decision-tick",
+      "type": "concept",
+      "name": "Regional decision tick",
+      "summary": "Regional executes UpdateGlobalData -> EvaluateEvents -> SelectAimMode -> SelectStrategyMode -> Hard -> Task -> PreprocessData -> SelectAimTarget -> Tactical -> Special -> Default -> Finalizer -> SelectPosture -> PublishAll.",
+      "tags": ["regional", "behavior_tree", "decision"],
+      "complexity": "complex"
+    },
+    {
+      "id": "tool:understand-graph-dashboard",
+      "type": "tool",
+      "name": "Understand graph dashboard",
+      "summary": "Read-only local HTTP dashboard. It serves the fallback knowledge-graph JSON and the two detailed graph documents without touching ROS runtime or graph files.",
+      "tags": ["tool", "dashboard", "graph"],
+      "complexity": "simple",
+      "filePath": "scripts/understand_graph_dashboard.py"
     },
     {
       "id": "document:docs/sentry/external/navi_status_topics.md",
@@ -3719,6 +3754,41 @@
       "summary": "`docs/architecture/2026-05-03_message_and_link_flow.md` documents the current runtime chain."
     },
     {
+      "source": "document:docs/architecture/2026-07-12_project_link_graph.md",
+      "target": "concept:decision-only-runtime",
+      "type": "documents",
+      "weight": 0.9,
+      "summary": "Detailed current topology documents the formal decision-only runtime and its external boundaries."
+    },
+    {
+      "source": "document:docs/sentry/regional/2026-07-12_regional_decision_graph.md",
+      "target": "concept:regional-decision-tick",
+      "type": "documents",
+      "weight": 0.9,
+      "summary": "Detailed Regional document records tick ordering, priority layers, navigation and posture branches."
+    },
+    {
+      "source": "concept:regional-decision-tick",
+      "target": "module:behavior_tree",
+      "type": "implemented_by",
+      "weight": 0.9,
+      "summary": "The behavior_tree package executes the current Regional decision tick."
+    },
+    {
+      "source": "tool:understand-graph-dashboard",
+      "target": "document:docs/architecture/2026-07-12_project_link_graph.md",
+      "type": "renders",
+      "weight": 0.7,
+      "summary": "Read-only dashboard exposes the project-wide detailed graph page."
+    },
+    {
+      "source": "tool:understand-graph-dashboard",
+      "target": "document:docs/sentry/regional/2026-07-12_regional_decision_graph.md",
+      "type": "renders",
+      "weight": 0.7,
+      "summary": "Read-only dashboard exposes the Regional detailed graph page."
+    },
+    {
       "source": "document:docs/architecture/2026-05-05_system_behavior.md",
       "target": "concept:decision-only-runtime",
       "type": "documents",
@@ -4046,9 +4116,12 @@
         "document:README.md",
         "document:docs/README.md",
         "document:docs/architecture/2026-05-03_message_and_link_flow.md",
+        "document:docs/architecture/2026-07-12_project_link_graph.md",
         "document:docs/architecture/2026-05-05_system_behavior.md",
         "document:docs/sentry/regional/strategy_layers_and_navigation_reach.md",
         "document:docs/sentry/regional/decision_framework.md",
+        "document:docs/sentry/regional/2026-07-12_regional_decision_graph.md",
+        "concept:regional-decision-tick",
         "document:docs/sentry/external/navi_status_topics.md",
         "file:src/behavior_tree/include/Topic.hpp",
         "file:src/behavior_tree/src/Application.cpp",
@@ -4277,6 +4350,7 @@
         "document:docs/sentry/regional/patrol_scan_modes.md",
         "document:docs/sentry/regional/vision_task_patrol_modes.md",
         "file:scripts/gimbal/patrolmode_pub.py"
+        ,"tool:understand-graph-dashboard"
       ]
     }
   ],

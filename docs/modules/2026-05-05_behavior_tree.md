@@ -271,6 +271,7 @@ void TreeTick() {
 | `/ly/position/data` | `friendRobots`, `enemyRobots`（更新position） | 通用位置；`friendcarid == Sentry` 會進 `SentryPositionFusion`，其他 friend/enemy 仍直接更新 `friendRobots/enemyRobots`；raw `(0,0)` 視為 unknown，不刷新 BT 狀態 |
 | `/ly/gimbal/angles` | `gimbalAngles` | 當前雲台角 |
 | `/ly/gimbal/posture` | `postureState` | 姿態回讀（0未知/1進攻/2防禦/3移動） |
+| `/ly/game/sentry/info` | `postureRefereeTimer_`、能量機關狀態 | `sentry_info_3` 的普通/強化姿態剩餘秒數在 `sentry_info_3_age_ms <= Posture.RefereeInfo3FreshMs`（預設 1500ms）時優先校正姿態輪換/弱化判定；超時或缺失即回退內部 `AccumSec` |
 | `/ly/gimbal/vel` | `naviVelocity` | 底盤速度反饋 |
 | `/ly/predictor/target` | `autoAimData`, `isFindTargetAtomic` | 普通瞄準角度；当前已恢复为老链路语义：消息一到就锁，`autoaim` 侧直接视为可跟随且可开火 |
 | `/ly/outpost/target` | `outpostAimData`, `isFindTargetAtomic` | 前哨瞄準角度；当前同样按老链路语义视为可开火 |

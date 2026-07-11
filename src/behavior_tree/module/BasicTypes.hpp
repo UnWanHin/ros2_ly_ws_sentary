@@ -695,6 +695,11 @@ namespace LangYa
         int SwitchCooldownSec{5};     // 规则: 姿态切换冷却
         int MaxSinglePostureSec{180}; // 规则: 单姿态累计超过该值会降档
         int EarlyRotateSec{165};      // 接近降档前提前轮换
+        int RefereeInfo3FreshMs{1500}; // 0x020D sentry_info_3 新鲜时优先使用裁判剩余秒数
+        int RefereeRemainWarnSec{20}; // 裁判姿态剩余秒数不高于此值时开始降低候选分数
+        int RefereeRemainPenalty{5};  // 剩余秒数进入预警区后的最大扣分
+        int RefereeZeroRemainPenalty{20}; // 裁判剩余秒数为0时的候选扣分
+        int EnhancedCurrentPostureBonus{3}; // 当前为强化姿态时，同类攻/防/移的保持加分
         int MinHoldSec{10};           // 防抖: 最短保持时间
         int PendingAckTimeoutMs{600}; // 等待回读超时
         int RetryIntervalMs{300};     // 重试间隔
