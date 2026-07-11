@@ -76,3 +76,25 @@ target_rel_to_goal_pos_node:
     debug_points_reference_frame: map
     debug_area_header_file: ""
     debug_point_pairs_output_file: ""
+
+# Navigation path in map/m -> referee 0x0307 official-map dm.
+# This must use the same official_map -> map matrix as target_rel_to_goal_pos_node,
+# then MapPointer applies its inverse for the outbound map_data_t coordinates.
+map_path_to_game_path_node:
+  ros__parameters:
+    input_topic: /ly/navi/path
+    output_topic: /ly/game/path
+    map_frame: map
+    intention: 3
+    sender_id: 0
+    use_raw_goal_static_calibration: true
+    raw_goal_calibration_model: matrix
+    raw_goal_calibration_unit: m
+    raw_goal_source_frame: official_map
+    raw_goal_target_frame: map
+    raw_goal_transform_matrix: [
+       0.061966691, -0.998078218, 0.000000000, 15.036385585,
+       0.998078218, 0.061966691, 0.000000000, -24.836845501,
+       0.000000000, 0.000000000, 1.000000000, 0.000000000,
+       0.000000000, 0.000000000, 0.000000000, 1.000000000
+    ]

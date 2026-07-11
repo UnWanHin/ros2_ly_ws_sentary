@@ -9,6 +9,7 @@ find_package(rclcpp REQUIRED)
 find_package(rclpy REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(auto_aim_common REQUIRED)
 find_package(gimbal_driver REQUIRED)
 find_package(sentry_msgs REQUIRED)
@@ -33,6 +34,16 @@ target_include_directories(target_rel_to_goal_pos_node PRIVATE
 add_executable(map_aim_point_node
   src/pointer_solver.cpp
   src/pointer_solver_node.cpp
+)
+
+add_executable(map_path_to_game_path_node
+  src/map_path_to_game_path_node.cpp
+  src/map_pointer.cpp
+  src/pointer_solver.cpp
+)
+
+target_include_directories(map_path_to_game_path_node PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 target_include_directories(map_aim_point_node PRIVATE
@@ -61,9 +72,21 @@ ament_target_dependencies(map_aim_point_node
   tf2_geometry_msgs
 )
 
+ament_target_dependencies(map_path_to_game_path_node
+  rclcpp
+  std_msgs
+  geometry_msgs
+  nav_msgs
+  gimbal_driver
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+)
+
 install(TARGETS
   target_rel_to_goal_pos_node
   map_aim_point_node
+  map_path_to_game_path_node
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 

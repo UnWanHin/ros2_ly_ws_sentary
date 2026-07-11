@@ -33,6 +33,8 @@ flowchart LR
   PATROLTEST[patrolmode_pub.py] -.manual test reads Patrol.yaml.-> PATROLYAML
   PATROLTEST -.test /ly/control/angles.-> GD
   BT -->|/ly/bt/sentry_position PointStamped map m| GD
+  NAVI -->|/ly/navi/path nav_msgs/Path map/m + stamp| PATH[map_path_to_game_path_node]
+  PATH -->|/ly/game/path MapPath official dm + original stamp| GD
   GD -->|serial downlink 0x00 control / 0x01 sentry_cmd / 0x02 map path / 0x03 custom info / 0x04 coordinate| LOWER[lower machine]
   LOWER -->|referee/gimbal state| GD
   GD -->|/ly/gimbal/* /ly/game/* /ly/friend/*| BT
@@ -89,3 +91,4 @@ flowchart LR
 - 2026-07-11 fallback update：下行改為 `DownlinkTypeID=0x00~0x04` 五種 frame：13B 控制、6B `sentry_cmd`、107B `0x0307` 路徑、36B `0x0308` 自訂訊息、17B 自身座標；新增 `/ly/control/map_path`、`/ly/control/custom_info`。
 - 2026-07-11 fallback update：`behavior_tree` 的姿態輪換/弱化判定在 TypeID 10 `sentry_info_3` age 不超過 `Posture.RefereeInfo3FreshMs`（預設 1500ms）時優先使用裁判普通/強化剩餘秒數；本地 `AccumSec` 持續累積，資料缺失或過期立即 fallback。
 - 2026-07-12 fallback update：新增全工程與 Regional 細節 Mermaid 圖，並提供零依賴、唯讀的本地 Dashboard。`/ly/navi/speed_level` 只由 BT 作為策略檔位送往外部導航；`/ly/control/vel` 仍固定由 raw 值 * 0.025 換算，不以 speed_level 二次縮放。
+- 2026-07-12 fallback update：新增導航 path -> 裁判 `0x0307` bridge。外部 `/ly/navi/path` 是 `nav_msgs/Path`（map/m）；`map_path_to_game_path_node` 使用現有 raw-goal 矩陣反算 official-map dm，保留 `header.stamp` 發到 `/ly/game/path`，`gimbal_driver` 直接下發 `0x02`。`/ly/control/map_path` 僅留手動相容。

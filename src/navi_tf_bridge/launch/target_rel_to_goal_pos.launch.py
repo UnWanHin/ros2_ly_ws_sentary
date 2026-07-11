@@ -4,6 +4,7 @@ from pathlib import Path
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
+from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -260,6 +261,26 @@ def generate_launch_description():
             default_value=str(get_default("raw_goal_target_frame", "map")),
         ),
         DeclareLaunchArgument(
+            "enable_game_path_bridge",
+            default_value="true",
+        ),
+        DeclareLaunchArgument(
+            "game_path_input_topic",
+            default_value="/ly/navi/path",
+        ),
+        DeclareLaunchArgument(
+            "game_path_output_topic",
+            default_value="/ly/game/path",
+        ),
+        DeclareLaunchArgument(
+            "game_path_intention",
+            default_value="3",
+        ),
+        DeclareLaunchArgument(
+            "game_path_sender_id",
+            default_value="0",
+        ),
+        DeclareLaunchArgument(
             "debug_export_point_pairs",
             default_value=_bool_default(get_default("debug_export_point_pairs", True)),
         ),
@@ -432,6 +453,35 @@ def generate_launch_description():
                         ),
                     }
                 ],
-            )
+            ),
+            Node(
+                package="navi_tf_bridge",
+                executable="map_path_to_game_path_node",
+                name="map_path_to_game_path_node",
+                output="screen",
+                condition=IfCondition(LaunchConfiguration("enable_game_path_bridge")),
+                parameters=[
+                    default_bridge_param_file,
+                    {
+                        "input_topic": LaunchConfiguration("game_path_input_topic"),
+                        "output_topic": LaunchConfiguration("game_path_output_topic"),
+                        "map_frame": LaunchConfiguration("map_frame"),
+                        "intention": LaunchConfiguration("game_path_intention"),
+                        "sender_id": LaunchConfiguration("game_path_sender_id"),
+                        "use_raw_goal_static_calibration": ParameterValue(
+                            LaunchConfiguration("use_raw_goal_static_calibration"),
+                            value_type=bool,
+                        ),
+                        "raw_goal_calibration_model": LaunchConfiguration(
+                            "raw_goal_calibration_model"
+                        ),
+                        "raw_goal_calibration_unit": LaunchConfiguration(
+                            "raw_goal_calibration_unit"
+                        ),
+                        "raw_goal_source_frame": LaunchConfiguration("raw_goal_source_frame"),
+                        "raw_goal_target_frame": LaunchConfiguration("raw_goal_target_frame"),
+                    },
+                ],
+            ),
         ]
     )

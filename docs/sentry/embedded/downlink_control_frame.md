@@ -66,6 +66,16 @@ byte 0 都是 `0x21` (`'!'`)，byte 1 是 `DownlinkTypeID`；之後的 frame 長
 此 frame 的 byte 2-106 是裁判 `0x0307 map_data_t` 原始 payload。下位機以自身機器人
 ID/裁判發送流程封裝 `0x0307`。
 
+正式導航鏈路是 `/ly/navi/path`（`nav_msgs/Path`，`map` frame、m）經
+`map_path_to_game_path_node` 用 `navi_tf_bridge` 校準矩陣反算成 official-map dm，發布
+`/ly/game/path`（`gimbal_driver/msg/MapPath`）後由 `gimbal_driver` 下發。本 bridge 固定
+`intention=3`，最多取 50 點，第一點寫 start，後 49 點寫相鄰 delta。輸入 `header.stamp`
+會原樣保留到 `/ly/game/path.header.stamp` 供 ROS 觀察；`map_data_t` 本身沒有 timestamp 欄位，
+所以串口 `0x02` 無法攜帶時間戳。
+
+`/ly/control/map_path` 保留為既有手動/測試相容入口；兩個 topic 都會下發同一種 `0x02` frame，
+現場不可同時發布兩者，避免重複送路徑。
+
 | byte offset | 字段 | 類型 | 說明 |
 |---|---|---|---|
 | 0 | `HeadFlag` | `uint8` | 固定 `0x21` |

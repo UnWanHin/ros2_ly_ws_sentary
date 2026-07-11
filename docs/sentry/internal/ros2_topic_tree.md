@@ -59,6 +59,17 @@ Updated: 2026-06-06
 └── custom_info: gimbal_driver/msg/CustomInfo       [Embedded] 裁判 0x0308 -> DownlinkTypeID=0x03
 ```
 
+### `/ly/game/path` - 導航轉裁判路徑
+
+```text
+/ly/navi/path : nav_msgs/msg/Path (map frame, m, navigation output)
+  -> navi_tf_bridge/map_path_to_game_path_node
+  -> /ly/game/path : gimbal_driver/msg/MapPath (official-map dm, header.stamp preserved)
+  -> gimbal_driver -> DownlinkTypeID=0x02 -> referee 0x0307 map_data_t
+```
+
+bridge 固定 `intention=3`；最多 50 點，超出 `uint16` 起點或 `int8` delta 可表示範圍時整條 path 丟棄而不截斷。
+
 ### `/ly/gimbal` - 下位机/裁判回读状态
 
 ```text
@@ -634,7 +645,7 @@ SentryCommandFrame (DownlinkTypeID=0x01)
 └── SentryCmd       : 4B      # /ly/control/posture 或 /ly/control/sentry_cmd, V2.0 bit21-23 posture
 
 MapPathFrame (DownlinkTypeID=0x02)
-└── 105B map_data_t payload  # /ly/control/map_path, 裁判 0x0307
+└── 105B map_data_t payload  # /ly/game/path 正式導航入口；/ly/control/map_path 相容入口，裁判 0x0307
 
 CustomInfoFrame (DownlinkTypeID=0x03)
 └── 34B custom_info_t payload # /ly/control/custom_info, 裁判 0x0308

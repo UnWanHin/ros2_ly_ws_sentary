@@ -84,7 +84,10 @@ flowchart TB
   BT_POS[BT 融合後自身座標\n/ly/bt/sentry_position\nPointStamped map / m] --> DL04[0x04 SentryCoordinateFrame\n17B + CRC8]
   BT_CONTROL[控制 topic] --> DL00[0x00 GimbalControlFrame\n13B]
   BT_CMD[/ly/control/sentry_cmd] --> DL01[0x01 SentryCommandFrame\n6B / 0x0120]
-  BT_PATH[/ly/control/map_path] --> DL02[0x02 MapPathFrame\n107B / 0x0307]
+  NAV_PATH[/ly/navi/path\nnav_msgs/Path map/m + stamp] --> PATH_BRIDGE[map_path_to_game_path_node\n同一 navi_tf_bridge 矩陣反算]
+  PATH_BRIDGE --> GAME_PATH[/ly/game/path\nMapPath official dm + 原 stamp]
+  GAME_PATH --> DL02[0x02 MapPathFrame\n107B / 0x0307]
+  BT_PATH[/ly/control/map_path\nlegacy/manual] -.相容入口.-> DL02
   BT_CUSTOM[/ly/control/custom_info] --> DL03[0x03 CustomInfoFrame\n36B / 0x0308]
   DL00 --> LOWER_TX[下位機]
   DL01 --> LOWER_TX

@@ -1584,6 +1584,33 @@
       "messageType": "gimbal_driver/msg/MapPath"
     },
     {
+      "id": "endpoint:ros-topic:/ly/navi/path",
+      "type": "endpoint",
+      "name": "/ly/navi/path",
+      "summary": "External navigation path input. Remote navigation source confirms nav_msgs/Path in map frame with meter coordinates and header timestamp.",
+      "tags": ["ros_topic", "navigation", "external"],
+      "complexity": "moderate",
+      "messageType": "nav_msgs/msg/Path"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/game/path",
+      "type": "endpoint",
+      "name": "/ly/game/path",
+      "summary": "Processed referee map path: official-map dm MapPath, intention=3, input nav_msgs/Path header timestamp preserved. gimbal_driver serializes it as DownlinkTypeID=0x02.",
+      "tags": ["ros_topic", "referee", "downlink"],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver/msg/MapPath"
+    },
+    {
+      "id": "file:src/navi_tf_bridge/src/map_path_to_game_path_node.cpp",
+      "type": "file",
+      "name": "map_path_to_game_path_node.cpp",
+      "summary": "Converts external nav_msgs/Path map-meter points into official-map dm MapPath using the inverse current MapPointer matrix; preserves header.stamp and recomputes 49 deltas.",
+      "tags": ["cpp", "navigation", "referee", "path"],
+      "complexity": "moderate",
+      "filePath": "src/navi_tf_bridge/src/map_path_to_game_path_node.cpp"
+    },
+    {
       "id": "endpoint:ros-topic:/ly/control/posture",
       "type": "endpoint",
       "name": "/ly/control/posture",
@@ -3222,6 +3249,41 @@
       "summary": "gimbal_driver serializes map paths as DownlinkTypeID=0x02 for referee 0x0307."
     },
     {
+      "source": "module:navi_tf_bridge",
+      "target": "endpoint:ros-topic:/ly/navi/path",
+      "type": "subscribes",
+      "weight": 0.9,
+      "summary": "map_path_to_game_path_node consumes external navigation nav_msgs/Path in map meters."
+    },
+    {
+      "source": "module:navi_tf_bridge",
+      "target": "endpoint:ros-topic:/ly/game/path",
+      "type": "publishes",
+      "weight": 0.9,
+      "summary": "map_path_to_game_path_node publishes converted official-map dm MapPath with input timestamp preserved."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "endpoint:ros-topic:/ly/game/path",
+      "type": "subscribes",
+      "weight": 0.9,
+      "summary": "gimbal_driver consumes processed game path and serializes it as DownlinkTypeID=0x02 for referee 0x0307."
+    },
+    {
+      "source": "file:src/navi_tf_bridge/src/map_path_to_game_path_node.cpp",
+      "target": "endpoint:ros-topic:/ly/navi/path",
+      "type": "subscribes",
+      "weight": 0.9,
+      "summary": "Path bridge input contract."
+    },
+    {
+      "source": "file:src/navi_tf_bridge/src/map_path_to_game_path_node.cpp",
+      "target": "endpoint:ros-topic:/ly/game/path",
+      "type": "publishes",
+      "weight": 0.9,
+      "summary": "Path bridge output contract."
+    },
+    {
       "source": "module:gimbal_driver",
       "target": "endpoint:ros-topic:/ly/control/custom_info",
       "type": "subscribes",
@@ -4137,6 +4199,8 @@
         "endpoint:ros-topic:/ly/control/custom_info",
         "endpoint:ros-topic:/ly/control/firecode",
         "endpoint:ros-topic:/ly/control/map_path",
+        "endpoint:ros-topic:/ly/navi/path",
+        "endpoint:ros-topic:/ly/game/path",
         "endpoint:ros-topic:/ly/control/posture",
         "endpoint:ros-topic:/ly/control/sentry_cmd",
         "endpoint:ros-topic:/ly/control/vel",
@@ -4173,6 +4237,7 @@
         "schema:src/gimbal_driver/msg/Health.msg",
         "schema:src/gimbal_driver/msg/MapCommand.msg",
         "schema:src/gimbal_driver/msg/MapPath.msg",
+        "file:src/navi_tf_bridge/src/map_path_to_game_path_node.cpp",
         "schema:src/gimbal_driver/msg/PositionData.msg",
         "schema:src/gimbal_driver/msg/RfidStatus.msg",
         "schema:src/gimbal_driver/msg/SentryCmd.msg",
@@ -4447,6 +4512,7 @@
     "2026-07-08 fallback update: source-checked PatrolScan.TaskOverrides centralization in src/behavior_tree/config/Patrol.yaml, parser/legacy mirror handling in Configuration.cpp, runtime selection in GameLoop.cpp, start-gate offset in WaitBeforeGame.cpp, and patrolmode test-tool alignment.",
     "2026-07-08 fallback update: source-checked PatrolScan.Mode2 restored to older 500 ms scan profile in Patrol.yaml, PatrolScanSetting defaults, Configuration.cpp sanitize fallbacks, patrolmode_pub.py fallbacks, and patrol_scan_modes.md.",
     "2026-07-11 fallback update: added gimbal_driver TypeID=10 for 0x020D sentry_info_3 plus precise 0x0003 ally/enemy outpost HP; /ly/friend/op_hp and /ly/enemy/op_hp now prefer TypeID=10 and use TypeID=1 GameCode * 25 only as fallback.",
-    "2026-07-11 fallback update: downlink is now five explicit frames: 0x00 13B control, 0x01 6B RM2026 V2.0 sentry_cmd, 0x02 107B referee 0x0307 map path, 0x03 36B referee 0x0308 custom info, and 0x04 17B sentry coordinate; added /ly/control/map_path and /ly/control/custom_info."
+    "2026-07-11 fallback update: downlink is now five explicit frames: 0x00 13B control, 0x01 6B RM2026 V2.0 sentry_cmd, 0x02 107B referee 0x0307 map path, 0x03 36B referee 0x0308 custom info, and 0x04 17B sentry coordinate; added /ly/control/map_path and /ly/control/custom_info.",
+    "2026-07-12 fallback update: map_path_to_game_path_node consumes external /ly/navi/path nav_msgs/Path (map/m), applies the inverse current raw-goal matrix, preserves header.stamp, emits official-map dm /ly/game/path with intention=3, and gimbal_driver sends it as 0x02 map_data_t. /ly/control/map_path remains manual compatibility only."
   ]
 }

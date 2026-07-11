@@ -79,6 +79,7 @@ namespace
     LY_DEF_ROS_TOPIC(ly_control_posture, "/ly/control/posture", gimbal_driver::msg::SentryCmd);
     LY_DEF_ROS_TOPIC(ly_control_sentry_cmd, "/ly/control/sentry_cmd", gimbal_driver::msg::SentryCmd);
     LY_DEF_ROS_TOPIC(ly_control_map_path, "/ly/control/map_path", gimbal_driver::msg::MapPath);
+    LY_DEF_ROS_TOPIC(ly_game_path, "/ly/game/path", gimbal_driver::msg::MapPath);
     LY_DEF_ROS_TOPIC(ly_control_custom_info, "/ly/control/custom_info", gimbal_driver::msg::CustomInfo);
     LY_DEF_ROS_TOPIC(ly_navi_vel, "/ly/navi/vel", gimbal_driver::msg::Vel);
     LY_DEF_ROS_TOPIC(ly_bt_sentry_position, "/ly/bt/sentry_position", geometry_msgs::msg::PointStamped);
@@ -1233,6 +1234,10 @@ namespace
             });
 
             Node.GenSubscriber<ly_control_map_path>([this](const ly_control_map_path::CallbackArg msg) {
+                SendMapPath(*msg);
+            });
+
+            Node.GenSubscriber<ly_game_path>([this](const ly_game_path::CallbackArg msg) {
                 SendMapPath(*msg);
             });
 
