@@ -143,6 +143,7 @@ namespace
         std::chrono::milliseconds postureTxInterval_{20};
         std::chrono::milliseconds firecodePartialHold_{100};
         std::chrono::milliseconds navigationTestStaleTimeout_{500};
+        std::chrono::milliseconds gamePathFreshTimeout_{5000};
         float sentryCoordX_{0.0f};
         float sentryCoordY_{0.0f};
         bool sentryCoordPending_{false};
@@ -993,12 +994,33 @@ namespace
             return true;
         }
 
-        void SendMapPath(const gimbal_driver::msg::MapPath& msg) {
+        bool IsFreshGamePath(const gimbal_driver::msg::MapPath& msg) const {
+            if (msg.header.stamp.sec == 0 && msg.header.stamp.nanosec == 0) {
+                roslog::warn("Drop /ly/game/path without header.stamp");
+                return false;
+            }
+            const auto now = Node.GetNode()->now();
+            const rclcpp::Time stamp(msg.header.stamp, now.get_clock_type());
+            const auto age = now - stamp;
+            if (age.nanoseconds() > gamePathFreshTimeout_.count() * 1000000LL) {
+                roslog::warn(
+                    "Drop stale /ly/game/path: age=%ld ms exceeds %ld ms",
+                    age.nanoseconds() / 1000000LL,
+                    gamePathFreshTimeout_.count());
+                return false;
+            }
+            return true;
+        }
+
+        void SendMapPath(const gimbal_driver::msg::MapPath& msg, const bool require_fresh_stamp) {
             if (DeviceError) {
                 return;
             }
+            if (require_fresh_stamp && !IsFreshGamePath(msg)) {
+                return;
+            }
             if (msg.intention < 1 || msg.intention > 3) {
-                roslog::warn("Invalid /ly/control/map_path intention: %u (expect 1/2/3)", msg.intention);
+                roslog::warn("Invalid map path intention: %u (expect 1/2/3)", msg.intention);
                 return;
             }
             MapPathFrame frame;
@@ -1234,11 +1256,11 @@ namespace
             });
 
             Node.GenSubscriber<ly_control_map_path>([this](const ly_control_map_path::CallbackArg msg) {
-                SendMapPath(*msg);
+                SendMapPath(*msg, false);
             });
 
             Node.GenSubscriber<ly_game_path>([this](const ly_game_path::CallbackArg msg) {
-                SendMapPath(*msg);
+                SendMapPath(*msg, true);
             });
 
             Node.GenSubscriber<ly_control_custom_info>([this](const ly_control_custom_info::CallbackArg msg) {
@@ -1706,6 +1728,7 @@ namespace
             int postureRepeatIntervalMs = static_cast<int>(postureTxInterval_.count());
             int firecodePartialHoldMs = static_cast<int>(firecodePartialHold_.count());
             int navigationTestStaleTimeoutMs = static_cast<int>(navigationTestStaleTimeout_.count());
+            int gamePathFreshTimeoutMs = static_cast<int>(gamePathFreshTimeout_.count());
             int sentryCoordSendIntervalMs = static_cast<int>(sentryCoordSendInterval_.count());
             int sentryCoordFieldWidthX = sentryCoordFieldWidthX_;
             int sentryCoordFieldWidthY = sentryCoordFieldWidthY_;
@@ -1753,6 +1776,11 @@ namespace
                 "io_config.navigation_test_stale_timeout_ms",
                 navigationTestStaleTimeoutMs,
                 navigationTestStaleTimeoutMs);
+            getParamCompat(
+                "io_config/game_path_fresh_timeout_ms",
+                "io_config.game_path_fresh_timeout_ms",
+                gamePathFreshTimeoutMs,
+                gamePathFreshTimeoutMs);
             getParamCompat(
                 "io_config/sentry_coord_send_interval_ms",
                 "io_config.sentry_coord_send_interval_ms",
@@ -1852,6 +1880,12 @@ namespace
                     navigationTestStaleTimeoutMs);
                 navigationTestStaleTimeoutMs = 500;
             }
+            if (gamePathFreshTimeoutMs <= 0) {
+                roslog::warn(
+                    "Invalid game_path_fresh_timeout_ms=%d, fallback to 5000",
+                    gamePathFreshTimeoutMs);
+                gamePathFreshTimeoutMs = 5000;
+            }
             if (sentryCoordSendIntervalMs < 20) {
                 roslog::warn(
                     "Invalid sentry_coord_send_interval_ms=%d, fallback to 20",
@@ -1881,6 +1915,7 @@ namespace
             postureTxInterval_ = std::chrono::milliseconds(postureRepeatIntervalMs);
             firecodePartialHold_ = std::chrono::milliseconds(firecodePartialHoldMs);
             navigationTestStaleTimeout_ = std::chrono::milliseconds(navigationTestStaleTimeoutMs);
+            gamePathFreshTimeout_ = std::chrono::milliseconds(gamePathFreshTimeoutMs);
             sentryCoordSendInterval_ = std::chrono::milliseconds(sentryCoordSendIntervalMs);
             sentryCoordFieldWidthX_ = sentryCoordFieldWidthX;
             sentryCoordFieldWidthY_ = sentryCoordFieldWidthY;

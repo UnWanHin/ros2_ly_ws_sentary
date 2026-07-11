@@ -203,6 +203,9 @@
       velocity_raw_to_mps: 0.025
       navigation_test: false
       navigation_test_stale_timeout_ms: 500
+      # /ly/game/path stops reaching the lower machine after this stamp age.
+      # gimbal_driver does not periodically retransmit a cached map path.
+      game_path_fresh_timeout_ms: 5000
       sentry_coord_send_interval_ms: 100
       sentry_coord_field_width_x: 2800
       sentry_coord_field_width_y: 1500

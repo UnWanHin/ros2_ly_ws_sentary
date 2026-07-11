@@ -1596,7 +1596,7 @@
       "id": "endpoint:ros-topic:/ly/game/path",
       "type": "endpoint",
       "name": "/ly/game/path",
-      "summary": "Processed referee map path: official-map dm MapPath, intention=3, input nav_msgs/Path header timestamp preserved. gimbal_driver serializes it as DownlinkTypeID=0x02.",
+      "summary": "Processed referee map path: official-map dm MapPath, intention=3, input nav_msgs/Path header timestamp preserved. gimbal_driver serializes it as DownlinkTypeID=0x02 only when the nonzero stamp is no older than game_path_fresh_timeout_ms (default 5000ms).",
       "tags": ["ros_topic", "referee", "downlink"],
       "complexity": "moderate",
       "messageType": "gimbal_driver/msg/MapPath"
@@ -3267,7 +3267,7 @@
       "target": "endpoint:ros-topic:/ly/game/path",
       "type": "subscribes",
       "weight": 0.9,
-      "summary": "gimbal_driver consumes processed game path and serializes it as DownlinkTypeID=0x02 for referee 0x0307."
+      "summary": "gimbal_driver consumes processed game path and serializes it as DownlinkTypeID=0x02 for referee 0x0307 only if its nonzero header stamp is fresh (default <=5000ms); it never periodically retransmits a cached path."
     },
     {
       "source": "file:src/navi_tf_bridge/src/map_path_to_game_path_node.cpp",
@@ -4513,6 +4513,7 @@
     "2026-07-08 fallback update: source-checked PatrolScan.Mode2 restored to older 500 ms scan profile in Patrol.yaml, PatrolScanSetting defaults, Configuration.cpp sanitize fallbacks, patrolmode_pub.py fallbacks, and patrol_scan_modes.md.",
     "2026-07-11 fallback update: added gimbal_driver TypeID=10 for 0x020D sentry_info_3 plus precise 0x0003 ally/enemy outpost HP; /ly/friend/op_hp and /ly/enemy/op_hp now prefer TypeID=10 and use TypeID=1 GameCode * 25 only as fallback.",
     "2026-07-11 fallback update: downlink is now five explicit frames: 0x00 13B control, 0x01 6B RM2026 V2.0 sentry_cmd, 0x02 107B referee 0x0307 map path, 0x03 36B referee 0x0308 custom info, and 0x04 17B sentry coordinate; added /ly/control/map_path and /ly/control/custom_info.",
-    "2026-07-12 fallback update: map_path_to_game_path_node consumes external /ly/navi/path nav_msgs/Path (map/m), applies the inverse current raw-goal matrix, preserves header.stamp, emits official-map dm /ly/game/path with intention=3, and gimbal_driver sends it as 0x02 map_data_t. /ly/control/map_path remains manual compatibility only."
+    "2026-07-12 fallback update: map_path_to_game_path_node consumes external /ly/navi/path nav_msgs/Path (map/m), applies the inverse current raw-goal matrix, preserves header.stamp, emits official-map dm /ly/game/path with intention=3, and gimbal_driver sends it as 0x02 map_data_t. /ly/control/map_path remains manual compatibility only.",
+    "2026-07-12 fallback update: gimbal_driver gates /ly/game/path downlink by nonzero header.stamp freshness (io_config.game_path_fresh_timeout_ms, default 5000ms). It does not periodically retransmit cached paths; stale replayed paths are rejected until a new timestamp arrives."
   ]
 }

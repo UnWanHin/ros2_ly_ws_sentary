@@ -92,3 +92,4 @@ flowchart LR
 - 2026-07-11 fallback update：`behavior_tree` 的姿態輪換/弱化判定在 TypeID 10 `sentry_info_3` age 不超過 `Posture.RefereeInfo3FreshMs`（預設 1500ms）時優先使用裁判普通/強化剩餘秒數；本地 `AccumSec` 持續累積，資料缺失或過期立即 fallback。
 - 2026-07-12 fallback update：新增全工程與 Regional 細節 Mermaid 圖，並提供零依賴、唯讀的本地 Dashboard。`/ly/navi/speed_level` 只由 BT 作為策略檔位送往外部導航；`/ly/control/vel` 仍固定由 raw 值 * 0.025 換算，不以 speed_level 二次縮放。
 - 2026-07-12 fallback update：新增導航 path -> 裁判 `0x0307` bridge。外部 `/ly/navi/path` 是 `nav_msgs/Path`（map/m）；`map_path_to_game_path_node` 使用現有 raw-goal 矩陣反算 official-map dm，保留 `header.stamp` 發到 `/ly/game/path`，`gimbal_driver` 直接下發 `0x02`。`/ly/control/map_path` 僅留手動相容。
+- 2026-07-12 fallback update：`gimbal_driver` 對正式 `/ly/game/path` 加入非零 `header.stamp` 新鮮度 gate，預設超過 5000ms 即拒絕下發；driver 不週期性重發已快取 path，需新 timestamp 才恢復。

@@ -69,6 +69,8 @@ Updated: 2026-06-06
 ```
 
 bridge 固定 `intention=3`；最多 50 點，超出 `uint16` 起點或 `int8` delta 可表示範圍時整條 path 丟棄而不截斷。
+`/ly/game/path` 的 header.stamp 必須非 0 且新鮮度不超過 `io_config.game_path_fresh_timeout_ms`
+（預設 5000ms）才會下發 `0x02`；`gimbal_driver` 不週期性重發上一條 path。
 
 ### `/ly/gimbal` - 下位机/裁判回读状态
 

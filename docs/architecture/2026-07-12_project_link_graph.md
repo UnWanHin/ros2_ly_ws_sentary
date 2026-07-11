@@ -86,7 +86,9 @@ flowchart TB
   BT_CMD[/ly/control/sentry_cmd] --> DL01[0x01 SentryCommandFrame\n6B / 0x0120]
   NAV_PATH[/ly/navi/path\nnav_msgs/Path map/m + stamp] --> PATH_BRIDGE[map_path_to_game_path_node\n同一 navi_tf_bridge 矩陣反算]
   PATH_BRIDGE --> GAME_PATH[/ly/game/path\nMapPath official dm + 原 stamp]
-  GAME_PATH --> DL02[0x02 MapPathFrame\n107B / 0x0307]
+  GAME_PATH --> FRESH{stamp 非 0 且\n<= 5s?}
+  FRESH -->|是| DL02[0x02 MapPathFrame\n107B / 0x0307]
+  FRESH -->|否| DROP[拒絕下發\n等新 path]
   BT_PATH[/ly/control/map_path\nlegacy/manual] -.相容入口.-> DL02
   BT_CUSTOM[/ly/control/custom_info] --> DL03[0x03 CustomInfoFrame\n36B / 0x0308]
   DL00 --> LOWER_TX[下位機]
@@ -104,6 +106,7 @@ flowchart TB
 | TypeID 10 | byte 0..7=`sentry_info_3`，8..9=己方前哨站 HP，10..11=敵方前哨站 HP | `gimbal_driver` 保留資料新鮮度；BT 優先採精確前哨站 HP |
 | `/ly/navi/speed_level` | `std_msgs/UInt8`，BT 原樣發布策略選出的檔位 | 外部導航的檔位倍率不在本倉庫；BT 不以此縮放 `/ly/control/vel` |
 | `/ly/control/vel` | `gimbal_driver/msg/ControlVelocity` | BT 把 `naviVelocity.X/Y` 固定以 `0.025` raw-to-m/s 換算，直接下發到 `gimbal_driver` |
+| `/ly/game/path` 新鮮度 | `header.stamp` 必須非 0，且不超過 `io_config.game_path_fresh_timeout_ms`（預設 5000ms） | `gimbal_driver` 不週期性重發快取 path；舊包重播在超時後被拒絕，等新 timestamp 才下發 |
 | `reached` | 外部 `/ly/navi/reached` 新鮮且目標匹配時優先；否則走融合距離 fallback | `Composite GoalReachState` 統一供 BT 事件與策略使用 |
 
 ## 3. 位置、導航與 reached 收斂

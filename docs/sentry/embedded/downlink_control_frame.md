@@ -73,6 +73,11 @@ ID/裁判發送流程封裝 `0x0307`。
 會原樣保留到 `/ly/game/path.header.stamp` 供 ROS 觀察；`map_data_t` 本身沒有 timestamp 欄位，
 所以串口 `0x02` 無法攜帶時間戳。
 
+`gimbal_driver` 不會週期性重發已收的 path。它只在收到 topic 消息時嘗試下發；對正式
+`/ly/game/path`，`header.stamp` 為 0 或距上位機 ROS 時間超過
+`io_config.game_path_fresh_timeout_ms`（預設 5000ms）會拒絕下發。收到帶新 timestamp 的 path
+才恢復發送。這避免導航停止更新或上游重播舊 path 時持續塗亂小地圖。
+
 `/ly/control/map_path` 保留為既有手動/測試相容入口；兩個 topic 都會下發同一種 `0x02` frame，
 現場不可同時發布兩者，避免重複送路徑。
 
