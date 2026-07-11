@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "gimbal_driver/msg/map_path.hpp"
+#include "gimbal_driver/msg/sentry_info.hpp"
 #include "nav_msgs/msg/path.hpp"
 #include "navi_tf_bridge/map_pointer.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -27,8 +28,8 @@ public:
     const std::string map_frame = this->declare_parameter<std::string>("map_frame", "map");
     intention_ = static_cast<std::uint8_t>(std::clamp<std::int64_t>(
       this->declare_parameter<std::int64_t>("intention", 3), 1, 3));
-    sender_id_ = static_cast<std::uint16_t>(std::clamp<std::int64_t>(
-      this->declare_parameter<std::int64_t>("sender_id", 0), 0, 65535));
+    sentry_info_topic_ = this->declare_parameter<std::string>(
+      "sentry_info_topic", "/ly/game/sentry/info");
 
     const bool use_static_calibration =
       this->declare_parameter<bool>("use_raw_goal_static_calibration", true);
@@ -80,11 +81,19 @@ public:
     subscription_ = this->create_subscription<nav_msgs::msg::Path>(
       input_topic_, rclcpp::QoS(10),
       std::bind(&MapPathToGamePathNode::onPath, this, std::placeholders::_1));
+    sentry_info_subscription_ = this->create_subscription<gimbal_driver::msg::SentryInfo>(
+      sentry_info_topic_, rclcpp::QoS(10),
+      [this](const gimbal_driver::msg::SentryInfo::SharedPtr msg) {
+        if (!msg) {
+          return;
+        }
+        self_robot_id_ = msg->self_robot_id;
+      });
 
     RCLCPP_INFO(
       this->get_logger(),
-      "Map path bridge ready: %s (nav_msgs/Path, %s/m) -> %s (official dm, intention=%u, sender_id=%u).",
-      input_topic_.c_str(), expected_map_frame_.c_str(), output_topic_.c_str(), intention_, sender_id_);
+      "Map path bridge ready: %s (nav_msgs/Path, %s/m) -> %s (official dm, intention=%u, sender from %s.self_robot_id).",
+      input_topic_.c_str(), expected_map_frame_.c_str(), output_topic_.c_str(), intention_, sentry_info_topic_.c_str());
   }
 
 private:
@@ -115,6 +124,13 @@ private:
         this->get_logger(), *this->get_clock(), 2000, "Drop empty /ly/navi/path.");
       return;
     }
+    if (self_robot_id_ == 0) {
+      RCLCPP_WARN_THROTTLE(
+        this->get_logger(), *this->get_clock(), 2000,
+        "Drop /ly/navi/path: waiting for %s.self_robot_id.",
+        sentry_info_topic_.c_str());
+      return;
+    }
     if (!msg->header.frame_id.empty() && msg->header.frame_id != expected_map_frame_) {
       RCLCPP_WARN_THROTTLE(
         this->get_logger(), *this->get_clock(), 2000,
@@ -140,7 +156,7 @@ private:
     output.intention = intention_;
     output.start_position_x_dm = static_cast<std::uint16_t>(x_dm[0]);
     output.start_position_y_dm = static_cast<std::uint16_t>(y_dm[0]);
-    output.sender_id = sender_id_;
+    output.sender_id = self_robot_id_;
 
     for (std::size_t index = 1; index < point_count; ++index) {
       const std::int32_t delta_x = x_dm[index] - x_dm[index - 1];
@@ -161,12 +177,14 @@ private:
 
   std::string input_topic_;
   std::string output_topic_;
+  std::string sentry_info_topic_;
   std::string expected_map_frame_;
   std::uint8_t intention_{3};
-  std::uint16_t sender_id_{0};
+  std::uint16_t self_robot_id_{0};
   MapPointer map_pointer_;
   rclcpp::Publisher<gimbal_driver::msg::MapPath>::SharedPtr publisher_;
   rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr subscription_;
+  rclcpp::Subscription<gimbal_driver::msg::SentryInfo>::SharedPtr sentry_info_subscription_;
 };
 
 }  // namespace navi_tf_bridge

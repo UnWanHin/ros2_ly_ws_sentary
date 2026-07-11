@@ -78,6 +78,11 @@ ID/裁判發送流程封裝 `0x0307`。
 `io_config.game_path_fresh_timeout_ms`（預設 5000ms）會拒絕下發。收到帶新 timestamp 的 path
 才恢復發送。這避免導航停止更新或上游重播舊 path 時持續塗亂小地圖。
 
+`SenderId` 使用裁判附錄二的自身**機器人 ID**：紅方哨兵為 `7`，藍方哨兵為 `107`。
+`gimbal_driver` 將此身份封裝為 `/ly/game/sentry/info.self_robot_id`（隊色未知時為 `0`）；
+`map_path_to_game_path_node` 只訂閱該 SentryInfo 欄位。`self_robot_id=0` 時不發布
+`/ly/game/path`，因此不會用固定 `0` 或選手端 ID 下發。
+
 `/ly/control/map_path` 保留為既有手動/測試相容入口；兩個 topic 都會下發同一種 `0x02` frame，
 現場不可同時發布兩者，避免重複送路徑。
 

@@ -277,8 +277,8 @@ def generate_launch_description():
             default_value="3",
         ),
         DeclareLaunchArgument(
-            "game_path_sender_id",
-            default_value="0",
+            "game_path_sentry_info_topic",
+            default_value="/ly/game/sentry/info",
         ),
         DeclareLaunchArgument(
             "debug_export_point_pairs",
@@ -467,7 +467,7 @@ def generate_launch_description():
                         "output_topic": LaunchConfiguration("game_path_output_topic"),
                         "map_frame": LaunchConfiguration("map_frame"),
                         "intention": LaunchConfiguration("game_path_intention"),
-                        "sender_id": LaunchConfiguration("game_path_sender_id"),
+                        "sentry_info_topic": LaunchConfiguration("game_path_sentry_info_topic"),
                         "use_raw_goal_static_calibration": ParameterValue(
                             LaunchConfiguration("use_raw_goal_static_calibration"),
                             value_type=bool,

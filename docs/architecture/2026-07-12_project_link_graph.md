@@ -84,6 +84,8 @@ flowchart TB
   BT_POS[BT 融合後自身座標\n/ly/bt/sentry_position\nPointStamped map / m] --> DL04[0x04 SentryCoordinateFrame\n17B + CRC8]
   BT_CONTROL[控制 topic] --> DL00[0x00 GimbalControlFrame\n13B]
   BT_CMD[/ly/control/sentry_cmd] --> DL01[0x01 SentryCommandFrame\n6B / 0x0120]
+  TEAM[TypeID 1 GameCode\nIsMyTeamRed] --> SENTRY_INFO[/ly/game/sentry/info\nSentryInfo.self_robot_id]
+  SENTRY_INFO --> PATH_BRIDGE
   NAV_PATH[/ly/navi/path\nnav_msgs/Path map/m + stamp] --> PATH_BRIDGE[map_path_to_game_path_node\n同一 navi_tf_bridge 矩陣反算]
   PATH_BRIDGE --> GAME_PATH[/ly/game/path\nMapPath official dm + 原 stamp]
   GAME_PATH --> FRESH{stamp 非 0 且\n<= 5s?}
@@ -107,6 +109,7 @@ flowchart TB
 | `/ly/navi/speed_level` | `std_msgs/UInt8`，BT 原樣發布策略選出的檔位 | 外部導航的檔位倍率不在本倉庫；BT 不以此縮放 `/ly/control/vel` |
 | `/ly/control/vel` | `gimbal_driver/msg/ControlVelocity` | BT 把 `naviVelocity.X/Y` 固定以 `0.025` raw-to-m/s 換算，直接下發到 `gimbal_driver` |
 | `/ly/game/path` 新鮮度 | `header.stamp` 必須非 0，且不超過 `io_config.game_path_fresh_timeout_ms`（預設 5000ms） | `gimbal_driver` 不週期性重發快取 path；舊包重播在超時後被拒絕，等新 timestamp 才下發 |
+| `map_data_t.sender_id` | `7`（紅哨兵）或 `107`（藍哨兵） | `gimbal_driver` 由 TypeID 1 `GameCode.IsMyTeamRed` 統一寫入 `/ly/game/sentry/info.self_robot_id`；bridge 只讀此欄位，值為 `0` 時不輸出 `/ly/game/path` |
 | `reached` | 外部 `/ly/navi/reached` 新鮮且目標匹配時優先；否則走融合距離 fallback | `Composite GoalReachState` 統一供 BT 事件與策略使用 |
 
 ## 3. 位置、導航與 reached 收斂

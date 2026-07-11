@@ -1,6 +1,6 @@
 # ROS2 Topic And Message Tree
 
-Updated: 2026-06-06
+Updated: 2026-07-12
 
 这份文档用 tree 方式整理当前哨兵上位机 ROS2 topic 和消息结构，重点回答两个问题：
 
@@ -71,6 +71,8 @@ Updated: 2026-06-06
 bridge 固定 `intention=3`；最多 50 點，超出 `uint16` 起點或 `int8` delta 可表示範圍時整條 path 丟棄而不截斷。
 `/ly/game/path` 的 header.stamp 必須非 0 且新鮮度不超過 `io_config.game_path_fresh_timeout_ms`
 （預設 5000ms）才會下發 `0x02`；`gimbal_driver` 不週期性重發上一條 path。
+`sender_id` 直接取 `/ly/game/sentry/info.self_robot_id`：紅哨兵 `7`、藍哨兵 `107`、隊色未知為
+`0`；`0` 時 bridge 不輸出 path。
 
 ### `/ly/gimbal` - 下位机/裁判回读状态
 
@@ -332,6 +334,7 @@ gimbal_driver/msg
 │   ├── float32 velocity_x
 │   └── float32 velocity_y
 ├── SentryInfo
+│   ├── uint16 self_robot_id
 │   ├── uint32 sentry_info_raw
 │   ├── uint16 sentry_info_2_raw
 │   ├── uint64 sentry_info_3_raw
@@ -571,6 +574,7 @@ TypeID 0 GimbalData
 
 TypeID 1 GameData
 ├── GameCode     -> /ly/game/is_start, /ly/friend/is_team_red, /ly/friend/is_at_home, /ly/friend/is_precaution
+│                  -> /ly/game/sentry/info.self_robot_id（紅哨兵=7、藍哨兵=107；隨下次 TypeID 7 發布）
 ├── AmmoLeft     -> /ly/friend/ammo_left
 ├── TimeLeft     -> /ly/game/time_left
 ├── SelfHealth   -> /ly/game/all.selfhealth

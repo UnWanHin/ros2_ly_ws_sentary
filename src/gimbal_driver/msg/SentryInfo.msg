@@ -3,6 +3,10 @@
 
 std_msgs/Header header
 
+# Own sentry robot ID resolved from GameCode.IsMyTeamRed.
+# 0 means team color has not been received yet; red sentry=7, blue sentry=107.
+uint16 self_robot_id
+
 uint32 sentry_info_raw
 uint16 sentry_info_2_raw
 uint64 sentry_info_3_raw

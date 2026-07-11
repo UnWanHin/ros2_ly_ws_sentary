@@ -173,6 +173,7 @@ namespace
         bool hasRfidStatus2_{false};
         std::uint64_t latestSentryInfo3_{0};
         bool hasSentryInfo3_{false};
+        std::uint16_t selfSentryRobotId_{0};
         std::chrono::steady_clock::time_point lastSentryInfo3RxTime_{};
         float latestBulletInitialSpeed_{0.0f};
         bool hasBulletInitialSpeed_{false};
@@ -1330,6 +1331,7 @@ namespace
 
         void PubGameData(const GameData& data)
         {
+            selfSentryRobotId_ = data.GameCode.IsMyTeamRed ? 7u : 107u;
             const bool use_legacy_outpost_hp = !HasFreshPreciseOutpostHp();
             {
                 using topic = ly_game_all;
@@ -1558,6 +1560,7 @@ namespace
             auto sentry_info_msg = ToSentryInfoMsg(
                 data, hasSentryInfo3_, latestSentryInfo3_, sentry_info_3_age_ms);
             sentry_info_msg.header.stamp = now;
+            sentry_info_msg.self_robot_id = selfSentryRobotId_;
             {
                 using topic = ly_game_sentry_info;
                 Node.Publisher<topic>()->publish(sentry_info_msg);

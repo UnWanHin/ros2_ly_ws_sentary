@@ -86,7 +86,9 @@ map_path_to_game_path_node:
     output_topic: /ly/game/path
     map_frame: map
     intention: 3
-    sender_id: 0
+    # SentryInfo self_robot_id is 0 before GameCode team color arrives, then red=7/blue=107.
+    # The bridge waits for it instead of publishing an unknown/wrong sender ID.
+    sentry_info_topic: /ly/game/sentry/info
     use_raw_goal_static_calibration: true
     raw_goal_calibration_model: matrix
     raw_goal_calibration_unit: m
