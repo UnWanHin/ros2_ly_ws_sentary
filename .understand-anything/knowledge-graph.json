@@ -369,7 +369,7 @@
       "id": "service:lower-machine",
       "type": "service",
       "name": "lower machine",
-      "summary": "Embedded lower machine receiving 17B DownlinkTypeID-based serial frames from `gimbal_driver` (`0x00=GimbalControlFrame`, `0x01=SentryCoordinateFrame`) and returning referee/gimbal state.",
+      "summary": "Embedded lower machine receiving DownlinkTypeID-based serial frames from `gimbal_driver` (`0x00=13B control`, `0x01=6B sentry command`, `0x02=107B map path`, `0x03=36B custom info`, `0x04=17B sentry coordinate`) and returning referee/gimbal state.",
       "tags": [
         "embedded",
         "serial"
@@ -1133,6 +1133,18 @@
       "filePath": "src/gimbal_driver/msg/ControlVelocity.msg"
     },
     {
+      "id": "schema:src/gimbal_driver/msg/CustomInfo.msg",
+      "type": "schema",
+      "name": "CustomInfo.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/CustomInfo.msg` for referee 0x0308 custom_info_t.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/CustomInfo.msg"
+    },
+    {
       "id": "schema:src/gimbal_driver/msg/EventData.msg",
       "type": "schema",
       "name": "EventData.msg",
@@ -1239,6 +1251,18 @@
       ],
       "complexity": "simple",
       "filePath": "src/gimbal_driver/msg/MapCommand.msg"
+    },
+    {
+      "id": "schema:src/gimbal_driver/msg/MapPath.msg",
+      "type": "schema",
+      "name": "MapPath.msg",
+      "summary": "ROS message schema `src/gimbal_driver/msg/MapPath.msg` for referee 0x0307 map_data_t.",
+      "tags": [
+        "ros_msg",
+        "schema"
+      ],
+      "complexity": "simple",
+      "filePath": "src/gimbal_driver/msg/MapPath.msg"
     },
     {
       "id": "schema:src/gimbal_driver/msg/PositionData.msg",
@@ -1492,6 +1516,17 @@
       "messageType": "gimbal_driver/msg/GimbalAngles"
     },
     {
+      "id": "endpoint:ros-topic:/ly/control/custom_info",
+      "type": "endpoint",
+      "name": "/ly/control/custom_info",
+      "summary": "ROS2 topic `/ly/control/custom_info` with message type `gimbal_driver/msg/CustomInfo`, serialized as DownlinkTypeID=0x03.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver/msg/CustomInfo"
+    },
+    {
       "id": "endpoint:ros-topic:/ly/control/firecode",
       "type": "endpoint",
       "name": "/ly/control/firecode",
@@ -1501,6 +1536,17 @@
       ],
       "complexity": "moderate",
       "messageType": "gimbal_driver/msg/FireCode"
+    },
+    {
+      "id": "endpoint:ros-topic:/ly/control/map_path",
+      "type": "endpoint",
+      "name": "/ly/control/map_path",
+      "summary": "ROS2 topic `/ly/control/map_path` with message type `gimbal_driver/msg/MapPath`, serialized as DownlinkTypeID=0x02.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "gimbal_driver/msg/MapPath"
     },
     {
       "id": "endpoint:ros-topic:/ly/control/posture",
@@ -1594,7 +1640,7 @@
       "id": "endpoint:ros-topic:/ly/enemy/op_hp",
       "type": "endpoint",
       "name": "/ly/enemy/op_hp",
-      "summary": "ROS2 topic `/ly/enemy/op_hp` with message type `std_msgs::msg::UInt16`.",
+      "summary": "ROS2 topic `/ly/enemy/op_hp` with message type `std_msgs::msg::UInt16`; gimbal_driver now prefers TypeID=10 precise 0x0003 enemy_outpost_HP and falls back to TypeID=1 GameCode * 25 only when TypeID=10 is not fresh.",
       "tags": [
         "ros_topic"
       ],
@@ -1704,7 +1750,7 @@
       "id": "endpoint:ros-topic:/ly/friend/op_hp",
       "type": "endpoint",
       "name": "/ly/friend/op_hp",
-      "summary": "ROS2 topic `/ly/friend/op_hp` with message type `std_msgs::msg::UInt16`.",
+      "summary": "ROS2 topic `/ly/friend/op_hp` with message type `std_msgs::msg::UInt16`; gimbal_driver now prefers TypeID=10 precise 0x0003 ally_outpost_HP and falls back to TypeID=1 GameCode * 25 only when TypeID=10 is not fresh.",
       "tags": [
         "ros_topic"
       ],
@@ -1789,6 +1835,17 @@
       "messageType": "gimbal_driver/msg/MapCommand"
     },
     {
+      "id": "endpoint:ros-topic:/ly/game/damage_difference",
+      "type": "endpoint",
+      "name": "/ly/game/damage_difference",
+      "summary": "ROS2 topic `/ly/game/damage_difference` with message type `std_msgs::msg::Int16`.",
+      "tags": [
+        "ros_topic"
+      ],
+      "complexity": "moderate",
+      "messageType": "std_msgs::msg::Int16"
+    },
+    {
       "id": "endpoint:ros-topic:/ly/game/rfid",
       "type": "endpoint",
       "name": "/ly/game/rfid",
@@ -1803,7 +1860,7 @@
       "id": "endpoint:ros-topic:/ly/game/sentry/info",
       "type": "endpoint",
       "name": "/ly/game/sentry/info",
-      "summary": "ROS2 topic `/ly/game/sentry/info` with message type `gimbal_driver/msg/SentryInfo`.",
+      "summary": "ROS2 topic `/ly/game/sentry/info` with message type `gimbal_driver/msg/SentryInfo`; TypeID=7 publishes sentry_info/sentry_info_2 and TypeID=10 updates the sentry_info_3 shadow fields.",
       "tags": [
         "ros_topic"
       ],
@@ -2879,6 +2936,13 @@
     },
     {
       "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/CustomInfo.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `CustomInfo.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
       "target": "schema:src/gimbal_driver/msg/EventData.msg",
       "type": "defines_schema",
       "weight": 0.8,
@@ -2939,6 +3003,13 @@
       "type": "defines_schema",
       "weight": 0.8,
       "summary": "`gimbal_driver` defines message `MapCommand.msg`."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "schema:src/gimbal_driver/msg/MapPath.msg",
+      "type": "defines_schema",
+      "weight": 0.8,
+      "summary": "`gimbal_driver` defines message `MapPath.msg`."
     },
     {
       "source": "module:gimbal_driver",
@@ -3109,6 +3180,20 @@
       "summary": "gimbal_driver consumes semantic control topics and serializes downlink frames."
     },
     {
+      "source": "module:gimbal_driver",
+      "target": "endpoint:ros-topic:/ly/control/map_path",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "gimbal_driver serializes map paths as DownlinkTypeID=0x02 for referee 0x0307."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "endpoint:ros-topic:/ly/control/custom_info",
+      "type": "subscribes",
+      "weight": 0.8,
+      "summary": "gimbal_driver serializes custom info as DownlinkTypeID=0x03 for referee 0x0308."
+    },
+    {
       "source": "module:behavior_tree",
       "target": "endpoint:ros-topic:/ly/control/vel",
       "type": "publishes",
@@ -3230,6 +3315,13 @@
     {
       "source": "module:gimbal_driver",
       "target": "endpoint:ros-topic:/ly/game/map_command",
+      "type": "publishes",
+      "weight": 0.8,
+      "summary": "gimbal_driver publishes lower-machine/referee/gimbal state."
+    },
+    {
+      "source": "module:gimbal_driver",
+      "target": "endpoint:ros-topic:/ly/game/damage_difference",
       "type": "publishes",
       "weight": 0.8,
       "summary": "gimbal_driver publishes lower-machine/referee/gimbal state."
@@ -3785,7 +3877,7 @@
       "target": "endpoint:ros-topic:/ly/bt/sentry_position",
       "type": "subscribes",
       "weight": 0.8,
-      "summary": "gimbal_driver consumes fused sentry self position and serializes SentryCoordinateFrame with DownlinkTypeID=0x01."
+      "summary": "gimbal_driver consumes fused sentry self position and serializes SentryCoordinateFrame with DownlinkTypeID=0x04."
     },
     {
       "source": "concept:patrol-scan-configuration",
@@ -3969,7 +4061,9 @@
         "endpoint:ros-topic:/ly/aim/result",
         "endpoint:ros-topic:/ly/aim/select_target",
         "endpoint:ros-topic:/ly/control/angles",
+        "endpoint:ros-topic:/ly/control/custom_info",
         "endpoint:ros-topic:/ly/control/firecode",
+        "endpoint:ros-topic:/ly/control/map_path",
         "endpoint:ros-topic:/ly/control/posture",
         "endpoint:ros-topic:/ly/control/sentry_cmd",
         "endpoint:ros-topic:/ly/control/vel",
@@ -3995,6 +4089,7 @@
         "schema:src/gimbal_driver/msg/BulletInfo.msg",
         "schema:src/gimbal_driver/msg/Chassis.msg",
         "schema:src/gimbal_driver/msg/ControlVelocity.msg",
+        "schema:src/gimbal_driver/msg/CustomInfo.msg",
         "schema:src/gimbal_driver/msg/EventData.msg",
         "schema:src/gimbal_driver/msg/FaceModeStatus.msg",
         "schema:src/gimbal_driver/msg/FireCode.msg",
@@ -4004,6 +4099,7 @@
         "schema:src/gimbal_driver/msg/GimbalYaw.msg",
         "schema:src/gimbal_driver/msg/Health.msg",
         "schema:src/gimbal_driver/msg/MapCommand.msg",
+        "schema:src/gimbal_driver/msg/MapPath.msg",
         "schema:src/gimbal_driver/msg/PositionData.msg",
         "schema:src/gimbal_driver/msg/RfidStatus.msg",
         "schema:src/gimbal_driver/msg/SentryCmd.msg",
@@ -4027,6 +4123,7 @@
         "endpoint:ros-topic:/ly/game/bullet",
         "endpoint:ros-topic:/ly/game/event_data",
         "endpoint:ros-topic:/ly/game/is_start",
+        "endpoint:ros-topic:/ly/game/damage_difference",
         "endpoint:ros-topic:/ly/game/map_command",
         "endpoint:ros-topic:/ly/game/rfid",
         "endpoint:ros-topic:/ly/game/sentry/info",
@@ -4270,10 +4367,12 @@
     "Matt Pocock zoom-out style was used: module/caller map first, preserving current decision-only domain vocabulary.",
     "Checked on 2026-06-26T12:45:17+00:00 against HEAD 84af1f3e758edad06802479b2357102a47c29778: graph module nodes match the 13 current ROS packages under src/*/package.xml.",
     "Working tree was dirty during this check; observed uncommitted edits did not change ROS package/topic/msg/launch boundaries.",
-    "2026-07-08 fallback update: added /ly/bt/sentry_position BT->gimbal_driver topic and DownlinkTypeID 0x00/0x01 downlink-frame summary.",
+    "2026-07-08 fallback update: added /ly/bt/sentry_position BT->gimbal_driver topic and an initial DownlinkTypeID summary.",
     "2026-07-08 fallback update: source-checked composite GoalReachState contract in behavior_tree, /ly/navi/reach_state publication, scoped raw /ly/navi/reached and /ly/navi/reachable inputs, SentryPositionFusion sources (/ly/friend/uwb_pos, /ly/navi/position, /ly/position/data), and AGENTS documentation/graph freshness requirements.",
     "2026-07-08 fallback update: source-checked PatrolScan YAML centralization in Patrol.yaml, TaskOverrides FaceMode/Outpost fallback modes, start-gate/outpost pitch offsets, legacy FaceMode mirror compatibility, and patrol_scan_modes.md documentation.",
     "2026-07-08 fallback update: source-checked PatrolScan.TaskOverrides centralization in src/behavior_tree/config/Patrol.yaml, parser/legacy mirror handling in Configuration.cpp, runtime selection in GameLoop.cpp, start-gate offset in WaitBeforeGame.cpp, and patrolmode test-tool alignment.",
-    "2026-07-08 fallback update: source-checked PatrolScan.Mode2 restored to older 500 ms scan profile in Patrol.yaml, PatrolScanSetting defaults, Configuration.cpp sanitize fallbacks, patrolmode_pub.py fallbacks, and patrol_scan_modes.md."
+    "2026-07-08 fallback update: source-checked PatrolScan.Mode2 restored to older 500 ms scan profile in Patrol.yaml, PatrolScanSetting defaults, Configuration.cpp sanitize fallbacks, patrolmode_pub.py fallbacks, and patrol_scan_modes.md.",
+    "2026-07-11 fallback update: added gimbal_driver TypeID=10 for 0x020D sentry_info_3 plus precise 0x0003 ally/enemy outpost HP; /ly/friend/op_hp and /ly/enemy/op_hp now prefer TypeID=10 and use TypeID=1 GameCode * 25 only as fallback.",
+    "2026-07-11 fallback update: downlink is now five explicit frames: 0x00 13B control, 0x01 6B RM2026 V2.0 sentry_cmd, 0x02 107B referee 0x0307 map path, 0x03 36B referee 0x0308 custom info, and 0x04 17B sentry coordinate; added /ly/control/map_path and /ly/control/custom_info."
   ]
 }

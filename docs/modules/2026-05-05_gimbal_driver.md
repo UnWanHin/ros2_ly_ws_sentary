@@ -81,39 +81,50 @@ main()
 #### 「讀取」路徑：`LoopRead()` → `Pub*()`
 
 從串口讀到 `TypedMessage`，根據 `TypeID` 分發到不同的 `Pub*` 函數。
-當前上行是分型幀模式，實際使用 `TypeID=0..7`：
+當前上行是分型幀模式，實際使用 `TypeID=0..10`：
 
 | TypeID 對應數據結構 | 調用函數 | 發布的 Topic |
 |---|---|---|
 | `GimbalData` | `PubGimbalData()` | `/ly/gimbal/angles`, `/ly/gimbal/firecode`, `/ly/gimbal/vel`, `/ly/gimbal/capV` |
-| `GameData` | `PubGameData()` | `/ly/game/all`, `/ly/game/event_data`, `/ly/friend/ammo_left`, `/ly/enemy/op_hp`, `/ly/friend/is_team_red`, `/ly/game/is_start`, `/ly/game/time_left`, 等 |
+| `GameData` | `PubGameData()` | `/ly/game/all`, `/ly/game/event_data`, `/ly/friend/ammo_left`, `/ly/friend/is_team_red`, `/ly/game/is_start`, `/ly/game/time_left`, 等；`op_hp` 只做 TypeID 10 不新鲜时的 `*25` fallback |
 | `HealthMyselfData` | `PubHealthMyselfData()` | `/ly/friend/hp`, `/ly/friend/base_hp` |
 | `HealthEnemyData` | `PubHealthEnemyData()` | `/ly/enemy/hp`, `/ly/enemy/base_hp` |
 | `RFIDAndBuffData` | `PubRFIDAndBuffData()` | `/ly/game/rfid`, `/ly/team/buff` |
 | `PositionData` | `PubPositionData()` | `/ly/position/data`, `/ly/friend/uwb_pos`, `/ly/bullet/speed` |
-| `ChassisData` (`TypeID=6`) | `PubChassisData()` | `/ly/friend/uwb_yaw`, `/ly/gimbal/chassis`（四元浮點）, `/ly/gimbal/posture` 兼容回读 |
+| `ChassisData` (`TypeID=6`) | `PubChassisData()` | `/ly/friend/uwb_yaw`, `/ly/gimbal/chassis`（四元浮點）, `/ly/game/damage_difference` |
 | `SentryData` (`TypeID=7`) | `PubSentryData()` | `/ly/game/sentry/info`, `/ly/game/bullet`, `/ly/gimbal/posture`（有效 `/ly/game/sentry/info.posture` 覆盖） |
+| `BulletDataAndRfid2` (`TypeID=8`) | `PubBulletDataAndRfid2()` | `/ly/game/bullet`, `/ly/game/rfid` |
+| `MapCommandData` (`TypeID=9`) | `PubMapCommandData()` | `/ly/game/map_command` |
+| `SentryInfo3AndOutpostHpData` (`TypeID=10`) | `PubSentryInfo3AndOutpostHpData()` | `/ly/friend/op_hp`, `/ly/enemy/op_hp`；更新 `/ly/game/sentry/info.sentry_info_3_raw` shadow |
 
-#### 「寫入」路徑：`GenSubs()` → `Device.Write()`
+#### 「寫入」路徑：`GenSubs()` / 直接命令發送 → `Device.WriteRaw()`
 
-訂閱上層控制指令，寫入共享的 `GimbalControlFrame` 結構體，然後由 `CallbackGenerator` 觸發寫入串口。
-當前下行不是上行那套 `TypedMessage<TypeID=...>`，而是 17B `DownlinkTypeID` 分型 frame：
+下行不是上行那套 `TypedMessage<TypeID=...>`。`0x00` 控制 topic 仍寫入共享的
+`GimbalControlFrame`，由 `CallbackGenerator` 立即發送；裁判命令、路徑、文字與座標使用各自的
+`DownlinkTypeID` 和固定長度 frame。
 
-- `DownlinkTypeID=0x00`：`GimbalControlFrame` 主控制 frame
-- `DownlinkTypeID=0x01`：`SentryCoordinateFrame` 哨兵自身坐標 frame
+| DownlinkTypeID | Frame | 長度 | 用途 |
+|---|---|---:|---|
+| `0x00` | `GimbalControlFrame` | 13B | 雲台角、底盤速度、FireCode |
+| `0x01` | `SentryCommandFrame` | 6B | `0x0120 sentry_cmd` |
+| `0x02` | `MapPathFrame` | 107B | `0x0307 map_data_t` |
+| `0x03` | `CustomInfoFrame` | 36B | `0x0308 custom_info_t` |
+| `0x04` | `SentryCoordinateFrame` | 17B | BT 融合後自身座標 |
 
 | 訂閱 Topic | 對應字段 | 說明 |
 |---|---|---|
 | `/ly/control/angles` (`GimbalAngles`) | `GimbalControlFrame.GimbalAngles.Yaw/Pitch` | 期望雲台角 |
 | `/ly/control/firecode` (`FireCode`) | `GimbalControlFrame.FireCode` | 分字段開火/電容/模式/旋轉指令 |
 | `/ly/control/vel` (`ControlVelocity`) | `GimbalControlFrame.Velocity.X/Y` | 語義速度；`use_raw=true` 時保留原 int8 下發 |
-| `/ly/control/posture` (`SentryCmd`) | `GimbalControlFrame.SentryCmd.Posture` | 姿態指令，只使用 `FIELD_POSTURE`（0=保留, 1=進攻, 2=防禦, 3=移動） |
-| `/ly/control/sentry_cmd` (`SentryCmd`) | `GimbalControlFrame.SentryCmd` | 完整哨兵裁判命令入口 |
+| `/ly/control/posture` (`SentryCmd`) | `SentryCommandFrame.SentryCmd.Posture` | `0x01` 姿態指令，只使用 `FIELD_POSTURE`；`1~3` 普通、`4~6` 強化姿態 |
+| `/ly/control/sentry_cmd` (`SentryCmd`) | `SentryCommandFrame.SentryCmd` | `0x01` 完整哨兵裁判命令入口 |
+| `/ly/control/map_path` (`MapPath`) | `MapPathFrame` | `0x02` 裁判 `0x0307` 小地圖路徑 |
+| `/ly/control/custom_info` (`CustomInfo`) | `CustomInfoFrame` | `0x03` 裁判 `0x0308` UTF-16 文字 |
 | `/ly/bt/sentry_position` (`PointStamped`) | `SentryCoordinateFrame.X_cm/Y_cm` | BT 融合後自身坐標，m 轉 cm 後下發 |
 
-姿態下發採用「主控制幀並入字段」策略：
-- `Posture` 並入 `GimbalControlFrame.SentryCmd`，與角度/速度/火控同包下發
-- 收到有效姿態命令（1/2/3）後更新 `Posture` 字段並按配置重發
+姿態下發採用獨立 `0x01` frame：
+- 收到有效姿態命令（1/2/3/4/5/6）後更新 `SentryCmd` shadow 並立即發送
+- 姿態切換仍按配置重發
 - 失聯重連後會按當前姿態重發
 
 ---
@@ -125,13 +136,16 @@ main()
 | 結構體 | 說明 |
 |--------|------|
 | `GimbalData` | 電控→上位機：雲台角、速度、開火狀態等 |
-| `GimbalControlFrame` | 上位機→電控：`DownlinkTypeID=0x00`，期望雲台角、開火指令、速度、姿態 |
-| `SentryCoordinateFrame` | 上位機→電控：`DownlinkTypeID=0x01`，哨兵自身 official-map 坐標 |
+| `GimbalControlFrame` | 上位機→電控：`DownlinkTypeID=0x00`，期望雲台角、開火指令、速度 |
+| `SentryCommandFrame` | 上位機→電控：`DownlinkTypeID=0x01`，裁判 `0x0120 sentry_cmd` |
+| `MapPathFrame` / `CustomInfoFrame` | 上位機→電控：`0x02/0x03`，裁判 `0x0307/0x0308` payload |
+| `SentryCoordinateFrame` | 上位機→電控：`DownlinkTypeID=0x04`，哨兵自身 official-map 坐標 |
 | `GameData` | 裁判系統數據：比賽狀態、血量、子彈數、時間 |
 | `HealthMyselfData` / `HealthEnemyData` | 我方/敵方各機器人血量 |
 | `RFIDAndBuffData` | `0x0209 rfid_status` 低 32 位 + `0x0204` 增益數據（防禦、攻擊、回血等） |
 | `PositionData` | UWB定位數據（友/敵機器人X、Y座標）+ 子彈速度 |
-| `ChassisData` | UWB yaw + 姿态回读 + 底盘四元（舵角/角速度/x速/y速，8位整数+8位小数） |
+| `ChassisData` | UWB yaw + 裁判 `0x0003 damage_difference` + 底盘四元（舵角/角速度/x速/y速，8位整数+8位小数） |
+| `SentryInfo3AndOutpostHpData` | 裁判 `0x020D sentry_info_3` + 裁判 `0x0003 ally/enemy_outpost_HP` 精确前哨血量 |
 | `ExtendData` | `TypeID=7` 预留 12B 扩展帧 |
 | `FireCodeType` | 位域：`FireStatus`（開火狀態）、`Rotate`（旋轉速度0-3）、`AimMode`（瞄準模式） |
 
@@ -157,7 +171,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 
 含義：
 - 上行：讀 `TypedMessage`，依 `TypeID` 分發 `0..9`
-- 下行：直接寫 17B downlink frame；控制 frame 使用 `DownlinkTypeID=0x00`，坐標 frame 使用 `DownlinkTypeID=0x01`
+- 下行：按 `DownlinkTypeID=0x00~0x04` 發送不同長度 frame；`0x00=13B` 控制、`0x01=6B sentry_cmd`、`0x02=107B` 路徑、`0x03=36B` 自訂訊息、`0x04=17B` 座標
 
 **虛擬設備模式**（`useVirtualDevice=true`）：用於在沒有硬件時做本地迴環測試，通過 `TestVirtualLoopback()` 驗證數據收發。
 
@@ -234,6 +248,8 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 | `/ly/game/time_left` | `UInt16` | 剩餘時間 |
 | `/ly/friend/hp` | `Health` | 我方各機器人血量 |
 | `/ly/enemy/hp` | `Health` | 敵方各機器人血量 |
+| `/ly/friend/op_hp` | `UInt16` | 我方前哨血量；优先 TypeID 10 `0x0003 ally_outpost_HP` 精确值，TypeID 1 `SelfOutpostHealth * 25` 只做 fallback |
+| `/ly/enemy/op_hp` | `UInt16` | 敵方前哨血量；优先 TypeID 10 `0x0003 enemy_outpost_HP` 精确值，TypeID 1 `EnemyOutpostHealth * 25` 只做 fallback |
 | `/ly/friend/ammo_left` | `UInt16` | 剩餘子彈 |
 | `/ly/bullet/speed` | `Float32` | 子彈速度（m/s，当前代码发布 `PositionData.BulletSpeed / 100.0f`） |
 | `/ly/team/buff` | `BuffData` | 能量機關增益狀態 |
@@ -241,7 +257,9 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 | `/ly/position/data` | `PositionData` | UWB位置數據 |
 | `/ly/friend/uwb_pos` | `StampedUInt16MultiArray` | 自身UWB位置 `data=[x, y]`，带 `header.stamp` |
 | `/ly/gimbal/chassis` | `Chassis` | 底盘四元反馈（`steer_angle`, `angular_velocity`, `velocity_x`, `velocity_y`） |
-| `/ly/gimbal/posture` | `UInt8` | 姿態回讀（TypeID 7 `/ly/game/sentry/info.posture` 有效值优先覆盖；TypeID 6 `ChassisData.Posture` 作兼容回读；僅 1/2/3 視為有效） |
+| `/ly/gimbal/posture` | `UInt8` | 姿態回讀（只由 TypeID 7 `/ly/game/sentry/info.posture` 的有效值發布；僅 1/2/3 視為有效） |
+| `/ly/game/sentry/info` | `SentryInfo` | 裁判 `0x020D sentry_info/sentry_info_2/sentry_info_3` 拆字段；`sentry_info_3` shadow 由 TypeID 10 更新，随 TypeID 7 发布 |
+| `/ly/game/damage_difference` | `Int16` | 裁判 `0x0003 game_robot_HP_t` offset 8，己方全隊總傷害與對方全隊總傷害之差 |
 | `ly/gimbal/eventdata` | `UInt32` | 場地事件原始值（當前 topic 字符串無前導 `/`） |
 | `/ly/game/event_data` | `EventData` | 0x0101 `event_data` 按 RM2026 V1.3.0 拆字段 |
 
@@ -254,6 +272,8 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 | `/ly/control/vel` | `ControlVelocity` | 接收語義速度/原始速度指令 |
 | `/ly/control/posture` | `SentryCmd` | 接收姿態指令（上位決策輸入，只使用 `FIELD_POSTURE`） |
 | `/ly/control/sentry_cmd` | `SentryCmd` | 接收完整哨兵裁判命令 |
+| `/ly/control/map_path` | `MapPath` | 接收裁判 `0x0307` 小地圖路徑 |
+| `/ly/control/custom_info` | `CustomInfo` | 接收裁判 `0x0308` UTF-16 自訂訊息 |
 | `/ly/bt/sentry_position` | `PointStamped` | 接收 BT 融合後自身坐標，用於座標 downlink frame |
 
 ### 姿態下發参数
@@ -262,14 +282,14 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 |---|---:|---|
 | `repeat_count` | `3` | 每次切换默认重发 3 次 |
 | `repeat_interval_ms` | `20` | 重发间隔 20ms |
-| `field` | `GimbalControlFrame.SentryCmd.Posture` | 姿态并入主控制 frame `SentryCmd` 字段 |
+| `field` | `SentryCommandFrame.SentryCmd.Posture` | 姿态走独立 `DownlinkTypeID=0x01` frame |
 
 ---
 
 ## 修改注意事項
 
 - **串口協議調整**：修改 `module/BasicTypes.hpp` 的結構體時一定要注意字節對齊和電控端的協議版本一致
-- **姿態指令協議策略**：姿態併入 `GimbalControlFrame.SentryCmd.Posture`，主包長度變更需與下位機同步升級
+- **姿態指令協議策略**：姿態走独立 `SentryCommandFrame`，下位机必须按 ID/长度解析五种下行 frame
 - **新增 Topic**：在 `main.cpp` 增加 `LY_DEF_ROS_TOPIC` 定義和對應的 `Pub*()` 函數，並在 `LoopRead()` 的 switch-case 中處理
 - **`/ly/bullet/speed`**：当前实现直接发布 `data.BulletSpeed / 100.0f`；若下游表现为固定弹速，优先检查下游是否又做默认值或平滑策略
 - **虛擬設備**：調試時可設置 YAML 參數 `io_config/use_virtual_device: true` 來使用迴環模式而無需電控硬件

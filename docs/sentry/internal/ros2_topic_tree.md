@@ -32,7 +32,7 @@ Updated: 2026-06-06
 ├── is_at_home     : std_msgs/msg/Bool              [Embedded] 下位机/裁判回家状态
 ├── is_team_red    : std_msgs/msg/Bool              [Embedded] 我方是否红方
 ├── hp             : gimbal_driver/msg/Health       [Embedded] 我方各兵种血量
-├── op_hp          : std_msgs/msg/UInt16            [Embedded] 我方前哨血量
+├── op_hp          : std_msgs/msg/UInt16            [Embedded] 我方前哨血量，优先 TypeID10 精确值，TypeID1 *25 fallback
 ├── base_hp        : std_msgs/msg/UInt16            [Embedded] 我方基地血量
 ├── ammo_left      : std_msgs/msg/UInt16            [Embedded] 当前弹量摘要
 ├── uwb_pos        : gimbal_driver/msg/StampedUInt16MultiArray [Embedded] 自身官方坐标 [x, y]，带 header.stamp
@@ -54,7 +54,9 @@ Updated: 2026-06-06
 ├── firecode   : gimbal_driver/msg/FireCode         [Embedded] BT -> gimbal_driver -> 下位机 FireCode 1B
 ├── vel        : gimbal_driver/msg/ControlVelocity  [Embedded] BT -> gimbal_driver -> 下位机速度 X/Y
 ├── posture    : gimbal_driver/msg/SentryCmd        [Embedded] BT 姿态主入口，只用 FIELD_POSTURE/posture
-└── sentry_cmd : gimbal_driver/msg/SentryCmd        [Embedded] 完整 sentry_cmd 入口
+├── sentry_cmd : gimbal_driver/msg/SentryCmd        [Embedded] 完整 sentry_cmd -> DownlinkTypeID=0x01
+├── map_path   : gimbal_driver/msg/MapPath          [Embedded] 裁判 0x0307 -> DownlinkTypeID=0x02
+└── custom_info: gimbal_driver/msg/CustomInfo       [Embedded] 裁判 0x0308 -> DownlinkTypeID=0x03
 ```
 
 ### `/ly/gimbal` - 下位机/裁判回读状态
@@ -92,9 +94,10 @@ Updated: 2026-06-06
 ├── time_left   : std_msgs/msg/UInt16           [Embedded] 剩余时间
 ├── event_data  : gimbal_driver/msg/EventData   [Embedded] 裁判 0x0101 event_data 语义拆字段
 ├── rfid        : gimbal_driver/msg/RfidStatus  [Embedded] 裁判 0x0209 RFID bit 语义
-├── sentry/info : gimbal_driver/msg/SentryInfo  [Embedded] 裁判 0x020D 哨兵状态
+├── sentry/info : gimbal_driver/msg/SentryInfo  [Embedded] 裁判 0x020D 哨兵状态，含 sentry_info_3 shadow
 ├── bullet      : gimbal_driver/msg/BulletInfo  [Embedded] 裁判发射/弹量/金币信息
-└── map_command : gimbal_driver/msg/MapCommand  [Embedded] 裁判 0x0303 小地图命令；BT 当前只缓存
+├── map_command : gimbal_driver/msg/MapCommand  [Embedded] 裁判 0x0303 小地图命令；BT 当前只缓存
+└── damage_difference : std_msgs/msg/Int16      [Embedded] 裁判 0x0003 总伤害差
 ```
 
 ### `/ly/enemy`, `/ly/team`, `/ly/position`, `/ly/bullet`
@@ -102,7 +105,7 @@ Updated: 2026-06-06
 ```text
 /ly/enemy
 ├── hp      : gimbal_driver/msg/Health  [Embedded] 敌方各兵种血量
-├── op_hp   : std_msgs/msg/UInt16       [Embedded] 敌方前哨血量
+├── op_hp   : std_msgs/msg/UInt16       [Embedded] 敌方前哨血量，优先 TypeID10 精确值，TypeID1 *25 fallback
 └── base_hp : std_msgs/msg/UInt16       [Embedded] 敌方基地血量
 
 /ly/team
@@ -318,6 +321,7 @@ gimbal_driver/msg
 ├── SentryInfo
 │   ├── uint32 sentry_info_raw
 │   ├── uint16 sentry_info_2_raw
+│   ├── uint64 sentry_info_3_raw
 │   ├── uint16 exchanged_projectile_allowance
 │   ├── uint8 remote_projectile_exchange_count
 │   ├── uint8 remote_hp_exchange_count
@@ -327,7 +331,10 @@ gimbal_driver/msg
 │   ├── bool out_of_combat
 │   ├── uint16 remaining_exchangeable_17mm
 │   ├── uint8 posture
-│   └── bool can_activate_energy_mechanism
+│   ├── bool can_activate_energy_mechanism
+│   ├── bool enhanced_posture
+│   ├── bool has_sentry_info_3
+│   └── uint8 attack/defense/move and enhanced remaining seconds
 ├── BulletInfo
 │   ├── bool has_initial_speed
 │   ├── float32 initial_speed
@@ -554,7 +561,7 @@ TypeID 1 GameData
 ├── AmmoLeft     -> /ly/friend/ammo_left
 ├── TimeLeft     -> /ly/game/time_left
 ├── SelfHealth   -> /ly/game/all.selfhealth
-├── Outpost HP   -> /ly/friend/op_hp, /ly/enemy/op_hp
+├── Outpost HP fallback -> /ly/friend/op_hp, /ly/enemy/op_hp (only when TypeID10 is not fresh)
 └── ExtEventData -> ly/gimbal/eventdata, /ly/game/event_data
 
 TypeID 2 HealthMyselfData
@@ -577,7 +584,7 @@ TypeID 5 PositionData
 TypeID 6 ChassisData
 ├── UWBAngleYaw           -> /ly/friend/uwb_yaw
 ├── ChassisPacked1/2      -> /ly/gimbal/chassis, /ly/gimbal/big_yaw_angles, /ly/gimbal/vel
-└── valid Posture         -> /ly/gimbal/posture
+└── DamageDifference      -> /ly/game/damage_difference
 
 TypeID 7 SentryData
 ├── SentryInfo/SentryInfo2 -> /ly/game/sentry/info
@@ -588,6 +595,14 @@ TypeID 8 BulletDataAndRfid2
 ├── BulletType/Shooter/Frequency -> /ly/game/bullet
 ├── ProjectileAllowance/Gold     -> /ly/game/bullet
 └── RfidStatus2                  -> /ly/game/rfid.rfid_status_2_raw
+
+TypeID 9 MapCommandData
+└── MapCommandData                -> /ly/game/map_command
+
+TypeID 10 SentryInfo3AndOutpostHpData
+├── SentryInfo3                   -> /ly/game/sentry/info shadow, published with TypeID 7
+├── SelfOutpostHealth             -> /ly/friend/op_hp
+└── EnemyOutpostHealth            -> /ly/enemy/op_hp
 ```
 
 若 `gimbal_raw.topic.enable=true`，通过 `gimbal_raw.topic.type_ids` 过滤后的上行 raw 幀会同时发布到 `/ly/log/gimbal_raw_rx`。
@@ -602,7 +617,7 @@ TypeID 8 BulletDataAndRfid2
 
 ### 下行：ROS -> `gimbal_driver` -> 下位机
 
-当前下行是 17B `DownlinkTypeID` 分型 frame。上行 `TypeID` 和下行 `DownlinkTypeID` 是独立编号空间：
+当前下行按 `DownlinkTypeID` 分型，frame 长度由 ID 决定。上行 `TypeID` 和下行 `DownlinkTypeID` 是独立编号空间：
 
 ```text
 GimbalControlFrame (DownlinkTypeID=0x00)
@@ -611,19 +626,31 @@ GimbalControlFrame (DownlinkTypeID=0x00)
 ├── Velocity.X     : int8    # /ly/control/vel
 ├── Velocity.Y     : int8    # /ly/control/vel
 ├── GimbalAngles   : 8B      # /ly/control/angles yaw/pitch float32
-├── FireCode       : 1B      # /ly/control/firecode
-└── SentryCmd      : 4B      # /ly/control/posture 或 /ly/control/sentry_cmd
+└── FireCode       : 1B      # /ly/control/firecode
 
-SentryCoordinateFrame (DownlinkTypeID=0x01)
+SentryCommandFrame (DownlinkTypeID=0x01)
 ├── HeadFlag       : uint8   # '!'
 ├── DownlinkTypeID : uint8   # 0x01
+└── SentryCmd       : 4B      # /ly/control/posture 或 /ly/control/sentry_cmd, V2.0 bit21-23 posture
+
+MapPathFrame (DownlinkTypeID=0x02)
+└── 105B map_data_t payload  # /ly/control/map_path, 裁判 0x0307
+
+CustomInfoFrame (DownlinkTypeID=0x03)
+└── 34B custom_info_t payload # /ly/control/custom_info, 裁判 0x0308
+
+SentryCoordinateFrame (DownlinkTypeID=0x04)
+├── HeadFlag       : uint8   # '!'
+├── DownlinkTypeID : uint8   # 0x04
 ├── X_cm           : int16   # /ly/bt/sentry_position x, m -> cm
 ├── Y_cm           : int16   # /ly/bt/sentry_position y, m -> cm
 ├── Reserved       : 10B     # 0
 └── CRC8           : uint8   # byte0-15, poly=0x31 init=0xFF
 ```
 
-若 `gimbal_raw.topic.enable=true` 且 `gimbal_raw.topic.downlink=true`，下行 raw frame 会同时发布到 `/ly/log/gimbal_raw_tx`，其中诊断 `type_id=255` 表示 control frame，`type_id=254` 表示 sentry coordinate frame。
+若 `gimbal_raw.topic.enable=true` 且 `gimbal_raw.topic.downlink=true`，下行 raw frame 会同时发布到 `/ly/log/gimbal_raw_tx`：
+`type_id=255/254/253/252/251` 依次表示 `0x00` control、`0x01` sentry command、`0x02` map path、
+`0x03` custom info、`0x04` sentry coordinate frame。
 
 `SentryCmd` bit tree：
 
@@ -634,9 +661,9 @@ SentryCmd uint32
 ├── bit02-12  exchange_projectile_allowance
 ├── bit13-16  remote_projectile_exchange_count
 ├── bit17-20  remote_hp_exchange_count
-├── bit21-22  posture  # 0=保留, 1=进攻, 2=防御, 3=移动
-├── bit23     confirm_energy_activate
-└── bit24-31  reserved
+├── bit21-23  posture  # 0=保留, 1=进攻, 2=防御, 3=移动, 4=强化进攻, 5=强化防御, 6=强化移动
+├── bit24     confirm_energy_activate
+└── bit25-31  reserved
 ```
 
 ## Maintenance

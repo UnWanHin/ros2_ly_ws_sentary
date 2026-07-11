@@ -106,6 +106,18 @@
   - 類型: `std_msgs::msg::Float32`
   - 內容: 當前子彈速度 (m/s)
 
+- `/ly/friend/op_hp` / `/ly/enemy/op_hp` - 前哨站血量
+  - 類型: `std_msgs::msg::UInt16`
+  - 內容: 優先使用上行 TypeID 10 裡的裁判 `0x0003 ally_outpost_HP` / `enemy_outpost_HP` 精確值；TypeID 10 未收到或超過 1500ms 未更新時，才回退到 TypeID 1 `GameCode * 25`
+
+- `/ly/game/sentry/info` - 哨兵裁判狀態
+  - 類型: [`gimbal_driver::msg::SentryInfo`](../../src/gimbal_driver/msg/SentryInfo.msg)
+  - 內容: TypeID 7 發布 `0x020D sentry_info/sentry_info_2`，TypeID 10 更新 `sentry_info_3` shadow，隨下一次 TypeID 7 一起發布
+
+- `/ly/game/damage_difference` - 全隊總傷害差
+  - 類型: `std_msgs::msg::Int16`
+  - 內容: TypeID 6 承載裁判 `0x0003 game_robot_HP_t` offset 8，語義為「己方全隊總傷害 - 對方全隊總傷害」
+
 **訂閱的 Topic** (用於接收控制指令):
 - `/ly/control/angles` - 控制雲台角度
   - 類型: [`gimbal_driver::msg::GimbalAngles`](../../src/gimbal_driver/msg/GimbalAngles.msg)
@@ -273,7 +285,7 @@ if(control_result.valid){
 - `/ly/bt/sentry_position`
 
 **輸出**:
-- 串口通訊發送到下位機 17B downlink frame：`DownlinkTypeID=0x00 GimbalControlFrame` 和 `DownlinkTypeID=0x01 SentryCoordinateFrame`
+- 串口通訊按 `DownlinkTypeID` 分包：`0x00` 13B 主控制、`0x01` 6B `SentryCmd`、`0x02` 107B 裁判 `0x0307` 路徑、`0x03` 36B 裁判 `0x0308` 自訂訊息、`0x04` 17B 哨兵自身座標。
 
 ---
 

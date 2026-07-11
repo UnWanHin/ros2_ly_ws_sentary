@@ -80,3 +80,6 @@ flowchart LR
 - 2026-07-08 fallback update：補上 `Patrol.yaml` / `PatrolScan.TaskOverrides` 作為雲台巡邏 mode、FaceMode/Outpost fallback 和 pitch offset 的主配置鏈路，並新增 `docs/sentry/regional/patrol_scan_modes.md`。
 - 2026-07-08 fallback update：手動 `scripts/gimbal/patrolmode_pub.py` 也對齊 `Patrol.yaml`，`--outpost` 從 `PatrolScan.TaskOverrides.OutpostPitchOffsetDeg` 取值。
 - 2026-07-08 fallback update：`PatrolScan.Mode2` 已回到較早 500ms 參數組：`YawStep=1.0`、`YawBoost=1.1`、`YawHalfRange=30.0`、`CenterDrift=-70.0`、`PitchCenter=0.0`、`PitchHalfRange=13.0`、`PitchPeriodMs=500.0`。
+- 2026-07-11 fallback update：`TypeID=6 ChassisData` 不再承載姿態兼容回讀，改為承載裁判 `0x0003 game_robot_HP_t` offset 8 的 `damage_difference`，並新增 `/ly/game/damage_difference` topic。
+- 2026-07-11 fallback update：新增 `TypeID=10 SentryInfo3AndOutpostHpData`，承載 `0x020D sentry_info_3` 和 `0x0003 ally/enemy_outpost_HP`；`/ly/friend/op_hp`、`/ly/enemy/op_hp` 優先使用 TypeID 10 精確血量，TypeID 1 `GameCode * 25` 只作 fallback。
+- 2026-07-11 fallback update：下行改為 `DownlinkTypeID=0x00~0x04` 五種 frame：13B 控制、6B `sentry_cmd`、107B `0x0307` 路徑、36B `0x0308` 自訂訊息、17B 自身座標；新增 `/ly/control/map_path`、`/ly/control/custom_info`。

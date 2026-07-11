@@ -1,4 +1,4 @@
-# Semantic view of referee 0x0301 / data_cmd_id=0x0120 sentry_cmd.
+# Semantic view of RM2026 V2.0 referee 0x0301 / data_cmd_id=0x0120 sentry_cmd.
 # field_mask is for partial command updates:
 # - /ly/control/sentry_cmd: 0 means complete snapshot; otherwise set FIELD_* bits.
 # - /ly/control/posture: only posture is read; 0 or FIELD_POSTURE is accepted.

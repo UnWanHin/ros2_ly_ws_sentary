@@ -19,7 +19,7 @@ Updated: 2026-07-08
 
 | Prefix | 边界 | 说明 |
 |---|---|---|
-| `/ly/control/*` | Embedded-facing | 上位机控制输入，`gimbal_driver` 订阅后写入 `DownlinkTypeID=0x00` 主控制 frame。 |
+| `/ly/control/*` | Embedded-facing | 上位机控制输入，`gimbal_driver` 按 topic 写入 `DownlinkTypeID=0x00~0x03` 对应 frame。 |
 | `/ly/gimbal/*` | Embedded-facing | 下位机/云台/底盘回读状态，由 `gimbal_driver` 发布。 |
 | `/ly/game/*` | Embedded-facing | 裁判系统比赛状态、RFID、哨兵裁判信息和弹丸资源语义，由 `gimbal_driver` 从下位机上行拆出。 |
 | `/ly/friend/*`, `/ly/enemy/*`, `/ly/team/*` | Embedded-facing | 我方/敌方血量、弹量、队伍增益等语义状态。 |
@@ -39,9 +39,11 @@ Updated: 2026-07-08
 | `/ly/control/angles` | `gimbal_driver/msg/GimbalAngles` | `behavior_tree` 或 FaceMode | `gimbal_driver` | `header`, `yaw`, `pitch`，云台目标角。 |
 | `/ly/control/firecode` | `gimbal_driver/msg/FireCode` | `behavior_tree` | `gimbal_driver` | `field_mask`, `fire_status`, `cap_state`, `follow_mode`, `aim_mode`, `rotate`, `raw`。写入 1B `FireCode`。 |
 | `/ly/control/vel` | `gimbal_driver/msg/ControlVelocity` | `behavior_tree` | `gimbal_driver` | `x_mps`, `y_mps`, `raw_x`, `raw_y`, `use_raw`。当前 BT 用 `use_raw=true`。 |
-| `/ly/control/posture` | `gimbal_driver/msg/SentryCmd` | `behavior_tree` | `gimbal_driver` | 姿态专用入口，只读 `FIELD_POSTURE/posture`。写入 `SentryCmd bit21-22`。 |
-| `/ly/control/sentry_cmd` | `gimbal_driver/msg/SentryCmd` | 手动工具/后续策略 | `gimbal_driver` | 完整哨兵裁判命令入口，用于复活、兑弹、远程回血、能量机关确认等。 |
-| `/ly/bt/sentry_position` | `geometry_msgs/msg/PointStamped` | `behavior_tree` | `gimbal_driver` | BT 融合后的哨兵自身位置，`frame_id=map`，单位 m；`gimbal_driver` 转 cm 后写入 `DownlinkTypeID=0x01` 坐标 frame。 |
+| `/ly/control/posture` | `gimbal_driver/msg/SentryCmd` | `behavior_tree` | `gimbal_driver` | 姿态专用入口，只读 `FIELD_POSTURE/posture`，写入独立 `DownlinkTypeID=0x01` 的 `SentryCmd bit21-23`；可取 `1~6`。 |
+| `/ly/control/sentry_cmd` | `gimbal_driver/msg/SentryCmd` | 手动工具/后续策略 | `gimbal_driver` | 完整哨兵裁判命令入口，发独立 `DownlinkTypeID=0x01`，用于复活、兑弹、远程回血、能量机关确认等。 |
+| `/ly/control/map_path` | `gimbal_driver/msg/MapPath` | 上位机路径策略/工具 | `gimbal_driver` | 一次下发 `DownlinkTypeID=0x02`，裁判 `0x0307 map_data_t` 语义。 |
+| `/ly/control/custom_info` | `gimbal_driver/msg/CustomInfo` | 上位机工具 | `gimbal_driver` | 一次下发 `DownlinkTypeID=0x03`，裁判 `0x0308 custom_info_t`；携带完整 30B UTF-16 原始字节。 |
+| `/ly/bt/sentry_position` | `geometry_msgs/msg/PointStamped` | `behavior_tree` | `gimbal_driver` | BT 融合后的哨兵自身位置，`frame_id=map`，单位 m；`gimbal_driver` 转 cm 后写入 `DownlinkTypeID=0x04` 坐标 frame。 |
 
 当前 posture 测试命令：
 
@@ -66,7 +68,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/gimbal/vel` | `gimbal_driver/msg/Vel` | 调试/兼容 | `header`, `x`, `y`。 |
 | `/ly/gimbal/chassis` | `gimbal_driver/msg/Chassis` | `behavior_tree` | `steer_angle`, `angular_velocity`, `velocity_x`, `velocity_y`。 |
 | `/ly/gimbal/big_yaw_angles` | `std_msgs/msg/Float32` | 调试/可视化 | 大 yaw 角。 |
-| `/ly/gimbal/posture` | `std_msgs/msg/UInt8` | `behavior_tree` | 下位机/裁判姿态回读，`1/2/3` 有效；TypeID 7 的 `/ly/game/sentry/info.posture` 会覆盖 TypeID 6 回读；不要镜像命令。 |
+| `/ly/gimbal/posture` | `std_msgs/msg/UInt8` | `behavior_tree` | 下位机/裁判姿态回读，`1/2/3` 有效；来源为 TypeID 7 的 `/ly/game/sentry/info.posture`；不要镜像命令。 |
 | `/ly/gimbal/capV` | `std_msgs/msg/UInt8` | `behavior_tree` | 电容电压/电容状态回读。 |
 | `ly/gimbal/eventdata` | `std_msgs/msg/UInt32` | legacy 调试/兼容 | legacy 原始 event data，注意当前 gimbal 侧定义无前导 `/`；`behavior_tree` 不再订阅。 |
 | `/ly/game/event_data` | `gimbal_driver/msg/EventData` | `behavior_tree` | 裁判 `0x0101 event_data` 语义拆字段。 |
@@ -78,20 +80,21 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/friend/is_precaution` | `std_msgs/msg/Bool` | `behavior_tree` | 英雄预警。 |
 | `/ly/friend/hp` | `gimbal_driver/msg/Health` | `behavior_tree` | 我方各兵种血量。 |
 | `/ly/friend/base_hp` | `std_msgs/msg/UInt16` | `behavior_tree` | 我方基地血量。 |
-| `/ly/friend/op_hp` | `std_msgs/msg/UInt16` | `behavior_tree` | 我方前哨血量。 |
+| `/ly/friend/op_hp` | `std_msgs/msg/UInt16` | `behavior_tree` | 我方前哨血量；优先 TypeID 10 的 `0x0003 ally_outpost_HP` 精确值，TypeID 1 的 `GameCode.SelfOutpostHealth * 25` 只做 fallback。 |
 | `/ly/friend/ammo_left` | `std_msgs/msg/UInt16` | `behavior_tree` | 当前弹量。 |
 | `/ly/friend/uwb_pos` | `gimbal_driver/msg/StampedUInt16MultiArray` | `behavior_tree` | 自身官方坐标融合源，`data=[x, y]`，来自下位机 TypeID 5；`header.stamp` 为 `gimbal_driver` 发布时间。 |
 | `/ly/friend/uwb_yaw` | `std_msgs/msg/UInt16` | 调试/兼容 | 自身 UWB yaw。 |
 | `/ly/game/rfid` | `gimbal_driver/msg/RfidStatus` | `behavior_tree` | 裁判 `0x0209 rfid_status` 语义拆字段；TypeID 4 的低 32 bit 和 TypeID 8 的 `rfid_status_2` 在 `gimbal_driver` 内保留 shadow，任一侧更新都会合并发布完整消息；BT 内部聚合为 `RfidMatchState`。 |
 | `/ly/enemy/hp` | `gimbal_driver/msg/Health` | `behavior_tree` | 敌方各兵种血量。 |
 | `/ly/enemy/base_hp` | `std_msgs/msg/UInt16` | `behavior_tree` | 敌方基地血量。 |
-| `/ly/enemy/op_hp` | `std_msgs/msg/UInt16` | `behavior_tree` | 敌方前哨血量。 |
+| `/ly/enemy/op_hp` | `std_msgs/msg/UInt16` | `behavior_tree` | 敌方前哨血量；优先 TypeID 10 的 `0x0003 enemy_outpost_HP` 精确值，TypeID 1 的 `GameCode.EnemyOutpostHealth * 25` 只做 fallback。 |
 | `/ly/team/buff` | `gimbal_driver/msg/BuffData` | `behavior_tree` | 队伍增益与剩余能量。 |
 | `/ly/position/data` | `gimbal_driver/msg/PositionData` | `behavior_tree` | 官方坐标系统中一组友方/敌方机器人位置；`friendcarid == Sentry` 时作为自身坐标融合源。 |
 | `/ly/bullet/speed` | `std_msgs/msg/Float32` | predictor/调试 | 旧弹速 topic，来自 TypeID 5。 |
-| `/ly/game/sentry/info` | `gimbal_driver/msg/SentryInfo` | `behavior_tree`/调试 | 裁判 `0x020D sentry_info/sentry_info_2` 语义拆字段；其中有效 `posture` 会同步覆盖 `/ly/gimbal/posture`；BT 使用 `can_activate_energy_mechanism` 判斷打能量機關確認窗口。 |
+| `/ly/game/sentry/info` | `gimbal_driver/msg/SentryInfo` | `behavior_tree`/调试 | 裁判 `0x020D sentry_info/sentry_info_2/sentry_info_3` 语义拆字段；其中有效 `posture` 会同步覆盖 `/ly/gimbal/posture`；BT 使用 `can_activate_energy_mechanism` 判斷打能量機關確認窗口。 |
 | `/ly/game/bullet` | `gimbal_driver/msg/BulletInfo` | `behavior_tree`/调试 | TypeID 7/8 合并出的弹速、发射事件、允许发弹量、金币；BT 当前只订阅并缓存，暂不参与正式决策；RFID2 不在这里。 |
 | `/ly/game/map_command` | `gimbal_driver/msg/MapCommand` | `behavior_tree`/调试 | TypeID 9 转出的裁判 `0x0303 map_command_t`；`header.stamp` 为 `gimbal_driver` 发布时间；BT 当前只订阅并缓存，不触发导航。 |
+| `/ly/game/damage_difference` | `std_msgs/msg/Int16` | 调试/后续策略 | TypeID 6 转出的裁判 `0x0003 game_robot_HP_t` offset 8，`己方全队总伤害 - 对方全队总伤害`。 |
 
 ## 3.1 Raw Debug Topics
 
@@ -164,15 +167,17 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `gimbal_driver/msg/FireCode` | `field_mask`, `fire_status`, `cap_state`, `follow_mode`, `aim_mode`, `rotate`, `raw` | 1B 火控语义。 |
 | `gimbal_driver/msg/ControlVelocity` | `header`, `x_mps`, `y_mps`, `raw_x`, `raw_y`, `use_raw` | 下发底盘速度。 |
 | `gimbal_driver/msg/SentryCmd` | `field_mask`, `confirm_free_revive`, `confirm_immediate_revive`, `exchange_projectile_allowance`, `remote_projectile_exchange_count`, `remote_hp_exchange_count`, `posture`, `confirm_energy_activate`, `raw` | 裁判 `0x0301/0x0120 sentry_cmd` 语义。 |
-| `gimbal_driver/msg/Chassis` | `header`, `steer_angle`, `angular_velocity`, `velocity_x`, `velocity_y` | TypeID 6 底盘回读。 |
+| `gimbal_driver/msg/MapPath` | `intention`, `start_position_x_dm`, `start_position_y_dm`, `delta_x_dm[49]`, `delta_y_dm[49]`, `sender_id` | 裁判 `0x0307 map_data_t` 语义。 |
+| `gimbal_driver/msg/CustomInfo` | `sender_id`, `receiver_id`, `user_data_utf16[30]` | 裁判 `0x0308 custom_info_t` 语义。 |
+| `gimbal_driver/msg/Chassis` | `header`, `steer_angle`, `angular_velocity`, `velocity_x`, `velocity_y` | TypeID 6 底盘回读；同一 TypeID 还会额外发布 `/ly/game/damage_difference`。 |
 | `gimbal_driver/msg/GameData` | `gamecode`, `ammoleft`, `timeleft`, `selfhealth`, `exteventdata` | 比赛摘要。 |
 | `gimbal_driver/msg/EventData` | `raw`, supply/energy/highland/dart/gain point fields | 裁判 `0x0101 event_data` 语义拆分。 |
 | `gimbal_driver/msg/Health` | `hero`, `engineer`, `infantry1`, `infantry2`, `reserve`, `sentry` | 友方/敌方血量。 |
 | `gimbal_driver/msg/RfidStatus` | `raw`, RFID gain/crossing bits, `has_rfid_status_2`, `rfid_status_2_raw` | 裁判 RFID 状态。 |
-| `gimbal_driver/msg/SentryInfo` | `sentry_info_raw`, `sentry_info_2_raw`, exchange/revive/out_of_combat/posture/energy fields | 裁判 `0x020D` 哨兵状态。 |
+| `gimbal_driver/msg/SentryInfo` | `sentry_info_raw`, `sentry_info_2_raw`, `sentry_info_3_raw`, exchange/revive/out_of_combat/posture/energy/enhanced posture/remaining seconds fields | 裁判 `0x020D` 哨兵状态。 |
 | `gimbal_driver/msg/BulletInfo` | `initial_speed`, shoot data, projectile allowance, remaining coin | TypeID 7/8 弹丸与资源状态。 |
 | `gimbal_driver/msg/MapCommand` | `header`, `has_target_position`, `target_position_x_m`, `target_position_y_m`, `has_target_robot`, `target_robot_id`, `cmd_keyboard`, `cmd_source` | TypeID 9 / 裁判 `0x0303` 小地图命令输入。 |
-| `gimbal_driver/msg/GimbalRawFrame` | `header`, `direction`, `type_id`, `data`, `firecode_raw`, `sentry_cmd_raw` | 可选 raw 串口诊断 topic；TX 诊断 `type_id=255` 为 control，`254` 为 sentry coordinate。 |
+| `gimbal_driver/msg/GimbalRawFrame` | `header`, `direction`, `type_id`, `data`, `firecode_raw`, `sentry_cmd_raw` | 可选 raw 串口诊断 topic；TX `type_id=255/254/253/252/251` 依次为 control、sentry command、map path、custom info、sentry coordinate。 |
 | `sentry_msgs/msg/AimTargetArray` | `header`, `aim_targets[]` | 外部 aim 可打目标列表；`/ly/aim/armor_targets` 使用 `SensorDataQoS`。 |
 | `sentry_msgs/msg/AimTarget` | `header`, `position`, `id` | 外部 aim 候选目标和 BT 目标选择共用结构；`id` 对齐 `ArmorType`，`position` 为米制 point，`header.frame_id` 非空时才作为 Chase 真值点参与 TF 转换。 |
 | `sentry_msgs/msg/AimResult` | `header`, `follow`, `fire`, `pitch`, `yaw` | 外部 aim 的角度接管、最终角度与开火门控。 |

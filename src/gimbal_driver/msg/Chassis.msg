@@ -1,4 +1,6 @@
 # TypeID=6 chassis feedback decoded from lower machine packed fields
+# The same TypeID also carries 0x0003 damage_difference, published separately
+# as /ly/game/damage_difference.
 # reserve_32_1: low16=steer_angle, high16=angular_velocity
 # reserve_32_2: low16=velocity_x, high16=velocity_y
 # Each value is int16 raw from lower machine:

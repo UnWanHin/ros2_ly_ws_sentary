@@ -261,8 +261,8 @@ void TreeTick() {
 | `/ly/friend/hp` | `friendRobots` | 我方各車血量明細 |
 | `/ly/enemy/hp` | `enemyRobots` | 敵方血量 |
 | `/ly/friend/ammo_left` | `ammoLeft` | 子彈數 |
-| `/ly/enemy/op_hp` | `enemyOutpostHealth` | 敵方前哨血量 |
-| `/ly/friend/op_hp` | `selfOutpostHealth` | 我方前哨血量 |
+| `/ly/enemy/op_hp` | `enemyOutpostHealth` | 敵方前哨血量；`gimbal_driver` 優先用 TypeID 10 精確值，舊 `GameCode * 25` 只做 fallback |
+| `/ly/friend/op_hp` | `selfOutpostHealth` | 我方前哨血量；`gimbal_driver` 優先用 TypeID 10 精確值，舊 `GameCode * 25` 只做 fallback |
 | `/ly/friend/base_hp` | `selfBaseHealth` | 我方基地血量 |
 | `/ly/team/buff` | `teamBuff` | 增益狀態 |
 | `/ly/game/rfid` | `rfidStatus`, `rfidStatus2`, `rfidMatchState` | 裁判 RFID bit 語義和 BT 內部區域匹配狀態；1s 內未更新則 `RfidFresh=false` |

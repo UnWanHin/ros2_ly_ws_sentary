@@ -36,6 +36,7 @@
 #include "gimbal_driver/msg/gimbal_angles.hpp"
 #include "gimbal_driver/msg/chassis.hpp"
 #include "gimbal_driver/msg/control_velocity.hpp"
+#include "gimbal_driver/msg/custom_info.hpp"
 #include "gimbal_driver/msg/event_data.hpp"
 #include "gimbal_driver/msg/fire_code.hpp"
 #include "gimbal_driver/msg/rfid_status.hpp"
@@ -45,6 +46,7 @@
 #include "gimbal_driver/msg/health.hpp"
 #include "gimbal_driver/msg/game_data.hpp"
 #include "gimbal_driver/msg/map_command.hpp"
+#include "gimbal_driver/msg/map_path.hpp"
 #include "gimbal_driver/msg/buff_data.hpp"
 #include "gimbal_driver/msg/bullet_info.hpp"
 #include "gimbal_driver/msg/position_data.hpp"
@@ -54,6 +56,7 @@
 
 #include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/u_int8.hpp>
+#include <std_msgs/msg/int16.hpp>
 #include <std_msgs/msg/u_int16.hpp>
 #include <std_msgs/msg/u_int32.hpp>
 #include <std_msgs/msg/bool.hpp>
@@ -74,6 +77,8 @@ namespace
     LY_DEF_ROS_TOPIC(ly_control_vel, "/ly/control/vel", gimbal_driver::msg::ControlVelocity);
     LY_DEF_ROS_TOPIC(ly_control_posture, "/ly/control/posture", gimbal_driver::msg::SentryCmd);
     LY_DEF_ROS_TOPIC(ly_control_sentry_cmd, "/ly/control/sentry_cmd", gimbal_driver::msg::SentryCmd);
+    LY_DEF_ROS_TOPIC(ly_control_map_path, "/ly/control/map_path", gimbal_driver::msg::MapPath);
+    LY_DEF_ROS_TOPIC(ly_control_custom_info, "/ly/control/custom_info", gimbal_driver::msg::CustomInfo);
     LY_DEF_ROS_TOPIC(ly_navi_vel, "/ly/navi/vel", gimbal_driver::msg::Vel);
     LY_DEF_ROS_TOPIC(ly_bt_sentry_position, "/ly/bt/sentry_position", geometry_msgs::msg::PointStamped);
 
@@ -114,6 +119,7 @@ namespace
     LY_DEF_ROS_TOPIC(ly_game_sentry_info, "/ly/game/sentry/info", gimbal_driver::msg::SentryInfo);
     LY_DEF_ROS_TOPIC(ly_game_bullet, "/ly/game/bullet", gimbal_driver::msg::BulletInfo);
     LY_DEF_ROS_TOPIC(ly_game_map_command, "/ly/game/map_command", gimbal_driver::msg::MapCommand);
+    LY_DEF_ROS_TOPIC(ly_game_damage_difference, "/ly/game/damage_difference", std_msgs::msg::Int16);
         
 
     using namespace std::chrono_literals;
@@ -128,7 +134,8 @@ namespace
         IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame> Device{};
         MultiCallback<GimbalControlFrame> CallbackGenerator;
         GimbalControlFrame controlShadow_{};
-        std::uint8_t postureCommand_{0}; // 0=不控制, 1=进攻, 2=防御, 3=移动
+        SentryCmdType sentryCmdShadow_{};
+        std::uint8_t postureCommand_{0}; // 0=不控制, 1=进攻, 2=防御, 3=移动, 4~6=强化姿态
         std::uint8_t postureState_{0};   // 0=未知, 1=进攻, 2=防御, 3=移动
         int postureTxRepeatCount_{3};
         std::chrono::milliseconds postureTxInterval_{20};
@@ -161,10 +168,14 @@ namespace
         bool hasRfidStatusRaw_{false};
         std::uint8_t latestRfidStatus2_{0};
         bool hasRfidStatus2_{false};
+        std::uint64_t latestSentryInfo3_{0};
+        bool hasSentryInfo3_{false};
         float latestBulletInitialSpeed_{0.0f};
         bool hasBulletInitialSpeed_{false};
         BulletDataAndRfid2 latestBulletDataAndRfid2_{};
         bool hasBulletDataAndRfid2_{false};
+        std::chrono::steady_clock::time_point preciseOutpostHpLastRxTime_{};
+        std::chrono::milliseconds preciseOutpostHpFreshTimeout_{1500};
         bool rawSerialLogEnable_{false};
         bool rawSerialLogUplink_{true};
         bool rawSerialLogDownlink_{true};
@@ -196,8 +207,16 @@ namespace
             return posture >= 1 && posture <= 3;
         }
 
+        static bool IsValidPostureCommand(std::uint8_t posture) noexcept {
+            return posture >= 1 && posture <= 6;
+        }
+
         static std::uint8_t ClampU2(std::uint8_t value) noexcept {
             return static_cast<std::uint8_t>(value & 0x03u);
+        }
+
+        static std::uint8_t ClampU3(std::uint8_t value) noexcept {
+            return static_cast<std::uint8_t>(value & 0x07u);
         }
 
         static std::uint8_t ClampU8Bits(std::uint8_t value, unsigned width) noexcept {
@@ -239,6 +258,11 @@ namespace
         static std::uint16_t BitsU16(const std::uint32_t raw, const unsigned shift, const unsigned width) noexcept {
             const std::uint32_t mask = (1u << width) - 1u;
             return static_cast<std::uint16_t>((raw >> shift) & mask);
+        }
+
+        static std::uint8_t BitsU8FromU64(const std::uint64_t raw, const unsigned shift, const unsigned width) noexcept {
+            const std::uint64_t mask = (1ull << width) - 1ull;
+            return static_cast<std::uint8_t>((raw >> shift) & mask);
         }
 
         static std::uint8_t FireCodeRaw(const FireCodeType& firecode) noexcept {
@@ -284,6 +308,7 @@ namespace
                 case SentryData::TypeID: return "SentryData";
                 case BulletDataAndRfid2::TypeID: return "BulletDataAndRfid2";
                 case MapCommandData::TypeID: return "MapCommandData";
+                case SentryInfo3AndOutpostHpData::TypeID: return "SentryInfo3AndOutpostHpData";
                 default: return "Unknown";
             }
         }
@@ -515,7 +540,43 @@ namespace
             msg.type_id = gimbal_driver::msg::GimbalRawFrame::TYPE_ID_TX_CONTROL;
             AssignRawBytes(msg, data);
             msg.firecode_raw = FireCodeRaw(data.FireCode);
+            rawSerialTxPublisher_->publish(msg);
+        }
+
+        void PublishRawTxTopic(const SentryCommandFrame& data) {
+            if (!rawSerialTxPublisher_ || rawSerialTxPublisher_->get_subscription_count() == 0) {
+                return;
+            }
+            gimbal_driver::msg::GimbalRawFrame msg;
+            msg.header.stamp = Node.GetNode()->now();
+            msg.direction = gimbal_driver::msg::GimbalRawFrame::DIRECTION_TX;
+            msg.type_id = gimbal_driver::msg::GimbalRawFrame::TYPE_ID_TX_SENTRY_COMMAND;
+            AssignRawBytes(msg, data);
             msg.sentry_cmd_raw = std::bit_cast<std::uint32_t>(data.SentryCmd);
+            rawSerialTxPublisher_->publish(msg);
+        }
+
+        void PublishRawTxTopic(const MapPathFrame& data) {
+            if (!rawSerialTxPublisher_ || rawSerialTxPublisher_->get_subscription_count() == 0) {
+                return;
+            }
+            gimbal_driver::msg::GimbalRawFrame msg;
+            msg.header.stamp = Node.GetNode()->now();
+            msg.direction = gimbal_driver::msg::GimbalRawFrame::DIRECTION_TX;
+            msg.type_id = gimbal_driver::msg::GimbalRawFrame::TYPE_ID_TX_MAP_PATH;
+            AssignRawBytes(msg, data);
+            rawSerialTxPublisher_->publish(msg);
+        }
+
+        void PublishRawTxTopic(const CustomInfoFrame& data) {
+            if (!rawSerialTxPublisher_ || rawSerialTxPublisher_->get_subscription_count() == 0) {
+                return;
+            }
+            gimbal_driver::msg::GimbalRawFrame msg;
+            msg.header.stamp = Node.GetNode()->now();
+            msg.direction = gimbal_driver::msg::GimbalRawFrame::DIRECTION_TX;
+            msg.type_id = gimbal_driver::msg::GimbalRawFrame::TYPE_ID_TX_CUSTOM_INFO;
+            AssignRawBytes(msg, data);
             rawSerialTxPublisher_->publish(msg);
         }
 
@@ -550,12 +611,51 @@ namespace
 
         void LogDownlinkRaw(const GimbalControlFrame& data, const char* reason) {
             if (rawSerialLogEnable_ && rawSerialLogDownlink_) {
-                const auto sentry_cmd_raw = std::bit_cast<std::uint32_t>(data.SentryCmd);
                 std::ostringstream extra;
                 extra << "reason=" << (reason ? reason : "control")
-                      << " firecode_raw=" << static_cast<unsigned>(FireCodeRaw(data.FireCode))
-                      << " sentry_cmd_raw=" << sentry_cmd_raw;
+                      << " firecode_raw=" << static_cast<unsigned>(FireCodeRaw(data.FireCode));
                 WriteRawSerialLogLine("tx", "control", data, extra.str());
+            }
+
+            if (rawSerialTopicEnable_ && rawSerialTopicDownlink_) {
+                PublishRawTxTopic(data);
+            }
+        }
+
+        void LogDownlinkRaw(const SentryCommandFrame& data, const char* reason) {
+            if (rawSerialLogEnable_ && rawSerialLogDownlink_) {
+                std::ostringstream extra;
+                extra << "reason=" << (reason ? reason : "sentry_command")
+                      << " sentry_cmd_raw=" << std::bit_cast<std::uint32_t>(data.SentryCmd);
+                WriteRawSerialLogLine("tx", "sentry_command", data, extra.str());
+            }
+
+            if (rawSerialTopicEnable_ && rawSerialTopicDownlink_) {
+                PublishRawTxTopic(data);
+            }
+        }
+
+        void LogDownlinkRaw(const MapPathFrame& data, const char* reason) {
+            if (rawSerialLogEnable_ && rawSerialLogDownlink_) {
+                std::ostringstream extra;
+                extra << "reason=" << (reason ? reason : "map_path")
+                      << " intention=" << static_cast<unsigned>(data.Intention)
+                      << " sender_id=" << data.SenderId;
+                WriteRawSerialLogLine("tx", "map_path", data, extra.str());
+            }
+
+            if (rawSerialTopicEnable_ && rawSerialTopicDownlink_) {
+                PublishRawTxTopic(data);
+            }
+        }
+
+        void LogDownlinkRaw(const CustomInfoFrame& data, const char* reason) {
+            if (rawSerialLogEnable_ && rawSerialLogDownlink_) {
+                std::ostringstream extra;
+                extra << "reason=" << (reason ? reason : "custom_info")
+                      << " sender_id=" << data.SenderId
+                      << " receiver_id=" << data.ReceiverId;
+                WriteRawSerialLogLine("tx", "custom_info", data, extra.str());
             }
 
             if (rawSerialTopicEnable_ && rawSerialTopicDownlink_) {
@@ -631,10 +731,14 @@ namespace
             return msg;
         }
 
-        static gimbal_driver::msg::SentryInfo ToSentryInfoMsg(const SentryData& data) {
+        static gimbal_driver::msg::SentryInfo ToSentryInfoMsg(
+            const SentryData& data,
+            const bool has_sentry_info_3,
+            const std::uint64_t sentry_info_3) {
             gimbal_driver::msg::SentryInfo msg;
             msg.sentry_info_raw = data.SentryInfo;
             msg.sentry_info_2_raw = data.SentryInfo2;
+            msg.sentry_info_3_raw = has_sentry_info_3 ? sentry_info_3 : 0;
             msg.reserved = data.Reserved;
 
             msg.exchanged_projectile_allowance = BitsU16(data.SentryInfo, 0, 11);
@@ -649,7 +753,20 @@ namespace
             msg.remaining_exchangeable_17mm = BitsU16(data.SentryInfo2, 1, 11);
             msg.posture = BitsU8(data.SentryInfo2, 12, 2);
             msg.can_activate_energy_mechanism = Bit(data.SentryInfo2, 14);
-            msg.sentry_info_2_reserved = Bit(data.SentryInfo2, 15);
+            msg.enhanced_posture = Bit(data.SentryInfo2, 15);
+            msg.sentry_info_2_reserved = msg.enhanced_posture;
+
+            msg.has_sentry_info_3 = has_sentry_info_3;
+            if (has_sentry_info_3) {
+                msg.attack_posture_remaining_s = BitsU8FromU64(sentry_info_3, 0, 8);
+                msg.defense_posture_remaining_s = BitsU8FromU64(sentry_info_3, 8, 8);
+                msg.move_posture_remaining_s = BitsU8FromU64(sentry_info_3, 16, 8);
+                msg.sentry_info_3_reserved_low = BitsU8FromU64(sentry_info_3, 24, 8);
+                msg.enhanced_attack_posture_remaining_s = BitsU8FromU64(sentry_info_3, 32, 8);
+                msg.enhanced_defense_posture_remaining_s = BitsU8FromU64(sentry_info_3, 40, 8);
+                msg.enhanced_move_posture_remaining_s = BitsU8FromU64(sentry_info_3, 48, 8);
+                msg.sentry_info_3_reserved_high = BitsU8FromU64(sentry_info_3, 56, 8);
+            }
             return msg;
         }
 
@@ -676,18 +793,6 @@ namespace
             return static_cast<float>(raw) * velocityRawToMps_;
         }
 
-        static std::uint8_t DecodePostureFromU16(std::uint16_t posture_raw) noexcept {
-            // 兼容两种编码：
-            // 1) 老约定：高8位是姿态值
-            // 2) 新约定：低8位直接是姿态值
-            const auto low8 = static_cast<std::uint8_t>(posture_raw & 0xFFu);
-            if (IsValidPosture(low8)) {
-                return low8;
-            }
-            const auto high8 = static_cast<std::uint8_t>((posture_raw >> 8) & 0xFFu);
-            return IsValidPosture(high8) ? high8 : 0u;
-        }
-
         static std::int16_t DecodeI16(std::uint16_t raw) noexcept {
             return std::bit_cast<std::int16_t>(raw);
         }
@@ -706,7 +811,7 @@ namespace
         }
 
         void ArmPostureTx(std::uint8_t posture) {
-            if (!IsValidPosture(posture)) {
+            if (!IsValidPostureCommand(posture)) {
                 return;
             }
             if (posture == postureLastSent_ && posturePendingRepeat_ == 0) {
@@ -728,14 +833,15 @@ namespace
                 return;
             }
 
-            auto tx = controlShadow_;
-            tx.SentryCmd.Posture = posturePendingToSend_;
-            if (!Device.Write(tx)) {
+            SentryCommandFrame frame;
+            frame.SentryCmd = sentryCmdShadow_;
+            frame.SentryCmd.Posture = posturePendingToSend_;
+            if (!Device.WriteRaw(frame)) {
                 DeviceError = true;
                 return;
             }
-            LogDownlinkRaw(tx, "posture_repeat");
-            controlShadow_ = tx;
+            LogDownlinkRaw(frame, "posture_repeat");
+            sentryCmdShadow_ = frame.SentryCmd;
 
             posturePendingRepeat_--;
             postureNextSendTime_ = now + postureTxInterval_;
@@ -749,6 +855,29 @@ namespace
             topic::Msg msg;
             msg.data = posture;
             Node.Publisher<topic>()->publish(msg);
+        }
+
+        bool HasFreshPreciseOutpostHp() const noexcept {
+            if (preciseOutpostHpLastRxTime_.time_since_epoch().count() == 0) {
+                return false;
+            }
+            return std::chrono::steady_clock::now() - preciseOutpostHpLastRxTime_ <=
+                   preciseOutpostHpFreshTimeout_;
+        }
+
+        void PublishOutpostHp(std::uint16_t self_hp, std::uint16_t enemy_hp) {
+            {
+                using topic = ly_enemy_op_hp;
+                topic::Msg msg;
+                msg.data = enemy_hp;
+                Node.Publisher<topic>()->publish(msg);
+            }
+            {
+                using topic = ly_friend_op_hp;
+                topic::Msg msg;
+                msg.data = self_hp;
+                Node.Publisher<topic>()->publish(msg);
+            }
         }
 
         void DegradeStaleFireCode(FireCodeType& firecode, const std::chrono::steady_clock::time_point now) const {
@@ -800,7 +929,7 @@ namespace
             }
         }
 
-        void ApplySentryCmdCommand(GimbalControlFrame& g, const gimbal_driver::msg::SentryCmd& m) {
+        void ApplySentryCmdCommand(SentryCmdType& command, const gimbal_driver::msg::SentryCmd& m) {
             const bool full_snapshot = (m.field_mask == 0) ||
                 ((m.field_mask & gimbal_driver::msg::SentryCmd::FIELD_ALL) == gimbal_driver::msg::SentryCmd::FIELD_ALL);
 
@@ -809,39 +938,91 @@ namespace
             };
 
             if (has_field(gimbal_driver::msg::SentryCmd::FIELD_CONFIRM_FREE_REVIVE)) {
-                g.SentryCmd.ConfirmFreeRevive = m.confirm_free_revive ? 1 : 0;
+                command.ConfirmFreeRevive = m.confirm_free_revive ? 1 : 0;
             }
             if (has_field(gimbal_driver::msg::SentryCmd::FIELD_CONFIRM_IMMEDIATE_REVIVE)) {
-                g.SentryCmd.ConfirmImmediateRevive = m.confirm_immediate_revive ? 1 : 0;
+                command.ConfirmImmediateRevive = m.confirm_immediate_revive ? 1 : 0;
             }
             if (has_field(gimbal_driver::msg::SentryCmd::FIELD_EXCHANGE_PROJECTILE_ALLOWANCE)) {
-                g.SentryCmd.ExchangeProjectileAllowance = ClampU16Bits(m.exchange_projectile_allowance, 11);
+                command.ExchangeProjectileAllowance = ClampU16Bits(m.exchange_projectile_allowance, 11);
             }
             if (has_field(gimbal_driver::msg::SentryCmd::FIELD_REMOTE_PROJECTILE_EXCHANGE_COUNT)) {
-                g.SentryCmd.RemoteProjectileExchangeCount =
+                command.RemoteProjectileExchangeCount =
                     ClampU8Bits(m.remote_projectile_exchange_count, 4);
             }
             if (has_field(gimbal_driver::msg::SentryCmd::FIELD_REMOTE_HP_EXCHANGE_COUNT)) {
-                g.SentryCmd.RemoteHpExchangeCount = ClampU8Bits(m.remote_hp_exchange_count, 4);
+                command.RemoteHpExchangeCount = ClampU8Bits(m.remote_hp_exchange_count, 4);
             }
             if (has_field(gimbal_driver::msg::SentryCmd::FIELD_POSTURE)) {
-                const auto posture = ClampU2(m.posture);
-                if (m.posture != posture) {
-                    roslog::warn("Invalid /ly/control/sentry_cmd posture: %u (expect 0/1/2/3)",
+                if (m.posture > 6) {
+                    roslog::warn("Invalid /ly/control/sentry_cmd posture: %u (expect 0/1/2/3/4/5/6)",
                                  m.posture);
-                }
-                g.SentryCmd.Posture = posture;
-                postureCommand_ = posture;
-                if (posture == 0) {
-                    posturePendingRepeat_ = 0;
-                    posturePendingToSend_ = 0;
                 } else {
-                    ArmPostureTx(posture);
+                    const auto posture = ClampU3(m.posture);
+                    command.Posture = posture;
+                    postureCommand_ = posture;
+                    if (posture == 0) {
+                        posturePendingRepeat_ = 0;
+                        posturePendingToSend_ = 0;
+                    } else {
+                        ArmPostureTx(posture);
+                    }
                 }
             }
             if (has_field(gimbal_driver::msg::SentryCmd::FIELD_CONFIRM_ENERGY_ACTIVATE)) {
-                g.SentryCmd.ConfirmEnergyActivate = m.confirm_energy_activate ? 1 : 0;
+                command.ConfirmEnergyActivate = m.confirm_energy_activate ? 1 : 0;
             }
+        }
+
+        bool SendSentryCommand(const char* reason) {
+            if (DeviceError) {
+                return false;
+            }
+            SentryCommandFrame frame;
+            frame.SentryCmd = sentryCmdShadow_;
+            if (!Device.WriteRaw(frame)) {
+                DeviceError = true;
+                return false;
+            }
+            LogDownlinkRaw(frame, reason);
+            return true;
+        }
+
+        void SendMapPath(const gimbal_driver::msg::MapPath& msg) {
+            if (DeviceError) {
+                return;
+            }
+            if (msg.intention < 1 || msg.intention > 3) {
+                roslog::warn("Invalid /ly/control/map_path intention: %u (expect 1/2/3)", msg.intention);
+                return;
+            }
+            MapPathFrame frame;
+            frame.Intention = msg.intention;
+            frame.StartPositionX_dm = msg.start_position_x_dm;
+            frame.StartPositionY_dm = msg.start_position_y_dm;
+            std::copy(msg.delta_x_dm.begin(), msg.delta_x_dm.end(), std::begin(frame.DeltaX_dm));
+            std::copy(msg.delta_y_dm.begin(), msg.delta_y_dm.end(), std::begin(frame.DeltaY_dm));
+            frame.SenderId = msg.sender_id;
+            if (!Device.WriteRaw(frame)) {
+                DeviceError = true;
+                return;
+            }
+            LogDownlinkRaw(frame, "map_path");
+        }
+
+        void SendCustomInfo(const gimbal_driver::msg::CustomInfo& msg) {
+            if (DeviceError) {
+                return;
+            }
+            CustomInfoFrame frame;
+            frame.SenderId = msg.sender_id;
+            frame.ReceiverId = msg.receiver_id;
+            std::copy(msg.user_data_utf16.begin(), msg.user_data_utf16.end(), std::begin(frame.UserDataUtf16));
+            if (!Device.WriteRaw(frame)) {
+                DeviceError = true;
+                return;
+            }
+            LogDownlinkRaw(frame, "custom_info");
         }
 
         void MaybeSendSentryCoordinate() {
@@ -1015,38 +1196,45 @@ namespace
                                         g.Velocity.Y = EncodeNavigationTestVelocityRaw(m.y);
                                         navigationTestLastVelRxTime_ = std::chrono::steady_clock::now();
                                         navigationTestVelocityActive_ = true;
-                                    });
+                });
             }
 
-            GenSub<ly_control_posture>([this](GimbalControlFrame& g, const gimbal_driver::msg::SentryCmd& m)
-                                       {
-                                           const bool has_posture =
-                                               m.field_mask == 0 ||
-                                               ((m.field_mask & gimbal_driver::msg::SentryCmd::FIELD_POSTURE) != 0);
-                                           if (!has_posture) {
-                                               roslog::warn("/ly/control/posture missing FIELD_POSTURE; ignore");
-                                               return;
-                                           }
-                                           const auto cmd = m.posture;
-                                           if (cmd != 0 && !IsValidPosture(cmd)) {
-                                               roslog::warn("Invalid /ly/control/posture: %u (expect 0/1/2/3)", cmd);
-                                               return;
-                                           }
-                                           postureCommand_ = cmd;
-                                           g.SentryCmd.Posture = cmd;
-                                           // /ly/gimbal/posture 由下位机/裁判回读驱动，避免命令回环掩盖真实执行状态。
-                                           if (cmd == 0) {
-                                               posturePendingRepeat_ = 0;
-                                               posturePendingToSend_ = 0;
-                                               return;
-                                           }
-                                           ArmPostureTx(cmd);
-                                       });
+            Node.GenSubscriber<ly_control_posture>([this](const ly_control_posture::CallbackArg msg) {
+                const bool has_posture =
+                    msg->field_mask == 0 ||
+                    ((msg->field_mask & gimbal_driver::msg::SentryCmd::FIELD_POSTURE) != 0);
+                if (!has_posture) {
+                    roslog::warn("/ly/control/posture missing FIELD_POSTURE; ignore");
+                    return;
+                }
+                const auto command = msg->posture;
+                if (command != 0 && !IsValidPostureCommand(command)) {
+                    roslog::warn("Invalid /ly/control/posture: %u (expect 0/1/2/3/4/5/6)", command);
+                    return;
+                }
+                postureCommand_ = command;
+                sentryCmdShadow_.Posture = command;
+                if (command == 0) {
+                    posturePendingRepeat_ = 0;
+                    posturePendingToSend_ = 0;
+                } else {
+                    ArmPostureTx(command);
+                }
+                SendSentryCommand("posture");
+            });
 
-            GenSub<ly_control_sentry_cmd>([this](GimbalControlFrame& g, const gimbal_driver::msg::SentryCmd& m)
-                                          {
-                                              ApplySentryCmdCommand(g, m);
-                                          });
+            Node.GenSubscriber<ly_control_sentry_cmd>([this](const ly_control_sentry_cmd::CallbackArg msg) {
+                ApplySentryCmdCommand(sentryCmdShadow_, *msg);
+                SendSentryCommand("sentry_command");
+            });
+
+            Node.GenSubscriber<ly_control_map_path>([this](const ly_control_map_path::CallbackArg msg) {
+                SendMapPath(*msg);
+            });
+
+            Node.GenSubscriber<ly_control_custom_info>([this](const ly_control_custom_info::CallbackArg msg) {
+                SendCustomInfo(*msg);
+            });
         }
 
         void PublishRfidStatus(const rclcpp::Time& stamp) {
@@ -1111,6 +1299,7 @@ namespace
 
         void PubGameData(const GameData& data)
         {
+            const bool use_legacy_outpost_hp = !HasFreshPreciseOutpostHp();
             {
                 using topic = ly_game_all;
                 topic::Msg msg;
@@ -1127,11 +1316,10 @@ namespace
                 msg.data = data.AmmoLeft;
                 Node.Publisher<topic>()->publish(msg);
             }
-            {
-                using topic = ly_enemy_op_hp;
-                topic::Msg msg;
-                msg.data = data.GameCode.EnemyOutpostHealth * 25;
-                Node.Publisher<topic>()->publish(msg);
+            if (use_legacy_outpost_hp) {
+                PublishOutpostHp(
+                    static_cast<std::uint16_t>(data.GameCode.SelfOutpostHealth * 25u),
+                    static_cast<std::uint16_t>(data.GameCode.EnemyOutpostHealth * 25u));
             }
             {
                 using topic = ly_friend_is_precaution;
@@ -1155,12 +1343,6 @@ namespace
                 using topic = ly_friend_is_at_home;
                 topic::Msg msg;
                 msg.data = data.GameCode.IsReturnedHome;
-                Node.Publisher<topic>()->publish(msg);
-            }
-            {
-                using topic = ly_friend_op_hp;
-                topic::Msg msg;
-                msg.data = data.GameCode.SelfOutpostHealth * 25;
                 Node.Publisher<topic>()->publish(msg);
             }
             {
@@ -1322,17 +1504,17 @@ namespace
                 msg.y = velocity_y;
                 Node.Publisher<topic>()->publish(msg);
             }
-
-            const auto posture_raw = DecodePostureFromU16(data.Posture);
-            if (IsValidPosture(posture_raw)) {
-                postureState_ = posture_raw;
-                PublishPosture(postureState_);
+            {
+                using topic = ly_game_damage_difference;
+                topic::Msg msg;
+                msg.data = data.DamageDifference;
+                Node.Publisher<topic>()->publish(msg);
             }
         }
 
         void PubSentryData(const SentryData& data) {
             const auto now = Node.GetNode()->now();
-            auto sentry_info_msg = ToSentryInfoMsg(data);
+            auto sentry_info_msg = ToSentryInfoMsg(data, hasSentryInfo3_, latestSentryInfo3_);
             sentry_info_msg.header.stamp = now;
             {
                 using topic = ly_game_sentry_info;
@@ -1346,6 +1528,13 @@ namespace
             latestBulletInitialSpeed_ = data.BulletInitialSpeed;
             hasBulletInitialSpeed_ = true;
             PublishBulletInfo(now);
+        }
+
+        void PubSentryInfo3AndOutpostHpData(const SentryInfo3AndOutpostHpData& data) {
+            latestSentryInfo3_ = data.SentryInfo3;
+            hasSentryInfo3_ = true;
+            preciseOutpostHpLastRxTime_ = std::chrono::steady_clock::now();
+            PublishOutpostHp(data.SelfOutpostHealth, data.EnemyOutpostHealth);
         }
 
         void PubBulletDataAndRfid2(const BulletDataAndRfid2& data) {
@@ -1425,6 +1614,11 @@ namespace
                     case MapCommandData::TypeID:
                     {
                         PubMapCommandData(m.GetDataAs<MapCommandData>());
+                        break;
+                    }
+                    case SentryInfo3AndOutpostHpData::TypeID:
+                    {
+                        PubSentryInfo3AndOutpostHpData(m.GetDataAs<SentryInfo3AndOutpostHpData>());
                         break;
                     }
 
@@ -1735,8 +1929,8 @@ namespace
                 postureLastSent_ = 0;
                 navigationTestVelocityActive_ = false;
                 navigationTestLastVelRxTime_ = {};
-                controlShadow_.SentryCmd.Posture = IsValidPosture(postureCommand_) ? postureCommand_ : 0;
-                if (IsValidPosture(postureCommand_)) {
+                sentryCmdShadow_.Posture = IsValidPostureCommand(postureCommand_) ? postureCommand_ : 0;
+                if (IsValidPostureCommand(postureCommand_)) {
                     ArmPostureTx(postureCommand_);
                 }
                 std::jthread reading{ [this, useVirtualDevice] { useVirtualDevice ? TestVirtualLoopback() : LoopRead(); } };

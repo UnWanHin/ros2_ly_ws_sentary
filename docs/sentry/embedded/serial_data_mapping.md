@@ -1,6 +1,6 @@
 # 串口上下行数据映射总表
 
-Updated: 2026-07-08
+Updated: 2026-07-11
 
 ## 1. 说明
 
@@ -30,12 +30,12 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 含义：
 
 - 上行：下位机 -> 上位机，使用 `TypedMessage`
-- 下行：上位机 -> 下位机，直接写 17B downlink frame
+- 下行：上位机 -> 下位机，`GimbalControlFrame` 为默认写类型，其他 `DownlinkTypeID` frame 通过 `WriteRaw()` 写入
 
 也就是说：
 
 1. 上行是**带 `TypeID` 的分型幀**
-2. 下行是**带 `DownlinkTypeID` 的 17B 分型 frame**，当前 `0x00=GimbalControlFrame`、`0x01=SentryCoordinateFrame`
+2. 下行是**带 `DownlinkTypeID` 的可变长度 frame**：`0x00=13B`、`0x01=6B`、`0x02=107B`、`0x03=36B`、`0x04=17B`
 
 上行 `TypeID` 和下行 `DownlinkTypeID` 是独立编号空间，不共用语义。
 
@@ -76,8 +76,9 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 
 ```text
 time_ns rx 7 size=15 hex="21 07 ..." name=SentryData
-time_ns tx control size=17 hex="21 00 ..." reason=control_callback firecode_raw=0 sentry_cmd_raw=0
-time_ns tx sentry_coordinate size=17 hex="21 01 ..." reason=sentry_coordinate downlink_type_id=1 x_cm=1230 y_cm=450 crc8=42
+time_ns tx control size=13 hex="21 00 ..." reason=control_callback firecode_raw=0
+time_ns tx sentry_command size=6 hex="21 01 ..." reason=posture sentry_cmd_raw=0
+time_ns tx sentry_coordinate size=17 hex="21 04 ..." reason=sentry_coordinate downlink_type_id=4 x_cm=1230 y_cm=450 crc8=42
 ```
 
 注意：`gimbal_raw.file.type_ids` 只过滤上行 `TypeID`。下行是否记录只由 `gimbal_raw.file.downlink` 控制。
@@ -97,9 +98,24 @@ raw topic 使用 `gimbal_driver/msg/GimbalRawFrame`，`data` 是原始二进制 
 
 ## 3. 下行：上位机 -> 下位机
 
-## 3.1 当前下发结构
+### 3.0 当前下发结构（RM2026 V2.0）
 
-当前有两个 17B downlink frame。固件先读 byte1 的 `DownlinkTypeID` 再分支解析：
+固件先读 byte1 的 `DownlinkTypeID`，再按长度和字段解析：
+
+| ID | frame | 总长度 | ROS 输入/用途 |
+|---|---|---:|---|
+| `0x00` | `GimbalControlFrame` | 13B | `/ly/control/angles`、`/ly/control/vel`、`/ly/control/firecode` |
+| `0x01` | `SentryCommandFrame` | 6B | `/ly/control/posture`、`/ly/control/sentry_cmd`，映射裁判 `0x0120` |
+| `0x02` | `MapPathFrame` | 107B | `/ly/control/map_path`，映射裁判 `0x0307` |
+| `0x03` | `CustomInfoFrame` | 36B | `/ly/control/custom_info`，映射裁判 `0x0308` |
+| `0x04` | `SentryCoordinateFrame` | 17B | `/ly/bt/sentry_position`，坐标 frame 保留 CRC8 |
+
+完整字节布局、CRC8、V2.0 `SentryCmd` 位定义和旧协议迁移规则以
+[`docs/sentry/embedded/downlink_control_frame.md`](downlink_control_frame.md) 为准。
+
+### 3.1 历史 V1.3 17B 布局（已废弃；下述 ID/字段均非当前实现）
+
+以下两包描述的是已废弃的 V1.3 布局，仅保留作联调历史对照；不得用于当前固件。
 
 - `0x00`：`GimbalControlFrame`
 - `0x01`：`SentryCoordinateFrame`
@@ -256,6 +272,7 @@ TypedMessage<sizeof(GimbalData)>
 | `7` | `SentryData` | `PubSentryData()` |
 | `8` | `BulletDataAndRfid2` | `PubBulletDataAndRfid2()` |
 | `9` | `MapCommandData` | `PubMapCommandData()` |
+| `10` | `SentryInfo3AndOutpostHpData` | `PubSentryInfo3AndOutpostHpData()` |
 
 ---
 
@@ -314,10 +331,11 @@ struct GameData
 | 9~14 | `SelfOutpostHealth` | 我方前哨站血量分度值 |
 | 15 | `IsReturnedHome` | 是否回家 |
 
-当前代码对前哨站血量的处理是：
+当前代码对这里的前哨站血量只做兼容 fallback：
 
-- `EnemyOutpostHealth * 25` -> `/ly/enemy/op_hp`
-- `SelfOutpostHealth * 25` -> `/ly/friend/op_hp`
+- 如果 `TypeID=10` 精确前哨站血量未收到或超过 1500ms 未更新，`EnemyOutpostHealth * 25` -> `/ly/enemy/op_hp`
+- 如果 `TypeID=10` 精确前哨站血量未收到或超过 1500ms 未更新，`SelfOutpostHealth * 25` -> `/ly/friend/op_hp`
+- `TypeID=10` 新鲜时，不允许 `TypeID=1` 的 `*25` 旧值覆盖 `/ly/friend/op_hp` 和 `/ly/enemy/op_hp`
 
 ### 5.2.2 `ExtEventData` 位定义
 
@@ -351,12 +369,12 @@ struct GameData
 | `ExtEventData` | 整体转 `uint32` | `/ly/game/all` | `exteventdata` |
 | `ExtEventData` | 整体转 `uint32` | `ly/gimbal/eventdata` | `data`，注意当前 topic 字符串无前导 `/` |
 | `ExtEventData` | 按 V1.3.0 bit 拆字段 | `/ly/game/event_data` | `EventData` |
-| `GameCode.EnemyOutpostHealth` | `* 25` | `/ly/enemy/op_hp` | `data` |
+| `GameCode.EnemyOutpostHealth` | `* 25` fallback | `/ly/enemy/op_hp` | 仅在 `TypeID=10` 精确前哨血量未收到或超过 1500ms 未更新时发布 |
 | `GameCode.HeroPrecaution` | 直接读 bit | `/ly/friend/is_precaution` | `data` |
 | `GameCode.IsGameBegin` | 直接读 bit | `/ly/game/is_start` | `data` |
 | `GameCode.IsMyTeamRed` | 直接读 bit | `/ly/friend/is_team_red` | `data` |
 | `GameCode.IsReturnedHome` | 直接读 bit | `/ly/friend/is_at_home` | `data` |
-| `GameCode.SelfOutpostHealth` | `* 25` | `/ly/friend/op_hp` | `data` |
+| `GameCode.SelfOutpostHealth` | `* 25` fallback | `/ly/friend/op_hp` | 仅在 `TypeID=10` 精确前哨血量未收到或超过 1500ms 未更新时发布 |
 
 ---
 
@@ -571,7 +589,7 @@ data.Friend.CarId == 7
 ```cpp
 struct ChassisData {
     std::uint16_t UWBAngleYaw;
-    std::uint16_t Posture;
+    std::int16_t DamageDifference;
     std::uint32_t ChassisPacked1;
     std::uint32_t ChassisPacked2;
 };
@@ -582,7 +600,7 @@ struct ChassisData {
 | 串口字段 | 解析方式 | 发布 topic | 备注 |
 |---|---|---|---|
 | `UWBAngleYaw` | 直接读 `uint16` | `/ly/friend/uwb_yaw` | 自身朝向角 |
-| `Posture` | 先读低8位，低8位无效时回退高8位；按 `uint8` 姿态值解析 | `/ly/gimbal/posture` | TypeID 6 兼容回读；仅 `1/2/3` 才发布 |
+| `DamageDifference` | 直接读 `int16` | `/ly/game/damage_difference` | 裁判 `0x0003 game_robot_HP_t` offset 8，己方全队总伤害与对方全队总伤害之差 |
 | `ChassisPacked1` low16（byte0~1） | 8位整数+8位小数（2位小数） | `/ly/gimbal/chassis` | `steer_angle` |
 | `ChassisPacked1` high16（byte2~3） | 8位整数+8位小数（2位小数） | `/ly/gimbal/chassis` | `angular_velocity` |
 | `ChassisPacked2` low16（byte0~1） | 8位整数+8位小数（2位小数） | `/ly/gimbal/chassis` | `velocity_x` |
@@ -590,20 +608,16 @@ struct ChassisData {
 
 ### 5.7.2 姿态回读规则
 
-当前代码约定：
+TypeID 6 不再承载姿态兼容回读。姿态回读只从 TypeID 7 的 `SentryData.SentryInfo2`
+拆出；`0x020D sentry_info_2 bit12-13` 为有效 `1/2/3` 时，`gimbal_driver`
+发布 `/ly/gimbal/posture`。
 
-| 值 | 含义 |
-|---|---|
-| `0` | 未知 / 无效 |
-| `1` | 进攻 |
-| `2` | 防御 |
-| `3` | 移动 |
+下位机对接要求：
 
-但要注意当前代码行为：
-
-- 文档语义上 `0` 表示未知
-- TypeID 6 和 TypeID 7 都只有 `1/2/3` 会发布 `/ly/gimbal/posture`
-- 如果下位机发 `0`，当前上位机不会主动发布一个新的 `0`
+- TypeID 6 byte `2~3` 填 `int16_t DamageDifference`。
+- 来源是 RM2026 通信协议 V2.0.0 `0x0003 game_robot_HP_t` byte offset `8`。
+- 语义是 `己方全队总伤害 - 对方全队总伤害`，允许为负数。
+- TypeID 6 不再用于姿态；姿态请透传 TypeID 7 的 `0x020D sentry_info_2.posture`。
 
 ---
 
@@ -632,6 +646,11 @@ struct SentryData {
 `0x020D sentry_info_2 bit12-13` 会发布到 `SentryInfo.posture`。当该字段为有效
 `1/2/3` 时，`gimbal_driver` 也会同步覆盖发布到 `/ly/gimbal/posture`，作为当前优先姿态回读来源。
 
+`0x020D sentry_info_3` 因为 `TypeID=7` payload 已满，改由 `TypeID=10` 更新 shadow；
+`/ly/game/sentry/info` 仍由 `TypeID=7` 的节奏发布，并在已收到 `TypeID=10` 后附带最新
+`sentry_info_3_raw` 与拆出的剩余时间字段。这样不会用高频前哨血量包刷新
+`sentry_info_2` 的新鲜度。
+
 ### 5.8.1 `SentryInfo` 拆字段
 
 | 字段 | 位 | ROS 字段 |
@@ -647,7 +666,21 @@ struct SentryData {
 | 队伍 17mm 允许发弹量剩余可兑换数 | `bit1-11` | `remaining_exchangeable_17mm` |
 | 当前姿态 | `bit12-13` | `posture` |
 | 己方能量机关当前可进入正在激活状态 | `bit14` | `can_activate_energy_mechanism` |
-| 保留 | `bit15` | `sentry_info_2_reserved` |
+| 当前姿态是否为强化姿态 | `bit15` | `enhanced_posture`，同时保留 `sentry_info_2_reserved` 兼容字段 |
+
+### 5.8.2 `SentryInfo3` 拆字段
+
+| 字段 | 位 | ROS 字段 |
+|---|---|---|
+| 是否已经收到 `sentry_info_3` | - | `has_sentry_info_3` |
+| 哨兵进攻姿态弱化前剩余可持续时长，单位秒 | `sentry_info_3 bit0-7` | `attack_posture_remaining_s` |
+| 哨兵防御姿态弱化前剩余可持续时长，单位秒 | `bit8-15` | `defense_posture_remaining_s` |
+| 哨兵移动姿态弱化前剩余可持续时长，单位秒 | `bit16-23` | `move_posture_remaining_s` |
+| 保留 | `bit24-31` | `sentry_info_3_reserved_low` |
+| 哨兵强化进攻姿态剩余可持续时长，单位秒 | `bit32-39` | `enhanced_attack_posture_remaining_s` |
+| 哨兵强化防御姿态剩余可持续时长，单位秒 | `bit40-47` | `enhanced_defense_posture_remaining_s` |
+| 哨兵强化移动姿态剩余可持续时长，单位秒 | `bit48-55` | `enhanced_move_posture_remaining_s` |
+| 保留 | `bit56-63` | `sentry_info_3_reserved_high` |
 
 ## 5.9 `TypeID=8` - `BulletDataAndRfid2`
 
@@ -725,6 +758,42 @@ ROS 语义：
 字段合计为 `12B`。本仓库 `TypeID=9` 使用详细结构的 `12B` payload；外层
 `TypedMessage<sizeof(GimbalData)>` 总长度仍为 `15B`。
 
+## 5.11 `TypeID=10` - `SentryInfo3AndOutpostHpData`
+
+结构：
+
+```cpp
+struct SentryInfo3AndOutpostHpData {
+    uint64_t SentryInfo3;
+    uint16_t SelfOutpostHealth;
+    uint16_t EnemyOutpostHealth;
+};
+```
+
+### 5.11.1 字节布局
+
+| byte offset | 字段 | 裁判系统字段 | 发布 topic / ROS 字段 |
+|---|---|---|---|
+| 0~7 | `SentryInfo3` | `0x020D sentry_info_t.sentry_info_3` offset 6 | 更新 `/ly/game/sentry/info` 的 `sentry_info_3_raw` shadow；实际发布仍由 TypeID=7 触发 |
+| 8~9 | `SelfOutpostHealth` | `0x0003 game_robot_HP_t.ally_outpost_HP` offset 12 | `/ly/friend/op_hp.data` |
+| 10~11 | `EnemyOutpostHealth` | `0x0003 game_robot_HP_t.enemy_outpost_HP` offset 16 | `/ly/enemy/op_hp.data` |
+
+下位机要注意：这里按裁判 `0x0003` 官方顺序放前哨血量，**己方/ally 在前，敌方/enemy 在后**。
+不要沿用旧 `GameCodeType` 的 `EnemyOutpostHealth` 在前的 bit-field 顺序。
+
+### 5.11.2 前哨血量优先级
+
+`/ly/friend/op_hp` 和 `/ly/enemy/op_hp` 的优先级是：
+
+1. `TypeID=10` 的 `SelfOutpostHealth` / `EnemyOutpostHealth`，直接按 `uint16_t` 原始血量发布。
+2. 如果 `TypeID=10` 从未收到，或最近一次 `TypeID=10` 超过 1500ms 未更新，则回退到
+   `TypeID=1 GameCode` 的 6-bit 分度值 `* 25`。
+
+`0` 是合法血量，表示前哨站已被摧毁；不能把 `0` 当成“没收到”。
+所以下位机如果暂时拿不到裁判 `0x0003` 的前哨血量，不要用 `0` 或默认值继续发送
+`TypeID=10`；应暂停发送 `TypeID=10`，让上位机在超过 1500ms 后自动回退到
+`TypeID=1 GameCode * 25`。
+
 ---
 
 ## 6. 当前已对接数据汇总
@@ -738,9 +807,11 @@ ROS 语义：
 | 底盘速度 x | `GimbalControlFrame.Velocity.X` | `/ly/control/vel` (`ControlVelocity`) |
 | 底盘速度 y | `GimbalControlFrame.Velocity.Y` | `/ly/control/vel` (`ControlVelocity`) |
 | 火控字段 | `GimbalControlFrame.FireCode` | `/ly/control/firecode` (`FireCode`) |
-| 姿态命令 | `GimbalControlFrame.SentryCmd.Posture` | `/ly/control/posture` |
-| 哨兵裁判命令 | `GimbalControlFrame.SentryCmd` | `/ly/control/sentry_cmd` (`SentryCmd`) |
-| 哨兵自身坐标 x/y | `SentryCoordinateFrame.X_cm/Y_cm` | `/ly/bt/sentry_position` (`PointStamped`) |
+| 姿态命令 | `SentryCommandFrame.SentryCmd.Posture`（`0x01`） | `/ly/control/posture` |
+| 哨兵裁判命令 | `SentryCommandFrame.SentryCmd`（`0x01`） | `/ly/control/sentry_cmd` (`SentryCmd`) |
+| 裁判路径 | `MapPathFrame`（`0x02`） | `/ly/control/map_path` (`MapPath`) |
+| 裁判自定义信息 | `CustomInfoFrame`（`0x03`） | `/ly/control/custom_info` (`CustomInfo`) |
+| 哨兵自身坐标 x/y | `SentryCoordinateFrame.X_cm/Y_cm`（`0x04`） | `/ly/bt/sentry_position` (`PointStamped`) |
 
 ## 6.2 下位机 -> 上位机已对接
 
@@ -753,8 +824,8 @@ ROS 语义：
 | `1` | 比赛摘要 | `GameData` | `/ly/game/all` |
 | `1` | 子弹余量 | `GameData.AmmoLeft` | `/ly/friend/ammo_left` |
 | `1` | 比赛剩余时间 | `GameData.TimeLeft` | `/ly/game/time_left` |
-| `1` | 敌方前哨站血量 | `GameCode.EnemyOutpostHealth` | `/ly/enemy/op_hp` |
-| `1` | 我方前哨站血量 | `GameCode.SelfOutpostHealth` | `/ly/friend/op_hp` |
+| `1` | 敌方前哨站血量 fallback | `GameCode.EnemyOutpostHealth * 25` | `/ly/enemy/op_hp`，仅 TypeID=10 不新鲜时发布 |
+| `1` | 我方前哨站血量 fallback | `GameCode.SelfOutpostHealth * 25` | `/ly/friend/op_hp`，仅 TypeID=10 不新鲜时发布 |
 | `1` | 英雄预警 | `GameCode.HeroPrecaution` | `/ly/friend/is_precaution` |
 | `1` | 比赛开始标志 | `GameCode.IsGameBegin` | `/ly/game/is_start` |
 | `1` | 我方颜色 | `GameCode.IsMyTeamRed` | `/ly/friend/is_team_red` |
@@ -771,13 +842,16 @@ ROS 语义：
 | `5` | 弹速 | `PositionData.BulletSpeed` | `/ly/bullet/speed` |
 | `6` | 自身朝向 | `ChassisData.UWBAngleYaw` | `/ly/friend/uwb_yaw` |
 | `6` | 底盘回读（四元） | `ChassisPacked1/2`（8位整数+8位小数） | `/ly/gimbal/chassis` |
-| `6` | 姿态兼容回读 | `ChassisData.Posture`（先低8位，后高8位） | `/ly/gimbal/posture` |
-| `7` | 哨兵自主决策状态 | `SentryData.SentryInfo/SentryInfo2` | `/ly/game/sentry/info`；有效 `posture` 同步覆盖 `/ly/gimbal/posture` |
+| `6` | 全队总伤害差 | `ChassisData.DamageDifference`（裁判 `0x0003` offset 8） | `/ly/game/damage_difference` |
+| `7` | 哨兵自主决策状态 | `SentryData.SentryInfo/SentryInfo2` + 最新 TypeID=10 `SentryInfo3` shadow | `/ly/game/sentry/info`；有效 `posture` 同步覆盖 `/ly/gimbal/posture` |
 | `7` | 发射初速度 | `SentryData.BulletInitialSpeed` | `/ly/game/bullet` |
 | `8` | 发射事件字段 | `BulletDataAndRfid2.BulletType/ShooterNumber/LaunchingFrequency` | `/ly/game/bullet` |
 | `8` | 允许发弹量/金币 | `BulletDataAndRfid2.ProjectileAllowance* / RemainingGoldCoin` | `/ly/game/bullet` |
 | `8` | RFID 扩展字节 | `BulletDataAndRfid2.RfidStatus2` | `/ly/game/rfid` |
 | `9` | 选手端小地图交互数据 | `MapCommandData` | `/ly/game/map_command` |
+| `10` | 哨兵 `sentry_info_3` | `SentryInfo3AndOutpostHpData.SentryInfo3` | 更新 `/ly/game/sentry/info` 的 shadow，随 TypeID=7 发布 |
+| `10` | 我方前哨站精确血量 | `SentryInfo3AndOutpostHpData.SelfOutpostHealth` | `/ly/friend/op_hp` |
+| `10` | 敌方前哨站精确血量 | `SentryInfo3AndOutpostHpData.EnemyOutpostHealth` | `/ly/enemy/op_hp` |
 
 ---
 
@@ -803,9 +877,12 @@ ROS 语义：
 | 裁判协议项 | 方向 | 当前本仓库状态 |
 |---|---|---|
 | `0x0207 shoot_data` | 裁判系统 -> 机器人状态 | 已通过 TypeID=7/8 进入 `/ly/game/bullet`；旧 `/ly/bullet/speed` 仍保留 TypeID=5 来源 |
+| `0x0003 game_robot_HP` | 裁判系统 -> 全体机器人状态 | TypeID=6 的 `DamageDifference` 承载 offset 8 的 `int16_t damage_difference`，发布到 `/ly/game/damage_difference`；TypeID=10 承载 offset 12 `ally_outpost_HP` 和 offset 16 `enemy_outpost_HP`，优先发布到 `/ly/friend/op_hp`、`/ly/enemy/op_hp` |
 | `0x0208 projectile_allowance` | 裁判系统 -> 机器人状态 | 已通过 TypeID=8 进入 `/ly/game/bullet`；旧 `/ly/friend/ammo_left` 仍保留 TypeID=1 来源 |
-| `0x020D sentry_info/sentry_info_2` | 裁判系统 -> 哨兵状态 | 已通过 TypeID=7 进入 `/ly/game/sentry/info`；有效 `posture` 会覆盖 `/ly/gimbal/posture` |
-| `0x0301 + data_cmd_id=0x0120 sentry_cmd` | 机器人 -> 裁判系统命令 | 姿态经 `/ly/control/posture` 写入 `SentryCmd bit21-22`；完整命令也可通过 `/ly/control/sentry_cmd` 进入 `GimbalControlFrame` byte `13~16`；下位机负责封装裁判 `0x0301/0x0120` |
+| `0x020D sentry_info/sentry_info_2/sentry_info_3` | 裁判系统 -> 哨兵状态 | `sentry_info/sentry_info_2` 通过 TypeID=7 进入 `/ly/game/sentry/info`；`sentry_info_3` 通过 TypeID=10 更新 shadow，随 TypeID=7 发布；有效 `posture` 会覆盖 `/ly/gimbal/posture` |
+| `0x0301 + data_cmd_id=0x0120 sentry_cmd` | 机器人 -> 裁判系统命令 | 姿态/完整命令经 `/ly/control/posture`、`/ly/control/sentry_cmd` 进入独立 `DownlinkTypeID=0x01 SentryCommandFrame`；V2.0 姿态为 bit21-23，能量确认在 bit24；下位机负责封装裁判 `0x0301/0x0120` |
+| `0x0307 map_data_t` | 机器人 -> 己方选手端路径显示 | `/ly/control/map_path` 进入 `DownlinkTypeID=0x02 MapPathFrame`；下位机负责封装裁判 `0x0307` |
+| `0x0308 custom_info_t` | 机器人 -> 己方选手端自定义文字 | `/ly/control/custom_info` 进入 `DownlinkTypeID=0x03 CustomInfoFrame`；30B UTF-16 原始字节由上游提供，下位机负责封装裁判 `0x0308` |
 | `0x0303 map_command_t` | 选手端 -> 机器人状态/指令输入 | 通过 TypeID=9 进入 `/ly/game/map_command`；BT 当前只缓存消息，不触发导航 |
 
 ### 8.1 当前看弹量和兑弹怎么走
@@ -819,7 +896,7 @@ ROS 语义：
   -> behavior_tree ammoLeft
 ```
 
-当前“兑弹”的下发接口已经接到 `/ly/control/sentry_cmd` 和 `GimbalControlFrame.SentryCmd`。BT 姿态切换主链路走 `/ly/control/posture`；能量机关确认会在打符链路满足到点、识别锁定、`can_activate_energy_mechanism=true` 后，通过 `/ly/control/sentry_cmd` 主动下发 `confirm_energy_activate` 脉冲。兑弹/远程回血/复活确认仍未由自动策略主动下发；BT 目前仍只会根据低弹量进入 Recovery/回补策略。
+当前“兑弹”的下发接口已经接到 `/ly/control/sentry_cmd` 和独立 `SentryCommandFrame` (`DownlinkTypeID=0x01`)。BT 姿态切换主链路走 `/ly/control/posture`；能量机关确认会在打符链路满足到点、识别锁定、`can_activate_energy_mechanism=true` 后，通过 `/ly/control/sentry_cmd` 主动下发 `confirm_energy_activate` 脉冲。兑弹/远程回血/复活确认仍未由自动策略主动下发；BT 目前仍只会根据低弹量进入 Recovery/回补策略。
 
 如果后续要实现自动兑弹，建议按两个方向补齐：
 
@@ -857,8 +934,8 @@ ROS 语义：
 | `bit2-12` | 非远程兑换发弹量累计值，单调递增 | 同左 | 2025 已经区分非远程兑换 |
 | `bit13-16` | 远程兑换发弹量请求次数，每次只加 1 | 同左 | 2025 已经区分远程兑换 |
 | `bit17-20` | 远程兑换血量请求次数，每次只加 1 | 同左 | 远程回血独立 |
-| `bit21-22` | 姿态切换命令 | 2025 保留 | 2026 新增 |
-| `bit23` | 确认能量机关进入正在激活状态 | 2025 保留 | 2026 新增 |
+| `bit21-23` | 姿态切换命令，`1~6` | 2025 保留 | RM2026 V2.0 扩展为普通/强化姿态 |
+| `bit24` | 确认能量机关进入正在激活状态 | 2025 保留 | RM2026 V2.0 定义 |
 
 因此，2025 通信协议里哨兵已经分了远程和非远程兑弹；2026 主要是在同一个 `0x020D/0x0120` 框架上补了姿态和能量机关相关位。后续上位机如果要接管兑弹，不能只发一个 bool，应至少区分：
 
@@ -970,3 +1047,4 @@ out_of_combat = alive && (now - last_combat_time >= 6s)
 - `TypeID=7`：`PubSentryData()`
 - `TypeID=8`：`PubBulletDataAndRfid2()`
 - `TypeID=9`：`PubMapCommandData()`
+- `TypeID=10`：`PubSentryInfo3AndOutpostHpData()`

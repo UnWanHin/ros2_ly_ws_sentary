@@ -72,6 +72,7 @@ docs/
 [record/2026-05-03_navi_tf_bridge_facemode_and_script_layout.md](record/2026-05-03_navi_tf_bridge_facemode_and_script_layout.md)
 [record/2026-05-03_follow_mode_navi_transition_and_external_status.md](record/2026-05-03_follow_mode_navi_transition_and_external_status.md)
 [record/2026-05-03_README.md](record/2026-05-03_README.md)
+[record/2026-07-11_typeid10_sentry_info3_outpost_hp.md](record/2026-07-11_typeid10_sentry_info3_outpost_hp.md)
 
 ## 分类说明
 
