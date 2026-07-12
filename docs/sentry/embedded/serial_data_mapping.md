@@ -1,6 +1,10 @@
 # 串口上下行数据映射总表
 
-Updated: 2026-07-11
+Updated: 2026-07-12
+
+> 配置归属：`gimbal_driver` 的串口、下位机与 raw 上行诊断基线集中在
+> `src/gimbal_driver/config/gimbal_driver_config.yaml`；根目录 `config/base_config.yaml`
+> 不再承载 `io_config`。
 
 ## 1. 说明
 

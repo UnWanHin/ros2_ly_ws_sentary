@@ -1,5 +1,7 @@
 # gimbal_driver — 雲台驅動節點
 
+Updated: 2026-07-12
+
 ## 概述
 
 `gimbal_driver` 是整個系統的**硬件接口層**，負責與底層電控板（stm32/串口）雙向通信：
@@ -20,6 +22,9 @@ gimbal_driver/
 ├── launch/
 │   ├── gimbal_driver.launch.py  # ROS 2 主入口（推薦）
 │   └── gimbal_driver.launch     # ROS 2 XML 兼容入口
+├── config/
+│   ├── gimbal_driver_config.yaml # 串口/下位機正式基線
+│   └── navigation_test.yaml      # 導航速度直連測試 overlay
 ├── msg/                        # 自定義消息類型
 │   ├── GimbalAngles.msg        # 雲台角度
 │   ├── GameData.msg            # 比賽數據（彙總）
@@ -51,6 +56,17 @@ ros2 launch gimbal_driver gimbal_driver.launch.py
 ```bash
 ros2 launch gimbal_driver gimbal_driver.launch.py use_virtual_device:=true
 ```
+
+### 配置歸屬
+
+`src/gimbal_driver/config/gimbal_driver_config.yaml` 是串口、下位機、裁判下行、路徑/自身座標
+時效，以及 raw serial 診斷的唯一正式基線。它保留原本的 `io_config` nested key 與既有
+`"io_config/..."` flat key，因為 `main.cpp` 需要相容兩種歷史讀法。
+
+正式 `sentry_all.launch.py` 的 gimbal 參數載入順序為：跨模組 `base_config.yaml` →
+`gimbal_driver_config.yaml` → 全域 `override_config.yaml` → launch/CLI 顯式覆蓋。單獨啟動
+`gimbal_driver.launch.py` 也預設讀同一份 module baseline。`navigation_test.yaml` 只可作
+離車調試 overlay，正式鏈路保持 `navigation_test: false`。
 
 兼容 XML 入口：
 

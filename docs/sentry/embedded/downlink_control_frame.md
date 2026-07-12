@@ -1,6 +1,10 @@
 # 上位機下發協議總覽（給下位機）
 
-Updated: 2026-07-11
+Updated: 2026-07-12
+
+> 配置归属：`io_config.game_path_fresh_timeout_ms`、自身坐标下发频率/时效与串口 raw
+> 诊断都在 `src/gimbal_driver/config/gimbal_driver_config.yaml`。正式 `sentry_all` 与
+> 单独 `gimbal_driver` launch 均会加载此 baseline。
 
 ## 1. 範圍
 

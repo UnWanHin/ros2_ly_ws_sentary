@@ -253,6 +253,7 @@ def generate_launch_description():
     # 分层配置默认入口：
     #   base + module + optional global override(config_file)
     behavior_tree_share = get_package_share_directory("behavior_tree")
+    gimbal_driver_share = get_package_share_directory("gimbal_driver")
     tf_tree_share = get_package_share_directory("tf_tree")
     behavior_tree_config_root = os.path.join(behavior_tree_share, "config")
     tf_tree_launch_file = os.path.join(tf_tree_share, "launch", "tf_tree.launch.py")
@@ -268,6 +269,9 @@ def generate_launch_description():
     ])
     default_tf_tree_params_file = os.path.join(tf_tree_share, "config", "tf_tree.yaml")
     default_base_config_file = os.path.join(behavior_tree_config_root, "base_config.yaml")
+    default_gimbal_driver_config_file = os.path.join(
+        gimbal_driver_share, "config", "gimbal_driver_config.yaml"
+    )
     default_override_config_file = os.path.join(behavior_tree_config_root, "override_config.yaml")
     default_area_manager_config_file = os.path.join(behavior_tree_config_root, "AreaManager.yaml")
     default_base_strategy_config_file = os.path.join(behavior_tree_config_root, "Base.yaml")
@@ -287,6 +291,7 @@ def generate_launch_description():
     patrol_config_file = LaunchConfiguration("patrol_config_file")
     special_config_file = LaunchConfiguration("special_config_file")
     base_config_file = LaunchConfiguration("base_config_file")
+    gimbal_driver_config_file = LaunchConfiguration("gimbal_driver_config_file")
     output = LaunchConfiguration("output")
     competition_profile = LaunchConfiguration("competition_profile")
     bt_config_file = LaunchConfiguration("bt_config_file")
@@ -394,7 +399,12 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "base_config_file",
             default_value=default_base_config_file,
-            description="Base shared YAML for gimbal/io/shared geometry.",
+            description="Base YAML for cross-module shared parameters.",
+        ),
+        DeclareLaunchArgument(
+            "gimbal_driver_config_file",
+            default_value=default_gimbal_driver_config_file,
+            description="Baseline serial/lower-machine YAML for gimbal_driver.",
         ),
         DeclareLaunchArgument(
             "area_manager_config_file",
@@ -687,6 +697,7 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] mode: ", mode]),
         LogInfo(msg=["[sentry_all] config: ", config_file]),
         LogInfo(msg=["[sentry_all] base_config: ", base_config_file]),
+        LogInfo(msg=["[sentry_all] gimbal_driver_config: ", gimbal_driver_config_file]),
         LogInfo(msg=["[sentry_all] area_manager_config: ", area_manager_config_file]),
         LogInfo(msg=["[sentry_all] base_strategy_config: ", base_strategy_config_file]),
         LogInfo(msg=["[sentry_all] task_config: ", task_config_file]),
@@ -909,6 +920,7 @@ def generate_launch_description():
                     output=output,
                     parameters=[
                         base_config_file,
+                        gimbal_driver_config_file,
                         config_file,
                         {
                             "io_config/firecode_partial_hold_ms": ParameterValue(
@@ -1001,6 +1013,7 @@ def generate_launch_description():
                     output=output,
                     parameters=[
                         base_config_file,
+                        gimbal_driver_config_file,
                         config_file,
                         {
                             "io_config/use_virtual_device": True,

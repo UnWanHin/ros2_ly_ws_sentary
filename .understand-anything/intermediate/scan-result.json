@@ -18,6 +18,7 @@
     {"path":"src/behavior_tree/src/PublishMessage.cpp","language":"cpp","sizeLines":0,"fileCategory":"code"},
     {"path":"src/behavior_tree/src/DecisionTrace.cpp","language":"cpp","sizeLines":0,"fileCategory":"code"},
     {"path":"src/gimbal_driver/package.xml","language":"xml","sizeLines":0,"fileCategory":"manifest"},
+    {"path":"src/gimbal_driver/config/gimbal_driver_config.yaml","language":"yaml","sizeLines":0,"fileCategory":"config"},
     {"path":"src/gimbal_driver/main.cpp","language":"cpp","sizeLines":0,"fileCategory":"code"},
     {"path":"src/gimbal_driver/module/BasicTypes.hpp","language":"cpp","sizeLines":0,"fileCategory":"code"},
     {"path":"src/navi_tf_bridge/package.xml","language":"xml","sizeLines":0,"fileCategory":"manifest"},
@@ -33,12 +34,12 @@
     {"path":"docs/record/2026-07-12_remove_internal_vision_calibration_packages.md","language":"markdown","sizeLines":0,"fileCategory":"docs"},
     {"path":"scripts/understand_graph_dashboard.py","language":"python","sizeLines":0,"fileCategory":"script"}
   ],
-  "totalFiles": 552,
+  "totalFiles": 553,
   "filteredByIgnore": 0,
   "estimatedComplexity": "large",
   "stats": {
-    "filesScanned": 552,
-    "byCategory": {"docs":109,"config":67,"script":67,"code":179,"schema":40,"data":90},
-    "byLanguage": {"markdown":109,"yaml":21,"shell":67,"python":88,"cpp":91,"ros_msg":40,"xml":7,"json":36,"unknown":93}
+    "filesScanned": 553,
+    "byCategory": {"docs":109,"config":68,"script":67,"code":179,"schema":40,"data":90},
+    "byLanguage": {"markdown":109,"yaml":22,"shell":67,"python":88,"cpp":91,"ros_msg":40,"xml":7,"json":36,"unknown":93}
   }
 }

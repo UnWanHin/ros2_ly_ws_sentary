@@ -92,7 +92,7 @@ scripts/
 
 默认行为：
 
-- 使用分层配置（`config/base_config.yaml` + `config/override_config.yaml`）
+- 使用分层配置（`config/base_config.yaml` + `src/gimbal_driver/config/gimbal_driver_config.yaml` + `config/override_config.yaml`）
 - 默认 `--mode regional`
 - 默认 `--nogate`
 - 默认启用：`gimbal_driver / navi_tf_bridge / FaceMode bridge / behavior_tree`

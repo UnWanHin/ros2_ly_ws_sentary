@@ -1,0 +1,71 @@
+/**:
+  ros__parameters:
+    # 串口/下位机基线参数，仅由 gimbal_driver 读取。
+    io_config:
+      use_virtual_device: false  # 是否使用虚拟串口设备。
+      device_name: "/dev/ttyACM0"  # 实际下位机串口设备。
+      baud_rate: 115200  # 串口波特率。
+      posture_repeat_count: 3  # 姿态命令连续下发次数。
+      posture_repeat_interval_ms: 20  # 姿态重复下发间隔（毫秒）。
+      firecode_partial_hold_ms: 100  # FireCode 局部更新字段保持时间（毫秒）。
+      velocity_raw_to_mps: 0.025  # 导航 raw 速度到控制速度的换算系数（米/秒）。
+      navigation_test: false  # 是否启用导航测试模式。
+      navigation_test_stale_timeout_ms: 500  # 导航测试消息过期时间（毫秒）。
+      # /ly/game/path 的 header.stamp 超过此时效即不再下发；driver 不会周期性重发缓存路径。
+      game_path_fresh_timeout_ms: 5000  # 地图路径新鲜度（毫秒）。
+      sentry_coord_send_interval_ms: 100  # 自身坐标下发间隔（毫秒）。
+      sentry_coord_field_width_x: 2800  # 裁判小地图 X 场地宽度（厘米）。
+      sentry_coord_field_width_y: 1500  # 裁判小地图 Y 场地宽度（厘米）。
+      sentry_coord_fresh_timeout_ms: 2000  # 自身坐标输入新鲜度（毫秒）。
+
+      # gimbal_driver.launch.py 默认不覆盖这些 raw 配置；只有命令行显式传
+      # raw_log_enable:=... / raw_topic_enable:=... 时才会覆盖这里。
+      # 串口原始帧文件日志：会把上下行帧转成 hex 写入文件，必要时才打开。
+      # raw_serial_log_screen=true 会把每帧也打印到终端，调试方便但不建议长期开。
+      # raw_serial_log_type_ids 只过滤下位机->上位机的上行 TypeID；下行由 raw_serial_log_downlink 控制。
+      raw_serial_log_enable: false
+      raw_serial_log_uplink: true
+      raw_serial_log_downlink: true
+      raw_serial_log_screen: false
+      raw_serial_log_flush: true
+      raw_serial_log_dir: "~/Log/GimbalRaw"
+      raw_serial_log_type_ids: "all"
+
+      # 串口原始帧 ROS topic：适合长开。没有 subscriber 时不会实际组包发布，负担很小。
+      # 当前默认只开上行 /ly/log/gimbal_raw_rx，用来确认下位机 TypeID 回传是否存在。
+      # 需要看下行 frame 时再把 raw_serial_topic_downlink 改成 true，订阅 /ly/log/gimbal_raw_tx。
+      # raw_serial_topic_type_ids 只过滤上行 TypeID，支持 "all" 或 "0,1,7" 这类逗号列表。
+      raw_serial_topic_enable: true
+      raw_serial_topic_uplink: true
+      raw_serial_topic_downlink: false
+      raw_serial_topic_type_ids: "all"
+
+    # 以下 flat key 与 io_config 分层键保持同值，兼容旧参数读取方式。
+    "io_config/use_virtual_device": false
+    "io_config/device_name": "/dev/ttyACM0"
+    "io_config/baud_rate": 115200
+    "io_config/posture_repeat_count": 3
+    "io_config/posture_repeat_interval_ms": 20
+    "io_config/firecode_partial_hold_ms": 100
+    "io_config/velocity_raw_to_mps": 0.025
+    "io_config/navigation_test": false
+    "io_config/navigation_test_stale_timeout_ms": 500
+    "io_config/sentry_coord_send_interval_ms": 100
+    "io_config/sentry_coord_field_width_x": 2800
+    "io_config/sentry_coord_field_width_y": 1500
+    "io_config/sentry_coord_fresh_timeout_ms": 2000
+
+    # 串口 raw 文件日志兼容键；含义同上面的 io_config.raw_serial_log_*。
+    "io_config/raw_serial_log_enable": false
+    "io_config/raw_serial_log_uplink": true
+    "io_config/raw_serial_log_downlink": true
+    "io_config/raw_serial_log_screen": false
+    "io_config/raw_serial_log_flush": true
+    "io_config/raw_serial_log_dir": "~/Log/GimbalRaw"
+    "io_config/raw_serial_log_type_ids": "all"
+
+    # 串口 raw ROS topic 兼容键；含义同上面的 io_config.raw_serial_topic_*。
+    "io_config/raw_serial_topic_enable": true
+    "io_config/raw_serial_topic_uplink": true
+    "io_config/raw_serial_topic_downlink": false
+    "io_config/raw_serial_topic_type_ids": "all"

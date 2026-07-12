@@ -11,7 +11,7 @@ gimbal_driver 独立启动入口。
 - 单独调试串口收发和 /ly/control/* -> /ly/gimbal/* 转发行为。
 
 关键参数：
-- base_config_file：共享基础参数 YAML（可提供串口设备名、波特率等）。
+- base_config_file：gimbal_driver 基线 YAML（串口、下位机与 raw 诊断参数）。
 - config_file：可选 overlay YAML，用于覆盖少量调试参数。
 - use_virtual_device：是否使用虚拟设备（离车调试建议 true）。
 """
@@ -25,8 +25,10 @@ import os
 
 
 def generate_launch_description():
-    behavior_tree_share = get_package_share_directory("behavior_tree")
-    default_base_config_file = os.path.join(behavior_tree_share, "config", "base_config.yaml")
+    gimbal_driver_share = get_package_share_directory("gimbal_driver")
+    default_base_config_file = os.path.join(
+        gimbal_driver_share, "config", "gimbal_driver_config.yaml"
+    )
 
     def build_node(context):
         base_config_file_value = LaunchConfiguration("base_config_file").perform(context).strip()
@@ -120,7 +122,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "base_config_file",
             default_value=default_base_config_file,
-            description="Base YAML config file for gimbal_driver.",
+            description="Baseline serial/lower-machine YAML for gimbal_driver.",
         ),
         DeclareLaunchArgument(
             "config_file",

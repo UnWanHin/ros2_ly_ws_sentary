@@ -134,6 +134,14 @@ flowchart LR
 
 ## 4. 正式與非正式鏈路
 
+### 配置歸屬
+
+根目錄 `config/base_config.yaml` 僅保留跨模組共享基線。所有 `gimbal_driver` 串口、下位機、
+裁判下行、路徑/座標時效和 raw 上下行診斷參數集中於
+`src/gimbal_driver/config/gimbal_driver_config.yaml`。正式 `sentry_all` 以
+`base_config.yaml → gimbal_driver_config.yaml → override_config.yaml → CLI` 的順序載入；
+因此搬移不改變預設 `/dev/ttyACM0`、`115200`、raw RX topic 或任何 TypeID/DownlinkTypeID 行為。
+
 | 類別 | 是否 `sentry_all` 正式主鏈 | 說明 |
 |---|---:|---|
 | `gimbal_driver`、`behavior_tree`、`navi_tf_bridge`、`auto_aim_common`、外部 aim/TF/導航 | 是 | 比賽決策、控制和下位機通訊主鏈；`auto_aim_common` 提供 `GoalReach`、`RelativeTarget` 等共用 ROS 訊息，不是內部相機節點 |

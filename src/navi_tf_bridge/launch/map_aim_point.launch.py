@@ -14,12 +14,13 @@ from launch_ros.parameter_descriptions import ParameterValue
 
 def generate_launch_description():
     bridge_share = get_package_share_directory("navi_tf_bridge")
-    behavior_tree_share = get_package_share_directory("behavior_tree")
     gimbal_driver_share = get_package_share_directory("gimbal_driver")
     tf_tree_share = get_package_share_directory("tf_tree")
 
     default_bridge_config = os.path.join(bridge_share, "config", "tf_config.yaml")
-    default_gimbal_config = os.path.join(behavior_tree_share, "config", "base_config.yaml")
+    default_gimbal_config = os.path.join(
+        gimbal_driver_share, "config", "gimbal_driver_config.yaml"
+    )
     default_tf_tree_params = os.path.join(tf_tree_share, "config", "tf_tree.yaml")
     gimbal_launch = os.path.join(gimbal_driver_share, "launch", "gimbal_driver.launch.py")
     tf_tree_launch = os.path.join(tf_tree_share, "launch", "tf_tree.launch.py")
