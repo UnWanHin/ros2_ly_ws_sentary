@@ -45,16 +45,12 @@ Options:
   --rotate [true|false]       Enable BT rotate output. Default: ${ROTATE_ENABLED}
   --scan [true|false]         Enable BT gimbal patrol scan. Default: ${SCAN_ENABLED}
   --scan-mode <1|2|3>         PatrolScan.Mode injected through a temp Patrol.yaml. Default: ${SCAN_MODE}
-  --with-vision               Ignored; formal chain uses external /ly/aim/*.
-  --no-vision                 Ignored; formal chain uses external /ly/aim/*.
   --nogate                    Bypass /ly/game/is_start. Default.
   --with-gate                 Wait for /ly/game/is_start.
   --online                    Use real gimbal device config. Default.
   --offline|--virtual-device  Pass offline:=true to sentry_all.
   --config-file <path>        Global override YAML. Default: ${DEFAULT_OVERRIDE_CONFIG_FILE}
   --base-config-file <path>   Base config YAML. Default: ${DEFAULT_BASE_CONFIG_FILE}
-  --detector-config-file <p>  Ignored legacy option.
-  --predictor-config-file <p> Ignored legacy option.
   --bt-config-file <path>     Source pure BT JSON instead of area preset.
   --output screen|log         Launch output mode. Default: ${OUTPUT}
   --cleanup-existing          Let start_sentry_all clean old stack. Default.
@@ -287,14 +283,6 @@ while [[ $# -gt 0 ]]; do
       SCAN_MODE="${1#*=}"
       shift
       ;;
-    --with-vision)
-      echo "[WARN] --with-vision is ignored: formal sentry_all uses external /ly/aim/*." >&2
-      shift
-      ;;
-    --no-vision)
-      echo "[WARN] --no-vision is ignored: formal sentry_all uses external /ly/aim/*." >&2
-      shift
-      ;;
     --nogate)
       USE_NOGATE=1
       shift
@@ -325,22 +313,6 @@ while [[ $# -gt 0 ]]; do
         exit 2
       fi
       DEFAULT_BASE_CONFIG_FILE="$2"
-      shift 2
-      ;;
-    --detector-config-file)
-      if (( $# < 2 )); then
-        echo "[ERROR] --detector-config-file requires a path." >&2
-        exit 2
-      fi
-      echo "[WARN] --detector-config-file is ignored: formal sentry_all uses external /ly/aim/*." >&2
-      shift 2
-      ;;
-    --predictor-config-file)
-      if (( $# < 2 )); then
-        echo "[ERROR] --predictor-config-file requires a path." >&2
-        exit 2
-      fi
-      echo "[WARN] --predictor-config-file is ignored: formal sentry_all uses external /ly/aim/*." >&2
       shift 2
       ;;
     --bt-config-file)

@@ -1,4 +1,8 @@
-# `/ly/control/angles` 数据流追踪
+# `/ly/control/angles` 数据流追踪（历史内部辅瞄版本）
+
+> 本文描述的 `detector / tracker_solver / predictor` 链路已于 2026-07-12 移除，不能作为当前运行或排障命令使用。当前正式外部 `/ly/aim/* -> behavior_tree -> /ly/control/*` 链路见
+> [`2026-07-12_project_link_graph.md`](2026-07-12_project_link_graph.md) 与
+> [`../record/2026-07-12_remove_internal_vision_calibration_packages.md`](../record/2026-07-12_remove_internal_vision_calibration_packages.md)。
 
 本文档只追一条链路：`/ly/control/angles` 是怎么从“辅瞄锁敌”一路形成并最终下发到下位机的。
 

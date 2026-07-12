@@ -4,10 +4,6 @@ bt_log_dir: ~/Log/BT  # 行为树日志目录。
 aim_timer_log_enable: false  # 是否记录瞄准/PnP 耗时日志。
 aim_timer_log_dir: ~/Log/AimTimer  # 瞄准耗时日志目录。
 
-# Predictor 瞄准输出时机；true 为 tracker 回调到达后立即发布。
-predictor:
-  publish_on_tracker_callback: true
-
 # sentry_all 启动时的 rosbag 录制；只录包，不会自动切换虚拟硬件，离线模式仍需单独传 --offline。
 rosbag: false  # 是否执行 `ros2 bag record -a`。
 rosbag_path: ~/Log/rosbag  # 带时间戳的 rosbag 输出根目录。

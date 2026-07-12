@@ -1,4 +1,8 @@
-# 系统行为说明
+# 系统行为说明（历史版本）
+
+> 本文包含已移除的内部视觉链路。当前运行行为以
+> [`2026-07-12_project_link_graph.md`](2026-07-12_project_link_graph.md) 和
+> [`../record/2026-07-12_remove_internal_vision_calibration_packages.md`](../record/2026-07-12_remove_internal_vision_calibration_packages.md) 为准。
 
 Updated: 2026-05-27
 

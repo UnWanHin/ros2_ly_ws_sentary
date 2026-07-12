@@ -102,7 +102,7 @@ scripts/
 适合：
 
 - 正式主链路启动
-- 看完整 `gimbal_driver + detector + tracker_solver + predictor + behavior_tree`
+- 看完整 `external /ly/aim + behavior_tree + gimbal_driver` 正式控制链
 
 实际脚本：
 
@@ -299,7 +299,7 @@ OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./scripts/navi/map_aim_point_at
 
 适合：
 
-- 绕过 `predictor/behavior_tree`
+- 绕过 `behavior_tree`
 - 直接验证 `gimbal_driver` 是否能收角度
 - 查下位机角度控制链有没有问题
 
@@ -357,7 +357,7 @@ OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./scripts/navi/map_aim_point_at
 适合：
 
 - 快速拉起比赛风格 autoaim 链路
-- 看 `predictor + behavior_tree` 主链联调
+- 看 `external /ly/aim + behavior_tree` 主链联调
 
 ### 10. 自瞄入口简化说明
 
@@ -419,61 +419,9 @@ OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./scripts/navi/map_aim_point_at
 - 走 `feature_test/standalone/modes/chassis_spin_sine_translate_mode.sh`
 - 更偏功能测试，不是正式比赛入口
 
-### 16. 弹道/锁敌日志过滤
-
-```bash
-./scripts/debug.sh ballistic-log
-```
-
-适合：
-
-- 只盯弹道异常
-- 只盯锁敌相关日志
-- 避免在一堆总日志里找问题
-
-本质上是：
-
-- `scripts/tools/monitor_ballistic_errors.sh`
-
----
-
-## 标定相关
-
-### 17. 射表标定
-
-```bash
-./scripts/debug.sh shooting-table-calib --team red --output screen
-```
-
-适合：
-
-- 标定射表
-- 人工微调落点
-
-### 18. 打符射表标定
-
-```bash
-./scripts/debug.sh buff-shooting-table-calib --calib-mode periodic --csv-strategy latest
-```
-
-适合：
-
-- 采集打符开火时刻的预测特征（角度/距离/高度/旋转角）
-- 离线拟合 `buff_config` 的静态和周期补偿参数
-- 不接管比赛控制接口，只做标定插件采样
-
-常用离线拟合：
-
-```bash
-./scripts/tools/buff_shooting_table_calib.sh --fit-static-latest
-./scripts/tools/buff_shooting_table_calib.sh --fit-periodic-latest
-```
-
----
-
 ## 自检相关
 
-### 19. 开发机自检
+### 17. 开发机自检
 
 ```bash
 ./scripts/selfcheck.sh pc
@@ -485,7 +433,7 @@ OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./scripts/navi/map_aim_point_at
 ./scripts/selfcheck.sh pc --no-build
 ```
 
-### 20. 车上自检
+### 18. 车上自检
 
 ```bash
 ./scripts/selfcheck.sh robot
@@ -497,7 +445,7 @@ OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./scripts/navi/map_aim_point_at
 ./scripts/selfcheck.sh robot --with-hz
 ```
 
-### 21. 核心套件自检
+### 19. 核心套件自检
 
 ```bash
 ./scripts/selfcheck.sh sentry
@@ -653,6 +601,5 @@ BT 导航调试：
 - 这份文档只讲 `scripts/` 怎么用，不展开模块实现细节。
 - 如果你要看链路原理，去看：
   - `docs/modules/2026-05-05_behavior_tree.md`
-  - `docs/modules/2026-04-23_predictor.md`
-  - `docs/architecture/2026-05-04_control_angles_data_flow.md`
-  - `docs/architecture/2026-05-04_fire_control_flow.md`
+  - `docs/record/2026-07-12_remove_internal_vision_calibration_packages.md`
+  - `docs/architecture/2026-07-12_project_link_graph.md`

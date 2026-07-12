@@ -1,6 +1,8 @@
 # Simulator Offline Debug Quality Review
 
-Updated: 2026-06-02
+Updated: 2026-07-12
+
+> Historical review. Internal detector-armors mock coverage described below was removed with the internal vision packages on 2026-07-12; current simulator input coverage uses external `/ly/aim/*` only.
 
 ## Strengths
 

@@ -1,6 +1,8 @@
 # Simulator Offline Debug Progress Report
 
-Updated: 2026-06-02
+Updated: 2026-07-12
+
+> Historical progress report. Internal detector-armors simulator paths mentioned below were removed on 2026-07-12; use external `/ly/aim/*` for current offline decision inputs.
 
 ## Completed Work
 

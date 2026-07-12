@@ -1,5 +1,8 @@
 # 双套自检指南（电脑端 + 车端）
 
+> 当前正式辅瞄来自外部 `/ly/aim/*`；内部相机/检测/预测包已移除。迁移说明见
+> [`../record/2026-07-12_remove_internal_vision_calibration_packages.md`](../record/2026-07-12_remove_internal_vision_calibration_packages.md)。
+
 本指南对应两套脚本：
 
 - 电脑端（离车）：`scripts/selfcheck.sh pc`
@@ -22,8 +25,8 @@ cd ~/ros2_ly_ws_sentary
 # 不重建，只跑静态检查
 ./scripts/selfcheck.sh pc --no-build
 
-# 指定包并执行 colcon test
-./scripts/selfcheck.sh pc --packages "behavior_tree outpost_hitter predictor" --test
+# 指定正式包并执行 colcon test
+./scripts/selfcheck.sh pc --packages "behavior_tree gimbal_driver navi_tf_bridge" --test
 ```
 
 ## 2. 车端上车自检
@@ -44,7 +47,7 @@ cd ~/ros2_ly_ws_sentary
 ./scripts/selfcheck.sh robot --with-hz
 
 # 传给 sentry_all.launch.py 的参数
-./scripts/selfcheck.sh robot -- --config_file:=/abs/path/auto_aim_config.yaml
+./scripts/selfcheck.sh robot -- --config_file:=/abs/path/override_config.yaml
 ```
 
 ## 3. 基础套件说明
@@ -72,13 +75,14 @@ cd ~/ros2_ly_ws_sentary
 ./scripts/selfcheck.sh sentry --runtime-only --launch --wait 12
 ```
 
-当使用 `--launch` 时，若失败会自动打印 `Launch Diagnosis`，给出崩溃签名和最近日志尾部，优先定位相机/串口/进程崩溃。
+当使用 `--launch` 时，若失败会自动打印 `Launch Diagnosis`，给出崩溃签名和最近日志尾部，优先定位外部 aim、串口或进程问题。
 
 ## 4. 失败快速判读
 
-- 出现 `Failed to initialize camera`：
-  - 离车场景通常是未接相机，改 `detector_config/use_video=true`。
-  - 上车场景检查相机供电、线缆和 SN 配置。
+- BT 进入 `gimbal_stale`：
+  - 检查 `/ly/gimbal/angles` 是否持续回传；它是 RuntimeGuard 的必要反馈。
+- 没有瞄准或开火控制：
+  - 检查外部 `/ly/aim/armor_targets`、`/ly/aim/result` 是否按配置的新鲜度持续发布。
 - 出现 `IODevice::MakeDevice`、`ttyACM/ttyUSB` 打开失败：
   - 检查串口设备与权限，或离车时改 `io_config/use_virtual_device=true`。
 - 出现 `getifaddrs: Operation not permitted` / `RTPS_TRANSPORT_SHM`：

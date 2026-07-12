@@ -698,7 +698,7 @@ namespace BehaviorTree {
 
         std::uint16_t SelfHealth = myselfHealth;
         ResetRegionalAreaControlOverride();
-        // 外部 aim 现在是正式视觉目标源；内部 predictor/buff/outpost target 不再驱动决策。
+        // 外部 aim 是唯一正式视觉目标源。
         // 注意这里是“本拍是否有新鲜目标”，不是长期跟踪状态。
         const bool has_external_target =
             config.ExternalAimSettings.Enable && externalAimData.Fresh && externalAimData.Valid;
@@ -1150,7 +1150,6 @@ namespace BehaviorTree {
             gimbalControlData.FireCode.AimMode = 0;
             if (config.FaceModeSettings.SuppressFire) {
                 gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
-                buffAimData.FireStatus = false;
             }
             nextAngles = face_mode_angles.value_or(gimbalAngles);
 
@@ -1191,7 +1190,6 @@ namespace BehaviorTree {
                         /// 立刻响应不需要tick
                         RecFireCode.FlipFireStatus();
                         gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
-                        buffAimData.FireStatus = false;
                         externalAimData.FireStatus = false;
                         buff_shoot_count++;
                     } else {
@@ -1412,10 +1410,7 @@ namespace BehaviorTree {
         PublishMessageAll();
         gimbalControlData.FireCode.FollowMode =
             follow_mode_before_navi_rotate_control_publish;
-        autoAimData.Fresh = false;
         externalAimData.Fresh = false;
-        buffAimData.Fresh = false;
-        outpostAimData.Fresh = false;
         faceModeData.Fresh = false;
         isFindTargetAtomic = false;
     }
@@ -3060,7 +3055,6 @@ namespace BehaviorTree {
         }
         if (result.SuppressFire) {
             gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
-            buffAimData.FireStatus = false;
         }
     }
 

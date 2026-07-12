@@ -49,13 +49,7 @@ bool Application::HasRecentTarget() const {
 }
 
 AimSourceView Application::CurrentAimSource() const noexcept {
-    return MakeAimSourceView(
-        config.ExternalAimSettings.Enable,
-        aimMode,
-        autoAimData,
-        externalAimData,
-        buffAimData,
-        outpostAimData);
+    return MakeAimSourceView(externalAimData);
 }
 
 const AimData& Application::CurrentAimData() const noexcept {

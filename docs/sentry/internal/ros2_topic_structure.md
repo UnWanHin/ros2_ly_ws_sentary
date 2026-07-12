@@ -1,6 +1,8 @@
 # ROS2 Topic Structure
 
-Updated: 2026-07-08
+> 当前正式辅瞄输入仅为外部 `/ly/aim/*`。本文件中的 `auto_aim_common` 旧消息定义是接口库存，不代表仍有内部 detector/tracker/predictor 节点或 topic。
+
+Updated: 2026-07-12
 
 本文记录当前哨兵上位机 ROS2 topic 结构，按接口边界分为：
 
@@ -26,7 +28,7 @@ Updated: 2026-07-08
 | `/ly/log/*` | Internal/Debug | 可选 raw 诊断 topic，默认关闭，不参与决策。 |
 | `/ly/aim/*` | External | 外部 `sentry.aim` 和 BT 的正式辅瞄接口。 |
 | `/tf`, `/tf_static` | External | 正式链路由外部 `sentry_tf` 发布 gimbal TF；本仓 `tf_tree` 只作 fallback，不能和外部 `sentry_tf` 同时发布同一套 frame。 |
-| `/ly/vision/*`, `/ly/bt/*`, `/ly/detector/*`, `/ly/predictor/*`, `/ly/buff/*`, `/ly/outpost/*` | Internal/Legacy | 视觉、预测、任务模式和舊 BT 内部协作；正式 `Behavion` 链路不启动内部视觉。 |
+| `/ly/vision/*`, `/ly/bt/*` | Internal | BT 模式和调试语义；`/ly/vision/mode` 只反映 AimMode，不再选择本仓视觉节点。 |
 | `/ly/face_mode/*` | Internal | FaceMode 固定点朝向链路。 |
 | `/ly/navi/*`, `/goal_pose` | External | 导航目标、导航桥、导航状态和 TF 导出的定位接口。 |
 
@@ -105,24 +107,17 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/log/gimbal_raw_rx` | `gimbal_driver/msg/GimbalRawFrame` | 调试/rosbag | 下位机 -> 上位机 raw `TypedMessage`，`type_id=0..9`，`data` 是原始 bytes。 |
 | `/ly/log/gimbal_raw_tx` | `gimbal_driver/msg/GimbalRawFrame` | 调试/rosbag | 上位机 -> 下位机 raw downlink frame；`type_id=255` 表示 control 诊断 frame，`type_id=254` 表示 sentry coordinate 诊断 frame，`data` 是真实 17B 串口 bytes。 |
 
-## 4. External Aim And Legacy Vision Topics
+## 4. External Aim Topics
 
-`Behavion` 分支的正式 `sentry_all` 只使用 `/ly/aim/*` 外部 aim 接口，不再啟動本倉
-`detector`、`tracker_solver`、`predictor`、`outpost_hitter`、`buff_hitter`。下表中的
-`/ly/detector/*`、`/ly/predictor/*`、`/ly/buff/*`、`/ly/outpost/*` 保留為舊工具/單測接口，不是正式決策鏈路。
+正式 `sentry_all` 只使用 `/ly/aim/*` 外部 aim 接口。内部视觉、追踪、预测、打符、前哨和射表标定包已经移除；BT 保留的旧消息声明不构成运行中的 ROS topic 链路。
 
 | Topic | Type | Direction | 结构/语义 |
 |---|---|---|---|
-| `/ly/vision/mode` | `std_msgs/msg/UInt8` | `behavior_tree` -> legacy tools | `0=disabled`, `1=armor`, `2=buff`, `3=outpost`；正式鏈路不再用它啟動內部視覺。 |
-| `/ly/bt/target` | `std_msgs/msg/UInt8` | `behavior_tree` -> legacy tools/debug | 当前 BT 选择的装甲板目标类型；正式選目標同時發布 `/ly/aim/select_target`。 |
+| `/ly/vision/mode` | `std_msgs/msg/UInt8` | `behavior_tree` -> debug/observer | `0=disabled`, `1=armor`, `2=buff`, `3=outpost`；只反映当前 AimMode。 |
+| `/ly/bt/target` | `std_msgs/msg/UInt8` | `behavior_tree` -> debug/observer | 当前 BT 选择的目标类型；正式选目标同时发布 `/ly/aim/select_target`。 |
 | `/ly/aim/armor_targets` | `sentry_msgs/msg/AimTargetArray` | external aim -> `behavior_tree` | 外部辅瞄输出的可打目标列表；数组元素是 `AimTarget.msg`，BT 用它生成 `hitableTargets`、目標距離和 Chase 相對 point。 |
 | `/ly/aim/select_target` | `sentry_msgs/msg/AimTarget` | `behavior_tree` -> external aim | BT 选择的目标 `id`，`header.stamp` 为当前发布时间，`position` 尽量填最近一次 `/ly/aim/armor_targets` 中同 id 的位置。 |
-| `/ly/aim/result` | `sentry_msgs/msg/AimResult` | external aim -> `behavior_tree` | 外部辅瞄 `follow`、最终 yaw/pitch 和 `fire` 门控；`follow=true` 时 BT 接管角度并转发 `/ly/control/angles`，`fire=true` 时翻转 `/ly/control/firecode`，不再绕到 `/ly/predictor/target`。 |
-| `/ly/detector/armors` | `auto_aim_common/msg/Armors` | legacy detector -> legacy tracker/predictor | 舊內部輔瞄鏈路，正式 `sentry_all` 不啟動。 |
-| `/ly/predictor/target` | `auto_aim_common/msg/Target` | legacy predictor -> `behavior_tree` | 舊普通輔瞄結果；`Behavion` 正式配置會忽略。 |
-| `/ly/back_cam/target` | `auto_aim_common/msg/Target` | legacy/debug | 后置相机目标结果。 |
-| `/ly/buff/target` | `auto_aim_common/msg/Target` | legacy buff_hitter -> `behavior_tree` | 舊打符目標；`Behavion` 正式配置會忽略。 |
-| `/ly/outpost/target` | `auto_aim_common/msg/Target` | legacy outpost_hitter -> `behavior_tree` | 舊打前哨目標；`Behavion` 正式配置會忽略。 |
+| `/ly/aim/result` | `sentry_msgs/msg/AimResult` | external aim -> `behavior_tree` | 外部辅瞄 `follow`、最终 yaw/pitch 和 `fire` 门控；`follow=true` 时 BT 接管角度并转发 `/ly/control/angles`，`fire=true` 时翻转 `/ly/control/firecode`。 |
 | `/ly/face_mode/target_raw` | `std_msgs/msg/UInt16MultiArray` | `behavior_tree` -> FaceMode solver | `[official_map_x, official_map_y, map_z]`，x/y 为官方地图 cm，z 为 map 系高度。 |
 | `/ly/face_mode/angles` | `gimbal_driver/msg/GimbalAngles` | FaceMode solver -> `behavior_tree` | 固定点朝向解算出的 yaw/pitch。正式 `sentry_all` 默认由 `map_aim_point_node` 用 TF 相对几何输出，BT 在 FaceMode 激活时转发到 `/ly/control/angles`。 |
 

@@ -361,61 +361,6 @@ extract_yaml_quoted_key_value() {
   printf "%s" "${value}"
 }
 
-check_camera_sn_config() {
-  local yaml_file="$1"
-  local sn_dot
-  local sn_slash
-
-  if [[ ! -f "${yaml_file}" ]]; then
-    fail "camera_sn check skipped: YAML missing: ${yaml_file}"
-    return
-  fi
-
-  sn_dot="$(extract_yaml_quoted_key_value "${yaml_file}" 'camera_param\.camera_sn')"
-  sn_slash="$(extract_yaml_quoted_key_value "${yaml_file}" 'camera_param/camera_sn')"
-
-  if [[ -z "${sn_dot}" && -z "${sn_slash}" ]]; then
-    fail "camera_sn missing: both \"camera_param.camera_sn\" and \"camera_param/camera_sn\" are empty or absent"
-    return
-  fi
-
-  if [[ -n "${sn_dot}" ]]; then
-    pass "camera_sn present: camera_param.camera_sn=${sn_dot}"
-  else
-    warn "camera_param.camera_sn missing; detector compatibility relies on slash key only"
-  fi
-
-  if [[ -n "${sn_slash}" ]]; then
-    pass "camera_sn present: camera_param/camera_sn=${sn_slash}"
-  else
-    warn "camera_param/camera_sn missing; legacy compatibility relies on dot key only"
-  fi
-
-  if [[ -n "${sn_dot}" && -n "${sn_slash}" ]]; then
-    if [[ "${sn_dot}" == "${sn_slash}" ]]; then
-      pass "camera_sn dual-key values are consistent"
-    else
-      fail "camera_sn mismatch between dot/slash keys: dot=${sn_dot}, slash=${sn_slash}"
-    fi
-  fi
-}
-
-check_legacy_hardcoded_camera_sn() {
-  local hits
-  if command -v rg >/dev/null 2>&1; then
-    hits="$(rg -n 'KE[0-9A-Za-z]+' "${ROOT_DIR}/src/shooting_table_calib/launch" --glob '*.launch' --glob '*.launch.py' || true)"
-  else
-    hits="$(find "${ROOT_DIR}/src/shooting_table_calib/launch" -type f \( -name '*.launch' -o -name '*.launch.py' \) -print0 \
-      | xargs -0 grep -nE 'KE[0-9A-Za-z]+' 2>/dev/null || true)"
-    warn "rg not found; fallback to grep for hardcoded camera SN scan"
-  fi
-  if [[ -n "${hits}" ]]; then
-    warn "Legacy launch still contains hardcoded camera SN candidates: ${hits//$'\n'/; }"
-  else
-    pass "No hardcoded camera SN found under shooting_table_calib launch files"
-  fi
-}
-
 check_launch_mode_hints() {
   local default_base_yaml="${ROOT_DIR}/config/base_config.yaml"
   local base_cfg_arg
@@ -806,13 +751,20 @@ if (( RUNTIME_ONLY == 0 )); then
   check_bash_syntax "${ROOT_DIR}/scripts/navi/position.sh"
   check_bash_syntax "${ROOT_DIR}/scripts/navi/map_aim_point_test.sh"
 
-  check_camera_sn_config "${ROOT_DIR}/config/base_config.yaml"
-  check_legacy_hardcoded_camera_sn
-
+  pass "Formal sentry_all uses external /ly/aim; base_config has no internal camera/SN requirement"
   check_ros_interface "sentry_msgs/msg/AimTarget"
   check_ros_interface "sentry_msgs/msg/AimTargetArray"
   check_ros_interface "sentry_msgs/msg/AimResult"
   check_ros_interface_field "sentry_msgs/msg/AimResult" "bool follow"
+  check_ros_interface "auto_aim_common/msg/GoalReach"
+  check_ros_interface "auto_aim_common/msg/RelativeTarget"
+
+  package_count="$(colcon list --names-only 2>/dev/null | wc -l | tr -d ' ')"
+  if [[ "${package_count}" == "6" ]]; then
+    pass "workspace package inventory contains the six retained ROS packages"
+  else
+    fail "workspace package inventory expected 6 retained ROS packages, got ${package_count}"
+  fi
 
   if grep -Fq 'BTCPP_format="4"' "${ROOT_DIR}/src/behavior_tree/Scripts/main.xml"; then
     pass "BT XML format is v4"
@@ -868,13 +820,6 @@ if (( STATIC_ONLY == 0 )); then
   if (( GRAPH_AVAILABLE == 1 )); then
   check_node_online "/gimbal_driver" "${NODE_LIST}"
   check_node_online "/behavior_tree" "${NODE_LIST}"
-  check_node_absent "/detector" "${NODE_LIST}"
-  check_node_absent "/tracker_solver" "${NODE_LIST}"
-  check_node_absent "/predictor_node" "${NODE_LIST}"
-  check_node_absent "/outpost_hitter" "${NODE_LIST}"
-  check_node_absent "/outpost_hitter_node" "${NODE_LIST}"
-  check_node_absent "/buff_hitter" "${NODE_LIST}"
-  check_node_absent "/buff_hitter_node" "${NODE_LIST}"
   if grep -Fxq "/tf_tree_node" <<< "${NODE_LIST}" && grep -Fxq "/sentry_tf_node" <<< "${NODE_LIST}"; then
     fail "Duplicate gimbal TF owners online: /tf_tree_node and /sentry_tf_node"
   else

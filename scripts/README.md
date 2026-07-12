@@ -96,7 +96,7 @@ scripts/
 - 默认 `--mode regional`
 - 默认 `--nogate`
 - 默认启用：`gimbal_driver / navi_tf_bridge / FaceMode bridge / behavior_tree`
-- 不启动内部 `detector / tracker_solver / predictor / outpost_hitter / buff_hitter`
+- 不启动任何内部相机、检测、追踪、预测、打符或前哨节点
 - 目标输入来自外部 `/ly/aim/armor_targets` + `/ly/aim/result`
 
 所以它适合：
@@ -129,7 +129,6 @@ python3 ./scripts/python/start.py
 可选：
 
 ```bash
-python3 ./scripts/python/start.py --target predictor
 python3 ./scripts/python/start.py --trace
 python3 ./scripts/python/start.py --no-view
 python3 ./scripts/python/start.py --web-port 9010
@@ -192,9 +191,6 @@ python3 ./scripts/python/start.py --keep-to-navi
 | `scripts/debug/standalone.sh` | 单项功能测试菜单 | `scripts/feature_test/standalone/run_standalone_menu.sh` |
 | `scripts/debug/navi_goal.sh` | JSON 巡逻点发 `/ly/navi/goal` | `scripts/feature_test/standalone/modes/navi_patrol_mode.sh` |
 | `scripts/debug/navi_goal_cli.sh` | 手动发导航目标 | `scripts/feature_test/standalone/tools/navi_goal_cli_pub.py` |
-| `scripts/debug/ballistic_error_log.sh` | 过滤弹道/锁敌日志 | `scripts/tools/monitor_ballistic_errors.sh` |
-| `scripts/debug/shooting_table_calib.sh` | 射表标定 | `scripts/tools/shooting_table_calib.sh` |
-| `scripts/debug/buff_shooting_table_calib.sh` | 打符射表标定 | `scripts/tools/buff_shooting_table_calib.sh` |
 | `scripts/debug/control_sink.sh` | 乾跑接收 `/ly/control/angles`、`/ly/control/firecode` 等控制 topic，不启动 `gimbal_driver`，不下发硬件 | `scripts/debug/control_sink.py` |
 | `scripts/debug/control_angles_test.sh` | 直接发 `/ly/control/angles` 角度命令 | 脚本内置发布逻辑 |
 | `scripts/debug/rotate_level.sh` | Rotate 档位循环与回读测试 | 脚本内置发布/回读逻辑 |
@@ -202,7 +198,6 @@ python3 ./scripts/python/start.py --keep-to-navi
 | `scripts/debug/posture_test.sh` | 姿态切换循环与回读测试 | 脚本内置发布/回读逻辑 |
 | `scripts/debug/sentry_cmd_downlink_test.sh` | 启动 `gimbal_driver`，默认每 5 秒轮发姿态 1/2/3，并验证 `SentryCmd` raw 下行帧/上行回读 | 脚本内置 `/ly/control/posture -> /ly/control/sentry_cmd` relay、raw TX/RX 和 RFID/姿态观察逻辑 |
 | `scripts/debug/chase_only.sh` | 纯追击联调（无门控，默认连下位机） | `scripts/launch/start_sentry_chase_only.sh` |
-| `scripts/debug/outpost_target_test.sh` | 发 `/ly/outpost/target` yaw 序列，验证前哨桥接 | 脚本内置发布逻辑 |
 | `scripts/debug/goal_pos_test.sh` | 仅用于静态点位 `/ly/navi/goal_pos_raw` 转换测试，预览后确认才发 `geometry_msgs/PoseStamped /goal_pose`；不是追击测试 | `scripts/navi/navitomap.sh` |
 
 ### Navi / Aim-Point
@@ -245,7 +240,7 @@ python3 ./scripts/python/start.py --keep-to-navi
 ./scripts/areatest/regional_roadland.sh --pure
 ```
 
-`--pure` 会切到 pure preset：停火、关闭 Chase、关闭 Posture、忽略 Recovery 回补；AreaManager 区域任务和导航桥仍走正式链路。为了避免 bench/离线测试时 BT 因 `/ly/gimbal/angles` 缺失进入 `gimbal_stale` safe-control，`--pure` 默认会启动 `mock_gimbal_state_node` 持续发布 `/ly/gimbal/angles`；实机要完全使用下位机角度时加 `--no-mock-gimbal-state`。正式 `sentry_all` 本身已经不启动内部 detector/tracker/predictor/outpost/buff。
+`--pure` 会切到 pure preset：停火、关闭 Chase、关闭 Posture、忽略 Recovery 回补；AreaManager 区域任务和导航桥仍走正式链路。为了避免 bench/离线测试时 BT 因 `/ly/gimbal/angles` 缺失进入 `gimbal_stale` safe-control，`--pure` 默认会启动 `mock_gimbal_state_node` 持续发布 `/ly/gimbal/angles`；实机要完全使用下位机角度时加 `--no-mock-gimbal-state`。正式 `sentry_all` 不再启动内部视觉节点。
 
 如果在桌面/台架上没有真实裁判数据，低血量/低弹量默认值会触发 recovery，Central 也不会进入健康巡逻。可以临时加：
 
@@ -290,17 +285,13 @@ python3 ./scripts/python/start.py --keep-to-navi
 3. `standalone`
 4. `navi_goal`
 5. `navi-goal-cli`
-6. `ballistic-log`
-7. `shooting-table-calib`
-8. `buff-shooting-table-calib`
-9. `control-angles-test`
-10. `rotate_level`
-11. `move_rotate`
-12. `posture-test`
-13. `sentry-cmd-downlink`
-14. `chase-only`
-15. `outpost-target-test`
-16. `goal-pos-test`
+6. `control-angles-test`
+7. `rotate_level`
+8. `move_rotate`
+9. `posture-test`
+10. `sentry-cmd-downlink`
+11. `chase-only`
+12. `goal-pos-test`
 
 ### `./scripts/selfcheck.sh`
 
@@ -330,15 +321,6 @@ python3 ./scripts/python/start.py --keep-to-navi
 
 # 正式外部 aim armor 预设
 ./scripts/debug.sh armor_test --mode league
-
-# 射表标定
-./scripts/debug.sh shooting-table-calib --team red --output screen
-
-# 打符射表标定（采样）
-./scripts/debug.sh buff-shooting-table-calib --calib-mode periodic --csv-strategy latest
-
-# 弹道/锁敌异常日志过滤
-./scripts/debug.sh ballistic-log --with-valid
 
 # 导航调试
 ./scripts/debug.sh navi-debug

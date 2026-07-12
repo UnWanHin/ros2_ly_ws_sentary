@@ -78,7 +78,7 @@ done
 
 source_ros_workspace "${ROOT_DIR}"
 require_sentry_msgs_for_behavior_tree
-cleanup_existing_stack "1" "/(gimbal_driver_node|detector_node|tracker_solver_node|predictor_node|outpost_hitter_node|buff_hitter_node|behavior_tree_node)([[:space:]]|$)" "ros2 launch behavior_tree (armor_patrol_test|competition_autoaim|sentry_all|chase_only|showcase)\\.launch.py"
+cleanup_existing_stack "1" "/(gimbal_driver_node|behavior_tree_node|map_aim_point_node|map_path_to_game_path_node|target_rel_to_goal_pos_node)([[:space:]]|$)" "ros2 launch (behavior_tree|navi_tf_bridge) (armor_patrol_test|competition_autoaim|sentry_all|chase_only|showcase|map_aim_point)\\.launch.py"
 
 if [[ -f "${DEFAULT_BASE_CONFIG_FILE}" ]] && ! has_launch_arg_key "base_config_file"; then
   LAUNCH_ARGS=("base_config_file:=${DEFAULT_BASE_CONFIG_FILE}" "${LAUNCH_ARGS[@]}")

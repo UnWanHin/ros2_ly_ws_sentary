@@ -1,6 +1,6 @@
 # Regional Docs
 
-Updated: 2026-07-08
+Updated: 2026-07-12
 
 这里放 Regional 模式当前有效的决策行为说明。
 
@@ -13,8 +13,8 @@ Updated: 2026-07-08
 | `patrol_scan_modes.md` | 雲台巡邏掃描 mode、Patrol.yaml 任務覆蓋和 pitch offset 鏈路 |
 | `strategy_layers_and_navigation_reach.md` | Strategy 分层、`/ly/navi/reached`、坐标兜底和 watchdog 语义 |
 | `zone_blocks.md` | 区域点位、区域块和底层区域任务记录 |
-| `vision_mode_semantics.md` | `/ly/vision/mode`、task mode 等视觉/任务模式语义 |
-| `vision_task_patrol_modes.md` | Vision、Task、Patrol 的当前流转关系 |
+| `vision_mode_semantics.md` | 外部 `/ly/aim`、`/ly/vision/mode` 与 task mode 的当前语义 |
+| `vision_task_patrol_modes.md` | 外部 aim、Task、Patrol、FaceMode 的当前流转关系 |
 | `2026-07-12_regional_decision_graph.md` | Regional 每 tick 順序、分層優先級、導航閉環、姿態計時與下發的細節 Mermaid 圖 |
 
 相关 debug 报告：

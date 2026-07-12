@@ -7,7 +7,7 @@
 
 global:
   # 是否离线模式：
-  # true  -> 传给 auto_aim 脚本 offline，适合离车视频回放调试
+  # true  -> 传给功能测试入口 offline，适合离车控制链调试
   # false -> 在线模式，按真实设备链路运行
   offline: false
 
@@ -20,14 +20,14 @@ global:
   # true: 放开保护，仅用于特殊排查
   allow_multi_control: false
 
-  # 拉起感知链后等待就绪时间（秒）
+  # 拉起测试链后等待就绪时间（秒）
   wait_stack_sec: 12
 
   # ros2 命令超时时间（秒）
   cmd_timeout_sec: 5
 
-  # 可选：指定 detector 配置文件
-  # 留空表示用默认配置
+  # 可选：指定当前功能测试配置文件
+  # 留空表示使用默认功能测试配置
   config_file: ""
 
 run:

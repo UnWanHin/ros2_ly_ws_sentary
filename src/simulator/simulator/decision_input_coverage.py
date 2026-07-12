@@ -276,57 +276,6 @@ COVERAGE: tuple[DecisionInputCoverage, ...] = (
         viewer_surfaces=("Events tab RFID rows", "/status.json.current_record.referee"),
     ),
     DecisionInputCoverage(
-        key="target_streams",
-        label="Predictor, Buff, And Outpost Target Streams",
-        status="covered",
-        purpose="Exercise target-source freshness, active aim mode, target armor, and target-set summaries.",
-        formal_topics=("/ly/predictor/target", "/ly/buff/target", "/ly/outpost/target"),
-        mock_inputs=("--mock-target", "--mock-target-status", "--mock-target-yaw", "--mock-target-pitch"),
-        trace_fields=(
-            "aim_mode",
-            "target_armor",
-            "target_state.fresh_auto_aim",
-            "target_state.fresh_buff",
-            "target_state.fresh_outpost",
-            "events.armor_target_visible",
-            "events.buff_target_locked",
-            "events.outpost_target_locked",
-        ),
-        fixtures=("target_acquisition", "buff_activation", "outpost_attack", "relative_target_bridge"),
-        workflows=("regional-buff-timeout", "regional-outpost-collapse", "multi-unit-target-priority"),
-        viewer_surfaces=("Decision tab target preview", "Events tab target-state rows", "Armor preview asset"),
-    ),
-    DecisionInputCoverage(
-        key="detector_armors",
-        label="Detector Armor List",
-        status="covered",
-        purpose=(
-            "Exercise the formal detector armor-list input used to build hitable target sets, enemy "
-            "target distances, and outpost armor-interrupt evidence."
-        ),
-        formal_topics=("/ly/detector/armors",),
-        mock_inputs=(
-            "--mock-armors",
-            "--mock-armor-type",
-            "--mock-armor-distance",
-            "--mock-armor",
-        ),
-        trace_fields=(
-            "target_armor",
-            "target_state.hitable_targets",
-            "events.armor_target_visible",
-            "events.outpost_attack_window_open",
-        ),
-        fixtures=("detector_armors_target_list", "outpost_attack"),
-        workflows=("detector-armors-target-list", "regional-outpost-collapse", "multi-unit-target-priority"),
-        viewer_surfaces=("Decision tab target preview", "Events tab hitable targets", "Runtime tab aim-source rows"),
-        notes=(
-            "Armor.distance is meters and is copied directly by the behavior-tree subscriber.",
-            "The behavior-tree ignores /ly/detector/armors when ExternalAimSettings.Enable is true.",
-            "ArmorType IDs differ from draggable UnitType IDs; Sentry armor is ID 6.",
-        ),
-    ),
-    DecisionInputCoverage(
         key="official_target_fallback",
         label="Official Target Fallback",
         status="covered",

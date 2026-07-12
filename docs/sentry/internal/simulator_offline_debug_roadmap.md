@@ -1,6 +1,8 @@
 # Simulator Offline Debug Roadmap
 
-Updated: 2026-06-02
+Updated: 2026-07-12
+
+> Historical roadmap entries for simulator detector-armors mocks were superseded on 2026-07-12 when the internal vision packages were removed. Current mock aim input is external `/ly/aim/*`.
 
 ## Purpose
 
@@ -250,7 +252,7 @@ The target product is a dense robotics debug dashboard:
 - Added the `bullet_info_resource` scenario fixture, `bullet-resource` mock preset, and `bullet-info-resource-snapshot` workflow to make BulletInfo evidence discoverable and regression-tested.
 - Kept formal behavior-tree decision gates unchanged; current decisions still use the existing legacy ammo/speed path unless formal logic changes in a separate reviewed slice.
 
-### 2026-06-02: Detector Armors Offline Input Coverage
+### 2026-06-02: Detector Armors Offline Input Coverage (historical, removed 2026-07-12)
 
 - Added simulator-only `/ly/detector/armors` publishing through `simulator.mock_inputs`, with a single-target shortcut and repeatable `--armor TYPE:DISTANCE_M` entries.
 - Added wrapper flags, early CLI validation, and the `detector-armors` preset in `simulator.start`.

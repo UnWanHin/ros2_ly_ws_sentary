@@ -1,4 +1,6 @@
-# `/ly/control/firecode` 火控链路
+# `/ly/control/firecode` 火控链路（历史内部辅瞄版本）
+
+> 本文中的内部视觉/预测来源已于 2026-07-12 移除。当前火控输入来自外部 `/ly/aim/result`，再由 `behavior_tree` 统一发布 `/ly/control/firecode`。
 
 本文档只追一条链路：
 

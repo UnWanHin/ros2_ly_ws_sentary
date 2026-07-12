@@ -1,6 +1,6 @@
 # ros2_ly_ws_sentry 接手阅读指南
 
-Updated: 2026-07-08
+Updated: 2026-07-12
 
 这是一个 ROS2 Humble / `colcon` 哨兵上位机工作区。当前 `Behavion` 主链路已经切到 **decision-only**：本仓负责下位机串口、导航/FaceMode bridge 和行为树决策；相机、检测、追踪、弹道、gimbal TF 和最终 aim/firing 判定由外部 `sentry.aim` / `sentry_tf` 提供。
 
@@ -19,37 +19,31 @@ sentry.aim
   -> 下位机
 ```
 
-正式入口不会启动本仓 legacy internal auto-aim 的 `detector / tracker_solver / predictor / outpost_hitter / buff_hitter`。这些包仍保留给单测、调试和历史链路对照。
+内部相机、检测、追踪、预测、打符、前哨和射表标定包已经移除。迁移范围与验证边界见
+[docs/record/2026-07-12_remove_internal_vision_calibration_packages.md](docs/record/2026-07-12_remove_internal_vision_calibration_packages.md)。
 
 ## 推荐阅读顺序
 
 1. 项目总索引
    [docs/README.md](docs/README.md)
 2. 当前系统链路与行为
-   [docs/architecture/2026-05-03_message_and_link_flow.md](docs/architecture/2026-05-03_message_and_link_flow.md)
-   [docs/architecture/2026-05-05_system_behavior.md](docs/architecture/2026-05-05_system_behavior.md)
+   [docs/architecture/2026-07-12_project_link_graph.md](docs/architecture/2026-07-12_project_link_graph.md)
+   [docs/record/2026-07-12_remove_internal_vision_calibration_packages.md](docs/record/2026-07-12_remove_internal_vision_calibration_packages.md)
    [docs/sentry/internal/ros2_topic_structure.md](docs/sentry/internal/ros2_topic_structure.md)
 3. 当前主链模块
    [docs/modules/2026-05-05_gimbal_driver.md](docs/modules/2026-05-05_gimbal_driver.md)
    [docs/modules/2026-05-05_behavior_tree.md](docs/modules/2026-05-05_behavior_tree.md)
    [docs/modules/2026-05-04_navi_tf_bridge.md](docs/modules/2026-05-04_navi_tf_bridge.md)
-4. Legacy / 调试视觉链路
-   [docs/modules/2026-05-05_detector.md](docs/modules/2026-05-05_detector.md)
-   [docs/modules/2026-03-04_tracker_solver.md](docs/modules/2026-03-04_tracker_solver.md)
-   [docs/modules/2026-04-23_predictor.md](docs/modules/2026-04-23_predictor.md)
-   [docs/modules/2026-05-05_outpost_hitter.md](docs/modules/2026-05-05_outpost_hitter.md)
-   [docs/modules/2026-05-05_buff_hitter.md](docs/modules/2026-05-05_buff_hitter.md)
-5. 哨兵决策与模拟器
+4. 哨兵决策与模拟器
    [docs/sentry/README.md](docs/sentry/README.md)
    [docs/sentry/regional/current_behavior.md](docs/sentry/regional/current_behavior.md)
    [docs/sentry/regional/decision_framework.md](docs/sentry/regional/decision_framework.md)
    [docs/sentry/regional/patrol_scan_modes.md](docs/sentry/regional/patrol_scan_modes.md)
    [docs/sentry/internal/simulator.md](docs/sentry/internal/simulator.md)
-6. 串口、裁判系统和实机检查
+5. 串口、裁判系统和实机检查
    [docs/sentry/embedded/serial_data_mapping.md](docs/sentry/embedded/serial_data_mapping.md)
    [docs/sentry/embedded/downlink_control_frame.md](docs/sentry/embedded/downlink_control_frame.md)
-   [docs/guides/2026-03-04_config_setup_guide.md](docs/guides/2026-03-04_config_setup_guide.md)
-   [docs/guides/2026-03-05_preflight_checklist.md](docs/guides/2026-03-05_preflight_checklist.md)
+   [docs/guides/2026-05-04_external_topic_boundary.md](docs/guides/2026-05-04_external_topic_boundary.md)
 
 历史姿态和旧自瞄说明已归档到 `docs/record/`，例如：
 

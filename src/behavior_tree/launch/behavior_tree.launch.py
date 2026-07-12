@@ -9,7 +9,7 @@ behavior_tree 单包启动入口。
 
 用途：
 - 仅启动 behavior_tree_node，适合独立调试决策流程。
-- 不负责拉起 detector / gimbal_driver 等下游节点。
+- 不负责拉起 gimbal_driver 等下游节点；外部辅瞄通过 /ly/aim/* 接入 sentry_all。
 """
 
 from launch import LaunchDescription

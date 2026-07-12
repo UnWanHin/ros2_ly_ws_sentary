@@ -251,7 +251,7 @@ private:
     bool hasReceivedSentryInfo_{false};
     std::chrono::steady_clock::time_point lastSentryInfoRxTime_{};
     PostureRefereeTimer postureRefereeTimer_{};
-    std::array<ArmorData, 10> armorList; // 辅瞄返回的装甲板序列
+    std::array<ArmorData, 10> armorList; // 外部 /ly/aim/armor_targets 目标序列
     bool is_game_begin{false}; // 比赛开始的标志
     FireCodeType RecFireCode{}; // 云台的火控数据
     std::uint8_t postureState{0}; // 云台/下位机回传姿态: 0=未知, 1=进攻, 2=防御, 3=移动
@@ -285,10 +285,7 @@ private:
     AimMode aimMode{AimMode::RotateScan};
     // ArmorType targetArmor{ArmorType::Hero}; // 目标装甲板
     ArmorData targetArmor{}; // 目标装甲板，包括距离
-    AimData autoAimData{}; // 定义回调，接收的辅瞄云台角度数据
-    AimData externalAimData{}; // 接收外部 sentry_msgs/AimResult follow/角度/开火门控
-    AimData buffAimData{}; // 定义回调，接收的打符云台角度数据
-    AimData outpostAimData{}; // 定义回调，接收的打哨站云台角度数据
+    AimData externalAimData{}; // 外部 sentry_msgs/AimResult follow/角度/开火门控
     AimData faceModeData{}; // 接收 FaceMode 解算出来的固定点朝向角
     GimbalControlData gimbalControlData{}; /// 发送给云台的角度控制数据，火控数据等
     std::uint8_t postureCommand{0}; // 姿态控制指令: 0=不下发, 1=进攻, 2=防御, 3=移动
@@ -561,7 +558,6 @@ private:
     rclcpp::Publisher<gimbal_driver::msg::ControlVelocity>::SharedPtr pub_gimbal_vel_;
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_gimbal_capV_;
 
-    rclcpp::Publisher<auto_aim_common::msg::Target>::SharedPtr pub_predictor_target_;
 #ifdef LY_ENABLE_SENTRY_MSGS
     rclcpp::Publisher<sentry_msgs::msg::AimTarget>::SharedPtr pub_external_aim_select_target_;
 #endif

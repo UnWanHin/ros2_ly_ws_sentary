@@ -771,8 +771,7 @@ namespace LangYa {
     }
 
     void from_json(const json& j, ExternalAimSetting& ea) {
-        // Behavion branch: external aim is the only official aim chain.
-        // Keep the Enable field in old JSON files as documentation only.
+        // External aim is the only official aim chain.
         ea.Enable = true;
         ea.ResultFreshTimeoutMs = j.value("ResultFreshTimeoutMs", ea.ResultFreshTimeoutMs);
         ea.TargetFreshTimeoutMs = j.value("TargetFreshTimeoutMs", ea.TargetFreshTimeoutMs);

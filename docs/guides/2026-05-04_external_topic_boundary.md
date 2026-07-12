@@ -2,13 +2,19 @@
 
 本文档用于明确：哪些链路在本仓库内闭环，哪些链路依赖外部模块（导航上位机/下位机）。
 
-## 1. 仓内闭环链路
+## 1. 仓内负责链路
 
-- 打车主链：`detector -> tracker_solver -> predictor -> behavior_tree -> gimbal_driver`
-- 打符链：`detector -> buff_hitter -> behavior_tree -> gimbal_driver`
-- 前哨链：`detector -> outpost_hitter -> behavior_tree -> gimbal_driver`
+正式瞄准输入来自仓外 `sentry.aim`：
 
-以上链路的 ROS 节点都在本仓库内可见。
+```text
+external /ly/aim/armor_targets + /ly/aim/result
+  -> behavior_tree
+  -> /ly/control/*
+  -> gimbal_driver
+  -> lower controller
+```
+
+本仓负责策略、姿态、导航/FaceMode bridge、裁判/下位机串口和离线回放；不再包含相机、检测、追踪、预测、打符、前哨或射表标定节点。
 
 ## 2. 外部依赖链路
 

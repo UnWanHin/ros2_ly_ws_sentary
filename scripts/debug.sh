@@ -16,19 +16,15 @@ Usage:
 Entries:
   armor_test            Formal external-aim armor test preset.
   navi-debug            behavior_tree-only navigation debug.
-  standalone            Standalone submenu (armor/buff/outpost/spin/navi).
+  standalone            Standalone submenu (spin/navi).
   navi_goal             JSON-driven /ly/navi/goal patrol.
   navi-goal-cli         Interactive /ly/navi/goal publisher.
-  ballistic-log         /rosout ballistic log filter.
-  shooting-table-calib  Shooting table calibration/debug.
-  buff-shooting-table-calib  Buff shooting-table calibration/debug.
-  control-angles-test    Publish one /ly/control/angles GimbalAngles command.
+  control-angles-test  Publish one /ly/control/angles GimbalAngles command.
   rotate_level          /ly/control/firecode rotate level cycle test.
   move_rotate           Rotate + /ly/control/vel sine-translate test.
   posture-test          /ly/control/posture cycle test and /ly/gimbal/posture watch.
-  sentry-cmd-downlink   Launch gimbal_driver, cycle posture 1/2/3, and monitor SentryCmd/RFID links.
+  sentry-cmd-downlink  Launch gimbal_driver, cycle posture 1/2/3, and monitor SentryCmd/RFID links.
   chase-only            No-gate pure chase test (lower-machine online by default).
-  outpost-target-test   Publish /ly/outpost/target yaw sequence 45/60/75 for bridge test.
   goal-pos-test         Static calibration-only /goal_pose test with y/n confirm.
 
 Examples:
@@ -57,37 +53,25 @@ run_entry() {
     5|navi-goal-cli|navi_goal_cli)
       exec "${ROOT_DIR}/debug/navi_goal_cli.sh" "$@"
       ;;
-    6|ballistic-log|ballistic_error_log|ballistic-log)
-      exec "${ROOT_DIR}/debug/ballistic_error_log.sh" "$@"
-      ;;
-    7|shooting-table|shooting_table|shooting-table-calib|shooting_table_calib|calib)
-      exec "${ROOT_DIR}/debug/shooting_table_calib.sh" "$@"
-      ;;
-    8|buff-shooting-table-calib|buff_shooting_table_calib|buff-calib|buff_calib)
-      exec "${ROOT_DIR}/debug/buff_shooting_table_calib.sh" "$@"
-      ;;
-    9|control-angles-test|control_angles_test|control-angles|control_angles)
+    6|control-angles-test|control_angles_test|control-angles|control_angles)
       exec "${ROOT_DIR}/debug/control_angles_test.sh" "$@"
       ;;
-    10|rotate-level|rotate_level)
+    7|rotate-level|rotate_level)
       exec "${ROOT_DIR}/debug/rotate_level.sh" "$@"
       ;;
-    11|move-rotate|move_rotate)
+    8|move-rotate|move_rotate)
       exec "${ROOT_DIR}/debug/move_rotate.sh" "$@"
       ;;
-    12|posture-test|posture_test|posture)
+    9|posture-test|posture_test|posture)
       exec "${ROOT_DIR}/debug/posture_test.sh" "$@"
       ;;
-    13|sentry-cmd-downlink|sentry_cmd_downlink|sentry-cmd|sentry_cmd)
+    10|sentry-cmd-downlink|sentry_cmd_downlink|sentry-cmd|sentry_cmd)
       exec "${ROOT_DIR}/debug/sentry_cmd_downlink_test.sh" "$@"
       ;;
-    14|chase-only|chase_only|chase)
+    11|chase-only|chase_only|chase)
       exec "${ROOT_DIR}/debug/chase_only.sh" "$@"
       ;;
-    15|outpost-target-test|outpost_target_test|outpost-target|outpost_target)
-      exec "${ROOT_DIR}/debug/outpost_target_test.sh" "$@"
-      ;;
-    16|goal-pos-test|goal_pos_test|goal-pos|goal_pos)
+    12|goal-pos-test|goal_pos_test|goal-pos|goal_pos)
       exec "${ROOT_DIR}/debug/goal_pos_test.sh" "$@"
       ;;
     ""|menu)
@@ -115,17 +99,13 @@ echo "  2) navi-debug"
 echo "  3) standalone"
 echo "  4) navi_goal"
 echo "  5) navi-goal-cli"
-echo "  6) ballistic-log"
-echo "  7) shooting-table-calib"
-echo "  8) buff-shooting-table-calib"
-echo "  9) control-angles-test"
-echo " 10) rotate_level"
-echo " 11) move_rotate"
-echo " 12) posture-test"
-echo " 13) sentry-cmd-downlink"
-echo " 14) chase-only"
-echo " 15) outpost-target-test"
-echo " 16) goal-pos-test"
-read -r -p "Input 1-16 [default: 1]: " choice
+echo "  6) control-angles-test"
+echo "  7) rotate_level"
+echo "  8) move_rotate"
+echo "  9) posture-test"
+echo " 10) sentry-cmd-downlink"
+echo " 11) chase-only"
+echo " 12) goal-pos-test"
+read -r -p "Input 1-12 [default: 1]: " choice
 choice="${choice:-1}"
 run_entry "${choice}"

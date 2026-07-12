@@ -2,7 +2,7 @@
 
 # Navigation-only velocity chain:
 #   /ly/navi/vel -> navi_vel_control_bridge -> /ly/control/vel -> gimbal_driver
-# This does not start behavior_tree, detector, FaceMode, or rotate logic.
+# This does not start behavior_tree, FaceMode, or rotate logic.
 
 set -euo pipefail
 

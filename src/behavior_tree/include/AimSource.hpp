@@ -15,45 +15,14 @@ struct AimSourceView {
     bool ExternalAimActive{false};
 };
 
-inline const LangYa::AimData& SelectActiveAimData(
-    const bool external_aim_active,
-    const LangYa::AimMode aim_mode,
-    const LangYa::AimData& auto_aim,
-    const LangYa::AimData& external_aim,
-    const LangYa::AimData& buff_aim,
-    const LangYa::AimData& outpost_aim) noexcept {
-    if (external_aim_active) {
-        return external_aim;
-    }
-    if (aim_mode == LangYa::AimMode::Buff) {
-        return buff_aim;
-    }
-    if (aim_mode == LangYa::AimMode::Outpost) {
-        return outpost_aim;
-    }
-    return auto_aim;
-}
-
 inline AimSourceView MakeAimSourceView(
-    const bool external_aim_active,
-    const LangYa::AimMode aim_mode,
-    const LangYa::AimData& auto_aim,
-    const LangYa::AimData& external_aim,
-    const LangYa::AimData& buff_aim,
-    const LangYa::AimData& outpost_aim) noexcept {
-    const LangYa::AimData& active = SelectActiveAimData(
-        external_aim_active,
-        aim_mode,
-        auto_aim,
-        external_aim,
-        buff_aim,
-        outpost_aim);
+    const LangYa::AimData& external_aim) noexcept {
     return AimSourceView{
-        .Active = &active,
-        .AutoAim = external_aim_active ? &external_aim : &auto_aim,
-        .Buff = external_aim_active ? &external_aim : &buff_aim,
-        .Outpost = external_aim_active ? &external_aim : &outpost_aim,
-        .ExternalAimActive = external_aim_active,
+        .Active = &external_aim,
+        .AutoAim = &external_aim,
+        .Buff = &external_aim,
+        .Outpost = &external_aim,
+        .ExternalAimActive = true,
     };
 }
 

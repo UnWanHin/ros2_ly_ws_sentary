@@ -152,7 +152,6 @@ Current preset coverage:
 - `official-target-sentry`: official target fallback with behavior-tree `ArmorType::Sentry` ID `6`.
 - `uwb-fusion`: opt-in `/ly/friend/uwb_pos` self-position fusion rehearsal with CLI coordinates in official field centimeters.
 - `bullet-resource`: BulletInfo resource snapshot with speed, shoot data, projectile allowance, and remaining gold coin fields.
-- `detector-armors`: formal `/ly/detector/armors` target-list rehearsal with multiple ArmorType candidates and distance evidence.
 - `multi-unit-regional`: loads `src/simulator/sample/unit_scene.json` so live view art and mock HP/position topics include multiple unit classes.
 - `full-roster-regional`: loads `src/simulator/sample/unit_scenes/full_roster.json` for full packaged unit-art, formal health-unit HP mapping, and placed-unit PositionData coverage.
 - `low-resource`: low sentry HP and low ammo recovery input state.
@@ -197,7 +196,7 @@ PYTHONPATH=src/simulator python3 -m simulator.offline_workflow multi-unit-target
 PYTHONPATH=src/simulator python3 -m simulator.offline_workflow uwb-position-fusion --json
 ```
 
-Current workflow IDs are `regional-buff-timeout`, `regional-outpost-collapse`, `official-target-fallback`, `uwb-position-fusion`, `bullet-info-resource-snapshot`, `detector-armors-target-list`, `multi-unit-target-priority`, `low-resource-recovery-exit`, and `full-roster-visual-inputs`.
+Current workflow IDs are `regional-buff-timeout`, `regional-outpost-collapse`, `official-target-fallback`, `uwb-position-fusion`, `bullet-info-resource-snapshot`, `multi-unit-target-priority`, `low-resource-recovery-exit`, and `full-roster-visual-inputs`.
 Each workflow is simulator-only guidance: it prints a start command, preflight dry-runs, post-run trace checks, and evidence to inspect; it does not publish ROS topics and does not alter formal launch behavior.
 
 Decision-input coverage is tracked as a simulator-owned catalog:

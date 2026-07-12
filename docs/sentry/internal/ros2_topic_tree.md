@@ -133,40 +133,26 @@ bridge 固定 `intention=3`；最多 50 點，超出 `uint16` 起點或 `int8` d
 └── speed : std_msgs/msg/Float32  [Embedded] 旧弹速 topic，来自 TypeID 5 BulletSpeed/100
 ```
 
-### `/ly/vision`, `/ly/bt`, `/ly/detector`, `/ly/tracker`, `/ly/predictor`
+### `/ly/aim`, `/ly/vision`, `/ly/bt`
 
 ```text
+/ly/aim
+├── armor_targets : sentry_msgs/msg/AimTargetArray [External] 外部 aim -> BT 候选目标
+├── result        : sentry_msgs/msg/AimResult      [External] 外部 aim -> BT 跟随/角度/开火门控
+└── select_target : sentry_msgs/msg/AimTarget      [External] BT -> 外部 aim 选中目标
+
 /ly/vision
-└── mode : std_msgs/msg/UInt8  [Internal] BT -> detector/buff/outpost，0=disabled, 1=armor, 2=buff, 3=outpost
+└── mode : std_msgs/msg/UInt8  [Internal] BT 当前 AimMode 观测输出；不再选择本仓内部视觉管线
 
 /ly/bt
-├── target           : std_msgs/msg/UInt8              [Internal] BT -> detector/predictor，装甲板目标类型
+├── target           : std_msgs/msg/UInt8              [Internal] BT 当前目标类型观测输出
 └── sentry_position  : geometry_msgs/msg/PointStamped  [Embedded] BT -> gimbal_driver，融合后自身坐标，map frame，单位 m
 
-/ly/detector
-├── armors       : auto_aim_common/msg/Armors  [Internal] detector -> tracker/predictor
-└── high_armors  : auto_aim_common/msg/Armors  [Internal] detector debug/高处装甲板输出
-
-/ly/tracker
-└── results : auto_aim_common/msg/Trackers  [Internal] tracker_solver -> predictor
-
-/ly/predictor
-├── target : auto_aim_common/msg/Target       [Internal] predictor -> BT，普通装甲板辅瞄角
-├── debug  : auto_aim_common/msg/DebugFilter  [Internal] predictor debug
-└── vis    : auto_aim_common/msg/PredictorVis [Internal] predictor 可视化
 ```
 
-### `/ly/buff`, `/ly/outpost`, `/ly/face_mode`
+### `/ly/face_mode`
 
 ```text
-/ly/buff
-├── target : auto_aim_common/msg/Target     [Internal] buff_hitter -> BT，打符角度/状态
-└── debug  : auto_aim_common/msg/BuffDebug  [Internal] buff_hitter debug
-
-/ly/outpost
-├── armors : auto_aim_common/msg/Armors  [Internal] detector -> outpost_hitter
-└── target : auto_aim_common/msg/Target  [Internal] outpost_hitter -> BT，前哨角度/状态
-
 /ly/face_mode
 ├── target_raw : std_msgs/msg/UInt16MultiArray      [Internal] BT -> FaceMode solver，[official_map_x, official_map_y, map_z]
 └── angles     : gimbal_driver/msg/GimbalAngles     [Internal] FaceMode solver -> BT/控制角
@@ -206,36 +192,15 @@ bridge 固定 `intention=3`；最多 50 點，超出 `uint16` 起點或 `int8` d
         └── navi_tf_bridge 读 tf_config.yaml 4x4
             └── /goal_pose
 
-/ly/detector/armors -> /ly/tracker/results -> /ly/predictor/target
+/ly/aim/armor_targets
 └── BT 构造 /ly/navi/target_rel
     └── navi_tf_bridge 查 TF
         └── /goal_pose
 ```
 
-### `/ly/ra`, camera, image, TF
+### External TF
 
 ```text
-/ly/ra
-├── mode        : std_msgs/msg/UInt8              [Internal] buff_hitter 内部打符模式
-├── image       : sensor_msgs/msg/Image           [Internal] buff_hitter debug image
-└── angle_image : auto_aim_common/msg/AngleImage  [Internal] detector/buff debug angle image
-
-/ly/compressed
-└── image : sensor_msgs/msg/CompressedImage  [Internal] detector/buff 压缩图像调试
-
-/ly/back_cam
-└── target : auto_aim_common/msg/Target  [Internal] 后置相机目标结果，BT 消费
-
-/ly/camera
-└── image : sensor_msgs/msg/Image  [Internal] detector 中有 topic 常量，当前默认相机输出不走这里
-
-/ly/backcamera
-└── image : sensor_msgs/msg/Image  [Internal] detector 中有 topic 常量，当前未作为主链路使用
-
-/camera_front
-├── image_raw   : sensor_msgs/msg/Image       [External] detector 默认相机图像输出
-└── camera_info : sensor_msgs/msg/CameraInfo  [External] detector 默认相机参数输出
-
 /tf        : tf2_msgs/msg/TFMessage  [External] TF 动态变换
 /tf_static : tf2_msgs/msg/TFMessage  [External] TF 静态变换
 ```
@@ -447,6 +412,8 @@ RfidOnEnemySide
 ```
 
 ### `auto_aim_common/msg`
+
+当前正式链路使用 `GoalReach` 与 `RelativeTarget`。其余消息是保留的接口定义，供历史 bag、外部编译依赖或未来迁移使用，不代表本仓当前存在内部 detector/tracker/predictor ROS 链路。
 
 ```text
 auto_aim_common/msg

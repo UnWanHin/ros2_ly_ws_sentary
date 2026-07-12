@@ -21,12 +21,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="One-command offline simulator start (fixed to regional profile)."
     )
     parser.add_argument(
-        "--target",
-        choices=("none", "predictor", "buff", "outpost"),
-        default="predictor",
-        help="Offline mock target source (default: predictor).",
-    )
-    parser.add_argument(
         "--trace",
         action="store_true",
         help="Enable trace output during offline decision run.",
@@ -254,8 +248,6 @@ def main(argv: list[str] | None = None) -> int:
         "nogate",
         "--bt-config",
         args.bt_config,
-        "--mock-target",
-        args.target,
     ]
     if not args.no_view:
         decision_cmd.append("--live-view")

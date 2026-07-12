@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 This repository is a ROS2 workspace built with `colcon`.
-- `src/`: all runtime packages (`gimbal_driver`, `detector`, `tracker_solver`, `predictor`, `behavior_tree`, `buff_hitter`, `outpost_hitter`, `shooting_table_calib`, `auto_aim_common`).
+- `src/`: retained runtime packages (`auto_aim_common`, `behavior_tree`, `gimbal_driver`, `navi_tf_bridge`, `tf_tree`, `simulator`).
 - `scripts/`: operational scripts (for example, `selfcheck.sh`, `start.sh`).
 - `docs/`: contributor-facing documentation, organized by `architecture/`, `guides/`, `modules/`, `sentry/`, `reports/`, `rules/`.
 - Generated artifacts: `build/`, `install/`, `log/` (do not commit).
@@ -10,7 +10,7 @@ This repository is a ROS2 workspace built with `colcon`.
 ## Build, Test, and Development Commands
 - `colcon build`  
   Build all ROS2 packages in this workspace.
-- `colcon build --packages-select detector behavior_tree gimbal_driver`  
+- `colcon build --packages-select auto_aim_common gimbal_driver navi_tf_bridge behavior_tree tf_tree simulator`
   Faster iterative build for selected modules.
 - `source install/setup.bash`  
   Load built packages into the current shell.
@@ -26,8 +26,8 @@ This repository is a ROS2 workspace built with `colcon`.
 - Follow existing file-level style; do not reformat unrelated code.
 - Use descriptive names aligned with existing patterns:
   - Topics: `/ly/<domain>/<name>` (snake_case).
-  - Config keys: keep dot/slash compatibility when touching detector-related params.
-- Avoid hardcoded hardware values (camera SN, device name, baud rate); keep them in YAML.
+  - Config keys: preserve existing public topic/message/config names when touching runtime interfaces.
+- Avoid hardcoded hardware values (device name, baud rate); keep them in YAML.
 
 ## Testing Guidelines
 - Minimum before PR: targeted build for changed packages + `selfcheck.sh sentry --skip-hz`.
@@ -45,7 +45,7 @@ This repository is a ROS2 workspace built with `colcon`.
 
 ## Security & Configuration Tips
 - Never commit secrets, device-specific credentials, or local absolute paths.
-- Keep runtime configuration centralized in `src/detector/config/auto_aim_config.yaml` and related launch parameters.
+- Keep shared runtime configuration in `config/base_config.yaml`, `config/common.yaml`, and the owning package configuration files.
 
 ## Simulator Maintenance
 - `src/simulator` is the maintained offline pygame viewer for behavior-tree decision traces; keep it in `src/`, not `tools/`.
@@ -134,7 +134,7 @@ Use Understand Anything as the long-lived project map for this workspace.
   - `$doubt-driven-development` for non-trivial claims about runtime chains, fallback behavior, safety-critical decisions, or cross-module invariants; use it to actively look for wrong assumptions before declaring a conclusion.
   - `$code-simplification` when a fix would otherwise add broad duplicated logic; preserve behavior and use the smallest local helper that improves readability.
   - `$incremental-implementation` for staged changes touching ROS2 launch/runtime paths, behavior-tree decisions, or large config/doc migrations.
-  - `$deprecation-and-migration` when deciding whether legacy detector/tracker/predictor/buff/outpost paths should remain, be marked legacy, or be removed.
+  - `$deprecation-and-migration` when deciding whether a legacy subsystem should remain, be marked legacy, or be removed.
   - `$api-and-interface-design` when changing ROS topics, message semantics, launch arguments, config keys, or public package interfaces.
   - `$source-driven-development` when correctness depends on current official documentation for an external framework/library.
   - `$documentation-and-adrs` when decisions need durable docs or ADRs.

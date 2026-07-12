@@ -214,26 +214,6 @@
       }
     },
     {
-      "name": "detector_armors_target_list",
-      "path": "detector_armors_target_list.jsonl",
-      "description": "Formal detector armor-list input evidence with multiple hitable target candidates and target distance.",
-      "expected": {
-        "status": "PASS",
-        "records": 1,
-        "schema_versions": {"v2": 1},
-        "output_kinds": {"goal_pos": 1},
-        "intent_layers": ["RegionalPatrol"],
-        "intent_reasons": ["TargetVisible"],
-        "goal_names": ["OccupyArea"],
-        "aim_modes": ["AutoAim"],
-        "target_state_true": ["has_recent_target", "fresh_current_aim", "fresh_auto_aim"],
-        "events_true": ["event_data_fresh", "sentry_info_fresh", "enemy_outpost_alive", "armor_target_visible", "outpost_attack_window_open", "regional_defense_active"],
-        "enemy_unit_types": ["Hero", "Infantry1", "Sentry"],
-        "target_armor": {"id": 6, "name": "Sentry", "distance_m": 4.2},
-        "hitable_targets": ["Hero (1)", "Infantry1 (3)", "Sentry (7)"]
-      }
-    },
-    {
       "name": "low_resource_recovery",
       "path": "low_resource_recovery.jsonl",
       "description": "Low-resource recovery decision after HP, ammo, and damage risk flags are active.",

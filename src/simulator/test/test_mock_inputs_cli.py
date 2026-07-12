@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import argparse
-
 import pytest
 
 from simulator.field import FieldGeometry
@@ -13,7 +11,6 @@ from simulator.mock_inputs import (
     default_uwb_position,
     official_bt_point,
     parse_args,
-    parse_armor_spec,
     payload_position_cm,
     uwb_raw_point,
 )
@@ -100,16 +97,6 @@ def test_parse_args_accepts_decision_context_knobs() -> None:
             "8",
             "--mock-bullet-projectile-allowance-17mm",
             "120",
-            "--armors",
-            "true",
-            "--armor-type",
-            "6",
-            "--armor-distance",
-            "4.2",
-            "--armor",
-            "1:6.0",
-            "--armor",
-            "3:3.5",
             "--mock-external-aim",
             "true",
             "--mock-external-aim-follow",
@@ -170,10 +157,6 @@ def test_parse_args_accepts_decision_context_knobs() -> None:
     assert args.mock_bullet_shooter_number == 7
     assert args.mock_bullet_launching_frequency == 8
     assert args.mock_bullet_projectile_allowance_17mm == 120
-    assert args.armors is True
-    assert args.armor_type == 6
-    assert args.armor_distance == 4.2
-    assert args.armor_specs == [(1, 6.0), (3, 3.5)]
     assert args.mock_external_aim is True
     assert args.mock_external_aim_follow is True
     assert args.mock_external_aim_fire is False
@@ -189,22 +172,6 @@ def test_parse_args_accepts_decision_context_knobs() -> None:
 def test_parse_args_rejects_bad_bool() -> None:
     with pytest.raises(SystemExit):
         parse_args(["--navi-reachable", "maybe"])
-
-
-def test_parse_armor_spec_accepts_type_distance_pairs() -> None:
-    assert parse_armor_spec("1:6.0") == (1, 6.0)
-    assert parse_armor_spec("6,4.2") == (6, 4.2)
-
-
-def test_parse_armor_spec_rejects_invalid_values() -> None:
-    with pytest.raises(argparse.ArgumentTypeError):
-        parse_armor_spec("1")
-    with pytest.raises(argparse.ArgumentTypeError):
-        parse_armor_spec("x:4.0")
-    with pytest.raises(argparse.ArgumentTypeError):
-        parse_armor_spec("1:-0.1")
-    with pytest.raises(argparse.ArgumentTypeError):
-        parse_armor_spec("1:nan")
 
 
 def test_default_self_position_uses_team_base_or_clamped_override() -> None:

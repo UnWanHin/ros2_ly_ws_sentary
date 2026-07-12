@@ -19,8 +19,6 @@ def test_decision_input_coverage_catalog_has_expected_inputs() -> None:
         "referee_event_energy",
         "team_buff",
         "rfid",
-        "target_streams",
-        "detector_armors",
         "official_target_fallback",
         "gimbal_fire_posture",
         "external_aim",
@@ -42,11 +40,6 @@ def test_coverage_payload_marks_known_partial_items_without_catalog_issues() -> 
     assert "uwb-position-fusion" in by_key["self_position"]["workflows"]
     assert by_key["self_position"]["gaps"] == []
     assert by_key["external_aim"]["status"] == "optional_covered"
-    assert by_key["detector_armors"]["status"] == "covered"
-    assert "/ly/detector/armors" in by_key["detector_armors"]["formal_topics"]
-    assert "--mock-armors" in by_key["detector_armors"]["mock_inputs"]
-    assert "target_state.hitable_targets" in by_key["detector_armors"]["trace_fields"]
-    assert "detector-armors-target-list" in by_key["detector_armors"]["workflows"]
     assert by_key["bullet_state"]["status"] == "covered"
     assert "bullet_info.initial_speed" in by_key["bullet_state"]["trace_fields"]
     assert "bullet_info_resource" in by_key["bullet_state"]["fixtures"]

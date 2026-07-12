@@ -34,11 +34,13 @@
 
 ---
 
-## 🔄 Legacy Internal Auto-Aim
+## 🗂️ 历史内部辅瞄链路
 
-以下 `detector -> tracker_solver -> predictor -> /ly/predictor/target` 是舊內部輔瞄鏈路，只保留作為歷史/調試說明；`Behavion` 的正式 `sentry_all` 不再啟動它。
+本文件早期版本记录的 `detector -> tracker_solver -> predictor`、打符、前哨与射表标定链路，已于 2026-07-12 从仓库移除；下文旧章节不再是可运行说明。当前接口、迁移范围与验证边界以
+[`../record/2026-07-12_remove_internal_vision_calibration_packages.md`](../record/2026-07-12_remove_internal_vision_calibration_packages.md)
+和 [`2026-07-12_project_link_graph.md`](2026-07-12_project_link_graph.md) 为准。
 
-## 模式 1: 自瞄模式 (Auto-Aim)
+## 历史模式 1: 自瞄模式 (Auto-Aim)
 
 ### 數據流向圖
 
@@ -289,7 +291,7 @@ if(control_result.valid){
 
 ---
 
-## 🔄 模式 2: 前哨模式 (Outpost)
+## 历史模式 2: 前哨模式 (Outpost)
 
 ### 數據流向圖
 
@@ -368,7 +370,7 @@ node.Publisher<ly_outpost_target>()->publish(target_msg);
 
 ---
 
-## 🔄 模式 3: 能量機關模式 (Buff)
+## 历史模式 3: 能量機關模式 (Buff)
 
 ### 數據流向圖
 
@@ -577,7 +579,7 @@ Time::TimeStamp timestamp(msg_time_sec);
 
 ---
 
-## 🚀 啟動命令
+## 历史启动命令
 
 ### 自瞄模式
 ```bash
@@ -599,7 +601,7 @@ ros2 launch detector buff.launch.py
 
 ---
 
-## 🔍 調試 Topic
+## 历史调试 Topic
 
 ### 查看所有 Topic
 ```bash
@@ -629,7 +631,7 @@ ros2 topic hz /ly/predictor/target
 
 ---
 
-## 📝 決策模塊接口
+## 历史决策模块接口
 
 ### 決策模塊需要訂閱的 Topic
 

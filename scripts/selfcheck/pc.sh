@@ -15,7 +15,7 @@ export ROS_LOG_DIR
 
 DO_BUILD=1
 DO_TEST=0
-PACKAGES="behavior_tree outpost_hitter predictor buff_hitter detector gimbal_driver tracker_solver shooting_table_calib buff_shooting_table_calib auto_aim_common"
+PACKAGES="auto_aim_common behavior_tree gimbal_driver navi_tf_bridge tf_tree simulator"
 
 usage() {
   cat <<EOF
@@ -30,7 +30,7 @@ Examples:
   ./${SCRIPT_NAME} --no-build
 
   # 只檢部分包 + 跑 colcon test
-  ./${SCRIPT_NAME} --packages "behavior_tree outpost_hitter predictor" --test
+  ./${SCRIPT_NAME} --packages "auto_aim_common behavior_tree gimbal_driver" --test
 EOF
 }
 

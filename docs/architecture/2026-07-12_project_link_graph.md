@@ -136,13 +136,14 @@ flowchart LR
 
 | 類別 | 是否 `sentry_all` 正式主鏈 | 說明 |
 |---|---:|---|
-| `gimbal_driver`、`behavior_tree`、`navi_tf_bridge`、外部 aim/TF/導航 | 是 | 比賽決策、控制和下位機通訊主鏈 |
-| `detector`、`tracker_solver`、`predictor`、`outpost_hitter`、`buff_hitter` | 否 | 保留作 legacy/debug 或獨立測試；不可假設正式比賽啟動 |
+| `gimbal_driver`、`behavior_tree`、`navi_tf_bridge`、`auto_aim_common`、外部 aim/TF/導航 | 是 | 比賽決策、控制和下位機通訊主鏈；`auto_aim_common` 提供 `GoalReach`、`RelativeTarget` 等共用 ROS 訊息，不是內部相機節點 |
+| 已移除的内部视觉与标定包 | 否 | `detector`、`tracker_solver`、`predictor`、`outpost_hitter`、`buff_hitter`、`shooting_table_calib`、`buff_shooting_table_calib` 已删除；不得作为当前运行入口 |
 | `src/simulator` | 否 | 消費 `DecisionTrace` 的離線分析工具，不參與控制 |
 
 ## 5. Source of truth
 
 - `src/behavior_tree/include/Topic.hpp`、`src/behavior_tree/src/Application.cpp`、`src/behavior_tree/src/PublishMessage.cpp`
+- `src/auto_aim_common/msg/GoalReach.msg`、`src/auto_aim_common/msg/RelativeTarget.msg`
 - `src/gimbal_driver/main.cpp`、`src/gimbal_driver/include/basictype.hpp`
 - `docs/sentry/embedded/downlink_control_frame.md`
 - `docs/sentry/internal/ros2_topic_tree.md`、`docs/sentry/internal/ros2_topic_structure.md`

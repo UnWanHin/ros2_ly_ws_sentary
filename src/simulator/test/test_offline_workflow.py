@@ -27,7 +27,6 @@ def test_workflow_catalog_has_unique_ids_and_valid_references() -> None:
         "official-target-fallback",
         "uwb-position-fusion",
         "bullet-info-resource-snapshot",
-        "detector-armors-target-list",
         "multi-unit-target-priority",
         "low-resource-recovery-exit",
         "full-roster-visual-inputs",
@@ -116,25 +115,6 @@ def test_workflow_commands_for_bullet_info_resource_snapshot() -> None:
     assert any("bullet_info_resource.jsonl --validate-only" in command for command in post_run)
 
 
-def test_workflow_commands_for_detector_armors_target_list() -> None:
-    workflow = workflow_by_key()["detector-armors-target-list"]
-    trace = default_trace_path(workflow)
-
-    start = start_command(
-        workflow,
-        trace=trace,
-        live_view=False,
-        control_file="/tmp/armor_control.jsonl",
-        trace_on=True,
-    )
-    post_run = post_run_commands(workflow, trace=trace)
-
-    assert "--mock-preset detector-armors" in start
-    assert "--live-view" not in start
-    assert "/tmp/armor_control.jsonl" in start
-    assert any("detector_armors_target_list.jsonl --validate-only" in command for command in post_run)
-
-
 def test_workflow_commands_for_full_roster_visual_inputs_include_clean_asset_qa() -> None:
     workflow = workflow_by_key()["full-roster-visual-inputs"]
     trace = default_trace_path(workflow)
@@ -155,7 +135,6 @@ def test_main_lists_workflows(capsys) -> None:
     assert "regional-buff-timeout" in output
     assert "uwb-position-fusion" in output
     assert "bullet-info-resource-snapshot" in output
-    assert "detector-armors-target-list" in output
     assert "full-roster-visual-inputs" in output
 
 

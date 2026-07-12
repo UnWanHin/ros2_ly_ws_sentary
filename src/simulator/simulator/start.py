@@ -13,7 +13,6 @@ from datetime import datetime
 from pathlib import Path
 
 from .config import repo_root
-from .mock_inputs import parse_armor_spec
 
 
 DEFAULT_BT_CONFIG_BY_MODE = {
@@ -24,13 +23,12 @@ DEFAULT_BT_CONFIG_BY_MODE = {
 
 MOCK_PRESET_DESCRIPTIONS = {
     "none": "No preset overlay; use explicit --mock-* values and parser defaults.",
-    "buff-ready": "Regional energy-window check with buff target, sentry activation, buff energy, and center RFID.",
+    "buff-ready": "Regional energy-window check with external aim, sentry activation, buff energy, and center RFID.",
     "outpost-dead": "Regional resource state where the enemy outpost HP is already zero.",
     "nav-unreachable": "Regional navigation failure context with an unreachable current goal.",
     "official-target-sentry": "Official target fallback for a sentry armor position on /ly/navi/target_official.",
     "uwb-fusion": "Regional self-position fusion rehearsal with opt-in /ly/friend/uwb_pos.",
     "bullet-resource": "BulletInfo resource snapshot with speed, shoot data, projectile allowance, and gold coin fields.",
-    "detector-armors": "Detector Armors target-list rehearsal on the formal /ly/detector/armors topic.",
     "multi-unit-regional": "Regional multi-unit scene using sample/unit_scene.json plus HP, RFID, buff, and target context.",
     "full-roster-regional": (
         "Full red/blue unit roster for checking packaged unit art, formal health-unit HP mapping, "
@@ -43,10 +41,9 @@ MOCK_PRESETS: dict[str, dict[str, object]] = {
     "none": {},
     "buff-ready": {
         "mode": "regional",
-        "mock_target": "buff",
-        "mock_target_status": True,
-        "mock_target_yaw": 6.0,
-        "mock_target_pitch": -1.0,
+        "mock_external_aim": True,
+        "mock_external_aim_yaw": 6.0,
+        "mock_external_aim_pitch": -1.0,
         "mock_time_left": 411,
         "mock_ammo": 43,
         "mock_self_health": 382,
@@ -61,7 +58,6 @@ MOCK_PRESETS: dict[str, dict[str, object]] = {
     },
     "outpost-dead": {
         "mode": "regional",
-        "mock_target": "none",
         "mock_time_left": 360,
         "mock_ammo": 120,
         "mock_self_health": 360,
@@ -74,10 +70,6 @@ MOCK_PRESETS: dict[str, dict[str, object]] = {
     },
     "nav-unreachable": {
         "mode": "regional",
-        "mock_target": "predictor",
-        "mock_target_status": True,
-        "mock_target_yaw": 9.0,
-        "mock_target_pitch": -2.0,
         "mock_time_left": 390,
         "mock_ammo": 80,
         "mock_navi_reached": False,
@@ -88,7 +80,6 @@ MOCK_PRESETS: dict[str, dict[str, object]] = {
     },
     "official-target-sentry": {
         "mode": "regional",
-        "mock_target": "none",
         "mock_time_left": 402,
         "mock_ammo": 70,
         "mock_self_position_x": 1220,
@@ -100,7 +91,6 @@ MOCK_PRESETS: dict[str, dict[str, object]] = {
     },
     "uwb-fusion": {
         "mode": "regional",
-        "mock_target": "none",
         "mock_time_left": 386,
         "mock_ammo": 90,
         "mock_self_health": 360,
@@ -114,7 +104,6 @@ MOCK_PRESETS: dict[str, dict[str, object]] = {
     },
     "bullet-resource": {
         "mode": "regional",
-        "mock_target": "none",
         "mock_time_left": 392,
         "mock_ammo": 88,
         "mock_self_health": 365,
@@ -128,27 +117,12 @@ MOCK_PRESETS: dict[str, dict[str, object]] = {
         "mock_bullet_remaining_gold_coin": 14,
         "mock_bullet_projectile_allowance_fortress_17mm": 32,
     },
-    "detector-armors": {
-        "mode": "regional",
-        "mock_target": "none",
-        "mock_time_left": 386,
-        "mock_ammo": 96,
-        "mock_self_health": 372,
-        "mock_armors": True,
-        "mock_armor_type": 1,
-        "mock_armor_distance": 6.0,
-        "mock_armor": ["1:6.0", "3:4.5", "6:5.2"],
-        "mock_self_position_x": 1075,
-        "mock_self_position_y": 898,
-        "mock_navi_reachable": True,
-    },
     "multi-unit-regional": {
         "mode": "regional",
         "unit_scene": "src/simulator/sample/unit_scene.json",
-        "mock_target": "predictor",
-        "mock_target_status": True,
-        "mock_target_yaw": 8.0,
-        "mock_target_pitch": -1.5,
+        "mock_external_aim": True,
+        "mock_external_aim_yaw": 8.0,
+        "mock_external_aim_pitch": -1.5,
         "mock_time_left": 398,
         "mock_ammo": 80,
         "mock_self_health": 360,
@@ -165,10 +139,9 @@ MOCK_PRESETS: dict[str, dict[str, object]] = {
     "full-roster-regional": {
         "mode": "regional",
         "unit_scene": "src/simulator/sample/unit_scenes/full_roster.json",
-        "mock_target": "predictor",
-        "mock_target_status": True,
-        "mock_target_yaw": 5.0,
-        "mock_target_pitch": -1.0,
+        "mock_external_aim": True,
+        "mock_external_aim_yaw": 5.0,
+        "mock_external_aim_pitch": -1.0,
         "mock_time_left": 390,
         "mock_ammo": 120,
         "mock_self_health": 390,
@@ -184,7 +157,6 @@ MOCK_PRESETS: dict[str, dict[str, object]] = {
     },
     "low-resource": {
         "mode": "regional",
-        "mock_target": "none",
         "mock_time_left": 398,
         "mock_ammo": 5,
         "mock_self_health": 118,
@@ -428,12 +400,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Mock team color for --offline-decision (default: red).",
     )
     parser.add_argument(
-        "--mock-target",
-        choices=("none", "predictor", "buff", "outpost"),
-        default="none",
-        help="Mock target source for --offline-decision (default: none).",
-    )
-    parser.add_argument(
         "--mock-hz",
         type=float,
         default=20.0,
@@ -468,24 +434,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=float,
         default=0.0,
         help="Mock /ly/gimbal/angles pitch (default: 0).",
-    )
-    parser.add_argument(
-        "--mock-target-status",
-        type=parse_bool,
-        default=True,
-        help="Mock target status for predictor/buff/outpost target sources (default: true).",
-    )
-    parser.add_argument(
-        "--mock-target-yaw",
-        type=float,
-        default=0.0,
-        help="Mock target yaw for predictor/buff/outpost target sources (default: 0).",
-    )
-    parser.add_argument(
-        "--mock-target-pitch",
-        type=float,
-        default=0.0,
-        help="Mock target pitch for predictor/buff/outpost target sources (default: 0).",
     )
     parser.add_argument("--mock-gimbal-fire-status", type=int, default=0, help="Mock /ly/gimbal/firecode fire_status.")
     parser.add_argument("--mock-gimbal-cap-state", type=int, default=0, help="Mock /ly/gimbal/firecode cap_state.")
@@ -737,31 +685,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Mock /ly/game/bullet projectile_allowance_fortress_17mm.",
     )
     parser.add_argument(
-        "--mock-armors",
-        type=parse_bool,
-        default=False,
-        help="Publish mock /ly/detector/armors using --mock-armor-type/--mock-armor-distance.",
-    )
-    parser.add_argument(
-        "--mock-armor-type",
-        type=int,
-        default=1,
-        help="Mock single Armor.type id for /ly/detector/armors.",
-    )
-    parser.add_argument(
-        "--mock-armor-distance",
-        type=float,
-        default=6.0,
-        help="Mock single Armor.distance in meters for /ly/detector/armors.",
-    )
-    parser.add_argument(
-        "--mock-armor",
-        action="append",
-        default=[],
-        metavar="TYPE:DISTANCE_M",
-        help="Append one /ly/detector/armors entry; may be repeated.",
-    )
-    parser.add_argument(
         "--mock-external-aim",
         type=parse_bool,
         default=False,
@@ -924,15 +847,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error("--mock-sequence-poll-sec must be > 0")
     if str(args.mock_sequence).strip() and not str(args.control_file).strip():
         parser.error("--mock-sequence requires a non-empty --control-file")
-    if args.mock_armor_type < 0 or args.mock_armor_type > 8:
-        parser.error("--mock-armor-type must be in [0, 8]")
-    if not math.isfinite(args.mock_armor_distance) or args.mock_armor_distance <= 0.0:
-        parser.error("--mock-armor-distance must be finite and > 0")
-    for armor_spec in args.mock_armor:
-        try:
-            parse_armor_spec(str(armor_spec))
-        except argparse.ArgumentTypeError as exc:
-            parser.error(f"--mock-armor {armor_spec}: {exc}")
     if args.play and args.live_view:
         parser.error("--play and --live-view are mutually exclusive")
     return args
@@ -1082,11 +996,6 @@ def build_start_command(
         offline_defaults = (
             ("offline", "true"),
             ("use_gimbal", "false"),
-            ("use_detector", "false"),
-            ("use_tracker", "false"),
-            ("use_predictor", "false"),
-            ("use_outpost", "false"),
-            ("use_buff", "false"),
             ("use_behavior_tree", "true"),
             ("debug_bypass_is_start", "true" if debug_bypass_is_start else "false"),
             ("runtime_rearm_start_gate", "true"),
@@ -1116,8 +1025,6 @@ def build_mock_command(root: Path, args: argparse.Namespace) -> tuple[list[str],
         "simulator.mock_inputs",
         "--team",
         args.mock_team,
-        "--target-source",
-        args.mock_target,
         "--hz",
         str(args.mock_hz),
         "--time-left",
@@ -1138,9 +1045,6 @@ def build_mock_command(root: Path, args: argparse.Namespace) -> tuple[list[str],
         str(args.match_duration_sec),
     ]
     mock_pass_through: list[tuple[str, object]] = [
-        ("--target-status", bool_text(args.mock_target_status)),
-        ("--target-yaw", args.mock_target_yaw),
-        ("--target-pitch", args.mock_target_pitch),
         ("--gimbal-fire-status", args.mock_gimbal_fire_status),
         ("--gimbal-cap-state", args.mock_gimbal_cap_state),
         ("--gimbal-follow-mode", bool_text(args.mock_gimbal_follow_mode)),
@@ -1230,9 +1134,6 @@ def build_mock_command(root: Path, args: argparse.Namespace) -> tuple[list[str],
             "--mock-bullet-projectile-allowance-fortress-17mm",
             args.mock_bullet_projectile_allowance_fortress_17mm,
         ),
-        ("--armors", bool_text(args.mock_armors)),
-        ("--armor-type", args.mock_armor_type),
-        ("--armor-distance", args.mock_armor_distance),
         ("--mock-external-aim", bool_text(args.mock_external_aim)),
         ("--mock-external-aim-follow", bool_text(args.mock_external_aim_follow)),
         ("--mock-external-aim-fire", bool_text(args.mock_external_aim_fire)),
@@ -1246,8 +1147,6 @@ def build_mock_command(root: Path, args: argparse.Namespace) -> tuple[list[str],
     ]
     for cli_name, value in mock_pass_through:
         python_args.extend([cli_name, str(value)])
-    for armor_spec in args.mock_armor:
-        python_args.extend(["--armor", str(armor_spec)])
     if str(args.control_file).strip():
         python_args.extend(["--control-file", str(Path(args.control_file).expanduser().resolve())])
     if str(args.unit_scene).strip():

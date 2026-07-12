@@ -16,23 +16,14 @@ LangYa::AimData FreshAim() {
 
 }  // namespace
 
-TEST(AimSourceTest, ExternalModeMapsAllFormalViewsToExternalAim) {
+TEST(AimSourceTest, FormalViewsMapToExternalAim) {
     using namespace BehaviorTree;
     using namespace LangYa;
 
-    AimData auto_aim;
     AimData external_aim;
-    AimData buff_aim;
-    AimData outpost_aim;
 
     external_aim = FreshAim();
-    const auto external_view = MakeAimSourceView(
-        true,
-        AimMode::Outpost,
-        auto_aim,
-        external_aim,
-        buff_aim,
-        outpost_aim);
+    const auto external_view = MakeAimSourceView(external_aim);
     EXPECT_EQ(external_view.Active, &external_aim);
     EXPECT_EQ(external_view.AutoAim, &external_aim);
     EXPECT_EQ(external_view.Buff, &external_aim);
@@ -40,60 +31,9 @@ TEST(AimSourceTest, ExternalModeMapsAllFormalViewsToExternalAim) {
     EXPECT_TRUE(AimFreshAndValid(*external_view.Active));
 }
 
-TEST(AimSourceTest, LegacyModeKeepsAimModeSpecificSources) {
+TEST(AimSourceTest, BuffLockUsesUnifiedExternalAim) {
     using namespace BehaviorTree;
     using namespace LangYa;
-
-    AimData auto_aim;
-    AimData external_aim;
-    AimData buff_aim;
-    AimData outpost_aim;
-
-    buff_aim = FreshAim();
-    const auto legacy_buff_view = MakeAimSourceView(
-        false,
-        AimMode::Buff,
-        auto_aim,
-        external_aim,
-        buff_aim,
-        outpost_aim);
-    EXPECT_EQ(legacy_buff_view.Active, &buff_aim);
-    EXPECT_EQ(legacy_buff_view.Buff, &buff_aim);
-
-    outpost_aim = FreshAim();
-    const auto legacy_outpost_view = MakeAimSourceView(
-        false,
-        AimMode::Outpost,
-        auto_aim,
-        external_aim,
-        buff_aim,
-        outpost_aim);
-    EXPECT_EQ(legacy_outpost_view.Active, &outpost_aim);
-    EXPECT_EQ(legacy_outpost_view.Outpost, &outpost_aim);
-
-    auto_aim = FreshAim();
-    const auto legacy_auto_view = MakeAimSourceView(
-        false,
-        AimMode::RotateScan,
-        auto_aim,
-        external_aim,
-        buff_aim,
-        outpost_aim);
-    EXPECT_EQ(legacy_auto_view.Active, &auto_aim);
-}
-
-TEST(AimSourceTest, BuffLockKeepsLegacyBuffFollowButExternalUsesUnifiedAim) {
-    using namespace BehaviorTree;
-    using namespace LangYa;
-
-    AimData buff_aim = FreshAim();
-    buff_aim.BuffFollow = false;
-    EXPECT_FALSE(AimBuffTargetLocked(buff_aim, false));
-    EXPECT_FALSE(AimBuffFireReady(buff_aim, false));
-
-    buff_aim.BuffFollow = true;
-    EXPECT_TRUE(AimBuffTargetLocked(buff_aim, false));
-    EXPECT_TRUE(AimBuffFireReady(buff_aim, false));
 
     AimData external_aim = FreshAim();
     external_aim.BuffFollow = false;

@@ -28,14 +28,6 @@ def test_build_mock_command_forwards_decision_context_inputs(tmp_path: Path) -> 
             "--offline-decision",
             "--mock-team",
             "blue",
-            "--mock-target",
-            "outpost",
-            "--mock-target-status",
-            "false",
-            "--mock-target-yaw",
-            "12.5",
-            "--mock-target-pitch",
-            "-3.25",
             "--mock-self-health",
             "315",
             "--mock-enemy-health",
@@ -104,16 +96,6 @@ def test_build_mock_command_forwards_decision_context_inputs(tmp_path: Path) -> 
             "23.4",
             "--mock-bullet-projectile-allowance-17mm",
             "120",
-            "--mock-armors",
-            "true",
-            "--mock-armor-type",
-            "6",
-            "--mock-armor-distance",
-            "4.2",
-            "--mock-armor",
-            "1:6.0",
-            "--mock-armor",
-            "3:3.5",
             "--mock-external-aim",
             "true",
             "--mock-external-aim-fire",
@@ -135,10 +117,6 @@ def test_build_mock_command_forwards_decision_context_inputs(tmp_path: Path) -> 
 
     assert "simulator.mock_inputs" in shell_cmd
     assert "--team blue" in shell_cmd
-    assert "--target-source outpost" in shell_cmd
-    assert "--target-status false" in shell_cmd
-    assert "--target-yaw 12.5" in shell_cmd
-    assert "--target-pitch -3.25" in shell_cmd
     assert "--self-health 315" in shell_cmd
     assert "--enemy-health 180" in shell_cmd
     assert "--enemy-outpost-health 0" in shell_cmd
@@ -173,11 +151,6 @@ def test_build_mock_command_forwards_decision_context_inputs(tmp_path: Path) -> 
     assert "--mock-navi-vel-y -0.2" in shell_cmd
     assert "--mock-bullet-initial-speed 23.4" in shell_cmd
     assert "--mock-bullet-projectile-allowance-17mm 120" in shell_cmd
-    assert "--armors true" in shell_cmd
-    assert "--armor-type 6" in shell_cmd
-    assert "--armor-distance 4.2" in shell_cmd
-    assert "--armor 1:6.0" in shell_cmd
-    assert "--armor 3:3.5" in shell_cmd
     assert "--mock-external-aim true" in shell_cmd
     assert "--mock-external-aim-fire false" in shell_cmd
     assert "--mock-external-aim-yaw 7.5" in shell_cmd
@@ -193,7 +166,7 @@ def test_mock_preset_expands_common_decision_context() -> None:
     _command, shell_cmd = build_mock_command(REPO_ROOT, args)
 
     assert args.mode == "regional"
-    assert "--target-source buff" in shell_cmd
+    assert "--mock-external-aim true" in shell_cmd
     assert "--time-left 411" in shell_cmd
     assert "--ammo-left 43" in shell_cmd
     assert "--sentry-can-activate-energy true" in shell_cmd
@@ -211,7 +184,6 @@ def test_uwb_fusion_mock_preset_enables_dedicated_uwb_position() -> None:
     _command, shell_cmd = build_mock_command(REPO_ROOT, args)
 
     assert args.mode == "regional"
-    assert "--target-source none" in shell_cmd
     assert "--time-left 386" in shell_cmd
     assert "--self-position-x 1110" in shell_cmd
     assert "--self-position-y 720" in shell_cmd
@@ -226,7 +198,6 @@ def test_bullet_resource_mock_preset_enables_bullet_info_fields() -> None:
     _command, shell_cmd = build_mock_command(REPO_ROOT, args)
 
     assert args.mode == "regional"
-    assert "--target-source none" in shell_cmd
     assert "--time-left 392" in shell_cmd
     assert "--ammo-left 88" in shell_cmd
     assert "--mock-bullet-initial-speed 23.4" in shell_cmd
@@ -238,21 +209,6 @@ def test_bullet_resource_mock_preset_enables_bullet_info_fields() -> None:
     assert "--mock-bullet-projectile-allowance-42mm 6" in shell_cmd
     assert "--mock-bullet-remaining-gold-coin 14" in shell_cmd
     assert "--mock-bullet-projectile-allowance-fortress-17mm 32" in shell_cmd
-
-
-def test_detector_armor_mock_preset_enables_formal_armors_topic() -> None:
-    args = parse_args(["--offline-decision", "--mock-preset", "detector-armors"])
-
-    _command, shell_cmd = build_mock_command(REPO_ROOT, args)
-
-    assert args.mode == "regional"
-    assert "--target-source none" in shell_cmd
-    assert "--armors true" in shell_cmd
-    assert "--armor-type 1" in shell_cmd
-    assert "--armor-distance 6.0" in shell_cmd
-    assert "--armor 1:6.0" in shell_cmd
-    assert "--armor 3:4.5" in shell_cmd
-    assert "--armor 6:5.2" in shell_cmd
 
 
 def test_explicit_mock_flags_override_mock_preset_values() -> None:
@@ -267,15 +223,12 @@ def test_explicit_mock_flags_override_mock_preset_values() -> None:
             "1800",
             "--mock-official-target-armor-type",
             "1",
-            "--mock-target",
-            "predictor",
         ]
     )
 
     _command, shell_cmd = build_mock_command(REPO_ROOT, args)
 
     assert args.mode == "league"
-    assert "--target-source predictor" in shell_cmd
     assert "--official-target-valid true" in shell_cmd
     assert "--official-target-x 1800" in shell_cmd
     assert "--official-target-y 905" in shell_cmd
@@ -288,7 +241,7 @@ def test_multi_unit_mock_preset_uses_sample_unit_scene() -> None:
     _command, shell_cmd = build_mock_command(REPO_ROOT, args)
 
     assert args.mode == "regional"
-    assert "--target-source predictor" in shell_cmd
+    assert "--mock-external-aim true" in shell_cmd
     assert "--enemy-outpost-health 44" in shell_cmd
     assert str((REPO_ROOT / "src" / "simulator" / "sample" / "unit_scene.json").resolve()) in shell_cmd
 
@@ -299,7 +252,7 @@ def test_full_roster_mock_preset_uses_full_roster_scene() -> None:
     _command, shell_cmd = build_mock_command(REPO_ROOT, args)
 
     assert args.mode == "regional"
-    assert "--target-source predictor" in shell_cmd
+    assert "--mock-external-aim true" in shell_cmd
     assert "--ammo-left 120" in shell_cmd
     assert "--enemy-outpost-health 60" in shell_cmd
     assert str((REPO_ROOT / "src" / "simulator" / "sample" / "unit_scenes" / "full_roster.json").resolve()) in shell_cmd
@@ -424,7 +377,6 @@ def test_mock_preset_catalog_has_descriptions() -> None:
         "official-target-sentry",
         "uwb-fusion",
         "bullet-resource",
-        "detector-armors",
     } <= set(MOCK_PRESETS)
 
     full_roster_description = MOCK_PRESET_DESCRIPTIONS["full-roster-regional"]
@@ -438,16 +390,9 @@ def test_list_mock_presets_prints_overlay_flags(capsys) -> None:
 
     assert "buff-ready:" in output
     assert "overlay:" in output
-    assert "--mock-target buff" in output
+    assert "--mock-external-aim true" in output
     assert "--mock-sentry-can-activate-energy true" in output
-    assert "detector-armors:" in output
-    assert "--mock-armor 1:6.0 --mock-armor 3:4.5 --mock-armor 6:5.2" in output
     assert "--unit-scene src/simulator/sample/unit_scene.json" in output
-
-
-def test_parse_args_rejects_invalid_mock_armor_spec() -> None:
-    with pytest.raises(SystemExit):
-        parse_args(["--offline-decision", "--mock-armor", "1:nan"])
 
 
 def test_list_mock_sequences_does_not_require_offline_decision(capsys) -> None:

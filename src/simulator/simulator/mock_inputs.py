@@ -31,24 +31,6 @@ def clamp_u32(value: int) -> int:
     return max(0, min(0xFFFFFFFF, int(value)))
 
 
-def parse_armor_spec(value: str) -> tuple[int, float]:
-    text = str(value).strip()
-    separator = ":" if ":" in text else "," if "," in text else ""
-    if not separator:
-        raise argparse.ArgumentTypeError("armor spec must be TYPE:DISTANCE_M or TYPE,DISTANCE_M")
-    raw_type, raw_distance = [part.strip() for part in text.split(separator, 1)]
-    try:
-        armor_type = int(raw_type)
-        distance = float(raw_distance)
-    except ValueError as exc:
-        raise argparse.ArgumentTypeError(f"invalid armor spec: {value}") from exc
-    if armor_type < 0 or armor_type > 8:
-        raise argparse.ArgumentTypeError("armor type must be in [0, 8]")
-    if not math.isfinite(distance) or distance <= 0.0:
-        raise argparse.ArgumentTypeError("armor distance must be finite and > 0")
-    return armor_type, distance
-
-
 def default_self_position(team: str, field: FieldGeometry, x: int, y: int) -> tuple[int, int]:
     if x >= 0 and y >= 0:
         return official_bt_point(field, x, y)
@@ -95,10 +77,6 @@ def payload_position_cm(payload: dict, field: FieldGeometry) -> tuple[int, int] 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Publish minimal offline mock topics for behavior_tree decision tests.")
     parser.add_argument("--team", choices=("red", "blue"), default="red")
-    parser.add_argument("--target-source", choices=("none", "predictor", "buff", "outpost"), default="none")
-    parser.add_argument("--target-status", type=parse_bool, default=True)
-    parser.add_argument("--target-yaw", type=float, default=0.0)
-    parser.add_argument("--target-pitch", type=float, default=0.0)
     parser.add_argument("--hz", type=float, default=20.0)
     parser.add_argument("--yaw", type=float, default=0.0)
     parser.add_argument("--pitch", type=float, default=0.0)
@@ -123,18 +101,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--mock-bullet-projectile-allowance-42mm", type=int, default=0)
     parser.add_argument("--mock-bullet-remaining-gold-coin", type=int, default=0)
     parser.add_argument("--mock-bullet-projectile-allowance-fortress-17mm", type=int, default=0)
-    parser.add_argument("--armors", type=parse_bool, default=False)
-    parser.add_argument("--armor-type", type=int, default=1)
-    parser.add_argument("--armor-distance", type=float, default=6.0)
-    parser.add_argument(
-        "--armor",
-        dest="armor_specs",
-        action="append",
-        type=parse_armor_spec,
-        default=[],
-        metavar="TYPE:DISTANCE_M",
-        help="Append one /ly/detector/armors entry, for example --armor 1:6.0. May be repeated.",
-    )
     parser.add_argument("--mock-external-aim", type=parse_bool, default=False)
     parser.add_argument("--mock-external-aim-follow", type=parse_bool, default=True)
     parser.add_argument("--mock-external-aim-fire", type=parse_bool, default=True)
@@ -211,10 +177,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error("--hz must be > 0")
     if args.match_duration_sec <= 0:
         parser.error("--match-duration-sec must be > 0")
-    if args.armor_type < 0 or args.armor_type > 8:
-        parser.error("--armor-type must be in [0, 8]")
-    if not math.isfinite(args.armor_distance) or args.armor_distance <= 0.0:
-        parser.error("--armor-distance must be finite and > 0")
     return args
 
 
@@ -230,7 +192,6 @@ def main(argv: list[str] | None = None) -> int:
             return 2
     try:
         import rclpy
-        from auto_aim_common.msg import Armor, Armors, Target
         from gimbal_driver.msg import (
             BuffData,
             BulletInfo,
@@ -322,10 +283,6 @@ def main(argv: list[str] | None = None) -> int:
             self.last_wall_time = time.monotonic()
             self.control_path: Path | None = None
             self.control_offset = 0
-            self.armor_entries: list[tuple[int, float]] = list(args.armor_specs or [])
-            if not self.armor_entries and bool(args.armors):
-                self.armor_entries.append((int(args.armor_type), float(args.armor_distance)))
-            self.armor_entries = self.armor_entries[:10]
             if str(args.control_file).strip():
                 self.control_path = Path(args.control_file).expanduser().resolve()
                 self.control_path.parent.mkdir(parents=True, exist_ok=True)
@@ -369,16 +326,6 @@ def main(argv: list[str] | None = None) -> int:
             )
             self.pub_position_data = self.create_publisher(PositionData, "/ly/position/data", 10)
             self.pub_bullet_info = self.create_publisher(BulletInfo, "/ly/game/bullet", 10)
-            self.pub_detector_armors = self.create_publisher(Armors, "/ly/detector/armors", 10)
-
-            self.target_source = args.target_source
-            self.pub_target = None
-            if self.target_source == "predictor":
-                self.pub_target = self.create_publisher(Target, "/ly/predictor/target", 10)
-            elif self.target_source == "buff":
-                self.pub_target = self.create_publisher(Target, "/ly/buff/target", 10)
-            elif self.target_source == "outpost":
-                self.pub_target = self.create_publisher(Target, "/ly/outpost/target", 10)
             self.pub_external_aim_targets = None
             self.pub_external_aim_result = None
             if bool(args.mock_external_aim):
@@ -393,7 +340,7 @@ def main(argv: list[str] | None = None) -> int:
             self.timer = self.create_timer(period, self._publish_all)
             self.get_logger().info(
                 "mock inputs started: "
-                f"team={args.team} target_source={args.target_source} hz={args.hz:.1f} "
+                f"team={args.team} hz={args.hz:.1f} "
                 f"time_left={self.time_left} ammo_left={self.ammo_left} "
                 f"enemy_outpost_hp={self.sim_input_state.structure_hp('enemy', 'outpost')} "
                 f"enemy_base_hp={self.sim_input_state.structure_hp('enemy', 'base')} "
@@ -410,7 +357,6 @@ def main(argv: list[str] | None = None) -> int:
                 f"{int(bool(args.gimbal_aim_mode))},"
                 f"{clamp_u8(args.gimbal_rotate) & 0b11}) "
                 f"external_aim={str(bool(args.mock_external_aim)).lower()} "
-                f"armors={len(self.armor_entries)} "
                 f"simulate_match={str(self.simulate_match).lower()} "
                 f"running={str(self.match_running).lower()} "
                 f"units={len(self.sim_input_state.units)} "
@@ -645,29 +591,6 @@ def main(argv: list[str] | None = None) -> int:
             )
             self.pub_bullet_info.publish(msg)
 
-        def _publish_detector_armors(self, stamp: object) -> None:
-            if not self.armor_entries:
-                return
-            msg = Armors()
-            msg.header.stamp = stamp
-            msg.yaw = float(args.yaw)
-            msg.pitch = float(args.pitch)
-            msg.is_available_armor_for_predictor = bool(self.armor_entries)
-            msg.target_armor_index_for_predictor = 0 if self.armor_entries else -1
-            msg.armors = []
-            for armor_type, distance in self.armor_entries:
-                armor = Armor()
-                armor.type = int(armor_type)
-                armor.color = 3
-                armor.distance = float(distance)
-                armor.distance_to_image_center = 0.0
-                armor.corners_x = []
-                armor.corners_y = []
-                armor.rotation = []
-                armor.translation = []
-                msg.armors.append(armor)
-            self.pub_detector_armors.publish(msg)
-
         def _publish_external_aim(self, stamp: object) -> None:
             if (
                 not bool(args.mock_external_aim)
@@ -845,16 +768,6 @@ def main(argv: list[str] | None = None) -> int:
             self._publish_uwb_position(now)
             self._publish_official_target(now)
             self._publish_bullet_info(now)
-            self._publish_detector_armors(now)
-
-            if self.pub_target is not None:
-                target = Target()
-                target.header.stamp = now
-                target.status = bool(args.target_status)
-                target.buff_follow = self.target_source == "buff"
-                target.yaw = float(args.target_yaw)
-                target.pitch = float(args.target_pitch)
-                self.pub_target.publish(target)
             self._publish_external_aim(now)
 
     rclpy.init(args=None)

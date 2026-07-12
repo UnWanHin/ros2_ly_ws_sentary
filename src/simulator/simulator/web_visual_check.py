@@ -125,7 +125,7 @@ def demo_metadata() -> dict[str, Any]:
             "tick": 60,
             "team": "red",
             "strategy": "RegionalControl",
-            "aim": "predictor",
+            "aim": "external",
             "goal": {"name": "CentralLeft.Attack", "id": 22, "pos_cm": [1505.0, 905.0]},
             "output": {"kind": "goal_pos", "topic": "/ly/navi/goal_pos", "frame_id": "map"},
         },

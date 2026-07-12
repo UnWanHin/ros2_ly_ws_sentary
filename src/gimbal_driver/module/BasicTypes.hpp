@@ -199,7 +199,7 @@ namespace LangYa
         std::uint8_t RecoveryBuff;
         std::uint8_t CoolingBuff;
         std::uint8_t DefenceBuff;
-        std::uint8_t VulnerabilityBuff;/
+        std::uint8_t VulnerabilityBuff;
         std::uint16_t AttackBuff;
         std::uint8_t RemainingEnergy;
     };

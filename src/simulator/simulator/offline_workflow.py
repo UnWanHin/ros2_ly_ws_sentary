@@ -137,30 +137,6 @@ WORKFLOWS: tuple[OfflineWorkflow, ...] = (
         ),
     ),
     OfflineWorkflow(
-        key="detector-armors-target-list",
-        title="Detector Armors Target List",
-        purpose=(
-            "Rehearse formal /ly/detector/armors input for target-list composition, target distance, "
-            "hitable target review, and outpost armor-interrupt evidence."
-        ),
-        mode="regional",
-        bt_config="regional_competition.json",
-        mock_preset="detector-armors",
-        expected_evidence=(
-            "Trace rows should expose target_armor distance and target_state.hitable_targets derived from /ly/detector/armors.",
-            "Events tab should show armor_target_visible and outpost-window context when the selected BT config enables those gates.",
-            "The workflow should stay disabled when ExternalAimSettings.Enable is true because BT intentionally ignores detector armors in that mode.",
-        ),
-        review_notes=(
-            "Armor.distance is meters in auto_aim_common/msg/Armor and is copied directly into behavior-tree ArmorData.",
-            "The detector node itself remains disabled in offline-decision mode; simulator.mock_inputs publishes the same formal topic.",
-        ),
-        fixture_checks=(
-            "PYTHONPATH=src/simulator python3 -m simulator.main src/simulator/sample/scenarios/detector_armors_target_list.jsonl --validate-only",
-            "PYTHONPATH=src/simulator python3 -m simulator.main src/simulator/sample/scenarios/outpost_attack.jsonl --validate-only",
-        ),
-    ),
-    OfflineWorkflow(
         key="multi-unit-target-priority",
         title="Multi-Unit Target Priority Rehearsal",
         purpose=(

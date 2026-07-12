@@ -143,7 +143,7 @@ namespace BehaviorTree{
         // 输入分组说明：
         // 1) 云台与火控回读
         // 2) 裁判/比赛态数据（血量、弹药、时间、开赛标志）
-        // 3) 感知与预测结果（装甲板、predictor/buff/outpost 目标）
+        // 3) 外部 aim 结果与目标候选。
         // 4) 导航与定位（速度、位置、低头标志）
         // ly_gimbal_angles
         GenSub<ly_gimbal_angles>([](Application& app, auto msg) {
@@ -500,23 +500,6 @@ namespace BehaviorTree{
             app.PubEnemyInfo();
         });
 
-        // ly_detector_armors
-        GenSub<ly_detector_armors>([](Application& app, auto msg) {
-            if (app.config.ExternalAimSettings.Enable) {
-                return;
-            }
-            auto &armorList = app.armorList;
-            std::fill(armorList.begin(), armorList.end(), ArmorData{ArmorType::UnKnown, 30});
-            const auto &armors = msg->armors;
-            int count = std::min(10, static_cast<int>(armors.size()));
-            for (int i = 0; i < count; ++i) {
-                armorList[i] = ArmorData{
-                    static_cast<ArmorType>(armors[i].type),
-                    armors[i].distance
-                };
-            }
-        });
-
 #ifdef LY_ENABLE_SENTRY_MSGS
         // ly_aim_armor_targets: external sentry.aim target candidates.
         GenSubWithQoS<ly_aim_armor_targets>(rclcpp::SensorDataQoS(), [](Application& app, auto msg) {
@@ -612,81 +595,6 @@ namespace BehaviorTree{
             }
         });
 #endif
-
-        // ly_predictor_target
-        GenSub<ly_predictor_target>([](Application& app, auto msg) {
-            if (app.config.ExternalAimSettings.Enable) {
-                return;
-            }
-            auto &obj = app;
-            const bool target_valid = msg->status;
-            obj.autoAimData.Angles = GimbalAnglesType{
-                static_cast<AngleType>(msg->yaw),
-                static_cast<AngleType>(msg->pitch)
-            };
-            obj.autoAimData.BuffFollow = false;
-            obj.autoAimData.FireStatus = target_valid;
-            obj.autoAimData.Valid = target_valid;
-            obj.autoAimData.Fresh = target_valid;
-            const auto now = std::chrono::steady_clock::now();
-            if (target_valid) {
-                obj.autoAimData.HasLatchedAngles = true;
-                obj.autoAimData.LastValidTime = now;
-                obj.isFindTargetAtomic = true;
-                obj.lastTargetSeenTime = now;
-                obj.LoggerPtr->Debug("Predictor callback latched valid auto-aim angles.");
-            } else {
-                obj.autoAimData.HasLatchedAngles = false;
-                obj.LoggerPtr->Debug("Predictor callback ignored invalid auto-aim target.");
-            }
-        });
-
-        // ly_buff_target
-        GenSub<ly_buff_target>([](Application& app, auto msg) { 
-            if (app.config.ExternalAimSettings.Enable) {
-                return;
-            }
-            auto  &obj = app;
-            obj.buffAimData.Angles = GimbalAnglesType{
-                static_cast<AngleType>(msg->yaw),
-                static_cast<AngleType>(msg->pitch)
-            };
-            obj.buffAimData.FireStatus = msg->status;
-            obj.buffAimData.BuffFollow = true;
-            obj.buffAimData.Valid = true;
-            obj.buffAimData.Fresh = true;
-            const auto now = std::chrono::steady_clock::now();
-            obj.buffAimData.HasLatchedAngles = true;
-            obj.buffAimData.LastValidTime = now;
-            obj.isFindTargetAtomic = true;
-            obj.lastTargetSeenTime = now;
-        });
-
-        // ly_outpost_target
-        GenSub<ly_outpost_target>([](Application& app, auto msg) {
-            if (app.config.ExternalAimSettings.Enable) {
-                return;
-            }
-            auto &obj = app;
-            const bool target_valid = msg->status;
-            obj.outpostAimData.Angles = GimbalAnglesType{
-                static_cast<AngleType>(msg->yaw),
-                static_cast<AngleType>(msg->pitch)
-            };
-            obj.outpostAimData.FireStatus = target_valid;
-            obj.outpostAimData.BuffFollow = false;
-            obj.outpostAimData.Valid = target_valid;
-            obj.outpostAimData.Fresh = target_valid;
-            const auto now = std::chrono::steady_clock::now();
-            if (target_valid) {
-                obj.outpostAimData.HasLatchedAngles = true;
-                obj.outpostAimData.LastValidTime = now;
-                obj.isFindTargetAtomic = true;
-                obj.lastTargetSeenTime = now;
-            } else {
-                obj.outpostAimData.HasLatchedAngles = false;
-            }
-        });
 
         // ly_face_mode_angles
         GenSub<ly_face_mode_angles>([](Application& app, auto msg) {

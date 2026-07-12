@@ -94,7 +94,7 @@ PYTHONPATH=src/simulator python3 -m simulator.start --mode league --live-view --
 
 ### Offline Decision Test (Not Replay)
 
-Run behavior-tree decision offline with built-in mock topic publishers (no detector/gimbal/predictor/outpost/buff nodes):
+Run behavior-tree decision offline with built-in mock topic publishers (no internal vision nodes):
 
 ```bash
 PYTHONPATH=src/simulator python3 -m simulator.start \
@@ -164,14 +164,6 @@ PYTHONPATH=src/simulator python3 -m simulator.start \
   --trace-on
 ```
 
-You can choose which target stream is active in offline test:
-
-```bash
-PYTHONPATH=src/simulator python3 -m simulator.start \
-  --offline-decision \
-  --mock-target predictor
-```
-
 ### Offline Mock Decision Inputs
 
 `simulator.start --offline-decision` launches `simulator.mock_inputs`, which publishes only existing behavior-tree input topics. It does not modify formal subscribers or message definitions.
@@ -211,7 +203,6 @@ Current presets:
 - `official-target-sentry`: `/ly/navi/target_official` fallback for Sentry armor ID `6`.
 - `uwb-fusion`: opt-in `/ly/friend/uwb_pos` self-position fusion rehearsal with CLI coordinates in official field centimeters.
 - `bullet-resource`: BulletInfo resource snapshot with speed, shoot data, projectile allowance, and gold coin fields.
-- `detector-armors`: `/ly/detector/armors` target-list rehearsal with multiple ArmorType candidates and distance evidence.
 - `multi-unit-regional`: preloads `src/simulator/sample/unit_scene.json` and publishes multi-unit HP/position context.
 - `full-roster-regional`: preloads `src/simulator/sample/unit_scenes/full_roster.json` for full packaged unit-art, formal health-unit HP mapping, and placed-unit PositionData coverage.
 - `low-resource`: low HP and low ammo recovery context.
@@ -265,7 +256,6 @@ Current workflow IDs:
 - `official-target-fallback`
 - `uwb-position-fusion`
 - `bullet-info-resource-snapshot`
-- `detector-armors-target-list`
 - `multi-unit-target-priority`
 - `low-resource-recovery-exit`
 - `full-roster-visual-inputs`
@@ -283,22 +273,10 @@ PYTHONPATH=src/simulator python3 -m simulator.decision_input_coverage unit_hp_po
 PYTHONPATH=src/simulator python3 -m simulator.decision_input_coverage --json
 ```
 
-The catalog covers match state, structure HP, unit HP/position, self position, navigation status/velocity, referee event/energy data, team buff, RFID, target streams, detector armor lists, official target fallback, gimbal/fire/posture state, optional external aim, and BulletInfo resource state.
+The catalog covers match state, structure HP, unit HP/position, self position, navigation status/velocity, referee event/energy data, team buff, RFID, external aim target/result streams, official target fallback, gimbal/fire/posture state, and BulletInfo resource state.
 It also records known non-complete areas: Drone and Infantry3 are visual/offline context for current formal UnitInfo, and optional external aim requires a sourced `sentry_msgs` workspace and matching BT config.
 BulletInfo is now traceable through `bullet_info` rows, `/status.json.current_record.bullet_info`, the Runtime tab, and Foxglove export; current behavior-tree decisions still use the existing legacy ammo/speed gates unless the formal logic changes separately.
 
-Detector armor-list input can be rehearsed without launching detector:
-
-```bash
-PYTHONPATH=src/simulator python3 -m simulator.start \
-  --offline-decision \
-  --mode regional \
-  --live-view \
-  --mock-armors true \
-  --mock-armor 1:6.0 \
-  --mock-armor 3:4.5 \
-  --mock-armor 6:5.2
-```
 
 `--mock-armor` uses `ArmorType:DISTANCE_M`; distance is meters and is copied by `behavior_tree` into target distance evidence. `ArmorType::Sentry` is `6`, while draggable simulator Sentry units use `UnitType` ID `7`.
 
