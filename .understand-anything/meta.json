@@ -2,7 +2,7 @@
   "lastAnalyzedAt": "2026-07-12T00:00:00+08:00",
   "gitCommitHash": "8e041f5610a4e62b8bcb329e53fe974d3630d7dc",
   "workingTreeStatus": "dirty",
-  "lastCheckedNote": "Fallback graph source-checked against the current dirty worktree after removal of internal vision/calibration packages, migration of gimbal_driver serial/lower-machine baseline settings into src/gimbal_driver/config/gimbal_driver_config.yaml, addition of opt-in SerialMode per-ID raw observability topics, and FaceMode request-to-decision convergence in FaceModeManager. Current formal chain is external /ly/aim/* + external TF/navigation -> behavior_tree -> /ly/control/* -> gimbal_driver -> lower controller; FaceMode uses /ly/face_mode/target_raw -> solver -> /ly/face_mode/angles -> FaceModeManager -> the same BT control exit. Six ROS packages remain.",
+  "lastCheckedNote": "Fallback graph source-checked against the current dirty worktree after removal of internal vision/calibration packages, migration of gimbal_driver serial/lower-machine baseline settings into src/gimbal_driver/config/gimbal_driver_config.yaml, addition of opt-in SerialMode per-ID raw observability topics, FaceMode request-to-decision convergence in FaceModeManager, and the query-only PreRoadland/ReadyRoadLand candidate polygons. Current formal chain is external /ly/aim/* + external TF/navigation -> behavior_tree -> /ly/control/* -> gimbal_driver -> lower controller; FaceMode uses /ly/face_mode/target_raw -> solver -> /ly/face_mode/angles -> FaceModeManager -> the same BT control exit. Six ROS packages remain.",
   "version": "1.0.0",
   "analyzedFiles": 554,
   "generator": "local-understand-anything-compatible-fallback"

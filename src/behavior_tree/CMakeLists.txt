@@ -249,6 +249,11 @@ if(BUILD_TESTING)
     std_msgs
     gimbal_driver
   )
+  ament_add_gtest(test_ready_roadland_area test/test_ready_roadland_area.cpp)
+  target_include_directories(test_ready_roadland_area PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
+  )
 endif()
 
 add_executable(area_calculator

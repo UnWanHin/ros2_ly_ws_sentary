@@ -418,6 +418,14 @@ public:
         LangYa::UnitTeam area_team,
         int x,
         int y);
+    static bool IsPositionInPreRoadlandArea(
+        LangYa::UnitTeam area_team,
+        int x,
+        int y);
+    static bool IsPositionInReadyRoadlandArea(
+        LangYa::UnitTeam area_team,
+        int x,
+        int y);
     static bool IsPositionInRecoveryArea(
         LangYa::UnitTeam area_team,
         int x,

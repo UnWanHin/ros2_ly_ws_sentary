@@ -212,6 +212,19 @@ TrySetScopedPositionByBaseGoal()
 
 ## 當前配置
 
+### ReadyRoadLand 候選邊界
+
+`PreRoadland` 與 `ReadyRoadLand` 都已加入 `Area.hpp` 與 `area_calculator`，用於核對未來將舊 `Roadland` 拆成兩個同級主區的邊界。它們目前只提供 `Area::IsPointInsidePreRoadlandArea()` / `Area::IsPointInsideReadyRoadlandArea()` 與相對應 `AreaManager` 查詢，**不是** `MainAreaKind`，不參與目標區域解析、Default scorer、Regional task 或正式導航輸出。
+
+```text
+PreRoadland Red:  (687,380) -> (758,235) -> (510,235) -> (510,205) -> (510,19) -> (389,15) -> (391,373)
+PreRoadland Blue: (2113,1120) -> (2042,1265) -> (2290,1265) -> (2290,1295) -> (2290,1481) -> (2411,1485) -> (2409,1127)
+ReadyRoadLand Red:  (510,235) -> (510,19) -> (1251,17) -> (1333,221)
+ReadyRoadLand Blue: (2290,1265) -> (2290,1481) -> (1549,1483) -> (1467,1279)
+```
+
+這樣保留舊 `Roadland` 主區行為不變，直到 `PreRoadland` 與新的正式 `Roadland` 邊界都確認後再一次完成 MainArea 分割，避免重疊區域依賴隱性解析順序。
+
 目前 `src/behavior_tree/config/AreaManager.yaml` 的基本區域配置是：
 
 ```yaml

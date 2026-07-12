@@ -157,6 +157,7 @@
   "analysisNotes": [
     "Fallback graph was rebuilt manually from current package.xml files, sentry_all.launch.py, gimbal_driver_config.yaml, SerialMode raw-topic mapping, Topic.hpp, behavior_tree source, gimbal_driver source, navi_tf_bridge source, simulator source, and current docs because no usable Understand Anything plugin core is installed.",
     "Only six ROS packages currently exist under src/*/package.xml: auto_aim_common, behavior_tree, gimbal_driver, navi_tf_bridge, simulator, and tf_tree.",
+    "PreRoadland and ReadyRoadLand are Area.hpp candidate polygons for a future Roadland main-area split. They are intentionally query-only and do not participate in current MainArea resolution or Regional tasks.",
     "Internal detector, tracker_solver, predictor, buff_hitter, outpost_hitter, shooting_table_calib, and buff_shooting_table_calib are removed; they have no graph layer, node, edge, launch role, or formal topic contract.",
     "The graph is package/topic/file level, not a complete AST call graph."
   ]

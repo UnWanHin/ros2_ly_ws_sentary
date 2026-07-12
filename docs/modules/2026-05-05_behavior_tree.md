@@ -127,6 +127,8 @@ rclcpp::shutdown();
 | `naviCommandGoal` | 導航目標點位（uint8，對應 Area 枚舉） |
 | `speedLevel` | 底盤速度等級（0=停、1=正常、2=快） |
 
+`Area.hpp` 另保留 `PreRoadland`、`ReadyRoadLand` 候選 polygon，供 `area_calculator` 和策略前置判定核對；它們尚未加入 `MainAreaKind`，不改既有 Roadland 正式任務。
+
 #### 構造流程（`Application.cpp`）
 
 ```

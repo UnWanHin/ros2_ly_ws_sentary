@@ -257,6 +257,10 @@ void PrintExactMembership(UnitTeam area_team, int x, int y) {
               << (BehaviorTree::Area::IsPointInsideRoadlandFollowModeArea(area_team, x, y) ? "true" : "false") << "\n";
     std::cout << "  " << TeamName(area_team) << "_mini_roadland: "
               << (BehaviorTree::Area::IsPointInsideMiniRoadlandArea(area_team, x, y) ? "true" : "false") << "\n";
+    std::cout << "  " << TeamName(area_team) << "_pre_roadland_candidate: "
+              << (BehaviorTree::Area::IsPointInsidePreRoadlandArea(area_team, x, y) ? "true" : "false") << "\n";
+    std::cout << "  " << TeamName(area_team) << "_ready_roadland_candidate: "
+              << (BehaviorTree::Area::IsPointInsideReadyRoadlandArea(area_team, x, y) ? "true" : "false") << "\n";
     std::cout << "  " << TeamName(area_team) << "_recovery_area: "
               << (BehaviorTree::Area::IsPointInsideRecoveryArea(area_team, x, y) ? "true" : "false") << "\n";
     std::cout << "  " << TeamName(area_team) << "_central_left_line: "

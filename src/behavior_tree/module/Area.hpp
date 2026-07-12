@@ -396,6 +396,46 @@ namespace Area {
         { 2408, 1474 }
     };
 
+    // Candidate boundary for the future Roadland split. PreRoadland is the
+    // accessible front section; it remains query-only until both new main-area
+    // boundaries are enabled together.
+    static const std::vector<Point<int>> RedPreRoadlandPoints = {
+        { 687, 380 },
+        { 758, 235 },
+        { 510, 235 },
+        { 510, 205 },
+        { 510, 19 },
+        { 389, 15 },
+        { 391, 373 }
+    };
+
+    static const std::vector<Point<int>> BluePreRoadlandPoints = {
+        { 2113, 1120 },
+        { 2042, 1265 },
+        { 2290, 1265 },
+        { 2290, 1295 },
+        { 2290, 1481 },
+        { 2411, 1485 },
+        { 2409, 1127 }
+    };
+
+    // Candidate boundary for the future Roadland split. This is intentionally
+    // not a MainAreaKind yet: it overlaps the current legacy Roadland polygon
+    // until PreRoadland and the replacement Roadland are switched together.
+    static const std::vector<Point<int>> RedReadyRoadlandPoints = {
+        { 510, 235 },
+        { 510, 19 },
+        { 1251, 17 },
+        { 1333, 221 }
+    };
+
+    static const std::vector<Point<int>> BlueReadyRoadlandPoints = {
+        { 2290, 1265 },
+        { 2290, 1481 },
+        { 1549, 1483 },
+        { 1467, 1279 }
+    };
+
     static const std::vector<Point<int>> RedRecoveryAreaPoints = {
         { 109, 286 },
         { 306, 292 },
@@ -802,6 +842,48 @@ namespace Area {
             return false;
         }
         return IsPointInsideAreaShapes(MiniRoadlandShapes(team), x, y);
+    }
+
+    inline const std::vector<Point<int>>& PreRoadlandBoundary(const UnitTeam team) {
+        return PointLookupTeam(team) == UnitTeam::Blue
+            ? BluePreRoadlandPoints
+            : RedPreRoadlandPoints;
+    }
+
+    inline std::vector<AreaShapeView> PreRoadlandShapes(const UnitTeam team) {
+        std::vector<AreaShapeView> shapes{PolygonShape(PreRoadlandBoundary(team))};
+        return shapes;
+    }
+
+    inline bool IsPointInsidePreRoadlandArea(
+        const UnitTeam team,
+        const int x,
+        const int y) {
+        if (team != UnitTeam::Red && team != UnitTeam::Blue) {
+            return false;
+        }
+        return IsPointInsideAreaShapes(PreRoadlandShapes(team), x, y);
+    }
+
+    inline const std::vector<Point<int>>& ReadyRoadlandBoundary(const UnitTeam team) {
+        return PointLookupTeam(team) == UnitTeam::Blue
+            ? BlueReadyRoadlandPoints
+            : RedReadyRoadlandPoints;
+    }
+
+    inline std::vector<AreaShapeView> ReadyRoadlandShapes(const UnitTeam team) {
+        std::vector<AreaShapeView> shapes{PolygonShape(ReadyRoadlandBoundary(team))};
+        return shapes;
+    }
+
+    inline bool IsPointInsideReadyRoadlandArea(
+        const UnitTeam team,
+        const int x,
+        const int y) {
+        if (team != UnitTeam::Red && team != UnitTeam::Blue) {
+            return false;
+        }
+        return IsPointInsideAreaShapes(ReadyRoadlandShapes(team), x, y);
     }
 
     inline const std::vector<Point<int>>& RecoveryAreaBoundary(const UnitTeam team) {
