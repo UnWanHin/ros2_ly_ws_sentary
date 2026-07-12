@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Serve the repository's source-checked knowledge graph as a local dashboard."""
+"""Serve the repository's source-checked knowledge graph and interactive relationship view."""
 
 from __future__ import annotations
 
@@ -58,10 +58,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Serve .understand-anything/knowledge-graph.json as a local read-only dashboard."
+        description="Serve the local read-only dashboard with project, Regional, and node-edge graph views."
     )
     parser.add_argument("--host", default="127.0.0.1", help="Bind address (default: 127.0.0.1).")
-    parser.add_argument("--port", type=int, default=8765, help="TCP port (default: 8765).")
+    parser.add_argument("--port", type=int, default=1037, help="TCP port (default: 1037).")
     args = parser.parse_args()
 
     if not GRAPH_FILE.is_file():
@@ -71,7 +71,10 @@ def main() -> None:
             raise SystemExit(f"Graph documentation not found: {doc}")
 
     server = ThreadingHTTPServer((args.host, args.port), DashboardHandler)
-    print(f"Understand graph dashboard: http://{args.host}:{args.port}/")
+    dashboard_url = f"http://{args.host}:{args.port}/"
+    print(f"Understand graph dashboard started: {dashboard_url}")
+    print(f"Open this URL in your browser: {dashboard_url}")
+    print("Views: interactive node-edge graph (all/Regional), project Markdown, and Regional Markdown.")
     print("Read-only sources: .understand-anything/knowledge-graph.json and docs graph pages.")
     try:
         server.serve_forever()

@@ -107,6 +107,15 @@ Use Understand Anything as the long-lived project map for this workspace.
 - If the installed Understand Anything skill cannot run because its plugin root/core package is unavailable, create or update an Understand Anything-compatible fallback graph from repo docs, `package.xml`, launch files, topic definitions, and key source files. State clearly that fallback mode was used.
 - Do not let graph generation alter ROS runtime behavior. Keep graph updates as analysis artifacts unless the user explicitly asks for runtime changes.
 
+### Interactive graph browser maintenance
+
+- `scripts/understand_graph_dashboard.py` is the single local entry point for the read-only interactive graph browser; it serves `scripts/understand_graph_dashboard.html` plus the canonical `.understand-anything/` graph files.
+- Maintain the browser as a layered navigator, not a single all-node canvas: it must keep engineering-domain entry points, ROS topic catalog, data-processing catalog, message-schema catalog, Regional/referee catalogs, node detail pages, and one-hop local relation views.
+- Keep the dedicated `Regional 流程圖` current with the actual BT tick order, task-layer priority, event/reached handling, navigation outputs, and posture handoff. Each flow block must link to a current source file, ROS topic, config, or Regional document; update this view in the same change whenever those decision semantics change.
+- A node detail page must let users jump to every directly connected source/target. ROS topic nodes must expose their publisher/subscriber relations from graph edges; data-processing nodes must expose their input/output relations. Do not replace these with unlinked prose.
+- Whenever graph-relevant work changes a package/topic/message schema/processing edge/decision flow, update the corresponding nodes, edges, summaries, tags, and layer membership in `.understand-anything/knowledge-graph.json` so the browser categories and node-to-node navigation remain correct. Update `project-knowledge-graph.md` and `meta.json` in the same change.
+- When changing the browser itself, verify the served root page, `/graph.json`, `/project.md`, and `/regional.md`; validate inline JavaScript syntax, use `git diff --check`, and keep it dependency-free unless the user explicitly approves a new frontend dependency.
+
 ### Documentation and graph freshness
 
 - Runtime behavior, ROS topic/msg/param semantics, launch composition, behavior-tree decisions, simulator trace contracts, navigation/FaceMode flows, and embedded serial mappings must not leave stale docs or stale graph entries behind.

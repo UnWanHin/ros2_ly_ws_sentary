@@ -72,7 +72,7 @@ flowchart LR
 - JSON graph: `.understand-anything/knowledge-graph.json`
 - Scan inventory: `.understand-anything/intermediate/scan-result.json`
 - Metadata: `.understand-anything/meta.json`
-- Read-only local dashboard: `python3 scripts/understand_graph_dashboard.py` -> `http://127.0.0.1:8765/`
+- Read-only local dashboard: `python3 scripts/understand_graph_dashboard.py` -> `http://127.0.0.1:8765/`。頁面可切換工程/Regional Markdown、節點上下游，以及可拖曳、縮放的 node-edge 關係圖；關係圖另可切換全工程與 Regional 子圖。
 - Detailed project graph: `docs/architecture/2026-07-12_project_link_graph.md`
 - Detailed Regional graph: `docs/sentry/regional/2026-07-12_regional_decision_graph.md`
 
@@ -95,3 +95,4 @@ flowchart LR
 - 2026-07-12 fallback update：新增導航 path -> 裁判 `0x0307` bridge。外部 `/ly/navi/path` 是 `nav_msgs/Path`（map/m）；`map_path_to_game_path_node` 使用現有 raw-goal 矩陣反算 official-map dm，保留 `header.stamp` 發到 `/ly/game/path`，`gimbal_driver` 直接下發 `0x02`。`/ly/control/map_path` 僅留手動相容。
 - 2026-07-12 fallback update：`gimbal_driver` 對正式 `/ly/game/path` 加入非零 `header.stamp` 新鮮度 gate，預設超過 5000ms 即拒絕下發；driver 不週期性重發已快取 path，需新 timestamp 才恢復。
 - 2026-07-12 fallback update：`map_data_t.sender_id` 依 V2.0 附錄二的自身 robot ID 自動填寫，不再固定 0：`gimbal_driver` 將 TypeID 1 `GameCode.IsMyTeamRed` 統一封裝到 `/ly/game/sentry/info.self_robot_id`（紅 `7`、藍 `107`、未知 `0`），path bridge 只訂閱該欄位；`0` 時不輸出 path。
+- 2026-07-12 fallback update：補入 `StrategyManager.cpp` 的 Regional 策略層圖譜節點：`Hard -> Task -> Tactical -> Special -> Default -> Finalizer` 的 short-circuit 優先級，以及 Tactical 內的 Outpost visual scout / aim、Buff、Protect Hero、Regional Defense、watchdog、Chase。互動 Dashboard 的 Regional BT 樹由 `main.xml` 與此檔案 source-checked 呈現。

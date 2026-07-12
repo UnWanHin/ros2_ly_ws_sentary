@@ -486,7 +486,12 @@
       "type": "document",
       "name": "2026-07-12_project_link_graph.md",
       "summary": "Current detailed project-wide topology: formal decision-only runtime, external boundaries, TypeID 6/10 mappings, downstream 0x00~0x04 frames, position/reached convergence, and legacy separation.",
-      "tags": ["docs", "architecture", "topology", "mermaid"],
+      "tags": [
+        "docs",
+        "architecture",
+        "topology",
+        "mermaid"
+      ],
       "complexity": "complex",
       "filePath": "docs/architecture/2026-07-12_project_link_graph.md"
     },
@@ -545,7 +550,13 @@
       "type": "document",
       "name": "2026-07-12_regional_decision_graph.md",
       "summary": "Detailed Regional decision topology: tick order, Hard/Task/Tactical/Special/Default priorities, navigation closed loop, speed_level versus control velocity responsibility, and posture timer/scoring/downlink.",
-      "tags": ["docs", "regional", "behavior_tree", "decision", "mermaid"],
+      "tags": [
+        "docs",
+        "regional",
+        "behavior_tree",
+        "decision",
+        "mermaid"
+      ],
       "complexity": "complex",
       "filePath": "docs/sentry/regional/2026-07-12_regional_decision_graph.md"
     },
@@ -554,7 +565,11 @@
       "type": "concept",
       "name": "Regional decision tick",
       "summary": "Regional executes UpdateGlobalData -> EvaluateEvents -> SelectAimMode -> SelectStrategyMode -> Hard -> Task -> PreprocessData -> SelectAimTarget -> Tactical -> Special -> Default -> Finalizer -> SelectPosture -> PublishAll.",
-      "tags": ["regional", "behavior_tree", "decision"],
+      "tags": [
+        "regional",
+        "behavior_tree",
+        "decision"
+      ],
       "complexity": "complex"
     },
     {
@@ -562,7 +577,11 @@
       "type": "tool",
       "name": "Understand graph dashboard",
       "summary": "Read-only local HTTP dashboard. It serves the fallback knowledge-graph JSON and the two detailed graph documents without touching ROS runtime or graph files.",
-      "tags": ["tool", "dashboard", "graph"],
+      "tags": [
+        "tool",
+        "dashboard",
+        "graph"
+      ],
       "complexity": "simple",
       "filePath": "scripts/understand_graph_dashboard.py"
     },
@@ -1588,7 +1607,11 @@
       "type": "endpoint",
       "name": "/ly/navi/path",
       "summary": "External navigation path input. Remote navigation source confirms nav_msgs/Path in map frame with meter coordinates and header timestamp.",
-      "tags": ["ros_topic", "navigation", "external"],
+      "tags": [
+        "ros_topic",
+        "navigation",
+        "external"
+      ],
       "complexity": "moderate",
       "messageType": "nav_msgs/msg/Path"
     },
@@ -1597,7 +1620,11 @@
       "type": "endpoint",
       "name": "/ly/game/path",
       "summary": "Processed referee map path: official-map dm MapPath, intention=3, input nav_msgs/Path header timestamp preserved, and sender ID read from /ly/game/sentry/info.self_robot_id (red sentry=7, blue sentry=107, unknown=0). gimbal_driver serializes it as DownlinkTypeID=0x02 only when the nonzero stamp is no older than game_path_fresh_timeout_ms (default 5000ms).",
-      "tags": ["ros_topic", "referee", "downlink"],
+      "tags": [
+        "ros_topic",
+        "referee",
+        "downlink"
+      ],
       "complexity": "moderate",
       "messageType": "gimbal_driver/msg/MapPath"
     },
@@ -1606,7 +1633,12 @@
       "type": "file",
       "name": "map_path_to_game_path_node.cpp",
       "summary": "Converts external nav_msgs/Path map-meter points into official-map dm MapPath using the inverse current MapPointer matrix; preserves header.stamp and recomputes 49 deltas.",
-      "tags": ["cpp", "navigation", "referee", "path"],
+      "tags": [
+        "cpp",
+        "navigation",
+        "referee",
+        "path"
+      ],
       "complexity": "moderate",
       "filePath": "src/navi_tf_bridge/src/map_path_to_game_path_node.cpp"
     },
@@ -2461,6 +2493,21 @@
       ],
       "complexity": "moderate",
       "filePath": "scripts/gimbal/patrolmode_pub.py"
+    },
+    {
+      "id": "file:src/behavior_tree/src/StrategyManager.cpp",
+      "type": "file",
+      "name": "StrategyManager.cpp",
+      "summary": "Implements Regional strategy-layer short-circuit priority: Hard recovery/roadland lock, Task area transition/watchdog, Tactical outpost/buff/hero/defense/chase, Special, Default AreaManager, and Finalizer.",
+      "tags": [
+        "cpp",
+        "behavior_tree",
+        "runtime",
+        "regional",
+        "decision"
+      ],
+      "complexity": "complex",
+      "filePath": "src/behavior_tree/src/StrategyManager.cpp"
     }
   ],
   "edges": [
@@ -4171,6 +4218,20 @@
       "type": "publishes-test",
       "weight": 0.4,
       "summary": "Manual patrolmode publisher emits PatrolScan-style /ly/control/angles for lower-machine downlink testing."
+    },
+    {
+      "source": "module:behavior_tree",
+      "target": "file:src/behavior_tree/src/StrategyManager.cpp",
+      "type": "contains",
+      "weight": 1.0,
+      "summary": "`behavior_tree` owns the Regional strategy-layer priority implementation."
+    },
+    {
+      "source": "file:src/behavior_tree/src/StrategyManager.cpp",
+      "target": "config:src/behavior_tree/Scripts/main.xml",
+      "type": "implements",
+      "weight": 0.9,
+      "summary": "StrategyManager.cpp implements the Hard/Task/Tactical/Special/Default/Finalizer actions ordered by MainSequence."
     }
   ],
   "layers": [
@@ -4224,7 +4285,8 @@
         "file:src/behavior_tree/src/Configuration.cpp",
         "file:src/behavior_tree/src/GameLoop.cpp",
         "file:src/behavior_tree/src/WaitBeforeGame.cpp",
-        "concept:patrol-scan-task-overrides"
+        "concept:patrol-scan-task-overrides",
+        "file:src/behavior_tree/src/StrategyManager.cpp"
       ]
     },
     {
@@ -4428,8 +4490,8 @@
         "file:scripts/start.sh",
         "document:docs/sentry/regional/patrol_scan_modes.md",
         "document:docs/sentry/regional/vision_task_patrol_modes.md",
-        "file:scripts/gimbal/patrolmode_pub.py"
-        ,"tool:understand-graph-dashboard"
+        "file:scripts/gimbal/patrolmode_pub.py",
+        "tool:understand-graph-dashboard"
       ]
     }
   ],
@@ -4529,6 +4591,7 @@
     "2026-07-11 fallback update: downlink is now five explicit frames: 0x00 13B control, 0x01 6B RM2026 V2.0 sentry_cmd, 0x02 107B referee 0x0307 map path, 0x03 36B referee 0x0308 custom info, and 0x04 17B sentry coordinate; added /ly/control/map_path and /ly/control/custom_info.",
     "2026-07-12 fallback update: map_path_to_game_path_node consumes external /ly/navi/path nav_msgs/Path (map/m), applies the inverse current raw-goal matrix, preserves header.stamp, emits official-map dm /ly/game/path with intention=3, and gimbal_driver sends it as 0x02 map_data_t. /ly/control/map_path remains manual compatibility only.",
     "2026-07-12 fallback update: gimbal_driver gates /ly/game/path downlink by nonzero header.stamp freshness (io_config.game_path_fresh_timeout_ms, default 5000ms). It does not periodically retransmit cached paths; stale replayed paths are rejected until a new timestamp arrives.",
-    "2026-07-12 fallback update: map_data_t sender_id is no longer configured as fixed 0. gimbal_driver derives self_robot_id from TypeID=1 GameCode.IsMyTeamRed and publishes it through /ly/game/sentry/info; map_path_to_game_path_node only consumes that centralized field, mapping red sentry to 7, blue sentry to 107, and blocking output while it remains 0."
+    "2026-07-12 fallback update: map_data_t sender_id is no longer configured as fixed 0. gimbal_driver derives self_robot_id from TypeID=1 GameCode.IsMyTeamRed and publishes it through /ly/game/sentry/info; map_path_to_game_path_node only consumes that centralized field, mapping red sentry to 7, blue sentry to 107, and blocking output while it remains 0.",
+    "2026-07-12 fallback update: added StrategyManager.cpp as the source-checked Regional Hard/Task/Tactical/Special/Default/Finalizer priority node, including Tactical Outpost visual scout/aim handling, for the interactive Regional BT tree."
   ]
 }

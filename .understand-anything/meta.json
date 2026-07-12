@@ -2,7 +2,7 @@
   "lastAnalyzedAt": "2026-07-12T00:00:00+08:00",
   "gitCommitHash": "cd8cfa54702c30e8931c1593fe50e01afd5969ec",
   "workingTreeStatus": "dirty",
-  "lastCheckedNote": "Fallback graph source-checked against the current dirty worktree. Covers composite GoalReachState, SentryPositionFusion, current DownlinkTypeID=0x00~0x04 frames, TypeID 6/10 referee mappings, sentry_info_3 posture timer priority with local fallback, detailed project/regional diagrams, read-only local dashboard, /ly/navi/path -> /ly/game/path referee map-data bridge, its 5000ms nonzero-stamp downlink freshness gate, and centralized SentryInfo.self_robot_id red=7/blue=107 map-data sender ID mapping.",
+  "lastCheckedNote": "Fallback graph source-checked against the current dirty worktree. Covers composite GoalReachState, SentryPositionFusion, current DownlinkTypeID=0x00~0x04 frames, TypeID 6/10 referee mappings, sentry_info_3 posture timer priority with local fallback, detailed project/regional diagrams, read-only local dashboard, /ly/navi/path -> /ly/game/path referee map-data bridge, its 5000ms nonzero-stamp downlink freshness gate, and centralized SentryInfo.self_robot_id red=7/blue=107 map-data sender ID mapping. Interactive Regional BT tree is source-checked against main.xml and StrategyManager.cpp, with expandable strategy layers and graph-backed jump targets.",
   "version": "1.0.0",
   "analyzedFiles": 701,
   "generator": "local-understand-anything-compatible-fallback"
