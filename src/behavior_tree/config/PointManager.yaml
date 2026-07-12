@@ -1,13 +1,12 @@
 behavior_tree:
   ros__parameters:
     PointManager:
-      # Global.Enable=true overrides every point below with Global.Rotate.
-      # Rotate: 0=off, 1/2/3=small-gyro gear.
+      # Global.Enable=true 时所有点均使用 Global.Rotate；Rotate：0 关闭，1/2/3 为小陀螺档位。
       Global:
         Enable: false
         Rotate: 0
       Points:
-        # Per-point Enable=false disables the default small gyro at that point.
+        # 各点共用：Enable=false 禁用该点默认小陀螺；Rotate=0 关闭，1/2/3 为档位。
         Home:
           Enable: true
           Rotate: 0

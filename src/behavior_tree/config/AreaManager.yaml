@@ -1,61 +1,60 @@
 behavior_tree:
   ros__parameters:
     AreaManager:
-      Switch_Point: false
+      Switch_Point: false  # 是否启用旧版区域点切换逻辑；正式 Regional 决策通常保持关闭。
       Area:
         # true: going to BuffOutpost first routes through HoleRoad; leaving BuffOutpost to other own goals also routes through HoleRoad.
         BuffOutpostCompat:
-          Enable: false
-          TimeoutSec: 6
+          Enable: false  # 去/离 BuffOutpost 时是否强制经 HoleRoad 过渡。
+          TimeoutSec: 6  # 过渡路径最长等待时间（秒）。
       SentryPositionFusion:
-        Enable: true
-        Mode: priority   # priority or weighted
-        FreshTimeoutMs: 2000
+        Enable: true  # 是否融合 UWB、底盘 PositionData 和导航坐标作为自身位置。
+        Mode: priority   # 融合模式：priority 按优先级取最新源；weighted 按权重融合。
+        FreshTimeoutMs: 2000  # 未单独配置源超时时使用的默认新鲜度（毫秒）。
         Sources:
           Uwb:
-            Enable: true
-            Priority: 0
-            Weight: 1.0
-            FreshTimeoutMs: 0
+            Enable: true  # 是否接入 UWB 坐标。
+            Priority: 0  # priority 模式下数值越小优先级越高。
+            Weight: 1.0  # weighted 模式下的融合权重。
+            FreshTimeoutMs: 0  # 0 表示使用上层默认新鲜度。
           PositionData:
-            Enable: true
-            Priority: 2
-            Weight: 0.7
-            FreshTimeoutMs: 0
+            Enable: true  # 是否接入底盘/串口回传的位置。
+            Priority: 2  # priority 模式下数值越小优先级越高。
+            Weight: 0.7  # weighted 模式下的融合权重。
+            FreshTimeoutMs: 0  # 0 表示使用上层默认新鲜度。
           Navi:
-            Enable: true
-            Priority: 1
-            Weight: 0.8
-            FreshTimeoutMs: 0
+            Enable: true  # 是否接入导航估计坐标。
+            Priority: 1  # priority 模式下数值越小优先级越高。
+            Weight: 0.8  # weighted 模式下的融合权重。
+            FreshTimeoutMs: 0  # 0 表示使用上层默认新鲜度。
       RegionalAreaTask:
-        Enable: true
-        # Common weighted patrol scoring. MyBase uses this now; future patrol tasks
-        # should reuse the same block and keep only their point weights locally.
+        Enable: true  # 是否启用 Regional 区域任务；关闭后由更低层默认策略接管。
+        # 区域巡逻共用评分：点权重叠加探索/新鲜度奖励，再扣除距离、当前点和近期访问惩罚。
         PatrolSelection:
-          DistancePenaltyPerMeter: 0.4
-          CurrentGoalPenalty: 5.0
-          AvoidCurrentGoal: true
-          UnvisitedBonus: 12.0
-          FreshnessBonusMax: 12.0
-          FreshnessTimeoutSec: 120
-          RecentVisitPenalty: 8.0
-          RecentVisitPenaltySec: 30
+          DistancePenaltyPerMeter: 0.4  # 每远 1 米扣除的评分。
+          CurrentGoalPenalty: 5.0  # 继续选择当前目标点的额外扣分。
+          AvoidCurrentGoal: true  # 是否尽量避免重复选择当前目标点。
+          UnvisitedBonus: 12.0  # 从未访问过的点增加的评分。
+          FreshnessBonusMax: 12.0  # 久未访问奖励的最大值。
+          FreshnessTimeoutSec: 120  # 达到最大久未访问奖励的时间（秒）。
+          RecentVisitPenalty: 8.0  # 刚访问过的点扣除的评分。
+          RecentVisitPenaltySec: 30  # 近期访问惩罚持续时间（秒）。
         MyBase:
-          Enable: true
-          TravelTimeoutSec: 12
-          CommandHoldSec: 1
-          MaxPatrolSteps: 4
+          Enable: true  # 是否允许选择己方基地区域任务。
+          TravelTimeoutSec: 12  # 前往区域目标的超时（秒）。
+          CommandHoldSec: 1  # 到点后保持该导航命令的时间（秒）。
+          MaxPatrolSteps: 4  # 本轮最多连续巡逻点数。
         MyHighland:
-          Enable: true
-          UseFaceMode: false
+          Enable: true  # 是否允许选择己方高地任务。
+          UseFaceMode: false  # 区域任务是否发布固定朝向 target_raw；false 不请求 FaceMode。
           ApproachTimeoutSec: 8
           HighlandPatrolHoldSec: 2
           BuffShootTravelTimeoutSec: 8
           BuffShootHoldSec: 10
           LeaveTimeoutSec: 8
         MyRoadland:
-          Enable: true
-          UseFaceMode: false
+          Enable: true  # 是否允许选择己方道路区域任务。
+          UseFaceMode: false  # 区域任务是否发布固定朝向 target_raw；false 不请求 FaceMode。
           TravelTimeoutSec: 12
           CrossTimeoutSec: 8
           CommandHoldSec: 1
@@ -64,40 +63,40 @@ behavior_tree:
           HealthyHpMin: 300
           HealthyAmmoMin: 50
         CommonCentral:
-          Enable: true
+          Enable: true  # 是否允许选择中央公共区域任务。
           TravelTimeoutSec: 12
           CommandHoldSec: 1
           MaxPatrolSteps: 8
           HealthyHpMin: 300
           HealthyAmmoMin: 50
       DefaultPolicy:
-        Enable: true
+        Enable: true  # 是否启用 Regional 未命中时的默认区域选择策略。
         Health:
-          MyAreaHpMin: 250
-          CommonCentralHpMin: 300
-          EnemyAreaHpMin: 350
-          LowResourceFallbackHp: 250
+          MyAreaHpMin: 250  # 进入己方区域所需最低血量。
+          CommonCentralHpMin: 300  # 进入中央区域所需最低血量。
+          EnemyAreaHpMin: 350  # 进入敌方区域所需最低血量。
+          LowResourceFallbackHp: 250  # 资源不足时回退己方区域的血量阈值。
         Ammo:
-          MyAreaAmmoMin: 50
-          CommonCentralAmmoMin: 50
-          EnemyAreaAmmoMin: 80
-          LowResourceFallbackAmmo: 30
+          MyAreaAmmoMin: 50  # 进入己方区域所需最低弹量。
+          CommonCentralAmmoMin: 50  # 进入中央区域所需最低弹量。
+          EnemyAreaAmmoMin: 80  # 进入敌方区域所需最低弹量。
+          LowResourceFallbackAmmo: 30  # 资源不足时回退己方区域的弹量阈值。
         Score:
-          WeightMyBase: 10.0
-          WeightMyHighland: 8.0
-          WeightMyRoadland: 7.0
-          WeightCommonCentral: 6.0
-          WeightEnemyBase: 4.0
-          WeightEnemyHighland: 4.0
-          WeightEnemyRoadland: 4.0
-          DistancePenaltyPerMeter: 0.4
-          CurrentAreaPenalty: 2.0
-          LastAreaPenalty: 1.0
-          AfterHighlandMyBaseBonus: 5.0
-          AfterHighlandMyRoadlandBonus: 3.0
-          LowResourceMyBaseBonus: 4.0
+          WeightMyBase: 10.0  # 己方基地候选基础分。
+          WeightMyHighland: 8.0  # 己方高地候选基础分。
+          WeightMyRoadland: 7.0  # 己方道路候选基础分。
+          WeightCommonCentral: 6.0  # 中央区域候选基础分。
+          WeightEnemyBase: 4.0  # 敌方基地候选基础分。
+          WeightEnemyHighland: 4.0  # 敌方高地候选基础分。
+          WeightEnemyRoadland: 4.0  # 敌方道路候选基础分。
+          DistancePenaltyPerMeter: 0.4  # 每远 1 米扣除的区域评分。
+          CurrentAreaPenalty: 2.0  # 重复当前区域时的扣分。
+          LastAreaPenalty: 1.0  # 回到上一完成区域时的扣分。
+          AfterHighlandMyBaseBonus: 5.0  # 高地结束后转己方基地的额外分。
+          AfterHighlandMyRoadlandBonus: 3.0  # 高地结束后转己方道路的额外分。
+          LowResourceMyBaseBonus: 4.0  # 低资源时偏向己方基地的额外分。
         Retry:
-          CompleteCooldownSec: 2
-          FailureCooldownSec: 8
-          UnreachableCooldownSec: 12
-          MaxRetry: 2
+          CompleteCooldownSec: 2  # 正常完成后该区域的冷却时间（秒）。
+          FailureCooldownSec: 8  # 失败后该区域的冷却时间（秒）。
+          UnreachableCooldownSec: 12  # 导航不可达后的冷却时间（秒）。
+          MaxRetry: 2  # 单个区域任务的最大重试次数。

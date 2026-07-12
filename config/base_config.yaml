@@ -1,51 +1,51 @@
 /**:
   ros__parameters:
-    # Camera (shared by detector / calib)
-    "camera_param.camera_sn": "FGK24050145" #FGK24050145
-    "camera_param/camera_sn": "FGK24050145" #KE0200060396
-    "camera_param.ExposureTime": 3000.0
-    "camera_param/ExposureTime": 3000.0
-    "camera_param.Gain": 12.0
-    "camera_param/Gain": 12.0
-    "camera_param.RedBalanceRatio": 1.8906
-    "camera_param/RedBalanceRatio": 1.8906
-    "camera_param.GreenBalanceRatio": 1.0
-    "camera_param/GreenBalanceRatio": 1.0
-    "camera_param.BlueBalanceRatio": 1.5703
-    "camera_param/BlueBalanceRatio": 1.5703
+    # 主相机兼容参数（detector / 标定共用）；点号与斜杠键需保持同值，兼容不同读取方。
+    "camera_param.camera_sn": "FGK24050145"  # 相机序列号。
+    "camera_param/camera_sn": "FGK24050145"  # 同上，旧版斜杠键。
+    "camera_param.ExposureTime": 3000.0  # 曝光时间（微秒）。
+    "camera_param/ExposureTime": 3000.0  # 同上，旧版斜杠键。
+    "camera_param.Gain": 12.0  # 手动增益。
+    "camera_param/Gain": 12.0  # 同上，旧版斜杠键。
+    "camera_param.RedBalanceRatio": 1.8906  # 红色白平衡倍率。
+    "camera_param/RedBalanceRatio": 1.8906  # 同上，旧版斜杠键。
+    "camera_param.GreenBalanceRatio": 1.0  # 绿色白平衡倍率。
+    "camera_param/GreenBalanceRatio": 1.0  # 同上，旧版斜杠键。
+    "camera_param.BlueBalanceRatio": 1.5703  # 蓝色白平衡倍率。
+    "camera_param/BlueBalanceRatio": 1.5703  # 同上，旧版斜杠键。
 
-    # GX camera schema imported from sentry.aim/src/sentry_gx_camera/config/gx_camera.yaml
-    # detector_node reads these keys directly; legacy camera_param/solver_config keys below are kept for other readers.
+    # GX 相机参数；detector_node 直接读取，后续 camera_param/solver_config 为旧读取方保留。
     gx_camera_node:
-      device_sn: ""
-      device_index: 1
-      frame_id: "gx_camera"
-      image_topic: "/camera_front/image_raw"
-      camera_info_topic: "/camera_front/camera_info"
-      publish_rate: 100.0
-      use_compressed_image: true
-      jpeg_quality: 20
-      gain: 12.0
-      auto_gain_max: 12.0
-      auto_gain_min: 2.0
-      auto_gain: 0
-      exposure_time: 3000.0
-      auto_exposure_time_max: 10000.0
-      auto_exposure_time_min: 1000.0
-      auto_exposure: 0
-      red_balance_ratio: 1.8906
-      green_balance_ratio: 1.0
-      blue_balance_ratio: 1.5703
-      camera_fx: 1533.531924
-      camera_fy: 1532.734381
-      camera_cx: 607.391567
-      camera_cy: 495.417894
-      dist_k1: -0.210782
-      dist_k2: 0.168691
-      dist_p1: 0.000136
-      dist_p2: -0.000211
-      dist_k3: 0.0
+      device_sn: ""  # 指定相机序列号；空字符串按 device_index 选择。
+      device_index: 1  # 未指定序列号时的设备索引。
+      frame_id: "gx_camera"  # 图像对应的 TF frame。
+      image_topic: "/camera_front/image_raw"  # 原始图像 topic。
+      camera_info_topic: "/camera_front/camera_info"  # CameraInfo topic。
+      publish_rate: 100.0  # 图像发布频率（Hz）。
+      use_compressed_image: true  # 是否同时使用压缩图像链路。
+      jpeg_quality: 20  # JPEG 压缩质量。
+      gain: 12.0  # 手动增益。
+      auto_gain_max: 12.0  # 自动增益上限。
+      auto_gain_min: 2.0  # 自动增益下限。
+      auto_gain: 0  # 是否开启自动增益，0 关闭。
+      exposure_time: 3000.0  # 手动曝光时间（微秒）。
+      auto_exposure_time_max: 10000.0  # 自动曝光上限（微秒）。
+      auto_exposure_time_min: 1000.0  # 自动曝光下限（微秒）。
+      auto_exposure: 0  # 是否开启自动曝光，0 关闭。
+      red_balance_ratio: 1.8906  # 红色白平衡倍率。
+      green_balance_ratio: 1.0  # 绿色白平衡倍率。
+      blue_balance_ratio: 1.5703  # 蓝色白平衡倍率。
+      camera_fx: 1533.531924  # 相机内参 fx（像素）。
+      camera_fy: 1532.734381  # 相机内参 fy（像素）。
+      camera_cx: 607.391567  # 相机内参 cx（像素）。
+      camera_cy: 495.417894  # 相机内参 cy（像素）。
+      dist_k1: -0.210782  # 径向畸变 k1。
+      dist_k2: 0.168691  # 径向畸变 k2。
+      dist_p1: 0.000136  # 切向畸变 p1。
+      dist_p2: -0.000211  # 切向畸变 p2。
+      dist_k3: 0.0  # 径向畸变 k3。
 
+    # 以下 flat key 与 gx_camera_node 分层键同值，兼容旧参数读取方式。
     "gx_camera_node/device_sn": ""
     "gx_camera_node/device_index": 1
     "gx_camera_node/frame_id": "gx_camera"
@@ -75,13 +75,12 @@
     "gx_camera_node/dist_p2": -0.000211
     "gx_camera_node/dist_k3": 0.0
 
-    # Extrinsics imported from sentry.aim/src/sentry_tf/config/sentry_tf.yaml
-    # barrel_to_camera is the calibrated gimbal_barrel -> gx_camera static TF in meters/radians.
+    # 标定后的 gimbal_barrel -> gx_camera 静态 TF；平移单位米，旋转单位弧度。
     sentry_tf_node:
-      gimbal_topic: "/ly/gimbal/angles"
-      world_frame: "gimbal_world"
-      barrel_frame: "gimbal_barrel"
-      barrel_offset_z: 0.13
+      gimbal_topic: "/ly/gimbal/angles"  # 云台姿态输入 topic。
+      world_frame: "gimbal_world"  # 云台世界 frame。
+      barrel_frame: "gimbal_barrel"  # 枪管 frame。
+      barrel_offset_z: 0.13  # 枪管相对云台的 Z 偏移（米）。
     barrel_to_camera:
       x: 0.1168
       y: 0.0746
@@ -89,9 +88,10 @@
       yaw: -1.5746
       pitch: -0.0738
       roll: -1.5913
-      parent_frame: "gimbal_barrel"
-      child_frame: "gx_camera"
+      parent_frame: "gimbal_barrel"  # 静态 TF 父 frame。
+      child_frame: "gx_camera"  # 静态 TF 子 frame。
 
+    # 以下 flat key 与 sentry_tf_node/barrel_to_camera 分层键同值，兼容旧参数读取方式。
     "sentry_tf_node/gimbal_topic": "/ly/gimbal/angles"
     "sentry_tf_node/world_frame": "gimbal_world"
     "sentry_tf_node/barrel_frame": "gimbal_barrel"
@@ -105,19 +105,19 @@
     "barrel_to_camera/parent_frame": "gimbal_barrel"
     "barrel_to_camera/child_frame": "gx_camera"
 
-    # Aim timing / PnP diagnostics.
-    # When enabled, tracker_solver and predictor write AT_* logs under this directory.
+    # 瞄准/PnP 耗时诊断；开启后 tracker_solver 与 predictor 会写入 AT_* 日志。
     aim_timer_log:
-      enable: false
-      dir: "~/Log/AimTimer"
+      enable: false  # 是否开启耗时日志。
+      dir: "~/Log/AimTimer"  # 耗时日志目录。
 
     "aim_timer_log/enable": false
     "aim_timer_log/dir": "~/Log/AimTimer"
 
-    # Solver intrinsics / extrinsics (shared by detector / tracker_solver / predictor / outpost_hitter)
+    # 主瞄准解算内外参（detector / tracker_solver / predictor / outpost_hitter 共用）。
     solver_config:
-      camera_offset: [0.0, 0.0, 52.6]
-      camera_rotation: [0.0, 3.3, 0.0]
+      camera_offset: [0.0, 0.0, 52.6]  # 相机相对枪口平移 [x,y,z]（厘米）。
+      camera_rotation: [0.0, 3.3, 0.0]  # 相机相对枪口旋转 [roll,pitch,yaw]（度）。
+      # 3x3 相机内参矩阵 K，单位像素。
       camera_intrinsic_matrix:
         - 1533.531924
         - 0.0
@@ -128,14 +128,14 @@
         - 0.0
         - 0.0
         - 1.0
-      camera_distortion_coefficients:
+      camera_distortion_coefficients:  # 畸变系数 [k1,k2,p1,p2,k3]。
         - -0.210782
         - 0.168691
         - 0.000136
         - -0.000211
         - 0.0
 
-    # Legacy slash-style aliases kept for compatibility readers
+    # 以下 slash-style alias 与 solver_config 同值，兼容旧读取方。
     "solver_config/camera_offset": [0.0, 0.0, 52.6]
     "solver_config/camera_rotation": [0.0, 3.3, 0.0]
     "solver_config/camera_intrinsic_matrix":
@@ -155,10 +155,9 @@
       - -0.000211
       - 0.0
 
-    # Auxiliary aim camera intrinsics from sentry.aim/src/sentry_usb_camera/config/usb_camera.yaml
-    # Kept separate from solver_config so the existing main-camera EKF prediction is unchanged.
+    # 辅瞄 USB 相机内参；与 solver_config 分开，避免改变主相机 EKF 预测。
     assist_camera_config:
-      camera_intrinsic_matrix:
+      camera_intrinsic_matrix:  # 3x3 相机内参矩阵 K，单位像素。
         - 691.095288
         - 0.0
         - 921.905348
@@ -168,7 +167,7 @@
         - 0.0
         - 0.0
         - 1.0
-      camera_distortion_coefficients:
+      camera_distortion_coefficients:  # 畸变系数 [k1,k2,p1,p2,k3]。
         - -0.015663
         - -0.012066
         - -0.002138
@@ -192,24 +191,23 @@
       - 0.001890
       - 0.0
 
-    # IO / serial base (shared by gimbal_driver and startup wrappers)
+    # 串口/下位机基线参数（gimbal_driver 与启动脚本共用）。
     io_config:
-      use_virtual_device: false
-      device_name: "/dev/ttyACM0"
-      baud_rate: 115200
-      posture_repeat_count: 3
-      posture_repeat_interval_ms: 20
-      firecode_partial_hold_ms: 100
-      velocity_raw_to_mps: 0.025
-      navigation_test: false
-      navigation_test_stale_timeout_ms: 500
-      # /ly/game/path stops reaching the lower machine after this stamp age.
-      # gimbal_driver does not periodically retransmit a cached map path.
-      game_path_fresh_timeout_ms: 5000
-      sentry_coord_send_interval_ms: 100
-      sentry_coord_field_width_x: 2800
-      sentry_coord_field_width_y: 1500
-      sentry_coord_fresh_timeout_ms: 2000
+      use_virtual_device: false  # 是否使用虚拟串口设备。
+      device_name: "/dev/ttyACM0"  # 实际下位机串口设备。
+      baud_rate: 115200  # 串口波特率。
+      posture_repeat_count: 3  # 姿态命令连续下发次数。
+      posture_repeat_interval_ms: 20  # 姿态重复下发间隔（毫秒）。
+      firecode_partial_hold_ms: 100  # FireCode 局部更新字段保持时间（毫秒）。
+      velocity_raw_to_mps: 0.025  # 导航 raw 速度到控制速度的换算系数（米/秒）。
+      navigation_test: false  # 是否启用导航测试模式。
+      navigation_test_stale_timeout_ms: 500  # 导航测试消息过期时间（毫秒）。
+      # /ly/game/path 的 header.stamp 超过此时效即不再下发；driver 不会周期性重发缓存路径。
+      game_path_fresh_timeout_ms: 5000  # 地图路径新鲜度（毫秒）。
+      sentry_coord_send_interval_ms: 100  # 自身坐标下发间隔（毫秒）。
+      sentry_coord_field_width_x: 2800  # 裁判小地图 X 场地宽度（厘米）。
+      sentry_coord_field_width_y: 1500  # 裁判小地图 Y 场地宽度（厘米）。
+      sentry_coord_fresh_timeout_ms: 2000  # 自身坐标输入新鲜度（毫秒）。
 
       # gimbal_driver.launch.py 默认不覆盖这些 raw 配置；只有命令行显式传
       # raw_log_enable:=... / raw_topic_enable:=... 时才会覆盖这里。
@@ -233,7 +231,7 @@
       raw_serial_topic_downlink: false
       raw_serial_topic_type_ids: "all"
 
-    # 下面的 flat key 是兼容旧参数读取方式，保持和 io_config 分层 key 同步。
+    # 以下 flat key 与 io_config 分层键保持同值，兼容旧参数读取方式。
     "io_config/use_virtual_device": false
     "io_config/device_name": "/dev/ttyACM0"
     "io_config/baud_rate": 115200

@@ -1,39 +1,40 @@
 behavior_tree:
   ros__parameters:
+    # 仅用于前哨/Regional 联调的参数覆盖，不是 sentry_all 的正式默认策略。
     PatrolScan:
       TaskOverrides:
-        OutpostFaceModeFallbackMode: 3
+        OutpostFaceModeFallbackMode: 3  # 前哨 FaceMode 角度缺失时改用模式 3 扫描。
     Task:
-      Buff: false
-      Outpost: true
+      Buff: false  # 联调时禁用 Buff 任务。
+      Outpost: true  # 联调时强制允许前哨任务。
       OutpostConfirm:
-        TrustEnemyOutpostHp: false
-        MaxGameTimeSec: 0
-        MinSelfHp: 0
-        MinAmmo: 0
-        VisualScoutWithoutHp: true
-        VisualScoutHoldMs: 300000
-        VisualScoutCooldownMs: 1000
-        VisualScoutFaceDistanceCm: 300
-        PostWindowScoutEnable: true
-        PostWindowScoutIntervalSec: 60
-        PostWindowScoutHoldMs: 5000
-        ArmorWarningDistanceCm: 5000
-        PostArmorFaceSearchMs: 5000
-        DamageAbortThreshold: 30
-        DamageAbortWindowMs: 1000
-        DamageAbortHoldMs: 3000
-        OpeningHighPriority: true
-        SuppressChaseWhileActive: true
+        TrustEnemyOutpostHp: false  # 不用 op_hp 作为前哨存活 gate，便于视觉联调。
+        MaxGameTimeSec: 0  # 0 关闭开局前哨时间窗口限制。
+        MinSelfHp: 0  # 联调不限制最低血量。
+        MinAmmo: 0  # 联调不限制最低弹量。
+        VisualScoutWithoutHp: true  # 未收到前哨血量时仍允许视觉侦查。
+        VisualScoutHoldMs: 300000  # 单次视觉侦查最长保持（毫秒）。
+        VisualScoutCooldownMs: 1000  # 视觉侦查冷却（毫秒）。
+        VisualScoutFaceDistanceCm: 300  # 进入 FaceMode 的前哨参考距离（厘米）。
+        PostWindowScoutEnable: true  # 时间窗后仍允许周期性前哨侦查。
+        PostWindowScoutIntervalSec: 60  # 时间窗后侦查间隔（秒）。
+        PostWindowScoutHoldMs: 5000  # 时间窗后单次侦查保持（毫秒）。
+        ArmorWarningDistanceCm: 5000  # 近于此距离的车体目标会打断前哨（厘米）。
+        PostArmorFaceSearchMs: 5000  # 车体丢失后回前哨朝向搜索时间（毫秒）。
+        DamageAbortThreshold: 30  # 受击中断阈值。
+        DamageAbortWindowMs: 1000  # 受击统计窗口（毫秒）。
+        DamageAbortHoldMs: 3000  # 受击中断后的保持时间（毫秒）。
+        OpeningHighPriority: true  # 前哨任务可压过普通 Regional/保护导航。
+        SuppressChaseWhileActive: true  # 前哨期间允许射击，但不发布追车导航。
         ManualGoal:
-          Enable: false
-          MapXM: 0.0
-          MapYM: 0.0
-          MapZM: 0.0
+          Enable: false  # 是否改用手动地图目标点。
+          MapXM: 0.0  # 手动目标 X（米）。
+          MapYM: 0.0  # 手动目标 Y（米）。
+          MapZM: 0.0  # 手动目标 Z（米）。
     FaceMode:
-      Enable: true
-      LostTargetHoldMs: 300
-      SuppressFire: true
+      Enable: true  # 联调允许 FaceMode。
+      LostTargetHoldMs: 300  # 固定朝向目标丢失后的保持时间（毫秒）。
+      SuppressFire: true  # FaceMode 联调期间禁止开火。
     AreaManager:
       RegionalAreaTask:
-        IgnoreRecovery: true
+        IgnoreRecovery: true  # 联调时忽略 Hard Recovery 对区域任务的抢占。

@@ -1,18 +1,17 @@
 behavior_tree:
   ros__parameters:
     Special:
-      # Optional regional layer between Tactical and Default.
-      # MiniRoadland ignores MyArea.Roadland scope and only commands the own-team goal.
+      # Special 是 Tactical 与 Default 之间的可选区域决策层。
+      # MiniRoadland 不受 MyArea.Roadland 范围限制，只下发己方目标点。
       MiniRoadland:
-        Enable: false
-        GoalBaseId: 25
-        GoalHoldSec: 6
-        SpeedLevel: 1
-      # CentralLeft two-endpoint tactical line patrol. SuppressChase keeps locked targets from
-      # converting into navigation chase inside this constrained terrain.
+        Enable: false  # 是否启用 MiniRoadland 专项任务。
+        GoalBaseId: 25  # 目标点 BaseId。
+        GoalHoldSec: 6  # 到点后保持时间（秒）。
+        SpeedLevel: 1  # 下发给导航的速度档位。
+      # CentralLeft 双端点战术巡逻；SuppressChase 防止锁敌后在受限地形转为导航追车。
       Patrol:
-        Enable: false
-        GoalHoldSec: 0
-        SpeedLevel: 1
-        SuppressChase: true
-        StopOnTarget: true
+        Enable: false  # 是否启用 CentralLeft 巡逻。
+        GoalHoldSec: 0  # 每个端点到达后的保持时间（秒）。
+        SpeedLevel: 1  # 下发给导航的速度档位。
+        SuppressChase: true  # 是否禁止在该任务中下发追车导航。
+        StopOnTarget: true  # 发现目标时是否停止该巡逻导航。

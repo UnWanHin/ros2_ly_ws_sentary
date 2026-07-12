@@ -2,23 +2,20 @@ behavior_tree:
   ros__parameters:
     AreaManager:
       RegionalAreaTask:
-        # Common weighted patrol scoring. score starts from point weight, then adds
-        # exploration/freshness bonuses and distance/recent/current penalties.
+        # 基地巡逻共用评分：点权重叠加探索/新鲜度奖励，再扣除距离、近期和当前点惩罚。
         PatrolSelection:
-          DistancePenaltyPerMeter: 0.4
-          CurrentGoalPenalty: 5.0
-          AvoidCurrentGoal: true
-          UnvisitedBonus: 12.0
-          FreshnessBonusMax: 12.0
-          FreshnessTimeoutSec: 120
-          RecentVisitPenalty: 8.0
-          RecentVisitPenaltySec: 30
+          DistancePenaltyPerMeter: 0.4  # 每远 1 米扣分。
+          CurrentGoalPenalty: 5.0  # 重复当前点的扣分。
+          AvoidCurrentGoal: true  # 是否尽量避开当前点。
+          UnvisitedBonus: 12.0  # 未访问点奖励。
+          FreshnessBonusMax: 12.0  # 久未访问奖励上限。
+          FreshnessTimeoutSec: 120  # 达到奖励上限的时间（秒）。
+          RecentVisitPenalty: 8.0  # 近期访问点扣分。
+          RecentVisitPenaltySec: 30  # 近期访问窗口（秒）。
         MyBase:
-          # Seconds to stay after reaching the selected Base patrol goal before scoring the next one.
-          GoalHoldSec: 420
+          GoalHoldSec: 420  # 到达基地巡逻点后保持的时间（秒），结束后再评分选下一点。
           Patrol:
-            # Set a goal weight to 0 to disable that candidate. Scoring knobs are
-            # shared under RegionalAreaTask.PatrolSelection.
+            # 目标基础分；设为 0 即禁用该候选点，其他评分参数见 RegionalAreaTask.PatrolSelection。
             GoalWeights:
               CastleLeft1: 6.0
               CastleLeft2: 9.0

@@ -1,51 +1,43 @@
 behavior_tree:
   ros__parameters:
     PatrolScan:
-      # Default fallback scan mode used when no specific task override applies.
-      # 1 = single-direction yaw scan, 2 = swing scan, 3 = outpost high scan.
+      # 无任务覆盖时的默认巡逻模式：1 单向偏航，2 摆动扫描，3 前哨高仰角扫描。
       Mode: 1
 
       Mode1:
-        # Degrees added to yaw every BT tick. Actual angular speed also depends on Rate.TreeTickRate.
-        YawStepDegPerTick: 9.0
-        YawBoostStepDegPerTick: 10.0
-        PitchCenterDeg: 5.0
-        PitchHalfRangeDeg: 15.0
-        # Full pitch sine-wave period in milliseconds. Smaller = faster pitch movement.
-        PitchPeriodMs: 2000.0
+        YawStepDegPerTick: 9.0  # 每个 BT tick 的偏航增量（度）。
+        YawBoostStepDegPerTick: 10.0  # 加速扫描时每 tick 的偏航增量（度）。
+        PitchCenterDeg: 5.0  # 俯仰扫描中心角（度）。
+        PitchHalfRangeDeg: 15.0  # 俯仰正弦扫描半幅（度）。
+        PitchPeriodMs: 2000.0  # 俯仰完整周期（毫秒），越小越快。
 
       Mode2:
-        # Swing mode yaw/pitch scan.
-        YawStepDegPerTick: 1.0
-        YawBoostStepDegPerTick: 1.1
-        YawHalfRangeDeg: 30.0
-        CenterDriftPerCycleDeg: -70.0
-        PitchCenterDeg: 0.0
-        PitchHalfRangeDeg: 13.0
-        PitchPeriodMs: 500.0
+        # 摆动扫描模式。
+        YawStepDegPerTick: 1.0  # 每 tick 的偏航步长（度）。
+        YawBoostStepDegPerTick: 1.1  # 加速扫描时每 tick 的偏航步长（度）。
+        YawHalfRangeDeg: 30.0  # 偏航左右摆动半幅（度）。
+        CenterDriftPerCycleDeg: -70.0  # 每轮摆动后中心角漂移（度）。
+        PitchCenterDeg: 0.0  # 俯仰扫描中心角（度）。
+        PitchHalfRangeDeg: 13.0  # 俯仰正弦扫描半幅（度）。
+        PitchPeriodMs: 500.0  # 俯仰完整周期（毫秒）。
 
       Mode3:
-        # High-pitch scan profile. Pitch = offset + half_range * sin(t / period).
-        YawStepDegPerTick: 6.0
-        PitchOffsetDeg: 0.0
-        # Set 0.0 to keep a fixed high pitch.
-        PitchHalfRangeDeg: 12.0
-        PitchPeriodMs: 2000.0
+        # 前哨高仰角扫描：Pitch = offset + half_range * sin(t / period)。
+        YawStepDegPerTick: 6.0  # 每 tick 的偏航步长（度）。
+        PitchOffsetDeg: 0.0  # 俯仰基准偏置（度）。
+        PitchHalfRangeDeg: 12.0  # 俯仰扫描半幅（度）；设为 0 则固定俯仰。
+        PitchPeriodMs: 2000.0  # 俯仰完整周期（毫秒）。
 
       TaskOverrides:
-        # FaceMode requested but /ly/face_mode/angles is missing: fallback to PatrolScan.
-        FaceModeFallbackEnable: true
-        FaceModeFallbackMode: 2
-        OutpostFaceModeFallbackMode: 2
+        # 已请求 FaceMode 但 /ly/face_mode/angles 缺失时，回退到云台巡逻。
+        FaceModeFallbackEnable: true  # 是否启用该 FaceMode 缺失回退。
+        FaceModeFallbackMode: 2  # 一般 FaceMode 缺失时使用的巡逻模式。
+        OutpostFaceModeFallbackMode: 2  # 前哨 FaceMode 缺失时使用的巡逻模式。
 
-        # Outpost task damage-abort search uses a deterministic patrol mode instead of
-        # whichever default PatrolScan.Mode is selected by the competition profile.
-        OutpostDamageAbortMode: 2
+        OutpostDamageAbortMode: 2  # 前哨受击中断后搜索所用巡逻模式，不受默认 Mode 影响。
 
-        # Start-gate scan keeps chassis/fire stopped but raises scan pitch before game start.
-        StartGatePitchOffsetDeg: 10.0
-        StartGatePitchOffsetApplyToMode3: false
+        StartGatePitchOffsetDeg: 10.0  # 比赛开始前巡逻额外抬高的俯仰角（度）。
+        StartGatePitchOffsetApplyToMode3: false  # 是否也对模式 3 叠加开局俯仰偏置。
 
-        # Outpost no-target scan keeps the selected mode yaw curve and raises pitch.
-        OutpostPitchOffsetDeg: 15.0
-        OutpostPitchOffsetApplyToMode3: false
+        OutpostPitchOffsetDeg: 15.0  # 前哨未发现目标时额外抬高的俯仰角（度）。
+        OutpostPitchOffsetApplyToMode3: false  # 是否也对模式 3 叠加前哨俯仰偏置。

@@ -1,15 +1,11 @@
 behavior_tree:
   ros__parameters:
     NaviRotateControl:
-      # External navigation publishes /ly/navi/should_rotate.
-      # true: return to BT's normal rotate and patrol policy.
-      # false: merge FollowMode bit into the final FireCode and stop chassis rotate level.
-      # It does not make BT enter the internal FollowMode branch; patrol/fire continue normally.
-      # ClearRegionalFaceModeWhenTrue affects regional area-task FaceMode only.
-      Enable: true
-      FreshTimeoutMs: 500
-      DefaultIsRotate: true
-      ForceFollowModeWhenFalse: true
-      ClearFollowModeWhenTrue: true
-      ClearRegionalFaceModeWhenTrue: true
-      StopRotateWhenFalse: true
+      # 外部导航通过 /ly/navi/should_rotate 控制；该输入只影响最终控制码，不进入 BT 内部 FollowMode 分支。
+      Enable: true  # 是否采纳导航 should_rotate；false 时完全使用 BT 自己的旋转策略。
+      FreshTimeoutMs: 500  # 导航旋转指令的新鲜度（毫秒）；超时后按 DefaultIsRotate。
+      DefaultIsRotate: true  # 无有效导航输入时的默认旋转状态。
+      ForceFollowModeWhenFalse: true  # should_rotate=false 时在最终 FireCode 中置 FollowMode 位。
+      ClearFollowModeWhenTrue: true  # should_rotate=true 时清除该外部置入的 FollowMode 位。
+      ClearRegionalFaceModeWhenTrue: true  # should_rotate=true 时取消区域任务 FaceMode；不影响 Buff/Outpost FaceMode。
+      StopRotateWhenFalse: true  # should_rotate=false 时停止底盘小陀螺档位。

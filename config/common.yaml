@@ -1,52 +1,45 @@
-# Shared startup options for launch wrapper scripts.
-# Used by scripts/launch/start_sentry_all.sh for file logging and runtime defaults.
-bt_file_log_enable: true
-bt_log_dir: ~/Log/BT
-aim_timer_log_enable: false
-aim_timer_log_dir: ~/Log/AimTimer
+# 启动包装脚本的共享选项，由 scripts/launch/start_sentry_all.sh 读取并转成 launch 参数。
+bt_file_log_enable: true  # 是否写入行为树文件日志。
+bt_log_dir: ~/Log/BT  # 行为树日志目录。
+aim_timer_log_enable: false  # 是否记录瞄准/PnP 耗时日志。
+aim_timer_log_dir: ~/Log/AimTimer  # 瞄准耗时日志目录。
 
-# Predictor aiming output path. true uses ROS1-style immediate tracker callback output.
+# Predictor 瞄准输出时机；true 为 tracker 回调到达后立即发布。
 predictor:
   publish_on_tracker_callback: true
 
-# Rosbag recording for sentry_all launch wrapper.
-# When enabled, sentry_all starts `ros2 bag record -a` under rosbag_path.
-# Recording does not switch hardware IO to virtual; use --offline separately when needed.
-rosbag: false
-rosbag_path: ~/Log/rosbag
+# sentry_all 启动时的 rosbag 录制；只录包，不会自动切换虚拟硬件，离线模式仍需单独传 --offline。
+rosbag: false  # 是否执行 `ros2 bag record -a`。
+rosbag_path: ~/Log/rosbag  # 带时间戳的 rosbag 输出根目录。
 
-# gimbal_driver semantic control tuning.
-# start_sentry_all.sh reads these and passes them as ROS parameters.
-firecode_partial_hold_ms: 100
-velocity_raw_to_mps: 0.025
+# gimbal_driver 语义控制参数；启动脚本会将其传为 ROS 参数。
+firecode_partial_hold_ms: 100  # FireCode 局部字段更新后的保持时间（毫秒）。
+velocity_raw_to_mps: 0.025  # /ly/navi/vel 原始数值到 /ly/control/vel 的换算系数（米/秒）。
 
-# Start gate behavior for `./scripts/start.sh gate ...`.
-# Chassis remains gated before /ly/game/is_start=true; this only permits gimbal patrol.
+# `./scripts/start.sh gate ...` 的开局门控；底盘在 /ly/game/is_start=true 前仍被锁定。
 start_gate:
-  allow_gimbal_patrol_before_start: true
+  allow_gimbal_patrol_before_start: true  # 开局等待期间是否允许云台巡逻扫描。
 
-# FaceMode command shaping.
-# 0 disables the step limit. Keep yaw below the lower-controller jump guard.
+# FaceMode 指令整形；设为 0 表示不限制单次变化，yaw 应小于下位机跳变保护阈值。
 face_mode:
-  max_yaw_step_deg: 40.0
-  max_pitch_step_deg: 0.0
+  max_yaw_step_deg: 40.0  # 单次 yaw 最大变化（度）。
+  max_pitch_step_deg: 0.0  # 单次 pitch 最大变化（度）；0 表示关闭限制。
 
-# gimbal_driver raw serial diagnostics.
-# Both channels are disabled by default.
+# gimbal_driver 串口原始帧诊断；默认关闭，硬件调试时短时开启。
 gimbal_raw:
-  # File log writes hex text to disk. Use only for short hardware debugging.
+  # 文件日志把上下行帧转为 hex 文本写盘。
   file:
-    enable: false
-    uplink: true
-    downlink: true
-    screen: false
-    flush: true
-    dir: ~/Log/GimbalRaw
-    type_ids: all
+    enable: false  # 是否写文件日志。
+    uplink: true  # 是否记录下位机到上位机的上行帧。
+    downlink: true  # 是否记录上位机到下位机的下行帧。
+    screen: false  # 是否同步打印到终端。
+    flush: true  # 是否每帧立即 flush，便于异常断电后保留日志。
+    dir: ~/Log/GimbalRaw  # 原始帧日志目录。
+    type_ids: all  # 上行 TypeID 过滤：all 或如 "0,1,7"。
 
-  # Topic log publishes binary bytes without hex/string conversion.
+  # ROS topic 日志直接发布二进制字节，不做 hex/string 转换。
   topic:
-    enable: false
-    uplink: true
-    downlink: true
-    type_ids: all
+    enable: false  # 是否发布原始帧 ROS topic。
+    uplink: true  # 是否发布 /ly/log/gimbal_raw_rx。
+    downlink: true  # 是否发布 /ly/log/gimbal_raw_tx。
+    type_ids: all  # 上行 TypeID 过滤：all 或如 "0,1,7"。

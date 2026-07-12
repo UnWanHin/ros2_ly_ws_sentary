@@ -1,73 +1,70 @@
 behavior_tree:
   ros__parameters:
     StartGate:
-      # Gate mode rule: before /ly/game/is_start=true, keep chassis velocity and rotate at zero.
-      # This fallback is overridden by config/common.yaml when using scripts/start.sh.
-      # This switch only allows gimbal patrol scan while waiting for game start.
-      AllowGimbalPatrolBeforeStart: true
+      # 开局前保持底盘速度/小陀螺为 0；scripts/start.sh 可被 common.yaml 覆盖。
+      AllowGimbalPatrolBeforeStart: true  # 是否允许开局等待期间只进行云台巡逻扫描。
     Task:
-      Buff: false
-      Outpost: true
+      Buff: false  # 是否允许 Buff 任务进入策略选择。
+      Outpost: true  # 是否允许前哨任务进入策略选择。
       OutpostConfirm:
         # 敵方前哨血量、自己血量/彈量等裁判資料超過這個時間未更新時，不主動進前哨任務。
-        RefereeFreshTimeoutMs: 2000
+        RefereeFreshTimeoutMs: 2000  # 裁判血量/资源信息的新鲜度（毫秒）。
         # false: 不把下位機刷來的 /ly/enemy/op_hp 當前哨存活/已毀 gate。
         # 這樣 op_hp=0 只當 unknown，前哨能靠 /ly/aim 目標和 visual scout 繼續進任務。
         TrustEnemyOutpostHp: false
         # 兼容原有邏輯：開局 120 秒內才主動打前哨；設 0 可關閉時間窗口。
-        MaxGameTimeSec: 120
+        MaxGameTimeSec: 120  # 主动前哨的开局时间窗（秒）；0 表示关闭时间窗。
         # 低於這些資源門檻時不主動打前哨；資料不新鮮時不因 freshness 抖動退出，低血/低彈由 Hard Recovery 優先處理。
-        MinSelfHp: 150
-        MinAmmo: 30
+        MinSelfHp: 150  # 主动前哨所需最低自身血量。
+        MinAmmo: 30  # 主动前哨所需最低弹量。
         # op_hp 不能作為哨兵正式 gate；保留 op_hp 接口，但默認靠前哨視覺確認是否可打。
         # 未收到 op_hp 時會短時切到外部 aim 前哨目標去 BuffOutpost 偵查。
         # 若沒有收到 /ly/aim/result 的有效前哨結果，非開局窗口會超時並冷卻，避免長時間卡前哨任務。
-        VisualScoutWithoutHp: true
-        VisualScoutHoldMs: 40000
-        VisualScoutCooldownMs: 15000
+        VisualScoutWithoutHp: true  # 未收到 op_hp 时是否仍允许视觉侦查前哨。
+        VisualScoutHoldMs: 40000  # 单次视觉侦查最长保持（毫秒）。
+        VisualScoutCooldownMs: 15000  # 视觉侦查冷却（毫秒）。
         # 接近 BuffOutpost 的參考距離；進入此距離後開正式前哨 FaceMode/no-target timeout。
-        VisualScoutFaceDistanceCm: 300
+        VisualScoutFaceDistanceCm: 300  # 进入前哨 FaceMode 的参考距离（厘米）。
         # 開局窗口後，允許低優先級週期回 BuffOutpost 短暫看前哨；會讓回防/戰術任務先做。
-        PostWindowScoutEnable: true
-        PostWindowScoutIntervalSec: 60
+        PostWindowScoutEnable: true  # 开局时间窗后是否周期性返回侦查前哨。
+        PostWindowScoutIntervalSec: 60  # 时间窗后侦查间隔（秒）。
         # 接近 BuffOutpost 後短暫開 FaceMode 看前哨，避免長時間卡住巡邏。
-        PostWindowScoutHoldMs: 3000
+        PostWindowScoutHoldMs: 3000  # 时间窗后单次侦查保持（毫秒）。
         # 打前哨時普通車體目標小於此距離才打斷前哨；更遠的車體先忽略，繼續前哨任務。
-        ArmorWarningDistanceCm: 5000
+        ArmorWarningDistanceCm: 5000  # 近于此距离的普通车体目标会打断前哨（厘米）。
         # 因近距離車體打斷後，車體丟失且仍允許前哨任務時，回前哨 FaceMode 搜索的時間。
-        PostArmorFaceSearchMs: 5000
+        PostArmorFaceSearchMs: 5000  # 车体丢失后回前哨 FaceMode 搜索时间（毫秒）。
         # 前哨任務可被受擊打斷；與 Buff 不同，打前哨之後可再回來打。
-        DamageAbortThreshold: 30
-        DamageAbortWindowMs: 1000
-        DamageAbortHoldMs: 3000
+        DamageAbortThreshold: 30  # 受击累计达到该值时中断前哨。
+        DamageAbortWindowMs: 1000  # 受击累计统计窗口（毫秒）。
+        DamageAbortHoldMs: 3000  # 中断前哨后的保持时间（毫秒）。
         # true: 開局 MaxGameTimeSec 內，前哨任務優先壓過普通 regional/protect 類導航任務。
-        OpeningHighPriority: true
+        OpeningHighPriority: true  # 开局时间窗内前哨是否压过普通 Regional/保护导航。
         # 開局硬駐守 BuffOutpost 的秒數；期間不受 VisualScoutHoldMs/PostWindowScoutHoldMs timeout 影響。
-        OpeningHoldSec: 120
+        OpeningHoldSec: 120  # 开局固定驻守 BuffOutpost 的时间（秒）。
         # true: 開局 OpeningHoldSec 內，即使沒有搜到前哨目標也持續待在 BuffOutpost，不因 no-target timeout 釋放給 Default。
-        OpeningHoldUntilWindowEnd: true
+        OpeningHoldUntilWindowEnd: true  # 无目标时是否仍驻守到开局时间窗结束。
         # true: 前哨任務導航/偵查未結束時，看到車體仍可打，但不發布 chase 追車。
-        SuppressChaseWhileActive: true
+        SuppressChaseWhileActive: true  # 前哨期间允许射击，但不下发追车导航。
       BuffTimer:
         # false: 以裁判 0x020D sentry_info_2.bit14 can_activate 為準，能激活才去打。
         # true: 兼容定時窗口；窗口內進 Buff，仍只在到點且視覺鎖定後下發確認。
         Enable: false
-        StartSec: 0
-        EndSec: 25
-        MaxShootCount: 15
+        StartSec: 0  # 定时 Buff 窗口开始时间（秒）。
+        EndSec: 25  # 定时 Buff 窗口结束时间（秒）。
+        MaxShootCount: 15  # 单次 Buff 最多确认射击次数。
       BuffConfirm:
-        RefereeFreshTimeoutMs: 2000
-        PulseMs: 500
-        RetryIntervalMs: 2000
+        RefereeFreshTimeoutMs: 2000  # Buff 裁判状态的新鲜度（毫秒）。
+        PulseMs: 500  # 单次确认开火脉冲时长（毫秒）。
+        RetryIntervalMs: 2000  # 确认失败后的重试间隔（毫秒）。
         # 裁判從「可激活」切到「正在激活」有回包延遲，確認後這段時間仍保持 Buff 並允許擊打。
-        PostConfirmGraceMs: 3000
+        PostConfirmGraceMs: 3000  # 裁判确认延迟期间的继续保持（毫秒）。
         # 避免裁判狀態丟失時永久卡在打符；正常成功會由 event_data=已激活 提前退出。
-        TaskHoldTimeoutMs: 30000
-        DamageAbortThreshold: 30
-        DamageAbortWindowMs: 1000
-        DamageAbortHoldMs: 5000
+        TaskHoldTimeoutMs: 30000  # 无成功回包时的 Buff 任务总超时（毫秒）。
+        DamageAbortThreshold: 30  # 受击累计达到该值时中断 Buff。
+        DamageAbortWindowMs: 1000  # 受击累计统计窗口（毫秒）。
+        DamageAbortHoldMs: 5000  # 中断 Buff 后的保持时间（毫秒）。
     FaceMode:
-      # true: BT 在 Buff/Outpost 或區域任務請求朝向固定地圖點時，允許使用 /ly/face_mode/angles。
-      Enable: true
-      # FaceMode missing-angle PatrolScan fallback is configured in Patrol.yaml:
-      # PatrolScan.TaskOverrides.FaceModeFallbackEnable / FaceModeFallbackMode / OutpostFaceModeFallbackMode.
+      # 仅允许 Buff/Outpost 或区域任务请求固定地图朝向；视觉瞄准仍有更高优先级。
+      Enable: true  # 是否启用 /ly/face_mode/angles 朝向控制。
+      # 角度缺失时的巡逻回退配置见 Patrol.yaml 的 TaskOverrides。
