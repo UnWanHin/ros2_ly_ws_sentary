@@ -55,11 +55,13 @@
             "MyArea": {
                 "Base": false,
                 "Highland": false,
+                "PreRoadland": false,
                 "Roadland": true
             },
             "EnemyArea": {
                 "Base": false,
                 "Highland": false,
+                "PreRoadland": false,
                 "Roadland": false
             },
             "CommonArea": {

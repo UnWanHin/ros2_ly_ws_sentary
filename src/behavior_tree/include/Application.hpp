@@ -789,7 +789,6 @@ public:
         UnitTeam enemy_team) const;
     bool TrySetRegionalDefenseGoal(UnitTeam my_team, UnitTeam enemy_team);
     bool TrySetProtectHeroGoal(UnitTeam my_team, UnitTeam enemy_team);
-    bool TrySetSpecialMiniRoadlandGoal(UnitTeam my_team, UnitTeam enemy_team);
     bool TrySetSpecialPatrolGoal(UnitTeam my_team, UnitTeam enemy_team);
     bool TickNaviProgressWatchdog(UnitTeam my_team, UnitTeam enemy_team);
     bool IsDefaultRegionalDecisionReady(UnitTeam my_team, UnitTeam enemy_team) const;

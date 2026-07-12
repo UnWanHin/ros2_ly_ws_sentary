@@ -82,7 +82,7 @@ behavior_tree:
         OutpostGuard:
           Enable: true
           Rotate: 0
-        MiniRoadland:
+        PreRoadland:
           Enable: true
           Rotate: 0
         CentralLeftA:

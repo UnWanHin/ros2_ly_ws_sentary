@@ -1,5 +1,5 @@
 schema: ly_simulator_config_v1
-updated: "2026-05-13"
+updated: "2026-07-13"
 
 window:
   width: 1500
@@ -191,6 +191,11 @@ structures:
       alpha: 34
       outline: "#86efac"
       outline_alpha: 150
+    main_area:
+      fill: "#a78bfa"
+      alpha: 26
+      outline: "#c4b5fd"
+      outline_alpha: 150
     special_zone:
       fill: "#38bdf8"
       alpha: 30
@@ -212,13 +217,16 @@ structures:
     - {name: EnergyMechanism.Center, kind: energy_mechanism, shape: circle, center: [1400, 760], radius: 115}
     - {name: Outpost.RedSide, kind: outpost, shape: circle, center: [1090, 370], radius: 95}
     - {name: Outpost.BlueSide, kind: outpost, shape: circle, center: [1707, 1141], radius: 95}
-    # Regional AreaManager follow-mode sub-area
+    # Formal Regional main areas; Roadland keeps its name with the new rear-road quadrilateral boundary.
+    - {name: Roadland.Red, kind: main_area, polygon: [[510, 235], [510, 19], [1251, 17], [1333, 221]]}
+    - {name: Roadland.Blue, kind: main_area, polygon: [[2290, 1265], [2290, 1481], [1549, 1483], [1467, 1279]]}
+    - {name: PreRoadland.Red, kind: main_area, polygon: [[687, 380], [758, 235], [510, 235], [510, 205], [510, 19], [389, 15], [391, 373]]}
+    - {name: PreRoadland.Blue, kind: main_area, polygon: [[2113, 1120], [2042, 1265], [2290, 1265], [2290, 1295], [2290, 1481], [2411, 1485], [2409, 1127]]}
+    # Regional AreaManager Roadland crossing FollowMode sub-area.
     - {name: RoadlandFollow.Red, kind: follow_zone, polygon: [[510, 192], [987, 203], [990, 29], [510, 26]]}
     - {name: RoadlandFollow.Blue, kind: follow_zone, polygon: [[2290, 1308], [1813, 1297], [1810, 1471], [2290, 1474]]}
     - {name: Recovery.Red, kind: special_zone, polygon: [[109, 286], [306, 292], [304, 205], [111, 208]]}
     - {name: Recovery.Blue, kind: special_zone, polygon: [[2691, 1214], [2494, 1208], [2496, 1295], [2689, 1292]]}
-    - {name: MiniRoadland.Red, kind: special_zone, polygon: [[392, 189], [510, 196], [517, 26], [392, 26]]}
-    - {name: MiniRoadland.Blue, kind: special_zone, polygon: [[2408, 1311], [2290, 1304], [2283, 1474], [2408, 1474]]}
     - {name: CentralLeft.Red, kind: special_zone, shape: polyline, polyline: [[1205, 1260], [1026, 1006]], width_cm: 5}
     - {name: CentralLeft.Blue, kind: special_zone, shape: polyline, polyline: [[1595, 240], [1774, 494]], width_cm: 5}
     - {name: SettleArea.Red, kind: settle_zone, polygon: [[1210, 774], [1210, 811], [1320, 900], [1437, 864], [1283, 701]]}
@@ -280,9 +288,9 @@ goals:
   - {id: 19, name: Highland, red: [744, 1263], blue: [2056, 237]}
   - {id: 20, name: CastleLeft2, red: [831, 960], blue: [1969, 540]}
   - {id: 21, name: BaseToCentral, red: [1125, 155], blue: [1675, 1345]}
-  - {id: 22, name: CentralToBase, red: [451, 146], blue: [2349, 1354]}
+  - {id: 22, name: CentralToBase, red: [515, 100], blue: [2285, 1400]}
   - {id: 23, name: BuffOutpost, red: [1100, 1130], blue: [1700, 370]}
   - {id: 24, name: OutpostGuard, red: [969, 368], blue: [1831, 1132]}
-  - {id: 25, name: MiniRoadland, red: [457, 72], blue: [2343, 1428]}
+  - {id: 25, name: PreRoadland, red: [457, 72], blue: [2343, 1428]}
   - {id: 26, name: CentralLeft.A, red: [1205, 1260], blue: [1595, 240]}
   - {id: 27, name: CentralLeft.B, red: [1026, 1006], blue: [1774, 494]}

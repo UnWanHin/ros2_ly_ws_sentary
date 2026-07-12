@@ -40,8 +40,8 @@ Regional 不是單一點表，而是分層策略：
 - `Hard`：最高優先級，先處理低血/低彈回 `Recovery`，以及 Roadland 強綁定穿越段。
 - `Task`：處理 Highland 兼容過渡和導航 watchdog 等支援任務，不再擁有基本大區域狀態機。
 - `Tactical`：處理 Buff、RegionalDefense、ProtectHero、Outpost 和 watchdog fallback。
-- `Special`：可開關的專項巡察層，目前包含兩點線段 Patrol 和 `MiniRoadland` 偵察駐守，優先級低於 Tactical、高於 Default。
-- `Default`：沒有事件、沒有任務、沒有 Buff/Outpost 時，按大區域候選分數選並持續 tick `MyBase / MyHighland / MyRoadland / CommonCentral`。
+- `Special`：可開關的專項巡察層，目前只包含兩點線段 Patrol，優先級低於 Tactical、高於 Default。
+- `Default`：沒有事件、沒有任務、沒有 Buff/Outpost 時，按大區域候選分數選並持續 tick `MyBase / MyHighland / MyPreRoadland / MyRoadland / CommonCentral`。
 - `Finalizer`：只做策略層狀態同步，不再做舊點表 fallback。
 
 Regional 目前已有的主要邏輯：
@@ -59,7 +59,6 @@ Regional 目前已有的主要邏輯：
 - Outpost：正式入口不依賴 `op_hp`，由血量/彈藥門檻、時間窗、damage abort、目標不可達狀態和 `Task.OutpostConfirm.VisualScoutWithoutHp` 決定是否去 `BuffOutpost` 偵查；Travel 階段保持選前哨，不讓遠距離普通車體接管 `/ly/aim/result`，但進入 `VisualScoutFaceDistanceCm` 前仍用普通裝甲視覺和 Move 姿態。進入該距離後開前哨視覺、敵方前哨 FaceMode 和 Attack 姿態，不再強依賴 `/ly/navi/reached=true`。120 秒時間窗內是高優先級任務，但己方 Base 有敵方時 RegionalDefense 可打斷；120 秒後按 `PostWindowScoutIntervalSec` 低優先級回 `BuffOutpost`，接近後用 `PostWindowScoutHoldMs` 短 FaceMode 偵查。普通裝甲目標若有效且不超過 `ArmorWarningDistanceCm`，會先打車；目標消失後若前哨 gate 仍允許，會按 `PostArmorFaceSearchMs` 回前哨 FaceMode 搜索。`op_hp` 接口保留，若它新鮮且為 0，可提前判定敵方前哨已毀並跳過任務。
 - Navi progress watchdog：檢測 goal 不可達或長時間無位移，按當前目標區域選 fallback 點。
 - Special Patrol：由 `src/behavior_tree/config/Special.yaml` 控制；啟用後在 Tactical 無事件時巡己方 `CentralLeft` 線的 A/B 端點。默認 `GoalHoldSec=0`，到點即切下一端；`SuppressChase=true`，鎖到目標時不追擊、不邊走邊打，而是把導航目標壓到當前自身坐標。
-- Special MiniRoadland：由 `src/behavior_tree/config/Special.yaml` 控制；啟用後在 Tactical 無事件時去己方 `MiniRoadland` 點偵察駐守，且不受 `Area.MyArea.Roadland=false` 影響。
 - Regional idle patrol：預留空閒巡邏，默認候選是 `HoleRoad / Castle / CastleRight2 / CastleRight1 / CastleLeft1 / CastleLeft2`。
 
 Regional 裡常見控制語義：
@@ -86,7 +85,7 @@ EvaluateEvents -> Hard -> Task -> PreprocessData -> SelectAimTarget -> Tactical 
 - `Task`：只保留 Highland 兼容過渡和導航 watchdog 這類支援任務；不再 tick Highland/Base/Roadland/Central 基本大區域狀態機。
 - `PreprocessData / SelectAimTarget`：在 Tactical 前整理可打目標、官方坐標和本 tick `targetArmor`，讓戰術層使用最新目標資料。
 - `Tactical`：regional 只保留明確戰術 overlay：`RegionalDefense`、ProtectHero、Buff/Outpost 任務站位、Chase 追擊和導航 watchdog；不再調用舊單策略點表。`LeagueSimple` 只在 `CompetitionProfile=league` 時使用，Showcase 只在明確 showcase 配置時使用。
-- `Special`：可選專項層；`Special.Patrol.Enable=true` 時巡己方 `CentralLeft` 線，`Special.MiniRoadland.Enable=true` 時下發己方 `MiniRoadland` 偵察點。它直接走 base goal，不走 Default 的大區域 scope；但更高層回補、回防、前哨、打符仍會先接管。Special Patrol 默認抑制 Chase。
+- `Special`：可選專項層；目前只有 `Special.Patrol.Enable=true` 時巡己方 `CentralLeft` 線。`PreRoadland` 已是 Default scope 內的正式 AreaTask；更高層回補、回防、前哨、打符仍會先接管。Special Patrol 默認抑制 Chase。
 - `Default`：無特別事件時的底層決策，按 `AreaManager.DefaultPolicy` 對已啟用的大區域做資源門檻、距離、目前區域、上次任務結果、冷卻和重試評分，再啟動 AreaManager 任務。每個 Default 區域任務都必須有完成/退出條件；任務完成後回到 scorer 重新評估，不寫死下一個大區域順序。沒有可用區域時不再 fallback 到任何舊點表。`RegionalIdlePatrol` 點表不再是正式 regional 的 Default 入口。
 - `Finalizer`：只做本 tick 策略層完成標記和黑板同步；regional 不再 fallback 到舊點表。
 
@@ -212,18 +211,18 @@ TrySetScopedPositionByBaseGoal()
 
 ## 當前配置
 
-### ReadyRoadLand 候選邊界
+### PreRoadland / Roadland 正式邊界
 
-`PreRoadland` 與 `ReadyRoadLand` 都已加入 `Area.hpp` 與 `area_calculator`，用於核對未來將舊 `Roadland` 拆成兩個同級主區的邊界。它們目前只提供 `Area::IsPointInsidePreRoadlandArea()` / `Area::IsPointInsideReadyRoadlandArea()` 與相對應 `AreaManager` 查詢，**不是** `MainAreaKind`，不參與目標區域解析、Default scorer、Regional task 或正式導航輸出。
+`PreRoadland` 與 `Roadland` 已是同級 `MainAreaKind`，都參與目標區域解析、Default scorer、Regional task 和正式導航輸出。`Roadland` 保留既有名稱，但邊界改用原 ReadyRoadLand 四邊形；共用邊界依 `AreaManager` 的主區解析順序歸屬 `Roadland`。
 
 ```text
 PreRoadland Red:  (687,380) -> (758,235) -> (510,235) -> (510,205) -> (510,19) -> (389,15) -> (391,373)
 PreRoadland Blue: (2113,1120) -> (2042,1265) -> (2290,1265) -> (2290,1295) -> (2290,1481) -> (2411,1485) -> (2409,1127)
-ReadyRoadLand Red:  (510,235) -> (510,19) -> (1251,17) -> (1333,221)
-ReadyRoadLand Blue: (2290,1265) -> (2290,1481) -> (1549,1483) -> (1467,1279)
+Roadland Red:  (510,235) -> (510,19) -> (1251,17) -> (1333,221)
+Roadland Blue: (2290,1265) -> (2290,1481) -> (1549,1483) -> (1467,1279)
 ```
 
-這樣保留舊 `Roadland` 主區行為不變，直到 `PreRoadland` 與新的正式 `Roadland` 邊界都確認後再一次完成 MainArea 分割，避免重疊區域依賴隱性解析順序。
+`MyPreRoadland` 固定使用 ID 25，抵達後按自身 `GoalHoldSec` 結束；`MyRoadland` 保留 ID 22 -> ID 21 的強綁定穿越、FollowMode 與 FaceMode。ID 22 目前是紅 `(515,100)`、藍 `(2285,1400)`，已落在新 Roadland 內。
 
 目前 `src/behavior_tree/config/AreaManager.yaml` 的基本區域配置是：
 
@@ -430,11 +429,21 @@ CommonCentral 本身不開 `FollowMode`，也不開 `FaceMode`，就是普通中
 以下任務屬於低優先級任務，可以被 Buff/Outpost 模式或 regional defense 直接取消：
 
 - MyBase
+- MyPreRoadland
 - CommonCentral
 
 被取消時，BT 會清空當前 regional area task，重置 regional control override，並把 `FollowMode` 關掉。
 
 MyHighland 目前不在這個低優先級 aim/defense 取消集合裡。它仍然可能被 recovery 或其他外層明確清任務的鏈路清掉。
+
+### PreRoadland
+
+`MyPreRoadland` 是正式道路前段區域任務，取代已移除的 `Special.MiniRoadland`：
+
+- 唯一導航入口為 `PreRoadland`，BaseGoalId 固定為 `25`；
+- 到達後按 `AreaManager.RegionalAreaTask.MyPreRoadland.GoalHoldSec` 保持；
+- 不繼承 Roadland 的強綁定穿越、FollowMode 或 FaceMode；
+- 在 Default policy 中有獨立權重、當前/上一區懲罰與 retry/cooldown。
 
 ### Roadland 非強綁定階段
 
@@ -537,6 +546,7 @@ FaceMode 負責固定點朝向和接管雲台角度。FollowMode 只負責下發
 
 - 我方 Base 巡遊由 MyBase 管；
 - 我方 Highland 進入、駐守、離開由 MyHighland 管；
+- 我方 PreRoadland 前段到點保持由 MyPreRoadland 管；
 - 我方 Roadland 強綁定穿越、安全返回由 MyRoadland 管；
 - 中場健康巡邏由 CommonCentral 管。
 

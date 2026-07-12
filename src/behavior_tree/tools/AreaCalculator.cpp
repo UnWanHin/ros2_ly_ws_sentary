@@ -130,6 +130,8 @@ std::uint8_t AreaId(const AreaKey& key) {
                 return Info::AREA_MY_BASE;
             case BehaviorTree::Area::MainAreaKind::Highland:
                 return Info::AREA_MY_HIGHLAND;
+            case BehaviorTree::Area::MainAreaKind::PreRoadland:
+                return Info::AREA_MY_PRE_ROADLAND;
             case BehaviorTree::Area::MainAreaKind::Roadland:
                 return Info::AREA_MY_ROADLAND;
             default:
@@ -142,6 +144,8 @@ std::uint8_t AreaId(const AreaKey& key) {
                 return Info::AREA_ENEMY_BASE;
             case BehaviorTree::Area::MainAreaKind::Highland:
                 return Info::AREA_ENEMY_HIGHLAND;
+            case BehaviorTree::Area::MainAreaKind::PreRoadland:
+                return Info::AREA_ENEMY_PRE_ROADLAND;
             case BehaviorTree::Area::MainAreaKind::Roadland:
                 return Info::AREA_ENEMY_ROADLAND;
             default:
@@ -255,12 +259,8 @@ void PrintExactMembership(UnitTeam area_team, int x, int y) {
               << (BehaviorTree::Area::IsPointInsideProtectHeroArea(area_team, x, y) ? "true" : "false") << "\n";
     std::cout << "  " << TeamName(area_team) << "_roadland_follow_mode: "
               << (BehaviorTree::Area::IsPointInsideRoadlandFollowModeArea(area_team, x, y) ? "true" : "false") << "\n";
-    std::cout << "  " << TeamName(area_team) << "_mini_roadland: "
-              << (BehaviorTree::Area::IsPointInsideMiniRoadlandArea(area_team, x, y) ? "true" : "false") << "\n";
-    std::cout << "  " << TeamName(area_team) << "_pre_roadland_candidate: "
+    std::cout << "  " << TeamName(area_team) << "_pre_roadland: "
               << (BehaviorTree::Area::IsPointInsidePreRoadlandArea(area_team, x, y) ? "true" : "false") << "\n";
-    std::cout << "  " << TeamName(area_team) << "_ready_roadland_candidate: "
-              << (BehaviorTree::Area::IsPointInsideReadyRoadlandArea(area_team, x, y) ? "true" : "false") << "\n";
     std::cout << "  " << TeamName(area_team) << "_recovery_area: "
               << (BehaviorTree::Area::IsPointInsideRecoveryArea(area_team, x, y) ? "true" : "false") << "\n";
     std::cout << "  " << TeamName(area_team) << "_central_left_line: "

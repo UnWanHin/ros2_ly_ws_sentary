@@ -1,0 +1,45 @@
+{
+    "CompetitionProfile": "regional",
+    "Rate": {
+        "FireRate": 20,
+        "TreeTickRate": 100,
+        "NaviCommandRate": 1
+    },
+    "NaviSetting": {
+        "UseXY": true,
+        "ToNavi": true
+    },
+    "RegionalDefense": {
+        "Enable": false
+    },
+    "NaviProgressWatchdog": {
+        "Enable": false
+    },
+    "DecisionAutonomy": {
+        "Enable": true,
+        "EnabledModules": ["aim_target"],
+        "HardRuleModules": ["recovery", "aim_mode", "fire_safety"],
+        "NaviGoal": {
+            "UseAreaScope": true,
+            "MyArea": {
+                "Base": false,
+                "Highland": false,
+                "PreRoadland": true,
+                "Roadland": false
+            },
+            "EnemyArea": {
+                "Base": false,
+                "Highland": false,
+                "PreRoadland": false,
+                "Roadland": false
+            },
+            "CommonArea": {
+                "Central": false
+            }
+        }
+    },
+    "Chase": {
+        "Enable": false
+    },
+    "ScanCounter": 1
+}

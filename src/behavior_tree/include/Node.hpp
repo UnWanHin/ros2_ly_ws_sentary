@@ -973,7 +973,7 @@ namespace BT {
         if (str == "CentralToBase") return LangYa::CentralToBase;
         if (str == "BuffOutpost") return LangYa::BuffOutpost;
         if (str == "OutpostGuard") return LangYa::OutpostGuard;
-        if (str == "MiniRoadland") return LangYa::MiniRoadland;
+        if (str == "PreRoadland") return LangYa::PreRoadland;
         if (str == "CentralLeft.A" || str == "CentralLeftA") return LangYa::CentralLeftA;
         if (str == "CentralLeft.B" || str == "CentralLeftB") return LangYa::CentralLeftB;
         return LangYa::Home; // 默認返回 Home

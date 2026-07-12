@@ -322,7 +322,8 @@ namespace LangYa
     static constexpr TeamedLocation CentralToBase{ 22 };
     static constexpr TeamedLocation BuffOutpost{ 23 };
     static constexpr TeamedLocation OutpostGuard{ 24 };
-    static constexpr TeamedLocation MiniRoadland{ 25 };
+    // 保持导航 BaseGoalId=25，作为正式 PreRoadland 目标点。
+    static constexpr TeamedLocation PreRoadland{ 25 };
     static constexpr TeamedLocation CentralLeftA{ 26 };
     static constexpr TeamedLocation CentralLeftB{ 27 };
 
@@ -779,13 +780,6 @@ namespace LangYa
         };
     };
 
-    struct SpecialMiniRoadlandSetting {
-        bool Enable{false};
-        int GoalHoldSec{6};
-        std::uint8_t GoalBaseId{MiniRoadland.ID};
-        int SpeedLevel{1};
-    };
-
     struct SpecialPatrolSetting {
         bool Enable{false};
         int GoalHoldSec{0};
@@ -795,7 +789,6 @@ namespace LangYa
     };
 
     struct SpecialSetting {
-        SpecialMiniRoadlandSetting MiniRoadland{};
         SpecialPatrolSetting Patrol{};
     };
 
@@ -856,6 +849,14 @@ namespace LangYa
         int HealthyAmmoMin{50};
     };
 
+    struct MyPreRoadlandAreaTaskSetting {
+        bool Enable{false};
+        int TravelTimeoutSec{12};
+        int GoalHoldSec{6};
+        int CommandHoldSec{1};
+        int SpeedLevel{1};
+    };
+
     struct CommonCentralAreaTaskSetting {
         bool Enable{false};
         int TravelTimeoutSec{12};
@@ -882,6 +883,7 @@ namespace LangYa
     struct DefaultPolicyScoreSetting {
         double WeightMyBase{10.0};
         double WeightMyHighland{8.0};
+        double WeightMyPreRoadland{7.0};
         double WeightMyRoadland{7.0};
         double WeightCommonCentral{6.0};
         double WeightEnemyBase{4.0};
@@ -916,6 +918,7 @@ namespace LangYa
         PatrolGoalSelectionSetting PatrolSelection{};
         MyHighlandAreaTaskSetting MyHighland{};
         MyBaseAreaTaskSetting MyBase{};
+        MyPreRoadlandAreaTaskSetting MyPreRoadland{};
         MyRoadlandAreaTaskSetting MyRoadland{};
         CommonCentralAreaTaskSetting CommonCentral{};
         DefaultPolicySetting DefaultPolicy{};

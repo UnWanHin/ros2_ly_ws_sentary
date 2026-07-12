@@ -344,28 +344,9 @@ namespace Area {
     enum class MainAreaKind : std::uint8_t {
         Base = 0,
         Highland = 1,
-        Roadland = 2,
-        Central = 3
-    };
-
-    static const std::vector<Point<int>> RedMainAreaRoadlandPoints = {
-        { 685, 368 },
-        { 391, 373 },
-        { 389, 13 },
-        { 753, 5 },
-        { 1217, 24 },
-        { 1228, 263 },
-        { 1026, 265 }
-    };
-
-    static const std::vector<Point<int>> BlueMainAreaRoadlandPoints = {
-        { 2115, 1132 },
-        { 2409, 1127 },
-        { 2411, 1487 },
-        { 2047, 1485 },
-        { 1583, 1476 },
-        { 1572, 1237 },
-        { 1774, 1235 }
+        PreRoadland = 2,
+        Roadland = 3,
+        Central = 4
     };
 
     static const std::vector<Point<int>> RedRoadlandFollowModePoints = {
@@ -382,23 +363,7 @@ namespace Area {
         { 2290, 1474 }
     };
 
-    static const std::vector<Point<int>> RedMiniRoadlandPoints = {
-        { 392, 189 },
-        { 510, 196 },
-        { 517, 26 },
-        { 392, 26 }
-    };
-
-    static const std::vector<Point<int>> BlueMiniRoadlandPoints = {
-        { 2408, 1311 },
-        { 2290, 1304 },
-        { 2283, 1474 },
-        { 2408, 1474 }
-    };
-
-    // Candidate boundary for the future Roadland split. PreRoadland is the
-    // accessible front section; it remains query-only until both new main-area
-    // boundaries are enabled together.
+    // 正式道路前段主区域。与 Roadland 共用的边界点按 AreaManager 解析顺序归 Roadland。
     static const std::vector<Point<int>> RedPreRoadlandPoints = {
         { 687, 380 },
         { 758, 235 },
@@ -419,17 +384,15 @@ namespace Area {
         { 2409, 1127 }
     };
 
-    // Candidate boundary for the future Roadland split. This is intentionally
-    // not a MainAreaKind yet: it overlaps the current legacy Roadland polygon
-    // until PreRoadland and the replacement Roadland are switched together.
-    static const std::vector<Point<int>> RedReadyRoadlandPoints = {
+    // 正式道路后段主区域，保留 Roadland 名称，替代旧单一大 Roadland 边界。
+    static const std::vector<Point<int>> RedMainAreaRoadlandPoints = {
         { 510, 235 },
         { 510, 19 },
         { 1251, 17 },
         { 1333, 221 }
     };
 
-    static const std::vector<Point<int>> BlueReadyRoadlandPoints = {
+    static const std::vector<Point<int>> BlueMainAreaRoadlandPoints = {
         { 2290, 1265 },
         { 2290, 1481 },
         { 1549, 1483 },
@@ -617,6 +580,7 @@ namespace Area {
         switch (kind) {
             case MainAreaKind::Base: return "base";
             case MainAreaKind::Highland: return "highland";
+            case MainAreaKind::PreRoadland: return "pre_roadland";
             case MainAreaKind::Roadland: return "roadland";
             case MainAreaKind::Central: return "central";
             default: return "unknown";
@@ -632,6 +596,8 @@ namespace Area {
                 return is_blue ? BlueMainAreaBasePoints : RedMainAreaBasePoints;
             case MainAreaKind::Highland:
                 return is_blue ? BlueMainAreaHighlandPoints : RedMainAreaHighlandPoints;
+            case MainAreaKind::PreRoadland:
+                return is_blue ? BluePreRoadlandPoints : RedPreRoadlandPoints;
             case MainAreaKind::Roadland:
                 return is_blue ? BlueMainAreaRoadlandPoints : RedMainAreaRoadlandPoints;
             case MainAreaKind::Central:
@@ -823,27 +789,6 @@ namespace Area {
         return IsPointInsideAreaShapes(RoadlandFollowModeShapes(team), x, y);
     }
 
-    inline const std::vector<Point<int>>& MiniRoadlandBoundary(const UnitTeam team) {
-        return PointLookupTeam(team) == UnitTeam::Blue
-            ? BlueMiniRoadlandPoints
-            : RedMiniRoadlandPoints;
-    }
-
-    inline std::vector<AreaShapeView> MiniRoadlandShapes(const UnitTeam team) {
-        std::vector<AreaShapeView> shapes{PolygonShape(MiniRoadlandBoundary(team))};
-        return shapes;
-    }
-
-    inline bool IsPointInsideMiniRoadlandArea(
-        const UnitTeam team,
-        const int x,
-        const int y) {
-        if (team != UnitTeam::Red && team != UnitTeam::Blue) {
-            return false;
-        }
-        return IsPointInsideAreaShapes(MiniRoadlandShapes(team), x, y);
-    }
-
     inline const std::vector<Point<int>>& PreRoadlandBoundary(const UnitTeam team) {
         return PointLookupTeam(team) == UnitTeam::Blue
             ? BluePreRoadlandPoints
@@ -863,27 +808,6 @@ namespace Area {
             return false;
         }
         return IsPointInsideAreaShapes(PreRoadlandShapes(team), x, y);
-    }
-
-    inline const std::vector<Point<int>>& ReadyRoadlandBoundary(const UnitTeam team) {
-        return PointLookupTeam(team) == UnitTeam::Blue
-            ? BlueReadyRoadlandPoints
-            : RedReadyRoadlandPoints;
-    }
-
-    inline std::vector<AreaShapeView> ReadyRoadlandShapes(const UnitTeam team) {
-        std::vector<AreaShapeView> shapes{PolygonShape(ReadyRoadlandBoundary(team))};
-        return shapes;
-    }
-
-    inline bool IsPointInsideReadyRoadlandArea(
-        const UnitTeam team,
-        const int x,
-        const int y) {
-        if (team != UnitTeam::Red && team != UnitTeam::Blue) {
-            return false;
-        }
-        return IsPointInsideAreaShapes(ReadyRoadlandShapes(team), x, y);
     }
 
     inline const std::vector<Point<int>>& RecoveryAreaBoundary(const UnitTeam team) {
@@ -982,10 +906,10 @@ namespace Area {
     static const Location<std::uint16_t> OccupyArea{ {1075, 898}, {1702, 609} };
     static const Location<std::uint16_t> Highland{ {774, 1166}, {2021, 334} };
     static const Location<std::uint16_t> BaseToCentral{ {1125, 155}, {1675, 1345} };
-    static const Location<std::uint16_t> CentralToBase{ {451, 146}, {2349, 1354} };
+    static const Location<std::uint16_t> CentralToBase{ {515, 100}, {2285, 1400} };
     static const Location<std::uint16_t> BuffOutpost{ {1220, 1350}, {1580, 150} };
     static const Location<std::uint16_t> OutpostGuard{ {969, 368}, {1831, 1132} };
-    static const Location<std::uint16_t> MiniRoadland{ {457, 72}, {2343, 1428} };
+    static const Location<std::uint16_t> PreRoadland{ {457, 72}, {2343, 1428} };
     static const Line<std::uint16_t> CentralLeft{
         Location<std::uint16_t>{
             {static_cast<std::uint16_t>(RedCentralLeftLinePoints[0].x),

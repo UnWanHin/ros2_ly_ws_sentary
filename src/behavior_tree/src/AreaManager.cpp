@@ -14,17 +14,19 @@
 namespace BehaviorTree {
 namespace {
 
-constexpr std::array<Area::MainAreaKind, 4> kAllMainAreas{
+constexpr std::array<Area::MainAreaKind, 5> kAllMainAreas{
     Area::MainAreaKind::Base,
     Area::MainAreaKind::Highland,
     Area::MainAreaKind::Roadland,
+    Area::MainAreaKind::PreRoadland,
     Area::MainAreaKind::Central
 };
 
-constexpr std::array<Area::MainAreaKind, 3> kSideMainAreas{
+constexpr std::array<Area::MainAreaKind, 4> kSideMainAreas{
     Area::MainAreaKind::Base,
     Area::MainAreaKind::Highland,
-    Area::MainAreaKind::Roadland
+    Area::MainAreaKind::Roadland,
+    Area::MainAreaKind::PreRoadland
 };
 
 struct CentralPatrolGoalSpec {
@@ -246,6 +248,7 @@ const char* RegionalAreaTaskTypeToString(const RegionalAreaTaskType type) {
         case RegionalAreaTaskType::None: return "None";
         case RegionalAreaTaskType::MyHighland: return "MyHighland";
         case RegionalAreaTaskType::MyBase: return "MyBase";
+        case RegionalAreaTaskType::MyPreRoadland: return "MyPreRoadland";
         case RegionalAreaTaskType::MyRoadland: return "MyRoadland";
         case RegionalAreaTaskType::CommonCentral: return "CommonCentral";
         default: return "Unknown";
@@ -267,6 +270,8 @@ const char* RegionalAreaTaskPhaseToString(const RegionalAreaTaskPhase phase) {
         case RegionalAreaTaskPhase::RoadlandCrossToCentralToBase: return "RoadlandCrossToCentralToBase";
         case RegionalAreaTaskPhase::RoadlandReturnToCentralToBase: return "RoadlandReturnToCentralToBase";
         case RegionalAreaTaskPhase::CentralPatrol: return "CentralPatrol";
+        case RegionalAreaTaskPhase::PreRoadlandApproach: return "PreRoadlandApproach";
+        case RegionalAreaTaskPhase::PreRoadlandHold: return "PreRoadlandHold";
         default: return "Unknown";
     }
 }
@@ -944,6 +949,16 @@ std::optional<RegionalAreaTaskPlan> AreaManager::PlanRegionalAreaTaskForGoal(
         };
     }
 
+    if (resolved_area->Kind == Area::MainAreaKind::PreRoadland && !self_in_my_highland) {
+        return RegionalAreaTaskPlan{
+            .Type = RegionalAreaTaskType::MyPreRoadland,
+            .GoalTeam = goal_team,
+            .ApplyTeamOffset = apply_team_offset,
+            .TriggerBaseGoal = base_goal_id,
+            .InitialBaseGoal = LangYa::PreRoadland.ID
+        };
+    }
+
     return std::nullopt;
 }
 
@@ -954,6 +969,8 @@ void AreaManager::StartRegionalAreaTask(
     regional_area_task_.Type = plan.Type;
     if (plan.Type == RegionalAreaTaskType::MyBase) {
         regional_area_task_.Phase = RegionalAreaTaskPhase::BasePatrol;
+    } else if (plan.Type == RegionalAreaTaskType::MyPreRoadland) {
+        regional_area_task_.Phase = RegionalAreaTaskPhase::PreRoadlandApproach;
     } else if (plan.Type == RegionalAreaTaskType::MyRoadland) {
         regional_area_task_.Phase = RegionalAreaTaskPhase::RoadlandApproachCentralToBase;
     } else if (plan.Type == RegionalAreaTaskType::CommonCentral) {
@@ -971,6 +988,7 @@ void AreaManager::StartRegionalAreaTask(
     regional_area_task_.PatrolStepCount = 0;
     regional_area_task_.CurrentBaseGoal =
         (plan.Type == RegionalAreaTaskType::MyBase ||
+         plan.Type == RegionalAreaTaskType::MyPreRoadland ||
          plan.Type == RegionalAreaTaskType::MyRoadland ||
          plan.Type == RegionalAreaTaskType::CommonCentral)
             ? plan.InitialBaseGoal
@@ -1021,6 +1039,62 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
     RegionalAreaTaskTickResult result{};
     if (!regional_area_task_.Active ||
         !input.Setting.Enable) {
+        return result;
+    }
+
+    if (regional_area_task_.Type == RegionalAreaTaskType::MyPreRoadland) {
+        if (!input.Setting.MyPreRoadland.Enable) {
+            return result;
+        }
+
+        const auto& setting = input.Setting.MyPreRoadland;
+        const auto phase_elapsed = [&]() {
+            return regional_area_task_.PhaseStartTime.time_since_epoch().count() == 0
+                ? std::chrono::seconds{0}
+                : std::chrono::duration_cast<std::chrono::seconds>(
+                    input.Now - regional_area_task_.PhaseStartTime);
+        };
+        auto complete_task = [&](const char* reason) {
+            result.Completed = true;
+            result.Type = regional_area_task_.Type;
+            result.Phase = regional_area_task_.Phase;
+            result.Reason = reason;
+            regional_area_task_.Clear();
+        };
+
+        if (regional_area_task_.Phase == RegionalAreaTaskPhase::PreRoadlandApproach) {
+            if (input.CurrentBaseGoalUnreachable) {
+                complete_task("unreachable");
+                return result;
+            }
+            if (setting.TravelTimeoutSec > 0 &&
+                phase_elapsed() >= std::chrono::seconds(setting.TravelTimeoutSec)) {
+                complete_task("timeout");
+                return result;
+            }
+            if (input.CurrentBaseGoalArrived) {
+                regional_area_task_.Phase = RegionalAreaTaskPhase::PreRoadlandHold;
+                regional_area_task_.PhaseStartTime = input.Now;
+            }
+        }
+
+        if (regional_area_task_.Phase == RegionalAreaTaskPhase::PreRoadlandHold &&
+            setting.GoalHoldSec >= 0 &&
+            phase_elapsed() >= std::chrono::seconds(setting.GoalHoldSec)) {
+            complete_task("complete");
+            return result;
+        }
+
+        result.Active = true;
+        result.SetGoal = true;
+        result.BaseGoalId = LangYa::PreRoadland.ID;
+        result.GoalTeam = regional_area_task_.GoalTeam;
+        result.ApplyTeamOffset = regional_area_task_.ApplyTeamOffset;
+        result.SpeedLevel = std::clamp(setting.SpeedLevel, 0, 255);
+        result.ResetNaviHold = true;
+        result.NaviHoldSec = std::max(1, setting.CommandHoldSec);
+        result.Type = regional_area_task_.Type;
+        result.Phase = regional_area_task_.Phase;
         return result;
     }
 
@@ -1487,7 +1561,7 @@ Area::Point<std::uint16_t> AreaManager::GoalPointByBaseId(
         case LangYa::CentralToBase.ID: return Area::CentralToBase(goal_team);
         case LangYa::BuffOutpost.ID: return Area::BuffOutpost(goal_team);
         case LangYa::OutpostGuard.ID: return Area::OutpostGuard(goal_team);
-        case LangYa::MiniRoadland.ID: return Area::MiniRoadland(goal_team);
+        case LangYa::PreRoadland.ID: return Area::PreRoadland(goal_team);
         case LangYa::CentralLeftA.ID: return Area::CentralLeft.A(goal_team);
         case LangYa::CentralLeftB.ID: return Area::CentralLeft.B(goal_team);
         default: return Area::Home(goal_team);
@@ -1511,6 +1585,10 @@ std::optional<Area::MainAreaKind> AreaManager::MainAreaKindFromToken(std::string
     }
     if (normalized == "highland" || normalized == "high_land" || normalized == "high") {
         return Area::MainAreaKind::Highland;
+    }
+    if (normalized == "pre_roadland" || normalized == "preroadland" ||
+        normalized == "pre_road" || normalized == "pre_road_land") {
+        return Area::MainAreaKind::PreRoadland;
     }
     if (normalized == "roadland" || normalized == "road_land" || normalized == "road") {
         return Area::MainAreaKind::Roadland;
@@ -1593,16 +1671,6 @@ bool AreaManager::IsPositionInRoadlandFollowModeArea(
     return Area::IsPointInsideRoadlandFollowModeArea(area_team, x, y);
 }
 
-bool AreaManager::IsPositionInMiniRoadlandArea(
-    const LangYa::UnitTeam area_team,
-    const int x,
-    const int y) {
-    if (area_team != LangYa::UnitTeam::Red && area_team != LangYa::UnitTeam::Blue) {
-        return false;
-    }
-    return Area::IsPointInsideMiniRoadlandArea(area_team, x, y);
-}
-
 bool AreaManager::IsPositionInPreRoadlandArea(
     const LangYa::UnitTeam area_team,
     const int x,
@@ -1611,16 +1679,6 @@ bool AreaManager::IsPositionInPreRoadlandArea(
         return false;
     }
     return Area::IsPointInsidePreRoadlandArea(area_team, x, y);
-}
-
-bool AreaManager::IsPositionInReadyRoadlandArea(
-    const LangYa::UnitTeam area_team,
-    const int x,
-    const int y) {
-    if (area_team != LangYa::UnitTeam::Red && area_team != LangYa::UnitTeam::Blue) {
-        return false;
-    }
-    return Area::IsPointInsideReadyRoadlandArea(area_team, x, y);
 }
 
 bool AreaManager::IsPositionInRecoveryArea(

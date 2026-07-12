@@ -136,7 +136,7 @@ const std::vector<std::pair<const char*, std::uint8_t>>& PointManagerGoalNameMap
         {"CentralToBase", LangYa::CentralToBase.ID},
         {"BuffOutpost", LangYa::BuffOutpost.ID},
         {"OutpostGuard", LangYa::OutpostGuard.ID},
-        {"MiniRoadland", LangYa::MiniRoadland.ID},
+        {"PreRoadland", LangYa::PreRoadland.ID},
         {"CentralLeftA", LangYa::CentralLeftA.ID},
         {"CentralLeftB", LangYa::CentralLeftB.ID}
     };
@@ -1095,14 +1095,6 @@ namespace LangYa {
         }
     }
 
-    void from_json(const json& j, SpecialMiniRoadlandSetting& mr) {
-        mr.Enable = j.value("Enable", mr.Enable);
-        mr.GoalHoldSec = j.value("GoalHoldSec", mr.GoalHoldSec);
-        mr.SpeedLevel = j.value("SpeedLevel", mr.SpeedLevel);
-        const int goal_base_id = j.value("GoalBaseId", static_cast<int>(mr.GoalBaseId));
-        mr.GoalBaseId = static_cast<std::uint8_t>(std::clamp(goal_base_id, 0, 255));
-    }
-
     void from_json(const json& j, SpecialPatrolSetting& sp) {
         sp.Enable = j.value("Enable", sp.Enable);
         sp.GoalHoldSec = j.value("GoalHoldSec", sp.GoalHoldSec);
@@ -1112,13 +1104,6 @@ namespace LangYa {
     }
 
     void from_json(const json& j, SpecialSetting& ss) {
-        if (j.contains("MiniRoadland")) {
-            if (j.at("MiniRoadland").is_object()) {
-                j.at("MiniRoadland").get_to(ss.MiniRoadland);
-            } else if (j.at("MiniRoadland").is_boolean()) {
-                ss.MiniRoadland.Enable = j.at("MiniRoadland").get<bool>();
-            }
-        }
         if (j.contains("Patrol")) {
             if (j.at("Patrol").is_object()) {
                 j.at("Patrol").get_to(ss.Patrol);
@@ -1186,6 +1171,14 @@ namespace LangYa {
         rs.HealthyAmmoMin = j.value("HealthyAmmoMin", rs.HealthyAmmoMin);
     }
 
+    void from_json(const json& j, MyPreRoadlandAreaTaskSetting& ps) {
+        ps.Enable = j.value("Enable", ps.Enable);
+        ps.TravelTimeoutSec = j.value("TravelTimeoutSec", ps.TravelTimeoutSec);
+        ps.GoalHoldSec = j.value("GoalHoldSec", ps.GoalHoldSec);
+        ps.CommandHoldSec = j.value("CommandHoldSec", ps.CommandHoldSec);
+        ps.SpeedLevel = j.value("SpeedLevel", ps.SpeedLevel);
+    }
+
     void from_json(const json& j, CommonCentralAreaTaskSetting& cs) {
         cs.Enable = j.value("Enable", cs.Enable);
         cs.TravelTimeoutSec = j.value("TravelTimeoutSec", cs.TravelTimeoutSec);
@@ -1212,6 +1205,7 @@ namespace LangYa {
     void from_json(const json& j, DefaultPolicyScoreSetting& ss) {
         ss.WeightMyBase = j.value("WeightMyBase", ss.WeightMyBase);
         ss.WeightMyHighland = j.value("WeightMyHighland", ss.WeightMyHighland);
+        ss.WeightMyPreRoadland = j.value("WeightMyPreRoadland", ss.WeightMyPreRoadland);
         ss.WeightMyRoadland = j.value("WeightMyRoadland", ss.WeightMyRoadland);
         ss.WeightCommonCentral = j.value("WeightCommonCentral", ss.WeightCommonCentral);
         ss.WeightEnemyBase = j.value("WeightEnemyBase", ss.WeightEnemyBase);
@@ -1265,6 +1259,9 @@ namespace LangYa {
             if (j.at("MyBase").contains("Patrol") && j.at("MyBase").at("Patrol").is_object()) {
                 j.at("MyBase").at("Patrol").get_to(rt.PatrolSelection);
             }
+        }
+        if (j.contains("MyPreRoadland") && j.at("MyPreRoadland").is_object()) {
+            j.at("MyPreRoadland").get_to(rt.MyPreRoadland);
         }
         if (j.contains("MyRoadland") && j.at("MyRoadland").is_object()) {
             j.at("MyRoadland").get_to(rt.MyRoadland);
@@ -1694,41 +1691,7 @@ namespace BehaviorTree {
     }
 
     void Application::ApplySpecialParameterOverrides() {
-        auto& mini = config.SpecialSettings.MiniRoadland;
         auto& patrol = config.SpecialSettings.Patrol;
-        ReadOptionalBoolParam(
-            node_,
-            {
-                "Special.MiniRoadland.Enable",
-                "Special/MiniRoadland/Enable",
-                "Special.MiniRoadland",
-                "Special/MiniRoadland"
-            },
-            mini.Enable);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "Special.MiniRoadland.GoalHoldSec",
-                "Special/MiniRoadland/GoalHoldSec"
-            },
-            mini.GoalHoldSec);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "Special.MiniRoadland.SpeedLevel",
-                "Special/MiniRoadland/SpeedLevel"
-            },
-            mini.SpeedLevel);
-        int goal_base_id = static_cast<int>(mini.GoalBaseId);
-        if (ReadOptionalIntParam(
-                node_,
-                {
-                    "Special.MiniRoadland.GoalBaseId",
-                    "Special/MiniRoadland/GoalBaseId"
-                },
-                goal_base_id)) {
-            mini.GoalBaseId = static_cast<std::uint8_t>(std::clamp(goal_base_id, 0, 255));
-        }
         ReadOptionalBoolParam(
             node_,
             {
@@ -2965,10 +2928,6 @@ namespace BehaviorTree {
             LoggerPtr->Debug("Goal: {}", static_cast<int>(goal_id));
         }
         LoggerPtr->Debug("------ Special ------");
-        LoggerPtr->Debug("MiniRoadland.Enable: {}", config.SpecialSettings.MiniRoadland.Enable);
-        LoggerPtr->Debug("MiniRoadland.GoalHoldSec: {}", config.SpecialSettings.MiniRoadland.GoalHoldSec);
-        LoggerPtr->Debug("MiniRoadland.GoalBaseId: {}", static_cast<int>(config.SpecialSettings.MiniRoadland.GoalBaseId));
-        LoggerPtr->Debug("MiniRoadland.SpeedLevel: {}", config.SpecialSettings.MiniRoadland.SpeedLevel);
         LoggerPtr->Debug("Patrol.Enable: {}", config.SpecialSettings.Patrol.Enable);
         LoggerPtr->Debug("Patrol.GoalHoldSec: {}", config.SpecialSettings.Patrol.GoalHoldSec);
         LoggerPtr->Debug("Patrol.SpeedLevel: {}", config.SpecialSettings.Patrol.SpeedLevel);
@@ -3005,6 +2964,11 @@ namespace BehaviorTree {
                 static_cast<int>(goal.BaseGoalId),
                 goal.Weight);
         }
+        LoggerPtr->Debug("MyPreRoadland.Enable: {}", config.RegionalAreaTaskSettings.MyPreRoadland.Enable);
+        LoggerPtr->Debug("MyPreRoadland.TravelTimeoutSec: {}", config.RegionalAreaTaskSettings.MyPreRoadland.TravelTimeoutSec);
+        LoggerPtr->Debug("MyPreRoadland.GoalHoldSec: {}", config.RegionalAreaTaskSettings.MyPreRoadland.GoalHoldSec);
+        LoggerPtr->Debug("MyPreRoadland.CommandHoldSec: {}", config.RegionalAreaTaskSettings.MyPreRoadland.CommandHoldSec);
+        LoggerPtr->Debug("MyPreRoadland.SpeedLevel: {}", config.RegionalAreaTaskSettings.MyPreRoadland.SpeedLevel);
         LoggerPtr->Debug("MyRoadland.Enable: {}", config.RegionalAreaTaskSettings.MyRoadland.Enable);
         LoggerPtr->Debug("MyRoadland.UseFaceMode: {}", config.RegionalAreaTaskSettings.MyRoadland.UseFaceMode);
         LoggerPtr->Debug("MyRoadland.TravelTimeoutSec: {}", config.RegionalAreaTaskSettings.MyRoadland.TravelTimeoutSec);
@@ -3595,27 +3559,6 @@ namespace BehaviorTree {
             LoggerPtr->Warning("RegionalIdlePatrol enabled but all GoalEnable entries are false or invalid.");
         }
 
-        auto& mini_roadland = config.SpecialSettings.MiniRoadland;
-        if (mini_roadland.GoalHoldSec <= 0) {
-            LoggerPtr->Warning("Invalid Special.MiniRoadland.GoalHoldSec={}, fallback to 6.",
-                               mini_roadland.GoalHoldSec);
-            mini_roadland.GoalHoldSec = 6;
-        }
-        if (mini_roadland.GoalBaseId != LangYa::MiniRoadland.ID) {
-            LoggerPtr->Warning("Invalid Special.MiniRoadland.GoalBaseId={}, fallback to MiniRoadland.",
-                               static_cast<int>(mini_roadland.GoalBaseId));
-            mini_roadland.GoalBaseId = LangYa::MiniRoadland.ID;
-        }
-        if (mini_roadland.SpeedLevel < 0) {
-            LoggerPtr->Warning("Invalid Special.MiniRoadland.SpeedLevel={}, fallback to 1.",
-                               mini_roadland.SpeedLevel);
-            mini_roadland.SpeedLevel = 1;
-        }
-        if (mini_roadland.SpeedLevel > 255) {
-            LoggerPtr->Warning("Invalid Special.MiniRoadland.SpeedLevel={}, clamp to 255.",
-                               mini_roadland.SpeedLevel);
-            mini_roadland.SpeedLevel = 255;
-        }
         auto& special_patrol = config.SpecialSettings.Patrol;
         if (special_patrol.GoalHoldSec < 0) {
             LoggerPtr->Warning("Invalid Special.Patrol.GoalHoldSec={}, fallback to 0.",
@@ -3774,6 +3717,37 @@ namespace BehaviorTree {
             };
         }
         base_task.PatrolGoals = std::move(sanitized_base_patrol_goals);
+        auto& pre_roadland_task = config.RegionalAreaTaskSettings.MyPreRoadland;
+        if (pre_roadland_task.TravelTimeoutSec <= 0) {
+            LoggerPtr->Warning(
+                "Invalid RegionalAreaTask.MyPreRoadland.TravelTimeoutSec={}, fallback to 12.",
+                pre_roadland_task.TravelTimeoutSec);
+            pre_roadland_task.TravelTimeoutSec = 12;
+        }
+        if (pre_roadland_task.GoalHoldSec < 0) {
+            LoggerPtr->Warning(
+                "Invalid RegionalAreaTask.MyPreRoadland.GoalHoldSec={}, fallback to 6.",
+                pre_roadland_task.GoalHoldSec);
+            pre_roadland_task.GoalHoldSec = 6;
+        }
+        if (pre_roadland_task.CommandHoldSec <= 0) {
+            LoggerPtr->Warning(
+                "Invalid RegionalAreaTask.MyPreRoadland.CommandHoldSec={}, fallback to 1.",
+                pre_roadland_task.CommandHoldSec);
+            pre_roadland_task.CommandHoldSec = 1;
+        }
+        if (pre_roadland_task.SpeedLevel < 0) {
+            LoggerPtr->Warning(
+                "Invalid RegionalAreaTask.MyPreRoadland.SpeedLevel={}, fallback to 1.",
+                pre_roadland_task.SpeedLevel);
+            pre_roadland_task.SpeedLevel = 1;
+        }
+        if (pre_roadland_task.SpeedLevel > 255) {
+            LoggerPtr->Warning(
+                "Invalid RegionalAreaTask.MyPreRoadland.SpeedLevel={}, clamp to 255.",
+                pre_roadland_task.SpeedLevel);
+            pre_roadland_task.SpeedLevel = 255;
+        }
         auto& roadland_task = config.RegionalAreaTaskSettings.MyRoadland;
         if (roadland_task.TravelTimeoutSec <= 0) {
             LoggerPtr->Warning(

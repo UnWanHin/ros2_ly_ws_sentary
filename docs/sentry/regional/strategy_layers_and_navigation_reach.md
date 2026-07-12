@@ -91,8 +91,7 @@ Tactical 應該高於 Default。也就是有敵情、防守、保護英雄、前
 - 配置在 `src/behavior_tree/config/Special.yaml`。
 - 優先級低於 Tactical，高於 Default。
 - `Patrol`：在己方 `CentralLeft` 線的 A/B 端點之間巡邏；默認抑制 Chase，鎖到目標時停在當前坐標打，不邊走邊追。
-- `MiniRoadland`：只去己方 `MiniRoadland` 點；不會因敵方 Roadland scope 變化而去敵方點。
-- 這些任務直接下發 Special base goal，因此可無視對應 Default 大區域 scope；但不會無視更高層的 Recovery、RegionalDefense、ProtectHero、Buff/Outpost 等 Tactical/Task/Hard 行為。
+- Special Patrol 直接下發 Special base goal，因此可無視 Default 大區域 scope；但不會無視更高層的 Recovery、RegionalDefense、ProtectHero、Buff/Outpost 等 Tactical/Task/Hard 行為。
 
 ### Default
 
@@ -107,6 +106,7 @@ Default 擁有這些普通大區域行為：
 
 - `MyHighland`：Highland 駐守/巡邏流程。
 - `MyBase`：Base 候選點加權巡邏，候選和權重在 `src/behavior_tree/config/Base.yaml`。
+- `MyPreRoadland`：正式道路前段任務，固定去 ID 25，按 `GoalHoldSec` 結束。
 - `MyRoadland`：Roadland 駐守/穿越流程，其中不可讓出的穿越段會臨時由 Hard 接管。
 - `CommonCentral`：Central 遊走。
 

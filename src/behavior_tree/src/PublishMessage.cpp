@@ -18,6 +18,7 @@ namespace {
         switch (kind) {
             case BehaviorTree::Area::MainAreaKind::Base: return "base";
             case BehaviorTree::Area::MainAreaKind::Highland: return "highland";
+            case BehaviorTree::Area::MainAreaKind::PreRoadland: return "pre_roadland";
             case BehaviorTree::Area::MainAreaKind::Roadland: return "roadland";
             case BehaviorTree::Area::MainAreaKind::Central: return "central";
             default: return "unknown";
@@ -34,6 +35,7 @@ namespace {
             switch (key.Kind) {
                 case BehaviorTree::Area::MainAreaKind::Base: return Info::AREA_MY_BASE;
                 case BehaviorTree::Area::MainAreaKind::Highland: return Info::AREA_MY_HIGHLAND;
+                case BehaviorTree::Area::MainAreaKind::PreRoadland: return Info::AREA_MY_PRE_ROADLAND;
                 case BehaviorTree::Area::MainAreaKind::Roadland: return Info::AREA_MY_ROADLAND;
                 default: return Info::AREA_UNKNOWN;
             }
@@ -42,6 +44,7 @@ namespace {
             switch (key.Kind) {
                 case BehaviorTree::Area::MainAreaKind::Base: return Info::AREA_ENEMY_BASE;
                 case BehaviorTree::Area::MainAreaKind::Highland: return Info::AREA_ENEMY_HIGHLAND;
+                case BehaviorTree::Area::MainAreaKind::PreRoadland: return Info::AREA_ENEMY_PRE_ROADLAND;
                 case BehaviorTree::Area::MainAreaKind::Roadland: return Info::AREA_ENEMY_ROADLAND;
                 default: return Info::AREA_UNKNOWN;
             }

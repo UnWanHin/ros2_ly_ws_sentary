@@ -192,7 +192,8 @@ enum class RegionalAreaTaskType : std::uint8_t {
     MyHighland = 1,
     MyBase = 2,
     MyRoadland = 3,
-    CommonCentral = 4
+    CommonCentral = 4,
+    MyPreRoadland = 5
 };
 
 const char* RegionalAreaTaskTypeToString(RegionalAreaTaskType type);
@@ -210,7 +211,9 @@ enum class RegionalAreaTaskPhase : std::uint8_t {
     RoadlandHoldBaseToCentral = 9,
     RoadlandCrossToCentralToBase = 10,
     RoadlandReturnToCentralToBase = 11,
-    CentralPatrol = 12
+    CentralPatrol = 12,
+    PreRoadlandApproach = 13,
+    PreRoadlandHold = 14
 };
 
 const char* RegionalAreaTaskPhaseToString(RegionalAreaTaskPhase phase);
@@ -279,6 +282,7 @@ struct RegionalAreaTaskTickResult {
     bool PublishFaceTarget{false};
     std::uint8_t FaceTargetBaseGoalId{LangYa::Home.ID};
     int FaceTargetZCm{100};
+    int SpeedLevel{1};
     bool ResetNaviHold{false};
     int NaviHoldSec{1};
     RegionalAreaTaskType Type{RegionalAreaTaskType::None};
@@ -414,15 +418,7 @@ public:
         LangYa::UnitTeam area_team,
         int x,
         int y);
-    static bool IsPositionInMiniRoadlandArea(
-        LangYa::UnitTeam area_team,
-        int x,
-        int y);
     static bool IsPositionInPreRoadlandArea(
-        LangYa::UnitTeam area_team,
-        int x,
-        int y);
-    static bool IsPositionInReadyRoadlandArea(
         LangYa::UnitTeam area_team,
         int x,
         int y);

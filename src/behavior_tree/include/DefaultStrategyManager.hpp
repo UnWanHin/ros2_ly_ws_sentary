@@ -69,7 +69,7 @@ private:
     static std::size_t TaskIndex(RegionalAreaTaskType type) noexcept;
     static bool IsResultFailure(std::string_view reason) noexcept;
 
-    std::array<TaskRuntime, 5> task_runtime_{};
+    std::array<TaskRuntime, 6> task_runtime_{};
     RegionalAreaTaskType last_selected_task_{RegionalAreaTaskType::None};
     RegionalAreaTaskType last_completed_task_{RegionalAreaTaskType::None};
 };

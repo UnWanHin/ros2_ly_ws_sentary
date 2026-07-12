@@ -60,6 +60,8 @@ double BaseWeight(
             return score.WeightMyBase;
         case RegionalAreaTaskType::MyHighland:
             return score.WeightMyHighland;
+        case RegionalAreaTaskType::MyPreRoadland:
+            return score.WeightMyPreRoadland;
         case RegionalAreaTaskType::MyRoadland:
             return score.WeightMyRoadland;
         case RegionalAreaTaskType::CommonCentral:
@@ -90,7 +92,7 @@ bool DefaultStrategyManager::AreaScopeAllows(
 std::size_t DefaultStrategyManager::TaskIndex(
     const RegionalAreaTaskType type) noexcept {
     const auto raw = static_cast<std::size_t>(type);
-    return raw < 5U ? raw : 0U;
+    return raw < 6U ? raw : 0U;
 }
 
 bool DefaultStrategyManager::IsResultFailure(
@@ -116,7 +118,7 @@ std::vector<DefaultRegionalAreaCandidate> DefaultStrategyManager::BuildRegionalA
     }
 
     std::vector<DefaultRegionalAreaCandidate> candidates;
-    candidates.reserve(4);
+    candidates.reserve(5);
 
     const bool low_resource =
         (input.HealthFresh &&
@@ -196,6 +198,21 @@ std::vector<DefaultRegionalAreaCandidate> DefaultStrategyManager::BuildRegionalA
             .GoalTeam = input.MyTeam
         },
         task.MyHighland.Enable,
+        navi_goal.MyArea,
+        true,
+        policy.Health.MyAreaHpMin,
+        policy.Ammo.MyAreaAmmoMin);
+
+    add_candidate(
+        DefaultRegionalAreaCandidate{
+            .Name = "MyPreRoadland",
+            .TaskType = RegionalAreaTaskType::MyPreRoadland,
+            .Side = AreaSide::My,
+            .Kind = Area::MainAreaKind::PreRoadland,
+            .BaseGoalId = LangYa::PreRoadland.ID,
+            .GoalTeam = input.MyTeam
+        },
+        task.MyPreRoadland.Enable,
         navi_goal.MyArea,
         true,
         policy.Health.MyAreaHpMin,

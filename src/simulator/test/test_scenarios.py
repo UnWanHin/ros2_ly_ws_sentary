@@ -192,7 +192,7 @@ def test_all_scenario_fixtures_validate_against_manifest() -> None:
         "chase_goal_pos": 1,
         "chase_goal_pos_raw_bridge": 1,
         "goal_id": 1,
-        "goal_pos": 18,
+        "goal_pos": 17,
         "goal_pos_raw_bridge": 1,
         "relative_target_bridge": 1,
     }

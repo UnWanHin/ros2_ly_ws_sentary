@@ -3082,6 +3082,7 @@ namespace BehaviorTree {
         const auto now = std::chrono::steady_clock::now();
         const bool active_low_priority_task =
             active_task_type == RegionalAreaTaskType::MyBase ||
+            active_task_type == RegionalAreaTaskType::MyPreRoadland ||
             active_task_type == RegionalAreaTaskType::MyRoadland ||
             active_task_type == RegionalAreaTaskType::CommonCentral;
         const bool active_roadland_task = active_task_type == RegionalAreaTaskType::MyRoadland;
@@ -3234,7 +3235,7 @@ namespace BehaviorTree {
         if (result.ResetNaviHold) {
             naviCommandIntervalClock.reset(Seconds{std::max(1, result.NaviHoldSec)});
         }
-        speedLevel = 1;
+        speedLevel = static_cast<std::uint8_t>(std::clamp(result.SpeedLevel, 0, 255));
         return true;
     }
 
@@ -3247,6 +3248,7 @@ namespace BehaviorTree {
         if (!config.RegionalAreaTaskSettings.Enable ||
             (!config.RegionalAreaTaskSettings.MyHighland.Enable &&
              !config.RegionalAreaTaskSettings.MyBase.Enable &&
+             !config.RegionalAreaTaskSettings.MyPreRoadland.Enable &&
              !config.RegionalAreaTaskSettings.MyRoadland.Enable &&
              !config.RegionalAreaTaskSettings.CommonCentral.Enable) ||
             areaManager_.HighlandTransitionActive() ||
@@ -3299,6 +3301,8 @@ namespace BehaviorTree {
              !config.RegionalAreaTaskSettings.MyHighland.Enable) ||
             (plan->Type == RegionalAreaTaskType::MyBase &&
              !config.RegionalAreaTaskSettings.MyBase.Enable) ||
+            (plan->Type == RegionalAreaTaskType::MyPreRoadland &&
+             !config.RegionalAreaTaskSettings.MyPreRoadland.Enable) ||
             (plan->Type == RegionalAreaTaskType::MyRoadland &&
              !config.RegionalAreaTaskSettings.MyRoadland.Enable) ||
             (plan->Type == RegionalAreaTaskType::CommonCentral &&
@@ -3314,6 +3318,11 @@ namespace BehaviorTree {
                     static_cast<int>(ResolveGoalId(base_goal_id, goal_team, apply_team_offset)),
                     reason ? reason : "area_task",
                     static_cast<int>(plan->InitialBaseGoal));
+            } else if (plan->Type == RegionalAreaTaskType::MyPreRoadland) {
+                LoggerPtr->Info(
+                    "RegionalAreaTask[MyPreRoadland] start from goal={} reason={}: goal=PreRoadland (BaseGoalId=25).",
+                    static_cast<int>(ResolveGoalId(base_goal_id, goal_team, apply_team_offset)),
+                    reason ? reason : "area_task");
             } else if (plan->Type == RegionalAreaTaskType::MyRoadland) {
                 LoggerPtr->Info(
                     "RegionalAreaTask[MyRoadland] start from goal={} reason={}: CentralToBase -> BaseToCentral guarded crossing.",
@@ -4239,74 +4248,6 @@ namespace BehaviorTree {
         return true;
     }
 
-    bool Application::TrySetSpecialMiniRoadlandGoal(
-        const UnitTeam my_team,
-        const UnitTeam enemy_team) {
-        (void)enemy_team;
-        const auto& mini = config.SpecialSettings.MiniRoadland;
-        if (!mini.Enable ||
-            IsLeagueProfile() ||
-            IsShowcasePatrolEnabled() ||
-            GetStrategyMode() != StrategyMode::Regional ||
-            my_team == UnitTeam::Unknown) {
-            return false;
-        }
-
-        const auto goal_base_id = mini.GoalBaseId;
-        if (goal_base_id != LangYa::MiniRoadland.ID) {
-            return false;
-        }
-
-        if (areaManager_.RegionalAreaTaskActive()) {
-            if (areaManager_.RegionalAreaTask().Type == RegionalAreaTaskType::MyRoadland &&
-                !areaManager_.RegionalAreaTaskCanYieldToHigherPriority()) {
-                return false;
-            }
-            const auto canceled_task_type = areaManager_.RegionalAreaTask().Type;
-            areaManager_.ClearRegionalAreaTask();
-            defaultStrategyManager_.RecordRegionalAreaResult(
-                canceled_task_type,
-                "canceled",
-                std::chrono::steady_clock::now(),
-                config.RegionalAreaTaskSettings.DefaultPolicy);
-            ResetRegionalAreaControlOverride();
-            gimbalControlData.FireCode.FollowMode = 0;
-            if (LoggerPtr) {
-                LoggerPtr->Info("RegionalAreaTask canceled: Special MiniRoadland has higher priority.");
-            }
-        }
-
-        constexpr bool apply_team_offset = true;
-        const auto resolved_goal_id = ResolveGoalId(goal_base_id, my_team, apply_team_offset);
-        const bool should_refresh_goal =
-            naviCommandGoal != resolved_goal_id ||
-            !naviGoalPublishAllowed_ ||
-            naviCommandIntervalClock.trigger();
-        if (should_refresh_goal) {
-            SetPositionByBaseGoal(goal_base_id, my_team, apply_team_offset);
-            naviCommandIntervalClock.reset(Seconds{std::max(1, mini.GoalHoldSec)});
-            speedLevel = static_cast<std::uint8_t>(std::clamp(mini.SpeedLevel, 0, 255));
-            if (LoggerPtr) {
-                const auto point = AreaManager::GoalPointByBaseId(goal_base_id, my_team);
-                LoggerPtr->Info(
-                    "Special MiniRoadland: goal={} point=({}, {}) hold={}s speed={}.",
-                    static_cast<int>(naviCommandGoal),
-                    static_cast<int>(point.x),
-                    static_cast<int>(point.y),
-                    std::max(1, mini.GoalHoldSec),
-                    static_cast<int>(speedLevel));
-            }
-        }
-
-        RecordDecisionIntent(MakeDecisionIntent(
-            DecisionReason::SpecialMiniRoadland,
-            goal_base_id,
-            my_team,
-            apply_team_offset,
-            "special_mini_roadland"));
-        return true;
-    }
-
     bool Application::TrySetSpecialPatrolGoal(
         const UnitTeam my_team,
         const UnitTeam enemy_team) {
@@ -4859,7 +4800,7 @@ namespace BehaviorTree {
             case LangYa::CentralToBase.ID: assign_position(LangYa::CentralToBase, BehaviorTree::Area::CentralToBase); break;
             case LangYa::BuffOutpost.ID: assign_position(LangYa::BuffOutpost, BehaviorTree::Area::BuffOutpost); break;
             case LangYa::OutpostGuard.ID: assign_position(LangYa::OutpostGuard, BehaviorTree::Area::OutpostGuard); break;
-            case LangYa::MiniRoadland.ID: assign_position(LangYa::MiniRoadland, BehaviorTree::Area::MiniRoadland); break;
+            case LangYa::PreRoadland.ID: assign_position(LangYa::PreRoadland, BehaviorTree::Area::PreRoadland); break;
             case LangYa::CentralLeftA.ID: assign_point(LangYa::CentralLeftA, BehaviorTree::Area::CentralLeft.A(goal_team)); break;
             case LangYa::CentralLeftB.ID: assign_point(LangYa::CentralLeftB, BehaviorTree::Area::CentralLeft.B(goal_team)); break;
             default:

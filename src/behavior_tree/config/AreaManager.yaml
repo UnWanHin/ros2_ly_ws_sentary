@@ -52,8 +52,14 @@ behavior_tree:
           BuffShootTravelTimeoutSec: 8
           BuffShootHoldSec: 10
           LeaveTimeoutSec: 8
+        MyPreRoadland:
+          Enable: true  # 是否允许选择己方道路前段区域任务。
+          TravelTimeoutSec: 12  # 前往 PreRoadland 目标的超时（秒）。
+          GoalHoldSec: 6  # 到达后保持该区域任务的时间（秒）。
+          CommandHoldSec: 1  # 每次导航命令保持时间（秒）。
+          SpeedLevel: 1  # 下发给导航的速度档位。
         MyRoadland:
-          Enable: true  # 是否允许选择己方道路区域任务。
+          Enable: false  # 是否允许选择己方道路区域任务。
           UseFaceMode: false  # 区域任务是否发布固定朝向 target_raw；false 不请求 FaceMode。
           TravelTimeoutSec: 12
           CrossTimeoutSec: 8
@@ -84,6 +90,7 @@ behavior_tree:
         Score:
           WeightMyBase: 10.0  # 己方基地候选基础分。
           WeightMyHighland: 8.0  # 己方高地候选基础分。
+          WeightMyPreRoadland: 7.0  # 己方道路前段候选基础分。
           WeightMyRoadland: 7.0  # 己方道路候选基础分。
           WeightCommonCentral: 6.0  # 中央区域候选基础分。
           WeightEnemyBase: 4.0  # 敌方基地候选基础分。

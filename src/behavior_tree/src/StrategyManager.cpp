@@ -270,10 +270,6 @@ bool StrategyManager::RunSpecial(Application& app) {
         MarkHandled(app, StrategyLayer::Special);
         return true;
     }
-    if (app.TrySetSpecialMiniRoadlandGoal(my_team, enemy_team)) {
-        MarkHandled(app, StrategyLayer::Special);
-        return true;
-    }
     return false;
 }
 

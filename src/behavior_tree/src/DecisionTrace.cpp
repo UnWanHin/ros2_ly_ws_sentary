@@ -96,7 +96,7 @@ const char* GoalName(const int base_goal_id) noexcept {
         case LangYa::CentralToBase.ID: return "CentralToBase";
         case LangYa::BuffOutpost.ID: return "BuffOutpost";
         case LangYa::OutpostGuard.ID: return "OutpostGuard";
-        case LangYa::MiniRoadland.ID: return "MiniRoadland";
+        case LangYa::PreRoadland.ID: return "PreRoadland";
         case LangYa::CentralLeftA.ID: return "CentralLeft.A";
         case LangYa::CentralLeftB.ID: return "CentralLeft.B";
         default: return "Unknown";

@@ -1,13 +1,7 @@
 behavior_tree:
   ros__parameters:
     Special:
-      # Special 是 Tactical 与 Default 之间的可选区域决策层。
-      # MiniRoadland 不受 MyArea.Roadland 范围限制，只下发己方目标点。
-      MiniRoadland:
-        Enable: false  # 是否启用 MiniRoadland 专项任务。
-        GoalBaseId: 25  # 目标点 BaseId。
-        GoalHoldSec: 6  # 到点后保持时间（秒）。
-        SpeedLevel: 1  # 下发给导航的速度档位。
+      # Special 是 Tactical 与 Default 之间的可选决策层；PreRoadland 已迁移为正式 AreaTask。
       # CentralLeft 双端点战术巡逻；SuppressChase 防止锁敌后在受限地形转为导航追车。
       Patrol:
         Enable: false  # 是否启用 CentralLeft 巡逻。

@@ -5,19 +5,19 @@
     "languages": ["cpp", "python", "shell", "json", "yaml", "markdown", "ros_msg", "xml"],
     "frameworks": ["ROS2 Humble", "colcon", "rclcpp", "rclpy", "BehaviorTree.CPP", "pygame simulator"],
     "description": "ROS2 Humble sentry workspace. The formal runtime consumes external /ly/aim/* and external TF/navigation, then behavior_tree publishes control to gimbal_driver.",
-    "analyzedAt": "2026-07-12T00:00:00+08:00",
+    "analyzedAt": "2026-07-13T00:00:00+08:00",
     "gitCommitHash": "8e041f5610a4e62b8bcb329e53fe974d3630d7dc",
     "workingTreeStatus": "dirty",
-    "lastCheckedNote": "Fallback graph source-checked against the dirty worktree after removing internal vision/calibration packages, moving gimbal_driver serial/lower-machine baseline ownership into src/gimbal_driver/config/gimbal_driver_config.yaml, adding opt-in SerialMode per-ID raw observability topics, and converging FaceMode requests into FaceModeManager request-to-decision arbitration. The graph covers six current ROS packages, external /ly/aim-only targeting, navigation/FaceMode bridges, TypeID 6/10 referee semantics, DownlinkTypeID 0x00~0x04, and simulator trace contracts.",
+    "lastCheckedNote": "Fallback graph source-checked against the dirty worktree after the formal PreRoadland/Roadland split. PreRoadland is a same-level MainArea with MyPreRoadland (BaseGoalId 25); Roadland keeps its name but uses the former ReadyRoadLand boundary and retains the ID 21/22 guarded crossing. UnitInfo adds stable area IDs 8/9 for my/enemy PreRoadland while retaining 0-7. The simulator draws both formal main-area polygons separately from the RoadlandFollow crossing sub-area. Current formal chain is external /ly/aim/* + external TF/navigation -> behavior_tree -> /ly/control/* -> gimbal_driver -> lower controller.",
     "outputLanguage": "zh"
   },
   "nodes": [
     {"id":"module:auto_aim_common","type":"module","name":"auto_aim_common","summary":"共用 ROS 介面包；正式使用 GoalReach 與 RelativeTarget。","tags":["ros2","package"],"complexity":"moderate","filePath":"src/auto_aim_common"},
-    {"id":"module:behavior_tree","type":"module","name":"behavior_tree","summary":"Regional/League 決策、姿態、外部 aim 消費與控制發布。","tags":["ros2","package","regional"],"complexity":"complex","filePath":"src/behavior_tree"},
+    {"id":"module:behavior_tree","type":"module","name":"behavior_tree","summary":"Regional/League 決策、姿態、外部 aim 消費與控制發布；Regional 正式同級區域包含 PreRoadland 與 Roadland。","tags":["ros2","package","regional"],"complexity":"complex","filePath":"src/behavior_tree"},
     {"id":"module:gimbal_driver","type":"module","name":"gimbal_driver","summary":"下位機串口、裁判資料映射與控制下行。","tags":["ros2","package","embedded"],"complexity":"complex","filePath":"src/gimbal_driver"},
     {"id":"module:navi_tf_bridge","type":"module","name":"navi_tf_bridge","summary":"導航目標、FaceMode 與 map path 到裁判路徑 bridge。","tags":["ros2","package","navigation"],"complexity":"complex","filePath":"src/navi_tf_bridge"},
     {"id":"module:tf_tree","type":"module","name":"tf_tree","summary":"外部 TF 不可用時的可選 fallback。","tags":["ros2","package","tf"],"complexity":"moderate","filePath":"src/tf_tree"},
-    {"id":"module:simulator","type":"module","name":"simulator","summary":"DecisionTrace 的離線 pygame viewer、驗證與 mock 工具。","tags":["ros2","package","offline"],"complexity":"moderate","filePath":"src/simulator"},
+    {"id":"module:simulator","type":"module","name":"simulator","summary":"DecisionTrace 的離線 pygame viewer、驗證與 mock 工具；場地層繪製正式 PreRoadland/Roadland 與獨立 RoadlandFollow。","tags":["ros2","package","offline"],"complexity":"moderate","filePath":"src/simulator"},
 
     {"id":"service:external-sentry-aim","type":"service","name":"external sentry.aim","summary":"倉外目標候選、角度、follow 與 fire 門控來源。","tags":["external","aim"],"complexity":"external","filePath":""},
     {"id":"service:external-navigation","type":"service","name":"external navigation","summary":"倉外導航規劃、到點狀態、速度與路徑來源。","tags":["external","navigation"],"complexity":"external","filePath":""},
@@ -28,7 +28,7 @@
     {"id":"config:src/gimbal_driver/config/gimbal_driver_config.yaml","type":"config","name":"gimbal_driver_config.yaml","summary":"gimbal_driver 串口、下位機、裁判下行時效與 raw serial 診斷的正式基線。","tags":["config","serial","embedded"],"complexity":"moderate","filePath":"src/gimbal_driver/config/gimbal_driver_config.yaml"},
     {"id":"file:src/behavior_tree/include/Topic.hpp","type":"file","name":"behavior_tree Topic.hpp","summary":"BT ROS topic 合約定義。","tags":["topic","interface"],"complexity":"moderate","filePath":"src/behavior_tree/include/Topic.hpp"},
     {"id":"file:src/behavior_tree/src/SubscribeMessage.cpp","type":"file","name":"SubscribeMessage.cpp","summary":"外部 aim、導航、裁判與下位機回傳訂閱及狀態融合。","tags":["subscription","aim"],"complexity":"complex","filePath":"src/behavior_tree/src/SubscribeMessage.cpp"},
-    {"id":"file:src/behavior_tree/src/StrategyManager.cpp","type":"file","name":"StrategyManager.cpp","summary":"Regional Hard -> Task -> Tactical -> Special -> Default -> Finalizer 決策優先級。","tags":["regional","strategy"],"complexity":"complex","filePath":"src/behavior_tree/src/StrategyManager.cpp"},
+    {"id":"file:src/behavior_tree/src/StrategyManager.cpp","type":"file","name":"StrategyManager.cpp","summary":"Regional Hard -> Task -> Tactical -> Special -> Default -> Finalizer 決策優先級；Default 選擇 MyPreRoadland(ID 25) 或 MyRoadland(ID 21/22)。","tags":["regional","strategy"],"complexity":"complex","filePath":"src/behavior_tree/src/StrategyManager.cpp"},
     {"id":"file:src/behavior_tree/src/GameLoop.cpp","type":"file","name":"GameLoop.cpp","summary":"每 tick 決策、姿態、目標選擇與控制狀態。","tags":["regional","runtime"],"complexity":"complex","filePath":"src/behavior_tree/src/GameLoop.cpp"},
     {"id":"file:src/behavior_tree/src/FaceModeManager.cpp","type":"file","name":"FaceModeManager.cpp","summary":"統一收集 Regional/Buff/Outpost 固定朝向請求，仲裁 FaceMode 最終決策。","tags":["facemode","control","runtime"],"complexity":"complex","filePath":"src/behavior_tree/src/FaceModeManager.cpp"},
     {"id":"file:src/behavior_tree/src/PublishMessage.cpp","type":"file","name":"PublishMessage.cpp","summary":"發布控制、導航、reached state、姿態與 DecisionTrace。","tags":["publish","control"],"complexity":"complex","filePath":"src/behavior_tree/src/PublishMessage.cpp"},
@@ -71,7 +71,7 @@
     {"id":"concept:composite-goal-reach-contract","type":"concept","name":"Composite GoalReachState","summary":"/ly/navi/reached、reachable 與自身座標距離 fallback 的統一判定。","tags":["regional","navigation"],"complexity":"complex","filePath":"src/behavior_tree/src/GameLoop.cpp"},
     {"id":"concept:sentry-position-fusion","type":"concept","name":"SentryPositionFusion","summary":"UWB、導航 TF、裁判 position data 的自身位置融合。","tags":["position","regional"],"complexity":"complex","filePath":"src/behavior_tree/src/SubscribeMessage.cpp"},
     {"id":"concept:downlink-frames","type":"concept","name":"DownlinkTypeID 0x00~0x04","summary":"控制、SentryCmd、0x0307 路徑、0x0308 自訂訊息與自身座標。","tags":["serial","referee"],"complexity":"complex","filePath":"src/gimbal_driver/module/BasicTypes.hpp"},
-    {"id":"concept:regional-decision-tick","type":"concept","name":"Regional decision tick","summary":"MainSequence 與策略層 short-circuit 的每 tick 決策。","tags":["regional","bt"],"complexity":"complex","filePath":"src/behavior_tree/Scripts/main.xml"},
+    {"id":"concept:regional-decision-tick","type":"concept","name":"Regional decision tick","summary":"MainSequence 與策略層 short-circuit 的每 tick 決策；PreRoadland 到點保持可讓出，Roadland 穿越段維持不可讓出的安全約束。","tags":["regional","bt"],"complexity":"complex","filePath":"src/behavior_tree/Scripts/main.xml"},
     {"id":"concept:posture-timer","type":"concept","name":"Posture referee timer with local fallback","summary":"sentry_info_3 新鮮時優先官方剩餘秒數，缺失時保留本地累積。","tags":["posture","referee"],"complexity":"complex","filePath":"src/behavior_tree/src/PostureLogic.cpp"},
 
     {"id":"document:README.md","type":"document","name":"README.md","summary":"工程接手入口與現行主鏈。","tags":["docs"],"complexity":"simple","filePath":"README.md"},
@@ -157,7 +157,7 @@
   "analysisNotes": [
     "Fallback graph was rebuilt manually from current package.xml files, sentry_all.launch.py, gimbal_driver_config.yaml, SerialMode raw-topic mapping, Topic.hpp, behavior_tree source, gimbal_driver source, navi_tf_bridge source, simulator source, and current docs because no usable Understand Anything plugin core is installed.",
     "Only six ROS packages currently exist under src/*/package.xml: auto_aim_common, behavior_tree, gimbal_driver, navi_tf_bridge, simulator, and tf_tree.",
-    "PreRoadland and ReadyRoadLand are Area.hpp candidate polygons for a future Roadland main-area split. They are intentionally query-only and do not participate in current MainArea resolution or Regional tasks.",
+    "PreRoadland and Roadland are formal same-level MainAreaKinds. MyPreRoadland owns BaseGoalId 25 and ends after its configured arrival hold; Roadland keeps its name, uses the former ReadyRoadLand boundary, and retains the ID 21/22 guarded crossing. UnitInfo area IDs 8/9 represent my/enemy PreRoadland without changing existing IDs 0-7.",
     "Internal detector, tracker_solver, predictor, buff_hitter, outpost_hitter, shooting_table_calib, and buff_shooting_table_calib are removed; they have no graph layer, node, edge, launch role, or formal topic contract.",
     "The graph is package/topic/file level, not a complete AST call graph."
   ]

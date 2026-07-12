@@ -254,6 +254,20 @@ if(BUILD_TESTING)
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
   )
+  ament_add_gtest(test_roadland_split_task
+    test/test_roadland_split_task.cpp
+    src/AreaManager.cpp
+    src/DefaultStrategyManager.cpp
+  )
+  target_include_directories(test_roadland_split_task PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
+  )
+  ament_target_dependencies(test_roadland_split_task
+    rclcpp
+    std_msgs
+    gimbal_driver
+  )
 endif()
 
 add_executable(area_calculator
