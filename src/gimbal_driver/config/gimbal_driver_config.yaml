@@ -31,41 +31,34 @@
       raw_serial_log_dir: "~/Log/GimbalRaw"
       raw_serial_log_type_ids: "all"
 
-      # 串口原始帧 ROS topic：适合长开。没有 subscriber 时不会实际组包发布，负担很小。
-      # 当前默认只开上行 /ly/log/gimbal_raw_rx，用来确认下位机 TypeID 回传是否存在。
-      # 需要看下行 frame 时再把 raw_serial_topic_downlink 改成 true，订阅 /ly/log/gimbal_raw_tx。
-      # raw_serial_topic_type_ids 只过滤上行 TypeID，支持 "all" 或 "0,1,7" 这类逗号列表。
-      raw_serial_topic_enable: true
+      # 旧聚合 raw topic：/ly/log/gimbal_raw_rx、/ly/log/gimbal_raw_tx。
+      # 仅为兼容旧调试工具保留；推荐使用下面 serial_mode 的按协议 ID topic。
+      raw_serial_topic_enable: false
       raw_serial_topic_uplink: true
       raw_serial_topic_downlink: false
       raw_serial_topic_type_ids: "all"
 
-    # 以下 flat key 与 io_config 分层键保持同值，兼容旧参数读取方式。
-    "io_config/use_virtual_device": false
-    "io_config/device_name": "/dev/ttyACM0"
-    "io_config/baud_rate": 115200
-    "io_config/posture_repeat_count": 3
-    "io_config/posture_repeat_interval_ms": 20
-    "io_config/firecode_partial_hold_ms": 100
-    "io_config/velocity_raw_to_mps": 0.025
-    "io_config/navigation_test": false
-    "io_config/navigation_test_stale_timeout_ms": 500
-    "io_config/sentry_coord_send_interval_ms": 100
-    "io_config/sentry_coord_field_width_x": 2800
-    "io_config/sentry_coord_field_width_y": 1500
-    "io_config/sentry_coord_fresh_timeout_ms": 2000
-
-    # 串口 raw 文件日志兼容键；含义同上面的 io_config.raw_serial_log_*。
-    "io_config/raw_serial_log_enable": false
-    "io_config/raw_serial_log_uplink": true
-    "io_config/raw_serial_log_downlink": true
-    "io_config/raw_serial_log_screen": false
-    "io_config/raw_serial_log_flush": true
-    "io_config/raw_serial_log_dir": "~/Log/GimbalRaw"
-    "io_config/raw_serial_log_type_ids": "all"
-
-    # 串口 raw ROS topic 兼容键；含义同上面的 io_config.raw_serial_topic_*。
-    "io_config/raw_serial_topic_enable": true
-    "io_config/raw_serial_topic_uplink": true
-    "io_config/raw_serial_topic_downlink": false
-    "io_config/raw_serial_topic_type_ids": "all"
+      # 按协议 ID 发布带 header.stamp 的原始帧。false 时不创建这些 publisher。
+      # 语义 topic（/ly/game/*、/ly/gimbal/* 等）独立保留，不受此开关影响。
+      # 每个 raw topic 仅在实际有 subscriber 时才组包发布。
+      serial_mode: false
+      upload:
+        enable: true  # /ly/upload/typeidN 的方向总开关。
+        typeid0: true
+        typeid1: true
+        typeid2: true
+        typeid3: true
+        typeid4: true
+        typeid5: true
+        typeid6: true
+        typeid7: true
+        typeid8: true
+        typeid9: true
+        typeid10: true
+      download:
+        enable: true  # /ly/download/typeid0xNN 的方向总开关。
+        typeid0x00: true  # 0x00 GimbalControlFrame。
+        typeid0x01: true  # 0x01 SentryCommandFrame。
+        typeid0x02: true  # 0x02 MapPathFrame / 0x0307。
+        typeid0x03: true  # 0x03 CustomInfoFrame / 0x0308。
+        typeid0x04: true  # 0x04 SentryCoordinateFrame。

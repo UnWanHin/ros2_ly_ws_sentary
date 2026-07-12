@@ -4,7 +4,7 @@ Generated: 2026-07-12T00:00:00+08:00
 
 Checked against HEAD: `8e041f5610a4e62b8bcb329e53fe974d3630d7dc` (dirty worktree)
 
-Current graph shape: 60 nodes, 53 edges, 6 layers.
+Current graph shape: 61 nodes, 55 edges, 6 layers.
 
 Current ROS packages covered by graph:
 
@@ -51,4 +51,5 @@ flowchart LR
 - `TypeID=10` 提供 `sentry_info_3` 和精確敵我前哨血量；TypeID=1 的 `GameCode * 25` 只作 fallback。
 - `DownlinkTypeID=0x00~0x04` 為控制、SentryCmd、0x0307 路徑、0x0308 自訂訊息與自身座標。
 - `gimbal_driver` 的串口/下位機基線集中在 `src/gimbal_driver/config/gimbal_driver_config.yaml`；正式 `sentry_all` 會明確載入它。
+- `io_config.serial_mode=true` 時，逐 ID raw 觀測 topic 為 `/ly/upload/typeid0..10` 與 `/ly/download/typeid0x00..04`；語義 topic 保持不變。
 - 本圖譜為 source-checked fallback；因本機沒有可用 Understand Anything plugin core，未執行 plugin regeneration。

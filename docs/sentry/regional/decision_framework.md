@@ -131,7 +131,7 @@ Regional 任務主要使用這些導航/定位輸入：
 
 ## `/ly/navi/should_rotate` 的作用
 
-`/ly/navi/should_rotate` 是外部導航給 BT 的地形兼容控制信號，類型是 `std_msgs/msg/Bool`。這裡的 `Rotate` 指 `FireCode.Rotate`，也就是下發給下位機的小陀螺檔位/rotate level，不是雲台 yaw 角速度。它只管本輪火控裡的 `FollowMode`、小陀螺 `Rotate` 和 regional 區域兼容用的 FaceMode 釋放，不負責選導航點，也不負責啟動、取消或推進任何 AreaManager task。
+`/ly/navi/should_rotate` 是外部導航給 BT 的地形兼容控制信號，類型是 `std_msgs/msg/Bool`。這裡的 `Rotate` 指 `FireCode.Rotate`，也就是下發給下位機的小陀螺檔位/rotate level，不是雲台 yaw 角速度。它只管本輪火控裡的 `FollowMode` 和小陀螺 `Rotate`；目前配置不以它釋放 regional 區域任務 FaceMode，也不負責選導航點、啟動、取消或推進任何 AreaManager task。
 
 配置入口是 `src/behavior_tree/config/NaviRotateControl.yaml`：
 
@@ -141,7 +141,7 @@ Regional 任務主要使用這些導航/定位輸入：
 - `ForceFollowModeWhenFalse=true`：收到新鮮 `false` 時，只在最終下發 `FireCode` 前臨時合併 `FollowMode=1`；這個 bit 不會觸發 BT 停火/停巡航分支。
 - `StopRotateWhenFalse=true`：收到新鮮 `false` 時，本輪強制 `Rotate=0`。
 - `ClearFollowModeWhenTrue=true`：收到新鮮 `true` 時，釋放 `FollowMode`，回到 BT 正常 rotate 策略。
-- `ClearRegionalFaceModeWhenTrue=true`：收到新鮮 `true` 時，清掉 regional area-task 兼容用的 FaceMode；Buff/Outpost 自己的固定朝向不靠這個開關清。
+- `ClearRegionalFaceModeWhenTrue=false`：目前保持關閉；收到新鮮 `true` 時仍保留 regional area-task 的 FaceMode，由區域任務本身決定是否固定朝向。Buff/Outpost 自己的固定朝向也不靠這個開關清。
 
 語義可以理解成：
 
@@ -155,8 +155,8 @@ should_rotate=false
 should_rotate=true
   -> 外部導航認為已離開兼容區段
   -> BT 不再合併外部 FollowMode bit；若 ClearFollowModeWhenTrue=true，會清除殘留 FollowMode
-  -> 小陀螺回到普通策略：平時 1 檔，受擊後可升檔
-  -> 雲台巡邏/鎖敵/開火回到當前任務本來的狀態
+  -> 小陀螺回到 BT 自己的策略，可由任務/受擊決策為 0、1、2 或 3 檔
+  -> regional FaceMode 仍由當前區域任務決定，不會因 should_rotate=true 被取消
 ```
 
 所以正式當前配置下，`should_rotate=false` 表示「外部導航請求下位機 FollowMode bit + 關小陀螺檔位」。BT 仍會該巡航就巡航，該鎖敵開火就開火；`FollowMode` bit 本身只進最終 firecode 字段，不再觸發 BT 停火/停巡航分支。
@@ -472,7 +472,7 @@ Area task 使用既有 BT 控制鏈路輸出：
 
 - 通過 `SetPositionByBaseGoal()` 發導航目標；
 - 通過 `FireCode.FollowMode` 控 FollowMode bit；
-- 若啟用 `NaviRotateControl.yaml`，新鮮 `/ly/navi/should_rotate` 會接管區域兼容用的 FollowMode/小陀螺/regional FaceMode 釋放；
+- 若啟用 `NaviRotateControl.yaml`，新鮮 `/ly/navi/should_rotate` 會接管區域兼容用的 FollowMode/小陀螺；目前不接管 regional FaceMode；
 - 需要固定朝向時，通過 `/ly/face_mode/target_raw` 發 FaceMode 目標；
 - 需要停火時，覆蓋本輪 fire 狀態。
 

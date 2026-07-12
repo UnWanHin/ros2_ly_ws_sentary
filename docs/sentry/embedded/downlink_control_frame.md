@@ -6,6 +6,10 @@ Updated: 2026-07-12
 > 诊断都在 `src/gimbal_driver/config/gimbal_driver_config.yaml`。正式 `sentry_all` 与
 > 单独 `gimbal_driver` launch 均会加载此 baseline。
 
+> Raw 观测：开启 `io_config.serial_mode=true` 后，每个下行 `DownlinkTypeID` 单独发布到
+> `/ly/download/typeid0xNN`，使用带 `header.stamp` 的 `gimbal_driver/msg/GimbalRawFrame`。
+> 这只做观测，不改变控制 frame 或既有语义 topic。
+
 ## 1. 範圍
 
 本文描述 `gimbal_driver -> 下位機` 的緊湊串口下發 frame。下位機收到後，依

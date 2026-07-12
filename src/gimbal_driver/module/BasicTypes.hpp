@@ -50,7 +50,7 @@ namespace LangYa
         /// @brief 电容状态， 00:不用 01:轻度使用 10:重度使用
         std::uint8_t CapState : 2 = 0;
 
-        /// @brief 跟随模式，1 表示启用，0 表示禁用
+        /// @brief 跟随模式，1 表示启用，0 表示禁用 follow the vel
         std::uint8_t FollowMode : 1 = 0;
         /// @brief 辅瞄模式，1 表示启用，0 表示禁用
         std::uint8_t AimMode : 1 = 0;

@@ -34,12 +34,12 @@
     {"path":"docs/record/2026-07-12_remove_internal_vision_calibration_packages.md","language":"markdown","sizeLines":0,"fileCategory":"docs"},
     {"path":"scripts/understand_graph_dashboard.py","language":"python","sizeLines":0,"fileCategory":"script"}
   ],
-  "totalFiles": 553,
+  "totalFiles": 554,
   "filteredByIgnore": 0,
   "estimatedComplexity": "large",
   "stats": {
-    "filesScanned": 553,
-    "byCategory": {"docs":109,"config":68,"script":67,"code":179,"schema":40,"data":90},
-    "byLanguage": {"markdown":109,"yaml":22,"shell":67,"python":88,"cpp":91,"ros_msg":40,"xml":7,"json":36,"unknown":93}
+    "filesScanned": 554,
+    "byCategory": {"docs":110,"config":68,"script":67,"code":179,"schema":40,"data":90},
+    "byLanguage": {"markdown":110,"yaml":22,"shell":67,"python":88,"cpp":91,"ros_msg":40,"xml":7,"json":36,"unknown":93}
   }
 }

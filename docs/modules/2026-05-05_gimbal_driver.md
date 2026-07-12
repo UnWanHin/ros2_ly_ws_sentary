@@ -60,13 +60,27 @@ ros2 launch gimbal_driver gimbal_driver.launch.py use_virtual_device:=true
 ### 配置歸屬
 
 `src/gimbal_driver/config/gimbal_driver_config.yaml` 是串口、下位機、裁判下行、路徑/自身座標
-時效，以及 raw serial 診斷的唯一正式基線。它保留原本的 `io_config` nested key 與既有
-`"io_config/..."` flat key，因為 `main.cpp` 需要相容兩種歷史讀法。
+時效，以及 raw serial 診斷的唯一正式基線。YAML 只保留一套 nested `io_config` 設定，
+避免相同值維護兩次；`main.cpp` 仍相容 slash 與 dot 兩種 launch/CLI 參數寫法。
 
 正式 `sentry_all.launch.py` 的 gimbal 參數載入順序為：跨模組 `base_config.yaml` →
 `gimbal_driver_config.yaml` → 全域 `override_config.yaml` → launch/CLI 顯式覆蓋。單獨啟動
 `gimbal_driver.launch.py` 也預設讀同一份 module baseline。`navigation_test.yaml` 只可作
 離車調試 overlay，正式鏈路保持 `navigation_test: false`。
+
+### SerialMode Raw 觀測
+
+`io_config.serial_mode` 預設為 `false`。開啟後，`gimbal_driver` 依 `upload.typeidN` 與
+`download.typeid0xNN` 個別開關發布帶 `header.stamp` 的 `GimbalRawFrame`：
+
+| 方向 | raw topic | 範圍 |
+|---|---|---|
+| 下位機 -> 上位機 | `/ly/upload/typeid0` ... `/ly/upload/typeid10` | 當前上行 `TypeID=0..10` |
+| 上位機 -> 下位機 | `/ly/download/typeid0x00` ... `/ly/download/typeid0x04` | 當前下行 `DownlinkTypeID=0x00..0x04` |
+
+這些只供協議/HZ/hex 觀測；`/ly/game/*`、`/ly/gimbal/*` 等語義 topic 不改名、不受開關影響。
+每個 raw topic 在沒有 subscriber 時不組包、不發布。舊 `/ly/log/gimbal_raw_rx` 與
+`/ly/log/gimbal_raw_tx` 僅保留給相容工具，正式建議觀測上述 per-ID topic。
 
 兼容 XML 入口：
 

@@ -33,6 +33,7 @@
 #include <rclcpp/utilities.hpp>
 #include <rclcpp/executors.hpp>
 #include <sstream>
+#include <type_traits>
 
 #include "gimbal_driver/msg/gimbal_angles.hpp"
 #include "gimbal_driver/msg/chassis.hpp"
@@ -198,6 +199,17 @@ namespace
         std::array<bool, 256> rawSerialTopicTypeIdEnabled_{};
         rclcpp::Publisher<gimbal_driver::msg::GimbalRawFrame>::SharedPtr rawSerialRxPublisher_{};
         rclcpp::Publisher<gimbal_driver::msg::GimbalRawFrame>::SharedPtr rawSerialTxPublisher_{};
+        static constexpr std::size_t kUploadTypeIdCount = 11;
+        static constexpr std::size_t kDownloadTypeIdCount = 5;
+        bool serialModeEnable_{false};
+        bool serialModeUploadEnable_{true};
+        bool serialModeDownloadEnable_{true};
+        std::array<bool, kUploadTypeIdCount> serialModeUploadTypeIdEnabled_{};
+        std::array<bool, kDownloadTypeIdCount> serialModeDownloadTypeIdEnabled_{};
+        std::array<rclcpp::Publisher<gimbal_driver::msg::GimbalRawFrame>::SharedPtr,
+            kUploadTypeIdCount> serialModeUploadPublishers_{};
+        std::array<rclcpp::Publisher<gimbal_driver::msg::GimbalRawFrame>::SharedPtr,
+            kDownloadTypeIdCount> serialModeDownloadPublishers_{};
         rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr subSentryPosition_{};
 
         enum FireCodeFieldIndex : std::size_t {
@@ -491,6 +503,51 @@ namespace
             }
         }
 
+        void ConfigureSerialModeRawTopics(
+            const bool enable,
+            const bool upload_enable,
+            const std::array<bool, kUploadTypeIdCount>& upload_type_ids,
+            const bool download_enable,
+            const std::array<bool, kDownloadTypeIdCount>& download_type_ids) {
+            serialModeEnable_ = enable;
+            serialModeUploadEnable_ = upload_enable;
+            serialModeDownloadEnable_ = download_enable;
+            serialModeUploadTypeIdEnabled_ = upload_type_ids;
+            serialModeDownloadTypeIdEnabled_ = download_type_ids;
+            serialModeUploadPublishers_.fill(nullptr);
+            serialModeDownloadPublishers_.fill(nullptr);
+
+            if (!serialModeEnable_) {
+                return;
+            }
+
+            auto node = Node.GetNode();
+            if (serialModeUploadEnable_) {
+                for (std::size_t type_id = 0; type_id < kUploadTypeIdCount; ++type_id) {
+                    if (!serialModeUploadTypeIdEnabled_[type_id]) {
+                        continue;
+                    }
+                    serialModeUploadPublishers_[type_id] =
+                        node->create_publisher<gimbal_driver::msg::GimbalRawFrame>(
+                            "/ly/upload/typeid" + std::to_string(type_id),
+                            rclcpp::SensorDataQoS());
+                }
+            }
+            if (serialModeDownloadEnable_) {
+                for (std::size_t type_id = 0; type_id < kDownloadTypeIdCount; ++type_id) {
+                    if (!serialModeDownloadTypeIdEnabled_[type_id]) {
+                        continue;
+                    }
+                    std::ostringstream topic;
+                    topic << "/ly/download/typeid0x" << std::hex << std::setw(2)
+                          << std::setfill('0') << type_id;
+                    serialModeDownloadPublishers_[type_id] =
+                        node->create_publisher<gimbal_driver::msg::GimbalRawFrame>(
+                            topic.str(), rclcpp::SensorDataQoS());
+                }
+            }
+        }
+
         template<typename T>
         void WriteRawSerialLogLine(
             const char* direction,
@@ -533,6 +590,46 @@ namespace
             msg.type_id = message.TypeID;
             AssignRawBytes(msg, message);
             rawSerialRxPublisher_->publish(msg);
+        }
+
+        void PublishSerialModeUploadTopic(const TypedMessage<sizeof(GimbalData)>& message) {
+            const auto type_id = static_cast<std::size_t>(message.TypeID);
+            if (!serialModeEnable_ || !serialModeUploadEnable_ || type_id >= kUploadTypeIdCount) {
+                return;
+            }
+            const auto& publisher = serialModeUploadPublishers_[type_id];
+            if (!publisher || publisher->get_subscription_count() == 0) {
+                return;
+            }
+            gimbal_driver::msg::GimbalRawFrame msg;
+            msg.header.stamp = Node.GetNode()->now();
+            msg.direction = gimbal_driver::msg::GimbalRawFrame::DIRECTION_RX;
+            msg.type_id = message.TypeID;
+            AssignRawBytes(msg, message);
+            publisher->publish(msg);
+        }
+
+        template<typename T>
+        void PublishSerialModeDownloadTopic(const T& data, const std::uint8_t downlink_type_id) {
+            const auto type_id = static_cast<std::size_t>(downlink_type_id);
+            if (!serialModeEnable_ || !serialModeDownloadEnable_ || type_id >= kDownloadTypeIdCount) {
+                return;
+            }
+            const auto& publisher = serialModeDownloadPublishers_[type_id];
+            if (!publisher || publisher->get_subscription_count() == 0) {
+                return;
+            }
+            gimbal_driver::msg::GimbalRawFrame msg;
+            msg.header.stamp = Node.GetNode()->now();
+            msg.direction = gimbal_driver::msg::GimbalRawFrame::DIRECTION_TX;
+            msg.type_id = downlink_type_id;
+            AssignRawBytes(msg, data);
+            if constexpr (std::is_same_v<T, GimbalControlFrame>) {
+                msg.firecode_raw = FireCodeRaw(data.FireCode);
+            } else if constexpr (std::is_same_v<T, SentryCommandFrame>) {
+                msg.sentry_cmd_raw = std::bit_cast<std::uint32_t>(data.SentryCmd);
+            }
+            publisher->publish(msg);
         }
 
         void PublishRawTxTopic(const GimbalControlFrame& data) {
@@ -612,6 +709,7 @@ namespace
                 rawSerialTopicTypeIdEnabled_[static_cast<std::size_t>(message.TypeID)]) {
                 PublishRawRxTopic(message);
             }
+            PublishSerialModeUploadTopic(message);
         }
 
         void LogDownlinkRaw(const GimbalControlFrame& data, const char* reason) {
@@ -625,6 +723,7 @@ namespace
             if (rawSerialTopicEnable_ && rawSerialTopicDownlink_) {
                 PublishRawTxTopic(data);
             }
+            PublishSerialModeDownloadTopic(data, GimbalControlFrame::DownlinkTypeIDValue);
         }
 
         void LogDownlinkRaw(const SentryCommandFrame& data, const char* reason) {
@@ -638,6 +737,7 @@ namespace
             if (rawSerialTopicEnable_ && rawSerialTopicDownlink_) {
                 PublishRawTxTopic(data);
             }
+            PublishSerialModeDownloadTopic(data, SentryCommandFrame::DownlinkTypeIDValue);
         }
 
         void LogDownlinkRaw(const MapPathFrame& data, const char* reason) {
@@ -652,6 +752,7 @@ namespace
             if (rawSerialTopicEnable_ && rawSerialTopicDownlink_) {
                 PublishRawTxTopic(data);
             }
+            PublishSerialModeDownloadTopic(data, MapPathFrame::DownlinkTypeIDValue);
         }
 
         void LogDownlinkRaw(const CustomInfoFrame& data, const char* reason) {
@@ -666,6 +767,7 @@ namespace
             if (rawSerialTopicEnable_ && rawSerialTopicDownlink_) {
                 PublishRawTxTopic(data);
             }
+            PublishSerialModeDownloadTopic(data, CustomInfoFrame::DownlinkTypeIDValue);
         }
 
         void LogDownlinkRaw(const SentryCoordinateFrame& data, const char* reason) {
@@ -683,6 +785,7 @@ namespace
             if (rawSerialTopicEnable_ && rawSerialTopicDownlink_) {
                 PublishRawTxTopic(data);
             }
+            PublishSerialModeDownloadTopic(data, SentryCoordinateFrame::DownlinkTypeIDValue);
         }
 
         static gimbal_driver::msg::RfidStatus ToRfidStatusMsg(
@@ -1749,6 +1852,11 @@ namespace
             bool rawSerialTopicUplink = rawSerialTopicUplink_;
             bool rawSerialTopicDownlink = rawSerialTopicDownlink_;
             std::string rawSerialTopicTypeIds = rawSerialTopicTypeIds_;
+            bool serialModeEnable = serialModeEnable_;
+            bool serialModeUploadEnable = serialModeUploadEnable_;
+            bool serialModeDownloadEnable = serialModeDownloadEnable_;
+            auto serialModeUploadTypeIdEnabled = serialModeUploadTypeIdEnabled_;
+            auto serialModeDownloadTypeIdEnabled = serialModeDownloadTypeIdEnabled_;
             getParamCompat(
                 "io_config/posture_repeat_count",
                 "io_config.posture_repeat_count",
@@ -1859,6 +1967,44 @@ namespace
                 "io_config.raw_serial_topic_type_ids",
                 rawSerialTopicTypeIds,
                 rawSerialTopicTypeIds);
+            getParamCompat(
+                "io_config/serial_mode",
+                "io_config.serial_mode",
+                serialModeEnable,
+                serialModeEnable);
+            getParamCompat(
+                "io_config/upload/enable",
+                "io_config.upload.enable",
+                serialModeUploadEnable,
+                serialModeUploadEnable);
+            getParamCompat(
+                "io_config/download/enable",
+                "io_config.download.enable",
+                serialModeDownloadEnable,
+                serialModeDownloadEnable);
+            for (std::size_t type_id = 0; type_id < kUploadTypeIdCount; ++type_id) {
+                const auto key = "io_config/upload/typeid" + std::to_string(type_id);
+                auto dot_key = key;
+                std::replace(dot_key.begin(), dot_key.end(), '/', '.');
+                getParamCompat(
+                    key.c_str(),
+                    dot_key.c_str(),
+                    serialModeUploadTypeIdEnabled[type_id],
+                    serialModeUploadTypeIdEnabled[type_id]);
+            }
+            for (std::size_t type_id = 0; type_id < kDownloadTypeIdCount; ++type_id) {
+                std::ostringstream key;
+                key << "io_config/download/typeid0x" << std::hex << std::setw(2)
+                    << std::setfill('0') << type_id;
+                const auto key_string = key.str();
+                auto dot_key = key_string;
+                std::replace(dot_key.begin(), dot_key.end(), '/', '.');
+                getParamCompat(
+                    key_string.c_str(),
+                    dot_key.c_str(),
+                    serialModeDownloadTypeIdEnabled[type_id],
+                    serialModeDownloadTypeIdEnabled[type_id]);
+            }
 
             if (postureRepeatCount <= 0) {
                 roslog::warn("Invalid posture_repeat_count=%d, fallback to 3", postureRepeatCount);
@@ -1938,6 +2084,12 @@ namespace
                 rawSerialTopicUplink,
                 rawSerialTopicDownlink,
                 rawSerialTopicTypeIds);
+            ConfigureSerialModeRawTopics(
+                serialModeEnable,
+                serialModeUploadEnable,
+                serialModeUploadTypeIdEnabled,
+                serialModeDownloadEnable,
+                serialModeDownloadTypeIdEnabled);
             GenSubs();
             roslog::warn("posture_tx merged mode: repeat_count=%d repeat_interval_ms=%d",
                          postureTxRepeatCount_,
@@ -1970,6 +2122,10 @@ namespace
                          rawSerialTopicUplink_ ? "true" : "false",
                          rawSerialTopicDownlink_ ? "true" : "false",
                          rawSerialTopicTypeIds_.c_str());
+            roslog::warn("serial_mode raw topics: enable=%s upload=%s download=%s",
+                         serialModeEnable_ ? "true" : "false",
+                         serialModeUploadEnable_ ? "true" : "false",
+                         serialModeDownloadEnable_ ? "true" : "false");
 
             subSentryPosition_ = node->create_subscription<ly_bt_sentry_position::Msg>(
                 ly_bt_sentry_position::Name,

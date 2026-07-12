@@ -125,6 +125,21 @@ Use Understand Anything as the long-lived project map for this workspace.
 - Before final response for graph-relevant work, validate JSON graph files with `python3 -m json.tool` or `jq`, run `git diff --check`, and run at least `./scripts/selfcheck.sh sentry --static-only`; use `./scripts/selfcheck.sh sentry --skip-hz` or launched self-check when runtime graph evidence is required.
 - If a full graph regeneration cannot run, keep the fallback graph update source-driven: cite source files, launch files, package manifests, and current docs used; record fallback mode in `meta.json` / graph notes.
 
+### Serial Protocol Observability
+
+- `io_config.serial_mode` in `src/gimbal_driver/config/gimbal_driver_config.yaml` controls per-ID raw serial ROS topics.
+  - Upload raw: `/ly/upload/typeid0` through `/ly/upload/typeid10`.
+  - Download raw: `/ly/download/typeid0x00` through `/ly/download/typeid0x04`.
+  - All carry `gimbal_driver/msg/GimbalRawFrame` with `header.stamp`; existing `/ly/game/*` and
+    `/ly/gimbal/*` semantic topics remain the runtime interface and must not be renamed for raw tracing.
+- When adding or changing any serial `TypeID` / `DownlinkTypeID`, update in the same change:
+  - `src/gimbal_driver/module/BasicTypes.hpp` and `src/gimbal_driver/main.cpp`
+  - `src/gimbal_driver/config/gimbal_driver_config.yaml` SerialMode `upload.typeidN` / `download.typeid0xNN` switches
+  - `docs/sentry/embedded/serial_data_mapping.md` and/or `docs/sentry/embedded/downlink_control_frame.md`
+  - `.understand-anything/` graph artifacts and the applicable protocol brief under `docs/plans/`
+- Preserve the no-subscriber fast path for raw publishers. Raw observation must not add message allocation or
+  publication work when no topic consumer is connected.
+
 ## Skill Auto-Match & Auto-Install
 - Automatically match and use the minimal relevant skill set when user intent clearly maps to available skills.
 - Prefer Understand Anything for codebase orientation, architecture graphing, onboarding maps, graph-backed explanations, and diff impact analysis. Use the existing graph first; regenerate only when it is missing, stale, or the task changes graph-relevant interfaces.

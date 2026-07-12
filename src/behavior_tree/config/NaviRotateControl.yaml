@@ -5,7 +5,7 @@ behavior_tree:
       Enable: true  # 是否采纳导航 should_rotate；false 时完全使用 BT 自己的旋转策略。
       FreshTimeoutMs: 500  # 导航旋转指令的新鲜度（毫秒）；超时后按 DefaultIsRotate。
       DefaultIsRotate: true  # 无有效导航输入时的默认旋转状态。
-      ForceFollowModeWhenFalse: true  # should_rotate=false 时在最终 FireCode 中置 FollowMode 位。
+      ForceFollowModeWhenFalse: true  # should_rotate=false 时在最终 FireCode 中置 FollowMode 位 =1 。
       ClearFollowModeWhenTrue: true  # should_rotate=true 时清除该外部置入的 FollowMode 位。
-      ClearRegionalFaceModeWhenTrue: true  # should_rotate=true 时取消区域任务 FaceMode；不影响 Buff/Outpost FaceMode。
+      ClearRegionalFaceModeWhenTrue: false  # 保留区域任务 FaceMode；should_rotate 只约束底盘 Rotate，不干预云台朝向任务。
       StopRotateWhenFalse: true  # should_rotate=false 时停止底盘小陀螺档位。

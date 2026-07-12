@@ -527,7 +527,7 @@ float32 pitch
 - `rotate`
 - `raw`
 
-`FollowMode=1` 时，`behavior_tree` 会停小陀螺、停巡逻扫描、停止新的开火翻转，并保持当前云台角。FaceMode 区域接管只停云台巡逻/开火并使用固定点角度，不会单独停小陀螺。启用 `NaviRotateControl.yaml` 后，外部导航可用 `/ly/navi/should_rotate=false` 临时请求 `FollowMode+Rotate=0`，再用新鲜 `true` 恢复 BT 正常巡逻输出；默认只清 regional 区域兼容 FaceMode，不影响 Buff/Outpost AimMode 自己的固定朝向。
+`FollowMode=1` 时，`behavior_tree` 会停小陀螺、停巡逻扫描、停止新的开火翻转，并保持当前云台角。FaceMode 区域接管只停云台巡逻/开火并使用固定点角度，不会单独停小陀螺。启用 `NaviRotateControl.yaml` 后，外部导航可用 `/ly/navi/should_rotate=false` 临时请求 `FollowMode+Rotate=0`，再用新鲜 `true` 恢复 BT 对旋转档位的正常决策；当前默认保留 regional 区域任务 FaceMode，不影响 Buff/Outpost AimMode 自己的固定朝向。
 
 ---
 

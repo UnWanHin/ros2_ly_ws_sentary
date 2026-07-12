@@ -6,6 +6,10 @@ Updated: 2026-07-12
 > `src/gimbal_driver/config/gimbal_driver_config.yaml`；根目录 `config/base_config.yaml`
 > 不再承载 `io_config`。
 
+> Raw 观测：开启 `io_config.serial_mode=true` 后，每个上行 TypeID 单独发布到
+> `/ly/upload/typeidN`，使用带 `header.stamp` 的 `gimbal_driver/msg/GimbalRawFrame`。这不替代
+> 本文的语义 ROS topic，也不会在没有 subscriber 时组包发布。
+
 ## 1. 说明
 
 这份文档只描述**当前上位机代码实际实现的串口对接逻辑**，范围以 `gimbal_driver` 为准：
@@ -46,6 +50,10 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 ### 2.1 维护约定
 
 以后所有上下位机通信相关改动，优先维护这份文档，并在同一次改动里同步更新对应模块文档。需要更新的范围包括：
+
+- 新增/改变上行 TypeID 时，同步增加 `io_config.upload.typeidN` 和 `/ly/upload/typeidN` raw 映射。
+- 新增/改变下行 DownlinkTypeID 时，同步增加 `io_config.download.typeid0xNN` 和
+  `/ly/download/typeid0xNN` raw 映射。
 
 - 串口结构体、字节布局、`TypeID` 分配、字段单位或编码方式
 - 新增/删除/重命名 ROS topic、msg 字段、参数开关

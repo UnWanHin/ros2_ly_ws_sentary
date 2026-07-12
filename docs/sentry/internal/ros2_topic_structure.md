@@ -149,7 +149,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 
 - `/ly/navi/reached` 和 `/ly/navi/reachable` 必须在当前 goal 发布后收到并保持新鲜，才能作为当前 goal 的外部状态源。
 - `/ly/navi/reached=false` 不是最终未到达事实；goal-start grace 后，BT 可用自身位置和目标点距离生成 composite reached，并通过 `/ly/navi/reach_state` 暴露完整状态。
-- `/ly/navi/should_rotate` 的新鲜度由 `NaviRotateControl.FreshTimeoutMs` 控制；新鲜 `true` 默认会清掉 `FollowMode` 和 regional 区域兼容 FaceMode，默认超时后按允许旋转处理但不继续保留旧 `false`。
+- `/ly/navi/should_rotate` 的新鲜度由 `NaviRotateControl.FreshTimeoutMs` 控制；新鲜 `true` 会按配置清掉外部置入的 `FollowMode`，但当前默认保留 regional 区域任务 FaceMode。默认超时后按允许旋转处理但不继续保留旧 `false`。
 - topic 名是 `/ly/navi/reached`，不是 `/ly/navi/reach`。
 
 ## 6. Key Message Structures

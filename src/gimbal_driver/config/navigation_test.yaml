@@ -5,6 +5,3 @@
     io_config:
       navigation_test: true
       navigation_test_stale_timeout_ms: 500
-
-    "io_config/navigation_test": true
-    "io_config/navigation_test_stale_timeout_ms": 500
