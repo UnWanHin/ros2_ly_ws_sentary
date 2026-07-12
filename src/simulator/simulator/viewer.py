@@ -63,6 +63,7 @@ def record_status_payload(record: TraceRecord) -> dict[str, Any]:
     goal_reach = record.goal_reach
     navi_status = record.navi_status
     navi_velocity = record.navi_velocity
+    face_mode = record.face_mode
     payload = {
         "index": record.index,
         "tick": record.tick,
@@ -124,6 +125,17 @@ def record_status_payload(record: TraceRecord) -> dict[str, Any]:
             "output_x": navi_velocity.output_x,
             "output_y": navi_velocity.output_y,
             "raw_to_mps": navi_velocity.raw_to_mps,
+        },
+        "face_mode": {
+            "requested": face_mode.requested,
+            "active": face_mode.active,
+            "patrol_fallback": face_mode.patrol_fallback,
+            "suppress_fire": face_mode.suppress_fire,
+            "source": face_mode.source,
+            "phase": face_mode.phase,
+            "has_angles": face_mode.has_angles,
+            "yaw": face_mode.yaw,
+            "pitch": face_mode.pitch,
         },
         "relative_target": {
             "valid": relative_target.valid,

@@ -126,6 +126,17 @@ def stable_trace_row() -> dict:
             "output_y": -1,
             "raw_to_mps": 0.025,
         },
+        "face_mode": {
+            "requested": True,
+            "active": True,
+            "patrol_fallback": False,
+            "suppress_fire": True,
+            "source": "regional",
+            "phase": "ApproachHighland",
+            "has_angles": True,
+            "yaw": 12.0,
+            "pitch": -3.0,
+        },
         "navi_status": {
             "should_rotate": True,
             "should_rotate_fresh": True,
@@ -133,6 +144,17 @@ def stable_trace_row() -> dict:
             "reached_fresh": True,
             "reachable": True,
             "reachable_fresh": True,
+        },
+        "face_mode": {
+            "requested": True,
+            "active": True,
+            "patrol_fallback": False,
+            "suppress_fire": True,
+            "source": "regional",
+            "phase": "ApproachHighland",
+            "has_angles": True,
+            "yaw": 12.0,
+            "pitch": -3.0,
         },
         "navi_relative_target": {
             "valid": False,
@@ -295,6 +317,9 @@ def test_trace_record_exposes_stable_simulator_contract() -> None:
     assert record.goal_reach.distance_cm == 94.0
     assert record.navi_status.should_rotate is True
     assert record.navi_status.reachable is True
+    assert record.face_mode.active is True
+    assert record.face_mode.source == "regional"
+    assert record.face_mode.yaw == 12.0
     assert record.navi_velocity.output_x == 6
     assert record.navi_velocity.raw_to_mps == 0.025
     assert record.navi_relative_target.frame_id == "base_link"
@@ -425,6 +450,17 @@ def test_record_status_payload_is_json_safe_debug_summary() -> None:
             "output_y": -1,
             "raw_to_mps": 0.025,
         },
+        "face_mode": {
+            "requested": True,
+            "active": True,
+            "patrol_fallback": False,
+            "suppress_fire": True,
+            "source": "regional",
+            "phase": "ApproachHighland",
+            "has_angles": True,
+            "yaw": 12.0,
+            "pitch": -3.0,
+        },
         "relative_target": {
             "valid": False,
             "frame_id": "base_link",
@@ -440,7 +476,14 @@ def test_record_status_payload_is_json_safe_debug_summary() -> None:
             "official_armor_type": 1,
         },
         "intent": {"layer": "RegionalPatrol", "reason": "TargetVisible", "priority": 60},
-        "posture": {"command": "Attack (1)", "state": "Attack (1)", "current": "Attack (1)", "desired": "Attack (1)"},
+        "posture": {
+            "command": "Attack (1)",
+            "state": "Attack (1)",
+            "current": "Attack (1)",
+            "desired": "Attack (1)",
+            "using_referee_timer": False,
+            "referee_enhanced_posture": False,
+        },
         "referee": {
             "hp": 380,
             "ammo": 42,

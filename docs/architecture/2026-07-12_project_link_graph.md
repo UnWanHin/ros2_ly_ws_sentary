@@ -45,12 +45,12 @@ flowchart LR
   SERIAL_RX --> REF_MAP --> INPUT
   AIM -->|/ly/aim/armor_targets\n/ly/aim/result| INPUT
   TF -.preferred TF.-> INPUT
-  INPUT --> DECISION --> POSTURE --> OUTPUT
+  INPUT --> DECISION --> FACE[FaceModeManager\nrequest -> decision] --> POSTURE --> OUTPUT
 
   OUTPUT -->|/ly/control/angles\n/ly/control/firecode\n/ly/control/vel\n/ly/control/posture\n/ly/control/sentry_cmd| GD
   OUTPUT -->|/ly/navi/goal\n/ly/navi/goal_pos_raw\n/ly/navi/target_rel\n/ly/navi/speed_level| NAV
-  OUTPUT -->|/ly/face_mode/target_raw| FACE_BRIDGE
-  FACE_BRIDGE -->|/ly/face_mode/angles| INPUT
+  FACE -->|/ly/face_mode/target_raw| FACE_BRIDGE
+  FACE_BRIDGE -->|/ly/face_mode/angles| FACE
   GOAL_BRIDGE -->|/goal_pose| NAV
   NAV -->|/ly/navi/reached\n/ly/navi/reachable\n/ly/navi/should_rotate\n/ly/navi/position| INPUT
 
@@ -151,6 +151,7 @@ flowchart LR
 ## 5. Source of truth
 
 - `src/behavior_tree/include/Topic.hpp`、`src/behavior_tree/src/Application.cpp`、`src/behavior_tree/src/PublishMessage.cpp`
+- `src/behavior_tree/include/FaceModeManager.hpp`、`src/behavior_tree/src/FaceModeManager.cpp`
 - `src/auto_aim_common/msg/GoalReach.msg`、`src/auto_aim_common/msg/RelativeTarget.msg`
 - `src/gimbal_driver/main.cpp`、`src/gimbal_driver/include/basictype.hpp`
 - `docs/sentry/embedded/downlink_control_frame.md`

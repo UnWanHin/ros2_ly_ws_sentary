@@ -149,8 +149,15 @@ flowchart TD
 flowchart TB
   REGIONAL[Regional 最終 intent] --> NAV_OUT[導航\ngoal / target_rel / speed_level]
   REGIONAL --> AIM_OUT[瞄準\n/ly/aim/select_target]
-  REGIONAL --> FACE_OUT[FaceMode\n/ly/face_mode/target_raw]
-  REGIONAL --> GIMBAL_OUT[雲台與火控\nangles / firecode]
+  REGIONAL --> FACE_REQ[FaceMode request\nRegional]
+  AIM_OUT --> FACE_REQ2[FaceMode request\nBuff / Outpost]
+  FACE_REQ --> FACE_MGR[FaceModeManager\n收集與統一仲裁]
+  FACE_REQ2 --> FACE_MGR
+  FACE_MGR --> FACE_OUT[/ly/face_mode/target_raw]
+  FACE_OUT --> FACE_SOLVER[map_aim_point_node]
+  FACE_SOLVER --> FACE_ANGLES[/ly/face_mode/angles]
+  FACE_ANGLES --> FACE_MGR
+  FACE_MGR --> GIMBAL_OUT[唯一最終仲裁\nangles / firecode]
   REGIONAL --> POSTURE_OUT[姿態\nposture / sentry_cmd]
   REGIONAL --> POS_OUT[融合自身座標\n/ly/bt/sentry_position]
 
@@ -165,7 +172,7 @@ flowchart TB
 ## 6. Source of truth
 
 - `src/behavior_tree/Scripts/main.xml`
-- `src/behavior_tree/src/StrategyManager.cpp`、`src/behavior_tree/src/GameLoop.cpp`
+- `src/behavior_tree/src/StrategyManager.cpp`、`src/behavior_tree/src/GameLoop.cpp`、`src/behavior_tree/src/FaceModeManager.cpp`
 - `src/behavior_tree/config/AreaManager.yaml`、`src/behavior_tree/config/Task.yaml`、`src/behavior_tree/config/Special.yaml`
 - `src/behavior_tree/src/PostureLogic.cpp`、`src/behavior_tree/src/PostureManager.cpp`
 - `src/behavior_tree/src/PublishMessage.cpp`

@@ -168,6 +168,24 @@ should_rotate=true
 
 因此現在的責任邊界是：AreaManager 決定「我要不要做 MyRoadland，以及是不是處於不可讓出的 crossing phase」；外部導航通過 `/ly/navi/should_rotate` 決定「此刻底盤是否允許正常小陀螺」。這樣 Castle、Roadland、Highland 等地形細節可以放在導航側維護，BT 只保留任務優先級和戰術語義。
 
+## FaceMode 統一仲裁
+
+FaceMode 是雲台朝向任務，與 `Rotate`、`FollowMode` 分開。所有任務來源必須走 `FaceModeManager`，不能直接發布 `/ly/control/angles` 或在任務分支中直接改最終雲台輸出：
+
+```text
+Regional / Buff / Outpost 任務
+  -> FaceModeManager request（本拍收集）
+  -> 優先級：Buff / Outpost > Regional
+  -> Resolve：視覺目標優先、導航釋放兼容、角度保持、巡邏 fallback、SuppressFire
+  -> FaceModeDecision
+  -> PublishTogether() 唯一發布 /ly/control/angles + /ly/control/firecode
+```
+
+- Regional、Buff、Outpost 的目標都只經 `/ly/face_mode/target_raw` 交給 `map_aim_point_node` 求解；求解器回傳 `/ly/face_mode/angles`，BT 只快取候選角度。
+- `should_rotate=true` 在目前 `ClearRegionalFaceModeWhenTrue=false` 時不抑制 Regional FaceMode；若未來明確開啟該配置，抑制規則也只在 `FaceModeManager::Resolve()` 生效，不會插入任務分支。
+- 視覺鎖敵優先時，FaceMode request 仍保留在本拍決策 trace，但不接管最終角度；下一拍視覺優先解除後可以重新仲裁。
+- `/ly/face_mode/angles` 暫時無有效角度時，是否轉回 patrol scan 完全由 `PatrolScan.FaceModeFallbackEnable` 統一決定。
+
 ## 入口鏈路
 
 上游決策選中導航點後，通常會走：

@@ -10,27 +10,56 @@
 
 namespace BehaviorTree {
 
-void FaceModeManager::ResetControl() noexcept {
+void FaceModeManager::BeginCycle() noexcept {
     control_ = {};
 }
 
-void FaceModeManager::SetControl(
+bool FaceModeManager::RegisterRequest(
+    const Source source,
     const bool active,
     const bool use_face_mode,
-    const RegionalAreaTaskPhase phase) noexcept {
+    const RegionalAreaTaskPhase phase,
+    const std::uint8_t priority) noexcept {
+    if (!active || (control_.Active && priority < control_.Priority)) {
+        return false;
+    }
     control_.Active = active;
     control_.UseFaceMode = active && use_face_mode;
     control_.Phase = phase;
+    control_.RequestSource = source;
+    control_.Priority = priority;
+    return true;
 }
 
 bool FaceModeManager::Requested(const LangYa::FaceModeSetting& setting) const noexcept {
     return control_.Active && control_.UseFaceMode && setting.Enable;
 }
 
-bool FaceModeManager::Active(
+FaceModeManager::Decision FaceModeManager::Resolve(
+    const LangYa::AimData& data,
     const LangYa::FaceModeSetting& setting,
-    const bool visual_target_has_priority) const noexcept {
-    return Requested(setting) && !visual_target_has_priority;
+    const LangYa::PatrolScanSetting& patrol_scan,
+    const bool visual_target_has_priority,
+    const bool navigation_release_request,
+    const bool clear_regional_when_navigation_releases,
+    const AreaTimePoint now) const noexcept {
+    Decision decision;
+    decision.Requested = Requested(setting);
+    decision.RequestSource = control_.RequestSource;
+    decision.Phase = control_.Phase;
+    const bool suppress_regional_request =
+        navigation_release_request &&
+        clear_regional_when_navigation_releases &&
+        control_.RequestSource == Source::Regional;
+    if (!decision.Requested || visual_target_has_priority || suppress_regional_request) {
+        return decision;
+    }
+
+    decision.Angles = SelectAngles(data, setting, now);
+    decision.UsePatrolFallback = !decision.Angles.has_value() && patrol_scan.FaceModeFallbackEnable;
+    decision.Active = !decision.UsePatrolFallback;
+    decision.SuppressFire = decision.Active && setting.SuppressFire;
+    return decision;
 }
 
 void FaceModeManager::CacheAngles(
@@ -72,7 +101,7 @@ std::optional<LangYa::GimbalAnglesType> FaceModeManager::SelectAngles(
     return std::nullopt;
 }
 
-bool FaceModeManager::PublishAimTarget(
+bool FaceModeManager::RequestAimTarget(
     const LangYa::AimMode aim_mode,
     const LangYa::UnitTeam target_team,
     const TargetPublisher::SharedPtr& publisher) {
@@ -80,7 +109,10 @@ bool FaceModeManager::PublishAimTarget(
         return false;
     }
 
-    SetControl(true, true, RegionalAreaTaskPhase::Idle);
+    const auto source = aim_mode == LangYa::AimMode::Buff ? Source::Buff : Source::Outpost;
+    if (!RegisterRequest(source, true, true, RegionalAreaTaskPhase::Idle, kAimTaskPriority)) {
+        return false;
+    }
     if (!publisher) {
         return false;
     }
@@ -92,11 +124,16 @@ bool FaceModeManager::PublishAimTarget(
     return true;
 }
 
-bool FaceModeManager::ApplyRegionalTaskResult(
+bool FaceModeManager::RequestRegionalTask(
     const RegionalAreaTaskTickResult& result,
     const TargetPublisher::SharedPtr& publisher) {
-    SetControl(result.Active, result.UseFaceMode, result.Phase);
-    if (!result.Active || !result.PublishFaceTarget || !publisher) {
+    if (!RegisterRequest(
+            Source::Regional,
+            result.Active,
+            result.UseFaceMode,
+            result.Phase,
+            kRegionalPriority) ||
+        !result.PublishFaceTarget || !publisher) {
         return false;
     }
 

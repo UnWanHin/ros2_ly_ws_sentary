@@ -290,6 +290,25 @@ class NaviStatus:
 
 
 @dataclass(frozen=True)
+class FaceModeState:
+    requested: bool | None
+    active: bool | None
+    patrol_fallback: bool | None
+    suppress_fire: bool | None
+    source: str
+    phase: str
+    has_angles: bool | None
+    yaw: float | None
+    pitch: float | None
+
+    def compact_text(self) -> str:
+        if not self.requested:
+            return "off"
+        state = "active" if self.active else ("patrol" if self.patrol_fallback else "suppressed")
+        return f"{state} source={self.source} phase={self.phase}"
+
+
+@dataclass(frozen=True)
 class GimbalState:
     yaw_deg: float | None
     pitch_deg: float | None
@@ -482,6 +501,7 @@ class TraceRecord:
     goal_reach: GoalReachState
     navi_velocity: NaviVelocity
     navi_status: NaviStatus
+    face_mode: FaceModeState
     goal_id: int
     goal_base_id: int
     goal_name: str

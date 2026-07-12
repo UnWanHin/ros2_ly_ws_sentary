@@ -490,6 +490,7 @@ private:
     bool protectHeroActive_{false};
     std::chrono::steady_clock::time_point protectHeroLastEnemySeenTime_{};
     FaceModeManager faceModeManager_{};
+    FaceModeManager::Decision lastFaceModeDecision_{};
     std::chrono::steady_clock::time_point lastUpdateBlackboardLogTime_{};
     std::chrono::steady_clock::time_point lastTreeTickLogTime_{};
     std::chrono::steady_clock::time_point lastTransportLogTime_{};

@@ -689,7 +689,7 @@ ros2 run simulator simulator-quality --with-build
 Each line is one JSON object. Important top-level fields:
 
 - `schema`: currently `ly_decision_trace_v1`
-- `schema_version`: `2` adds `decision_output`, `decision_intent`, `events`, `target_state`, `goal_reach_state`, `navi_status`, `navi_velocity`, `navi_relative_target`, `gimbal`, and `runtime_guard`; the viewer still reads older rows without those fields
+- `schema_version`: `2` adds `decision_output`, `decision_intent`, `events`, `target_state`, `goal_reach_state`, `navi_status`, `navi_velocity`, `navi_relative_target`, `face_mode`, `gimbal`, and `runtime_guard`; the viewer still reads older rows without those fields
 - `event`: `game_start`, `tick`, or `stop`
 - `t`: seconds from `gameStartTime`
 - `field_cm`: map frame and field size
@@ -703,6 +703,7 @@ Each line is one JSON object. Important top-level fields:
 - `navi_status`: effective `/ly/navi/should_rotate`, `/ly/navi/reached`, and `/ly/navi/reachable` values with freshness flags
 - `navi_velocity`: `/ly/navi/vel` input and `/ly/control/vel` output raw values plus the raw-to-m/s scale
 - `navi_relative_target`: chase/bridge relative target, including frame ID, x/y/z, distance, yaw/pitch error, armor type, aim mode, and official target metadata
+- `face_mode`: `FaceModeManager` 的本拍统一仲裁结果，包括 request 来源、是否接管、是否被视觉得分优先/导航兼容抑制、是否 fallback patrol，以及最终候选 yaw/pitch
 - `posture`: command, state, runtime desired/current/pending, reason
 - `referee`: HP, ammo, time, outpost/base HP, RFID/RFID2 raw state, `rfid_match`, event-data energy/fortress gain-point state, and buff state
 - `unit_info`: optional formal FriendInfo/EnemyInfo-like unit records used by the viewer and validation when present

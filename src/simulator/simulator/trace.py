@@ -14,6 +14,7 @@ from .model import (
     GimbalState,
     GoalReachState,
     NaviStatus,
+    FaceModeState,
     NaviVelocity,
     PostureRuntime,
     RefereeState,
@@ -395,6 +396,21 @@ def normalize_navi_status(raw: dict[str, Any]) -> NaviStatus:
     )
 
 
+def normalize_face_mode(raw: dict[str, Any]) -> FaceModeState:
+    state = as_dict(raw.get("face_mode"))
+    return FaceModeState(
+        requested=optional_bool(state.get("requested")),
+        active=optional_bool(state.get("active")),
+        patrol_fallback=optional_bool(state.get("patrol_fallback")),
+        suppress_fire=optional_bool(state.get("suppress_fire")),
+        source=str(state.get("source", "none")),
+        phase=str(state.get("phase", "idle")),
+        has_angles=optional_bool(state.get("has_angles")),
+        yaw=optional_number(state.get("yaw")),
+        pitch=optional_number(state.get("pitch")),
+    )
+
+
 def normalize_gimbal(raw: dict[str, Any]) -> GimbalState:
     gimbal = as_dict(raw.get("gimbal"))
     fire_code = as_dict(gimbal.get("fire_code"))
@@ -552,6 +568,7 @@ def normalize_record(raw: dict[str, Any], index: int, goal_names: dict[int, str]
     goal_reach = normalize_goal_reach(raw, output)
     navi_velocity = normalize_navi_velocity(raw)
     navi_status = normalize_navi_status(raw)
+    face_mode = normalize_face_mode(raw)
     gimbal = normalize_gimbal(raw)
     bullet_info = normalize_bullet_info(raw)
     runtime_guard = normalize_runtime_guard(raw)
@@ -583,6 +600,7 @@ def normalize_record(raw: dict[str, Any], index: int, goal_names: dict[int, str]
         goal_reach=goal_reach,
         navi_velocity=navi_velocity,
         navi_status=navi_status,
+        face_mode=face_mode,
         goal_id=output.goal_id,
         goal_base_id=output.goal_base_id,
         goal_name=output.goal_name,

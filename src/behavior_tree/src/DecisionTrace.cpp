@@ -538,6 +538,27 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         {"reachable", naviReachable},
         {"reachable_fresh", current_goal_reach.ExternalReachable.has_value()},
     };
+    const auto face_mode_source = [](const FaceModeManager::Source source) {
+        switch (source) {
+            case FaceModeManager::Source::Regional: return "regional";
+            case FaceModeManager::Source::Buff: return "buff";
+            case FaceModeManager::Source::Outpost: return "outpost";
+            default: return "none";
+        }
+    };
+    record["face_mode"] = {
+        {"requested", lastFaceModeDecision_.Requested},
+        {"active", lastFaceModeDecision_.Active},
+        {"patrol_fallback", lastFaceModeDecision_.UsePatrolFallback},
+        {"suppress_fire", lastFaceModeDecision_.SuppressFire},
+        {"source", face_mode_source(lastFaceModeDecision_.RequestSource)},
+        {"phase", RegionalAreaTaskPhaseToString(lastFaceModeDecision_.Phase)},
+        {"has_angles", lastFaceModeDecision_.Angles.has_value()},
+        {"yaw", lastFaceModeDecision_.Angles.has_value()
+            ? json(lastFaceModeDecision_.Angles->Yaw) : json(nullptr)},
+        {"pitch", lastFaceModeDecision_.Angles.has_value()
+            ? json(lastFaceModeDecision_.Angles->Pitch) : json(nullptr)},
+    };
     record["navi_relative_target"] = {
         {"valid", naviRelativeTargetValid},
         {"frame_id", naviRelativeTargetFrameId},

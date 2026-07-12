@@ -697,7 +697,7 @@ namespace BehaviorTree {
     void Application::UpdateBlackBoard() {
 
         std::uint16_t SelfHealth = myselfHealth;
-        ResetRegionalAreaControlOverride();
+        faceModeManager_.BeginCycle();
         // 外部 aim 是唯一正式视觉目标源。
         // 注意这里是“本拍是否有新鲜目标”，不是长期跟踪状态。
         const bool has_external_target =
@@ -1121,22 +1121,18 @@ namespace BehaviorTree {
         const bool visual_target_has_face_priority =
             has_target_for_angles &&
             (external_aim_active || aimMode == AimMode::Buff || aimMode == AimMode::Outpost);
-        const bool navi_rotate_control_clear_regional_face_mode =
-            navi_rotate_control_release_request &&
-            config.NaviRotateControlSettings.ClearRegionalFaceModeWhenTrue &&
-            faceModeManager_.Control().Phase != RegionalAreaTaskPhase::Idle;
-        const bool face_mode_requested =
-            faceModeManager_.Active(config.FaceModeSettings, visual_target_has_face_priority) &&
-            !navi_rotate_control_clear_regional_face_mode;
-        const auto face_mode_angles = face_mode_requested
-            ? faceModeManager_.SelectAngles(faceModeData, config.FaceModeSettings, now)
-            : std::optional<GimbalAnglesType>{};
-        const bool face_mode_fallback_patrol_scan =
-            face_mode_requested &&
-            !face_mode_angles.has_value() &&
-            config.PatrolScanSettings.FaceModeFallbackEnable;
-        const bool face_mode_active =
-            face_mode_requested && !face_mode_fallback_patrol_scan;
+        const auto face_mode_decision = faceModeManager_.Resolve(
+            faceModeData,
+            config.FaceModeSettings,
+            config.PatrolScanSettings,
+            visual_target_has_face_priority,
+            navi_rotate_control_release_request,
+            config.NaviRotateControlSettings.ClearRegionalFaceModeWhenTrue,
+            now);
+        lastFaceModeDecision_ = face_mode_decision;
+        const bool face_mode_requested = face_mode_decision.Requested;
+        const bool face_mode_fallback_patrol_scan = face_mode_decision.UsePatrolFallback;
+        const bool face_mode_active = face_mode_decision.Active;
         auto reset_patrol_scan_state = [this]() {
             patrolScanDirection_ = 1;
             patrolScanCenterYaw_ = 0.0f;
@@ -1148,17 +1144,17 @@ namespace BehaviorTree {
         if (face_mode_active) {
             reset_patrol_scan_state();
             gimbalControlData.FireCode.AimMode = 0;
-            if (config.FaceModeSettings.SuppressFire) {
+            if (face_mode_decision.SuppressFire) {
                 gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
             }
-            nextAngles = face_mode_angles.value_or(gimbalAngles);
+            nextAngles = face_mode_decision.Angles.value_or(gimbalAngles);
 
             static auto last_face_mode_log = std::chrono::steady_clock::time_point{};
             if (now - last_face_mode_log > std::chrono::seconds(2)) {
                 LoggerPtr->Debug(
                     "FaceMode active: keep rotate policy, stop patrol scan, {} gimbal angles, suppress_fire={}",
-                    face_mode_angles.has_value() ? "use FaceMode" : "hold current",
-                    config.FaceModeSettings.SuppressFire ? 1 : 0);
+                    face_mode_decision.Angles.has_value() ? "use FaceMode" : "hold current",
+                    face_mode_decision.SuppressFire ? 1 : 0);
                 last_face_mode_log = now;
             }
         } else if (has_target_for_angles) {
@@ -2987,11 +2983,11 @@ namespace BehaviorTree {
     }
 
     void Application::ResetRegionalAreaControlOverride() noexcept {
-        faceModeManager_.ResetControl();
+        faceModeManager_.BeginCycle();
     }
 
     void Application::ApplyAimModeFaceTarget(const UnitTeam target_team) {
-        (void)faceModeManager_.PublishAimTarget(
+        (void)faceModeManager_.RequestAimTarget(
             aimMode,
             target_team,
             pub_face_mode_target_raw_);
@@ -3049,7 +3045,7 @@ namespace BehaviorTree {
     }
 
     void Application::ApplyRegionalAreaTaskControl(const RegionalAreaTaskTickResult& result) {
-        faceModeManager_.ApplyRegionalTaskResult(result, pub_face_mode_target_raw_);
+        (void)faceModeManager_.RequestRegionalTask(result, pub_face_mode_target_raw_);
         if (!config.NaviRotateControlSettings.Enable) {
             gimbalControlData.FireCode.FollowMode = result.FollowMode ? 1 : 0;
         }

@@ -236,7 +236,7 @@ void TreeTick() {
 這個函數決定最終發出什麼角度和火控碼：
 
 1. **小陀螺控制**：根據血量下降速度（`healthDecreaseDetector`）和底盤速度（`naviVelocity`），動態設置 `FireCode.Rotate`（0=停止、1-3=不同速度）；启用 `NaviRotateControl.yaml` 后，新鲜 `/ly/navi/should_rotate=false` 会临时强制 `FollowMode+Rotate=0`，新鲜 `true` 会恢复 BT 对 `Rotate=0..3` 的正常决策；当前配置不关闭 regional 区域任务 FaceMode。
-2. **FaceMode 優先級**：`FaceModeManager` 管理角度鎖存、啟停判斷與 `/ly/face_mode/target_raw` 目標發布；`sentry_all.launch.py` 默认拉起 `map_aim_point_node`，用 TF 相对几何把该目标解成 `/ly/face_mode/angles`；区域任务启用 FaceMode 时接管云台角，停止云台巡逻扫描，并按 `FaceMode.SuppressFire` 停止新的开火翻转；FaceMode 本身不清零 `FireCode.Rotate`，底盘小陀螺继续由原策略输出。
+2. **FaceMode 仲裁**：所有 Regional、Buff、Outpost 固定朝向任务只能向 `FaceModeManager` 提交请求；manager 以 `Outpost/Buff > Regional` 收敛本拍唯一请求，再统一处理视觉目标优先、导航释放兼容、角度新鲜度/保持、巡逻 fallback 和停火意图，回传单一 `Decision` 给 `PublishTogether()`。`sentry_all.launch.py` 默认拉起 `map_aim_point_node`，把 `/ly/face_mode/target_raw` 的官方地图目标用 TF 相对几何解成 `/ly/face_mode/angles`；最终只有 `PublishTogether()` 发布 `/ly/control/angles` 和 `/ly/control/firecode`。FaceMode 本身不清零 `FireCode.Rotate`，底盘小陀螺继续由原策略输出。
 3. **FollowMode 優先級**：`FireCode.FollowMode=1` 時停止 rotate、停止巡邏掃描、保持當前雲台角，並停止新的 `FireStatus` 翻轉。
 4. **本輪收到目標回調時**：
    - 按 `aimMode` 從對應的 `Aim*Data` 取角度
