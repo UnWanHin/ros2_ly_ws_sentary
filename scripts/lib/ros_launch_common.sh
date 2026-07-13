@@ -14,6 +14,10 @@ source_optional_sentry_msgs() {
   if [[ -n "${SENTRY_MSGS_SETUP:-}" ]]; then
     setup_candidates+=("${SENTRY_MSGS_SETUP}")
   fi
+  if [[ -n "${SENTRY_COMMON_ROOT:-}" ]]; then
+    setup_candidates+=("${SENTRY_COMMON_ROOT}/install/sentry_msgs/share/sentry_msgs/local_setup.bash")
+  fi
+  setup_candidates+=("${HOME}/sentry.common/install/sentry_msgs/share/sentry_msgs/local_setup.bash")
   if [[ -n "${SENTRY_COMMON_SETUP:-}" ]]; then
     setup_candidates+=("${SENTRY_COMMON_SETUP}")
   fi
@@ -103,15 +107,15 @@ source_ros_workspace() {
 
   source_optional_sentry_msgs || true
 
-  if [[ ! -f "${root_dir}/install/setup.bash" ]]; then
-    echo "[ERROR] ${root_dir}/install/setup.bash not found." >&2
+  if [[ ! -f "${root_dir}/install/local_setup.bash" ]]; then
+    echo "[ERROR] ${root_dir}/install/local_setup.bash not found." >&2
     echo "        Run: colcon build" >&2
     exit 1
   fi
 
   set +u
   # shellcheck disable=SC1091
-  source "${root_dir}/install/setup.bash"
+  source "${root_dir}/install/local_setup.bash"
   set -u
 
   cd "${root_dir}"

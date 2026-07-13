@@ -179,7 +179,7 @@ def main() -> None:
     parser.add_argument("--mode", type=int, choices=(1, 2, 3), required=True)
     parser.add_argument("--patrol-config", type=Path, required=True)
     parser.add_argument("--yaw-start", type=float, default=0.0)
-    parser.add_argument("--hz", type=float, default=20.0)
+    parser.add_argument("--hz", type=float, default=100.0)
     parser.add_argument("--angles-topic", default="/ly/control/angles")
     parser.add_argument("--firecode-topic", default="/ly/control/firecode")
     parser.add_argument("--no-firecode", action="store_true")

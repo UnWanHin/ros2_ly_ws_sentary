@@ -11,7 +11,7 @@ SCRIPT_NAME="$(basename "$0")"
 
 MODE="${PATROL_MODE:-}"
 YAW_START="0.0"
-HZ="20.0"
+HZ="100.0"
 ANGLES_TOPIC="/ly/control/angles"
 FIRECODE_TOPIC="/ly/control/firecode"
 PUBLISH_FIRECODE=1
@@ -61,7 +61,7 @@ Options:
 
 Examples:
   ./scripts/gimbal/patrolmode1.sh
-  ./scripts/gimbal/patrolmode2.sh --hz 20
+  ./scripts/gimbal/patrolmode2.sh --hz 100
   ./scripts/gimbal/patrolmode3.sh --use-virtual-device true
 EOF
 }

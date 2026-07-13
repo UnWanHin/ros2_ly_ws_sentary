@@ -148,6 +148,10 @@ source_optional_sentry_msgs() {
   if [[ -n "${SENTRY_MSGS_SETUP:-}" ]]; then
     setup_candidates+=("${SENTRY_MSGS_SETUP}")
   fi
+  if [[ -n "${SENTRY_COMMON_ROOT:-}" ]]; then
+    setup_candidates+=("${SENTRY_COMMON_ROOT}/install/sentry_msgs/share/sentry_msgs/local_setup.bash")
+  fi
+  setup_candidates+=("${HOME}/sentry.common/install/sentry_msgs/share/sentry_msgs/local_setup.bash")
   if [[ -n "${SENTRY_COMMON_SETUP:-}" ]]; then
     setup_candidates+=("${SENTRY_COMMON_SETUP}")
   fi
@@ -178,14 +182,14 @@ source_optional_sentry_msgs() {
 }
 
 source_workspace() {
-  if [[ -f "${ROOT_DIR}/install/setup.bash" ]]; then
+  if [[ -f "${ROOT_DIR}/install/local_setup.bash" ]]; then
     # shellcheck disable=SC1091
     set +u
-    source "${ROOT_DIR}/install/setup.bash"
+    source "${ROOT_DIR}/install/local_setup.bash"
     set -u
-    pass "Workspace sourced: ${ROOT_DIR}/install/setup.bash"
+    pass "Workspace sourced: ${ROOT_DIR}/install/local_setup.bash"
   else
-    fail "Workspace not built: ${ROOT_DIR}/install/setup.bash missing"
+    fail "Workspace not built: ${ROOT_DIR}/install/local_setup.bash missing"
   fi
 }
 
