@@ -83,6 +83,7 @@ namespace
     LY_DEF_ROS_TOPIC(ly_game_path, "/ly/game/path", gimbal_driver::msg::MapPath);
     LY_DEF_ROS_TOPIC(ly_control_custom_info, "/ly/control/custom_info", gimbal_driver::msg::CustomInfo);
     LY_DEF_ROS_TOPIC(ly_navi_vel, "/ly/navi/vel", gimbal_driver::msg::Vel);
+    LY_DEF_ROS_TOPIC(ly_navi_should_rotate, "/ly/navi/should_rotate", std_msgs::msg::Bool);
     LY_DEF_ROS_TOPIC(ly_bt_sentry_position, "/ly/bt/sentry_position", geometry_msgs::msg::PointStamped);
 
     LY_DEF_ROS_TOPIC(ly_gimbal_angles, "/ly/gimbal/angles", gimbal_driver::msg::GimbalAngles);
@@ -159,6 +160,13 @@ namespace
         int sentryCoordFreshTimeoutMs_{2000};
         float velocityRawToMps_{0.025f};
         bool navigationTestEnable_{false};
+        bool navigationVelocityForwardEnable_{false};
+        bool navigationModeEnable_{false};
+        bool navigationModeVelChainEnable_{false};
+        std::uint8_t navigationModeRotateLevel_{0};
+        bool navigationModeShouldRotateEnable_{false};
+        bool navigationModeFollowModeWhenFalse_{false};
+        bool navigationModeShouldRotate_{true};
         bool navigationTestVelocityActive_{false};
         std::uint8_t posturePendingToSend_{0};
         std::uint8_t postureLastSent_{0};
@@ -1215,7 +1223,7 @@ namespace
         }
 
         void MaybeApplyNavigationTestStaleFallback() {
-            if (!navigationTestEnable_ || !navigationTestVelocityActive_) {
+            if (!navigationVelocityForwardEnable_ || !navigationTestVelocityActive_) {
                 return;
             }
             const auto now = std::chrono::steady_clock::now();
@@ -1229,8 +1237,21 @@ namespace
                 g.Velocity.Y = 0;
             });
             navigationTestVelocityActive_ = false;
-            roslog::warn("navigation_test: /ly/navi/vel stale for >%d ms, publish zero velocity",
+            roslog::warn("navigation velocity forwarding: /ly/navi/vel stale for >%d ms, publish zero velocity",
                          static_cast<int>(navigationTestStaleTimeout_.count()));
+        }
+
+        void ApplyNavigationModeRotate(const bool should_rotate) {
+            if (!navigationModeEnable_) {
+                return;
+            }
+
+            CallbackGenerator.Modify([this, should_rotate](GimbalControlFrame& g) {
+                g.FireCode.Rotate = should_rotate ? navigationModeRotateLevel_ : 0;
+                if (navigationModeFollowModeWhenFalse_) {
+                    g.FireCode.FollowMode = should_rotate ? 0 : 1;
+                }
+            });
         }
 
         template<typename TTopic>
@@ -1320,13 +1341,20 @@ namespace
                                        g.Velocity.Y = EncodeVelocityRaw(m.y_mps);
                                    });
 
-            if (navigationTestEnable_) {
+            if (navigationVelocityForwardEnable_) {
                 GenSub<ly_navi_vel>([this](GimbalControlFrame& g, const gimbal_driver::msg::Vel& m)
                                     {
                                         g.Velocity.X = EncodeNavigationTestVelocityRaw(m.x);
                                         g.Velocity.Y = EncodeNavigationTestVelocityRaw(m.y);
                                         navigationTestLastVelRxTime_ = std::chrono::steady_clock::now();
                                         navigationTestVelocityActive_ = true;
+                });
+            }
+
+            if (navigationModeEnable_ && navigationModeShouldRotateEnable_) {
+                Node.GenSubscriber<ly_navi_should_rotate>([this](const ly_navi_should_rotate::CallbackArg msg) {
+                    navigationModeShouldRotate_ = msg->data;
+                    ApplyNavigationModeRotate(navigationModeShouldRotate_);
                 });
             }
 
@@ -1841,6 +1869,11 @@ namespace
             int sentryCoordFreshTimeoutMs = sentryCoordFreshTimeoutMs_;
             double velocityRawToMps = velocityRawToMps_;
             bool navigationTestEnable = navigationTestEnable_;
+            bool navigationModeEnable = navigationModeEnable_;
+            bool navigationModeVelChainEnable = navigationModeVelChainEnable_;
+            int navigationModeRotateLevel = navigationModeRotateLevel_;
+            bool navigationModeShouldRotateEnable = navigationModeShouldRotateEnable_;
+            bool navigationModeFollowModeWhenFalse = navigationModeFollowModeWhenFalse_;
             bool rawSerialLogEnable = rawSerialLogEnable_;
             bool rawSerialLogUplink = rawSerialLogUplink_;
             bool rawSerialLogDownlink = rawSerialLogDownlink_;
@@ -1887,6 +1920,31 @@ namespace
                 "io_config.navigation_test_stale_timeout_ms",
                 navigationTestStaleTimeoutMs,
                 navigationTestStaleTimeoutMs);
+            getParamCompat(
+                "io_config/navigation_mode/enabled",
+                "io_config.navigation_mode.enabled",
+                navigationModeEnable,
+                navigationModeEnable);
+            getParamCompat(
+                "io_config/navigation_mode/vel_chain",
+                "io_config.navigation_mode.vel_chain",
+                navigationModeVelChainEnable,
+                navigationModeVelChainEnable);
+            getParamCompat(
+                "io_config/navigation_mode/rotate_level",
+                "io_config.navigation_mode.rotate_level",
+                navigationModeRotateLevel,
+                navigationModeRotateLevel);
+            getParamCompat(
+                "io_config/navigation_mode/should_rotate/enabled",
+                "io_config.navigation_mode.should_rotate.enabled",
+                navigationModeShouldRotateEnable,
+                navigationModeShouldRotateEnable);
+            getParamCompat(
+                "io_config/navigation_mode/should_rotate/follow_mode_when_false",
+                "io_config/navigation_mode.should_rotate.follow_mode_when_false",
+                navigationModeFollowModeWhenFalse,
+                navigationModeFollowModeWhenFalse);
             getParamCompat(
                 "io_config/game_path_fresh_timeout_ms",
                 "io_config.game_path_fresh_timeout_ms",
@@ -2029,6 +2087,12 @@ namespace
                     navigationTestStaleTimeoutMs);
                 navigationTestStaleTimeoutMs = 500;
             }
+            if (navigationModeRotateLevel < 0 || navigationModeRotateLevel > 3) {
+                roslog::warn(
+                    "Invalid navigation_mode.rotate_level=%d, clamp to 0..3",
+                    navigationModeRotateLevel);
+                navigationModeRotateLevel = std::clamp(navigationModeRotateLevel, 0, 3);
+            }
             if (gamePathFreshTimeoutMs <= 0) {
                 roslog::warn(
                     "Invalid game_path_fresh_timeout_ms=%d, fallback to 5000",
@@ -2071,6 +2135,13 @@ namespace
             sentryCoordFreshTimeoutMs_ = sentryCoordFreshTimeoutMs;
             velocityRawToMps_ = static_cast<float>(velocityRawToMps);
             navigationTestEnable_ = navigationTestEnable;
+            navigationModeEnable_ = navigationModeEnable;
+            navigationModeVelChainEnable_ = navigationModeVelChainEnable;
+            navigationModeRotateLevel_ = static_cast<std::uint8_t>(navigationModeRotateLevel);
+            navigationModeShouldRotateEnable_ = navigationModeShouldRotateEnable;
+            navigationModeFollowModeWhenFalse_ = navigationModeFollowModeWhenFalse;
+            navigationVelocityForwardEnable_ =
+                navigationTestEnable_ || (navigationModeEnable_ && navigationModeVelChainEnable_);
             ConfigureRawSerialLog(
                 rawSerialLogEnable,
                 rawSerialLogUplink,
@@ -2101,6 +2172,25 @@ namespace
                 roslog::warn(
                     "navigation_test enabled: /ly/navi/vel writes lower velocity directly; stale_timeout_ms=%d",
                     static_cast<int>(navigationTestStaleTimeout_.count()));
+            }
+            if (navigationModeEnable_) {
+                roslog::warn(
+                    "navigation_mode standalone direct-debug enabled: vel_chain=%s rotate_level=%u should_rotate=%s follow_mode_when_false=%s",
+                    navigationModeVelChainEnable_ ? "true" : "false",
+                    static_cast<unsigned int>(navigationModeRotateLevel_),
+                    navigationModeShouldRotateEnable_ ? "true" : "false",
+                    navigationModeFollowModeWhenFalse_ ? "true" : "false");
+                if (navigationModeVelChainEnable_) {
+                    roslog::warn(
+                        "navigation_mode: direct velocity subscriber active: %s -> lower-machine Velocity",
+                        ly_navi_vel::Name);
+                }
+                if (navigationModeShouldRotateEnable_) {
+                    roslog::warn(
+                        "navigation_mode: Rotate subscriber active: %s (false => Rotate=0%s)",
+                        ly_navi_should_rotate::Name,
+                        navigationModeFollowModeWhenFalse_ ? ", FollowMode=1" : "");
+                }
             }
             roslog::warn(
                 "sentry coordinate downlink: topic=%s DownlinkTypeID=0x%02x interval_ms=%d field_cm=(%d,%d) fresh_timeout_ms=%d",
@@ -2144,6 +2234,9 @@ namespace
                 postureLastSent_ = 0;
                 navigationTestVelocityActive_ = false;
                 navigationTestLastVelRxTime_ = {};
+                if (navigationModeEnable_) {
+                    ApplyNavigationModeRotate(navigationModeShouldRotate_);
+                }
                 sentryCmdShadow_.Posture = IsValidPostureCommand(postureCommand_) ? postureCommand_ : 0;
                 if (IsValidPostureCommand(postureCommand_)) {
                     ArmPostureTx(postureCommand_);

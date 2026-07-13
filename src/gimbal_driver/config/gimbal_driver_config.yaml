@@ -11,6 +11,15 @@
       velocity_raw_to_mps: 0.025  # 导航 raw 速度到控制速度的换算系数（米/秒）。
       navigation_test: false  # 是否启用导航测试模式。
       navigation_test_stale_timeout_ms: 500  # 导航测试消息过期时间（毫秒）。
+      # 导航调试直连，默认关闭，不改变正式 /ly/navi/vel -> BT -> /ly/control/vel 主链。
+      navigation_mode:
+        enabled: false  # 总开关；false 时不订阅 should_rotate，也不改写 FireCode。
+        vel_chain: false  # true 时直接转发 /ly/navi/vel 到下位机控制速度。
+        rotate_level: 0  # 默认小陀螺档位，范围 0..3。
+        should_rotate:
+          enabled: false  # true 时订阅 /ly/navi/should_rotate（std_msgs/Bool）。
+      # 与上面 should_rotate 同属一组；slash key 确保深层 ROS2 overlay 参数可覆盖。
+      io_config/navigation_mode/should_rotate/follow_mode_when_false: false  # should_rotate=false 时同时置 FollowMode=1。
       # /ly/game/path 的 header.stamp 超过此时效即不再下发；driver 不会周期性重发缓存路径。
       game_path_fresh_timeout_ms: 5000  # 地图路径新鲜度（毫秒）。
       sentry_coord_send_interval_ms: 100  # 自身坐标下发间隔（毫秒）。

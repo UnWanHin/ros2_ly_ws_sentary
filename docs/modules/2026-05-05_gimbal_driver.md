@@ -1,6 +1,6 @@
 # gimbal_driver — 雲台驅動節點
 
-Updated: 2026-07-12
+Updated: 2026-07-13
 
 ## 概述
 
@@ -24,7 +24,7 @@ gimbal_driver/
 │   └── gimbal_driver.launch     # ROS 2 XML 兼容入口
 ├── config/
 │   ├── gimbal_driver_config.yaml # 串口/下位機正式基線
-│   └── navigation_test.yaml      # 導航速度直連測試 overlay
+│   └── navigation_test.yaml      # 導航速度/Rotate 直連調試 overlay
 ├── msg/                        # 自定義消息類型
 │   ├── GimbalAngles.msg        # 雲台角度
 │   ├── GameData.msg            # 比賽數據（彙總）
@@ -66,7 +66,24 @@ ros2 launch gimbal_driver gimbal_driver.launch.py use_virtual_device:=true
 正式 `sentry_all.launch.py` 的 gimbal 參數載入順序為：跨模組 `base_config.yaml` →
 `gimbal_driver_config.yaml` → 全域 `override_config.yaml` → launch/CLI 顯式覆蓋。單獨啟動
 `gimbal_driver.launch.py` 也預設讀同一份 module baseline。`navigation_test.yaml` 只可作
-離車調試 overlay，正式鏈路保持 `navigation_test: false`。
+離車調試 overlay，正式鏈路保持 `navigation_test: false` 且
+`navigation_mode.enabled: false`。
+
+### 導航直連調試
+
+`io_config.navigation_mode` 是 driver-owned 的調試 bypass，預設完全關閉，不改變正式
+`/ly/navi/vel -> behavior_tree -> /ly/control/vel` 主鏈。
+
+| Key | 作用 |
+|---|---|
+| `enabled` | 總開關；false 時不直接訂閱導航 Rotate 控制，也不改寫 FireCode。 |
+| `vel_chain` | true 時將 `/ly/navi/vel` 直接寫入 `GimbalControlFrame.Velocity`；超過既有 `navigation_test_stale_timeout_ms` 未更新時下發零速度。 |
+| `rotate_level` | 啟動時下發的預設 Rotate 檔位，僅接受 0..3；重連時若已收到 `should_rotate`，會恢復最近一次狀態。 |
+| `should_rotate.enabled` | true 時訂閱 `/ly/navi/should_rotate` (`std_msgs/Bool`)。true 恢復 `rotate_level`，false 將 Rotate 置 0。 |
+| `should_rotate.follow_mode_when_false` | true 時，`should_rotate=false` 另置 `FollowMode=1`；收到 true 時清除這個 debug FollowMode。YAML 以 `io_config/navigation_mode/should_rotate/follow_mode_when_false` slash-key 寫入，確保 overlay 可覆蓋。 |
+
+`config/navigation_test.yaml` 提供一組可載入的導航調試 overlay：開啟速度直連與
+`should_rotate`，預設 Rotate 為 0。它不得與正在發布正式 `/ly/control/*` 的 BT 同時使用。
 
 ### SerialMode Raw 觀測
 
@@ -151,6 +168,8 @@ main()
 | `/ly/control/map_path` (`MapPath`) | `MapPathFrame` | `0x02` 裁判 `0x0307` 小地圖路徑 |
 | `/ly/control/custom_info` (`CustomInfo`) | `CustomInfoFrame` | `0x03` 裁判 `0x0308` UTF-16 文字 |
 | `/ly/bt/sentry_position` (`PointStamped`) | `SentryCoordinateFrame.X_cm/Y_cm` | BT 融合後自身坐標，m 轉 cm 後下發 |
+| `/ly/navi/vel` (`Vel`) | `GimbalControlFrame.Velocity.X/Y` | 僅 `navigation_test=true` 或 `navigation_mode.enabled && vel_chain` 時直連調試；正式鏈仍經 BT。 |
+| `/ly/navi/should_rotate` (`std_msgs/Bool`) | `GimbalControlFrame.FireCode.Rotate/FollowMode` | 僅 `navigation_mode.enabled && should_rotate.enabled` 時採用；false 停 Rotate，FollowMode 是否置 1 由 YAML 控制。 |
 
 姿態下發採用獨立 `0x01` frame：
 - 收到有效姿態命令（1/2/3/4/5/6）後更新 `SentryCmd` shadow 並立即發送

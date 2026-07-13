@@ -138,10 +138,10 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/navi/reached` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree` | 外部导航到达源；true=导航端确认到达，false=导航端尚未确认到达。BT 内部最终 reached 还要结合自身融合坐标距离和保护逻辑。 |
 | `/ly/navi/reachable` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree` | 当前目标是否有有效路径；true=可达，false=不可达。 |
 | `/ly/navi/reach_state` | `auto_aim_common/msg/GoalReach` | `behavior_tree` -> diagnostics/consumers | BT 内部 composite goal reach state；包含 status、reason、goal id/坐标、external reached/reachable freshness、融合自身坐标距离、grace 和 timeout。 |
-| `/ly/navi/should_rotate` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree` | 区域兼容旋转控制；true=恢复 BT 正常小陀螺/巡逻，false=关闭小陀螺并请求 `FollowMode`。 |
+| `/ly/navi/should_rotate` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree`；可选 `gimbal_driver` debug | 区域兼容旋转控制；true=恢复 BT 正常小陀螺/巡逻，false=关闭小陀螺并请求 `FollowMode`。只有 `io_config.navigation_mode.enabled && should_rotate.enabled` 时 driver 才会为单独导航调试直接消费它。 |
 | `/ly/navi/speed_level` | `std_msgs/msg/UInt8` | `behavior_tree` -> navigation/兼容 | 导航速度档位。 |
 | `/ly/navi/lower_head` | `std_msgs/msg/UInt8` | navigation/兼容 -> `behavior_tree` | 低头/通过特定路径时的兼容状态。 |
-| `/ly/navi/vel` | `gimbal_driver/msg/Vel` | 导航/兼容/调试 | 正式链路由 BT 接收后转 `/ly/control/vel`；`gimbal_driver` 在 `io_config/navigation_test=true` 时可直接订阅，用于单独导航速度下发调试。 |
+| `/ly/navi/vel` | `gimbal_driver/msg/Vel` | 导航/兼容/调试 | 正式链路由 BT 接收后转 `/ly/control/vel`；`gimbal_driver` 仅在 legacy `io_config.navigation_test=true` 或 `io_config.navigation_mode.enabled && vel_chain=true` 时直接订阅，用于单独导航速度下发调试。 |
 
 追击多源退化顺序：`Chase.ToNavi=true` 时，BT 优先使用 `/ly/aim/armor_targets` 里当前选中目标的 point 发布 `/ly/navi/target_rel`，消息携带来源 frame（默认 `gimbal_world`），由 `navi_tf_bridge` 转成 `/goal_pose`。bridge 也会直接订阅 `/ly/aim/armor_targets`，把 array 中每个有效 target point 反算成 `/ly/navi/target_official`；BT 仅在对应敌方没有新鲜非零 `/ly/position/data` 时把它写回 `enemyRobots` 和 `/ly/enemy/info`。`Chase.AreaLimit` 来自 BT JSON：`/ly/aim/armor_targets` 追击路径由 `navi_tf_bridge` 限制 `/goal_pose`，全量 `/ly/navi/target_official` 只作为敌方位置 fallback，不直接发布导航目标；官方坐标 fallback 追击路径由 BT 在发布 `/ly/navi/goal_pos_raw` 前限制目标点。`ChaseEnableCrossArea=false` 时限制在自身当前大区域边界内侧；`true` 时可追到 `DecisionAutonomy.NaviGoal` 已开启的大区域，未开启区域仍不允许。该限制不关闭云台跟踪/开火。只有 `/ly/aim/armor_targets` 追击点不可用时，才退化到 `/ly/position/data` 官方坐标源。两条追击链路不会在同一 tick 同时作为有效导航目标发布。
 
@@ -149,7 +149,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 
 - `/ly/navi/reached` 和 `/ly/navi/reachable` 必须在当前 goal 发布后收到并保持新鲜，才能作为当前 goal 的外部状态源。
 - `/ly/navi/reached=false` 不是最终未到达事实；goal-start grace 后，BT 可用自身位置和目标点距离生成 composite reached，并通过 `/ly/navi/reach_state` 暴露完整状态。
-- `/ly/navi/should_rotate` 的新鲜度由 `NaviRotateControl.FreshTimeoutMs` 控制；新鲜 `true` 会按配置清掉外部置入的 `FollowMode`，但当前默认保留 regional 区域任务 FaceMode。默认超时后按允许旋转处理但不继续保留旧 `false`。
+- 正式 BT 链中，`/ly/navi/should_rotate` 的新鲜度由 `NaviRotateControl.FreshTimeoutMs` 控制；新鲜 `true` 会按配置清掉外部置入的 `FollowMode`，但当前默认保留 regional 区域任务 FaceMode。默认超时后按允许旋转处理，但不继续保留旧 `false`。driver-only `navigation_mode` 是不做 freshness arbitration 的调试 bypass，仅在启用时采用最后一笔 `should_rotate`。
 - topic 名是 `/ly/navi/reached`，不是 `/ly/navi/reach`。
 
 ## 6. Key Message Structures

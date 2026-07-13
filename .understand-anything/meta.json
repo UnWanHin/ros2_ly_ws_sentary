@@ -2,7 +2,7 @@
   "lastAnalyzedAt": "2026-07-13T00:00:00+08:00",
   "gitCommitHash": "8e041f5610a4e62b8bcb329e53fe974d3630d7dc",
   "workingTreeStatus": "dirty",
-  "lastCheckedNote": "Fallback graph source-checked against the current dirty worktree after the formal PreRoadland/Roadland split. PreRoadland is a same-level MainArea with MyPreRoadland (BaseGoalId 25); Roadland keeps its name but uses the former ReadyRoadLand boundary and preserves MyRoadland ID 21/22 crossing. UnitInfo adds stable area IDs 8/9 for my/enemy PreRoadland while retaining 0-7. The simulator now draws both formal main-area polygons separately from the RoadlandFollow crossing sub-area. Current formal chain is external /ly/aim/* + external TF/navigation -> behavior_tree -> /ly/control/* -> gimbal_driver -> lower controller. Six ROS packages remain.",
+  "lastCheckedNote": "Fallback graph source-checked against the current dirty worktree after the formal PreRoadland/Roadland split and gimbal_driver navigation_mode debug addition. PreRoadland is a same-level MainArea with MyPreRoadland (BaseGoalId 25); Roadland keeps its name but uses the former ReadyRoadLand boundary and preserves MyRoadland ID 21/22 crossing. UnitInfo adds stable area IDs 8/9 for my/enemy PreRoadland while retaining 0-7. The simulator now draws both formal main-area polygons separately from the RoadlandFollow crossing sub-area. Current formal chain is external /ly/aim/* + external TF/navigation -> behavior_tree -> /ly/control/* -> gimbal_driver -> lower controller; disabled-by-default navigation_mode can directly consume /ly/navi/vel and /ly/navi/should_rotate for driver-only debugging. Six ROS packages remain.",
   "version": "1.0.0",
   "analyzedFiles": 554,
   "generator": "local-understand-anything-compatible-fallback"

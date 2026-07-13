@@ -4,7 +4,7 @@ Generated: 2026-07-13T00:00:00+08:00
 
 Checked against HEAD: `8e041f5610a4e62b8bcb329e53fe974d3630d7dc` (dirty worktree)
 
-Current graph shape: 62 nodes, 57 edges, 6 layers.
+Current graph shape: 64 nodes, 61 edges, 6 layers.
 
 Current ROS packages covered by graph:
 
@@ -31,6 +31,7 @@ flowchart LR
   FACE -->|single decision| BT
   BRIDGE -->|/goal_pose| NAV[external navigation]
   NAV -->|reached / reachable / path| BT
+  NAV -.navigation_mode debug only:\n/ly/navi/vel + should_rotate.-> GD
   NAV -->|/ly/navi/path map/m + stamp| PATH[map_path_to_game_path_node]
   PATH -->|/ly/game/path official dm + stamp| GD
 
@@ -58,4 +59,5 @@ flowchart LR
 - `DownlinkTypeID=0x00~0x04` 為控制、SentryCmd、0x0307 路徑、0x0308 自訂訊息與自身座標。
 - `gimbal_driver` 的串口/下位機基線集中在 `src/gimbal_driver/config/gimbal_driver_config.yaml`；正式 `sentry_all` 會明確載入它。
 - `io_config.serial_mode=true` 時，逐 ID raw 觀測 topic 為 `/ly/upload/typeid0..10` 與 `/ly/download/typeid0x00..04`；語義 topic 保持不變。
+- `io_config.navigation_mode` 預設關閉；僅調試時可讓 `gimbal_driver` 直連 `/ly/navi/vel` 與 `/ly/navi/should_rotate`，正式導航控制仍經 BT 發布 `/ly/control/*`。
 - 本圖譜為 source-checked fallback；因本機沒有可用 Understand Anything plugin core，未執行 plugin regeneration。

@@ -177,8 +177,8 @@ bridge 固定 `intention=3`；最多 50 點，超出 `uint16` 起點或 `int8` d
 ├── lower_head    : std_msgs/msg/UInt8              [External] 导航兼容低头状态
 ├── reached       : std_msgs/msg/Bool               [External] 导航 -> BT，当前 goal 是否到达
 ├── reachable     : std_msgs/msg/Bool               [External] 导航 -> BT，当前 goal 是否可达
-├── should_rotate : std_msgs/msg/Bool               [External] 导航 -> BT，true 恢复正常巡逻，false 停小陀螺并请求 FollowMode
-└── vel           : gimbal_driver/msg/Vel           [External] 兼容/调试速度链路
+├── should_rotate : std_msgs/msg/Bool               [External] 导航 -> BT；navigation_mode debug 启用时也可直达 gimbal_driver，true 恢复配置 Rotate，false 停小陀螺并可置 FollowMode
+└── vel           : gimbal_driver/msg/Vel           [External] 正式经 BT 转 /ly/control/vel；navigation_mode debug 的可选直连速度链路
 
 /goal_pose : geometry_msgs/msg/PoseStamped  [External] navi_tf_bridge -> 外部导航最终目标
 ```

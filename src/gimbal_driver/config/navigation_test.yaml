@@ -1,7 +1,14 @@
 /**:
   ros__parameters:
-    # Overlay for standalone navigation velocity tests.
+    # Overlay for standalone navigation debug.
     # Keep disabled in normal sentry/BT launches.
     io_config:
-      navigation_test: true
+      navigation_mode:
+        enabled: true
+        vel_chain: true
+        rotate_level: 1
+        should_rotate:
+          enabled: true
       navigation_test_stale_timeout_ms: 500
+    # Slash key matches gimbal_driver's compatibility reader for this deep overlay field.
+    io_config/navigation_mode/should_rotate/follow_mode_when_false: true
