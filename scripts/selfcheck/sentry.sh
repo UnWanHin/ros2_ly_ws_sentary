@@ -318,6 +318,94 @@ check_bash_syntax() {
   fi
 }
 
+check_gimbal_debug_profile_contract() {
+  if python3 - "${ROOT_DIR}" <<'PY'
+import ast
+import re
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+baseline = root / "src/gimbal_driver/config/gimbal_driver_config.yaml"
+profile = root / "src/gimbal_driver/config/navigation_test.yaml"
+debug_launch = root / "src/gimbal_driver/launch/debug_node.launch.py"
+formal_launch = root / "src/behavior_tree/launch/sentry_all.launch.py"
+
+errors = []
+baseline_text = baseline.read_text(encoding="utf-8")
+forbidden = (
+    r"^\s*navigation_test\s*:",
+    r"^\s*navigation_test_stale_timeout_ms\s*:",
+    r"^\s*navigation_mode\s*:",
+    r"^\s*io_config/navigation_mode/should_rotate/follow_mode_when_false\s*:",
+)
+for pattern in forbidden:
+    if re.search(pattern, baseline_text, re.MULTILINE):
+        errors.append(f"formal baseline contains debug key matching {pattern}")
+
+profile_text = profile.read_text(encoding="utf-8")
+required_profile = (
+    r"(?ms)^\s*navigation_mode\s*:\s*$\n\s*enabled\s*:\s*true\s*(?:#.*)?$\n\s*vel_chain\s*:\s*true\s*(?:#.*)?$",
+    r"(?ms)^\s*should_rotate\s*:\s*$\n\s*enabled\s*:\s*true\s*(?:#.*)?$",
+    r"(?m)^\s*io_config/navigation_mode/should_rotate/follow_mode_when_false\s*:\s*true\s*(?:#.*)?$",
+)
+for pattern in required_profile:
+    if not re.search(pattern, profile_text):
+        errors.append(f"navigation debug profile missing {pattern}")
+
+if not debug_launch.is_file():
+    errors.append("debug_node.launch.py is missing")
+else:
+    debug_text = debug_launch.read_text(encoding="utf-8")
+    for token in ("IncludeLaunchDescription", "debug_config_file", "gimbal_driver.launch.py"):
+        if token not in debug_text:
+            errors.append(f"debug_node.launch.py missing {token}")
+    if 'forwarded_arguments["config_file"] = forwarded_arguments.pop("debug_config_file")' not in debug_text:
+        errors.append("debug_node.launch.py does not forward debug_config_file as the driver overlay")
+
+tree = ast.parse(formal_launch.read_text(encoding="utf-8"), filename=str(formal_launch))
+gimbal_nodes = []
+for node in ast.walk(tree):
+    if not isinstance(node, ast.Call):
+        continue
+    if not isinstance(node.func, ast.Name) or node.func.id != "Node":
+        continue
+    keywords = {item.arg: item.value for item in node.keywords if item.arg}
+    package = keywords.get("package")
+    executable = keywords.get("executable")
+    if not (
+        isinstance(package, ast.Constant) and package.value == "gimbal_driver"
+        and isinstance(executable, ast.Constant) and executable.value == "gimbal_driver_node"
+    ):
+        continue
+    params = keywords.get("parameters")
+    if not isinstance(params, ast.List):
+        errors.append("formal gimbal node parameters are not a list")
+        continue
+    names = {item.id for item in ast.walk(params) if isinstance(item, ast.Name)}
+    if "gimbal_driver_config_file" not in names:
+        errors.append("formal gimbal node does not load gimbal_driver_config_file")
+    forbidden_names = sorted(names & {"base_config_file", "config_file"})
+    if forbidden_names:
+        errors.append(
+            "formal gimbal node receives non-gimbal config: " + ", ".join(forbidden_names)
+        )
+    gimbal_nodes.append(node)
+
+if len(gimbal_nodes) != 2:
+    errors.append(f"expected two formal gimbal nodes, found {len(gimbal_nodes)}")
+
+if errors:
+    print("; ".join(errors), file=sys.stderr)
+    raise SystemExit(1)
+PY
+  then
+    pass "gimbal formal/debug configuration boundary contract"
+  else
+    fail "gimbal formal/debug configuration boundary contract"
+  fi
+}
+
 trim_text() {
   local text="$1"
   text="${text#"${text%%[![:space:]]*}"}"
@@ -673,6 +761,8 @@ if (( RUNTIME_ONLY == 0 )); then
   check_file_exists "${ROOT_DIR}/src/behavior_tree/Scripts/ConfigJson/regional/debug/navi_debug_competition.json"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/Scripts/ConfigJson/regional/debug/navi_debug_points.json"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/launch/sentry_all.launch.py"
+  check_file_exists "${ROOT_DIR}/src/gimbal_driver/config/gimbal_driver_config.yaml"
+  check_file_exists "${ROOT_DIR}/src/gimbal_driver/config/navigation_test.yaml"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/config/AreaManager.yaml"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/config/Base.yaml"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/config/PointManager.yaml"
@@ -781,6 +871,8 @@ if (( RUNTIME_ONLY == 0 )); then
   else
     fail "BT XML missing SelectStrategyMode node"
   fi
+
+  check_gimbal_debug_profile_contract
 fi
 
 if (( STATIC_ONLY == 0 )); then

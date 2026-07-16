@@ -919,9 +919,7 @@ def generate_launch_description():
                     name="gimbal_driver",
                     output=output,
                     parameters=[
-                        base_config_file,
                         gimbal_driver_config_file,
-                        config_file,
                         {
                             "io_config/firecode_partial_hold_ms": ParameterValue(
                                 firecode_partial_hold_ms, value_type=int
@@ -1012,9 +1010,7 @@ def generate_launch_description():
                     name="gimbal_driver",
                     output=output,
                     parameters=[
-                        base_config_file,
                         gimbal_driver_config_file,
-                        config_file,
                         {
                             "io_config/use_virtual_device": True,
                             "io_config.use_virtual_device": True,
