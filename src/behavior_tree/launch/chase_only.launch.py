@@ -37,8 +37,6 @@ def generate_launch_description():
         DeclareLaunchArgument("bt_config_file", default_value="Scripts/ConfigJson/league/chase_only_competition.json"),
         DeclareLaunchArgument("use_gimbal", default_value="true"),
         DeclareLaunchArgument("use_behavior_tree", default_value="true"),
-        DeclareLaunchArgument("use_tf_tree", default_value="false"),
-        DeclareLaunchArgument("tf_tree_params_file", default_value=""),
     ]
 
     include = IncludeLaunchDescription(
@@ -60,8 +58,6 @@ def generate_launch_description():
             "bt_config_file": LaunchConfiguration("bt_config_file"),
             "use_gimbal": LaunchConfiguration("use_gimbal"),
             "use_behavior_tree": LaunchConfiguration("use_behavior_tree"),
-            "use_tf_tree": LaunchConfiguration("use_tf_tree"),
-            "tf_tree_params_file": LaunchConfiguration("tf_tree_params_file"),
         }.items(),
     )
 

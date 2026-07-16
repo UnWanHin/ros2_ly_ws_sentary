@@ -15,15 +15,12 @@ from launch_ros.parameter_descriptions import ParameterValue
 def generate_launch_description():
     bridge_share = get_package_share_directory("navi_tf_bridge")
     gimbal_driver_share = get_package_share_directory("gimbal_driver")
-    tf_tree_share = get_package_share_directory("tf_tree")
 
     default_bridge_config = os.path.join(bridge_share, "config", "tf_config.yaml")
     default_gimbal_config = os.path.join(
         gimbal_driver_share, "config", "gimbal_driver_config.yaml"
     )
-    default_tf_tree_params = os.path.join(tf_tree_share, "config", "tf_tree.yaml")
     gimbal_launch = os.path.join(gimbal_driver_share, "launch", "gimbal_driver.launch.py")
-    tf_tree_launch = os.path.join(tf_tree_share, "launch", "tf_tree.launch.py")
 
     official_map_x = LaunchConfiguration("official_map_x")
     official_map_y = LaunchConfiguration("official_map_y")
@@ -73,10 +70,8 @@ def generate_launch_description():
         DeclareLaunchArgument("max_yaw_step_deg", default_value="0.0"),
         DeclareLaunchArgument("max_pitch_step_deg", default_value="0.0"),
         DeclareLaunchArgument("use_gimbal", default_value="true"),
-        DeclareLaunchArgument("use_tf_tree", default_value="false"),
         DeclareLaunchArgument("gimbal_config_file", default_value=default_gimbal_config),
         DeclareLaunchArgument("use_virtual_device", default_value="false"),
-        DeclareLaunchArgument("tf_tree_params_file", default_value=default_tf_tree_params),
         DeclareLaunchArgument("use_mock_map_to_base", default_value="false"),
         DeclareLaunchArgument("mock_map_to_base_x", default_value="0.0"),
         DeclareLaunchArgument("mock_map_to_base_y", default_value="0.0"),
@@ -171,13 +166,6 @@ def generate_launch_description():
                 "output": output,
             }.items(),
             condition=IfCondition(LaunchConfiguration("use_gimbal")),
-        ),
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(tf_tree_launch),
-            launch_arguments={
-                "params_file": LaunchConfiguration("tf_tree_params_file"),
-            }.items(),
-            condition=IfCondition(LaunchConfiguration("use_tf_tree")),
         ),
         Node(
             package="navi_tf_bridge",

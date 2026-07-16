@@ -59,7 +59,6 @@ def generate_launch_description():
         DeclareLaunchArgument("use_behavior_tree", default_value="true"),
         DeclareLaunchArgument("use_face_mode_solver", default_value="true"),
         DeclareLaunchArgument("use_navi_tf_bridge", default_value=""),
-        DeclareLaunchArgument("use_tf_tree", default_value="false"),
         DeclareLaunchArgument("face_mode_target_frame", default_value="official_map"),
         DeclareLaunchArgument("face_mode_use_raw_goal_static_calibration", default_value="true"),
         DeclareLaunchArgument("face_mode_raw_goal_target_frame", default_value="map"),
@@ -104,7 +103,6 @@ def generate_launch_description():
             "use_behavior_tree": LaunchConfiguration("use_behavior_tree"),
             "use_face_mode_solver": LaunchConfiguration("use_face_mode_solver"),
             "use_navi_tf_bridge": LaunchConfiguration("use_navi_tf_bridge"),
-            "use_tf_tree": LaunchConfiguration("use_tf_tree"),
             "face_mode_target_frame": LaunchConfiguration("face_mode_target_frame"),
             "face_mode_use_raw_goal_static_calibration": LaunchConfiguration(
                 "face_mode_use_raw_goal_static_calibration"

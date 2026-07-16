@@ -585,7 +585,7 @@ private:
     const auto target_camera = lookupTargetInFrame(
       camera_frame_,
       lookup_time,
-      "; frame '" + camera_frame_ + "' is absent. Start sentry_tf/tf_tree and make sure gimbal_barrel -> gx_camera is published");
+      "; frame '" + camera_frame_ + "' is absent. Start sentry_tf and make sure gimbal_barrel -> gx_camera is published");
     if (!target_camera) {
       return std::nullopt;
     }

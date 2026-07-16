@@ -9,7 +9,7 @@
 
 职责：
 - 拉起 gimbal_driver / navi_tf_bridge / FaceMode / behavior_tree。
-- TF 默認由外部 sentry_tf 提供；需要本倉 fallback 時可設 use_tf_tree:=true。
+- Gimbal TF 由外部 sentry_tf 提供。
 - 外部 aim 通过 /ly/aim/* 接入；本 launch 不再启动内部相机/辅瞄链。
 - 支持通过 offline 参数统一覆盖“虚拟串口 + 视频回放”。
 
@@ -98,15 +98,6 @@ def generate_launch_description():
             SetLaunchConfiguration("resolved_mode_kind", mode_kind),
             SetLaunchConfiguration("resolved_competition_profile", resolved_profile),
             SetLaunchConfiguration("resolved_bt_config_file", resolved_bt_config),
-        ]
-
-    def resolve_tf_tree_defaults(context):
-        tf_tree_params_file_raw = LaunchConfiguration("tf_tree_params_file").perform(context).strip()
-        resolved_tf_tree_params_file = (
-            tf_tree_params_file_raw if tf_tree_params_file_raw else default_tf_tree_params_file
-        )
-        return [
-            SetLaunchConfiguration("resolved_tf_tree_params_file", resolved_tf_tree_params_file),
         ]
 
     def resolve_rosbag_defaults(context):
@@ -254,9 +245,7 @@ def generate_launch_description():
     #   base + module + optional global override(config_file)
     behavior_tree_share = get_package_share_directory("behavior_tree")
     gimbal_driver_share = get_package_share_directory("gimbal_driver")
-    tf_tree_share = get_package_share_directory("tf_tree")
     behavior_tree_config_root = os.path.join(behavior_tree_share, "config")
-    tf_tree_launch_file = os.path.join(tf_tree_share, "launch", "tf_tree.launch.py")
     gimbal_driver_launch_file = os.path.join(
         gimbal_driver_share, "launch", "gimbal_driver.launch.py"
     )
@@ -270,7 +259,6 @@ def generate_launch_description():
         "config",
         "tf_config.yaml",
     ])
-    default_tf_tree_params_file = os.path.join(tf_tree_share, "config", "tf_tree.yaml")
     default_base_config_file = os.path.join(behavior_tree_config_root, "base_config.yaml")
     default_gimbal_driver_config_file = os.path.join(
         gimbal_driver_share, "config", "gimbal_driver_config.yaml"
@@ -346,7 +334,6 @@ def generate_launch_description():
 
     use_gimbal = LaunchConfiguration("use_gimbal")
     use_behavior_tree = LaunchConfiguration("use_behavior_tree")
-    use_tf_tree = LaunchConfiguration("use_tf_tree")
     use_navi_tf_bridge = LaunchConfiguration("use_navi_tf_bridge")
     use_face_mode_solver = LaunchConfiguration("use_face_mode_solver")
     resolved_use_navi_tf_bridge = LaunchConfiguration("resolved_use_navi_tf_bridge")
@@ -381,8 +368,6 @@ def generate_launch_description():
     resolved_chase_area_limit_hold_when_no_intersection = LaunchConfiguration(
         "resolved_chase_area_limit_hold_when_no_intersection"
     )
-    tf_tree_params_file = LaunchConfiguration("tf_tree_params_file")
-    resolved_tf_tree_params_file = LaunchConfiguration("resolved_tf_tree_params_file")
     offline = LaunchConfiguration("offline")
     resolved_mode_kind = LaunchConfiguration("resolved_mode_kind")
     resolved_competition_profile = LaunchConfiguration("resolved_competition_profile")
@@ -638,11 +623,6 @@ def generate_launch_description():
         DeclareLaunchArgument("use_gimbal", default_value="true"),
         DeclareLaunchArgument("use_behavior_tree", default_value="true"),
         DeclareLaunchArgument(
-            "use_tf_tree",
-            default_value="false",
-            description="Whether to launch local tf_tree fallback. Keep false when external sentry_tf is running.",
-        ),
-        DeclareLaunchArgument(
             "use_navi_tf_bridge",
             default_value="",
             description="Optional override. Empty means load NaviSetting.ToNavi from bt_config_file.",
@@ -653,11 +633,6 @@ def generate_launch_description():
             description="Launch map_aim_point_node in BT FaceMode mode: /ly/face_mode/target_raw -> /ly/face_mode/angles.",
         ),
         DeclareLaunchArgument(
-            "tf_tree_params_file",
-            default_value="",
-            description="Optional tf_tree params YAML path. Empty uses package default.",
-        ),
-        DeclareLaunchArgument(
             "offline",
             default_value="false",
             description="Offline profile: force virtual IO and video replay without editing YAML.",
@@ -665,7 +640,6 @@ def generate_launch_description():
         DeclareLaunchArgument("resolved_mode_kind", default_value=""),
         DeclareLaunchArgument("resolved_competition_profile", default_value=""),
         DeclareLaunchArgument("resolved_bt_config_file", default_value=""),
-        DeclareLaunchArgument("resolved_tf_tree_params_file", default_value=""),
         DeclareLaunchArgument("resolved_rosbag_base_dir", default_value=""),
         DeclareLaunchArgument("resolved_rosbag_path", default_value=""),
         DeclareLaunchArgument("resolved_use_navi_tf_bridge", default_value="true"),
@@ -681,7 +655,6 @@ def generate_launch_description():
         DeclareLaunchArgument("resolved_chase_area_limit_common_area", default_value=""),
         DeclareLaunchArgument("resolved_chase_area_limit_hold_when_no_intersection", default_value="true"),
         OpaqueFunction(function=resolve_mode_defaults),
-        OpaqueFunction(function=resolve_tf_tree_defaults),
         OpaqueFunction(function=resolve_rosbag_defaults),
         OpaqueFunction(function=resolve_navi_tf_bridge_defaults),
     ]
@@ -753,7 +726,6 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] decision_trace_enabled: ", decision_trace_enabled]),
         LogInfo(msg=["[sentry_all] decision_trace_file: ", decision_trace_file]),
         LogInfo(msg=["[sentry_all] decision_trace_every_n_ticks: ", decision_trace_every_n_ticks]),
-        LogInfo(msg=["[sentry_all] use_tf_tree: ", use_tf_tree]),
         LogInfo(msg=["[sentry_all] use_navi_tf_bridge: ", use_navi_tf_bridge]),
         LogInfo(msg=["[sentry_all] use_face_mode_solver: ", use_face_mode_solver]),
         LogInfo(msg=["[sentry_all] resolved_use_navi_tf_bridge: ", resolved_use_navi_tf_bridge]),
@@ -798,18 +770,9 @@ def generate_launch_description():
             "[sentry_all] chase_area_limit_hold_when_no_intersection: ",
             resolved_chase_area_limit_hold_when_no_intersection,
         ]),
-        LogInfo(msg=["[sentry_all] tf_tree_params_file: ", tf_tree_params_file]),
-        LogInfo(msg=["[sentry_all] resolved_tf_tree_params_file: ", resolved_tf_tree_params_file]),
     ]
 
     nodes = [
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(tf_tree_launch_file),
-            condition=IfCondition(use_tf_tree),
-            launch_arguments={
-                "params_file": resolved_tf_tree_params_file,
-            }.items(),
-        ),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(navi_tf_bridge_launch_file),
             condition=IfCondition(resolved_use_navi_tf_bridge),
