@@ -369,7 +369,7 @@ namespace BehaviorTree {
 
     void Application::PubPostureControlData() {
         // 0 作为“当前决策层不下发姿态”的保留值，避免影响现有链路。
-        if (postureCommand < 1 || postureCommand > 3) {
+        if (postureCommand < 1 || postureCommand > 6) {
             return;
         }
         gimbal_driver::msg::SentryCmd msg;

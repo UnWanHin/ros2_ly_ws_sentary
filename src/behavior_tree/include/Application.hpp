@@ -52,6 +52,7 @@
 #include "EventManager.hpp"
 #include "FaceModeManager.hpp"
 #include "PostureManager.hpp"
+#include "OutpostEngagementLock.hpp"
 #include "StrategyManager.hpp"
 
 using namespace BT;
@@ -479,6 +480,8 @@ private:
     EventManager eventManager_{};
     EventSnapshot eventSnapshot_{};
     PostureManager postureManager_{};
+    OutpostEngagementLock outpostEngagementLock_{};
+    OutpostEngagementDecision outpostEngagementDecision_{};
     StrategyManager strategyManager_{};
     RegionalDefenseSearchKind regionalDefenseSearchKind_{RegionalDefenseSearchKind::None};
     std::size_t regionalDefenseSearchIndex_{0};
@@ -815,6 +818,7 @@ public:
     void SetPositionByBaseGoal(std::uint8_t base_goal_id, UnitTeam team, bool apply_team_offset = true);
     std::uint8_t ResolveGoalId(std::uint8_t base_goal_id, UnitTeam team, bool apply_team_offset = true) const noexcept;
     void SetAimTarget();
+    void RefreshOutpostEngagementLock();
     void SetAimTargetNormal();
     bool TrySetAimTargetByAutonomy();
     void SetAimMode();

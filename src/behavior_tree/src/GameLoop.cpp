@@ -2259,6 +2259,9 @@ namespace BehaviorTree {
             }
             return true;
         };
+        if (outpostEngagementDecision_.HoldTarget && set_outpost_target()) {
+            return;
+        }
         if(aimMode == AimMode::Buff) { // 打符，修改为默认值
             if(has_self_position &&
                BehaviorTree::Area::BuffOutpost.near(self_position.X, self_position.Y, 100, MyTeam) &&
@@ -2301,6 +2304,48 @@ namespace BehaviorTree {
             LoggerPtr->Info("Target: {}", static_cast<int>(targetArmor.Type));
         }
 
+    }
+
+    void Application::RefreshOutpostEngagementLock() {
+        const auto now = std::chrono::steady_clock::now();
+        const auto& outpost = config.TaskSettings.OutpostConfirm;
+        const int fresh_ms = std::max(0, outpost.RefereeFreshTimeoutMs);
+        const bool enemy_hp_fresh = lastEnemyOutpostHealthRxTime_.time_since_epoch().count() != 0 &&
+            now - lastEnemyOutpostHealthRxTime_ <= std::chrono::milliseconds(fresh_ms);
+        const bool self_hp_fresh = hasReceivedSentryInfo_ &&
+            lastSentryInfoRxTime_.time_since_epoch().count() != 0 &&
+            now - lastSentryInfoRxTime_ <= std::chrono::milliseconds(fresh_ms);
+        auto referee_timer = postureRefereeTimer_;
+        if (referee_timer.HasInfo3 && referee_timer.AgeMeasuredAt.time_since_epoch().count() != 0) {
+            const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                now - referee_timer.AgeMeasuredAt).count();
+            referee_timer.Fresh = static_cast<std::uint64_t>(referee_timer.AgeMs) +
+                static_cast<std::uint64_t>(std::max<decltype(elapsed_ms)>(elapsed_ms, 0)) <=
+                static_cast<std::uint64_t>(std::max(0, config.PostureSettings.RefereeInfo3FreshMs));
+        }
+        const auto reach = EvaluateBaseGoalReach(LangYa::BuffOutpost.ID, team, true);
+        outpostEngagementLock_.Configure({
+            .Enable = outpost.TrustEnemyOutpostHp,
+            .EnhancedAttackOnEnemyHpDrop = outpost.EnhancedAttackOnEnemyHpDrop,
+            .NormalAttackLockExitHp = static_cast<std::uint16_t>(std::clamp(outpost.NormalAttackLockExitHp, 0, 400)),
+            .EnhancedAttackLockExitHp = static_cast<std::uint16_t>(std::clamp(outpost.EnhancedAttackLockExitHp, 0, 400)),
+        });
+        outpostEngagementDecision_ = outpostEngagementLock_.Tick(now, {
+            .Target7Fresh = OutpostAimFreshAndValid(),
+            .SelectedTarget7 = targetArmor.Type == ArmorType::Outpost,
+            .EnemyHpFresh = enemy_hp_fresh,
+            .EnemyHp = enemyOutpostHealth,
+            .SelfHpFresh = self_hp_fresh,
+            .SelfHp = myselfHealth,
+            .NavigationReachable = reach.Status != GoalReachStatus::Unreachable,
+            .Posture = postureManager_.Runtime(),
+            .PostureCooldownReady = postureManager_.IsSwitchCooldownReady(now),
+            .EnhancedAttackRemainingFresh = referee_timer.Fresh,
+            .EnhancedAttackRemainingSec = referee_timer.EnhancedRemainingSec[static_cast<std::size_t>(SentryPosture::Attack)],
+        });
+        if (outpostEngagementDecision_.CancelPending) {
+            postureManager_.CancelPending();
+        }
     }
 
     bool Application::TrySetAimTargetByAutonomy() {

@@ -8,7 +8,10 @@ behavior_tree:
       Buff: false  # 联调时禁用 Buff 任务。
       Outpost: true  # 联调时强制允许前哨任务。
       OutpostConfirm:
-        TrustEnemyOutpostHp: false  # 不用 op_hp 作为前哨存活 gate，便于视觉联调。
+        TrustEnemyOutpostHp: true  # 联调也使用官方 op_hp 作为前哨存活 gate。
+        EnhancedAttackOnEnemyHpDrop: true
+        NormalAttackLockExitHp: 200
+        EnhancedAttackLockExitHp: 250
         MaxGameTimeSec: 0  # 0 关闭开局前哨时间窗口限制。
         MinSelfHp: 0  # 联调不限制最低血量。
         MinAmmo: 0  # 联调不限制最低弹量。

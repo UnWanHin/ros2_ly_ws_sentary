@@ -11,7 +11,10 @@ behavior_tree:
         RefereeFreshTimeoutMs: 2000  # 裁判血量/资源信息的新鲜度（毫秒）。
         # false: 不把下位機刷來的 /ly/enemy/op_hp 當前哨存活/已毀 gate。
         # 這樣 op_hp=0 只當 unknown，前哨能靠 /ly/aim 目標和 visual scout 繼續進任務。
-        TrustEnemyOutpostHp: false
+        TrustEnemyOutpostHp: true  # 官方 /ly/enemy/op_hp 是前哨正式存活 gate。
+        EnhancedAttackOnEnemyHpDrop: true  # 连续锁 7 时，敌方前哨新鲜掉血可申请一次强化进攻。
+        NormalAttackLockExitHp: 200  # 普通进攻锁在自身血量小于等于此值时释放。
+        EnhancedAttackLockExitHp: 250  # 强化进攻 pending/active 时的释放阈值。
         # 兼容原有邏輯：開局 120 秒內才主動打前哨；設 0 可關閉時間窗口。
         MaxGameTimeSec: 120  # 主动前哨的开局时间窗（秒）；0 表示关闭时间窗。
         # 低於這些資源門檻時不主動打前哨；資料不新鮮時不因 freshness 抖動退出，低血/低彈由 Hard Recovery 優先處理。

@@ -500,7 +500,10 @@ namespace LangYa
 
     struct OutpostConfirmSetting {
         int RefereeFreshTimeoutMs{2000};
-        bool TrustEnemyOutpostHp{false};
+        bool TrustEnemyOutpostHp{true};
+        bool EnhancedAttackOnEnemyHpDrop{true};
+        int NormalAttackLockExitHp{200};
+        int EnhancedAttackLockExitHp{250};
         int MaxGameTimeSec{120};
         int MinSelfHp{150};
         int MinAmmo{30};

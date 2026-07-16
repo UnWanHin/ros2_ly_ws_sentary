@@ -320,7 +320,7 @@ git commit -m "behavior_tree: add outpost engagement lock"
 - Modify: `src/behavior_tree/src/PostureLogic.cpp`
 - Modify: `src/behavior_tree/src/PublishMessage.cpp`
 
-- [ ] **Step 1: Add config ownership and validation**
+- [x] **Step 1: Add config ownership and validation**
 
 Extend `OutpostConfirmSetting`, JSON parsing, ROS parameter overrides, debug print, and validation with:
 
@@ -335,19 +335,19 @@ Task:
 
 Set `Task.yaml` formal default `TrustEnemyOutpostHp: true`; set the same key in `OutpostRegionalTest.yaml` so its launch also exercises official HP gating. Add `EnhancedAttackOnEnemyHpDrop{true}`, `NormalAttackLockExitHp{200}`, and `EnhancedAttackLockExitHp{250}` to `LangYa::OutpostConfirmSetting`; parse the exact JSON/YAML keys above and accept the matching ROS override spellings `Task.OutpostConfirm.<Key>` and `Task/OutpostConfirm/<Key>`. Clamp both exit HP fields to `0..400`; a negative override restores its documented default. Keep every existing VisualScout key unchanged.
 
-- [ ] **Step 2: Refresh lock after `SetAimTarget()`**
+- [x] **Step 2: Refresh lock after `SetAimTarget()`**
 
 At the end of `SelectAimTargetNode::tick()` call `app_->RefreshOutpostEngagementLock()`. Construct the pure input from target id, fresh external target cache, `enemyOutpostHealth`/timestamp, own HP/timestamp, `EvaluateBaseGoalReach()` status, `postureManager_.Runtime()`, and fresh `postureRefereeTimer_.EnhancedRemainingSec[Attack]`. Call `postureManager_.CancelPending()` before the next posture tick when the decision sets `CancelPending`.
 
-- [ ] **Step 3: Preserve 7 only while the lock owns it**
+- [x] **Step 3: Preserve 7 only while the lock owns it**
 
 In `SetAimMode()`, prevent the ordinary armor interrupt and damage-abort branch from replacing a held target. Keep HP zero/stale, unreachable, RuntimeGuard, and the lock's 200/250 exits higher priority. In `SetAimTarget()`, use the existing `set_outpost_target()` path while `HoldTarget`; otherwise leave ordinary selection untouched. In `UpdatePostureCommand()`, submit the lock intent using `PostureRequestPolicy::OutpostLock()`; otherwise use existing posture selection.
 
-- [ ] **Step 4: Permit existing posture publisher to send 1..6**
+- [x] **Step 4: Permit existing posture publisher to send 1..6**
 
 Change only the range guard in `PubPostureControlData()` from `1..3` to `1..6`; preserve `FIELD_POSTURE` and `raw = postureCommand << 21`.
 
-- [ ] **Step 5: Build and test integration**
+- [x] **Step 5: Build and test integration**
 
 ```bash
 bash -lc 'source /opt/ros/humble/setup.bash && source /home/hiraeth/Documents/DirtroBox/Ubuntu-22.04/sentry.common/install/setup.bash && colcon build --packages-select behavior_tree --event-handlers console_direct+'
@@ -355,7 +355,7 @@ bash -lc 'source /opt/ros/humble/setup.bash && source /home/hiraeth/Documents/Di
 bash -lc 'source /opt/ros/humble/setup.bash && source /home/hiraeth/Documents/DirtroBox/Ubuntu-22.04/sentry.common/install/setup.bash && colcon test-result --verbose'
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/behavior_tree/module/BasicTypes.hpp src/behavior_tree/src/Configuration.cpp src/behavior_tree/config/Task.yaml src/behavior_tree/config/OutpostRegionalTest.yaml src/behavior_tree/Scripts/ConfigJson/regional_competition.json src/behavior_tree/include/Application.hpp src/behavior_tree/include/BTNodes.hpp src/behavior_tree/src/GameLoop.cpp src/behavior_tree/src/PostureLogic.cpp src/behavior_tree/src/PublishMessage.cpp

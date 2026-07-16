@@ -408,7 +408,21 @@ void Application::UpdatePostureCommand(const bool has_target) {
             static_cast<std::uint64_t>(std::max<decltype(elapsed_ms)>(elapsed_ms, 0));
         referee_timer.Fresh = current_age_ms <= static_cast<std::uint64_t>(fresh_limit_ms);
     }
-    const auto decision = postureManager_.Tick(now, desired, postureState, referee_timer);
+    PostureMode requested{desired, false};
+    auto request_policy = PostureRequestPolicy{};
+    if (outpostEngagementDecision_.Intent.has_value()) {
+        requested = *outpostEngagementDecision_.Intent;
+        request_policy = PostureRequestPolicy::OutpostLock();
+    }
+    const auto decision = postureManager_.Tick(
+        now,
+        requested,
+        {postureState, referee_timer.Enhanced, IsValidPosture(ToPosture(postureState)), referee_timer.Fresh},
+        referee_timer,
+        request_policy);
+    if (outpostEngagementDecision_.EnhancedPending && std::string_view(decision.Reason) == "pending_preserved") {
+        outpostEngagementLock_.MarkEnhancedUnavailable();
+    }
     postureCommand = decision.Command;
     const auto& runtime = postureManager_.Runtime();
 

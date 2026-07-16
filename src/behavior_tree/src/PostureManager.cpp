@@ -271,4 +271,8 @@ void PostureManager::CancelPending() noexcept {
     runtime_.RetryCount = 0;
 }
 
+bool PostureManager::IsSwitchCooldownReady(const TimePoint now) const noexcept {
+    return !runtime_.HasPending && now - last_switch_ >= std::chrono::seconds(config_.SwitchCooldownSec);
+}
+
 }  // namespace BehaviorTree

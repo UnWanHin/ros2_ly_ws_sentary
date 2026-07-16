@@ -33,6 +33,7 @@ public:
         const PostureRefereeTimer& referee_timer = {});
 
     void CancelPending() noexcept;
+    bool IsSwitchCooldownReady(TimePoint now) const noexcept;
 
     const PostureRuntime& Runtime() const noexcept { return runtime_; }
 

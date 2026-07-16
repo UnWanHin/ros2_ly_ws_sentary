@@ -240,6 +240,7 @@ public:
 
     BT::NodeStatus tick() override {
         app_->SetAimTarget();
+        app_->RefreshOutpostEngagementLock();
         const auto tick_board = app_->GetTickBlackboard();
         if (tick_board) {
             tick_board->set("TargetArmor", app_->GetTargetArmorCopy());

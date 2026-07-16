@@ -682,6 +682,9 @@ namespace LangYa {
     void from_json(const json& j, OutpostConfirmSetting& os) {
         os.RefereeFreshTimeoutMs = j.value("RefereeFreshTimeoutMs", os.RefereeFreshTimeoutMs);
         os.TrustEnemyOutpostHp = j.value("TrustEnemyOutpostHp", os.TrustEnemyOutpostHp);
+        os.EnhancedAttackOnEnemyHpDrop = j.value("EnhancedAttackOnEnemyHpDrop", os.EnhancedAttackOnEnemyHpDrop);
+        os.NormalAttackLockExitHp = j.value("NormalAttackLockExitHp", os.NormalAttackLockExitHp);
+        os.EnhancedAttackLockExitHp = j.value("EnhancedAttackLockExitHp", os.EnhancedAttackLockExitHp);
         os.MaxGameTimeSec = j.value("MaxGameTimeSec", os.MaxGameTimeSec);
         os.MinSelfHp = j.value("MinSelfHp", os.MinSelfHp);
         os.MinAmmo = j.value("MinAmmo", os.MinAmmo);
@@ -1512,6 +1515,27 @@ namespace BehaviorTree {
                 "Task/OutpostConfirm/TrustEnemyOutpostHp"
             },
             config.TaskSettings.OutpostConfirm.TrustEnemyOutpostHp);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "Task.OutpostConfirm.EnhancedAttackOnEnemyHpDrop",
+                "Task/OutpostConfirm/EnhancedAttackOnEnemyHpDrop"
+            },
+            config.TaskSettings.OutpostConfirm.EnhancedAttackOnEnemyHpDrop);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.OutpostConfirm.NormalAttackLockExitHp",
+                "Task/OutpostConfirm/NormalAttackLockExitHp"
+            },
+            config.TaskSettings.OutpostConfirm.NormalAttackLockExitHp);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.OutpostConfirm.EnhancedAttackLockExitHp",
+                "Task/OutpostConfirm/EnhancedAttackLockExitHp"
+            },
+            config.TaskSettings.OutpostConfirm.EnhancedAttackLockExitHp);
         ReadOptionalIntParam(
             node_,
             {
