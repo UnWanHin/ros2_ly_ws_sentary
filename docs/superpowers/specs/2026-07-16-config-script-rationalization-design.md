@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed — 已確認採三批處理；本文件等待工程內審後才開始改動 runtime config 或刪除入口。
+Accepted — 第一批盤點已完成；後續只對有刪除證據的候選或明確確認的介面 migration 改動。
 
 ## Context
 
@@ -22,6 +22,8 @@ Proposed — 已確認採三批處理；本文件等待工程內審後才開始�
 2. 移除已由 source、launch、測試與文件交叉證明不再使用的檔案。
 3. 將空的 compatibility config 與純轉發 wrapper 視為獨立 migration，而不是未經驗證的順手刪除。
 4. 每一批都有可回退的單一提交、文件與驗證證據。
+5. 保留 `common.yaml` 作為現場操作 profile；其日誌、rosbag、raw serial 觀測與明確 stack 級
+   override 不因形式上的單一 owner 原則而遷出。
 
 ## Non-goals
 
@@ -41,7 +43,7 @@ Proposed — 已確認採三批處理；本文件等待工程內審後才開始�
 | `navi_calib.yaml`、`tf_*_points_example.yaml` | calibration input 與範例 | 保留；工具與文件仍使用。 |
 | `src/tf_tree/config/tf_tree.yaml` | tf_tree runtime／FaceMode 可選 fallback | 保留；多個 launch 有引用。 |
 | simulator YAML | simulator runtime、asset manifest、visual QA | 保留；由 automated tests 與 offline workflow 使用。 |
-| `config/common.yaml` | wrapper 營運選項，且目前也會變成 BT/driver inline ROS parameter override | 需在第三批遷移；不能直接刪，因其覆蓋優先序目前有效。 |
+| `config/common.yaml` | wrapper 的現場操作 profile，且目前也會變成 BT/driver inline ROS parameter override | 保留；不能直接刪，因其覆蓋優先序目前有效。 |
 | `config/base_config.yaml`、`config/override_config.yaml` | 現為空的 launch compatibility layers | 需在第三批遷移；仍被 launch、wrapper、selfcheck 接受。 |
 
 ## Script inventory policy
@@ -74,7 +76,6 @@ Proposed — 已確認採三批處理；本文件等待工程內審後才開始�
 
 只在明確確認後處理：
 
-- `common.yaml` 的 package runtime key 回歸該 package baseline；
 - 空 `base_config.yaml`／`override_config.yaml` 的 launch argument 被 deprecated 或移除；
 - 薄 wrapper 收斂為一份官方 CLI，並保留或移除 alias。
 
@@ -84,7 +85,7 @@ Proposed — 已確認採三批處理；本文件等待工程內審後才開始�
 
 沒有單一全專案 YAML precedence。第一批必須逐入口記錄：
 
-- `sentry_all.launch.py`：package config file → launch parameter list → wrapper 從 `common.yaml` 解析出的 inline parameter；後者可覆蓋前者。
+- `sentry_all.launch.py`：package config file → launch parameter list → wrapper 從 `common.yaml` 解析出的 inline parameter；後者作為現場操作 profile 可覆蓋前者，且此順序必須保留在文件與 launch log。
 - `debug_node.launch.py`：driver baseline → `debug_config_file` → explicit CLI parameter。
 - navi bridge：`tf_config.yaml` → launch argument / selected BT JSON 解析出的 inline override。
 - 直接 launch 與 wrapper 的預設路徑可能不同：前者可讀 installed package share，後者可傳 source workspace 的絕對路徑；盤點必須把這點列出。

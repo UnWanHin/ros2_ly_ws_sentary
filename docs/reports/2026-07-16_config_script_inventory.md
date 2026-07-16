@@ -12,7 +12,7 @@ Updated: 2026-07-16
 目前結論：
 
 - 保留：有正式 launch、node、測試、校準工具或離線 workflow consumer。
-- 保留但需遷移設計：config/base_config.yaml、config/override_config.yaml、
+- 保留並明確記錄：config/base_config.yaml、config/override_config.yaml、
   config/common.yaml 與薄 wrapper；它們仍是公開 CLI／有效 precedence 的一部分。
 - 尚無可刪候選：唯一有完整替代與零 consumer 證據的 scripts/navi/navi_vel_chain.{sh,py}
   已在提交 5a4c1c8 移除，由 gimbal_driver/debug_node.launch.py + debug_mode.yaml 取代。
@@ -25,7 +25,7 @@ Updated: 2026-07-16
 | YAML | owner／分類 | 已確認 consumer | 結論 |
 | --- | --- | --- | --- |
 | config/base_config.yaml | workspace compatibility baseline | sentry_all.launch.py、decision_chase.launch.py、navi_control_chain.sh、selfcheck | 保留；目前空值不代表沒有 CLI 合約。 |
-| config/common.yaml | wrapper 營運與 inline override | scripts/launch/start_sentry_all.sh、map_aim_point_test.sh | 保留；含目前會覆蓋 package YAML 的 runtime key。 |
+| config/common.yaml | wrapper 的現場操作 profile | scripts/launch/start_sentry_all.sh、map_aim_point_test.sh | 保留；集中日誌、rosbag、raw serial 觀測與明確的 stack 級覆蓋。 |
 | config/override_config.yaml | workspace compatibility override | sentry_all.launch.py、decision_chase.launch.py、navi_control_chain.sh、selfcheck | 保留；空檔仍提供 config_file 覆蓋入口。 |
 | scripts/feature_test/config/sentry_feature_test.yaml | feature-test scenario | scripts/feature_test/run_feature_test.sh | 保留；是該框架的預設輸入。 |
 | src/behavior_tree/config/AreaManager.yaml | BT 區域、位置融合正式 baseline | sentry_all.launch.py、behavior_tree.launch.py | 保留。 |
@@ -66,7 +66,7 @@ Updated: 2026-07-16
 | 入口 | 有效載入／覆蓋順序 | 說明 |
 | --- | --- | --- |
 | ros2 launch behavior_tree sentry_all.launch.py | package config 預設／明確 config file → launch parameter list | 正式 stack；gimbal node 只接收 driver baseline 與正式 launch override。 |
-| scripts/launch/start_sentry_all.sh | wrapper 解析 common.yaml → 呼叫 sentry_all.launch.py → wrapper 轉出的 inline ROS parameters 為最後層 | common.yaml 的 firecode、velocity、StartGate、FaceMode key 可覆蓋 package YAML。 |
+| scripts/launch/start_sentry_all.sh | wrapper 解析 common.yaml → 呼叫 sentry_all.launch.py → wrapper 轉出的 inline ROS parameters 為最後層 | common.yaml 是現場操作 profile；其 firecode、velocity、StartGate、FaceMode key 可明確覆蓋 package YAML。 |
 | ros2 launch behavior_tree behavior_tree.launch.py | AreaManager.yaml → Task.yaml → NaviRotateControl.yaml → PointManager.yaml → Patrol.yaml → Special.yaml → CLI | standalone path 不載入 Base.yaml，也沒有 sentry_all 的 inline ExternalAim／StartGate/manual-goal 層。 |
 | ros2 launch gimbal_driver gimbal_driver.launch.py | gimbal_driver_config.yaml → config_file（若明確指定）→ CLI | 安全的單節點正式 driver 預設；不帶 navigation direct-debug。 |
 | ros2 launch gimbal_driver debug_node.launch.py | gimbal_driver_config.yaml → debug_config_file（預設 debug_mode.yaml）→ explicit CLI | 唯一允許 driver 直連 /ly/navi/vel 與 /ly/navi/should_rotate 的入口。 |
@@ -113,7 +113,7 @@ Updated: 2026-07-16
 | 項目 | 為何現在不能刪 | 若日後要處理 |
 | --- | --- | --- |
 | config/base_config.yaml、config/override_config.yaml | 雖是空 ROS parameter map，仍被 launch、wrapper、selfcheck 接受。 | 先設計 deprecated argument 或移除 migration，列 old/new CLI 對照。 |
-| common.yaml 的 driver／BT runtime key | wrapper 會把它轉為最後的 inline override。 | 將 key 移回 package owner，並用 launch log／parameter dump 比對新舊 precedence。 |
+| common.yaml 的 driver／BT runtime key | wrapper 會把它轉為最後的 inline override，且這是現場操作 profile 的既有用途。 | 保留；在 common.yaml、啟動文件與本表維持清楚 precedence 說明。 |
 | 區域、巡邏、start/debug 薄 wrapper | 是可直接使用的既有 CLI，且有 dispatcher／文件入口。 | 明確決定官方命令集合後，先發 migration note，再刪 alias。 |
 | tf_config.yaml 兩段 raw_goal_transform_matrix | 是 node-scoped ROS params，目前兩個 node 都需要。 | 另立 calibration-source 設計，不能以單純文字去重。 |
 | OutpostRegionalTest.yaml、examples、simulator QA YAML | 有 launch、校準或測試 consumer。 | 不列候選。 |
@@ -127,8 +127,8 @@ Updated: 2026-07-16
 
 ## 已知架構風險（不在本批修改）
 
-- common.yaml 混合營運設定與 module runtime key，讓 YAML owner 和最終 precedence 不一致。
-  這是第三批 migration 的最高優先級。
+- common.yaml 同時保存日誌／rosbag／raw serial 觀測與少數 stack 級 runtime override。這是
+  合理的現場操作 profile；維護重點是讓其覆蓋關係可見，而非強制把每個 key 移出。
 - tf_config.yaml 在 target_rel_to_goal_pos_node 與 map_path_to_game_path_node 各保留一份
   static calibration matrix；兩份資料可漂移。pointer_solver_node.cpp 另有 raw-text 讀 bridge
   config 的行為，應與 calibration source 一起設計，不宜在這次盤點中順手改。

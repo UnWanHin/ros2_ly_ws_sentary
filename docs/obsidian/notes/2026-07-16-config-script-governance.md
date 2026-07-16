@@ -29,22 +29,23 @@ updated: 2026-07-16
    為 launcher、工具、shared library 或薄 wrapper。
 2. **有證據的刪除**：只有 source、launch、test、package install、現行文件和 git history 都證明
    沒有 consumer，且替代入口已驗證時，才建立獨立刪除提交。
-3. **介面 migration**：才處理 empty compatibility config、common.yaml 的跨 owner override、
-   薄 wrapper alias 與 calibration source 去漂移；每項先給 old/new CLI 對照和回退方式。
+3. **介面 migration**：才處理 empty compatibility config、薄 wrapper alias 與 calibration
+   source 去漂移；每項先給 old/new CLI 對照和回退方式。
 
 ## 目前不可刪的項目
 
 - config/base_config.yaml 與 config/override_config.yaml 雖是空 parameter map，仍是多個 launch、
   wrapper 與 selfcheck 接受的 CLI 介面。
-- config/common.yaml 目前會轉成最後一層 inline ROS parameter override；移除或搬遷 key 會改變
-  正式 stack precedence。
+- config/common.yaml 是現場操作 profile：日誌、rosbag、raw serial 觀測與少數 stack 級
+  override 由 wrapper 轉成最後一層 inline ROS parameter。這個覆蓋關係應被記錄與維持，
+  不應為了形式上的單一 owner 而移除。
 - 薄 wrapper 仍是既有的直接命令／dispatcher 入口；它們不是重複 runtime 實作。
 - [[src/behavior_tree/config/NaviRotateControl.yaml|NaviRotateControl]] 屬正式 BT 仲裁；
   [[src/gimbal_driver/config/debug_mode.yaml|debug_mode]] 屬單節點 driver direct-debug，不能合併。
 
 ## 後續追蹤
 
-- 第三批最高優先級是把 common.yaml 的 package runtime key 回歸其唯一 owner，並以 parameter dump
-  比較新舊 precedence。
+- 下一個實際 cleanup 候選應以無 consumer 的檔案或已確認廢棄的 alias 為準；現有 common.yaml
+  不是刪除候選。
 - tf_config.yaml 的兩份 raw goal calibration matrix 與 pointer solver 的 raw config reader
   需要獨立設計單一 calibration source，不在本盤點順手修改。
