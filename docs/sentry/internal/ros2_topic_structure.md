@@ -2,7 +2,7 @@
 
 > 当前正式辅瞄输入仅为外部 `/ly/aim/*`。本文件中的 `auto_aim_common` 旧消息定义是接口库存，不代表仍有内部 detector/tracker/predictor 节点或 topic。
 
-Updated: 2026-07-12
+Updated: 2026-07-16
 
 本文记录当前哨兵上位机 ROS2 topic 结构，按接口边界分为：
 
@@ -141,7 +141,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/navi/should_rotate` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree`；可选 `gimbal_driver` debug | 区域兼容旋转控制；true=恢复 BT 正常小陀螺/巡逻，false=关闭小陀螺并请求 `FollowMode`。`NaviRotateControl.SetPostureToMoveWhenFalse=true` 时，新鲜 false 也只在 BT 本拍请求 Move 姿态，仍经既有姿态冷却/pending 机制。只有 `io_config.navigation_mode.enabled && should_rotate.enabled` 时 driver 才会为单独导航调试直接消费它。 |
 | `/ly/navi/speed_level` | `std_msgs/msg/UInt8` | `behavior_tree` -> navigation/兼容 | 导航速度档位。 |
 | `/ly/navi/lower_head` | `std_msgs/msg/UInt8` | navigation/兼容 -> `behavior_tree` | 低头/通过特定路径时的兼容状态。 |
-| `/ly/navi/vel` | `gimbal_driver/msg/Vel` | 导航/兼容/调试 | 正式链路由 BT 接收后转 `/ly/control/vel`；`gimbal_driver` 仅在 legacy `io_config.navigation_test=true` 或 `io_config.navigation_mode.enabled && vel_chain=true` 时直接订阅，用于单独导航速度下发调试。 |
+| `/ly/navi/vel` | `gimbal_driver/msg/Vel` | 导航/兼容/调试 | 正式链路由 BT 接收后转 `/ly/control/vel`。推荐的单节点直连调试入口是 `ros2 launch gimbal_driver debug_node.launch.py`，其 `debug_mode.yaml` 明确设置 `io_config.navigation_mode.enabled=true` 与 `vel_chain=true`；driver 仍保留 `io_config.navigation_test=true` 作为旧脚本兼容入口。正式 `sentry_all` 不会从 root YAML 路由这两种导航直连键。 |
 
 追击多源退化顺序：`Chase.ToNavi=true` 时，BT 优先使用 `/ly/aim/armor_targets` 里当前选中目标的 point 发布 `/ly/navi/target_rel`，消息携带来源 frame（默认 `gimbal_world`），由 `navi_tf_bridge` 转成 `/goal_pose`。bridge 也会直接订阅 `/ly/aim/armor_targets`，把 array 中每个有效 target point 反算成 `/ly/navi/target_official`；BT 仅在对应敌方没有新鲜非零 `/ly/position/data` 时把它写回 `enemyRobots` 和 `/ly/enemy/info`。`Chase.AreaLimit` 来自 BT JSON：`/ly/aim/armor_targets` 追击路径由 `navi_tf_bridge` 限制 `/goal_pose`，全量 `/ly/navi/target_official` 只作为敌方位置 fallback，不直接发布导航目标；官方坐标 fallback 追击路径由 BT 在发布 `/ly/navi/goal_pos_raw` 前限制目标点。`ChaseEnableCrossArea=false` 时限制在自身当前大区域边界内侧；`true` 时可追到 `DecisionAutonomy.NaviGoal` 已开启的大区域，未开启区域仍不允许。该限制不关闭云台跟踪/开火。只有 `/ly/aim/armor_targets` 追击点不可用时，才退化到 `/ly/position/data` 官方坐标源。两条追击链路不会在同一 tick 同时作为有效导航目标发布。
 

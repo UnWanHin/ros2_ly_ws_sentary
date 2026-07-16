@@ -191,7 +191,7 @@ main()
 | `/ly/control/map_path` (`MapPath`) | `MapPathFrame` | `0x02` 裁判 `0x0307` 小地圖路徑 |
 | `/ly/control/custom_info` (`CustomInfo`) | `CustomInfoFrame` | `0x03` 裁判 `0x0308` UTF-16 文字 |
 | `/ly/bt/sentry_position` (`PointStamped`) | `SentryCoordinateFrame.X_cm/Y_cm` | BT 融合後自身坐標，m 轉 cm 後下發 |
-| `/ly/navi/vel` (`Vel`) | `GimbalControlFrame.Velocity.X/Y` | 僅 `navigation_test=true` 或 `navigation_mode.enabled && vel_chain` 時直連調試；正式鏈仍經 BT。 |
+| `/ly/navi/vel` (`Vel`) | `GimbalControlFrame.Velocity.X/Y` | `debug_node.launch.py` 預設以 `debug_mode.yaml` 啟用 `navigation_mode.enabled && vel_chain` 直連調試；`navigation_test=true` 仍保留給舊腳本相容。正式鏈仍經 BT，`sentry_all` 不路由這兩種導航直連鍵。 |
 | `/ly/navi/should_rotate` (`std_msgs/Bool`) | `GimbalControlFrame.FireCode.Rotate/FollowMode` | 僅 `navigation_mode.enabled && should_rotate.enabled` 時採用；false 停 Rotate，FollowMode 是否置 1 由 YAML 控制。 |
 
 姿態下發採用獨立 `0x01` frame：
