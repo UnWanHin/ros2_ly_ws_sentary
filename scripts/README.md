@@ -67,7 +67,7 @@ scripts/
 - `scripts/start/`、`scripts/debug/`、`scripts/selfcheck/` 是你平时真正需要打开的分类入口。
 - `scripts/debug/` 是有意暴露出来的稳定调试接口；即使里面有 wrapper，也保留给人直接找命令用。
 - `scripts/launch/` 只保留完整/决策 stack；少量历史命令只做兼容转发。辅瞄、导航、标定分别在 `scripts/aim/`、`scripts/navi/`、`scripts/tools/`。
-- 根层 `config/` 只放全局共享配置，例如 `base_config.yaml`、`override_config.yaml`、`common.yaml`。
+- 根层 `config/` 放 wrapper 操作 profile 與舊 gimbal 相容入口：`base_config.yaml`、`override_config.yaml`、`common.yaml`。前兩者只會把安全的 `io_config.*` 值路由到正式 driver，不是全局 YAML 注入。
 - `behavior_tree` 自己的状态机/任务开关配置放在 `src/behavior_tree/config/`，例如 `AreaManager.yaml`、`Base.yaml`、`Task.yaml`。
 - 功能测试配置放在 `scripts/feature_test/config/`。
 - 旧的根目录壳脚本已经删掉，避免同一件事出现两三个名字。

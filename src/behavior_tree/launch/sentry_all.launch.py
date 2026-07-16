@@ -22,7 +22,7 @@ from datetime import datetime
 from pathlib import Path
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess, GroupAction, IncludeLaunchDescription, LogInfo, OpaqueFunction, SetLaunchConfiguration, Shutdown
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, IncludeLaunchDescription, LogInfo, OpaqueFunction, SetLaunchConfiguration, Shutdown
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
@@ -257,6 +257,9 @@ def generate_launch_description():
     tf_tree_share = get_package_share_directory("tf_tree")
     behavior_tree_config_root = os.path.join(behavior_tree_share, "config")
     tf_tree_launch_file = os.path.join(tf_tree_share, "launch", "tf_tree.launch.py")
+    gimbal_driver_launch_file = os.path.join(
+        gimbal_driver_share, "launch", "gimbal_driver.launch.py"
+    )
     navi_tf_bridge_launch_file = PathJoinSubstitution([
         FindPackageShare("navi_tf_bridge"),
         "launch",
@@ -687,10 +690,7 @@ def generate_launch_description():
     rosbag_enabled_expr = PythonExpression([
         "'", rosbag, "'.lower() in ", truthy_values
     ])
-    hardware_io_expr = PythonExpression([
-        "'", offline, "'.lower() not in ", truthy_values
-    ])
-    virtual_io_expr = PythonExpression([
+    gimbal_use_virtual_device = PythonExpression([
         "'", offline, "'.lower() in ", truthy_values
     ])
     info_logs = [
@@ -817,7 +817,7 @@ def generate_launch_description():
                 "input_topic": "/ly/navi/target_rel",
                 "input_goal_pos_raw_topic": "/ly/navi/goal_pos_raw",
                 "output_goal_pose_topic": "/goal_pose", #"output_goal_pose_topic": "/goal_pose_debug"
-                "publish_goal_pose": "true", #"publish_goal_pose": navi_publish_goal_pose,
+                "publish_goal_pose": navi_publish_goal_pose,
                 "publish_goal_pos": "false",
                 "enable_goal_pos_raw_bridge": "true",
                 "goal_pos_raw_frame": "map",
@@ -910,195 +910,30 @@ def generate_launch_description():
             output=output,
             condition=IfCondition(rosbag_enabled_expr),
         ),
-        # gimbal_driver: offline=true forces use_virtual_device.
-        GroupAction(
-            actions=[
-                Node(
-                    package="gimbal_driver",
-                    executable="gimbal_driver_node",
-                    name="gimbal_driver",
-                    output=output,
-                    parameters=[
-                        gimbal_driver_config_file,
-                        {
-                            "io_config/firecode_partial_hold_ms": ParameterValue(
-                                firecode_partial_hold_ms, value_type=int
-                            ),
-                            "io_config.firecode_partial_hold_ms": ParameterValue(
-                                firecode_partial_hold_ms, value_type=int
-                            ),
-                            "io_config/velocity_raw_to_mps": ParameterValue(
-                                velocity_raw_to_mps, value_type=float
-                            ),
-                            "io_config.velocity_raw_to_mps": ParameterValue(
-                                velocity_raw_to_mps, value_type=float
-                            ),
-                            "io_config/raw_serial_log_enable": ParameterValue(
-                                gimbal_raw_log_enable, value_type=bool
-                            ),
-                            "io_config.raw_serial_log_enable": ParameterValue(
-                                gimbal_raw_log_enable, value_type=bool
-                            ),
-                            "io_config/raw_serial_log_uplink": ParameterValue(
-                                gimbal_raw_log_uplink, value_type=bool
-                            ),
-                            "io_config.raw_serial_log_uplink": ParameterValue(
-                                gimbal_raw_log_uplink, value_type=bool
-                            ),
-                            "io_config/raw_serial_log_downlink": ParameterValue(
-                                gimbal_raw_log_downlink, value_type=bool
-                            ),
-                            "io_config.raw_serial_log_downlink": ParameterValue(
-                                gimbal_raw_log_downlink, value_type=bool
-                            ),
-                            "io_config/raw_serial_log_screen": ParameterValue(
-                                gimbal_raw_log_screen, value_type=bool
-                            ),
-                            "io_config.raw_serial_log_screen": ParameterValue(
-                                gimbal_raw_log_screen, value_type=bool
-                            ),
-                            "io_config/raw_serial_log_flush": ParameterValue(
-                                gimbal_raw_log_flush, value_type=bool
-                            ),
-                            "io_config.raw_serial_log_flush": ParameterValue(
-                                gimbal_raw_log_flush, value_type=bool
-                            ),
-                            "io_config/raw_serial_log_dir": ParameterValue(
-                                gimbal_raw_log_dir, value_type=str
-                            ),
-                            "io_config.raw_serial_log_dir": ParameterValue(
-                                gimbal_raw_log_dir, value_type=str
-                            ),
-                            "io_config/raw_serial_log_type_ids": ParameterValue(
-                                gimbal_raw_log_type_ids, value_type=str
-                            ),
-                            "io_config.raw_serial_log_type_ids": ParameterValue(
-                                gimbal_raw_log_type_ids, value_type=str
-                            ),
-                            "io_config/raw_serial_topic_enable": ParameterValue(
-                                gimbal_raw_topic_enable, value_type=bool
-                            ),
-                            "io_config.raw_serial_topic_enable": ParameterValue(
-                                gimbal_raw_topic_enable, value_type=bool
-                            ),
-                            "io_config/raw_serial_topic_uplink": ParameterValue(
-                                gimbal_raw_topic_uplink, value_type=bool
-                            ),
-                            "io_config.raw_serial_topic_uplink": ParameterValue(
-                                gimbal_raw_topic_uplink, value_type=bool
-                            ),
-                            "io_config/raw_serial_topic_downlink": ParameterValue(
-                                gimbal_raw_topic_downlink, value_type=bool
-                            ),
-                            "io_config.raw_serial_topic_downlink": ParameterValue(
-                                gimbal_raw_topic_downlink, value_type=bool
-                            ),
-                            "io_config/raw_serial_topic_type_ids": ParameterValue(
-                                gimbal_raw_topic_type_ids, value_type=str
-                            ),
-                            "io_config.raw_serial_topic_type_ids": ParameterValue(
-                                gimbal_raw_topic_type_ids, value_type=str
-                            ),
-                        },
-                    ],
-                    on_exit=Shutdown(reason="gimbal_driver exited"),
-                    condition=IfCondition(hardware_io_expr),
-                ),
-                Node(
-                    package="gimbal_driver",
-                    executable="gimbal_driver_node",
-                    name="gimbal_driver",
-                    output=output,
-                    parameters=[
-                        gimbal_driver_config_file,
-                        {
-                            "io_config/use_virtual_device": True,
-                            "io_config.use_virtual_device": True,
-                            "io_config/firecode_partial_hold_ms": ParameterValue(
-                                firecode_partial_hold_ms, value_type=int
-                            ),
-                            "io_config.firecode_partial_hold_ms": ParameterValue(
-                                firecode_partial_hold_ms, value_type=int
-                            ),
-                            "io_config/velocity_raw_to_mps": ParameterValue(
-                                velocity_raw_to_mps, value_type=float
-                            ),
-                            "io_config.velocity_raw_to_mps": ParameterValue(
-                                velocity_raw_to_mps, value_type=float
-                            ),
-                            "io_config/raw_serial_log_enable": ParameterValue(
-                                gimbal_raw_log_enable, value_type=bool
-                            ),
-                            "io_config.raw_serial_log_enable": ParameterValue(
-                                gimbal_raw_log_enable, value_type=bool
-                            ),
-                            "io_config/raw_serial_log_uplink": ParameterValue(
-                                gimbal_raw_log_uplink, value_type=bool
-                            ),
-                            "io_config.raw_serial_log_uplink": ParameterValue(
-                                gimbal_raw_log_uplink, value_type=bool
-                            ),
-                            "io_config/raw_serial_log_downlink": ParameterValue(
-                                gimbal_raw_log_downlink, value_type=bool
-                            ),
-                            "io_config.raw_serial_log_downlink": ParameterValue(
-                                gimbal_raw_log_downlink, value_type=bool
-                            ),
-                            "io_config/raw_serial_log_screen": ParameterValue(
-                                gimbal_raw_log_screen, value_type=bool
-                            ),
-                            "io_config.raw_serial_log_screen": ParameterValue(
-                                gimbal_raw_log_screen, value_type=bool
-                            ),
-                            "io_config/raw_serial_log_flush": ParameterValue(
-                                gimbal_raw_log_flush, value_type=bool
-                            ),
-                            "io_config.raw_serial_log_flush": ParameterValue(
-                                gimbal_raw_log_flush, value_type=bool
-                            ),
-                            "io_config/raw_serial_log_dir": ParameterValue(
-                                gimbal_raw_log_dir, value_type=str
-                            ),
-                            "io_config.raw_serial_log_dir": ParameterValue(
-                                gimbal_raw_log_dir, value_type=str
-                            ),
-                            "io_config/raw_serial_log_type_ids": ParameterValue(
-                                gimbal_raw_log_type_ids, value_type=str
-                            ),
-                            "io_config.raw_serial_log_type_ids": ParameterValue(
-                                gimbal_raw_log_type_ids, value_type=str
-                            ),
-                            "io_config/raw_serial_topic_enable": ParameterValue(
-                                gimbal_raw_topic_enable, value_type=bool
-                            ),
-                            "io_config.raw_serial_topic_enable": ParameterValue(
-                                gimbal_raw_topic_enable, value_type=bool
-                            ),
-                            "io_config/raw_serial_topic_uplink": ParameterValue(
-                                gimbal_raw_topic_uplink, value_type=bool
-                            ),
-                            "io_config.raw_serial_topic_uplink": ParameterValue(
-                                gimbal_raw_topic_uplink, value_type=bool
-                            ),
-                            "io_config/raw_serial_topic_downlink": ParameterValue(
-                                gimbal_raw_topic_downlink, value_type=bool
-                            ),
-                            "io_config.raw_serial_topic_downlink": ParameterValue(
-                                gimbal_raw_topic_downlink, value_type=bool
-                            ),
-                            "io_config/raw_serial_topic_type_ids": ParameterValue(
-                                gimbal_raw_topic_type_ids, value_type=str
-                            ),
-                            "io_config.raw_serial_topic_type_ids": ParameterValue(
-                                gimbal_raw_topic_type_ids, value_type=str
-                            ),
-                        },
-                    ],
-                    on_exit=Shutdown(reason="gimbal_driver exited"),
-                    condition=IfCondition(virtual_io_expr),
-                ),
-            ],
+        # gimbal_driver owns formal baseline + root-config compatibility routing.
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(gimbal_driver_launch_file),
             condition=IfCondition(use_gimbal),
+            launch_arguments={
+                "base_config_file": gimbal_driver_config_file,
+                "legacy_base_config_file": base_config_file,
+                "legacy_config_file": config_file,
+                "output": output,
+                "use_virtual_device": gimbal_use_virtual_device,
+                "firecode_partial_hold_ms": firecode_partial_hold_ms,
+                "velocity_raw_to_mps": velocity_raw_to_mps,
+                "raw_log_enable": gimbal_raw_log_enable,
+                "raw_log_uplink": gimbal_raw_log_uplink,
+                "raw_log_downlink": gimbal_raw_log_downlink,
+                "raw_log_screen": gimbal_raw_log_screen,
+                "raw_log_flush": gimbal_raw_log_flush,
+                "raw_log_dir": gimbal_raw_log_dir,
+                "raw_log_type_ids": gimbal_raw_log_type_ids,
+                "raw_topic_enable": gimbal_raw_topic_enable,
+                "raw_topic_uplink": gimbal_raw_topic_uplink,
+                "raw_topic_downlink": gimbal_raw_topic_downlink,
+                "raw_topic_type_ids": gimbal_raw_topic_type_ids,
+            }.items(),
         ),
         # 最后启动 behavior_tree（决策接管）
         Node(

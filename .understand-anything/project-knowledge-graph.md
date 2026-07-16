@@ -1,10 +1,10 @@
 # ros2_ly_ws_sentry Knowledge Graph
 
-Generated: 2026-07-16T00:00:00+00:00
+Generated: 2026-07-16T20:25:00+00:00
 
-Checked against HEAD: `f01fc6e056e8992124b1cc46e12f4491bacb5fc4` (dirty integration worktree; source-only audit)
+Checked against HEAD: `ec75e667e03c7d62985752cf35c27b65e3128ad7` (dirty compatibility worktree; source + targeted runtime audit)
 
-Current graph shape: 72 nodes, 82 edges, 6 layers.
+Current graph shape: 73 nodes, 85 edges, 6 layers.
 
 Current ROS packages covered by graph:
 
@@ -59,8 +59,8 @@ flowchart LR
 - `auto_aim_common` 是正式共用介面包：`GoalReach` 用於 reached 狀態，`RelativeTarget` 用於導航追擊。
 - `TypeID=10` 提供 `sentry_info_3` 和精確敵我前哨血量；TypeID=1 的 `GameCode * 25` 只作 fallback。
 - `DownlinkTypeID=0x00~0x04` 為控制、SentryCmd、0x0307 路徑、0x0308 自訂訊息與自身座標。
-- `gimbal_driver` 的串口/下位機基線集中在 `src/gimbal_driver/config/gimbal_driver_config.yaml`；正式 `sentry_all` 只會載入它，不會把全域 YAML 注入 driver。
+- `gimbal_driver` 的串口/下位機基線集中在 `src/gimbal_driver/config/gimbal_driver_config.yaml`；正式 `sentry_all` 透過 `gimbal_driver.launch.py` 載入它，並只把 root `base_config_file`／`config_file` 的安全 `io_config` 相容鍵路由給 driver，絕不把全域 YAML 注入 BT、導航或 FaceMode。
 - `io_config.serial_mode=true` 時，逐 ID raw 觀測 topic 為 `/ly/upload/typeid0..10` 與 `/ly/download/typeid0x00..04`；語義 topic 保持不變。
-- `io_config.navigation_mode` 僅由 `src/gimbal_driver/config/debug_mode.yaml` 的單節點 `debug_node.launch.py` profile 啟用；`gimbal_driver` 直接把 `/ly/navi/vel` 與 `/ly/navi/should_rotate` 轉為下位機控制，正式導航控制仍經 BT 發布 `/ly/control/*`。
-- 2026-07-16 source audit 補上 JSON graph 的 aim feedback、`/ly/control/sentry_cmd`、FaceMode solver、BT 0x04 position downlink、導航 feedback、`debug_node -> debug_mode.yaml` profile 與正確的 `tf_tree -> navi_tf_bridge` fallback；targeted build、static selfcheck 與虛擬 `debug_node` launch 均已在 source ROS Humble、`sentry.common`、本 workspace 後通過，尚未做完整 `sentry_all` runtime graph 驗證。
+- `io_config.navigation_mode` 的預設單節點 profile 是 `src/gimbal_driver/config/debug_mode.yaml`，由 `debug_node.launch.py` 載入；`gimbal_driver` 直接把 `/ly/navi/vel` 與 `/ly/navi/should_rotate` 轉為下位機控制，正式導航控制仍經 BT 發布 `/ly/control/*`。正式 root 相容路由明確略過 `navigation_test`／`navigation_mode`。
+- 2026-07-16 source audit 補上 JSON graph 的 aim feedback、`/ly/control/sentry_cmd`、FaceMode solver、BT 0x04 position downlink、導航 feedback、`debug_node -> debug_mode.yaml` profile、root gimbal compatibility routing 與正確的 `tf_tree -> navi_tf_bridge` fallback；targeted build、static selfcheck 與正式 offline virtual-driver smoke 均已在 source ROS Humble、`sentry.common`、本 workspace 後通過，尚未做完整 external aim runtime graph 驗證。
 - 本圖譜為 source-checked fallback；因本機沒有可用 Understand Anything plugin core，未執行 plugin regeneration。

@@ -76,10 +76,10 @@ ros2 launch gimbal_driver debug_node.launch.py use_virtual_device:=true
 時效，以及 raw serial 診斷的唯一正式基線。YAML 只保留一套 nested `io_config` 設定，
 避免相同值維護兩次；`main.cpp` 仍相容 slash 與 dot 兩種 launch/CLI 參數寫法。
 
-正式 `sentry_all.launch.py` 的 gimbal 只載入 `gimbal_driver_config.yaml`，再套用明確的正式
-launch/CLI 覆蓋；跨模組 `base_config.yaml` 與全域 `override_config.yaml` 不會傳入 driver。
-單獨啟動 `gimbal_driver.launch.py` 也只讀這份 module baseline。`main.cpp` 對導航 debug 的
-預設值為關閉，因此正式基線刻意不宣告任何 navigation debug key。
+正式 `sentry_all.launch.py` 先載入 `gimbal_driver_config.yaml`，再將 root `base_config.yaml`、
+`override_config.yaml` 中安全的 legacy `io_config.*` 鍵轉譯為 driver 覆蓋，最後套用明確的
+launch/CLI 覆蓋；root YAML 不會傳入其他節點。單獨啟動 `gimbal_driver.launch.py` 預設只讀
+module baseline。`main.cpp` 對導航 debug 的預設值為關閉，因此正式基線刻意不宣告任何 navigation debug key。
 
 ### 導航直連調試
 
@@ -94,7 +94,7 @@ launch/CLI 覆蓋；跨模組 `base_config.yaml` 與全域 `override_config.yaml
 | `should_rotate.enabled` | true 時訂閱 `/ly/navi/should_rotate` (`std_msgs/Bool`)。true 恢復 `rotate_level`，false 將 Rotate 置 0。 |
 | `should_rotate.follow_mode_when_false` | true 時，`should_rotate=false` 另置 `FollowMode=1`；收到 true 時清除這個 debug FollowMode。YAML 以 `io_config/navigation_mode/should_rotate/follow_mode_when_false` slash-key 寫入，確保 overlay 可覆蓋。 |
 
-`config/debug_mode.yaml` 是唯一的單節點 driver debug profile：開啟 `/ly/navi/vel` 速度直連與
+`config/debug_mode.yaml` 是預設的單節點 driver debug profile：開啟 `/ly/navi/vel` 速度直連與
 `should_rotate`，預設 Rotate 為 1。請用 `debug_node.launch.py` 載入，它的順序固定為：
 正式 baseline → `debug_config_file`（預設 `debug_mode.yaml`）→ 明確 CLI 覆蓋。
 
@@ -102,6 +102,11 @@ launch/CLI 覆蓋；跨模組 `base_config.yaml` 與全域 `override_config.yaml
 下位機速度，不再經由舊的 Python velocity bridge。它不得與正在發布正式 `/ly/control/*` 的 BT
 同時使用；之後若有其他 driver 單節點調試 profile，可用
 `debug_config_file:=<profile.yaml>` 載入，無需改動正式入口。
+
+相容舊啟動腳本時，`sentry_all` 仍接受 `base_config_file:=...` 與 `config_file:=...`：其中僅
+`io_config.*` 的非導航直連鍵會依 base、override 順序路由到 driver，最後仍由明確 CLI 覆蓋。
+舊 YAML 的 slash-key 會正規化為 dot-key，以符合 driver 現有 dot-key 優先序；`navigation_test` 和
+`navigation_mode` 會記錄為略過，避免正式 `/ly/control/*` 與 debug 直連同時寫下位機控制 frame。
 
 ### SerialMode Raw 觀測
 

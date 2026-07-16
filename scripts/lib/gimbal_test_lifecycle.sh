@@ -22,7 +22,7 @@ gimbal_test_launch_driver() {
 
   echo "[${label}][INFO] Launching gimbal_driver with config=${config_file} use_virtual_device=${use_virtual_device}" >&2
   ros2 launch gimbal_driver gimbal_driver.launch.py \
-    "config_file:=${config_file}" \
+    "base_config_file:=${config_file}" \
     "use_virtual_device:=${use_virtual_device}" \
     "output:=${output_mode}" \
     "$@" &

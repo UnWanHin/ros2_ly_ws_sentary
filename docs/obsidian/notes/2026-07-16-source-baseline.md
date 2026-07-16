@@ -30,18 +30,18 @@ updated: 2026-07-16
 
 ## 圖譜與驗收狀態
 
-- `.understand-anything/` 在本次 source audit 已更新到 HEAD `d4777589`，並補齊 aim feedback、`sentry_cmd`、FaceMode solver、BT 0x04、導航 feedback 和正確 `tf_tree -> navi_tf_bridge` fallback 關係。
+- `.understand-anything/` 的現有 source audit 曾補齊 aim feedback、`sentry_cmd`、FaceMode solver、BT 0x04、導航 feedback 和正確 `tf_tree -> navi_tf_bridge` fallback 關係；後續 runtime/graph 變更應重新核對其 HEAD 與計數。
 - Obsidian generated index 已涵蓋 package、message 與可靜態辨識的 `/ly/...` topic；手寫理解與調查保留在 `docs/obsidian/notes/`。
-- 本環境已以 ROS Humble Bash 完成完整 `colcon build`（六個 package 全部成功），並在依序 source ROS Humble、`../sentry.common/install/setup.bash`、本 workspace 後通過 static selfcheck（105 PASS、0 WARN、0 FAIL）。formal aim 的 launch／runtime graph 驗證仍為 **pending**；可用外部 navigation、TF 與下位機／offline substitute 時，再執行 `./scripts/selfcheck.sh sentry --launch --wait 10`。
+- 本環境已以 ROS Humble Bash 完成完整 `colcon build`（六個 package 全部成功）。正式 external aim runtime graph 驗證仍為 **pending**；可用外部 navigation、TF 與下位機／offline substitute 時，再執行 `./scripts/selfcheck.sh sentry --launch --wait 10`。
 - GitHub issue workflow 也為 **pending**：repo 規定用 `gh`，但本環境未安裝 `gh`。目前工作樹另有大量 `100644 -> 100755` mode-only noise，開始工程前應先確定它是否為 mount／檔案系統副作用，避免污染 review。
 
-## 本輪再核對（不改 runtime）
+## 本輪相容修復與驗收
 
-- `navi_publish_goal_pose` 是 `sentry_all.launch.py` 的已宣告 launch argument，但現行 bridge include 固定傳入 `publish_goal_pose: "true"`；因此傳 `navi_publish_goal_pose:=false` **目前不會關閉** bridge 的 `/goal_pose` 輸出。後續做離線／導航調參時，應以此為已知行為，待有明確需求再決定是否修正介面。
-- 重新完成 `obsidian_sync.py --check`（0 write／0 delete／0 conflict）、其 11 個 pytest 回歸測試、JSON／Python 語法檢查、`git diff --check`，以及 `./scripts/selfcheck.sh sentry --static-only`（105 PASS、0 WARN、0 FAIL）。
+- `navi_publish_goal_pose` 已由 `sentry_all.launch.py` 原樣轉交 bridge；傳 `navi_publish_goal_pose:=false` 會關閉 bridge 的 `/goal_pose` 輸出。這不改變 BT 的 `/ly/navi/goal_pos_raw` 發布，只控制 bridge 的 PoseStamped 輸出。
+- 已完成 `obsidian_sync.py --check`（0 write／0 delete／0 conflict）、JSON／Python 語法檢查、`git diff --check`，以及 source ROS Humble、`sentry.common`、本 workspace 後的 `./scripts/selfcheck.sh sentry --static-only`（108 PASS、0 WARN、0 FAIL）。
 - Distrobox 環境已補齊 `python3-pip` 與符合 `src/simulator/requirements.txt` 的 user-site `pygame 2.6.1`（`/usr/bin/python3` 解析到此版本）；Ubuntu 的 `python3-pygame` 亦已安裝作系統基線。`src/tf_tree/src/tf_node.cpp` 已用 ROS Humble 既有 uncrustify 規則格式化，未改行為。
 - 在此環境重新跑完整 `colcon build && colcon test && colcon test-result --verbose`：六個 package 全部 build 完成，181 tests、0 errors、0 failures、1 skipped。這取代本 note 先前的 simulator 缺件與 tf_tree formatting 失敗紀錄。
-- 工作樹的 mode-only noise 已量化為 473 個 `100644 -> 100755` 變更；本輪只新增本人工 note，未調整任何 ROS runtime／介面／測試原始碼。
+- 本輪修復 `navi_publish_goal_pose` forwarding、gimbal lifecycle virtual override 與 root gimbal compatibility routing；正式 offline virtual-driver smoke 已通過。未執行外部 aim 的完整 runtime graph 驗收。
 
 
 ## 來源

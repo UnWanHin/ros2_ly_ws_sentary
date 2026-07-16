@@ -136,11 +136,11 @@ flowchart LR
 
 ### 配置歸屬
 
-根目錄 `config/base_config.yaml` 僅保留跨模組共享基線。所有 `gimbal_driver` 串口、下位機、
-裁判下行、路徑/座標時效和 raw 上下行診斷參數集中於
-`src/gimbal_driver/config/gimbal_driver_config.yaml`。正式 `sentry_all` 以
-`base_config.yaml → gimbal_driver_config.yaml → override_config.yaml → CLI` 的順序載入；
-因此搬移不改變預設 `/dev/ttyACM0`、`115200`、raw RX topic 或任何 TypeID/DownlinkTypeID 行為。
+所有 `gimbal_driver` 串口、下位機、裁判下行、路徑/座標時效和 raw 上下行診斷基線集中於
+`src/gimbal_driver/config/gimbal_driver_config.yaml`。正式 `sentry_all` 的 driver 順序是
+`gimbal_driver baseline → legacy base_config_file 的安全 io_config 鍵 → legacy config_file 的安全 io_config 鍵 → 明確 CLI`。
+這保留舊 root YAML 的 gimbal 覆蓋功能，但不會把 root YAML 注入 BT、導航或 FaceMode；
+`navigation_test`／`navigation_mode` 等直連調試鍵只可由單節點 debug profile 載入。
 
 | 類別 | 是否 `sentry_all` 正式主鏈 | 說明 |
 |---|---:|---|

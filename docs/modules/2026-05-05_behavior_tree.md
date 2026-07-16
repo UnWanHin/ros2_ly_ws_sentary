@@ -349,8 +349,8 @@ void TreeTick() {
 - `./scripts/start.sh gated`
   - 啟動時會交互選擇 `league/regional`（或直接傳 `--mode`）
   - 腳本會自動對齊 `competition_profile` 與 `bt_config_file`
-  - 默認分層注入：`scripts/config/base_config.yaml` + `src/*/config/*_config.yaml` + `scripts/config/override_config.yaml`
-  - `config_file` 只作為最後覆蓋層，顯式傳入時覆蓋 `override_config.yaml`
+  - 默認由 `src/behavior_tree/config/*.yaml` 與 BT JSON 分層注入；不存在 `scripts/config/` 目錄
+  - root `base_config_file`／`config_file` 僅為舊 gimbal IO 覆蓋入口，不會覆蓋 BT 參數
 - `./scripts/start.sh gated --mode league`
   - 非交互固定聯盟賽
 - `./scripts/start.sh gated --mode regional`

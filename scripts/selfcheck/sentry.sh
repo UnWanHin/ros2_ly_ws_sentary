@@ -320,16 +320,19 @@ check_bash_syntax() {
 
 check_gimbal_debug_profile_contract() {
   if python3 - "${ROOT_DIR}" <<'PY'
-import ast
+import importlib.util
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 root = Path(sys.argv[1])
 baseline = root / "src/gimbal_driver/config/gimbal_driver_config.yaml"
 profile = root / "src/gimbal_driver/config/debug_mode.yaml"
 debug_launch = root / "src/gimbal_driver/launch/debug_node.launch.py"
+driver_launch = root / "src/gimbal_driver/launch/gimbal_driver.launch.py"
 formal_launch = root / "src/behavior_tree/launch/sentry_all.launch.py"
+gimbal_lifecycle = root / "scripts/lib/gimbal_test_lifecycle.sh"
 legacy_velocity_files = (
     root / "scripts/navi/navi_vel_chain.sh",
     root / "scripts/navi/navi_vel_chain.py",
@@ -370,41 +373,66 @@ else:
     if 'forwarded_arguments["config_file"] = forwarded_arguments.pop("debug_config_file")' not in debug_text:
         errors.append("debug_node.launch.py does not forward debug_config_file as the driver overlay")
 
+if not driver_launch.is_file():
+    errors.append("gimbal_driver.launch.py is missing")
+else:
+    driver_text = driver_launch.read_text(encoding="utf-8")
+    if '"io_config/use_virtual_device": ParameterValue(' not in driver_text:
+        errors.append("gimbal use_virtual_device is not normalized to a bool parameter")
+    if "LaunchConfiguration(arg_name), value_type=bool" not in driver_text:
+        errors.append("gimbal forwarded bool overrides are not typed substitutions")
+    spec = importlib.util.spec_from_file_location("gimbal_driver_launch", driver_launch)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        legacy_base = Path(tmp_dir) / "legacy_base.yaml"
+        legacy_override = Path(tmp_dir) / "legacy_override.yaml"
+        legacy_base.write_text(
+            """/**:\n  ros__parameters:\n    io_config:\n      device_name: /dev/legacy\n      navigation_mode:\n        enabled: true\n    io_config/raw_serial_log_enable: false\n""",
+            encoding="utf-8",
+        )
+        legacy_override.write_text(
+            """/**:\n  ros__parameters:\n    io_config:\n      device_name: /dev/override\n      serial_mode: true\n    io_config/navigation_test: true\n""",
+            encoding="utf-8",
+        )
+        parameters, ignored = module.load_legacy_gimbal_parameters(
+            [legacy_base, legacy_override]
+        )
+        if parameters.get("io_config.device_name") != "/dev/override":
+            errors.append("legacy gimbal override does not win over legacy base")
+        if parameters.get("io_config.serial_mode") is not True:
+            errors.append("legacy nested gimbal parameter is not routed to gimbal_driver")
+        if "io_config.raw_serial_log_enable" not in parameters:
+            errors.append("legacy slash gimbal parameter is not normalized for dot-key precedence")
+        if any(key.startswith("io_config.navigation") for key in parameters):
+            errors.append("formal legacy config permits navigation direct-debug keys")
+        if not {"io_config.navigation_mode.enabled", "io_config.navigation_test"} <= set(ignored):
+            errors.append("formal legacy config does not report blocked navigation debug keys")
+
 for legacy_file in legacy_velocity_files:
     if legacy_file.exists():
         errors.append(f"legacy direct velocity bridge still exists: {legacy_file.relative_to(root)}")
 
-tree = ast.parse(formal_launch.read_text(encoding="utf-8"), filename=str(formal_launch))
-gimbal_nodes = []
-for node in ast.walk(tree):
-    if not isinstance(node, ast.Call):
-        continue
-    if not isinstance(node.func, ast.Name) or node.func.id != "Node":
-        continue
-    keywords = {item.arg: item.value for item in node.keywords if item.arg}
-    package = keywords.get("package")
-    executable = keywords.get("executable")
-    if not (
-        isinstance(package, ast.Constant) and package.value == "gimbal_driver"
-        and isinstance(executable, ast.Constant) and executable.value == "gimbal_driver_node"
-    ):
-        continue
-    params = keywords.get("parameters")
-    if not isinstance(params, ast.List):
-        errors.append("formal gimbal node parameters are not a list")
-        continue
-    names = {item.id for item in ast.walk(params) if isinstance(item, ast.Name)}
-    if "gimbal_driver_config_file" not in names:
-        errors.append("formal gimbal node does not load gimbal_driver_config_file")
-    forbidden_names = sorted(names & {"base_config_file", "config_file"})
-    if forbidden_names:
-        errors.append(
-            "formal gimbal node receives non-gimbal config: " + ", ".join(forbidden_names)
-        )
-    gimbal_nodes.append(node)
+formal_text = formal_launch.read_text(encoding="utf-8")
+for token in (
+    "gimbal_driver.launch.py",
+    '"base_config_file": gimbal_driver_config_file',
+    '"legacy_base_config_file": base_config_file',
+    '"legacy_config_file": config_file',
+):
+    if token not in formal_text:
+        errors.append(f"formal launch does not retain scoped gimbal compatibility: {token}")
+if '"publish_goal_pose": navi_publish_goal_pose,' not in formal_text:
+    errors.append("navi_publish_goal_pose is not forwarded to navi_tf_bridge")
 
-if len(gimbal_nodes) != 2:
-    errors.append(f"expected two formal gimbal nodes, found {len(gimbal_nodes)}")
+if not gimbal_lifecycle.is_file():
+    errors.append("gimbal test lifecycle helper is missing")
+else:
+    lifecycle_text = gimbal_lifecycle.read_text(encoding="utf-8")
+    if '"base_config_file:=${config_file}"' not in lifecycle_text:
+        errors.append("gimbal test lifecycle does not pass full YAML as driver baseline")
+    if '"config_file:=${config_file}"' in lifecycle_text:
+        errors.append("gimbal test lifecycle still applies full baseline as an overlay")
 
 if errors:
     print("; ".join(errors), file=sys.stderr)
