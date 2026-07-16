@@ -331,6 +331,7 @@ baseline = root / "src/gimbal_driver/config/gimbal_driver_config.yaml"
 profile = root / "src/gimbal_driver/config/debug_mode.yaml"
 debug_launch = root / "src/gimbal_driver/launch/debug_node.launch.py"
 driver_launch = root / "src/gimbal_driver/launch/gimbal_driver.launch.py"
+driver_source = root / "src/gimbal_driver/main.cpp"
 formal_launch = root / "src/behavior_tree/launch/sentry_all.launch.py"
 gimbal_lifecycle = root / "scripts/lib/gimbal_test_lifecycle.sh"
 legacy_velocity_files = (
@@ -372,6 +373,19 @@ else:
             errors.append(f"debug_node.launch.py missing {token}")
     if 'forwarded_arguments["config_file"] = forwarded_arguments.pop("debug_config_file")' not in debug_text:
         errors.append("debug_node.launch.py does not forward debug_config_file as the driver overlay")
+
+if not driver_source.is_file():
+    errors.append("gimbal_driver source is missing")
+else:
+    driver_source_text = driver_source.read_text(encoding="utf-8")
+    required_debug_heartbeat_tokens = (
+        "kNavigationModeRotatePublishInterval = 10ms",
+        "void MaybeApplyNavigationModeRotateHeartbeat()",
+        "MaybeApplyNavigationModeRotateHeartbeat();",
+    )
+    for token in required_debug_heartbeat_tokens:
+        if token not in driver_source_text:
+            errors.append(f"gimbal debug Rotate heartbeat missing source token: {token}")
 
 if not driver_launch.is_file():
     errors.append("gimbal_driver.launch.py is missing")

@@ -8,7 +8,7 @@
       navigation_mode:
         enabled: true  # Subscribe to navigation debug controls.
         vel_chain: true  # Directly write /ly/navi/vel to the lower-machine frame.
-        rotate_level: 1  # Default Rotate level, range 0..3.
+        rotate_level: 1  # Default Rotate level, range 0..3; driver re-sends it at 100 Hz.
         should_rotate:
           enabled: true  # Consume /ly/navi/should_rotate.
       navigation_test_stale_timeout_ms: 500  # Direct-velocity stale timeout (ms).

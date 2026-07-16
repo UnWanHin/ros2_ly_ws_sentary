@@ -90,12 +90,13 @@ module baseline。`main.cpp` 對導航 debug 的預設值為關閉，因此正�
 |---|---|
 | `enabled` | 總開關；false 時不直接訂閱導航 Rotate 控制，也不改寫 FireCode。 |
 | `vel_chain` | true 時將 `/ly/navi/vel` 直接寫入 `GimbalControlFrame.Velocity`；超過既有 `navigation_test_stale_timeout_ms` 未更新時下發零速度。 |
-| `rotate_level` | 啟動時下發的預設 Rotate 檔位，僅接受 0..3；重連時若已收到 `should_rotate`，會恢復最近一次狀態。 |
-| `should_rotate.enabled` | true 時訂閱 `/ly/navi/should_rotate` (`std_msgs/Bool`)。true 恢復 `rotate_level`，false 將 Rotate 置 0。 |
+| `rotate_level` | 預設 Rotate 檔位，僅接受 0..3；debug mode 串口初始化後立即下發，並以 100 Hz 重送，即使尚未收到 `/ly/navi/vel` 亦然。重連時會恢復最近一次 `should_rotate` 狀態。 |
+| `should_rotate.enabled` | true 時訂閱 `/ly/navi/should_rotate` (`std_msgs/Bool`)。true 立即恢復並持續 100 Hz 下發 `rotate_level`，false 立即並持續下發 Rotate=0。 |
 | `should_rotate.follow_mode_when_false` | true 時，`should_rotate=false` 另置 `FollowMode=1`；收到 true 時清除這個 debug FollowMode。YAML 以 `io_config/navigation_mode/should_rotate/follow_mode_when_false` slash-key 寫入，確保 overlay 可覆蓋。 |
 
 `config/debug_mode.yaml` 是預設的單節點 driver debug profile：開啟 `/ly/navi/vel` 速度直連與
-`should_rotate`，預設 Rotate 為 1。請用 `debug_node.launch.py` 載入，它的順序固定為：
+`should_rotate`，預設 Rotate 為 1；driver 以 100 Hz 維持目前 Rotate 狀態，`/ly/navi/vel`
+只更新同一控制幀的速度欄位，不會覆蓋 Rotate。請用 `debug_node.launch.py` 載入，它的順序固定為：
 正式 baseline → `debug_config_file`（預設 `debug_mode.yaml`）→ 明確 CLI 覆蓋。
 
 `debug_node.launch.py` 只啟動 `gimbal_driver`。`gimbal_driver` 直接把 `/ly/navi/vel` 轉成
