@@ -1,7 +1,7 @@
 behavior_tree:
   ros__parameters:
     NaviRotateControl:
-      # 外部导航通过 /ly/navi/should_rotate 控制；该输入只影响最终控制码，不进入 BT 内部 FollowMode 分支。
+      # 外部导航通过 /ly/navi/should_rotate 控制最终控制码；可选地在新鲜 false 时请求 Move 姿态。
       Enable: true  # 是否采纳导航 should_rotate；false 时完全使用 BT 自己的旋转策略。
       FreshTimeoutMs: 500  # 导航旋转指令的新鲜度（毫秒）；超时后按 DefaultIsRotate。
       DefaultIsRotate: true  # 无有效导航输入时的默认旋转状态。
@@ -9,3 +9,4 @@ behavior_tree:
       ClearFollowModeWhenTrue: true  # should_rotate=true 时清除该外部置入的 FollowMode 位。
       ClearRegionalFaceModeWhenTrue: false  # 保留区域任务 FaceMode；should_rotate 只约束底盘 Rotate，不干预云台朝向任务。
       StopRotateWhenFalse: true  # should_rotate=false 时停止底盘小陀螺档位。
+      SetPostureToMoveWhenFalse: true  # 新鲜 false 时仅覆盖本 tick 的目标姿态为 Move；冷却等待期间若 true/超时，不补发 Move。

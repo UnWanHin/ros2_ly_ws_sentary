@@ -138,7 +138,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/navi/reached` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree` | 外部导航到达源；true=导航端确认到达，false=导航端尚未确认到达。BT 内部最终 reached 还要结合自身融合坐标距离和保护逻辑。 |
 | `/ly/navi/reachable` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree` | 当前目标是否有有效路径；true=可达，false=不可达。 |
 | `/ly/navi/reach_state` | `auto_aim_common/msg/GoalReach` | `behavior_tree` -> diagnostics/consumers | BT 内部 composite goal reach state；包含 status、reason、goal id/坐标、external reached/reachable freshness、融合自身坐标距离、grace 和 timeout。 |
-| `/ly/navi/should_rotate` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree`；可选 `gimbal_driver` debug | 区域兼容旋转控制；true=恢复 BT 正常小陀螺/巡逻，false=关闭小陀螺并请求 `FollowMode`。只有 `io_config.navigation_mode.enabled && should_rotate.enabled` 时 driver 才会为单独导航调试直接消费它。 |
+| `/ly/navi/should_rotate` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree`；可选 `gimbal_driver` debug | 区域兼容旋转控制；true=恢复 BT 正常小陀螺/巡逻，false=关闭小陀螺并请求 `FollowMode`。`NaviRotateControl.SetPostureToMoveWhenFalse=true` 时，新鲜 false 也只在 BT 本拍请求 Move 姿态，仍经既有姿态冷却/pending 机制。只有 `io_config.navigation_mode.enabled && should_rotate.enabled` 时 driver 才会为单独导航调试直接消费它。 |
 | `/ly/navi/speed_level` | `std_msgs/msg/UInt8` | `behavior_tree` -> navigation/兼容 | 导航速度档位。 |
 | `/ly/navi/lower_head` | `std_msgs/msg/UInt8` | navigation/兼容 -> `behavior_tree` | 低头/通过特定路径时的兼容状态。 |
 | `/ly/navi/vel` | `gimbal_driver/msg/Vel` | 导航/兼容/调试 | 正式链路由 BT 接收后转 `/ly/control/vel`；`gimbal_driver` 仅在 legacy `io_config.navigation_test=true` 或 `io_config.navigation_mode.enabled && vel_chain=true` 时直接订阅，用于单独导航速度下发调试。 |
@@ -149,7 +149,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 
 - `/ly/navi/reached` 和 `/ly/navi/reachable` 必须在当前 goal 发布后收到并保持新鲜，才能作为当前 goal 的外部状态源。
 - `/ly/navi/reached=false` 不是最终未到达事实；goal-start grace 后，BT 可用自身位置和目标点距离生成 composite reached，并通过 `/ly/navi/reach_state` 暴露完整状态。
-- 正式 BT 链中，`/ly/navi/should_rotate` 的新鲜度由 `NaviRotateControl.FreshTimeoutMs` 控制；新鲜 `true` 会按配置清掉外部置入的 `FollowMode`，但当前默认保留 regional 区域任务 FaceMode。默认超时后按允许旋转处理，但不继续保留旧 `false`。driver-only `navigation_mode` 是不做 freshness arbitration 的调试 bypass，仅在启用时采用最后一笔 `should_rotate`。
+- 正式 BT 链中，`/ly/navi/should_rotate` 的新鲜度由 `NaviRotateControl.FreshTimeoutMs` 控制；新鲜 `true` 会按配置清掉外部置入的 `FollowMode`，但当前默认保留 regional 区域任务 FaceMode。`SetPostureToMoveWhenFalse=true` 时，只有仍新鲜的 false 会覆盖本 tick 的期望姿态；若姿态冷却尚未允许切换而消息已变 true 或过期，就不会补发 Move。默认超时后按允许旋转处理，但不继续保留旧 `false`。driver-only `navigation_mode` 是不做 freshness arbitration 的调试 bypass，仅在启用时采用最后一笔 `should_rotate`。
 - topic 名是 `/ly/navi/reached`，不是 `/ly/navi/reach`。
 
 ## 6. Key Message Structures

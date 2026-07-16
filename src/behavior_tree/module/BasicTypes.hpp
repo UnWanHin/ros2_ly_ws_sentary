@@ -581,6 +581,8 @@ namespace LangYa
         bool ClearFollowModeWhenTrue{true};
         bool ClearRegionalFaceModeWhenTrue{true};
         bool StopRotateWhenFalse{true};
+        // 新鲜 should_rotate=false 时，只覆盖本 tick 的目标姿态为 Move；冷却期间信号解除不会补切。
+        bool SetPostureToMoveWhenFalse{false};
     };
 
     struct PointRotateSetting {

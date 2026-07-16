@@ -240,7 +240,7 @@ void TreeTick() {
 
 這個函數決定最終發出什麼角度和火控碼：
 
-1. **小陀螺控制**：根據血量下降速度（`healthDecreaseDetector`）和底盤速度（`naviVelocity`），動態設置 `FireCode.Rotate`（0=停止、1-3=不同速度）；启用 `NaviRotateControl.yaml` 后，新鲜 `/ly/navi/should_rotate=false` 会临时强制 `FollowMode+Rotate=0`，新鲜 `true` 会恢复 BT 对 `Rotate=0..3` 的正常决策；当前配置不关闭 regional 区域任务 FaceMode。
+1. **小陀螺控制**：根據血量下降速度（`healthDecreaseDetector`）和底盤速度（`naviVelocity`），動態設置 `FireCode.Rotate`（0=停止、1-3=不同速度）；启用 `NaviRotateControl.yaml` 后，新鲜 `/ly/navi/should_rotate=false` 会临时强制 `FollowMode+Rotate=0`，新鲜 `true` 会恢复 BT 对 `Rotate=0..3` 的正常决策；当前配置不关闭 regional 区域任务 FaceMode。`SetPostureToMoveWhenFalse=true` 时，同一笔新鲜 false 还会把本 tick 的期望姿态改为 Move，仍由既有 `PostureManager` 执行 5 秒切换冷却、hold 和 pending/retry；在冷却等待期间变回 true 或超时会取消这次未送出的 Move 请求，不会在稍后补切。
 2. **FaceMode 仲裁**：所有 Regional、Buff、Outpost 固定朝向任务只能向 `FaceModeManager` 提交请求；manager 以 `Outpost/Buff > Regional` 收敛本拍唯一请求，再统一处理视觉目标优先、导航释放兼容、角度新鲜度/保持、巡逻 fallback 和停火意图，回传单一 `Decision` 给 `PublishTogether()`。`sentry_all.launch.py` 默认拉起 `map_aim_point_node`，把 `/ly/face_mode/target_raw` 的官方地图目标用 TF 相对几何解成 `/ly/face_mode/angles`；最终只有 `PublishTogether()` 发布 `/ly/control/angles` 和 `/ly/control/firecode`。FaceMode 本身不清零 `FireCode.Rotate`，底盘小陀螺继续由原策略输出。
 3. **FollowMode 優先級**：`FireCode.FollowMode=1` 時停止 rotate、停止巡邏掃描、保持當前雲台角，並停止新的 `FireStatus` 翻轉。
 4. **本輪收到目標回調時**：
@@ -286,7 +286,7 @@ void TreeTick() {
 | `/ly/navi/target_official` | `enemyRobots` fallback position | `navi_tf_bridge` 把 `/ly/aim/armor_targets` 中每个 target point 以及当前追击目标 TF 到 map 后反算回 official-map cm；BT 只在没有新鲜非零 `/ly/position/data` 时写入敌方对应 `armor_type` 的位置，并在 `/ly/enemy/info.position_source` 标记 `navi_target_official` |
 | `/ly/navi/reached` | `naviReach` | 導航當前目標是否已到達；外部狀態新鮮且匹配當前目標時優先使用 |
 | `/ly/navi/reachable` | `naviReachable` | 導航當前目標是否有有效路徑；超時/未收到/不匹配當前目標時退回內部距離判斷 |
-| `/ly/navi/should_rotate` | `naviIsRotate` | 外部导航区域兼容旋转控制；true 恢复正常巡逻，false 关闭小陀螺并请求 FollowMode |
+| `/ly/navi/should_rotate` | `naviIsRotate` | 外部导航区域兼容旋转控制；true 恢复正常巡逻，false 关闭小陀螺并请求 FollowMode；`NaviRotateControl.SetPostureToMoveWhenFalse=true` 时还会在消息新鲜期间请求 Move 姿态 |
 | `/ly/gimbal/capV` | `capV` | 電容電壓 |
 
 安全降級（兼容默認行為）：

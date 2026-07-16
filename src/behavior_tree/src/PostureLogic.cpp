@@ -3,6 +3,7 @@
 // Keep behavior and interface changes synchronized with related modules.
 
 #include "../include/Application.hpp"
+#include "../include/NaviRotatePosture.hpp"
 
 #include <algorithm>
 
@@ -388,7 +389,16 @@ void Application::UpdatePostureCommand(const bool has_target) {
     }
 
     const bool has_target_recent = has_target || HasRecentTarget();
-    const auto desired = SelectDesiredPosture(has_target_recent);
+    auto desired = SelectDesiredPosture(has_target_recent);
+    const bool navi_move_override = ShouldRequestMovePostureWhenNaviFalse(
+        config.NaviRotateControlSettings,
+        hasReceivedNaviIsRotate_,
+        lastNaviIsRotateRxTime_,
+        now,
+        naviIsRotate);
+    if (navi_move_override) {
+        desired = SentryPosture::Move;
+    }
     auto referee_timer = postureRefereeTimer_;
     const auto fresh_limit_ms = std::max(0, config.PostureSettings.RefereeInfo3FreshMs);
     if (referee_timer.HasInfo3 && referee_timer.AgeMeasuredAt.time_since_epoch().count() != 0) {
@@ -409,12 +419,13 @@ void Application::UpdatePostureCommand(const bool has_target) {
 
     if (LoggerPtr && (decision.Sent || desired_changed || reason_changed)) {
         LoggerPtr->Info(
-            "[Posture] cmd={} desired={} current={} pending={} has_target_recent={} under_fire={} under_fire_burst={} feedback_stale={} referee_timer={} enhanced={} reason={}",
+            "[Posture] cmd={} desired={} current={} pending={} has_target_recent={} navi_move_override={} under_fire={} under_fire_burst={} feedback_stale={} referee_timer={} enhanced={} reason={}",
             static_cast<int>(postureCommand),
             PostureToString(desired),
             PostureToString(runtime.Current),
             PostureToString(runtime.Pending),
             has_target_recent ? 1 : 0,
+            navi_move_override ? 1 : 0,
             IsUnderFireRecent() ? 1 : 0,
             IsUnderFireBurst() ? 1 : 0,
             runtime.FeedbackStale ? 1 : 0,

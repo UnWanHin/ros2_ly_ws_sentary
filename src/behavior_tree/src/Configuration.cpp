@@ -790,6 +790,8 @@ namespace LangYa {
         nr.ClearRegionalFaceModeWhenTrue =
             j.value("ClearRegionalFaceModeWhenTrue", nr.ClearRegionalFaceModeWhenTrue);
         nr.StopRotateWhenFalse = j.value("StopRotateWhenFalse", nr.StopRotateWhenFalse);
+        nr.SetPostureToMoveWhenFalse =
+            j.value("SetPostureToMoveWhenFalse", nr.SetPostureToMoveWhenFalse);
     }
 
     void from_json(const json& j, PointRotateSetting& pr) {
@@ -1833,6 +1835,13 @@ namespace BehaviorTree {
                 "NaviRotateControl/StopRotateWhenFalse"
             },
             setting.StopRotateWhenFalse);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "NaviRotateControl.SetPostureToMoveWhenFalse",
+                "NaviRotateControl/SetPostureToMoveWhenFalse"
+            },
+            setting.SetPostureToMoveWhenFalse);
     }
 
     void Application::ApplyPointManagerParameterOverrides() {
@@ -2827,6 +2836,7 @@ namespace BehaviorTree {
         LoggerPtr->Debug("ClearFollowModeWhenTrue: {}", config.NaviRotateControlSettings.ClearFollowModeWhenTrue);
         LoggerPtr->Debug("ClearRegionalFaceModeWhenTrue: {}", config.NaviRotateControlSettings.ClearRegionalFaceModeWhenTrue);
         LoggerPtr->Debug("StopRotateWhenFalse: {}", config.NaviRotateControlSettings.StopRotateWhenFalse);
+        LoggerPtr->Debug("SetPostureToMoveWhenFalse: {}", config.NaviRotateControlSettings.SetPostureToMoveWhenFalse);
         LoggerPtr->Debug("------ PointManager ------");
         LoggerPtr->Debug(
             "Global.Enable: {}",

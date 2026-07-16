@@ -235,6 +235,11 @@ if(BUILD_TESTING)
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
   )
+  ament_add_gtest(test_navi_rotate_posture test/test_navi_rotate_posture.cpp)
+  target_include_directories(test_navi_rotate_posture PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
+  )
   ament_add_gtest(test_face_mode_manager
     test/test_face_mode_manager.cpp
     src/FaceModeManager.cpp
