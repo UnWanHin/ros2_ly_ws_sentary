@@ -617,6 +617,17 @@ void Application::WriteDecisionTrace(const std::string_view event) {
             }},
         }},
     };
+    record["outpost_engagement_lock"] = {
+        {"active", outpostEngagementDecision_.Active},
+        {"hold_target", outpostEngagementDecision_.HoldTarget},
+        {"enhanced_armed", outpostEngagementDecision_.EnhancedArmed},
+        {"enhanced_pending", outpostEngagementDecision_.EnhancedPending},
+        {"enhanced_active", outpostEngagementDecision_.EnhancedActive},
+        {"enhanced_unavailable", outpostEngagementDecision_.EnhancedUnavailable},
+        {"exit_reason", static_cast<int>(outpostEngagementDecision_.ExitReason)},
+        {"normal_exit_hp", config.TaskSettings.OutpostConfirm.NormalAttackLockExitHp},
+        {"enhanced_exit_hp", config.TaskSettings.OutpostConfirm.EnhancedAttackLockExitHp},
+    };
 
     record["referee"] = {
         {"self_hp", static_cast<int>(myselfHealth)},

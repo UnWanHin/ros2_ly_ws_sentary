@@ -17,6 +17,7 @@ from .model import (
     FaceModeState,
     NaviVelocity,
     PostureRuntime,
+    OutpostEngagementLock,
     RefereeState,
     RelativeTarget,
     RfidMatchState,
@@ -550,6 +551,21 @@ def normalize_posture_runtime(posture: dict[str, Any]) -> PostureRuntime:
     )
 
 
+def normalize_outpost_engagement_lock(raw: dict[str, Any]) -> OutpostEngagementLock:
+    lock = as_dict(raw.get("outpost_engagement_lock"))
+    return OutpostEngagementLock(
+        active=boolean(lock.get("active")),
+        hold_target=boolean(lock.get("hold_target")),
+        enhanced_armed=boolean(lock.get("enhanced_armed")),
+        enhanced_pending=boolean(lock.get("enhanced_pending")),
+        enhanced_active=boolean(lock.get("enhanced_active")),
+        enhanced_unavailable=boolean(lock.get("enhanced_unavailable")),
+        exit_reason=str(lock.get("exit_reason", "none")),
+        normal_exit_hp=integer(lock.get("normal_exit_hp"), 0),
+        enhanced_exit_hp=integer(lock.get("enhanced_exit_hp"), 0),
+    )
+
+
 def normalize_record(raw: dict[str, Any], index: int, goal_names: dict[int, str]) -> TraceRecord:
     navi = as_dict(raw.get("navi_goal"))
     posture = as_dict(raw.get("posture"))
@@ -575,6 +591,7 @@ def normalize_record(raw: dict[str, Any], index: int, goal_names: dict[int, str]
     field = normalize_field(raw)
     referee = normalize_referee(raw)
     posture_runtime_state = normalize_posture_runtime(posture)
+    outpost_engagement_lock = normalize_outpost_engagement_lock(raw)
 
     return TraceRecord(
         raw=raw,
@@ -614,6 +631,7 @@ def normalize_record(raw: dict[str, Any], index: int, goal_names: dict[int, str]
         posture_pending=compact_label(posture_runtime.get("pending")),
         posture_reason=str(posture.get("last_reason", "-")),
         posture_runtime=posture_runtime_state,
+        outpost_engagement_lock=outpost_engagement_lock,
         hp=referee.self_hp,
         ammo=referee.ammo,
         time_left=referee.time_left,

@@ -262,6 +262,29 @@ def stable_trace_row() -> dict:
     }
 
 
+def test_trace_normalizes_optional_outpost_engagement_lock() -> None:
+    raw = stable_trace_row()
+    raw["outpost_engagement_lock"] = {
+        "active": True,
+        "hold_target": True,
+        "enhanced_armed": True,
+        "enhanced_pending": True,
+        "enhanced_active": False,
+        "enhanced_unavailable": False,
+        "exit_reason": "none",
+        "normal_exit_hp": 200,
+        "enhanced_exit_hp": 250,
+    }
+    record = normalize_record(raw, 0, {18: "OccupyArea"})
+    assert record.outpost_engagement_lock.active is True
+    assert record.outpost_engagement_lock.enhanced_pending is True
+    assert record.outpost_engagement_lock.enhanced_exit_hp == 250
+
+    legacy = normalize_record(stable_trace_row(), 0, {18: "OccupyArea"})
+    assert legacy.outpost_engagement_lock.active is False
+    assert legacy.outpost_engagement_lock.exit_reason == "none"
+
+
 def expected_rfid_match_payload() -> dict:
     payload = {
         "fresh": True,

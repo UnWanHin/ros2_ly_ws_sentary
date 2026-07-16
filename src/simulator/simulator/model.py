@@ -477,6 +477,19 @@ class PostureRuntime:
 
 
 @dataclass(frozen=True)
+class OutpostEngagementLock:
+    active: bool
+    hold_target: bool
+    enhanced_armed: bool
+    enhanced_pending: bool
+    enhanced_active: bool
+    enhanced_unavailable: bool
+    exit_reason: str
+    normal_exit_hp: int
+    enhanced_exit_hp: int
+
+
+@dataclass(frozen=True)
 class TraceRecord:
     raw: dict[str, Any]
     index: int
@@ -515,6 +528,7 @@ class TraceRecord:
     posture_pending: str
     posture_reason: str
     posture_runtime: PostureRuntime
+    outpost_engagement_lock: OutpostEngagementLock
     hp: int
     ammo: int
     time_left: int
