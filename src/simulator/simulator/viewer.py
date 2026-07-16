@@ -1858,11 +1858,13 @@ class Viewer:
     def runtime_guard_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
         guard = record.runtime_guard
         posture_runtime = record.posture_runtime
+        lock = record.outpost_engagement_lock
         return [
             ("Fault", guard.fault),
             ("Recovery", f"requested={self.flag(guard.recovery_requested)} recovering={self.flag(guard.recovering)}"),
             ("PostureRT", f"pending={self.flag(posture_runtime.has_pending)} stale={self.flag(posture_runtime.feedback_stale)} retry={self.value_text(posture_runtime.retry_count)}"),
             ("Degraded", f"atk={self.flag(posture_runtime.degraded_attack)} def={self.flag(posture_runtime.degraded_defense)} move={self.flag(posture_runtime.degraded_move)}"),
+            ("OutpostLock", f"active={self.flag(lock.active)} hold7={self.flag(lock.hold_target)} arm={self.flag(lock.enhanced_armed)} pending={self.flag(lock.enhanced_pending)} active4={self.flag(lock.enhanced_active)} exit={lock.exit_reason}"),
         ]
 
     def draw_match_controls(self, x: int, y: int, max_width: int, record: TraceRecord) -> int:

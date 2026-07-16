@@ -300,6 +300,7 @@ def add_scenario_diagnostics(records: list[TraceRecord], issues: list[Validation
     add_zero_hp_runtime_mismatch_warnings(records, issues)
     add_zero_self_hp_runtime_mismatch_warnings(records, issues)
     add_posture_lag_warnings(records, issues)
+    add_outpost_engagement_lock_warnings(records, issues)
     add_match_time_jump_warnings(records, issues)
     add_missing_referee_resource_warnings(records, issues)
 
@@ -490,6 +491,15 @@ def add_posture_lag_warnings(records: list[TraceRecord], issues: list[Validation
         start = None
         end = None
     maybe_add_posture_lag_warning(start, end, issues)
+
+
+def add_outpost_engagement_lock_warnings(records: list[TraceRecord], issues: list[ValidationIssue]) -> None:
+    for record in records:
+        lock = record.outpost_engagement_lock
+        if lock.active and (lock.normal_exit_hp < 0 or lock.enhanced_exit_hp < lock.normal_exit_hp):
+            issues.append(make_issue("warning", record.index, "outpost_lock.threshold", "active outpost lock has invalid exit thresholds", "Keep normal threshold non-negative and enhanced threshold no lower than normal."))
+        if lock.enhanced_active and not lock.hold_target:
+            issues.append(make_issue("warning", record.index, "outpost_lock.active_without_hold", "enhanced outpost attack is active without target-7 hold", "Keep target hold until the enhanced lock exits."))
 
 
 def maybe_add_posture_lag_warning(

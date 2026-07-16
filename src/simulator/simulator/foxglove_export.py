@@ -203,6 +203,17 @@ def record_to_decision_frame(record: TraceRecord) -> dict[str, Any]:
             "goal_unreachable": events.goal_unreachable,
             "regional_defense_active": events.regional_defense_active,
         },
+        "outpost_engagement_lock": {
+            "active": record.outpost_engagement_lock.active,
+            "hold_target": record.outpost_engagement_lock.hold_target,
+            "enhanced_armed": record.outpost_engagement_lock.enhanced_armed,
+            "enhanced_pending": record.outpost_engagement_lock.enhanced_pending,
+            "enhanced_active": record.outpost_engagement_lock.enhanced_active,
+            "enhanced_unavailable": record.outpost_engagement_lock.enhanced_unavailable,
+            "exit_reason": record.outpost_engagement_lock.exit_reason,
+            "normal_exit_hp": record.outpost_engagement_lock.normal_exit_hp,
+            "enhanced_exit_hp": record.outpost_engagement_lock.enhanced_exit_hp,
+        },
         "goal_reach": {
             "summary": goal_reach.compact_text(),
             "status": goal_reach.status,
