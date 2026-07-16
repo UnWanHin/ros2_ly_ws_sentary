@@ -12,7 +12,6 @@ SCRIPT_NAME="$(basename "$0")"
 USE_NOGATE=1
 OFFLINE_MODE=0
 FACE_MODE_SOLVER=1
-TF_TREE_MODE=""
 MONITOR=0
 MONITOR_INTERVAL_SEC="2"
 MONITOR_DELAY_SEC="4"
@@ -33,7 +32,7 @@ usage() {
 Usage:
   ${SCRIPT_NAME} [GOAL_X_M GOAL_Y_M FACE_X_M FACE_Y_M FACE_Z_M]
                 [--nogate|--with-gate] [--online|--offline] [--no-face-mode-solver]
-                [--with-tf-tree|--no-tf-tree] [--monitor]
+                [--monitor]
                 [-- <launch_args...>]
 
 Purpose:
@@ -46,13 +45,14 @@ Purpose:
   - returns to FaceMode after armor interruption releases
   - falls back through PatrolScan.TaskOverrides when FaceMode has no /ly/face_mode/angles
   - does not start external sentry.aim; run it separately when testing /ly/aim/result
+  - requires external sentry_tf to publish the gimbal TF chain
   - positional args use signed map-frame meters:
       GOAL_X/Y -> /goal_pose, FACE_X/Y/Z -> FaceMode target
 
 Examples:
   ./scripts/aim/${SCRIPT_NAME}
   ./scripts/aim/${SCRIPT_NAME} 6.17 -16.21 6.50 -18.00 1.00
-  ./scripts/aim/${SCRIPT_NAME} --with-tf-tree --monitor
+  ./scripts/aim/${SCRIPT_NAME} --monitor
   ./scripts/aim/${SCRIPT_NAME} --offline
   ./scripts/aim/${SCRIPT_NAME} --no-face-mode-solver
 EOF
@@ -93,14 +93,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-face-mode-solver)
       FACE_MODE_SOLVER=0
-      shift
-      ;;
-    --with-tf-tree)
-      TF_TREE_MODE=1
-      shift
-      ;;
-    --no-tf-tree)
-      TF_TREE_MODE=0
       shift
       ;;
     --monitor)
@@ -167,12 +159,6 @@ if (( OFFLINE_MODE == 1 )) && ! has_launch_arg_key "offline"; then
 fi
 if (( FACE_MODE_SOLVER == 0 )) && ! has_launch_arg_key "use_face_mode_solver"; then
   LAUNCH_ARGS=("use_face_mode_solver:=false" "${LAUNCH_ARGS[@]}")
-fi
-if [[ "${TF_TREE_MODE}" == "1" ]] && ! has_launch_arg_key "use_tf_tree"; then
-  LAUNCH_ARGS=("use_tf_tree:=true" "${LAUNCH_ARGS[@]}")
-fi
-if [[ "${TF_TREE_MODE}" == "0" ]] && ! has_launch_arg_key "use_tf_tree"; then
-  LAUNCH_ARGS=("use_tf_tree:=false" "${LAUNCH_ARGS[@]}")
 fi
 if (( MANUAL_SIGNED_OUTPOST_TEST == 1 )); then
   if ! has_launch_arg_key "outpost_manual_goal_enable"; then

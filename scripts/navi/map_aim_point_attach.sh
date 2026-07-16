@@ -63,7 +63,7 @@ Usage:
 
 Purpose:
   Attach to an already-running stack and start only FaceMode/map_aim_point_node.
-  This does not launch or clean up gimbal_driver, tf_tree, map_server, camera, or localization.
+  This does not launch or clean up gimbal_driver, sentry_tf, map_server, camera, or localization.
 
 Common:
   OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME}

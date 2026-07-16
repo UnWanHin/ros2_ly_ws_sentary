@@ -12,7 +12,6 @@ SCRIPT_NAME="$(basename "$0")"
 TEAM="red"
 USE_NOGATE=1
 FACE_MODE_SOLVER=1
-TF_TREE_MODE=""
 MONITOR=0
 SIM_HZ="10"
 FACE_MAP_X_M=""
@@ -29,7 +28,7 @@ usage() {
   cat <<EOF
 Usage:
   ${SCRIPT_NAME} FACE_X_M FACE_Y_M FACE_Z_M
-                [--team red|blue] [--with-tf-tree|--no-tf-tree]
+                [--team red|blue]
                 [--nogate|--with-gate] [--no-face-mode-solver]
                 [--monitor] [--sim-hz HZ] [-- <launch_args...>]
 
@@ -41,9 +40,10 @@ Purpose:
   - simulates that the sentry is already at own BuffOutpost, inside the 300cm FaceMode gate
   - passes FACE_X/Y/Z directly as a map-frame FaceMode target in meters
   - does not publish /ly/control/angles or /ly/control/firecode directly
+  - requires external sentry_tf to publish the gimbal TF chain
 
 Examples:
-  ./scripts/aim/${SCRIPT_NAME} 6.17 -16.21 1.00 --with-tf-tree
+  ./scripts/aim/${SCRIPT_NAME} 6.17 -16.21 1.00
   ./scripts/aim/${SCRIPT_NAME} 6.17 -16.21 1.00 --team blue --monitor
   ./scripts/aim/${SCRIPT_NAME} 6.17 -16.21 1.00 -- use_gimbal:=false
 EOF
@@ -171,14 +171,6 @@ while [[ $# -gt 0 ]]; do
       FACE_MODE_SOLVER=0
       shift
       ;;
-    --with-tf-tree)
-      TF_TREE_MODE=1
-      shift
-      ;;
-    --no-tf-tree)
-      TF_TREE_MODE=0
-      shift
-      ;;
     --monitor)
       MONITOR=1
       shift
@@ -239,12 +231,6 @@ if (( USE_NOGATE == 0 )) && ! has_launch_arg_key "debug_bypass_is_start"; then
 fi
 if (( FACE_MODE_SOLVER == 0 )) && ! has_launch_arg_key "use_face_mode_solver"; then
   LAUNCH_ARGS=("use_face_mode_solver:=false" "${LAUNCH_ARGS[@]}")
-fi
-if [[ "${TF_TREE_MODE}" == "1" ]] && ! has_launch_arg_key "use_tf_tree"; then
-  LAUNCH_ARGS=("use_tf_tree:=true" "${LAUNCH_ARGS[@]}")
-fi
-if [[ "${TF_TREE_MODE}" == "0" ]] && ! has_launch_arg_key "use_tf_tree"; then
-  LAUNCH_ARGS=("use_tf_tree:=false" "${LAUNCH_ARGS[@]}")
 fi
 if ! has_launch_arg_key "publish_navi_goal"; then
   LAUNCH_ARGS=("publish_navi_goal:=false" "${LAUNCH_ARGS[@]}")

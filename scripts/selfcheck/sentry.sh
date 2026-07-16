@@ -955,12 +955,6 @@ if (( STATIC_ONLY == 0 )); then
   if (( GRAPH_AVAILABLE == 1 )); then
   check_node_online "/gimbal_driver" "${NODE_LIST}"
   check_node_online "/behavior_tree" "${NODE_LIST}"
-  if grep -Fxq "/tf_tree_node" <<< "${NODE_LIST}" && grep -Fxq "/sentry_tf_node" <<< "${NODE_LIST}"; then
-    fail "Duplicate gimbal TF owners online: /tf_tree_node and /sentry_tf_node"
-  else
-    pass "No duplicate local/external gimbal TF owner detected"
-  fi
-
   print_section "Node Contracts"
   # gimbal_driver
   check_node_sub "/gimbal_driver" "/ly/control/angles" hard

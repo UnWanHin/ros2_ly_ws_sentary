@@ -256,15 +256,15 @@ scripts/
 ### 6.2 FaceMode 固定点朝向
 
 ```bash
-OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./scripts/navi/map_aim_point_test.sh --with-tf-tree
+OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./scripts/navi/map_aim_point_test.sh
 # 或用米输入：
-OFFICIAL_MAP_UNIT=m OFFICIAL_MAP_X=10.93 OFFICIAL_MAP_Y=3.66 MAP_Z=1.00 ./scripts/navi/map_aim_point_test.sh --with-tf-tree
+OFFICIAL_MAP_UNIT=m OFFICIAL_MAP_X=10.93 OFFICIAL_MAP_Y=3.66 MAP_Z=1.00 ./scripts/navi/map_aim_point_test.sh
 ```
 
 简短入口：
 
 ```bash
-./scripts/navi/facemode.sh 1093 366 100 --with-tf-tree
+./scripts/navi/facemode.sh 1093 366 100
 ```
 
 附加到已有 stack：

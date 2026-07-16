@@ -233,7 +233,7 @@ python3 ./scripts/python/start.py --keep-to-navi
 | `scripts/navi/navi_control_chain.sh` | area_test `--pure` 风格的正式 BT 导航下位机链路：`/ly/navi/vel -> behavior_tree -> /ly/control/vel -> gimbal_driver`，不打弹，默认开小陀螺和 `PatrolScan.Mode=2`，只禁用 navi_tf_bridge 的 `/goal_pose` 输出 |
 | `scripts/navi/chase.sh` | 正式 `sentry_all` 追击测试链路：外部 `/ly/aim/armor_targets` + `/ly/aim/result` 进 BT，默认不打弹、开小陀螺和 `PatrolScan.Mode=2`，关闭 Chase 区域边界限制，只看 `/ly/navi/target_rel -> /goal_pose` 能否追击 |
 | `scripts/navi/position.sh` | 一键查看 `/ly/navi/position`，默认只输出 `data: [official_map_x_cm, official_map_y_cm]`；`--full` 可看 `header.stamp` 和 map 系 `map_point` |
-| `scripts/navi/map_aim_point_test.sh` | FaceMode 完整测试入口，可拉 `gimbal_driver` / `tf_tree`，支持 `--unit m\|cm`，默认 cm |
+| `scripts/navi/map_aim_point_test.sh` | FaceMode 完整测试入口，可拉 `gimbal_driver`，要求外部 `sentry_tf`，支持 `--unit m\|cm`，默认 cm |
 | `scripts/navi/map_aim_point_attach.sh` | 已有 stack 上只附加 FaceMode 节点 |
 
 `kabsch_calib` / `affine_calib` / `navi_calib_simple` 標定工具的默认单位链路是 `official_map(m) -> map(m) -> raw_goal_transform_matrix(m)`；如果官方地图点按 cm 存，要在 YAML 或命令行显式写 `source_unit: cm` / `--source-unit cm`。矩阵输出给 `tf_config.yaml` 时保持 m；工具都会在 `--help` 和互动输入时显示单位链路。

@@ -31,9 +31,9 @@ Purpose:
   --bt-output publishes angles to /ly/face_mode/angles and disables FaceMode firecode output.
 
 Examples:
-  ./${SCRIPT_NAME} 1.20 3.40 1.00 --with-tf-tree
-  ./${SCRIPT_NAME} --bt-output 1.20 3.40 1.00 --with-tf-tree
-  ./${SCRIPT_NAME} --unit cm 120 340 100 --with-tf-tree
+  ./${SCRIPT_NAME} 1.20 3.40 1.00
+  ./${SCRIPT_NAME} --bt-output 1.20 3.40 1.00
+  ./${SCRIPT_NAME} --unit cm 120 340 100
   ./${SCRIPT_NAME} -- official_map_x:=1.20 official_map_y:=3.40 map_z:=1.00 target_frame:=map use_raw_goal_static_calibration:=false
 EOF
 }

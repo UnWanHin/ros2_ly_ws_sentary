@@ -74,7 +74,6 @@ Examples:
   ./scripts/navi/${SCRIPT_NAME}
   ./scripts/navi/${SCRIPT_NAME} --fire false --scan-mode 2
   ./scripts/navi/${SCRIPT_NAME} --respect-is-rotate --area-limit true
-  ./scripts/navi/${SCRIPT_NAME} -- use_tf_tree:=true
 EOF
 }
 

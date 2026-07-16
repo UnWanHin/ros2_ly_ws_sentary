@@ -27,7 +27,6 @@ CAMERA_FRAME="${CAMERA_FRAME:-gx_camera}"
 SOLVE_MODE="${SOLVE_MODE:-camera_projection}"
 SOLVE_FRAME="${SOLVE_FRAME:-base_link}"
 USE_GIMBAL="${USE_GIMBAL:-true}"
-USE_TF_TREE="${USE_TF_TREE:-false}"
 USE_VIRTUAL_DEVICE="${USE_VIRTUAL_DEVICE:-false}"
 USE_MOCK_MAP_TO_BASE="${USE_MOCK_MAP_TO_BASE:-false}"
 USE_MOCK_GIMBAL_STATE="${USE_MOCK_GIMBAL_STATE:-false}"
@@ -71,10 +70,11 @@ fi
 usage() {
   cat <<EOF
 Usage:
-  ${SCRIPT_NAME} [--unit m|cm] [--bench] [--no-gimbal] [--with-tf-tree] [--mock-map-origin] [--mock-gimbal-state] [--no-firecode] [-- <launch_args...>]
+  ${SCRIPT_NAME} [--unit m|cm] [--bench] [--no-gimbal] [--mock-map-origin] [--mock-gimbal-state] [--no-firecode] [-- <launch_args...>]
 
 Purpose:
   FaceMode: keep gimbal facing one fixed map/official-map point.
+  Requires external sentry_tf to publish the gimbal TF chain.
   Publishes /ly/control/angles and, by default, /ly/control/firecode aim_mode=true.
   It does not publish chassis velocity or fire commands.
   A real map run requires an external navigation/localization TF chain that provides map -> base_link.
@@ -113,11 +113,11 @@ Other defaults:
   MAX_PITCH_STEP_DEG=${MAX_PITCH_STEP_DEG}
 
 Examples:
-  OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME} --with-tf-tree
-  OFFICIAL_MAP_UNIT=m OFFICIAL_MAP_X=10.93 OFFICIAL_MAP_Y=3.66 MAP_Z=1.00 ./${SCRIPT_NAME} --with-tf-tree
+  OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME}
+  OFFICIAL_MAP_UNIT=m OFFICIAL_MAP_X=10.93 OFFICIAL_MAP_Y=3.66 MAP_Z=1.00 ./${SCRIPT_NAME}
   ./${SCRIPT_NAME} --unit cm -- official_map_x:=1093 official_map_y:=366 map_z:=100
   OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME} --bench
-  OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME} --mock-map-origin --with-tf-tree
+  OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME} --mock-map-origin
   ./${SCRIPT_NAME} -- official_map_x:=1093 official_map_y:=366 map_z:=100
   OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 USE_MOCK_MAP_TO_BASE=true MOCK_MAP_TO_BASE_X=1.2 MOCK_MAP_TO_BASE_Y=-0.4 ./${SCRIPT_NAME}
   OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 COMMAND_FILTER_ALPHA=0.25 MAX_YAW_STEP_DEG=3.0 MAX_PITCH_STEP_DEG=1.5 ./${SCRIPT_NAME}
@@ -224,8 +224,8 @@ require_face_mode_point_args() {
   fi
   if (( ${#missing[@]} > 0 )); then
     echo "[ERROR] FaceMode requires point parameters: ${missing[*]} (unit=${OFFICIAL_MAP_UNIT}, use --unit m|cm or OFFICIAL_MAP_UNIT=m|cm)" >&2
-    echo "        Example: OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME} --with-tf-tree" >&2
-    echo "        Example: OFFICIAL_MAP_UNIT=m OFFICIAL_MAP_X=10.93 OFFICIAL_MAP_Y=3.66 MAP_Z=1.0 ./${SCRIPT_NAME} --with-tf-tree" >&2
+    echo "        Example: OFFICIAL_MAP_X=1093 OFFICIAL_MAP_Y=366 MAP_Z=100 ./${SCRIPT_NAME}" >&2
+    echo "        Example: OFFICIAL_MAP_UNIT=m OFFICIAL_MAP_X=10.93 OFFICIAL_MAP_Y=3.66 MAP_Z=1.0 ./${SCRIPT_NAME}" >&2
     echo "        Or: ./${SCRIPT_NAME} --unit cm -- official_map_x:=1093 official_map_y:=366 map_z:=100" >&2
     exit 2
   fi
@@ -250,14 +250,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-gimbal)
       USE_GIMBAL="false"
-      shift
-      ;;
-    --no-tf-tree)
-      USE_TF_TREE="false"
-      shift
-      ;;
-    --with-tf-tree)
-      USE_TF_TREE="true"
       shift
       ;;
     --mock-map-origin|--mock-map-to-base)
@@ -300,9 +292,6 @@ cleanup_existing_launch_tree \
 CLEANUP_NODE_REGEX="/(map_aim_point_node)([[:space:]]|$)"
 if [[ "${USE_GIMBAL}" == "true" || "${USE_MOCK_GIMBAL_STATE}" == "true" ]]; then
   CLEANUP_NODE_REGEX="${CLEANUP_NODE_REGEX}|/(gimbal_driver_node)([[:space:]]|$)"
-fi
-if [[ "${USE_TF_TREE}" == "true" ]]; then
-  CLEANUP_NODE_REGEX="${CLEANUP_NODE_REGEX}|/(tf_tree/tf_node|sentry_tf/tf_node)([[:space:]]|$)|static_transform_publisher .* (base_link gimbal_big_yaw|gimbal_barrel gx_camera|gimbal_big_yaw usb_camera)([[:space:]]|$)"
 fi
 if [[ "${USE_MOCK_MAP_TO_BASE}" == "true" ]]; then
   CLEANUP_NODE_REGEX="${CLEANUP_NODE_REGEX}|static_transform_publisher .* map base_link([[:space:]]|$)"
@@ -347,9 +336,6 @@ if ! has_launch_arg_key "solve_frame"; then
 fi
 if ! has_launch_arg_key "use_gimbal"; then
   LAUNCH_ARGS=("use_gimbal:=${USE_GIMBAL}" "${LAUNCH_ARGS[@]}")
-fi
-if ! has_launch_arg_key "use_tf_tree"; then
-  LAUNCH_ARGS=("use_tf_tree:=${USE_TF_TREE}" "${LAUNCH_ARGS[@]}")
 fi
 if ! has_launch_arg_key "use_virtual_device"; then
   LAUNCH_ARGS=("use_virtual_device:=${USE_VIRTUAL_DEVICE}" "${LAUNCH_ARGS[@]}")

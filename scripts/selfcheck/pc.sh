@@ -15,7 +15,7 @@ export ROS_LOG_DIR
 
 DO_BUILD=1
 DO_TEST=0
-PACKAGES="auto_aim_common behavior_tree gimbal_driver navi_tf_bridge tf_tree simulator"
+PACKAGES="auto_aim_common behavior_tree gimbal_driver navi_tf_bridge simulator"
 
 usage() {
   cat <<EOF
