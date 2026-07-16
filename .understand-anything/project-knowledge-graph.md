@@ -1,8 +1,8 @@
 # ros2_ly_ws_sentry Knowledge Graph
 
-Generated: 2026-07-16T13:45:04+00:00
+Generated: 2026-07-16T16:10:00+00:00
 
-Checked against HEAD: `b209c40279911fe97f7d0334216215d2e04b8e5a` (only two unrelated Windows `Zone.Identifier` deletion entries remain in the worktree)
+Checked against source HEAD: `d0c68119ffd183b49ad0fcf9818044b79aa8d6bd` (only two unrelated Windows `Zone.Identifier` deletion entries remain in the worktree)
 
 Current graph shape: 73 nodes, 84 edges, 6 layers.
 
@@ -13,6 +13,8 @@ Current ROS packages covered by graph:
 - `gimbal_driver`
 - `navi_tf_bridge`
 - `simulator`
+
+前哨強化交戰鎖：`/ly/enemy/op_hp` 的新鮮正值與 target 7 建立鎖；HP 下降只可 arm 一次強化進攻 `4`。`PostureManager` 仍是唯一 `/ly/control/posture` owner，並以 `posture=1 && enhanced_posture=true` 確認強攻。
 
 ```mermaid
 flowchart LR

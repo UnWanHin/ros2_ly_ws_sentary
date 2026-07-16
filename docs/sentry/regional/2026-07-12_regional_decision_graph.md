@@ -16,11 +16,12 @@ flowchart TD
   HARD --> TASK[Task]
   TASK --> PRE[PreprocessData]
   PRE --> TARGET[SelectAimTarget]
-  TARGET --> TACTICAL[Tactical]
+  TARGET --> LOCK[RefreshOutpostEngagementLock\n7 + fresh op_hp]
+  LOCK --> TACTICAL[Tactical]
   TACTICAL --> SPECIAL[Special]
   SPECIAL --> DEFAULT[Default]
   DEFAULT --> FINAL[Finalizer]
-  FINAL --> POSTURE[SelectPosture]
+  FINAL --> POSTURE[SelectPosture\nPostureManager composite ACK]
   POSTURE --> PUB[PublishAll]
 ```
 

@@ -13,7 +13,7 @@ The right panel is split into five tabs:
 
 - `Decision`: current strategy, aim mode, stable decision output, official chase metadata, decision intent, and recent semantic changes.
 - `Events`: EventManager conditions, detailed goal reach state, navigation status/velocity, target freshness, hitable/reliable target sets, relative target bridge fields, referee resource state, energy/RFID data, and unit HP summaries.
-- `Runtime`: live ROS output monitor, trace navigation payload/velocity/rotate state, posture runtime (including local versus referee `sentry_info_3` timer source and enhanced posture state), gimbal/fire-code state, and runtime guard state.
+- `Runtime`: live ROS output monitor, trace navigation payload/velocity/rotate state, posture runtime (including local versus referee `sentry_info_3` timer source and enhanced posture state), 前哨交战锁（hold-7、强攻 armed/pending/active、退出原因与 200/250 阈值）、gimbal/fire-code state, and runtime guard state.
 - `Inputs`: offline mock input controls for structure HP and draggable friend/enemy unit pieces.
 - `Layers`: map-layer toggles, map-tag controls, asset catalog status, and asset provenance/license warnings.
 
