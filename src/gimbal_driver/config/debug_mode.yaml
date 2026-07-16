@@ -1,6 +1,7 @@
 /**:
   ros__parameters:
-    # Single-node navigation direct-debug profile. Do not load from sentry_all.
+    # Single-node driver debug profile. Do not load from sentry_all.
+    # gimbal_driver directly consumes /ly/navi/vel and /ly/navi/should_rotate.
     io_config:
       navigation_mode:
         enabled: true  # Subscribe to navigation debug controls.

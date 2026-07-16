@@ -61,6 +61,6 @@ flowchart LR
 - `DownlinkTypeID=0x00~0x04` 為控制、SentryCmd、0x0307 路徑、0x0308 自訂訊息與自身座標。
 - `gimbal_driver` 的串口/下位機基線集中在 `src/gimbal_driver/config/gimbal_driver_config.yaml`；正式 `sentry_all` 只會載入它，不會把全域 YAML 注入 driver。
 - `io_config.serial_mode=true` 時，逐 ID raw 觀測 topic 為 `/ly/upload/typeid0..10` 與 `/ly/download/typeid0x00..04`；語義 topic 保持不變。
-- `io_config.navigation_mode` 僅由 `src/gimbal_driver/config/navigation_test.yaml` 的單節點 `debug_node.launch.py` profile 啟用；可讓 `gimbal_driver` 直連 `/ly/navi/vel` 與 `/ly/navi/should_rotate`，正式導航控制仍經 BT 發布 `/ly/control/*`。
-- 2026-07-16 source audit 補上 JSON graph 的 aim feedback、`/ly/control/sentry_cmd`、FaceMode solver、BT 0x04 position downlink、導航 feedback、`debug_node -> navigation_test.yaml` profile 與正確的 `tf_tree -> navi_tf_bridge` fallback；targeted build、static selfcheck 與虛擬 `debug_node` launch 均已在 source ROS Humble、`sentry.common`、本 workspace 後通過，尚未做完整 `sentry_all` runtime graph 驗證。
+- `io_config.navigation_mode` 僅由 `src/gimbal_driver/config/debug_mode.yaml` 的單節點 `debug_node.launch.py` profile 啟用；`gimbal_driver` 直接把 `/ly/navi/vel` 與 `/ly/navi/should_rotate` 轉為下位機控制，正式導航控制仍經 BT 發布 `/ly/control/*`。
+- 2026-07-16 source audit 補上 JSON graph 的 aim feedback、`/ly/control/sentry_cmd`、FaceMode solver、BT 0x04 position downlink、導航 feedback、`debug_node -> debug_mode.yaml` profile 與正確的 `tf_tree -> navi_tf_bridge` fallback；targeted build、static selfcheck 與虛擬 `debug_node` launch 均已在 source ROS Humble、`sentry.common`、本 workspace 後通過，尚未做完整 `sentry_all` runtime graph 驗證。
 - 本圖譜為 source-checked fallback；因本機沒有可用 Understand Anything plugin core，未執行 plugin regeneration。

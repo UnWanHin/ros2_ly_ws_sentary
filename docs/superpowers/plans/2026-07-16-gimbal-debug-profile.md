@@ -22,7 +22,7 @@
 **Files:**
 
 - Modify: `src/gimbal_driver/config/gimbal_driver_config.yaml`
-- Modify: `src/gimbal_driver/config/navigation_test.yaml`
+- Modify: `src/gimbal_driver/config/debug_mode.yaml`
 - Create: `src/gimbal_driver/launch/debug_node.launch.py`
 - Test: `scripts/selfcheck/sentry.sh`
 

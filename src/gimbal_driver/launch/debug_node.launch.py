@@ -24,7 +24,7 @@ def generate_launch_description():
         gimbal_driver_share, "config", "gimbal_driver_config.yaml"
     )
     default_debug_config_file = os.path.join(
-        gimbal_driver_share, "config", "navigation_test.yaml"
+        gimbal_driver_share, "config", "debug_mode.yaml"
     )
 
     argument_names = (
@@ -54,7 +54,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "debug_config_file",
             default_value=default_debug_config_file,
-            description="Single-node driver debug profile; navigation_test.yaml by default.",
+            description="Single-node driver debug profile; debug_mode.yaml by default.",
         ),
         DeclareLaunchArgument("output", default_value="screen"),
         DeclareLaunchArgument("use_virtual_device", default_value="false"),

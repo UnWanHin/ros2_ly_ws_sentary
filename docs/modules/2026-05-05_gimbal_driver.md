@@ -25,7 +25,7 @@ gimbal_driver/
 │   └── gimbal_driver.launch     # ROS 2 XML 兼容入口
 ├── config/
 │   ├── gimbal_driver_config.yaml # 串口/下位機正式基線
-│   └── navigation_test.yaml      # 導航速度/Rotate 直連調試 overlay
+│   └── debug_mode.yaml           # 單節點 driver debug overlay
 ├── msg/                        # 自定義消息類型
 │   ├── GimbalAngles.msg        # 雲台角度
 │   ├── GameData.msg            # 比賽數據（彙總）
@@ -94,12 +94,13 @@ launch/CLI 覆蓋；跨模組 `base_config.yaml` 與全域 `override_config.yaml
 | `should_rotate.enabled` | true 時訂閱 `/ly/navi/should_rotate` (`std_msgs/Bool`)。true 恢復 `rotate_level`，false 將 Rotate 置 0。 |
 | `should_rotate.follow_mode_when_false` | true 時，`should_rotate=false` 另置 `FollowMode=1`；收到 true 時清除這個 debug FollowMode。YAML 以 `io_config/navigation_mode/should_rotate/follow_mode_when_false` slash-key 寫入，確保 overlay 可覆蓋。 |
 
-`config/navigation_test.yaml` 是唯一的導航直連調試 profile：開啟速度直連與
+`config/debug_mode.yaml` 是唯一的單節點 driver debug profile：開啟 `/ly/navi/vel` 速度直連與
 `should_rotate`，預設 Rotate 為 1。請用 `debug_node.launch.py` 載入，它的順序固定為：
-正式 baseline → `debug_config_file`（預設 `navigation_test.yaml`）→ 明確 CLI 覆蓋。
+正式 baseline → `debug_config_file`（預設 `debug_mode.yaml`）→ 明確 CLI 覆蓋。
 
-`debug_node.launch.py` 只啟動 `gimbal_driver`。它不得與正在發布正式 `/ly/control/*` 的 BT
-同時使用；之後若有其他 driver 單節點調試 profile（例如 aim 聯調設定），可用
+`debug_node.launch.py` 只啟動 `gimbal_driver`。`gimbal_driver` 直接把 `/ly/navi/vel` 轉成
+下位機速度，不再經由舊的 Python velocity bridge。它不得與正在發布正式 `/ly/control/*` 的 BT
+同時使用；之後若有其他 driver 單節點調試 profile，可用
 `debug_config_file:=<profile.yaml>` 載入，無需改動正式入口。
 
 ### SerialMode Raw 觀測

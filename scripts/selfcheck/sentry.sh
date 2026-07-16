@@ -327,9 +327,13 @@ from pathlib import Path
 
 root = Path(sys.argv[1])
 baseline = root / "src/gimbal_driver/config/gimbal_driver_config.yaml"
-profile = root / "src/gimbal_driver/config/navigation_test.yaml"
+profile = root / "src/gimbal_driver/config/debug_mode.yaml"
 debug_launch = root / "src/gimbal_driver/launch/debug_node.launch.py"
 formal_launch = root / "src/behavior_tree/launch/sentry_all.launch.py"
+legacy_velocity_files = (
+    root / "scripts/navi/navi_vel_chain.sh",
+    root / "scripts/navi/navi_vel_chain.py",
+)
 
 errors = []
 baseline_text = baseline.read_text(encoding="utf-8")
@@ -343,15 +347,18 @@ for pattern in forbidden:
     if re.search(pattern, baseline_text, re.MULTILINE):
         errors.append(f"formal baseline contains debug key matching {pattern}")
 
-profile_text = profile.read_text(encoding="utf-8")
-required_profile = (
-    r"(?ms)^\s*navigation_mode\s*:\s*$\n\s*enabled\s*:\s*true\s*(?:#.*)?$\n\s*vel_chain\s*:\s*true\s*(?:#.*)?$",
-    r"(?ms)^\s*should_rotate\s*:\s*$\n\s*enabled\s*:\s*true\s*(?:#.*)?$",
-    r"(?m)^\s*io_config/navigation_mode/should_rotate/follow_mode_when_false\s*:\s*true\s*(?:#.*)?$",
-)
-for pattern in required_profile:
-    if not re.search(pattern, profile_text):
-        errors.append(f"navigation debug profile missing {pattern}")
+if not profile.is_file():
+    errors.append("debug_mode.yaml is missing")
+else:
+    profile_text = profile.read_text(encoding="utf-8")
+    required_profile = (
+        r"(?ms)^\s*navigation_mode\s*:\s*$\n\s*enabled\s*:\s*true\s*(?:#.*)?$\n\s*vel_chain\s*:\s*true\s*(?:#.*)?$",
+        r"(?ms)^\s*should_rotate\s*:\s*$\n\s*enabled\s*:\s*true\s*(?:#.*)?$",
+        r"(?m)^\s*io_config/navigation_mode/should_rotate/follow_mode_when_false\s*:\s*true\s*(?:#.*)?$",
+    )
+    for pattern in required_profile:
+        if not re.search(pattern, profile_text):
+            errors.append(f"debug mode profile missing {pattern}")
 
 if not debug_launch.is_file():
     errors.append("debug_node.launch.py is missing")
@@ -362,6 +369,10 @@ else:
             errors.append(f"debug_node.launch.py missing {token}")
     if 'forwarded_arguments["config_file"] = forwarded_arguments.pop("debug_config_file")' not in debug_text:
         errors.append("debug_node.launch.py does not forward debug_config_file as the driver overlay")
+
+for legacy_file in legacy_velocity_files:
+    if legacy_file.exists():
+        errors.append(f"legacy direct velocity bridge still exists: {legacy_file.relative_to(root)}")
 
 tree = ast.parse(formal_launch.read_text(encoding="utf-8"), filename=str(formal_launch))
 gimbal_nodes = []
@@ -762,7 +773,7 @@ if (( RUNTIME_ONLY == 0 )); then
   check_file_exists "${ROOT_DIR}/src/behavior_tree/Scripts/ConfigJson/regional/debug/navi_debug_points.json"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/launch/sentry_all.launch.py"
   check_file_exists "${ROOT_DIR}/src/gimbal_driver/config/gimbal_driver_config.yaml"
-  check_file_exists "${ROOT_DIR}/src/gimbal_driver/config/navigation_test.yaml"
+  check_file_exists "${ROOT_DIR}/src/gimbal_driver/config/debug_mode.yaml"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/config/AreaManager.yaml"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/config/Base.yaml"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/config/PointManager.yaml"
