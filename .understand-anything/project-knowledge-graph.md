@@ -4,7 +4,7 @@ Generated: 2026-07-16T17:29:05+00:00
 
 Checked against source HEAD: `d7988350ae71a2c4864604e892941c0e70d6ebd7` (only two unrelated Windows `Zone.Identifier` deletion entries and one document lock file remain in the worktree)
 
-Current graph shape: 75 nodes, 88 edges, 6 layers.
+Current graph shape: 76 nodes, 89 edges, 6 layers.
 
 Current ROS packages covered by graph:
 
@@ -33,7 +33,9 @@ flowchart LR
   FACE -->|single decision| BT
   BRIDGE -->|/goal_pose| NAV[external navigation]
   NAV -->|reached / reachable / path| BT
-  NAV -.debug_node only:\nnavigation_mode /ly/navi/vel + should_rotate.-> GD
+  NAV -.debug_node only:\n/ly/navi/vel.-> DEBUG_VEL[navi_vel_to_control_vel]
+  DEBUG_VEL -.100 Hz /ly/control/vel.-> GD
+  NAV -.debug_node only:\nshould_rotate.-> GD
   NAV -->|/ly/navi/path map/m + stamp| PATH[map_path_to_game_path_node]
   PATH -->|/ly/game/path official dm + stamp| GD
 
@@ -60,7 +62,7 @@ flowchart LR
 - `DownlinkTypeID=0x00~0x04` 為控制、SentryCmd、0x0307 路徑、0x0308 自訂訊息與自身座標。
 - `gimbal_driver` 的串口/下位機基線集中在 `src/gimbal_driver/config/gimbal_driver_config.yaml`；正式 `sentry_all` 透過 `gimbal_driver.launch.py` 載入它，並只把 root `base_config_file`／`config_file` 的安全 `io_config` 相容鍵路由給 driver，絕不把全域 YAML 注入 BT、導航或 FaceMode。
 - `io_config.serial_mode=true` 時，逐 ID raw 觀測 topic 為 `/ly/upload/typeid0..10` 與 `/ly/download/typeid0x00..04`；語義 topic 保持不變。
-- `io_config.navigation_mode` 的預設單節點 profile 是 `src/gimbal_driver/config/debug_mode.yaml`，由 `debug_node.launch.py` 載入；`gimbal_driver` 在此 profile 以 100 Hz 維持目前 Rotate 狀態，不需要等待 `/ly/navi/vel`，後者只更新控制幀 Velocity，而 `/ly/navi/should_rotate` 的 true/false 會更新 Rotate/FollowMode heartbeat 狀態。正式導航控制仍經 BT 發布 `/ly/control/*`。此入口不啟動 BT，故不消費也不宣告 `SetPostureToMoveWhenFalse`。正式 root 相容路由明確略過 `navigation_test`／`navigation_mode`。
+- `io_config.navigation_mode` 的預設單節點 profile 是 `src/gimbal_driver/config/debug_mode.yaml`，由 `debug_node.launch.py` 載入；driver 在此 profile 以 100 Hz 維持 Rotate/FollowMode，而內建 `navi_vel_to_control_vel.py` 則以 100 Hz 將 `/ly/navi/vel` 轉為正式 `/ly/control/vel`，500 ms stale 時發布零速度。兩者最終以同一 `GimbalControlFrame` 下行；此入口不啟動 BT，故不消費也不宣告 `SetPostureToMoveWhenFalse`。正式 root 相容路由明確略過 `navigation_test`／`navigation_mode`。
 - 正式 BT 的 `src/behavior_tree/config/NaviRotateControl.yaml` 可透過 `SetPostureToMoveWhenFalse` 讓新鮮 `/ly/navi/should_rotate=false` 僅覆蓋當拍目標姿態為 Move；現有 `PostureManager` 繼續獨佔 cooldown、hold、feedback 與 pending/retry。若冷卻等待中訊號轉 true 或過期，下一拍恢復原策略，因此不補發 Move。這是正式 BT key，不是 driver debug profile key。
 - 2026-07-16 source audit 移除本倉 `tf_tree` fallback；外部 `sentry_tf` 是唯一 gimbal TF provider。aim feedback、`/ly/control/sentry_cmd`、FaceMode solver、BT 0x04 position downlink、導航 feedback、`debug_node -> debug_mode.yaml` profile 與 root gimbal compatibility routing 保持不變；source ROS Humble、`sentry.common` 後，本次 `behavior_tree` 與 `simulator` 184 tests 及 static selfcheck（108 PASS／0 WARN／0 FAIL）均通過，完整 external aim runtime graph 驗證仍未執行。
 - 本圖譜為 source-checked fallback；因本機沒有可用 Understand Anything plugin core，未執行 plugin regeneration。

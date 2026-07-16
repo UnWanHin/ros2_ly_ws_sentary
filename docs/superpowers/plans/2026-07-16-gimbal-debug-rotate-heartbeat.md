@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make standalone `gimbal_driver` debug repeatedly write the current Rotate state at 100 Hz without requiring `/ly/navi/vel`.
+**Goal:** Make standalone debug keep Rotate at 100 Hz and route navigation velocity through `/ly/control/vel`.
 
-**Architecture:** Add a private monotonic-clock scheduler in `Application`. It invokes the existing `ApplyNavigationModeRotate()` method only when navigation direct-debug is enabled; the existing callback still applies `should_rotate` changes immediately. This leaves the formal BT chain untouched.
+**Architecture:** A private driver scheduler invokes `ApplyNavigationModeRotate()` only when navigation direct-debug is enabled. `debug_node` additionally launches a 100 Hz `/ly/navi/vel -> /ly/control/vel` bridge with a 500 ms zero-velocity stale fallback; the driver keeps consuming the formal control topic. This leaves the formal BT chain untouched.
 
 **Tech Stack:** ROS 2 Humble, C++20, Bash/Python selfcheck, Markdown.
 
@@ -12,7 +12,7 @@
 
 - The heartbeat is only active when `io_config.navigation_mode.enabled=true`.
 - The interval is 10 ms, targeting 100 Hz while retaining the 250 Hz main loop.
-- `/ly/navi/vel` changes Velocity only; no new topic or message is introduced.
+- The debug bridge is the sole `/ly/control/vel` publisher when `debug_node` runs; it cannot run beside BT.
 - Do not stage the user-owned `docs/rules` deletions or lock file.
 
 ---
@@ -79,6 +79,8 @@ Expected: `gimbal_driver` builds successfully.
 
 **Files:**
 - Modify: `src/gimbal_driver/config/debug_mode.yaml`
+- Create: `src/gimbal_driver/scripts/navi_vel_to_control_vel.py`
+- Modify: `src/gimbal_driver/launch/debug_node.launch.py`
 - Modify: `docs/modules/2026-05-05_gimbal_driver.md`
 - Modify: `.understand-anything/knowledge-graph.json`
 - Modify: `.understand-anything/project-knowledge-graph.md`

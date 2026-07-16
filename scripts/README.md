@@ -229,7 +229,7 @@ python3 ./scripts/python/start.py --keep-to-navi
 | `scripts/navi/facemode_cross_matrix.sh` | FaceMode 官方 X/Y 经 `tf_config.yaml` 矩阵转 map，默认用 `target -> gimbal_barrel_joint` TF 相对几何算朝向，不走相机，输入 cm |
 | `scripts/navi/facemode_map.sh` | FaceMode 直接使用导航 `map` 系 X/Y/Z，不过矩阵；默认用 `target -> gimbal_barrel_joint` TF 相对几何算朝向，不走相机，输入 m |
 | `scripts/navi/facemode_official.sh` | FaceMode 直接使用 `official_map` frame，不过矩阵；默认用 `target -> gimbal_barrel_joint` TF 相对几何算朝向，不走相机，输入 cm，需要 TF 中有 official_map 链路 |
-| `ros2 launch gimbal_driver debug_node.launch.py` | 单节点 driver debug：`gimbal_driver` 直接消费 `/ly/navi/vel` 与 `/ly/navi/should_rotate`，不启动 BT/视觉/FaceMode |
+| `ros2 launch gimbal_driver debug_node.launch.py` | 单节点 driver debug：内建 bridge 将 `/ly/navi/vel` 以 100 Hz 发往 `/ly/control/vel`，driver 消费 `/ly/control/vel` 与 `/ly/navi/should_rotate`，不启动 BT/视觉/FaceMode |
 | `scripts/navi/navi_control_chain.sh` | area_test `--pure` 风格的正式 BT 导航下位机链路：`/ly/navi/vel -> behavior_tree -> /ly/control/vel -> gimbal_driver`，不打弹，默认开小陀螺和 `PatrolScan.Mode=2`，只禁用 navi_tf_bridge 的 `/goal_pose` 输出 |
 | `scripts/navi/chase.sh` | 正式 `sentry_all` 追击测试链路：外部 `/ly/aim/armor_targets` + `/ly/aim/result` 进 BT，默认不打弹、开小陀螺和 `PatrolScan.Mode=2`，关闭 Chase 区域边界限制，只看 `/ly/navi/target_rel -> /goal_pose` 能否追击 |
 | `scripts/navi/position.sh` | 一键查看 `/ly/navi/position`，默认只输出 `data: [official_map_x_cm, official_map_y_cm]`；`--full` 可看 `header.stamp` 和 map 系 `map_point` |

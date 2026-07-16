@@ -107,7 +107,7 @@ flowchart TB
 | TypeID 6 | `int16_t DamageDifference`，來自裁判 `0x0003 game_robot_HP_t` offset 8 | `gimbal_driver` 解包後發布 `/ly/game/damage_difference` |
 | TypeID 10 | byte 0..7=`sentry_info_3`，8..9=己方前哨站 HP，10..11=敵方前哨站 HP | `gimbal_driver` 保留資料新鮮度；BT 優先採精確前哨站 HP |
 | `/ly/navi/speed_level` | `std_msgs/UInt8`，BT 原樣發布策略選出的檔位 | 外部導航的檔位倍率不在本倉庫；BT 不以此縮放 `/ly/control/vel` |
-| `/ly/control/vel` | `gimbal_driver/msg/ControlVelocity` | BT 把 `naviVelocity.X/Y` 固定以 `0.025` raw-to-m/s 換算，直接下發到 `gimbal_driver` |
+| `/ly/control/vel` | `gimbal_driver/msg/ControlVelocity` | 正式鏈由 BT 把 `naviVelocity.X/Y` 固定以 `0.025` raw-to-m/s 換算後下發到 `gimbal_driver`；隔離的 `debug_node` 以 100 Hz bridge 發同一 topic，兩者不可並行 |
 | `/ly/game/path` 新鮮度 | `header.stamp` 必須非 0，且不超過 `io_config.game_path_fresh_timeout_ms`（預設 5000ms） | `gimbal_driver` 不週期性重發快取 path；舊包重播在超時後被拒絕，等新 timestamp 才下發 |
 | `map_data_t.sender_id` | `7`（紅哨兵）或 `107`（藍哨兵） | `gimbal_driver` 由 TypeID 1 `GameCode.IsMyTeamRed` 統一寫入 `/ly/game/sentry/info.self_robot_id`；bridge 只讀此欄位，值為 `0` 時不輸出 `/ly/game/path` |
 | `reached` | 外部 `/ly/navi/reached` 新鮮且目標匹配時優先；否則走融合距離 fallback | `Composite GoalReachState` 統一供 BT 事件與策略使用 |

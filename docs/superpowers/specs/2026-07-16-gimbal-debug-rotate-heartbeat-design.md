@@ -10,7 +10,9 @@ Accepted by the operator on 2026-07-16.
 `debug_mode.yaml` sets `navigation_mode.enabled=true` and `rotate_level=1`.
 The driver already writes that Rotate value once after serial initialization,
 but a single packet is not sufficiently observable or robust for field
-debugging when no `/ly/navi/vel` message is present.
+debugging when no `/ly/navi/vel` message is present. The standalone debug
+path must also expose navigation velocity through the formal `/ly/control/vel`
+contract instead of bypassing the control topic.
 
 ## Decision
 
@@ -24,7 +26,9 @@ While and only while `io_config.navigation_mode.enabled=true`,
   optional `FollowMode=1` behavior remains unchanged.
 - A received `true` immediately restores and continues to write
   `rotate_level`.
-- `/ly/navi/vel` continues to change only `GimbalControlFrame.Velocity`; each
+- `debug_node` starts a 100 Hz bridge that converts `/ly/navi/vel` to
+  `/ly/control/vel` with `use_raw=true`; it publishes zero after 500 ms without
+  navigation input. `gimbal_driver` consumes that formal control topic, so each
   outgoing control frame retains the current Rotate state.
 
 The formal `sentry_all -> behavior_tree -> /ly/control/* -> gimbal_driver`
@@ -35,6 +39,7 @@ chain remains unchanged because it does not enable `navigation_mode`.
 - Standalone debug sends a control frame even without navigation velocity.
 - The main driver loop remains at 250 Hz; a monotonic-clock gate bounds this
   debug-only control-frame heartbeat to approximately 100 Hz.
-- No ROS topic, message, launch argument, or formal configuration key changes.
+- No ROS topic or message contract changes; only the debug launch composition
+  adds the bridge node.
 - The existing selfcheck gains a source-level contract to prevent removal or
   accidental relocation of the debug-only heartbeat.

@@ -13,6 +13,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
 
 
 def generate_launch_description():
@@ -75,9 +76,17 @@ def generate_launch_description():
         name: LaunchConfiguration(name) for name in argument_names
     }
     forwarded_arguments["config_file"] = forwarded_arguments.pop("debug_config_file")
+    velocity_bridge = Node(
+        package="gimbal_driver",
+        executable="navi_vel_to_control_vel.py",
+        name="navi_vel_to_control_vel",
+        output=LaunchConfiguration("output"),
+        parameters=[{"stale_timeout_ms": 500, "publish_hz": 100.0}],
+    )
 
     return LaunchDescription([
         *launch_arguments,
+        velocity_bridge,
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(gimbal_driver_launch),
             launch_arguments=forwarded_arguments.items(),

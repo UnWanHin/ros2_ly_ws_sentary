@@ -7,10 +7,9 @@
     io_config:
       navigation_mode:
         enabled: true  # Subscribe to navigation debug controls.
-        vel_chain: true  # Directly write /ly/navi/vel to the lower-machine frame.
+        vel_chain: false  # debug_node bridges /ly/navi/vel to the formal /ly/control/vel topic.
         rotate_level: 1  # Default Rotate level, range 0..3; driver re-sends it at 100 Hz.
         should_rotate:
           enabled: true  # Consume /ly/navi/should_rotate.
-      navigation_test_stale_timeout_ms: 500  # Direct-velocity stale timeout (ms).
     # Slash key is required for the driver's compatibility reader and overlay precedence.
     io_config/navigation_mode/should_rotate/follow_mode_when_false: true
