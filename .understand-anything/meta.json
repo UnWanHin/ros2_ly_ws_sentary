@@ -1,8 +1,8 @@
 {
-  "lastAnalyzedAt": "2026-07-16T17:29:05+00:00",
-  "gitCommitHash": "d7988350ae71a2c4864604e892941c0e70d6ebd7",
+  "lastAnalyzedAt": "2026-07-16T17:54:11+00:00",
+  "gitCommitHash": "097beac2254607f23b1bbf5f7cec6694413b2379",
   "workingTreeStatus": "dirty only for two unrelated Windows Zone.Identifier deletion entries and one document lock file under docs/rules",
-  "lastCheckedNote": "Fallback graph source-checked after d798835. debug_mode.yaml is driver-only direct navigation debug: it maintains current Rotate at 100 Hz without waiting for /ly/navi/vel; velocity updates only Velocity and should_rotate updates the heartbeat state. Formal sentry_all still rejects navigation_mode and keeps behavior_tree as the control owner. The static heartbeat contract passed. ROS build/runtime validation is pending because the local host lacks ROS 2 and NUC SSH closed during key exchange.",
+  "lastCheckedNote": "Fallback graph source-checked after 097beac. debug_node launches navi_vel_to_control_vel.py: it converts /ly/navi/vel to raw /ly/control/vel at 100 Hz and keeps zero velocity after 500 ms stale, while navigation_mode keeps Rotate/FollowMode at 100 Hz. Formal sentry_all still rejects navigation_mode and keeps behavior_tree as the control owner. The static bridge contract and Python syntax check passed. ROS build/runtime validation is pending because the local host lacks ROS 2 and NUC SSH closed during key exchange.",
   "version": "1.0.0",
   "analyzedFiles": 554,
   "generator": "local-understand-anything-compatible-fallback"
