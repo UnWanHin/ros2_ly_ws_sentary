@@ -7,7 +7,7 @@ tags:
 
 # 哨兵工程知識庫首頁
 
-Updated: 2026-07-15
+Updated: 2026-07-16
 
 這是 `ros2_ly_ws_sentry` 的 Obsidian 導覽入口。先從來源掃描得到的節點進入，再回到現有架構文件確認目前行為；人工判斷與現場經驗則保存在獨立筆記區。
 
@@ -16,6 +16,7 @@ Updated: 2026-07-15
 - [[docs/obsidian/_generated/Index|自動索引]]：依 package manifest、訊息定義、source、launch 與 config 生成的 package／topic／message 目錄。
 - [[docs/obsidian/notes/2026-07-16-source-baseline|2026-07-16 source baseline]]：開始工程前的 source-backed 架構、驗收與追蹤基線。
 - [[docs/obsidian/notes/2026-07-16-config-script-governance|YAML／腳本治理盤點]]：owner、precedence 與分批清理 gate。
+- [[docs/obsidian/notes/2026-07-16-rmuc-v2-enhanced-postures|RMUC V2.0 強化姿態規則]]：強化姿態的官方時限、效果、串口映射與尚未啟用的策略邊界。
 - [[docs/architecture/2026-07-12_project_link_graph|現行主鏈]]：目前 decision-only 架構、內外部責任與重要資料鏈路。
 - [[docs/obsidian/notes/README|人工筆記]]：不受同步器管理的調查、決策、實機觀察與待辦脈絡。
 

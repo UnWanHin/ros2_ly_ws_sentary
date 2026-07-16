@@ -1,10 +1,12 @@
 # 人工筆記區
 
-Updated: 2026-07-15
+Updated: 2026-07-16
 
 `docs/obsidian/notes/` 用於保存不適合從原始碼自動推導的工程知識：現場觀察、問題調查、決策理由、驗證結果、待辦脈絡與交接提示。此目錄 **不由同步工具管理**；同步、`--check` 與生成檔清理都不會修改或刪除其中內容。
 
 回到 [[docs/obsidian/Home|知識庫首頁]]，或從 [[docs/obsidian/_generated/Index|自動索引]] 找到要關聯的 package、topic 與 message。
+
+近期筆記：[[2026-07-16-rmuc-v2-enhanced-postures|RMUC V2.0 強化姿態規則]]。
 
 ## 建議寫法
 
