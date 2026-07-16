@@ -24,6 +24,24 @@
 
 - `scripts/FUNCTION_GUIDE.md`
 
+## Obsidian 工程知識庫
+
+以 repository root 開啟 Obsidian vault，從 `docs/obsidian/Home.md` 進入。原始碼、
+`package.xml`、`.msg`、launch 與 config 的可導航索引由下列命令維護：
+
+```bash
+python3 scripts/obsidian_sync.py
+python3 scripts/obsidian_sync.py --check
+python3 scripts/obsidian_sync.py --dry-run
+```
+
+- 第一個命令重建 `docs/obsidian/_generated/`。
+- `--check` 不寫檔；若來源與 generated notes 不一致則以非零狀態結束。
+- `--dry-run` 顯示預計異動但不寫檔。
+
+人工判斷與實機筆記應放在 `docs/obsidian/notes/`，同步器不會修改該目錄；不要提交
+`.obsidian/` 的個人 UI 或 workspace 設定。
+
 ## 目录结构
 
 ```text

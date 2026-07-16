@@ -1,10 +1,10 @@
 # ros2_ly_ws_sentry Knowledge Graph
 
-Generated: 2026-07-13T00:00:00+08:00
+Generated: 2026-07-16T00:00:00+00:00
 
-Checked against HEAD: `8e041f5610a4e62b8bcb329e53fe974d3630d7dc` (dirty worktree)
+Checked against HEAD: `f01fc6e056e8992124b1cc46e12f4491bacb5fc4` (dirty integration worktree; source-only audit)
 
-Current graph shape: 64 nodes, 61 edges, 6 layers.
+Current graph shape: 70 nodes, 78 edges, 6 layers.
 
 Current ROS packages covered by graph:
 
@@ -19,12 +19,13 @@ Current ROS packages covered by graph:
 flowchart LR
   AIM[external sentry.aim] -->|/ly/aim/armor_targets + result| BT[behavior_tree]
   BT -->|/ly/aim/select_target| AIM
-  BT -->|/ly/control/angles firecode vel posture| GD[gimbal_driver]
+  BT -->|/ly/control/angles firecode vel posture sentry_cmd| GD[gimbal_driver]
   GD -->|serial 0x00~0x04| LOWER[lower controller / referee]
   LOWER -->|gimbal + referee state| GD
   GD -->|/ly/gimbal/* /ly/game/* /ly/friend/*| BT
 
-  BT -->|goal / goal_pos_raw / target_rel| BRIDGE[navi_tf_bridge]
+  BT -->|/ly/navi/goal + speed_level| NAV
+  BT -->|goal_pos_raw / target_rel| BRIDGE[navi_tf_bridge]
   BT -->|FaceMode request| FACE[FaceModeManager]
   FACE -->|/ly/face_mode/target_raw| FACE_SOLVER[map_aim_point_node]
   FACE_SOLVER -->|/ly/face_mode/angles| FACE
@@ -36,7 +37,8 @@ flowchart LR
   PATH -->|/ly/game/path official dm + stamp| GD
 
   TF[external sentry_tf] -.preferred.-> BRIDGE
-  TFTREE[tf_tree optional fallback] -.use_tf_tree=true.-> BT
+  GD -->|/ly/gimbal/angles| TFTREE[tf_tree optional fallback]
+  TFTREE -.use_tf_tree=true.-> BRIDGE
   BT -->|DecisionTrace JSONL| SIM[simulator]
 ```
 
@@ -60,4 +62,5 @@ flowchart LR
 - `gimbal_driver` 的串口/下位機基線集中在 `src/gimbal_driver/config/gimbal_driver_config.yaml`；正式 `sentry_all` 會明確載入它。
 - `io_config.serial_mode=true` 時，逐 ID raw 觀測 topic 為 `/ly/upload/typeid0..10` 與 `/ly/download/typeid0x00..04`；語義 topic 保持不變。
 - `io_config.navigation_mode` 預設關閉；僅調試時可讓 `gimbal_driver` 直連 `/ly/navi/vel` 與 `/ly/navi/should_rotate`，正式導航控制仍經 BT 發布 `/ly/control/*`。
+- 2026-07-16 source audit 補上 JSON graph 的 aim feedback、`/ly/control/sentry_cmd`、FaceMode solver、BT 0x04 position downlink、導航 feedback 與正確的 `tf_tree -> navi_tf_bridge` fallback；完整 build 與 static selfcheck 均已在 source ROS Humble、`sentry.common`、本 workspace 後通過，尚未做 launch/runtime graph 驗證。
 - 本圖譜為 source-checked fallback；因本機沒有可用 Understand Anything plugin core，未執行 plugin regeneration。

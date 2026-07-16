@@ -1,8 +1,8 @@
 {
-  "lastAnalyzedAt": "2026-07-13T00:00:00+08:00",
-  "gitCommitHash": "8e041f5610a4e62b8bcb329e53fe974d3630d7dc",
+  "lastAnalyzedAt": "2026-07-16T00:00:00+00:00",
+  "gitCommitHash": "f01fc6e056e8992124b1cc46e12f4491bacb5fc4",
   "workingTreeStatus": "dirty",
-  "lastCheckedNote": "Fallback graph source-checked against the current dirty worktree after the formal PreRoadland/Roadland split and gimbal_driver navigation_mode debug addition. PreRoadland is a same-level MainArea with MyPreRoadland (BaseGoalId 25); Roadland keeps its name but uses the former ReadyRoadLand boundary and preserves MyRoadland ID 21/22 crossing. UnitInfo adds stable area IDs 8/9 for my/enemy PreRoadland while retaining 0-7. The simulator now draws both formal main-area polygons separately from the RoadlandFollow crossing sub-area. Current formal chain is external /ly/aim/* + external TF/navigation -> behavior_tree -> /ly/control/* -> gimbal_driver -> lower controller; disabled-by-default navigation_mode can directly consume /ly/navi/vel and /ly/navi/should_rotate for driver-only debugging. Six ROS packages remain.",
+  "lastCheckedNote": "Fallback graph source-checked against HEAD f01fc6e and the dirty integration worktree. Six ROS packages remain. The formal external aim feedback cycle, /ly/control/sentry_cmd, FaceMode solver, BT position 0x04 downlink, and navigation position/target/velocity/rotate feedback are explicit graph relations. PreRoadland remains BaseGoalId 25; Roadland preserves the ID 21/22 guarded crossing; UnitInfo keeps 0-7 and adds 8/9. The disabled-by-default gimbal_driver navigation_mode can directly consume /ly/navi/vel and /ly/navi/should_rotate for driver-only debugging; the formal chain remains external navigation -> behavior_tree -> /ly/control/* -> gimbal_driver. Full colcon build and static selfcheck previously passed after sourcing ROS Humble, sentry.common, and this workspace; launch/runtime graph validation remains pending.",
   "version": "1.0.0",
   "analyzedFiles": 554,
   "generator": "local-understand-anything-compatible-fallback"
