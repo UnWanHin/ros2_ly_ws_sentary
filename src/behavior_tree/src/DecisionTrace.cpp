@@ -582,9 +582,9 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         {"under_fire_recent", IsUnderFireRecent()},
         {"under_fire_burst", IsUnderFireBurst()},
         {"runtime", {
-            {"current", PostureEnumJson(posture_runtime.Current)},
-            {"desired", PostureEnumJson(posture_runtime.Desired)},
-            {"pending", PostureEnumJson(posture_runtime.Pending)},
+            {"current", PostureEnumJson(posture_runtime.Current.Base)},
+            {"desired", PostureEnumJson(posture_runtime.Desired.Base)},
+            {"pending", PostureEnumJson(posture_runtime.Pending.Base)},
             {"has_pending", posture_runtime.HasPending},
             {"feedback_stale", posture_runtime.FeedbackStale},
             {"retry_count", posture_runtime.RetryCount},

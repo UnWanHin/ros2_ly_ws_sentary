@@ -230,6 +230,14 @@ ament_target_dependencies(${PROJECT_NAME}_node
 ament_target_dependencies(${PROJECT_NAME}_node sentry_msgs)
 
 if(BUILD_TESTING)
+  ament_add_gtest(test_posture_manager
+    test/test_posture_manager.cpp
+    src/PostureManager.cpp
+  )
+  target_include_directories(test_posture_manager PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
+  )
   ament_add_gtest(test_aim_source test/test_aim_source.cpp)
   target_include_directories(test_aim_source PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

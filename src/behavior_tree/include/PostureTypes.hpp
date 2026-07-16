@@ -37,6 +37,22 @@ inline constexpr std::uint8_t ToPostureValue(const SentryPosture posture) noexce
     return IsValidPosture(posture) ? static_cast<std::uint8_t>(posture) : 0U;
 }
 
+struct PostureMode {
+    SentryPosture Base{SentryPosture::Unknown};
+    bool Enhanced{false};
+
+    constexpr bool operator==(const PostureMode&) const noexcept = default;
+};
+
+inline constexpr bool IsValidPostureMode(const PostureMode mode) noexcept {
+    return IsValidPosture(mode.Base);
+}
+
+inline constexpr std::uint8_t ToPostureCommandValue(const PostureMode mode) noexcept {
+    const auto base = ToPostureValue(mode.Base);
+    return base == 0U ? 0U : static_cast<std::uint8_t>(base + (mode.Enhanced ? 3U : 0U));
+}
+
 inline constexpr const char* PostureToString(const SentryPosture posture) noexcept {
     switch (posture) {
         case SentryPosture::Attack: return "Attack";
@@ -52,6 +68,22 @@ struct PostureDecision {
     const char* Reason{"hold"};
 };
 
+struct PostureFeedback {
+    std::uint8_t Base{0};
+    bool Enhanced{false};
+    bool Fresh{false};
+    bool EnhancedFresh{false};
+};
+
+struct PostureRequestPolicy {
+    bool AllowOptimisticAck{true};
+    bool PreserveCurrentOnRetryExhausted{false};
+
+    static constexpr PostureRequestPolicy OutpostLock() noexcept {
+        return {false, true};
+    }
+};
+
 struct PostureRefereeTimer {
     bool HasInfo3{false};
     bool Fresh{false};
@@ -63,9 +95,9 @@ struct PostureRefereeTimer {
 };
 
 struct PostureRuntime {
-    SentryPosture Current{SentryPosture::Move};
-    SentryPosture Desired{SentryPosture::Move};
-    SentryPosture Pending{SentryPosture::Unknown};
+    PostureMode Current{SentryPosture::Move, false};
+    PostureMode Desired{SentryPosture::Move, false};
+    PostureMode Pending{SentryPosture::Unknown, false};
     std::array<double, 4> AccumSec{};  // index = posture value(1..3)
     std::array<bool, 4> Degraded{};    // effective state: referee timer when fresh, local timer otherwise
     std::array<bool, 4> LocalDegraded{};

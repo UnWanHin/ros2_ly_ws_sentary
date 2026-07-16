@@ -269,9 +269,9 @@ public:
         if (tick_board) {
             tick_board->set("PostureCommand", app_->GetPostureCommand());
             tick_board->set("PostureState", app_->GetPostureState());
-            tick_board->set("PostureCurrent", static_cast<std::uint8_t>(runtime.Current));
-            tick_board->set("PostureDesired", static_cast<std::uint8_t>(runtime.Desired));
-            tick_board->set("PosturePending", static_cast<std::uint8_t>(runtime.Pending));
+            tick_board->set("PostureCurrent", ToPostureValue(runtime.Current.Base));
+            tick_board->set("PostureDesired", ToPostureValue(runtime.Desired.Base));
+            tick_board->set("PosturePending", ToPostureValue(runtime.Pending.Base));
             tick_board->set("PostureHasPending", runtime.HasPending);
             tick_board->set("PostureFeedbackStale", runtime.FeedbackStale);
             tick_board->set("PostureAccumAttackSec", runtime.AccumSec[1]);
@@ -286,9 +286,9 @@ public:
         }
 
         if (global_board) {
-            global_board->set("PostureCurrent", static_cast<std::uint8_t>(runtime.Current));
-            global_board->set("PostureDesired", static_cast<std::uint8_t>(runtime.Desired));
-            global_board->set("PosturePending", static_cast<std::uint8_t>(runtime.Pending));
+            global_board->set("PostureCurrent", ToPostureValue(runtime.Current.Base));
+            global_board->set("PostureDesired", ToPostureValue(runtime.Desired.Base));
+            global_board->set("PosturePending", ToPostureValue(runtime.Pending.Base));
             global_board->set("PostureHasPending", runtime.HasPending);
             global_board->set("PostureFeedbackStale", runtime.FeedbackStale);
             global_board->set("PostureAccumAttackSec", runtime.AccumSec[1]);

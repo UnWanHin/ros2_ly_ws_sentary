@@ -304,20 +304,20 @@ SentryPosture Application::SelectDesiredPosture(const bool has_target) const {
     }
 
     // 6) 单姿态累计过久时，惩罚当前姿态，降低 3 分钟惩罚风险
-    if (IsValidPosture(runtime.Current)) {
-        const auto idx = ToPostureValue(runtime.Current);
+    if (IsValidPosture(runtime.Current.Base)) {
+        const auto idx = ToPostureValue(runtime.Current.Base);
         if (idx > 0U) {
             if (runtime.Degraded[idx]) {
-                AddScore(score, runtime.Current, -3);
+                AddScore(score, runtime.Current.Base, -3);
             } else if (runtime.AccumSec[idx] >= static_cast<double>(config.PostureSettings.EarlyRotateSec)) {
-                AddScore(score, runtime.Current, -2);
+                AddScore(score, runtime.Current.Base, -2);
             }
         }
     }
 
     // 7) pending 期间轻微偏向 pending，减少频繁改口
-    if (runtime.HasPending && IsValidPosture(runtime.Pending)) {
-        AddScore(score, runtime.Pending, 2);
+    if (runtime.HasPending && IsValidPosture(runtime.Pending.Base)) {
+        AddScore(score, runtime.Pending.Base, 2);
     }
 
     // 8) 裁判 sentry_info_3 新鲜时，按剩余时长降低接近弱化姿态的候选分数。
@@ -341,10 +341,10 @@ SentryPosture Application::SelectDesiredPosture(const bool has_target) const {
             }
         }
 
-        if (runtime.RefereeEnhancedPosture && IsValidPosture(runtime.Current)) {
+        if (runtime.RefereeEnhancedPosture && IsValidPosture(runtime.Current.Base)) {
             AddScore(
                 score,
-                runtime.Current,
+                runtime.Current.Base,
                 std::max(0, config.PostureSettings.EnhancedCurrentPostureBonus));
         }
     }
@@ -362,10 +362,10 @@ SentryPosture Application::SelectDesiredPosture(const bool has_target) const {
 
     // 9) 分差迟滞：分差不够大时保持当前姿态，避免抖动
     const int hysteresis = std::max(0, config.PostureSettings.ScoreHysteresis);
-    if (IsValidPosture(runtime.Current)) {
-        const int current_score = GetScore(score, runtime.Current);
-        if (best != runtime.Current && (best_score - current_score) <= hysteresis) {
-            best = runtime.Current;
+    if (IsValidPosture(runtime.Current.Base)) {
+        const int current_score = GetScore(score, runtime.Current.Base);
+        if (best != runtime.Current.Base && (best_score - current_score) <= hysteresis) {
+            best = runtime.Current.Base;
         }
     }
 
@@ -422,8 +422,8 @@ void Application::UpdatePostureCommand(const bool has_target) {
             "[Posture] cmd={} desired={} current={} pending={} has_target_recent={} navi_move_override={} under_fire={} under_fire_burst={} feedback_stale={} referee_timer={} enhanced={} reason={}",
             static_cast<int>(postureCommand),
             PostureToString(desired),
-            PostureToString(runtime.Current),
-            PostureToString(runtime.Pending),
+            PostureToString(runtime.Current.Base),
+            PostureToString(runtime.Pending.Base),
             has_target_recent ? 1 : 0,
             navi_move_override ? 1 : 0,
             IsUnderFireRecent() ? 1 : 0,

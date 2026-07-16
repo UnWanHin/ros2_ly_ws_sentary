@@ -30,13 +30,13 @@
 
 **Interfaces:**
 - `PostureMode { SentryPosture Base; bool Enhanced; }`
-- `PostureFeedback { uint8_t Base; bool Enhanced; bool Fresh; }`
+- `PostureFeedback { uint8_t Base; bool Enhanced; bool Fresh; bool EnhancedFresh; }`; `Fresh` is the base-posture freshness and `EnhancedFresh` is the independent referee enhanced-bit freshness.
 - `PostureRequestPolicy { bool AllowOptimisticAck; bool PreserveCurrentOnRetryExhausted; }`
 - `uint8_t ToPostureCommandValue(PostureMode)` maps normal `1..3` and strong `4..6`.
 - `PostureManager::CancelPending()` clears only an unconfirmed request.
 - `PostureManager::Tick(TimePoint, PostureMode, PostureFeedback, PostureRefereeTimer, PostureRequestPolicy)` is the new mode-aware overload; the existing `Tick(TimePoint, SentryPosture, uint8_t, PostureRefereeTimer)` remains a wrapper using `{false, false}` policy.
 
-- [ ] **Step 1: Add failing gtests for command 4 ACK and retry preservation**
+- [x] **Step 1: Add failing gtests for command 4 ACK and retry preservation**
 
 ```cpp
 #include "../include/PostureManager.hpp"
@@ -61,7 +61,7 @@ LangYa::PostureSetting EnabledPostureSetting() {
 }
 
 BehaviorTree::PostureFeedback FreshAttackFeedback(const bool enhanced) {
-    return {1U, enhanced, true};
+    return {1U, enhanced, true, true};
 }
 
 }  // namespace
@@ -128,7 +128,7 @@ TEST(PostureManagerTest, CooldownBeginsAtCompositeAck) {
 }
 ```
 
-- [ ] **Step 2: Register the test and confirm it initially fails on the missing API**
+- [x] **Step 2: Register the test and confirm it initially fails on the missing API**
 
 Add `ament_add_gtest(test_posture_manager test/test_posture_manager.cpp src/PostureManager.cpp)` with the established include paths. Run:
 
@@ -138,7 +138,7 @@ bash -lc 'source /opt/ros/humble/setup.bash && source /home/hiraeth/Documents/Di
 
 Expected: compile failure until the new mode/feedback API exists.
 
-- [ ] **Step 3: Implement composite mode without changing base score semantics**
+- [x] **Step 3: Implement composite mode without changing base score semantics**
 
 ```cpp
 constexpr uint8_t ToPostureCommandValue(const PostureMode mode) noexcept {
@@ -154,7 +154,7 @@ constexpr bool MatchesFeedback(const PostureMode mode, const PostureFeedback fee
 
 Keep accumulation/degradation arrays indexed by base `1..3`. Convert pending/current/desired command state to `PostureMode`; start `last_switch_` only after `MatchesFeedback()`. When `PreserveCurrentOnRetryExhausted=true`, clear pending with reason `pending_preserved` and do not call `choose_alternative_posture()`. Preserve the old base-only `Tick()` overload for all callers outside this feature.
 
-- [ ] **Step 4: Run posture regression tests**
+- [x] **Step 4: Run posture regression tests**
 
 ```bash
 bash -lc 'source /opt/ros/humble/setup.bash && source /home/hiraeth/Documents/DirtroBox/Ubuntu-22.04/sentry.common/install/setup.bash && colcon test --packages-select behavior_tree --ctest-args -R "test_posture_manager|test_navi_rotate_posture" --output-on-failure'
@@ -163,7 +163,7 @@ bash -lc 'source /opt/ros/humble/setup.bash && source /home/hiraeth/Documents/Di
 
 Expected: selected tests pass; `NaviRotate` still requests ordinary Move.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/behavior_tree/include/PostureTypes.hpp src/behavior_tree/include/PostureManager.hpp src/behavior_tree/src/PostureManager.cpp src/behavior_tree/test/test_posture_manager.cpp src/behavior_tree/CMakeLists.txt

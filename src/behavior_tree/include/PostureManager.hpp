@@ -21,9 +21,18 @@ public:
 
     PostureDecision Tick(
         TimePoint now,
+        PostureMode desired_posture,
+        PostureFeedback feedback,
+        const PostureRefereeTimer& referee_timer,
+        PostureRequestPolicy policy = {});
+
+    PostureDecision Tick(
+        TimePoint now,
         SentryPosture desired_posture,
         std::uint8_t feedback_posture_value,
         const PostureRefereeTimer& referee_timer = {});
+
+    void CancelPending() noexcept;
 
     const PostureRuntime& Runtime() const noexcept { return runtime_; }
 
@@ -40,7 +49,7 @@ private:
     TimePoint last_feedback_{};
 
     void accumulate_time(double dt_seconds);
-    void update_feedback(TimePoint now, std::uint8_t feedback_posture_value);
+    void update_feedback(TimePoint now, PostureFeedback feedback);
     void update_referee_timer(const PostureRefereeTimer& referee_timer);
     double effective_accum_sec(SentryPosture posture) const;
     bool effective_degraded(SentryPosture posture) const;

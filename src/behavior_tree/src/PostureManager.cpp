@@ -15,7 +15,7 @@ void PostureManager::Configure(const LangYa::PostureSetting& setting) {
 
 void PostureManager::Reset(TimePoint now, SentryPosture initial_posture) {
     runtime_ = {};
-    runtime_.Current = IsValidPosture(initial_posture) ? initial_posture : SentryPosture::Move;
+    runtime_.Current = {IsValidPosture(initial_posture) ? initial_posture : SentryPosture::Move, false};
     runtime_.Desired = runtime_.Current;
 
     initialized_ = true;
@@ -28,23 +28,27 @@ void PostureManager::Reset(TimePoint now, SentryPosture initial_posture) {
 }
 
 void PostureManager::accumulate_time(const double dt_seconds) {
-    const auto idx = ToPostureValue(runtime_.Current);
+    const auto idx = ToPostureValue(runtime_.Current.Base);
     if (idx == 0U) return;
 
     runtime_.AccumSec[idx] += dt_seconds;
     runtime_.LocalDegraded[idx] = runtime_.AccumSec[idx] >= static_cast<double>(config_.MaxSinglePostureSec);
 }
 
-void PostureManager::update_feedback(const TimePoint now, const std::uint8_t feedback_posture_value) {
-    const auto feedback = ToPosture(feedback_posture_value);
-    if (IsValidPosture(feedback)) {
+void PostureManager::update_feedback(const TimePoint now, const PostureFeedback feedback) {
+    const auto feedback_base = ToPosture(feedback.Base);
+    if (feedback.Fresh && IsValidPosture(feedback_base)) {
         has_feedback_ = true;
         last_feedback_ = now;
         runtime_.FeedbackStale = false;
-        runtime_.Current = feedback;
-        if (runtime_.HasPending && feedback == runtime_.Pending) {
+        runtime_.Current = {feedback_base, feedback.EnhancedFresh && feedback.Enhanced};
+        const bool pending_matches = runtime_.HasPending &&
+            runtime_.Pending.Base == feedback_base &&
+            (!runtime_.Pending.Enhanced || (feedback.EnhancedFresh && feedback.Enhanced)) &&
+            (runtime_.Pending.Enhanced || !feedback.EnhancedFresh || !feedback.Enhanced);
+        if (pending_matches) {
             runtime_.HasPending = false;
-            runtime_.Pending = SentryPosture::Unknown;
+            runtime_.Pending = {};
             runtime_.RetryCount = 0;
             last_switch_ = now;
         }
@@ -120,13 +124,14 @@ SentryPosture PostureManager::choose_alternative_posture(const SentryPosture avo
 
 PostureDecision PostureManager::Tick(
     const TimePoint now,
-    const SentryPosture desired_posture,
-    const std::uint8_t feedback_posture_value,
-    const PostureRefereeTimer& referee_timer) {
+    const PostureMode desired_posture,
+    const PostureFeedback feedback,
+    const PostureRefereeTimer& referee_timer,
+    const PostureRequestPolicy policy) {
 
     if (!initialized_) {
-        const auto initial = IsValidPosture(ToPosture(feedback_posture_value))
-            ? ToPosture(feedback_posture_value)
+        const auto initial = feedback.Fresh && IsValidPosture(ToPosture(feedback.Base))
+            ? ToPosture(feedback.Base)
             : SentryPosture::Move;
         Reset(now, initial);
     }
@@ -139,7 +144,7 @@ PostureDecision PostureManager::Tick(
     }
     last_tick_ = now;
 
-    update_feedback(now, feedback_posture_value);
+    update_feedback(now, feedback);
     update_referee_timer(referee_timer);
     for (const auto posture : {SentryPosture::Attack, SentryPosture::Defense, SentryPosture::Move}) {
         const auto idx = ToPostureValue(posture);
@@ -152,22 +157,22 @@ PostureDecision PostureManager::Tick(
         return decision;
     }
 
-    runtime_.Desired = IsValidPosture(desired_posture) ? desired_posture : runtime_.Current;
+    runtime_.Desired = IsValidPostureMode(desired_posture) ? desired_posture : runtime_.Current;
 
-    const auto current_idx = ToPostureValue(runtime_.Current);
+    const auto current_idx = ToPostureValue(runtime_.Current.Base);
     if (current_idx > 0U &&
         runtime_.Desired == runtime_.Current &&
-        effective_early_rotate(runtime_.Current)) {
-        const auto alternative = choose_alternative_posture(runtime_.Current);
-        if (IsValidPosture(alternative) && alternative != runtime_.Current) {
-            runtime_.Desired = alternative;
+        effective_early_rotate(runtime_.Current.Base)) {
+        const auto alternative = choose_alternative_posture(runtime_.Current.Base);
+        if (IsValidPosture(alternative) && alternative != runtime_.Current.Base) {
+            runtime_.Desired = {alternative, false};
         }
     }
 
     if (runtime_.HasPending) {
         if (runtime_.Current == runtime_.Pending) {
             runtime_.HasPending = false;
-            runtime_.Pending = SentryPosture::Unknown;
+            runtime_.Pending = {};
             runtime_.RetryCount = 0;
             last_switch_ = now;
             decision.Reason = "pending_confirmed";
@@ -180,10 +185,10 @@ PostureDecision PostureManager::Tick(
             return decision;
         }
 
-        if (config_.OptimisticAck && !has_feedback_) {
+        if (config_.OptimisticAck && policy.AllowOptimisticAck && !runtime_.Pending.Enhanced && !has_feedback_) {
             runtime_.Current = runtime_.Pending;
             runtime_.HasPending = false;
-            runtime_.Pending = SentryPosture::Unknown;
+            runtime_.Pending = {};
             runtime_.RetryCount = 0;
             last_switch_ = now;
             decision.Reason = "optimistic_ack";
@@ -195,18 +200,22 @@ PostureDecision PostureManager::Tick(
             retry_elapsed >= std::chrono::milliseconds(config_.RetryIntervalMs)) {
             runtime_.RetryCount++;
             last_command_ = now;
-            decision.Command = ToPostureValue(runtime_.Pending);
+            decision.Command = ToPostureCommandValue(runtime_.Pending);
             decision.Sent = decision.Command != 0U;
             decision.Reason = "retry_pending";
             return decision;
         }
 
         if (runtime_.RetryCount >= config_.MaxRetryCount) {
-            // 防死锁：长时间切换失败时，放弃 pending 并尝试切到负担更低的姿态。
             runtime_.HasPending = false;
-            runtime_.Pending = SentryPosture::Unknown;
+            runtime_.Pending = {};
             runtime_.RetryCount = 0;
-            runtime_.Desired = choose_alternative_posture(runtime_.Current);
+            if (policy.PreserveCurrentOnRetryExhausted) {
+                runtime_.Desired = runtime_.Current;
+                decision.Reason = "pending_preserved";
+                return decision;
+            }
+            runtime_.Desired = {choose_alternative_posture(runtime_.Current.Base), false};
             decision.Reason = "pending_dropped";
         } else {
             decision.Reason = "pending_retry_wait";
@@ -214,7 +223,7 @@ PostureDecision PostureManager::Tick(
         }
     }
 
-    if (!IsValidPosture(runtime_.Desired) || runtime_.Desired == runtime_.Current) {
+    if (!IsValidPostureMode(runtime_.Desired) || runtime_.Desired == runtime_.Current) {
         decision.Reason = "hold";
         return decision;
     }
@@ -237,10 +246,29 @@ PostureDecision PostureManager::Tick(
     pending_since_ = now;
     last_command_ = now;
 
-    decision.Command = ToPostureValue(runtime_.Pending);
+    decision.Command = ToPostureCommandValue(runtime_.Pending);
     decision.Sent = decision.Command != 0U;
     decision.Reason = "switch_request";
     return decision;
+}
+
+PostureDecision PostureManager::Tick(
+    const TimePoint now,
+    const SentryPosture desired_posture,
+    const std::uint8_t feedback_posture_value,
+    const PostureRefereeTimer& referee_timer) {
+    return Tick(
+        now,
+        {desired_posture, false},
+        {feedback_posture_value, referee_timer.Enhanced, IsValidPosture(ToPosture(feedback_posture_value)), referee_timer.Fresh},
+        referee_timer,
+        {});
+}
+
+void PostureManager::CancelPending() noexcept {
+    runtime_.HasPending = false;
+    runtime_.Pending = {};
+    runtime_.RetryCount = 0;
 }
 
 }  // namespace BehaviorTree
