@@ -49,8 +49,9 @@ updated: 2026-07-16
   不是刪除候選。
 - Base.yaml 與 AreaManager.yaml 的同值 PatrolSelection overlay 已去重；共用評分由
   AreaManager.yaml 擁有，Base.yaml 保留 MyBase 專屬巡邏權重與保持時間。
-- 六支 gimbal 測試／巡邏腳本重複 driver lifecycle 樣板；應抽 shared helper，保留現有 debug
-  入口與各自 topic stimulus。
+- 六支 gimbal 測試／巡邏腳本已共用
+  [[scripts/lib/gimbal_test_lifecycle.sh|gimbal_test_lifecycle]]；它只統一 driver lifecycle，保留現有
+  debug 入口、topic stimulus、raw serial override 與各腳本額外 PID 回收。
 - regional test/debug ConfigJson 是完整 profile fixture；在沒有 loader inheritance 合約前，
   不以減少檔案為理由合併。
 - tf_config.yaml 的兩份 raw goal calibration matrix 與 pointer solver 的 raw config reader

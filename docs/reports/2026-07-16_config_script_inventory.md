@@ -98,7 +98,7 @@ Updated: 2026-07-16
 | scripts/feature_test/standalone/modes/chassis_spin_mode.sh、scripts/feature_test/standalone/modes/chassis_spin_sine_translate_mode.sh、scripts/feature_test/standalone/modes/chassis_spin_translate_mode.sh、scripts/feature_test/standalone/modes/navi_patrol_mode.sh | standalone modes | 保留；有不同 control stimulus。 |
 | scripts/gimbal/patrolmode_common.sh | gimbal patrol shared implementation | 保留；由 mode wrappers source／執行。 |
 | scripts/gimbal/patrolmode1.sh、scripts/gimbal/patrolmode2.sh、scripts/gimbal/patrolmode3.sh | 薄 wrapper | 保留；可在 wrapper migration 時再評估。 |
-| scripts/lib/ros_launch_common.sh | workspace shared library | 保留；多個 launcher source。 |
+| scripts/lib/ros_launch_common.sh、scripts/lib/gimbal_test_lifecycle.sh | workspace shared library | 保留；前者提供 ROS workspace／stack cleanup，後者統一六支直接 gimbal 測試的 driver 啟動、early-exit 檢查與 INT→TERM 回收；各腳本仍擁有其 topic stimulus 與額外 PID。 |
 | scripts/navi/NaviToOfficial.sh、scripts/navi/OfficialToNavi.sh | calibration conversion CLI | 保留；直接使用 tf_config.yaml。 |
 | scripts/navi/chase.sh、scripts/navi/navitomap.sh、scripts/navi/navi_control_chain.sh、scripts/navi/position.sh | navigation／正式鏈調試工具 | 保留；各自覆蓋 chase、目標、正式 BT control、位置觀測。 |
 | scripts/navi/facemode.sh | 薄 compatibility wrapper | 保留；維持舊 FaceMode 預設轉交 cross-matrix mode。 |

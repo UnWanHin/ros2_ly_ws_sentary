@@ -29,6 +29,8 @@ STACK_LAUNCH_REGEX="ros2 launch gimbal_driver gimbal_driver.launch.py"
 
 # shellcheck disable=SC1091
 source "${ROOT_DIR}/scripts/lib/ros_launch_common.sh"
+# shellcheck disable=SC1091
+source "${ROOT_DIR}/scripts/lib/gimbal_test_lifecycle.sh"
 
 usage() {
   cat <<EOF
@@ -67,12 +69,7 @@ EOF
 }
 
 cleanup() {
-  if [[ -n "${GIMBAL_PID:-}" ]] && kill -0 "${GIMBAL_PID}" 2>/dev/null; then
-    kill -INT "${GIMBAL_PID}" 2>/dev/null || true
-    sleep 1
-    kill -TERM "${GIMBAL_PID}" 2>/dev/null || true
-    wait "${GIMBAL_PID}" 2>/dev/null || true
-  fi
+  gimbal_test_stop_driver
 }
 
 trap cleanup EXIT INT TERM
@@ -160,25 +157,7 @@ if [[ ! -f "${PATROL_CONFIG_FILE}" ]]; then
 fi
 
 if (( LAUNCH_GIMBAL == 1 )); then
-  if [[ ! -f "${CONFIG_FILE}" ]]; then
-    echo "[ERROR] gimbal_driver config file not found: ${CONFIG_FILE}" >&2
-    exit 1
-  fi
-
-  cleanup_existing_stack "1" "${STACK_NODE_REGEX}" "${STACK_LAUNCH_REGEX}"
-
-  echo "[PATROLMODE${MODE}][INFO] Launching gimbal_driver config=${CONFIG_FILE} use_virtual_device=${USE_VIRTUAL_DEVICE}" >&2
-  ros2 launch gimbal_driver gimbal_driver.launch.py \
-    "config_file:=${CONFIG_FILE}" \
-    "use_virtual_device:=${USE_VIRTUAL_DEVICE}" \
-    "output:=${OUTPUT_MODE}" &
-  GIMBAL_PID="$!"
-  sleep "${WAIT_SEC}"
-
-  if ! kill -0 "${GIMBAL_PID}" 2>/dev/null; then
-    echo "[ERROR] gimbal_driver exited early." >&2
-    exit 1
-  fi
+  gimbal_test_launch_driver "PATROLMODE${MODE}" "${CONFIG_FILE}" "${USE_VIRTUAL_DEVICE}" "${OUTPUT_MODE}" "${WAIT_SEC}" "${STACK_NODE_REGEX}" "${STACK_LAUNCH_REGEX}"
 else
   cleanup_existing_stack "1" "patrolmode_pub\\.py" "a^"
 fi
