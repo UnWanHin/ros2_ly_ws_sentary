@@ -47,5 +47,11 @@ updated: 2026-07-16
 
 - 下一個實際 cleanup 候選應以無 consumer 的檔案或已確認廢棄的 alias 為準；現有 common.yaml
   不是刪除候選。
+- Base.yaml 與 AreaManager.yaml 現有同值 PatrolSelection overlay；可做行為保持的 key 去重，
+  但 Base.yaml 的 MyBase 專屬巡邏權重仍應保留。
+- 六支 gimbal 測試／巡邏腳本重複 driver lifecycle 樣板；應抽 shared helper，保留現有 debug
+  入口與各自 topic stimulus。
+- regional test/debug ConfigJson 是完整 profile fixture；在沒有 loader inheritance 合約前，
+  不以減少檔案為理由合併。
 - tf_config.yaml 的兩份 raw goal calibration matrix 與 pointer solver 的 raw config reader
   需要獨立設計單一 calibration source，不在本盤點順手修改。

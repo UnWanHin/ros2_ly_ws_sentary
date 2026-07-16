@@ -129,6 +129,18 @@ Updated: 2026-07-16
 
 - common.yaml 同時保存日誌／rosbag／raw serial 觀測與少數 stack 級 runtime override。這是
   合理的現場操作 profile；維護重點是讓其覆蓋關係可見，而非強制把每個 key 移出。
+- Base.yaml 的 AreaManager.RegionalAreaTask.PatrolSelection 會在正式 launch 中覆蓋
+  AreaManager.yaml 的同一路徑。現有 8 個 leaf（距離、當前點、未訪問、freshness、近期訪問
+  的 score knobs）逐值相同，形成雙重真相；可在一個行為保持的獨立切片中從 Base.yaml 移除
+  這段重複，只保留 MyBase 專屬 GoalHoldSec 與 GoalWeights。
+- scripts/debug/control_angles_test.sh、rotate_level.sh、posture_test.sh、
+  patrolmode3_test.sh、sentry_cmd_downlink_test.sh 與 scripts/gimbal/patrolmode_common.sh
+  各自重複 gimbal_driver 的啟動、virtual device、等待、PID cleanup 與 trap 樣板。這是
+  可抽出 scripts/lib 的共享 lifecycle helper 的候選；保留每支腳本的 topic stimulus 與 CLI，
+  不會減少現場可見入口。
+- behavior_tree 的 21 份 ConfigJson 約 1930 行，其中 regional test/debug JSON 有刻意的
+  完整 profile 副本。現行 loader 沒有 JSON inheritance/overlay 合約；若為減少檔案而加入
+  合併機制，會改變 profile 解析與驗收範圍，暫不列為清理候選。
 - tf_config.yaml 在 target_rel_to_goal_pos_node 與 map_path_to_game_path_node 各保留一份
   static calibration matrix；兩份資料可漂移。pointer_solver_node.cpp 另有 raw-text 讀 bridge
   config 的行為，應與 calibration source 一起設計，不宜在這次盤點中順手改。
