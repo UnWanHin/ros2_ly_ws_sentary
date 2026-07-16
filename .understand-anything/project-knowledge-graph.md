@@ -1,8 +1,8 @@
 # ros2_ly_ws_sentry Knowledge Graph
 
-Generated: 2026-07-16T20:25:00+00:00
+Generated: 2026-07-16T13:45:04+00:00
 
-Checked against HEAD: `d283db204a57d04a4c22bcc911ebefd36fe00163` (dirty `tf_tree` removal documentation/graph worktree; source audit)
+Checked against HEAD: `b209c40279911fe97f7d0334216215d2e04b8e5a` (only two unrelated Windows `Zone.Identifier` deletion entries remain in the worktree)
 
 Current graph shape: 73 nodes, 84 edges, 6 layers.
 
@@ -60,5 +60,5 @@ flowchart LR
 - `io_config.serial_mode=true` 時，逐 ID raw 觀測 topic 為 `/ly/upload/typeid0..10` 與 `/ly/download/typeid0x00..04`；語義 topic 保持不變。
 - `io_config.navigation_mode` 的預設單節點 profile 是 `src/gimbal_driver/config/debug_mode.yaml`，由 `debug_node.launch.py` 載入；`gimbal_driver` 直接把 `/ly/navi/vel` 與 `/ly/navi/should_rotate` 轉為下位機控制，正式導航控制仍經 BT 發布 `/ly/control/*`。正式 root 相容路由明確略過 `navigation_test`／`navigation_mode`。
 - 正式 BT 的 `src/behavior_tree/config/NaviRotateControl.yaml` 可透過 `SetPostureToMoveWhenFalse` 讓新鮮 `/ly/navi/should_rotate=false` 僅覆蓋當拍目標姿態為 Move；現有 `PostureManager` 繼續獨佔 cooldown、hold、feedback 與 pending/retry。若冷卻等待中訊號轉 true 或過期，下一拍恢復原策略，因此不補發 Move。
-- 2026-07-16 source audit 移除本倉 `tf_tree` fallback；外部 `sentry_tf` 是唯一 gimbal TF provider。aim feedback、`/ly/control/sentry_cmd`、FaceMode solver、BT 0x04 position downlink、導航 feedback、`debug_node -> debug_mode.yaml` profile 與 root gimbal compatibility routing 保持不變；source ROS Humble、`sentry.common` 後，五 package build、169 tests 與 static selfcheck（108 PASS／0 FAIL）均通過，完整 external aim runtime graph 驗證仍未執行。
+- 2026-07-16 source audit 移除本倉 `tf_tree` fallback；外部 `sentry_tf` 是唯一 gimbal TF provider。aim feedback、`/ly/control/sentry_cmd`、FaceMode solver、BT 0x04 position downlink、導航 feedback、`debug_node -> debug_mode.yaml` profile 與 root gimbal compatibility routing 保持不變；source ROS Humble、`sentry.common` 後，本次 `behavior_tree` 174 tests 與 static selfcheck（108 PASS／0 WARN／0 FAIL）均通過，完整 external aim runtime graph 驗證仍未執行。
 - 本圖譜為 source-checked fallback；因本機沒有可用 Understand Anything plugin core，未執行 plugin regeneration。

@@ -1,8 +1,8 @@
 {
-  "lastAnalyzedAt": "2026-07-16T00:00:00+00:00",
-  "gitCommitHash": "d283db204a57d04a4c22bcc911ebefd36fe00163",
-  "workingTreeStatus": "dirty (tf_tree removal documentation and graph refresh)",
-  "lastCheckedNote": "Fallback graph source-checked after runtime removal commit d283db2. Five ROS packages remain; external sentry_tf is the only gimbal TF owner and navi_tf_bridge only queries TF. The formal external aim feedback cycle, /ly/control/sentry_cmd, FaceMode solver, BT position 0x04 downlink, navigation position/target/velocity/rotate feedback, and debug_node -> debug_mode.yaml profile remain explicit graph relations. After sourcing ROS Humble and sentry.common, the maintained-package build, 169 tests, and static selfcheck (108 PASS, 0 FAIL) passed. Full external aim runtime graph validation remains pending.",
+  "lastAnalyzedAt": "2026-07-16T13:45:04+00:00",
+  "gitCommitHash": "b209c40279911fe97f7d0334216215d2e04b8e5a",
+  "workingTreeStatus": "dirty only for two unrelated Windows Zone.Identifier deletion entries under docs/rules",
+  "lastCheckedNote": "Fallback graph source-checked after behavior_tree commit b209c40. Five ROS packages remain; external sentry_tf is the only gimbal TF owner and navi_tf_bridge only queries TF. The formal external aim feedback cycle, /ly/control/sentry_cmd, FaceMode solver, BT position 0x04 downlink, navigation position/target/velocity/rotate feedback, and debug_node -> debug_mode.yaml profile remain explicit graph relations. NaviRotateControl.SetPostureToMoveWhenFalse is a BT-only per-tick Move request for fresh should_rotate=false; PostureManager keeps cooldown, hold, feedback, and pending/retry ownership. After sourcing ROS Humble and sentry.common, behavior_tree tests reported 174 tests with 0 errors and 0 failures, and static selfcheck reported 108 PASS, 0 WARN, 0 FAIL. Full external aim runtime graph validation remains pending.",
   "version": "1.0.0",
   "analyzedFiles": 554,
   "generator": "local-understand-anything-compatible-fallback"
