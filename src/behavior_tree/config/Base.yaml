@@ -2,16 +2,6 @@ behavior_tree:
   ros__parameters:
     AreaManager:
       RegionalAreaTask:
-        # 基地巡逻共用评分：点权重叠加探索/新鲜度奖励，再扣除距离、近期和当前点惩罚。
-        PatrolSelection:
-          DistancePenaltyPerMeter: 0.4  # 每远 1 米扣分。
-          CurrentGoalPenalty: 5.0  # 重复当前点的扣分。
-          AvoidCurrentGoal: true  # 是否尽量避开当前点。
-          UnvisitedBonus: 12.0  # 未访问点奖励。
-          FreshnessBonusMax: 12.0  # 久未访问奖励上限。
-          FreshnessTimeoutSec: 120  # 达到奖励上限的时间（秒）。
-          RecentVisitPenalty: 8.0  # 近期访问点扣分。
-          RecentVisitPenaltySec: 30  # 近期访问窗口（秒）。
         MyBase:
           GoalHoldSec: 420  # 到达基地巡逻点后保持的时间（秒），结束后再评分选下一点。
           Patrol:

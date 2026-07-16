@@ -129,10 +129,9 @@ Updated: 2026-07-16
 
 - common.yaml 同時保存日誌／rosbag／raw serial 觀測與少數 stack 級 runtime override。這是
   合理的現場操作 profile；維護重點是讓其覆蓋關係可見，而非強制把每個 key 移出。
-- Base.yaml 的 AreaManager.RegionalAreaTask.PatrolSelection 會在正式 launch 中覆蓋
-  AreaManager.yaml 的同一路徑。現有 8 個 leaf（距離、當前點、未訪問、freshness、近期訪問
-  的 score knobs）逐值相同，形成雙重真相；可在一個行為保持的獨立切片中從 Base.yaml 移除
-  這段重複，只保留 MyBase 專屬 GoalHoldSec 與 GoalWeights。
+- Base.yaml 原先重複覆蓋 AreaManager.yaml 的 8 個同值 PatrolSelection leaf（距離、當前點、
+  未訪問、freshness、近期訪問 score knobs）。已在 2026-07-16 行為保持切片移除；共用評分
+  只由 AreaManager.yaml 擁有，Base.yaml 只保留 MyBase 專屬 GoalHoldSec 與 GoalWeights。
 - scripts/debug/control_angles_test.sh、rotate_level.sh、posture_test.sh、
   patrolmode3_test.sh、sentry_cmd_downlink_test.sh 與 scripts/gimbal/patrolmode_common.sh
   各自重複 gimbal_driver 的啟動、virtual device、等待、PID cleanup 與 trap 樣板。這是
@@ -160,3 +159,14 @@ Updated: 2026-07-16
   scripts/selfcheck/sentry.sh 與各 shell entry point；
 - package config、calibration 工具、simulator quality/offline workflow tests；
 - rg --files -g '*.yaml' -g '*.yml'、rg --files scripts -g '*.sh' 與 source reference scan。
+
+### 2026-07-16 Base YAML 去重驗證
+
+- behavior_tree targeted build 成功；安裝後的 Base.yaml 與 source 一致。
+- source 與 installed Base.yaml 都不再包含 PatrolSelection，仍保留
+  MyBase.GoalHoldSec=420 與 BuffOutpost 的 GoalWeights=100.0；AreaManager.yaml 保留原有
+  8 個 shared PatrolSelection 值。
+- sentry_all.launch.py 的 show-args 可解析；sentry static selfcheck 為 108 PASS。
+- standalone behavior_tree.launch.py 可啟動並載入 AreaManager、Task、NaviRotateControl、
+  PointManager、Patrol、Special，但 node 隨後以 -8 退出。此 launch 本來不載入 Base.yaml，
+  所以該 runtime 限制不歸因於本次 Base 去重，也不作為本次 runtime 成功證據。

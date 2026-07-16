@@ -47,8 +47,8 @@ updated: 2026-07-16
 
 - 下一個實際 cleanup 候選應以無 consumer 的檔案或已確認廢棄的 alias 為準；現有 common.yaml
   不是刪除候選。
-- Base.yaml 與 AreaManager.yaml 現有同值 PatrolSelection overlay；可做行為保持的 key 去重，
-  但 Base.yaml 的 MyBase 專屬巡邏權重仍應保留。
+- Base.yaml 與 AreaManager.yaml 的同值 PatrolSelection overlay 已去重；共用評分由
+  AreaManager.yaml 擁有，Base.yaml 保留 MyBase 專屬巡邏權重與保持時間。
 - 六支 gimbal 測試／巡邏腳本重複 driver lifecycle 樣板；應抽 shared helper，保留現有 debug
   入口與各自 topic stimulus。
 - regional test/debug ConfigJson 是完整 profile fixture；在沒有 loader inheritance 合約前，
