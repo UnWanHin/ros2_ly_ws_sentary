@@ -42,6 +42,7 @@ updated: 2026-07-16
 - 薄 wrapper 仍是既有的直接命令／dispatcher 入口；它們不是重複 runtime 實作。
 - [[src/behavior_tree/config/NaviRotateControl.yaml|NaviRotateControl]] 屬正式 BT 仲裁；
   [[src/gimbal_driver/config/debug_mode.yaml|debug_mode]] 屬單節點 driver direct-debug，不能合併。
+  `SetPostureToMoveWhenFalse` 只由 BT 的 `PostureManager` 消費；`debug_node` 不啟動 BT，故 driver profile 不應也不能提供此 key。
 
 ## 後續追蹤
 

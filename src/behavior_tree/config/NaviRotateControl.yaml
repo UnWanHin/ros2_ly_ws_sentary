@@ -9,4 +9,4 @@ behavior_tree:
       ClearFollowModeWhenTrue: true  # should_rotate=true 时清除该外部置入的 FollowMode 位。
       ClearRegionalFaceModeWhenTrue: false  # 保留区域任务 FaceMode；should_rotate 只约束底盘 Rotate，不干预云台朝向任务。
       StopRotateWhenFalse: true  # should_rotate=false 时停止底盘小陀螺档位。
-      SetPostureToMoveWhenFalse: true  # 新鲜 false 时仅覆盖本 tick 的目标姿态为 Move；冷却等待期间若 true/超时，不补发 Move。
+      SetPostureToMoveWhenFalse: true  # BT-only（不是 gimbal_driver debug_mode key）：新鲜 false 时仅覆盖本 tick 的目标姿态为 Move；冷却等待期间若 true/超时，不补发 Move。
