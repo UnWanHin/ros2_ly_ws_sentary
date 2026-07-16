@@ -23,15 +23,15 @@ public:
   {
     declare_parameter<std::string>("gimbal_topic", "/ly/gimbal/angles");
     declare_parameter<std::string>("gimbal_big_yaw_topic", "/ly/gimbal/big_yaw_angles");
-    declare_parameter<std::string>("world_frame",  "gimbal_world");
-    declare_parameter<std::string>("yaw_frame",  "gimbal_small_yaw");
-    declare_parameter<std::string>("big_yaw_frame",  "gimbal_big_yaw");
-    declare_parameter<std::string>("barrel_joint_frame",  "gimbal_barrel_joint");
-    declare_parameter<std::string>("barrel_frame",  "gimbal_barrel");
+    declare_parameter<std::string>("world_frame", "gimbal_world");
+    declare_parameter<std::string>("yaw_frame", "gimbal_small_yaw");
+    declare_parameter<std::string>("big_yaw_frame", "gimbal_big_yaw");
+    declare_parameter<std::string>("barrel_joint_frame", "gimbal_barrel_joint");
+    declare_parameter<std::string>("barrel_frame", "gimbal_barrel");
     declare_parameter<double>("barrel_offset_z", 0.0);
     declare_parameter<double>("big_yaw_offset_deg", 0.0);
 
-    world_frame_  = get_parameter("world_frame").as_string();
+    world_frame_ = get_parameter("world_frame").as_string();
     yaw_frame_ = get_parameter("yaw_frame").as_string();
     big_yaw_frame_ = get_parameter("big_yaw_frame").as_string();
     barrel_joint_frame_ = get_parameter("barrel_joint_frame").as_string();
@@ -44,7 +44,7 @@ public:
     tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
     static_tf_broadcaster_ = std::make_unique<tf2_ros::StaticTransformBroadcaster>(*this);
     publishBarrelOffsetStatic();
-    
+
     // gimbal_sub_ = create_subscription<sentry_gimbal::msg::GimbalAngles>(
     gimbal_sub_ = create_subscription<gimbal_driver::msg::GimbalAngles>(
       gimbal_topic,
@@ -56,7 +56,7 @@ public:
     gimbal_big_yaw_sub_ = create_subscription<std_msgs::msg::Float32>(
       gimbal_big_yaw_topic,
       rclcpp::SensorDataQoS(),
-      [this](const std_msgs::msg::Float32::SharedPtr msg) { BroadcastBigYawTf(*msg); });
+      [this](const std_msgs::msg::Float32::SharedPtr msg) {BroadcastBigYawTf(*msg);});
 
     RCLCPP_INFO(
       get_logger(),
@@ -64,7 +64,8 @@ public:
       "(barrel_offset_z=%.3f m); big_yaw: topic=%s, %s -> %s (offset=%.1f deg)",
       gimbal_topic.c_str(), yaw_frame_.c_str(), world_frame_.c_str(), yaw_frame_.c_str(),
       barrel_joint_frame_.c_str(), barrel_frame_.c_str(), barrel_offset_z_,
-      gimbal_big_yaw_topic.c_str(), big_yaw_frame_.c_str(), yaw_frame_.c_str(), big_yaw_offset_deg_);
+      gimbal_big_yaw_topic.c_str(), big_yaw_frame_.c_str(), yaw_frame_.c_str(),
+      big_yaw_offset_deg_);
   }
 
 private:
