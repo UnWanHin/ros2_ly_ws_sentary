@@ -179,12 +179,13 @@ git commit -m "behavior_tree: confirm composite posture commands"
 - Modify: `src/behavior_tree/CMakeLists.txt`
 
 **Interfaces:**
+- `OutpostEngagementSetting { bool Enable; bool EnhancedAttackOnEnemyHpDrop; uint16_t NormalAttackLockExitHp; uint16_t EnhancedAttackLockExitHp; }` owns the tactical lock policy.
 - `OutpostEngagementInput` is `{ bool Target7Fresh; bool SelectedTarget7; bool EnemyHpFresh; uint16_t EnemyHp; bool SelfHpFresh; uint16_t SelfHp; bool NavigationReachable; PostureRuntime Posture; bool PostureCooldownReady; bool EnhancedAttackRemainingFresh; uint8_t EnhancedAttackRemainingSec; }`.
 - `OutpostEngagementDecision` is `{ bool Active; bool HoldTarget; bool CancelPending; bool EnhancedArmed; bool EnhancedUnavailable; bool EnhancedPending; bool EnhancedActive; std::optional<PostureMode> Intent; OutpostEngagementExitReason ExitReason; }`.
-- `OutpostEngagementLock::Tick(TimePoint, const OutpostEngagementInput&)` returns `OutpostEngagementDecision`; `Reset()` clears the HP baseline and the one-attempt enhanced latch.
+- `OutpostEngagementLock::Tick(TimePoint, const OutpostEngagementInput&)` returns `OutpostEngagementDecision`; `Reset()` clears the HP baseline and the one-attempt enhanced latch; `MarkEnhancedUnavailable()` retains the normal Attack/7 lock after command-4 retries are exhausted.
 - The class is pure C++: no `Application.hpp`, ROS, publisher, or topic dependency.
 
-- [ ] **Step 1: Add failing state-machine tests**
+- [x] **Step 1: Add failing state-machine tests**
 
 ```cpp
 #include "../include/OutpostEngagementLock.hpp"
@@ -216,7 +217,9 @@ BehaviorTree::OutpostEngagementInput HealthyOutpostInput() {
 
 TEST(OutpostEngagementLockTest, TargetSevenRequestsNormalAttack) {
     BehaviorTree::OutpostEngagementLock lock;
-    const auto out = lock.Tick(BehaviorTree::OutpostEngagementLock::TimePoint{}, HealthyOutpostInput());
+    auto input = HealthyOutpostInput();
+    input.Posture.Current = {BehaviorTree::SentryPosture::Move, false};
+    const auto out = lock.Tick(BehaviorTree::OutpostEngagementLock::TimePoint{}, input);
     ASSERT_TRUE(out.Active);
     ASSERT_TRUE(out.HoldTarget);
     ASSERT_TRUE(out.Intent.has_value());
@@ -284,11 +287,11 @@ TEST(OutpostEngagementLockTest, StaleZeroAndUnreachableCancelPending) {
 }
 ```
 
-- [ ] **Step 2: Implement input priority and HP baseline**
+- [x] **Step 2: Implement input priority and HP baseline**
 
 On lock entry cache the first fresh positive HP. Later arm only for a lower adjacent fresh sample; a higher sample refreshes baseline without arming. Arm once per continuous lock only when `EnhancedAttackRemainingFresh && EnhancedAttackRemainingSec > 0`. Process exits in this order: HP stale/zero, unreachable, normal-lock fresh own HP `<=200`, enhanced pending/active fresh own HP `<=250`, then target-7 no longer fresh. `Posture.Pending={Attack,true}` with `HasPending=true` and `Posture.Current={Attack,true}` both use the enhanced threshold. An armed state yields `{Attack,true}` only after normal Attack is confirmed and cooldown-ready. Retry exhaustion marks `EnhancedUnavailable` while retaining normal Attack and target hold.
 
-- [ ] **Step 3: Register and run the pure test target**
+- [x] **Step 3: Register and run the pure test target**
 
 ```bash
 bash -lc 'source /opt/ros/humble/setup.bash && source /home/hiraeth/Documents/DirtroBox/Ubuntu-22.04/sentry.common/install/setup.bash && colcon test --packages-select behavior_tree --ctest-args -R test_outpost_engagement_lock --output-on-failure'
@@ -296,7 +299,7 @@ bash -lc 'source /opt/ros/humble/setup.bash && source /home/hiraeth/Documents/Di
 
 Expected: all four state-machine tests pass without launching ROS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/behavior_tree/include/OutpostEngagementLock.hpp src/behavior_tree/src/OutpostEngagementLock.cpp src/behavior_tree/test/test_outpost_engagement_lock.cpp src/behavior_tree/CMakeLists.txt
