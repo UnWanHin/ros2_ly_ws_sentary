@@ -2,17 +2,16 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make standalone debug keep Rotate at 100 Hz and route navigation velocity through `/ly/control/vel`.
+**Goal:** Make standalone debug publish navigation velocity and Rotate/FollowMode at 100 Hz through formal control topics.
 
-**Architecture:** A private driver scheduler invokes `ApplyNavigationModeRotate()` only when navigation direct-debug is enabled. `debug_node` additionally launches a 100 Hz `/ly/navi/vel -> /ly/control/vel` bridge with a 500 ms zero-velocity stale fallback; the driver keeps consuming the formal control topic. This leaves the formal BT chain untouched.
+**Architecture:** `debug_node` launches a 100 Hz bridge: `/ly/navi/vel -> /ly/control/vel` with a 500 ms zero-velocity stale fallback and `/ly/navi/should_rotate -> /ly/control/firecode` with Rotate/FollowMode partial fields. The driver keeps consuming only the formal control topics. This leaves the formal BT chain untouched.
 
 **Tech Stack:** ROS 2 Humble, C++20, Bash/Python selfcheck, Markdown.
 
 ## Global Constraints
 
-- The heartbeat is only active when `io_config.navigation_mode.enabled=true`.
-- The interval is 10 ms, targeting 100 Hz while retaining the 250 Hz main loop.
-- The debug bridge is the sole `/ly/control/vel` publisher when `debug_node` runs; it cannot run beside BT.
+- The bridge interval is 10 ms, targeting 100 Hz.
+- The debug bridge is the sole `/ly/control/vel` and `/ly/control/firecode` publisher when `debug_node` runs; it cannot run beside BT.
 - Do not stage the user-owned `docs/rules` deletions or lock file.
 
 ---

@@ -72,16 +72,16 @@ def generate_launch_description():
         DeclareLaunchArgument("raw_topic_type_ids", default_value=""),
     ]
 
-    forwarded_arguments = {
+    driver_arguments = {
         name: LaunchConfiguration(name) for name in argument_names
+        if name != "debug_config_file"
     }
-    forwarded_arguments["config_file"] = forwarded_arguments.pop("debug_config_file")
     velocity_bridge = Node(
         package="gimbal_driver",
         executable="navi_vel_to_control_vel.py",
         name="navi_vel_to_control_vel",
         output=LaunchConfiguration("output"),
-        parameters=[{"stale_timeout_ms": 500, "publish_hz": 100.0}],
+        parameters=[LaunchConfiguration("debug_config_file")],
     )
 
     return LaunchDescription([
@@ -89,6 +89,6 @@ def generate_launch_description():
         velocity_bridge,
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(gimbal_driver_launch),
-            launch_arguments=forwarded_arguments.items(),
+            launch_arguments=driver_arguments.items(),
         ),
     ])

@@ -358,9 +358,10 @@ if not profile.is_file():
 else:
     profile_text = profile.read_text(encoding="utf-8")
     required_profile = (
-        r"(?ms)^\s*navigation_mode\s*:\s*$\n\s*enabled\s*:\s*true\s*(?:#.*)?$\n\s*vel_chain\s*:\s*false\s*(?:#.*)?$",
-        r"(?ms)^\s*should_rotate\s*:\s*$\n\s*enabled\s*:\s*true\s*(?:#.*)?$",
-        r"(?m)^\s*io_config/navigation_mode/should_rotate/follow_mode_when_false\s*:\s*true\s*(?:#.*)?$",
+        r"(?m)^\s*rotate_level\s*:\s*1\s*(?:#.*)?$",
+        r"(?m)^\s*follow_mode_when_false\s*:\s*true\s*(?:#.*)?$",
+        r"(?m)^\s*stale_timeout_ms\s*:\s*500\s*(?:#.*)?$",
+        r"(?m)^\s*publish_hz\s*:\s*100(?:\.0)?\s*(?:#.*)?$",
     )
     for pattern in required_profile:
         if not re.search(pattern, profile_text):
@@ -373,14 +374,14 @@ else:
     for token in ("IncludeLaunchDescription", "debug_config_file", "gimbal_driver.launch.py", "navi_vel_to_control_vel.py"):
         if token not in debug_text:
             errors.append(f"debug_node.launch.py missing {token}")
-    if 'forwarded_arguments["config_file"] = forwarded_arguments.pop("debug_config_file")' not in debug_text:
-        errors.append("debug_node.launch.py does not forward debug_config_file as the driver overlay")
+    if 'parameters=[LaunchConfiguration("debug_config_file")]' not in debug_text:
+        errors.append("debug_node.launch.py does not load debug_config_file into the bridge")
 
 if not velocity_bridge.is_file():
     errors.append("debug velocity bridge is missing")
 else:
     bridge_text = velocity_bridge.read_text(encoding="utf-8")
-    for token in ("/ly/navi/vel", "/ly/control/vel", "ControlVelocity", "use_raw = True", "stale_timeout_ms"):
+    for token in ("/ly/navi/vel", "/ly/navi/should_rotate", "/ly/control/vel", "/ly/control/firecode", "ControlVelocity", "FireCode", "FIELD_FOLLOW_MODE", "FIELD_ROTATE", "use_raw = True", "stale_timeout_ms"):
         if token not in bridge_text:
             errors.append(f"debug velocity bridge missing source token: {token}")
 
@@ -393,14 +394,8 @@ if not driver_source.is_file():
     errors.append("gimbal_driver source is missing")
 else:
     driver_source_text = driver_source.read_text(encoding="utf-8")
-    required_debug_heartbeat_tokens = (
-        "kNavigationModeRotatePublishInterval = 10ms",
-        "void MaybeApplyNavigationModeRotateHeartbeat()",
-        "MaybeApplyNavigationModeRotateHeartbeat();",
-    )
-    for token in required_debug_heartbeat_tokens:
-        if token not in driver_source_text:
-            errors.append(f"gimbal debug Rotate heartbeat missing source token: {token}")
+    if "MaybeApplyNavigationModeRotateHeartbeat" in driver_source_text:
+        errors.append("debug_node must publish FireCode through the bridge, not driver heartbeat")
 
 if not driver_launch.is_file():
     errors.append("gimbal_driver.launch.py is missing")

@@ -83,29 +83,28 @@ ros2 launch gimbal_driver debug_node.launch.py use_virtual_device:=true
 launch/CLI 覆蓋；root YAML 不會傳入其他節點。單獨啟動 `gimbal_driver.launch.py` 預設只讀
 module baseline。`main.cpp` 對導航 debug 的預設值為關閉，因此正式基線刻意不宣告任何 navigation debug key。
 
-### 導航速度調試
+### 導航 Control Bridge 調試
 
-`io_config.navigation_mode` 是 driver-owned 的調試 bypass，預設完全關閉，不改變正式
-`/ly/navi/vel -> behavior_tree -> /ly/control/vel` 主鏈。
+`debug_node.launch.py` 的 `debug_mode.yaml` 是 bridge-owned profile；driver 不啟用
+`io_config.navigation_mode`，維持正式 `/ly/control/* -> gimbal_driver` subscriber 邊界。
 
 | Key | 作用 |
 |---|---|
-| `enabled` | 總開關；false 時不直接訂閱導航 Rotate 控制，也不改寫 FireCode。 |
-| `vel_chain` | 保留給舊式 driver 直連；預設 `debug_mode.yaml` 固定為 false，避免 `/ly/navi/vel` 與 `/ly/control/vel` 雙重寫入。 |
-| `rotate_level` | 預設 Rotate 檔位，僅接受 0..3；debug mode 串口初始化後立即下發，並以 100 Hz 重送，即使尚未收到 `/ly/navi/vel` 亦然。重連時會恢復最近一次 `should_rotate` 狀態。 |
-| `should_rotate.enabled` | true 時訂閱 `/ly/navi/should_rotate` (`std_msgs/Bool`)。true 立即恢復並持續 100 Hz 下發 `rotate_level`，false 立即並持續下發 Rotate=0。 |
-| `should_rotate.follow_mode_when_false` | true 時，`should_rotate=false` 另置 `FollowMode=1`；收到 true 時清除這個 debug FollowMode。YAML 以 `io_config/navigation_mode/should_rotate/follow_mode_when_false` slash-key 寫入，確保 overlay 可覆蓋。 |
+| `rotate_level` | bridge 預設 Rotate 檔位，範圍 0..3；`should_rotate=true` 時寫入 `/ly/control/firecode.rotate`。 |
+| `follow_mode_when_false` | true 時，`should_rotate=false` 寫入 `/ly/control/firecode.follow_mode=true`，同時 Rotate=0。 |
+| `stale_timeout_ms` | `/ly/navi/vel` 超過此時間沒有更新時，bridge 以零速度發布 `/ly/control/vel`。 |
+| `publish_hz` | bridge 同時發布 `/ly/control/vel` 與 partial `/ly/control/firecode` 的頻率；預設 100 Hz。 |
 
-`config/debug_mode.yaml` 是預設的單節點 driver debug profile：啟用 `should_rotate`，預設
-Rotate 為 1；driver 以 100 Hz 維持目前 Rotate 狀態。`debug_node.launch.py` 同時啟動
-`navi_vel_to_control_vel.py`，將 `/ly/navi/vel` 以 100 Hz 轉為正式 `/ly/control/vel`
-（500 ms 未更新即持續發零速度），所以 Velocity 與 Rotate/FollowMode 最終都在同一個
-`GimbalControlFrame` 內下發。請用 `debug_node.launch.py` 載入，它的順序固定為：
+`config/debug_mode.yaml` 是預設的單節點 bridge profile。`debug_node.launch.py` 以 100 Hz
+將 `/ly/navi/vel` 轉為正式 `/ly/control/vel`（500 ms 未更新即持續發零速度），並將
+`/ly/navi/should_rotate` 轉為 partial `/ly/control/firecode`（Rotate/FollowMode）。所以
+Velocity 與 FireCode 最終都由 driver 的正式 subscriber 寫入同一個 `GimbalControlFrame`。
+請用 `debug_node.launch.py` 載入，它的順序固定為：
 正式 baseline → `debug_config_file`（預設 `debug_mode.yaml`）→ 明確 CLI 覆蓋。
 
-`debug_node.launch.py` 啟動 `gimbal_driver` 與內建 velocity bridge。bridge 是此 debug profile
-唯一的 `/ly/control/vel` publisher，driver 沿用正式 control subscriber 組包；它不得與正在發布
-正式 `/ly/control/*` 的 BT 同時使用。之後若有其他 driver 單節點調試 profile，可用
+`debug_node.launch.py` 啟動 `gimbal_driver` 與內建 control bridge。bridge 是此 debug profile
+唯一的 `/ly/control/vel` 與 `/ly/control/firecode` publisher，driver 沿用正式 control subscriber
+組包；它不得與正在發布正式 `/ly/control/*` 的 BT 同時使用。之後若有其他 driver 單節點調試 profile，可用
 `debug_config_file:=<profile.yaml>` 載入，無需改動正式入口。
 
 相容舊啟動腳本時，`sentry_all` 仍接受 `base_config_file:=...` 與 `config_file:=...`：其中僅
@@ -197,7 +196,7 @@ main()
 | `/ly/control/custom_info` (`CustomInfo`) | `CustomInfoFrame` | `0x03` 裁判 `0x0308` UTF-16 文字 |
 | `/ly/bt/sentry_position` (`PointStamped`) | `SentryCoordinateFrame.X_cm/Y_cm` | BT 融合後自身坐標，m 轉 cm 後下發 |
 | `/ly/navi/vel` (`Vel`) | `ControlVelocity(raw_x/raw_y,use_raw=true)` | `debug_node.launch.py` 的 100 Hz bridge 轉發到 `/ly/control/vel`；500 ms stale 時發布零速度。`navigation_test=true` 與 `vel_chain=true` 仍只保留給舊腳本／自訂 overlay 相容。正式鏈仍經 BT，`sentry_all` 不路由這兩種導航直連鍵。 |
-| `/ly/navi/should_rotate` (`std_msgs/Bool`) | `GimbalControlFrame.FireCode.Rotate/FollowMode` | 僅 `navigation_mode.enabled && should_rotate.enabled` 時採用；false 停 Rotate，FollowMode 是否置 1 由 YAML 控制。 |
+| `/ly/navi/should_rotate` (`std_msgs/Bool`) | partial `FireCode(FIELD_FOLLOW_MODE|FIELD_ROTATE)` | debug bridge 以 100 Hz 發 `/ly/control/firecode`；true 發 `rotate_level`／FollowMode=false，false 發 Rotate=0 與可設定的 FollowMode=true。 |
 
 姿態下發採用獨立 `0x01` frame：
 - 收到有效姿態命令（1/2/3/4/5/6）後更新 `SentryCmd` shadow 並立即發送

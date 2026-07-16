@@ -7,11 +7,14 @@ import math
 import rclpy
 from rclpy.node import Node
 
-from gimbal_driver.msg import ControlVelocity, Vel
+from std_msgs.msg import Bool
+
+from gimbal_driver.msg import ControlVelocity, FireCode, Vel
 
 
 NAV_VEL_TOPIC = "/ly/navi/vel"
 CONTROL_VEL_TOPIC = "/ly/control/vel"
+CONTROL_FIRECODE_TOPIC = "/ly/control/firecode"
 VELOCITY_RAW_TO_MPS = 0.025
 
 
@@ -27,24 +30,40 @@ class NaviVelToControlVel(Node):
         super().__init__("navi_vel_to_control_vel")
         self.declare_parameter("stale_timeout_ms", 500)
         self.declare_parameter("publish_hz", 100.0)
+        self.declare_parameter("rotate_level", 1)
+        self.declare_parameter("follow_mode_when_false", True)
         self.stale_timeout_ns = max(
             1, int(self.get_parameter("stale_timeout_ms").value) * 1_000_000
         )
         self.publish_hz = max(1.0, float(self.get_parameter("publish_hz").value))
+        self.rotate_level = max(0, min(3, int(self.get_parameter("rotate_level").value)))
+        self.follow_mode_when_false = bool(
+            self.get_parameter("follow_mode_when_false").value
+        )
         self.latest_raw_x = 0
         self.latest_raw_y = 0
         self.last_rx_ns: int | None = None
+        self.should_rotate = True
 
-        self.publisher = self.create_publisher(ControlVelocity, CONTROL_VEL_TOPIC, 10)
-        self.subscription = self.create_subscription(Vel, NAV_VEL_TOPIC, self.on_navi_vel, 10)
-        self.timer = self.create_timer(1.0 / self.publish_hz, self.publish_control_vel)
+        self.velocity_publisher = self.create_publisher(ControlVelocity, CONTROL_VEL_TOPIC, 10)
+        self.firecode_publisher = self.create_publisher(FireCode, CONTROL_FIRECODE_TOPIC, 10)
+        self.velocity_subscription = self.create_subscription(
+            Vel, NAV_VEL_TOPIC, self.on_navi_vel, 10
+        )
+        self.rotate_subscription = self.create_subscription(
+            Bool, "/ly/navi/should_rotate", self.on_should_rotate, 10
+        )
+        self.timer = self.create_timer(1.0 / self.publish_hz, self.publish_control)
 
     def on_navi_vel(self, message: Vel) -> None:
         self.latest_raw_x = encode_navigation_raw(message.x)
         self.latest_raw_y = encode_navigation_raw(message.y)
         self.last_rx_ns = self.get_clock().now().nanoseconds
 
-    def publish_control_vel(self) -> None:
+    def on_should_rotate(self, message: Bool) -> None:
+        self.should_rotate = message.data
+
+    def publish_control(self) -> None:
         now = self.get_clock().now()
         if self.last_rx_ns is None or now.nanoseconds - self.last_rx_ns > self.stale_timeout_ns:
             raw_x = 0
@@ -53,14 +72,21 @@ class NaviVelToControlVel(Node):
             raw_x = self.latest_raw_x
             raw_y = self.latest_raw_y
 
-        message = ControlVelocity()
-        message.header.stamp = now.to_msg()
-        message.raw_x = raw_x
-        message.raw_y = raw_y
-        message.x_mps = raw_x * VELOCITY_RAW_TO_MPS
-        message.y_mps = raw_y * VELOCITY_RAW_TO_MPS
-        message.use_raw = True
-        self.publisher.publish(message)
+        velocity = ControlVelocity()
+        velocity.header.stamp = now.to_msg()
+        velocity.raw_x = raw_x
+        velocity.raw_y = raw_y
+        velocity.x_mps = raw_x * VELOCITY_RAW_TO_MPS
+        velocity.y_mps = raw_y * VELOCITY_RAW_TO_MPS
+        velocity.use_raw = True
+        self.velocity_publisher.publish(velocity)
+
+        firecode = FireCode()
+        firecode.header.stamp = now.to_msg()
+        firecode.field_mask = FireCode.FIELD_FOLLOW_MODE | FireCode.FIELD_ROTATE
+        firecode.follow_mode = self.follow_mode_when_false and not self.should_rotate
+        firecode.rotate = self.rotate_level if self.should_rotate else 0
+        self.firecode_publisher.publish(firecode)
 
 
 def main() -> None:

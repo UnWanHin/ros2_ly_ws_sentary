@@ -1,15 +1,9 @@
 /**:
   ros__parameters:
-    # Single-node driver debug profile. Do not load from sentry_all.
-    # gimbal_driver directly consumes /ly/navi/vel and /ly/navi/should_rotate.
-    # This launch has no behavior_tree/PostureManager: SetPostureToMoveWhenFalse
-    # belongs only in behavior_tree/config/NaviRotateControl.yaml and is not a driver key.
-    io_config:
-      navigation_mode:
-        enabled: true  # Subscribe to navigation debug controls.
-        vel_chain: false  # debug_node bridges /ly/navi/vel to the formal /ly/control/vel topic.
-        rotate_level: 1  # Default Rotate level, range 0..3; driver re-sends it at 100 Hz.
-        should_rotate:
-          enabled: true  # Consume /ly/navi/should_rotate.
-    # Slash key is required for the driver's compatibility reader and overlay precedence.
-    io_config/navigation_mode/should_rotate/follow_mode_when_false: true
+    # Single-node debug bridge profile. Do not load from sentry_all.
+    # The bridge publishes formal /ly/control/vel and /ly/control/firecode;
+    # gimbal_driver itself stays on the formal control subscriber path.
+    rotate_level: 1
+    follow_mode_when_false: true
+    stale_timeout_ms: 500
+    publish_hz: 100.0

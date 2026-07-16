@@ -167,10 +167,6 @@ namespace
         bool navigationModeShouldRotateEnable_{false};
         bool navigationModeFollowModeWhenFalse_{false};
         bool navigationModeShouldRotate_{true};
-        inline static constexpr auto kNavigationModeRotatePublishInterval = 10ms;
-        std::chrono::steady_clock::time_point navigationModeNextRotateTxTime_{
-            std::chrono::steady_clock::time_point::min()
-        };
         bool navigationTestVelocityActive_{false};
         std::uint8_t posturePendingToSend_{0};
         std::uint8_t postureLastSent_{0};
@@ -1256,22 +1252,6 @@ namespace
                     g.FireCode.FollowMode = should_rotate ? 0 : 1;
                 }
             });
-            navigationModeNextRotateTxTime_ =
-                std::chrono::steady_clock::now() + kNavigationModeRotatePublishInterval;
-        }
-
-        void MaybeApplyNavigationModeRotateHeartbeat() {
-            if (!navigationModeEnable_) {
-                return;
-            }
-
-            const auto now = std::chrono::steady_clock::now();
-            if (now < navigationModeNextRotateTxTime_) {
-                return;
-            }
-
-            // Standalone debug keeps Rotate alive even before navigation publishes velocity.
-            ApplyNavigationModeRotate(navigationModeShouldRotate_);
         }
 
         template<typename TTopic>
@@ -2266,7 +2246,6 @@ namespace
                     rclcpp::spin_some(node);
                     MaybeApplyFireCodeStaleFallback();
                     MaybeApplyNavigationTestStaleFallback();
-                    MaybeApplyNavigationModeRotateHeartbeat();
                     MaybeSendPostureTx();
                     MaybeSendSentryCoordinate();
                     rate.sleep();

@@ -16,16 +16,15 @@ contract instead of bypassing the control topic.
 
 ## Decision
 
-While and only while `io_config.navigation_mode.enabled=true`,
-`gimbal_driver` will write the current navigation Rotate state at a best-effort
-100 Hz interval (10 ms):
+`debug_node` runs `navi_vel_to_control_vel.py`, which publishes the current
+navigation control state to the formal control topics at a best-effort 100 Hz
+interval (10 ms):
 
 - Before any `/ly/navi/should_rotate` message, the default state remains true
-  and writes `rotate_level`.
-- A received `false` writes and continues to write `Rotate=0`; the existing
-  optional `FollowMode=1` behavior remains unchanged.
-- A received `true` immediately restores and continues to write
-  `rotate_level`.
+  and the bridge publishes `rotate_level` with `FollowMode=false` to
+  `/ly/control/firecode`.
+- A received `false` publishes `Rotate=0` and the configured FollowMode value;
+  a received `true` restores `rotate_level` and clears FollowMode.
 - `debug_node` starts a 100 Hz bridge that converts `/ly/navi/vel` to
   `/ly/control/vel` with `use_raw=true`; it publishes zero after 500 ms without
   navigation input. `gimbal_driver` consumes that formal control topic, so each
@@ -40,6 +39,7 @@ chain remains unchanged because it does not enable `navigation_mode`.
 - The main driver loop remains at 250 Hz; a monotonic-clock gate bounds this
   debug-only control-frame heartbeat to approximately 100 Hz.
 - No ROS topic or message contract changes; only the debug launch composition
-  adds the bridge node.
+  adds the bridge as the sole debug publisher of `/ly/control/vel` and
+  `/ly/control/firecode`.
 - The existing selfcheck gains a source-level contract to prevent removal or
   accidental relocation of the debug-only heartbeat.
