@@ -62,4 +62,4 @@
 - [x] **Step 1: Document** the formal posture request and its cancellation boundary without claiming it cancels pending downlink commands.
 - [x] **Step 2: Update** the source-checked fallback graph/config-topic summaries and freshness metadata.
 - [x] **Step 3: Run** targeted build/test, `./scripts/selfcheck.sh sentry --static-only`, JSON validation, Obsidian sync check, and `git diff --check`.
-- [ ] **Step 4: Commit and push** the focused verified change without staging unrelated user changes.
+- [x] **Step 4: Commit and push** the focused verified change without staging unrelated user changes.
