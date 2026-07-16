@@ -19,7 +19,6 @@ topic: /ly/control/vel
 ## Source occurrences
 
 - [[src/behavior_tree/include/Topic.hpp|src/behavior_tree/include/Topic.hpp]]
-- [[src/gimbal_driver/config/gimbal_driver_config.yaml|src/gimbal_driver/config/gimbal_driver_config.yaml]]
 - [[src/gimbal_driver/main.cpp|src/gimbal_driver/main.cpp]]
 - [[src/gimbal_driver/module/BasicTypes.hpp|src/gimbal_driver/module/BasicTypes.hpp]]
 - [[src/simulator/simulator/validation.py|src/simulator/simulator/validation.py]]

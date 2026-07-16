@@ -18,5 +18,6 @@ topic: /ly/control
 ## Source occurrences
 
 - [[src/behavior_tree/launch/sentry_all.launch.py|src/behavior_tree/launch/sentry_all.launch.py]]
+- [[src/gimbal_driver/launch/debug_node.launch.py|src/gimbal_driver/launch/debug_node.launch.py]]
 - [[src/gimbal_driver/launch/gimbal_driver.launch.py|src/gimbal_driver/launch/gimbal_driver.launch.py]]
 - [[src/gimbal_driver/main.cpp|src/gimbal_driver/main.cpp]]

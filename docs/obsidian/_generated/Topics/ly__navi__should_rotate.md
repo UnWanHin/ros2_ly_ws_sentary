@@ -21,7 +21,7 @@ topic: /ly/navi/should_rotate
 - [[src/behavior_tree/config/NaviRotateControl.yaml|src/behavior_tree/config/NaviRotateControl.yaml]]
 - [[src/behavior_tree/include/Application.hpp|src/behavior_tree/include/Application.hpp]]
 - [[src/behavior_tree/include/Topic.hpp|src/behavior_tree/include/Topic.hpp]]
-- [[src/gimbal_driver/config/gimbal_driver_config.yaml|src/gimbal_driver/config/gimbal_driver_config.yaml]]
+- [[src/gimbal_driver/config/debug_mode.yaml|src/gimbal_driver/config/debug_mode.yaml]]
 - [[src/gimbal_driver/main.cpp|src/gimbal_driver/main.cpp]]
 - [[src/simulator/simulator/decision_input_coverage.py|src/simulator/simulator/decision_input_coverage.py]]
 - [[src/simulator/simulator/mock_inputs.py|src/simulator/simulator/mock_inputs.py]]

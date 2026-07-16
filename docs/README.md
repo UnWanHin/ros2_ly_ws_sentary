@@ -54,6 +54,7 @@ docs/
 [reports/2026-03-05_self_check_status.md](reports/2026-03-05_self_check_status.md)
 [reports/2026-03-05_repository_completeness_audit.md](reports/2026-03-05_repository_completeness_audit.md)
 [reports/2026-03-05_full_link_audit.md](reports/2026-03-05_full_link_audit.md)
+[reports/2026-07-16_config_script_inventory.md](reports/2026-07-16_config_script_inventory.md)
 10. 重要行为变更与调参记录
 [record/2026-03-18_behavior_tree_bt_pinned_and_old_fire_logic.md](record/2026-03-18_behavior_tree_bt_pinned_and_old_fire_logic.md)
 [record/2026-03-18_autoaim_follow_fire_change.md](record/2026-03-18_autoaim_follow_fire_change.md)
