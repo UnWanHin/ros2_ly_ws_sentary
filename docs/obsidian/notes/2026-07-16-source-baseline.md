@@ -42,6 +42,7 @@ updated: 2026-07-16
 - Distrobox 環境已補齊 `python3-pip` 與符合 `src/simulator/requirements.txt` 的 user-site `pygame 2.6.1`（`/usr/bin/python3` 解析到此版本）；Ubuntu 的 `python3-pygame` 亦已安裝作系統基線。`src/tf_tree/src/tf_node.cpp` 已用 ROS Humble 既有 uncrustify 規則格式化，未改行為。
 - 在此環境重新跑完整 `colcon build && colcon test && colcon test-result --verbose`：六個 package 全部 build 完成，181 tests、0 errors、0 failures、1 skipped。這取代本 note 先前的 simulator 缺件與 tf_tree formatting 失敗紀錄。
 - 本輪修復 `navi_publish_goal_pose` forwarding、gimbal lifecycle virtual override 與 root gimbal compatibility routing；正式 offline virtual-driver smoke 已通過。未執行外部 aim 的完整 runtime graph 驗收。
+- `scripts/areatest/regional_area_test.sh` 現在在 `mktemp` 後立即安裝 cleanup trap；收到中斷時先停止並等待 launch，再刪除臨時 BT profile。回歸測試涵蓋 generator 失敗不遺留 `/tmp/ly_regional_area_*.json` 與這個清理順序。
 
 
 ## 來源

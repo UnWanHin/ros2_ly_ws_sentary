@@ -209,7 +209,34 @@ if [[ ! -f "${BT_PROFILE_GENERATOR}" ]]; then
   exit 1
 fi
 
+CHILD_PIDS=()
+LAUNCH_PID=""
+BT_CONFIG_FILE=""
+
+cleanup_children() {
+  if [[ -n "${LAUNCH_PID}" ]] && kill -0 "${LAUNCH_PID}" 2>/dev/null; then
+    kill -INT "${LAUNCH_PID}" 2>/dev/null || true
+  fi
+  if (( ${#CHILD_PIDS[@]} > 0 )); then
+    local pid
+    for pid in "${CHILD_PIDS[@]}"; do
+      kill -TERM "${pid}" 2>/dev/null || true
+    done
+  fi
+  if [[ -n "${LAUNCH_PID}" ]]; then
+    wait "${LAUNCH_PID}" 2>/dev/null || true
+    LAUNCH_PID=""
+  fi
+  if (( ${#CHILD_PIDS[@]} > 0 )); then
+    wait "${CHILD_PIDS[@]}" 2>/dev/null || true
+  fi
+  if [[ -n "${BT_CONFIG_FILE}" ]]; then
+    rm -f "${BT_CONFIG_FILE}"
+  fi
+}
+
 BT_CONFIG_FILE="$(mktemp "/tmp/ly_regional_area_${AREA_LABEL}_XXXXXX.json")"
+trap cleanup_children EXIT INT TERM
 BT_PROFILE_ARGS=(
   --template "${BT_CONFIG_TEMPLATE}"
   --area "${AREA_LABEL}"
@@ -224,23 +251,6 @@ add_launch_arg_if_missing "bt_config_file" "${BT_CONFIG_FILE}"
 add_launch_arg_if_missing "debug_bypass_is_start" "true"
 add_launch_arg_if_missing "wait_for_game_start_timeout_sec" "0"
 add_launch_arg_if_missing "competition_profile" "regional"
-
-CHILD_PIDS=()
-LAUNCH_PID=""
-
-cleanup_children() {
-  if [[ -n "${LAUNCH_PID}" ]]; then
-    kill -INT "${LAUNCH_PID}" 2>/dev/null || true
-  fi
-  if (( ${#CHILD_PIDS[@]} > 0 )); then
-    local pid
-    for pid in "${CHILD_PIDS[@]}"; do
-      kill -TERM "${pid}" 2>/dev/null || true
-    done
-    wait "${CHILD_PIDS[@]}" 2>/dev/null || true
-  fi
-  rm -f "${BT_CONFIG_FILE}"
-}
 
 start_fake_referee_publishers() {
   source_ros_workspace "${ROOT_DIR}"
@@ -298,7 +308,6 @@ fi
 if (( SHOULD_MOCK_GIMBAL == 1 )); then
   echo "[INFO] Mock gimbal state enabled: yaw=${MOCK_GIMBAL_YAW}, pitch=${MOCK_GIMBAL_PITCH}"
 fi
-trap cleanup_children EXIT INT TERM
 if (( FAKE_REFEREE == 1 || SHOULD_MOCK_GIMBAL == 1 )); then
   if (( FAKE_REFEREE == 1 )); then
     start_fake_referee_publishers
