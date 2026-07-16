@@ -5,10 +5,10 @@
     "languages": ["cpp", "python", "shell", "json", "yaml", "markdown", "ros_msg", "xml"],
     "frameworks": ["ROS2 Humble", "colcon", "rclcpp", "rclpy", "BehaviorTree.CPP", "pygame simulator"],
     "description": "ROS2 Humble sentry workspace. The formal runtime consumes external /ly/aim/* and external TF/navigation, then behavior_tree publishes control to gimbal_driver.",
-    "analyzedAt": "2026-07-16T17:54:11+00:00",
-    "gitCommitHash": "097beac2254607f23b1bbf5f7cec6694413b2379",
+    "analyzedAt": "2026-07-16T18:06:20+00:00",
+    "gitCommitHash": "a78134e43928c92f9745dc9f2363503f4e3caee8",
     "workingTreeStatus": "dirty only for two unrelated Windows Zone.Identifier deletion entries and one document lock file under docs/rules",
-    "lastCheckedNote": "Fallback graph source-checked after 097beac. debug_node now launches navi_vel_to_control_vel.py, which publishes raw /ly/control/vel at 100 Hz from /ly/navi/vel and keeps zero velocity after 500 ms stale; debug navigation_mode keeps Rotate/FollowMode at 100 Hz. This profile has no behavior_tree/PostureManager consumer, so SetPostureToMoveWhenFalse remains exclusively owned by NaviRotateControl.yaml. The static bridge contract and Python syntax check passed; ROS build/runtime validation is pending because the local host lacks ROS 2 and NUC SSH closed during key exchange.",
+    "lastCheckedNote": "Fallback graph source-checked after a78134e. debug_node launches navi_vel_to_control_vel.py, which publishes raw /ly/control/vel from /ly/navi/vel and Rotate/FollowMode partial /ly/control/firecode from /ly/navi/should_rotate at 100 Hz, keeping zero velocity after 500 ms stale. gimbal_driver stays on formal control subscribers. This profile has no behavior_tree/PostureManager consumer, so SetPostureToMoveWhenFalse remains exclusively owned by NaviRotateControl.yaml. The static bridge contract and Python syntax check passed; ROS build/runtime validation is pending because the local host lacks ROS 2 and NUC SSH closed during key exchange.",
     "outputLanguage": "zh"
   },
   "nodes": [

@@ -1,8 +1,8 @@
 # ros2_ly_ws_sentry Knowledge Graph
 
-Generated: 2026-07-16T17:54:11+00:00
+Generated: 2026-07-16T18:06:20+00:00
 
-Checked against source HEAD: `097beac2254607f23b1bbf5f7cec6694413b2379` (only two unrelated Windows `Zone.Identifier` deletion entries and one document lock file remain in the worktree)
+Checked against source HEAD: `a78134e43928c92f9745dc9f2363503f4e3caee8` (only two unrelated Windows `Zone.Identifier` deletion entries and one document lock file remain in the worktree)
 
 Current graph shape: 76 nodes, 90 edges, 6 layers.
 
