@@ -1,8 +1,8 @@
 {
-  "lastAnalyzedAt": "2026-07-16T13:45:04+00:00",
-  "gitCommitHash": "d0c68119ffd183b49ad0fcf9818044b79aa8d6bd",
-  "workingTreeStatus": "dirty only for two unrelated Windows Zone.Identifier deletion entries under docs/rules",
-  "lastCheckedNote": "Fallback graph source-checked after d0c6811. OutpostEngagementLock consumes fresh /ly/enemy/op_hp, target-7 selection, navigation reachability and sentry_info posture state; it supplies intent/hold only, while PostureManager remains the sole /ly/control/posture owner. Command 4 requires fresh posture=1 plus enhanced_posture=true, and uses 200/250 HP safety exits. After sourcing ROS Humble and sentry.common, behavior_tree and simulator reported 184 tests with 0 errors and 0 failures, and static selfcheck reported 108 PASS, 0 WARN, 0 FAIL. Full external aim runtime graph validation remains pending.",
+  "lastAnalyzedAt": "2026-07-16T17:29:05+00:00",
+  "gitCommitHash": "d7988350ae71a2c4864604e892941c0e70d6ebd7",
+  "workingTreeStatus": "dirty only for two unrelated Windows Zone.Identifier deletion entries and one document lock file under docs/rules",
+  "lastCheckedNote": "Fallback graph source-checked after d798835. debug_mode.yaml is driver-only direct navigation debug: it maintains current Rotate at 100 Hz without waiting for /ly/navi/vel; velocity updates only Velocity and should_rotate updates the heartbeat state. Formal sentry_all still rejects navigation_mode and keeps behavior_tree as the control owner. The static heartbeat contract passed. ROS build/runtime validation is pending because the local host lacks ROS 2 and NUC SSH closed during key exchange.",
   "version": "1.0.0",
   "analyzedFiles": 554,
   "generator": "local-understand-anything-compatible-fallback"
