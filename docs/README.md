@@ -56,10 +56,11 @@ docs/
 [reports/2026-03-05_full_link_audit.md](reports/2026-03-05_full_link_audit.md)
 [reports/2026-07-16_config_script_inventory.md](reports/2026-07-16_config_script_inventory.md)
 10. 重要行为变更与调参记录
+[record/2026-07-16_remove_local_tf_tree.md](record/2026-07-16_remove_local_tf_tree.md)
 [record/2026-03-18_behavior_tree_bt_pinned_and_old_fire_logic.md](record/2026-03-18_behavior_tree_bt_pinned_and_old_fire_logic.md)
 [record/2026-03-18_autoaim_follow_fire_change.md](record/2026-03-18_autoaim_follow_fire_change.md)
-[record/2026-05-01_tf_tree_integration_for_navi.md](record/2026-05-01_tf_tree_integration_for_navi.md)
-[record/2026-05-03_navi_tf_bridge_facemode_and_script_layout.md](record/2026-05-03_navi_tf_bridge_facemode_and_script_layout.md)
+[record/2026-05-01_tf_tree_integration_for_navi.md](record/2026-05-01_tf_tree_integration_for_navi.md)（历史；本仓 fallback 已移除）
+[record/2026-05-03_navi_tf_bridge_facemode_and_script_layout.md](record/2026-05-03_navi_tf_bridge_facemode_and_script_layout.md)（历史；本仓 fallback 已移除）
 [record/2026-05-03_follow_mode_navi_transition_and_external_status.md](record/2026-05-03_follow_mode_navi_transition_and_external_status.md)
 [record/2026-05-03_README.md](record/2026-05-03_README.md)
 [record/2026-07-11_typeid10_sentry_info3_outpost_hp.md](record/2026-07-11_typeid10_sentry_info3_outpost_hp.md)

@@ -51,7 +51,7 @@ ros2 launch behavior_tree sentry_all.launch.py
 - `predictor`
 - `outpost_hitter`
 - `buff_hitter`
-- 本仓 `tf_tree` fallback，除非显式 `use_tf_tree:=true`
+- 本仓不再发布 gimbal TF；正式与调试都要求外部 `sentry_tf`。
 
 主数据流：
 
@@ -82,9 +82,8 @@ ros2 launch behavior_tree sentry_all.launch.py
 
 TF 关系：
 
-- 正式链路优先使用外部 `sentry_tf`。
-- 本仓 `tf_tree` 只作 fallback。
-- 不要让外部 `sentry_tf` 和本仓 `tf_tree` 同时发布同一套 frame。
+- 外部 `sentry_tf` 是 gimbal TF 的唯一发布者。
+- 本仓 `navi_tf_bridge` 只查询和使用该 TF，不发布 TF。
 
 ## `/ly/aim/*` 语义
 

@@ -14,12 +14,9 @@ topic: /ly/gimbal/big_yaw_angles
 
 - [[docs/obsidian/_generated/Packages/gimbal_driver|gimbal_driver]]
 - [[docs/obsidian/_generated/Packages/navi_tf_bridge|navi_tf_bridge]]
-- [[docs/obsidian/_generated/Packages/tf_tree|tf_tree]]
 
 ## Source occurrences
 
 - [[src/gimbal_driver/main.cpp|src/gimbal_driver/main.cpp]]
 - [[src/navi_tf_bridge/launch/map_aim_point.launch.py|src/navi_tf_bridge/launch/map_aim_point.launch.py]]
 - [[src/navi_tf_bridge/script/mock_gimbal_state_node.py|src/navi_tf_bridge/script/mock_gimbal_state_node.py]]
-- [[src/tf_tree/config/tf_tree.yaml|src/tf_tree/config/tf_tree.yaml]]
-- [[src/tf_tree/src/tf_node.cpp|src/tf_tree/src/tf_node.cpp]]

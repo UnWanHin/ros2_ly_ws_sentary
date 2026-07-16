@@ -4,7 +4,7 @@
 
 `navi_tf_bridge` 负责把决策侧的导航点或相对目标转换成导航侧最终使用的 `geometry_msgs/PoseStamped /goal_pose`，并提供固定地图点朝向的 FaceMode 测试节点。
 
-它不负责定位，也不维护 TF 树；TF 由 `tf_tree`、导航/定位或外部节点发布，`navi_tf_bridge` 只查询和使用。
+它不负责定位，也不维护 TF 树；gimbal TF 由外部 `sentry_tf` 发布，导航／定位 TF 由外部导航或定位节点发布，`navi_tf_bridge` 只查询和使用。
 
 ## 当前职责拆分
 
@@ -101,7 +101,7 @@ FaceMode 默认：
 | `scripts/navi/OfficialToNavi.sh` | 纯静态换算 official map -> navi/map，默认 official 输入 cm、navi 输出 m |
 | `scripts/navi/NaviToOfficial.sh` | 纯静态反向换算 navi/map -> official map，默认 navi 输入 m、official 输出 cm |
 | `scripts/navi/facemode.sh` | FaceMode 简短入口：位置参数为 `official_map_x official_map_y map_z`，单位 cm；`--bt-output` 输出到 `/ly/face_mode/angles` 给 BT 使用 |
-| `scripts/navi/map_aim_point_test.sh` | 拉起 FaceMode 测试栈，可选拉 `gimbal_driver` / `tf_tree`；输入默认 cm，可用 `--unit m` |
+| `scripts/navi/map_aim_point_test.sh` | 拉起 FaceMode 测试栈，可选拉 `gimbal_driver`，要求外部 `sentry_tf`；输入默认 cm，可用 `--unit m` |
 | `scripts/navi/map_aim_point_attach.sh` | 已有 stack 上只附加 FaceMode 节点 |
 | `scripts/debug/goal_pos_test.sh` | 稳定 debug wrapper，实际转到 `scripts/navi/navitomap.sh` |
 

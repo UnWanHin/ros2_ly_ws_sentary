@@ -3,7 +3,7 @@
 ## 📋 文檔說明
 
 本文檔梳理現有系統的消息通訊鏈路，從數據獲取到發送下位機的完整流程。
-**Behavion 更新**: 正式主鏈路已切成 decision-only。相機、檢測、追蹤、彈道、gimbal TF 和 fire 判斷由外部 `sentry.aim`/`sentry_tf` 提供；本倉 `sentry_all` 只啟動 `gimbal_driver`、導航/FaceMode bridge 和 `behavior_tree`，不再啟動內部 `detector/tracker_solver/predictor/outpost_hitter/buff_hitter`。本倉 `tf_tree` 僅作不拉外部 TF 時的 fallback。
+**Behavion 更新**: 正式主鏈路已切成 decision-only。相機、檢測、追蹤、彈道、gimbal TF 和 fire 判斷由外部 `sentry.aim`/`sentry_tf` 提供；本倉 `sentry_all` 只啟動 `gimbal_driver`、導航/FaceMode bridge 和 `behavior_tree`，不再啟動內部 `detector/tracker_solver/predictor/outpost_hitter/buff_hitter`，也不發布 gimbal TF。
 
 ---
 

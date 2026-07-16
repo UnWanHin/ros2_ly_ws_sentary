@@ -893,10 +893,10 @@ if (( RUNTIME_ONLY == 0 )); then
   check_ros_interface "auto_aim_common/msg/RelativeTarget"
 
   package_count="$(colcon list --names-only 2>/dev/null | wc -l | tr -d ' ')"
-  if [[ "${package_count}" == "6" ]]; then
-    pass "workspace package inventory contains the six retained ROS packages"
+  if [[ "${package_count}" == "5" ]]; then
+    pass "workspace package inventory contains the five retained ROS packages"
   else
-    fail "workspace package inventory expected 6 retained ROS packages, got ${package_count}"
+    fail "workspace package inventory expected 5 retained ROS packages, got ${package_count}"
   fi
 
   if grep -Fq 'BTCPP_format="4"' "${ROOT_DIR}/src/behavior_tree/Scripts/main.xml"; then

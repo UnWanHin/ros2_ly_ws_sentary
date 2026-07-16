@@ -2,6 +2,8 @@
 
 日期：2026-05-03
 
+> Historical / superseded for local TF ownership: 2026-07-16 起本倉 `tf_tree` 已移除，gimbal TF 只由外部 `sentry_tf` 提供；本記錄其餘 FaceMode／腳本整理內容保留作歷史對照。
+
 ## 背景
 
 从 `ff31d389c89ac0baa9947ed727aa13c3d8e9d8ed` 之后，导航点位转换和固定点朝向链路做了几件会影响联调入口的调整：
@@ -158,4 +160,4 @@ ros2 launch navi_tf_bridge map_aim_point.launch.py --show-args
 
 - FaceMode 默认仍可作为独立节点直接发 `/ly/control/angles` 使用。
 - `behavior_tree` 会在区域任务请求固定朝向时消费 `/ly/face_mode/angles`；这一路需要用 `facemode.sh --bt-output ...` 启动，避免和 BT 同时发布 `/ly/control/angles`。动态目标点通过 `/ly/face_mode/target_raw` 下发。
-- `tf_tree` 只提供车体到云台/相机链路；地图/里程计到车体的定位 TF 仍由导航/定位系统提供。
+- （历史）`tf_tree` 曾只提供车体到云台/相机链路；地图/里程计到车体的定位 TF 仍由导航/定位系统提供。当前 gimbal TF 由外部 `sentry_tf` 提供。

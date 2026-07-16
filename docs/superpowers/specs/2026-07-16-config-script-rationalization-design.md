@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted — 第一批盤點已完成；後續只對有刪除證據的候選或明確確認的介面 migration 改動。
+Partially superseded on 2026-07-16 — 第一批盤點已完成；`tf_tree` 已依外部 `sentry_tf` 固定可用的確認移除。其餘後續只對有刪除證據的候選或明確確認的介面 migration 改動。
 
 ## Context
 
@@ -41,7 +41,7 @@ Accepted — 第一批盤點已完成；後續只對有刪除證據的候選或�
 | `src/behavior_tree/config/*.yaml` | BT 的區域、任務、巡邏、點位、導航 Rotate 等分區設定 | 保留分區；`OutpostRegionalTest.yaml` 是被 `outpost_regional_test.launch.py` 載入的 debug profile，非死檔。 |
 | `src/navi_tf_bridge/config/tf_config.yaml` | bridge runtime 與 official/map calibration | 保留；兩個 node scope 重複 matrix 是漂移風險，需另案設計單一 calibration source。 |
 | `navi_calib.yaml`、`tf_*_points_example.yaml` | calibration input 與範例 | 保留；工具與文件仍使用。 |
-| `src/tf_tree/config/tf_tree.yaml` | tf_tree runtime／FaceMode 可選 fallback | 保留；多個 launch 有引用。 |
+| `src/tf_tree/config/tf_tree.yaml` | 已移除的本倉 TF fallback | 已於 2026-07-16 刪除；外部 `sentry_tf` 為唯一 gimbal TF provider。 |
 | simulator YAML | simulator runtime、asset manifest、visual QA | 保留；由 automated tests 與 offline workflow 使用。 |
 | `config/common.yaml` | wrapper 的現場操作 profile，且目前也會變成 BT/driver inline ROS parameter override | 保留；不能直接刪，因其覆蓋優先序目前有效。 |
 | `config/base_config.yaml`、`config/override_config.yaml` | 現為空的 launch compatibility layers | 需在第三批遷移；仍被 launch、wrapper、selfcheck 接受。 |

@@ -27,7 +27,7 @@ Updated: 2026-07-12
 | `/ly/friend/*`, `/ly/enemy/*`, `/ly/team/*` | Embedded-facing | 我方/敌方血量、弹量、队伍增益等语义状态。 |
 | `/ly/log/*` | Internal/Debug | 可选 raw 诊断 topic，默认关闭，不参与决策。 |
 | `/ly/aim/*` | External | 外部 `sentry.aim` 和 BT 的正式辅瞄接口。 |
-| `/tf`, `/tf_static` | External | 正式链路由外部 `sentry_tf` 发布 gimbal TF；本仓 `tf_tree` 只作 fallback，不能和外部 `sentry_tf` 同时发布同一套 frame。 |
+| `/tf`, `/tf_static` | External | gimbal TF 只由外部 `sentry_tf` 发布；本仓 `navi_tf_bridge` 仅查询使用。 |
 | `/ly/vision/*`, `/ly/bt/*` | Internal | BT 模式和调试语义；`/ly/vision/mode` 只反映 AimMode，不再选择本仓视觉节点。 |
 | `/ly/face_mode/*` | Internal | FaceMode 固定点朝向链路。 |
 | `/ly/navi/*`, `/goal_pose` | External | 导航目标、导航桥、导航状态和 TF 导出的定位接口。 |

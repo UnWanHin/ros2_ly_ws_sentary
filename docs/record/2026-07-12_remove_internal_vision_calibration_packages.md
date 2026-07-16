@@ -24,7 +24,6 @@ Updated: 2026-07-12
 - `gimbal_driver`：下位机和裁判系统串口、上行语义、下行控制。
 - `navi_tf_bridge`：导航目标、路径到裁判 `0x0307`、FaceMode 支撑。
 - `auto_aim_common`：仍由 `behavior_tree` 使用 `GoalReach`、`navi_tf_bridge` 使用 `RelativeTarget`；保留其旧消息定义不等于恢复旧视觉包。
-- `tf_tree`：外部 TF 不可用时的可选 fallback，默认不与外部 TF 并发。
 - `simulator`：离线决策与 trace 工具；只保留正式 `/ly/aim/*` mock，不再发布旧视觉 topic。
 
 ## 当前正式接口
@@ -43,5 +42,5 @@ external /ly/aim/armor_targets + /ly/aim/result
 
 ## 验证边界
 
-- 本次清理必须重新执行 `colcon build --packages-select auto_aim_common gimbal_driver navi_tf_bridge behavior_tree tf_tree simulator`、`./scripts/selfcheck.sh sentry --static-only` 以及 simulator 的本地检查。
+- 本次清理的原始验证已完成；2026-07-16 起本仓 `tf_tree` fallback 已移除，后续验证包清单为 `auto_aim_common gimbal_driver navi_tf_bridge behavior_tree simulator`，gimbal TF 由外部 `sentry_tf` 唯一提供。
 - WSL 环境没有真实云台反馈和外部 aim 实例，因此不能声称硬件端到端控制链已经通过；实机仍需验证 `/ly/gimbal/angles`、外部 `/ly/aim/*` 与实际下行控制。

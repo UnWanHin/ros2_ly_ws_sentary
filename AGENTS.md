@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 This repository is a ROS2 workspace built with `colcon`.
-- `src/`: retained runtime packages (`auto_aim_common`, `behavior_tree`, `gimbal_driver`, `navi_tf_bridge`, `tf_tree`, `simulator`).
+- `src/`: retained runtime packages (`auto_aim_common`, `behavior_tree`, `gimbal_driver`, `navi_tf_bridge`, `simulator`).
 - `scripts/`: operational scripts (for example, `selfcheck.sh`, `start.sh`).
 - `docs/`: contributor-facing documentation, organized by `architecture/`, `guides/`, `modules/`, `sentry/`, `reports/`, `rules/`.
 - Generated artifacts: `build/`, `install/`, `log/` (do not commit).
@@ -10,7 +10,7 @@ This repository is a ROS2 workspace built with `colcon`.
 ## Build, Test, and Development Commands
 - `colcon build`  
   Build all ROS2 packages in this workspace.
-- `colcon build --packages-select auto_aim_common gimbal_driver navi_tf_bridge behavior_tree tf_tree simulator`
+- `colcon build --packages-select auto_aim_common gimbal_driver navi_tf_bridge behavior_tree simulator`
   Faster iterative build for selected modules.
 - `source install/setup.bash`  
   Load built packages into the current shell.

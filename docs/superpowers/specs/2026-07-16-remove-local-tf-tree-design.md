@@ -13,7 +13,7 @@
 1. 删除 `src/tf_tree` ROS package。
 2. 从 `sentry_all`、FaceMode launch 和它们的 wrapper launch 中删除本地 TF fallback 参数、默认路径解析、include 与日志。
 3. 将操作脚本改为仅依赖外部 TF；删除其 `--with-tf-tree` / `--without-tf-tree` 选择和向 launch 传递的参数。
-4. 自检不再构建或检查 `tf_tree`；保留“不能有两个 gimbal TF owner 同时在线”的运行检查，以检测外部部署异常。
+4. 自检不再构建或检查 `tf_tree`；gimbal TF owner 改由外部栈负责验证。
 5. 更新当前文档、Obsidian 生成索引与 Understand Anything fallback 图谱，明确外部 `sentry_tf` 是唯一 TF owner。
 
 ## 不变项

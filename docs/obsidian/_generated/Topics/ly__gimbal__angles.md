@@ -16,7 +16,6 @@ topic: /ly/gimbal/angles
 - [[docs/obsidian/_generated/Packages/gimbal_driver|gimbal_driver]]
 - [[docs/obsidian/_generated/Packages/navi_tf_bridge|navi_tf_bridge]]
 - [[docs/obsidian/_generated/Packages/simulator|simulator]]
-- [[docs/obsidian/_generated/Packages/tf_tree|tf_tree]]
 
 ## Source occurrences
 
@@ -30,5 +29,3 @@ topic: /ly/gimbal/angles
 - [[src/simulator/simulator/decision_input_coverage.py|src/simulator/simulator/decision_input_coverage.py]]
 - [[src/simulator/simulator/mock_inputs.py|src/simulator/simulator/mock_inputs.py]]
 - [[src/simulator/simulator/start.py|src/simulator/simulator/start.py]]
-- [[src/tf_tree/config/tf_tree.yaml|src/tf_tree/config/tf_tree.yaml]]
-- [[src/tf_tree/src/tf_node.cpp|src/tf_tree/src/tf_node.cpp]]

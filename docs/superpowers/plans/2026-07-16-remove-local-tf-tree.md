@@ -32,15 +32,15 @@
 - Consumes: externally published gimbal TF from `sentry_tf`.
 - Produces: launch APIs with no `use_tf_tree`, `tf_tree_params_file`, or `resolved_tf_tree_params_file` argument.
 
-- [ ] Remove package discovery, fallback defaults, launch arguments, logs, resolver function and conditional include.
-- [ ] Remove wrapper forwarding of the deleted arguments.
-- [ ] Verify every affected launch Python file compiles:
+- [x] Remove package discovery, fallback defaults, launch arguments, logs, resolver function and conditional include.
+- [x] Remove wrapper forwarding of the deleted arguments.
+- [x] Verify every affected launch Python file compiles:
 
 ```bash
 python3 -m py_compile src/behavior_tree/launch/*.launch.py src/navi_tf_bridge/launch/*.launch.py
 ```
 
-- [ ] Commit the runtime slice after verification:
+- [x] Commit the runtime slice after verification:
 
 ```bash
 git add -u src
@@ -61,15 +61,15 @@ git commit -m "launch: remove local tf_tree fallback"
 - Consumes: external `sentry_tf` started by the external stack.
 - Produces: scripts that never inject removed launch arguments and self-check package lists without `tf_tree`.
 
-- [ ] Delete `--with-tf-tree` / `--without-tf-tree` parsing and launch forwarding; update help text to state external TF is required.
-- [ ] Remove the obsolete dual-owner runtime check that names the deleted local node.
-- [ ] Run shell syntax checks:
+- [x] Delete `--with-tf-tree` / `--without-tf-tree` parsing and launch forwarding; update help text to state external TF is required.
+- [x] Remove the obsolete dual-owner runtime check that names the deleted local node.
+- [x] Run shell syntax checks:
 
 ```bash
 bash -n scripts/navi/map_aim_point_test.sh scripts/navi/chase.sh scripts/aim/Outpost_Simlator.sh scripts/aim/outpost_regional.sh scripts/selfcheck/pc.sh scripts/selfcheck/sentry.sh
 ```
 
-- [ ] Commit the script slice after verification:
+- [x] Commit the script slice after verification:
 
 ```bash
 git add scripts
@@ -87,9 +87,9 @@ git commit -m "scripts: require external sentry tf"
 **Interfaces:**
 - Produces: one source-checked map with no `tf_tree` package/fallback edge and a durable record explaining external TF ownership.
 
-- [ ] Update current-state documents and graph metadata to the actual HEAD/working-tree state.
-- [ ] Leave historical records intact, labelling them historical only where a current reader could otherwise mistake them for active behavior.
-- [ ] Validate all changed JSON and graph references:
+- [x] Update current-state documents and graph metadata to the actual HEAD/working-tree state.
+- [x] Leave historical records intact, labelling them historical only where a current reader could otherwise mistake them for active behavior.
+- [x] Validate all changed JSON and graph references:
 
 ```bash
 python3 -m json.tool .understand-anything/knowledge-graph.json >/dev/null
@@ -103,7 +103,7 @@ rg -n --glob '!docs/record/**' --glob '!docs/plans/**' 'tf_tree|use_tf_tree|tf_t
 **Files:**
 - Verify the full staged diff only; no new source files.
 
-- [ ] Build maintained packages:
+- [x] Build maintained packages:
 
 ```bash
 source /opt/ros/humble/setup.bash
@@ -111,7 +111,7 @@ source /home/hiraeth/sentry.common/install/setup.bash
 colcon build --packages-select auto_aim_common gimbal_driver navi_tf_bridge behavior_tree simulator
 ```
 
-- [ ] Load the result and run static contract checks:
+- [x] Load the result and run static contract checks:
 
 ```bash
 source install/setup.bash
@@ -119,5 +119,5 @@ source install/setup.bash
 git diff --check
 ```
 
-- [ ] Review changed files for launch dependency, external TF contract, documentation/graph agreement, shell behavior, and unwanted interface changes.
+- [x] Review changed files for launch dependency, external TF contract, documentation/graph agreement, shell behavior, and unwanted interface changes.
 - [ ] Commit the documentation/graph slice and push only after all checks pass.

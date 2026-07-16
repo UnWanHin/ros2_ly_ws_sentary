@@ -29,7 +29,6 @@
     {"path":"src/simulator/simulator/model.py","language":"python","sizeLines":0,"fileCategory":"code"},
     {"path":"src/simulator/simulator/trace.py","language":"python","sizeLines":0,"fileCategory":"code"},
     {"path":"src/simulator/simulator/validation.py","language":"python","sizeLines":0,"fileCategory":"code"},
-    {"path":"src/tf_tree/package.xml","language":"xml","sizeLines":0,"fileCategory":"manifest"},
     {"path":"docs/architecture/2026-07-12_project_link_graph.md","language":"markdown","sizeLines":0,"fileCategory":"docs"},
     {"path":"docs/sentry/regional/2026-07-12_regional_decision_graph.md","language":"markdown","sizeLines":0,"fileCategory":"docs"},
     {"path":"docs/record/2026-07-12_remove_internal_vision_calibration_packages.md","language":"markdown","sizeLines":0,"fileCategory":"docs"},

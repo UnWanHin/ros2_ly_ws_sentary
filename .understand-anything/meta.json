@@ -1,8 +1,8 @@
 {
   "lastAnalyzedAt": "2026-07-16T00:00:00+00:00",
-  "gitCommitHash": "ec75e667e03c7d62985752cf35c27b65e3128ad7",
-  "workingTreeStatus": "dirty",
-  "lastCheckedNote": "Fallback graph source-checked against HEAD ec75e667 and the dirty compatibility worktree. Six ROS packages remain. The formal external aim feedback cycle, /ly/control/sentry_cmd, FaceMode solver, BT position 0x04 downlink, and navigation position/target/velocity/rotate feedback are explicit graph relations. PreRoadland remains BaseGoalId 25; Roadland preserves the ID 21/22 guarded crossing; UnitInfo keeps 0-7 and adds 8/9. debug_node.launch.py loads the navigation direct-debug profile; the legacy navi_vel_chain bridge is removed. Formal sentry_all now includes gimbal_driver.launch.py and routes only safe root io_config compatibility keys, blocking navigation_test/navigation_mode. Static selfcheck, targeted build, and formal offline virtual-driver smoke verification passed after sourcing ROS Humble, sentry.common, and this workspace; full external aim runtime graph validation remains pending.",
+  "gitCommitHash": "d283db204a57d04a4c22bcc911ebefd36fe00163",
+  "workingTreeStatus": "dirty (tf_tree removal documentation and graph refresh)",
+  "lastCheckedNote": "Fallback graph source-checked after runtime removal commit d283db2. Five ROS packages remain; external sentry_tf is the only gimbal TF owner and navi_tf_bridge only queries TF. The formal external aim feedback cycle, /ly/control/sentry_cmd, FaceMode solver, BT position 0x04 downlink, navigation position/target/velocity/rotate feedback, and debug_node -> debug_mode.yaml profile remain explicit graph relations. After sourcing ROS Humble and sentry.common, the maintained-package build, 169 tests, and static selfcheck (108 PASS, 0 FAIL) passed. Full external aim runtime graph validation remains pending.",
   "version": "1.0.0",
   "analyzedFiles": 554,
   "generator": "local-understand-anything-compatible-fallback"

@@ -4,7 +4,7 @@ Updated: 2026-07-16
 
 ## 結論與邊界
 
-本輪以目前 source、launch、package install 規則、測試與維護文件交叉盤點了 22 份 YAML
+本輪以目前 source、launch、package install 規則、測試與維護文件交叉盤點了 21 份 YAML
 和全部現存 shell 入口。沒有發現可僅憑「檔案未被另一支 .sh 呼叫」就安全刪除的 YAML 或
 腳本。許多檔案是人直接執行的 ROS/實機工具、debug profile 或 calibration input，不一定
 會被程式碼反向引用。
@@ -45,7 +45,6 @@ Updated: 2026-07-16
 | src/simulator/assets/manifest.yaml | simulator asset manifest | simulator package、quality workflow | 保留。 |
 | src/simulator/config/default.yaml | simulator 預設場地／視覺設定 | simulator CLI、offline workflow | 保留。 |
 | src/simulator/config/visual_asset_qa.yaml | simulator sprite QA profile | quality tests、offline workflow | 保留。 |
-| src/tf_tree/config/tf_tree.yaml | tf_tree runtime／FaceMode fallback geometry | tf_tree.launch.py、sentry_all.launch.py、map_aim_point.launch.py | 保留。 |
 
 ### 必須保持分離的 YAML
 

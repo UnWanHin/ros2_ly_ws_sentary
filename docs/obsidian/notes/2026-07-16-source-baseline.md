@@ -13,9 +13,9 @@ updated: 2026-07-16
 
 ## 已確認的正式邊界
 
-- 現行 workspace 只有六個 ROS package：[[docs/obsidian/_generated/Packages/auto_aim_common|auto_aim_common]]、[[docs/obsidian/_generated/Packages/behavior_tree|behavior_tree]]、[[docs/obsidian/_generated/Packages/gimbal_driver|gimbal_driver]]、[[docs/obsidian/_generated/Packages/navi_tf_bridge|navi_tf_bridge]]、[[docs/obsidian/_generated/Packages/tf_tree|tf_tree]]、[[docs/obsidian/_generated/Packages/simulator|simulator]]。
+- 現行 workspace 只有五個 ROS package：[[docs/obsidian/_generated/Packages/auto_aim_common|auto_aim_common]]、[[docs/obsidian/_generated/Packages/behavior_tree|behavior_tree]]、[[docs/obsidian/_generated/Packages/gimbal_driver|gimbal_driver]]、[[docs/obsidian/_generated/Packages/navi_tf_bridge|navi_tf_bridge]]、[[docs/obsidian/_generated/Packages/simulator|simulator]]。
 - 正式 decision-only 主鏈是外部 aim 的 [[docs/obsidian/_generated/Topics/ly__aim__armor_targets|/ly/aim/armor_targets]]、[[docs/obsidian/_generated/Topics/ly__aim__result|/ly/aim/result]] 進 BT；BT 回授 [[docs/obsidian/_generated/Topics/ly__aim__select_target|/ly/aim/select_target]]，並以單一控制出口發布 [[docs/obsidian/_generated/Topics/ly__control__angles|angles]]、[[docs/obsidian/_generated/Topics/ly__control__firecode|firecode]]、[[docs/obsidian/_generated/Topics/ly__control__vel|vel]]、[[docs/obsidian/_generated/Topics/ly__control__posture|posture]]、[[docs/obsidian/_generated/Topics/ly__control__sentry_cmd|sentry_cmd]] 給 `gimbal_driver`。
-- `sentry_all.launch.py` 正式組合 `gimbal_driver`、`behavior_tree`、可選 `navi_tf_bridge`／FaceMode solver／`tf_tree`。外部 `sentry_tf` 是首選；本倉 `tf_tree` 只在 `use_tf_tree=true` 時由雲台角度建立 TF，給導航／FaceMode bridge 使用。
+- `sentry_all.launch.py` 正式組合 `gimbal_driver`、`behavior_tree`、可選 `navi_tf_bridge`／FaceMode solver。外部 `sentry_tf` 是唯一 gimbal TF provider；本倉不發布 gimbal TF。
 - `navi_tf_bridge` 接收 BT 的 `goal_pos_raw`、`target_rel` 和外部 armor targets；它輸出導航 `/goal_pose`，並把 position／official target 回饋 BT。`/ly/navi/goal` 是導航相容目標，不經此 bridge。
 
 ## Regional 與離線契約
@@ -30,17 +30,17 @@ updated: 2026-07-16
 
 ## 圖譜與驗收狀態
 
-- `.understand-anything/` 的現有 source audit 曾補齊 aim feedback、`sentry_cmd`、FaceMode solver、BT 0x04、導航 feedback 和正確 `tf_tree -> navi_tf_bridge` fallback 關係；後續 runtime/graph 變更應重新核對其 HEAD 與計數。
+- `.understand-anything/` 的現有 source audit 已記錄外部 `sentry_tf -> navi_tf_bridge` 的唯一 TF 關係，以及 aim feedback、`sentry_cmd`、FaceMode solver、BT 0x04 與導航 feedback；後續 runtime/graph 變更應重新核對其 HEAD 與計數。
 - Obsidian generated index 已涵蓋 package、message 與可靜態辨識的 `/ly/...` topic；手寫理解與調查保留在 `docs/obsidian/notes/`。
-- 本環境已以 ROS Humble Bash 完成完整 `colcon build`（六個 package 全部成功）。正式 external aim runtime graph 驗證仍為 **pending**；可用外部 navigation、TF 與下位機／offline substitute 時，再執行 `./scripts/selfcheck.sh sentry --launch --wait 10`。
+- 本環境曾以 ROS Humble Bash 完成完整 `colcon build`；`tf_tree` 已於 2026-07-16 移除，後續 build 只涵蓋五個 package。正式 external aim runtime graph 驗證仍為 **pending**；可用外部 navigation、TF 與下位機／offline substitute 時，再執行 `./scripts/selfcheck.sh sentry --launch --wait 10`。
 - GitHub issue workflow 也為 **pending**：repo 規定用 `gh`，但本環境未安裝 `gh`。目前工作樹另有大量 `100644 -> 100755` mode-only noise，開始工程前應先確定它是否為 mount／檔案系統副作用，避免污染 review。
 
 ## 本輪相容修復與驗收
 
 - `navi_publish_goal_pose` 已由 `sentry_all.launch.py` 原樣轉交 bridge；傳 `navi_publish_goal_pose:=false` 會關閉 bridge 的 `/goal_pose` 輸出。這不改變 BT 的 `/ly/navi/goal_pos_raw` 發布，只控制 bridge 的 PoseStamped 輸出。
 - 已完成 `obsidian_sync.py --check`（0 write／0 delete／0 conflict）、JSON／Python 語法檢查、`git diff --check`，以及 source ROS Humble、`sentry.common`、本 workspace 後的 `./scripts/selfcheck.sh sentry --static-only`（108 PASS、0 WARN、0 FAIL）。
-- Distrobox 環境已補齊 `python3-pip` 與符合 `src/simulator/requirements.txt` 的 user-site `pygame 2.6.1`（`/usr/bin/python3` 解析到此版本）；Ubuntu 的 `python3-pygame` 亦已安裝作系統基線。`src/tf_tree/src/tf_node.cpp` 已用 ROS Humble 既有 uncrustify 規則格式化，未改行為。
-- 在此環境重新跑完整 `colcon build && colcon test && colcon test-result --verbose`：六個 package 全部 build 完成，181 tests、0 errors、0 failures、1 skipped。這取代本 note 先前的 simulator 缺件與 tf_tree formatting 失敗紀錄。
+- Distrobox 環境已補齊 `python3-pip` 與符合 `src/simulator/requirements.txt` 的 user-site `pygame 2.6.1`（`/usr/bin/python3` 解析到此版本）；Ubuntu 的 `python3-pygame` 亦已安裝作系統基線。
+- 在移除前曾重新跑完整 `colcon build && colcon test && colcon test-result --verbose`：六個 package 全部 build 完成，181 tests、0 errors、0 failures、1 skipped。移除後已在 source ROS Humble、`sentry.common` 與本 workspace 後驗收五個 package build 成功、169 tests（0 errors、0 failures、0 skipped）及 static selfcheck（108 PASS、0 FAIL）。
 - 本輪修復 `navi_publish_goal_pose` forwarding、gimbal lifecycle virtual override 與 root gimbal compatibility routing；正式 offline virtual-driver smoke 已通過。未執行外部 aim 的完整 runtime graph 驗收。
 - `scripts/areatest/regional_area_test.sh` 現在在 `mktemp` 後立即安裝 cleanup trap；收到中斷時先停止並等待 launch，再刪除臨時 BT profile。回歸測試涵蓋 generator 失敗不遺留 `/tmp/ly_regional_area_*.json` 與這個清理順序。
 

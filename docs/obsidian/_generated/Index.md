@@ -16,7 +16,6 @@ tags:
 - [[docs/obsidian/_generated/Packages/gimbal_driver|gimbal_driver]]
 - [[docs/obsidian/_generated/Packages/navi_tf_bridge|navi_tf_bridge]]
 - [[docs/obsidian/_generated/Packages/simulator|simulator]]
-- [[docs/obsidian/_generated/Packages/tf_tree|tf_tree]]
 
 ## /ly topics
 

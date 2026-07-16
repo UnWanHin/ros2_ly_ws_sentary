@@ -29,7 +29,7 @@ flowchart LR
     OUTPUT[控制/導航意圖發布]
   end
 
-  subgraph BRIDGE[navi_tf_bridge / tf_tree]
+  subgraph BRIDGE[navi_tf_bridge]
     GOAL_BRIDGE[target_rel -> goal_pose]
     FACE_BRIDGE[map_aim_point -> face angles]
   end
@@ -44,7 +44,7 @@ flowchart LR
   LOWER --> SERIAL_RX
   SERIAL_RX --> REF_MAP --> INPUT
   AIM -->|/ly/aim/armor_targets\n/ly/aim/result| INPUT
-  TF -.preferred TF.-> INPUT
+  TF -.gimbal TF.-> BRIDGE
   INPUT --> DECISION --> FACE[FaceModeManager\nrequest -> decision] --> POSTURE --> OUTPUT
 
   OUTPUT -->|/ly/control/angles\n/ly/control/firecode\n/ly/control/vel\n/ly/control/posture\n/ly/control/sentry_cmd| GD

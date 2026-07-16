@@ -243,7 +243,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --bench|--mock-all)
       USE_GIMBAL="false"
-      USE_TF_TREE="true"
       USE_MOCK_MAP_TO_BASE="true"
       USE_MOCK_GIMBAL_STATE="true"
       shift
