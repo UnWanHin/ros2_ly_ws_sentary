@@ -86,7 +86,7 @@ Updated: 2026-07-16
 | scripts/launch/start_sentry_all.sh、scripts/launch/start_sentry_all_nogate.sh、scripts/launch/start_sentry_showcase.sh、scripts/launch/start_sentry_navi_debug.sh、scripts/launch/start_sentry_chase_only.sh、scripts/launch/start_sentry_decision_chase.sh | 正式／debug launcher | 保留；含環境、互斥清理或參數組裝。 |
 | scripts/launch/map_aim_point_test.sh | 薄 wrapper | 保留；對舊入口相容，轉發至 scripts/navi/map_aim_point_test.sh。 |
 | scripts/aim/Outpost_Simlator.sh、scripts/aim/armor_only_test.sh、scripts/aim/armor_patrol_test.sh、scripts/aim/armor_test.sh、scripts/aim/outpost_regional.sh | aim／前哨聯調 launcher | 保留；各自 launch mode 與安全選項不同。 |
-| scripts/areatest/regional_area_test.sh | 區域測試實作 | 保留；四個區域快捷命令的共同 owner。 |
+| scripts/areatest/regional_area_test.sh、scripts/areatest/regional_area_profile.py | 區域測試實作／profile generator | 保留；前者是四個區域快捷命令的共同 owner，後者從唯一 template 生成該次 launch 的 temporary JSON。 |
 | scripts/areatest/regional_base.sh、scripts/areatest/regional_central.sh、scripts/areatest/regional_highland.sh、scripts/areatest/regional_roadland.sh | 薄 wrapper | 保留；待確認是否需要區域快捷 CLI 時才可評估。 |
 | scripts/debug/armor_test.sh、scripts/debug/chase_only.sh、scripts/debug/goal_pos_test.sh、scripts/debug/move_rotate.sh、scripts/debug/navi_debug.sh、scripts/debug/navi_goal.sh、scripts/debug/standalone.sh | 薄 wrapper | 保留；由 debug.sh dispatcher 暴露。 |
 | scripts/debug/navi_goal_cli.sh | CLI helper | 保留；包含具體 goal input 行為。 |
@@ -137,9 +137,10 @@ Updated: 2026-07-16
   各自重複 gimbal_driver 的啟動、virtual device、等待、PID cleanup 與 trap 樣板。這是
   可抽出 scripts/lib 的共享 lifecycle helper 的候選；保留每支腳本的 topic stimulus 與 CLI，
   不會減少現場可見入口。
-- behavior_tree 的 21 份 ConfigJson 約 1930 行，其中 regional test/debug JSON 有刻意的
-  完整 profile 副本。現行 loader 沒有 JSON inheritance/overlay 合約；若為減少檔案而加入
-  合併機制，會改變 profile 解析與驗收範圍，暫不列為清理候選。
+- behavior_tree 的 regional test 單區域 profile 已收斂為
+  `regional_area_template.json` 加 `regional_area_profile.py`：只在 wrapper 啟動前產生 temporary
+  JSON，沒有向 production loader 加入 JSON inheritance/overlay 合約。`regional_area_my_pre_roadland.json`
+  shape 不同，保留為獨立 fixture；其餘 debug JSON 仍需按各自 runtime 差異逐一評估。
 - tf_config.yaml 在 target_rel_to_goal_pos_node 與 map_path_to_game_path_node 各保留一份
   static calibration matrix；兩份資料可漂移。pointer_solver_node.cpp 另有 raw-text 讀 bridge
   config 的行為，應與 calibration source 一起設計，不宜在這次盤點中順手改。

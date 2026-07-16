@@ -25,14 +25,12 @@ Only these three competition entry presets should stay in this directory root.
 - `regional/debug/navi_debug_points.json`: point-plan data loaded by `NaviDebug.PlanFile`.
 - `regional/debug/armor_only_test.json`: armor-only debug preset.
 - `regional/debug/armor_patrol_test.json`: armor patrol preset without firing.
-- `regional/test/regional_area_my_base.json`: single-area regional preset for `scripts/areatest/regional_base.sh`.
-- `regional/test/regional_area_my_highland.json`: single-area regional preset for `scripts/areatest/regional_highland.sh`.
-- `regional/test/regional_area_my_roadland.json`: single-area regional preset for `scripts/areatest/regional_roadland.sh`.
-- `regional/test/regional_area_common_central.json`: single-area regional preset for `scripts/areatest/regional_central.sh`.
-- `regional/test/regional_area_my_base_pure.json`: pure single-area preset for `scripts/areatest/regional_base.sh --pure`.
-- `regional/test/regional_area_my_highland_pure.json`: pure single-area preset for `scripts/areatest/regional_highland.sh --pure`.
-- `regional/test/regional_area_my_roadland_pure.json`: pure single-area preset for `scripts/areatest/regional_roadland.sh --pure`.
-- `regional/test/regional_area_common_central_pure.json`: pure single-area preset for `scripts/areatest/regional_central.sh --pure`.
+- `regional/test/regional_area_template.json`: canonical source for the four supported single-area test profiles.
+  `scripts/areatest/regional_area_profile.py` creates a temporary JSON for `my_base`, `my_highland`,
+  `my_roadland`, or `common_central`; `--pure` adds only the route/hold-specific fire, recovery, and
+  posture overrides. `regional_area_test.sh` and `navi_control_chain.sh` own the temporary file lifecycle.
+- `regional/test/regional_area_my_pre_roadland.json`: retained separate fixture. Its shape intentionally
+  differs and it is not a `regional_area_test.sh` CLI target.
 
 ## Legacy Presets
 

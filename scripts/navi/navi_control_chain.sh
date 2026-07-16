@@ -21,8 +21,11 @@ START_ARGS=(--mode regional --no-prompt)
 TEMP_BT_CONFIG=""
 TEMP_PATROL_CONFIG=""
 BT_CONFIG_SOURCE=""
+BT_CONFIG_AREA=""
 
 CONFIG_DIR="${ROOT_DIR}/src/behavior_tree/Scripts/ConfigJson/regional/test"
+REGIONAL_AREA_TEMPLATE="${CONFIG_DIR}/regional_area_template.json"
+REGIONAL_AREA_PROFILE_GENERATOR="${ROOT_DIR}/scripts/areatest/regional_area_profile.py"
 DEFAULT_BASE_CONFIG_FILE="${ROOT_DIR}/config/base_config.yaml"
 DEFAULT_OVERRIDE_CONFIG_FILE="${ROOT_DIR}/config/override_config.yaml"
 DEFAULT_PATROL_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/Patrol.yaml"
@@ -133,19 +136,19 @@ select_area_config() {
   case "${AREA}" in
     base|my_base)
       AREA="base"
-      BT_CONFIG_SOURCE="${CONFIG_DIR}/regional_area_my_base_pure.json"
+      BT_CONFIG_AREA="my_base"
       ;;
     highland|my_highland)
       AREA="highland"
-      BT_CONFIG_SOURCE="${CONFIG_DIR}/regional_area_my_highland_pure.json"
+      BT_CONFIG_AREA="my_highland"
       ;;
     roadland|my_roadland)
       AREA="roadland"
-      BT_CONFIG_SOURCE="${CONFIG_DIR}/regional_area_my_roadland_pure.json"
+      BT_CONFIG_AREA="my_roadland"
       ;;
     central|common_central)
       AREA="central"
-      BT_CONFIG_SOURCE="${CONFIG_DIR}/regional_area_common_central_pure.json"
+      BT_CONFIG_AREA="common_central"
       ;;
     *)
       echo "[ERROR] Unknown area '${AREA}'. Expected base/highland/roadland/central." >&2
@@ -163,16 +166,38 @@ validate_scan_mode() {
 
 make_bt_config() {
   TEMP_BT_CONFIG="$(mktemp /tmp/ly_navi_control_area_pure_XXXXXX.json)"
-  python3 - "${BT_CONFIG_SOURCE}" "${TEMP_BT_CONFIG}" "${ROTATE_ENABLED}" "${SCAN_ENABLED}" <<'PY'
+  if [[ -n "${BT_CONFIG_SOURCE}" ]]; then
+    python3 - "${BT_CONFIG_SOURCE}" "${TEMP_BT_CONFIG}" <<'PY'
 import json
 import sys
 
-src, dst, rotate_raw, scan_raw = sys.argv[1:5]
+src, dst = sys.argv[1:3]
+
+with open(src, "r", encoding="utf-8") as f:
+    data = json.load(f)
+
+with open(dst, "w", encoding="utf-8") as f:
+    json.dump(data, f, indent=4, ensure_ascii=False)
+    f.write("\n")
+PY
+  else
+    python3 "${REGIONAL_AREA_PROFILE_GENERATOR}" \
+      --template "${REGIONAL_AREA_TEMPLATE}" \
+      --area "${BT_CONFIG_AREA}" \
+      --pure \
+      --output "${TEMP_BT_CONFIG}"
+  fi
+
+  python3 - "${TEMP_BT_CONFIG}" "${ROTATE_ENABLED}" "${SCAN_ENABLED}" <<'PY'
+import json
+import sys
+
+config_file, rotate_raw, scan_raw = sys.argv[1:4]
 
 def as_bool(value: str) -> bool:
     return value.lower() in ("true", "1", "yes", "on")
 
-with open(src, "r", encoding="utf-8") as f:
+with open(config_file, "r", encoding="utf-8") as f:
     data = json.load(f)
 
 rotate_enabled = as_bool(rotate_raw)
@@ -190,7 +215,7 @@ data.setdefault("Chase", {})["Enable"] = False
 data.setdefault("Posture", {})["Enable"] = False
 data.setdefault("Rate", {})["NaviCommandRate"] = 1
 
-with open(dst, "w", encoding="utf-8") as f:
+with open(config_file, "w", encoding="utf-8") as f:
     json.dump(data, f, indent=4, ensure_ascii=False)
     f.write("\n")
 PY
@@ -356,8 +381,16 @@ if [[ -z "${BT_CONFIG_SOURCE}" ]]; then
 fi
 validate_scan_mode
 
-if [[ ! -f "${BT_CONFIG_SOURCE}" ]]; then
+if [[ -n "${BT_CONFIG_SOURCE}" && ! -f "${BT_CONFIG_SOURCE}" ]]; then
   echo "[ERROR] BT config not found: ${BT_CONFIG_SOURCE}" >&2
+  exit 1
+fi
+if [[ -z "${BT_CONFIG_SOURCE}" && ! -f "${REGIONAL_AREA_TEMPLATE}" ]]; then
+  echo "[ERROR] Regional area template not found: ${REGIONAL_AREA_TEMPLATE}" >&2
+  exit 1
+fi
+if [[ -z "${BT_CONFIG_SOURCE}" && ! -f "${REGIONAL_AREA_PROFILE_GENERATOR}" ]]; then
+  echo "[ERROR] Regional area profile generator not found: ${REGIONAL_AREA_PROFILE_GENERATOR}" >&2
   exit 1
 fi
 if [[ ! -f "${DEFAULT_PATROL_CONFIG_FILE}" ]]; then
@@ -387,7 +420,11 @@ fi
 echo "[INFO] navi control uses area_test --pure style: area=${AREA}" >&2
 echo "[INFO] /goal_pose disabled: publish_navi_goal=true, navi_publish_goal_pose=false" >&2
 echo "[INFO] fire=false rotate=${ROTATE_ENABLED} scan=${SCAN_ENABLED} scan_mode=${SCAN_MODE}" >&2
-echo "[INFO] source bt_config=${BT_CONFIG_SOURCE}" >&2
+if [[ -n "${BT_CONFIG_SOURCE}" ]]; then
+  echo "[INFO] source bt_config=${BT_CONFIG_SOURCE}" >&2
+else
+  echo "[INFO] generated source profile: template=${REGIONAL_AREA_TEMPLATE} area=${BT_CONFIG_AREA} pure=true" >&2
+fi
 echo "[INFO] generated bt_config=${TEMP_BT_CONFIG}" >&2
 echo "[INFO] generated patrol_config=${TEMP_PATROL_CONFIG}" >&2
 

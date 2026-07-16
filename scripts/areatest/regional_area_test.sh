@@ -72,26 +72,20 @@ AREA="$1"
 shift
 
 CONFIG_DIR="${ROOT_DIR}/src/behavior_tree/Scripts/ConfigJson/regional/test"
+BT_CONFIG_TEMPLATE="${CONFIG_DIR}/regional_area_template.json"
+BT_PROFILE_GENERATOR="${ROOT_DIR}/scripts/areatest/regional_area_profile.py"
 case "${AREA}" in
   base|my_base)
     AREA_LABEL="my_base"
-    BT_CONFIG_FILE_NORMAL="${CONFIG_DIR}/regional_area_my_base.json"
-    BT_CONFIG_FILE_PURE="${CONFIG_DIR}/regional_area_my_base_pure.json"
     ;;
   highland|my_highland)
     AREA_LABEL="my_highland"
-    BT_CONFIG_FILE_NORMAL="${CONFIG_DIR}/regional_area_my_highland.json"
-    BT_CONFIG_FILE_PURE="${CONFIG_DIR}/regional_area_my_highland_pure.json"
     ;;
   roadland|my_roadland)
     AREA_LABEL="my_roadland"
-    BT_CONFIG_FILE_NORMAL="${CONFIG_DIR}/regional_area_my_roadland.json"
-    BT_CONFIG_FILE_PURE="${CONFIG_DIR}/regional_area_my_roadland_pure.json"
     ;;
   central|common_central)
     AREA_LABEL="common_central"
-    BT_CONFIG_FILE_NORMAL="${CONFIG_DIR}/regional_area_common_central.json"
-    BT_CONFIG_FILE_PURE="${CONFIG_DIR}/regional_area_common_central_pure.json"
     ;;
   --help|-h)
     usage
@@ -206,15 +200,25 @@ if ! [[ "${FAKE_AMMO}" =~ ^[0-9]+$ ]]; then
   exit 2
 fi
 
-BT_CONFIG_FILE="${BT_CONFIG_FILE_NORMAL}"
-if (( PURE_MODE == 1 )); then
-  BT_CONFIG_FILE="${BT_CONFIG_FILE_PURE}"
-fi
-
-if [[ ! -f "${BT_CONFIG_FILE}" ]]; then
-  echo "[ERROR] BT config not found: ${BT_CONFIG_FILE}" >&2
+if [[ ! -f "${BT_CONFIG_TEMPLATE}" ]]; then
+  echo "[ERROR] BT config template not found: ${BT_CONFIG_TEMPLATE}" >&2
   exit 1
 fi
+if [[ ! -f "${BT_PROFILE_GENERATOR}" ]]; then
+  echo "[ERROR] BT profile generator not found: ${BT_PROFILE_GENERATOR}" >&2
+  exit 1
+fi
+
+BT_CONFIG_FILE="$(mktemp "/tmp/ly_regional_area_${AREA_LABEL}_XXXXXX.json")"
+BT_PROFILE_ARGS=(
+  --template "${BT_CONFIG_TEMPLATE}"
+  --area "${AREA_LABEL}"
+  --output "${BT_CONFIG_FILE}"
+)
+if (( PURE_MODE == 1 )); then
+  BT_PROFILE_ARGS+=(--pure)
+fi
+python3 "${BT_PROFILE_GENERATOR}" "${BT_PROFILE_ARGS[@]}"
 
 add_launch_arg_if_missing "bt_config_file" "${BT_CONFIG_FILE}"
 add_launch_arg_if_missing "debug_bypass_is_start" "true"
@@ -228,14 +232,14 @@ cleanup_children() {
   if [[ -n "${LAUNCH_PID}" ]]; then
     kill -INT "${LAUNCH_PID}" 2>/dev/null || true
   fi
-  if (( ${#CHILD_PIDS[@]} == 0 )); then
-    return 0
+  if (( ${#CHILD_PIDS[@]} > 0 )); then
+    local pid
+    for pid in "${CHILD_PIDS[@]}"; do
+      kill -TERM "${pid}" 2>/dev/null || true
+    done
+    wait "${CHILD_PIDS[@]}" 2>/dev/null || true
   fi
-  local pid
-  for pid in "${CHILD_PIDS[@]}"; do
-    kill -TERM "${pid}" 2>/dev/null || true
-  done
-  wait "${CHILD_PIDS[@]}" 2>/dev/null || true
+  rm -f "${BT_CONFIG_FILE}"
 }
 
 start_fake_referee_publishers() {
@@ -294,8 +298,8 @@ fi
 if (( SHOULD_MOCK_GIMBAL == 1 )); then
   echo "[INFO] Mock gimbal state enabled: yaw=${MOCK_GIMBAL_YAW}, pitch=${MOCK_GIMBAL_PITCH}"
 fi
+trap cleanup_children EXIT INT TERM
 if (( FAKE_REFEREE == 1 || SHOULD_MOCK_GIMBAL == 1 )); then
-  trap cleanup_children EXIT INT TERM
   if (( FAKE_REFEREE == 1 )); then
     start_fake_referee_publishers
   fi
@@ -310,5 +314,5 @@ if (( FAKE_REFEREE == 1 || SHOULD_MOCK_GIMBAL == 1 )); then
   set -e
   exit "${STATUS}"
 else
-  exec "${ROOT_DIR}/scripts/launch/start_sentry_all.sh" "${START_ARGS[@]}" -- "${LAUNCH_ARGS[@]}"
+  "${ROOT_DIR}/scripts/launch/start_sentry_all.sh" "${START_ARGS[@]}" -- "${LAUNCH_ARGS[@]}"
 fi

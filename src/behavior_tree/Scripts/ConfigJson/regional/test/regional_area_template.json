@@ -1,0 +1,79 @@
+{
+  "CompetitionProfile": "regional",
+  "AimDebug": {
+    "StopFire": false,
+    "StopRotate": false,
+    "StopScan": false,
+    "ForceBuff": false,
+    "ForceOutpost": false,
+    "HitCar": false,
+    "FireRequireTargetStatus": false,
+    "LatchedTargetHoldMs": 100
+  },
+  "Rate": {
+    "FireRate": 20,
+    "TreeTickRate": 100,
+    "NaviCommandRate": 1
+  },
+  "DamageOpenGate": {
+    "Enable": false
+  },
+  "NaviSetting": {
+    "UseXY": true,
+    "ToNavi": true
+  },
+  "FaceMode": {
+    "Enable": true,
+    "LostTargetHoldMs": 300,
+    "SuppressFire": true
+  },
+  "RegionalDefense": {
+    "Enable": false
+  },
+  "NaviProgressWatchdog": {
+    "Enable": false
+  },
+  "RegionalIdlePatrol": {
+    "Enable": false,
+    "Goals": []
+  },
+  "DecisionAutonomy": {
+    "Enable": true,
+    "EnabledModules": [
+      "aim_target"
+    ],
+    "HardRuleModules": [
+      "recovery",
+      "aim_mode",
+      "fire_safety"
+    ],
+    "NaviGoal": {
+      "UseAreaScope": true,
+      "MyArea": {
+        "Base": true,
+        "Highland": false,
+        "PreRoadland": false,
+        "Roadland": false
+      },
+      "EnemyArea": {
+        "Base": false,
+        "Highland": false,
+        "PreRoadland": false,
+        "Roadland": false
+      },
+      "CommonArea": {
+        "Central": false
+      },
+      "HighlandCompat": {
+        "Enable": false,
+        "DisableRotate": true,
+        "ArriveDistanceCm": 20,
+        "TimeoutSec": 6
+      }
+    }
+  },
+  "Chase": {
+    "Enable": false
+  },
+  "ScanCounter": 1
+}

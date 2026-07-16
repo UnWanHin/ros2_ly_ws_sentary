@@ -52,7 +52,9 @@ updated: 2026-07-16
 - 六支 gimbal 測試／巡邏腳本已共用
   [[scripts/lib/gimbal_test_lifecycle.sh|gimbal_test_lifecycle]]；它只統一 driver lifecycle，保留現有
   debug 入口、topic stimulus、raw serial override 與各腳本額外 PID 回收。
-- regional test/debug ConfigJson 是完整 profile fixture；在沒有 loader inheritance 合約前，
-  不以減少檔案為理由合併。
+- regional area test 的四組 normal/pure JSON 已收斂為
+  [[src/behavior_tree/Scripts/ConfigJson/regional/test/regional_area_template.json|regional_area_template]]
+  加 [[scripts/areatest/regional_area_profile.py|regional_area_profile]]。wrapper 只在啟動前產生 temporary
+  JSON，沒有向 production loader 加入 inheritance/overlay；PreRoadland 及其餘 debug profile 仍是獨立檢視。
 - tf_config.yaml 的兩份 raw goal calibration matrix 與 pointer solver 的 raw config reader
   需要獨立設計單一 calibration source，不在本盤點順手修改。
