@@ -27,10 +27,14 @@ def generate_launch_description():
     default_debug_config_file = os.path.join(
         gimbal_driver_share, "config", "debug_mode.yaml"
     )
+    default_patrol_config_file = os.path.join(
+        get_package_share_directory("behavior_tree"), "config", "Patrol.yaml"
+    )
 
     argument_names = (
         "base_config_file",
         "debug_config_file",
+        "patrol_config_file",
         "output",
         "use_virtual_device",
         "raw_log_enable",
@@ -51,6 +55,11 @@ def generate_launch_description():
             "base_config_file",
             default_value=default_base_config_file,
             description="Formal serial/lower-machine baseline for gimbal_driver.",
+        ),
+        DeclareLaunchArgument(
+            "patrol_config_file",
+            default_value=default_patrol_config_file,
+            description="Canonical behavior_tree Patrol.yaml used when debug patrol is enabled.",
         ),
         DeclareLaunchArgument(
             "debug_config_file",
@@ -74,14 +83,17 @@ def generate_launch_description():
 
     driver_arguments = {
         name: LaunchConfiguration(name) for name in argument_names
-        if name != "debug_config_file"
+        if name not in ("debug_config_file", "patrol_config_file")
     }
     velocity_bridge = Node(
         package="gimbal_driver",
         executable="navi_vel_to_control_vel.py",
         name="navi_vel_to_control_vel",
         output=LaunchConfiguration("output"),
-        parameters=[LaunchConfiguration("debug_config_file")],
+        parameters=[
+            LaunchConfiguration("debug_config_file"),
+            {"patrol_config_file": LaunchConfiguration("patrol_config_file")},
+        ],
     )
 
     return LaunchDescription([

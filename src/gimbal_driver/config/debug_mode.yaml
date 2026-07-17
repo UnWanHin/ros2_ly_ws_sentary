@@ -7,3 +7,4 @@
     follow_mode_when_false: true
     stale_timeout_ms: 500
     publish_hz: 100.0
+    patrol: false
