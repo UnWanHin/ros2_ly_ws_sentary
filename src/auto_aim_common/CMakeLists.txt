@@ -56,6 +56,12 @@ target_compile_definitions(${PROJECT_NAME}_interface INTERFACE
   FMT_HEADER_ONLY
 )
 
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_patrol_scan test/test_patrol_scan.cpp)
+  target_link_libraries(test_patrol_scan ${PROJECT_NAME}_interface)
+endif()
+
 # 4. 安裝 Interface 目標 (導出給別的包用)
 install(TARGETS ${PROJECT_NAME}_interface
   EXPORT ${PROJECT_NAME}_targets  # 導出名為 auto_aim_common_targets
