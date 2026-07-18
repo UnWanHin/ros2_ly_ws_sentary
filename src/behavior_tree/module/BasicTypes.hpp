@@ -530,12 +530,19 @@ namespace LangYa
         double ManualGoalMapZM{0.0};
     };
 
+    struct MapCommandSetting {
+        bool Enable{true};
+        int HoldSec{45};
+        int DedupDistanceCm{20};
+    };
+
     struct TaskSetting {
         bool Buff{false};
         bool Outpost{false};
         BuffTimerSetting BuffTimer{};
         BuffConfirmSetting BuffConfirm{};
         OutpostConfirmSetting OutpostConfirm{};
+        MapCommandSetting MapCommand{};
     };
 
     struct DamageOpenGateSetting {

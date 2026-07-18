@@ -2,6 +2,7 @@
 #include "../include/DefaultStrategyManager.hpp"
 #include "../include/DecisionIntent.hpp"
 #include "../include/EventManager.hpp"
+#include "../include/MapCommandTask.hpp"
 #include "../module/json.hpp"
 
 #include <algorithm>
@@ -42,6 +43,46 @@ TEST(PreReadyRoadlandTaskTest, GoalIdsResolveToTheirFormalMainAreas) {
         EXPECT_EQ(road->Kind, MainAreaKind::ReadyRoadland);
         EXPECT_FALSE(road->UsedNearestFallback);
     }
+}
+
+TEST(PreReadyRoadlandTaskTest, MapCommandAcceptsOnlyNonZeroCoordinateModeAndConvertsToRawCentimeters) {
+    const auto now = std::chrono::steady_clock::now();
+    LangYa::MapCommandSetting setting;
+    BehaviorTree::MapCommandTask task;
+
+    EXPECT_FALSE(task.Observe(
+        {.HasTargetPosition = true, .XMeter = 0.0F, .YMeter = 0.0F}, setting, now));
+    EXPECT_FALSE(task.Active(now));
+
+    EXPECT_TRUE(task.Observe(
+        {.HasTargetPosition = true, .XMeter = 2.5F, .YMeter = 3.25F}, setting, now));
+    const auto raw_goal = task.ActiveGoal(now);
+    ASSERT_TRUE(raw_goal.has_value());
+    EXPECT_EQ(raw_goal->XCentimeter, 250U);
+    EXPECT_EQ(raw_goal->YCentimeter, 325U);
+}
+
+TEST(PreReadyRoadlandTaskTest, MapCommandDeduplicatesRepeatsAndDropsOwnershipOnExpiryOrCancel) {
+    const auto now = std::chrono::steady_clock::now();
+    LangYa::MapCommandSetting setting;
+    setting.HoldSec = 45;
+    setting.DedupDistanceCm = 20;
+    BehaviorTree::MapCommandTask task;
+    const BehaviorTree::MapCommandInput point{
+        .HasTargetPosition = true, .XMeter = 2.5F, .YMeter = 3.25F};
+
+    EXPECT_TRUE(task.Observe(point, setting, now));
+    EXPECT_FALSE(task.Observe(point, setting, now + std::chrono::milliseconds(100)));
+    EXPECT_TRUE(task.Active(now + std::chrono::seconds(44)));
+    EXPECT_FALSE(task.Active(now + std::chrono::seconds(45)));
+
+    EXPECT_TRUE(task.Observe(
+        {.HasTargetPosition = true, .XMeter = 2.8F, .YMeter = 3.25F},
+        setting,
+        now + std::chrono::seconds(46)));
+    EXPECT_TRUE(task.Active(now + std::chrono::seconds(46)));
+    task.Cancel();
+    EXPECT_FALSE(task.Active(now + std::chrono::seconds(46)));
 }
 
 TEST(PreReadyRoadlandTaskTest, AreaManagerStartsIndependentPreAndReadyRoadlandTasks) {
