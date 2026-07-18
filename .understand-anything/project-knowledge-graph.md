@@ -1,8 +1,8 @@
 # ros2_ly_ws_sentry Knowledge Graph
 
-Generated: 2026-07-18T20:45:56+08:00
+Generated: 2026-07-18T20:55:18+08:00
 
-Checked against source HEAD: `d7a30581465404a96550f571c7a7e4138e076bac` (working tree contains the local MPC gimbal message ownership change)
+Checked against source HEAD: `3101770fd1f4bf864fa46f4727e67d044c67a90f` (working tree contains the local GimbalState contract tightening and protocol helper consolidation)
 
 Current graph shape: 81 nodes, 101 edges, 6 layers.
 

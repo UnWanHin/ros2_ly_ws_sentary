@@ -68,7 +68,6 @@
 #include <geometry_msgs/msg/point_stamped.hpp>
 
 #include "module/BasicTypes.hpp"
-#include "module/MpcGimbalProtocol.hpp"
 #include "module/crc_checker.hpp"
 #include "module/IODevice.hpp"
 #include "module/ROSTools.hpp"
@@ -207,8 +206,6 @@ namespace
         float latestGimbalPitchOmega_{0.0F};
         float latestGimbalYawAlpha_{0.0F};
         float latestGimbalPitchAlpha_{0.0F};
-        float latestGimbalBulletSpeed_{0.0F};
-        std::uint8_t latestGimbalAimRequest_{0};
         bool hasGimbalDynamics_{false};
         std::uint32_t latestGimbalSampleTickMs_{0};
         std::chrono::steady_clock::time_point latestGimbalDynamicsRxTime_{};
@@ -1056,14 +1053,18 @@ namespace
         }
 
         void SendGimbalTrajectory(const gimbal_driver::msg::GimbalTrajectory& msg) {
-            if (!mpc_gimbal_protocol::IsFiniteTrajectory(msg)) {
+            if (!IsFiniteGimbalTrajectory(
+                    msg.yaw, msg.pitch, msg.yaw_omega, msg.pitch_omega,
+                    msg.yaw_alpha, msg.pitch_alpha)) {
                 roslog::warn("Drop /ly/control/trajectory with non-finite value");
                 return;
             }
             if (DeviceError) {
                 return;
             }
-            trajectoryShadow_ = mpc_gimbal_protocol::ToTrajectoryFrame(msg);
+            trajectoryShadow_ = ToGimbalTrajectoryFrame(
+                msg.yaw, msg.pitch, msg.yaw_omega, msg.pitch_omega,
+                msg.yaw_alpha, msg.pitch_alpha);
             if (!Device.WriteRaw(trajectoryShadow_)) {
                 DeviceError = true;
                 return;
@@ -1527,9 +1528,6 @@ namespace
                 std::lock_guard lock{gimbalStateMutex_};
                 msg.yaw = latestGimbalYaw_;
                 msg.pitch = latestGimbalPitch_;
-                msg.bullet_speed = latestGimbalBulletSpeed_;
-                msg.aim_request = latestGimbalAimRequest_;
-
                 const auto dynamics_age = std::chrono::steady_clock::now() - latestGimbalDynamicsRxTime_;
                 if (hasGimbalDynamics_ &&
                     dynamics_age <= gimbalDynamicsTimeout_) {
@@ -1562,8 +1560,6 @@ namespace
             latestGimbalPitchOmega_ = 0.0F;
             latestGimbalYawAlpha_ = 0.0F;
             latestGimbalPitchAlpha_ = 0.0F;
-            latestGimbalBulletSpeed_ = 0.0F;
-            latestGimbalAimRequest_ = 0;
             hasGimbalDynamics_ = false;
             latestGimbalSampleTickMs_ = 0;
             latestGimbalDynamicsRxTime_ = {};
@@ -1584,7 +1580,7 @@ namespace
             {
                 std::lock_guard lock{gimbalStateMutex_};
                 if (hasGimbalDynamics_ &&
-                    !mpc_gimbal_protocol::IsNewerSampleTick(
+                    !IsNewerSampleTick(
                         data.SampleTickMs, latestGimbalSampleTickMs_)) {
                     roslog::warn(
                         "Drop out-of-order TypeID 11 sample tick: current=%u previous=%u",
@@ -1619,8 +1615,6 @@ namespace
                 std::lock_guard lock{gimbalStateMutex_};
                 latestGimbalYaw_ = static_cast<float>(data.GimbalAngles.Yaw);
                 latestGimbalPitch_ = static_cast<float>(data.GimbalAngles.Pitch);
-                latestGimbalAimRequest_ = data.FireCode.AimMode;
-                latestGimbalBulletSpeed_ = hasBulletInitialSpeed_ ? latestBulletInitialSpeed_ : 0.0F;
             }
             {
                 using topic = ly_gimbal_angles;

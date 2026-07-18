@@ -12,6 +12,7 @@
 #include <array>
 #include <span>
 #include <algorithm>
+#include <cmath>
 #include <ranges>
 #include <type_traits>
 
@@ -421,6 +422,47 @@ namespace LangYa
         GimbalTrajectoryFrame::DownlinkTypeIDValue == ToRawDownlinkTypeID(GimbalTrajectoryFrame::FrameType),
         "GimbalTrajectoryFrame DownlinkTypeIDValue must match DownlinkFrameType");
     static_assert(sizeof(GimbalTrajectoryFrame) == 26, "GimbalTrajectoryFrame must stay 26B");
+
+    inline bool IsFiniteGimbalTrajectory(
+        float yaw,
+        float pitch,
+        float yaw_omega,
+        float pitch_omega,
+        float yaw_alpha,
+        float pitch_alpha) noexcept
+    {
+        return std::isfinite(yaw) &&
+               std::isfinite(pitch) &&
+               std::isfinite(yaw_omega) &&
+               std::isfinite(pitch_omega) &&
+               std::isfinite(yaw_alpha) &&
+               std::isfinite(pitch_alpha);
+    }
+
+    inline GimbalTrajectoryFrame ToGimbalTrajectoryFrame(
+        float yaw,
+        float pitch,
+        float yaw_omega,
+        float pitch_omega,
+        float yaw_alpha,
+        float pitch_alpha) noexcept
+    {
+        GimbalTrajectoryFrame frame;
+        frame.Yaw = yaw;
+        frame.Pitch = pitch;
+        frame.YawOmega = yaw_omega;
+        frame.PitchOmega = pitch_omega;
+        frame.YawAlpha = yaw_alpha;
+        frame.PitchAlpha = pitch_alpha;
+        return frame;
+    }
+
+    inline bool IsNewerSampleTick(
+        std::uint32_t candidate,
+        std::uint32_t current) noexcept
+    {
+        return static_cast<std::int32_t>(candidate - current) > 0;
+    }
 
 #pragma pack(pop)
 }

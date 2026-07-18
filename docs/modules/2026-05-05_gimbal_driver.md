@@ -326,7 +326,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 | Topic | 消息類型 | 說明 |
 |-------|----------|------|
 | `/ly/gimbal/angles` | `GimbalAngles` | **最重要**：雲台當前角度，`detector` 和 `behavior_tree` 都需要 |
-| `/ly/gimbal/state` | `gimbal_driver/msg/GimbalState` | 本包定义的 TypeID 0 角度、弹速、AimMode 与 TypeID 11 动态反馈组合；动态帧超时后仅角速度/角加速度清零；默认每 20ms 周期发布 |
+| `/ly/gimbal/state` | `gimbal_driver/msg/GimbalState` | 本包定义的 `header.stamp` 发布时刻、TypeID 0 角度与 TypeID 11 动态反馈组合；动态帧超时后仅角速度/角加速度清零；默认每 20ms 周期发布 |
 | `/ly/friend/is_team_red` | `Bool` | 我方是否紅隊 |
 | `/ly/game/is_start` | `Bool` | 比賽是否開始 |
 | `/ly/game/time_left` | `UInt16` | 剩餘時間 |

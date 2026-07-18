@@ -1,8 +1,8 @@
 {
-  "lastAnalyzedAt": "2026-07-18T20:45:56+08:00",
-  "gitCommitHash": "d7a30581465404a96550f571c7a7e4138e076bac",
-  "workingTreeStatus": "dirty with local gimbal_driver MPC message ownership, synchronized interface docs/self-check/graph, and the user-owned docs/rules lock file",
-  "lastCheckedNote": "Fallback graph source-checked after d7a3058. gimbal_driver owns GimbalState and GimbalTrajectory, receives external MPC trajectory on /ly/control/trajectory with SensorData QoS, rejects non-finite values, sends 0x05 26B, parses TypeID 11 dynamics, and publishes combined state periodically with a 200ms dynamic timeout. Isolated gimbal_driver build and protocol tests passed without aim_msgs; runtime hardware validation and external MPC migration remain pending.",
+  "lastAnalyzedAt": "2026-07-18T20:55:18+08:00",
+  "gitCommitHash": "3101770fd1f4bf864fa46f4727e67d044c67a90f",
+  "workingTreeStatus": "dirty with GimbalState contract tightening and BasicTypes protocol helper consolidation, plus the user-owned docs/rules lock file",
+  "lastCheckedNote": "Fallback graph source-checked after 3101770. gimbal_driver owns header plus yaw/pitch dynamics-only GimbalState and six-field GimbalTrajectory, receives external MPC trajectory on /ly/control/trajectory with SensorData QoS, rejects non-finite values, sends 0x05 26B, parses TypeID 11 dynamics, and publishes state periodically with a 200ms dynamic timeout. gimbal_driver build, protocol tests, and static self-check passed; runtime hardware validation and external MPC migration remain pending.",
   "version": "1.0.0",
   "analyzedFiles": 554,
   "generator": "local-understand-anything-compatible-fallback",

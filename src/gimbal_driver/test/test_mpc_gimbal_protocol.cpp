@@ -5,8 +5,9 @@
 
 #include <gtest/gtest.h>
 
-#include "MpcGimbalProtocol.hpp"
+#include "BasicTypes.hpp"
 #include "crc_checker.hpp"
+#include "gimbal_driver/msg/gimbal_trajectory.hpp"
 
 namespace {
 
@@ -19,10 +20,14 @@ TEST(MpcGimbalProtocol, RejectsNonFiniteTrajectory)
     msg.pitch_omega = 4.0F;
     msg.yaw_alpha = 5.0F;
     msg.pitch_alpha = 6.0F;
-    EXPECT_TRUE(LangYa::mpc_gimbal_protocol::IsFiniteTrajectory(msg));
+    EXPECT_TRUE(LangYa::IsFiniteGimbalTrajectory(
+        msg.yaw, msg.pitch, msg.yaw_omega, msg.pitch_omega,
+        msg.yaw_alpha, msg.pitch_alpha));
 
     msg.pitch_alpha = std::numeric_limits<float>::quiet_NaN();
-    EXPECT_FALSE(LangYa::mpc_gimbal_protocol::IsFiniteTrajectory(msg));
+    EXPECT_FALSE(LangYa::IsFiniteGimbalTrajectory(
+        msg.yaw, msg.pitch, msg.yaw_omega, msg.pitch_omega,
+        msg.yaw_alpha, msg.pitch_alpha));
 }
 
 TEST(MpcGimbalProtocol, MapsSixFieldsTo26ByteFrame)
@@ -35,7 +40,9 @@ TEST(MpcGimbalProtocol, MapsSixFieldsTo26ByteFrame)
     msg.yaw_alpha = 30.0F;
     msg.pitch_alpha = -15.0F;
 
-    const auto frame = LangYa::mpc_gimbal_protocol::ToTrajectoryFrame(msg);
+    const auto frame = LangYa::ToGimbalTrajectoryFrame(
+        msg.yaw, msg.pitch, msg.yaw_omega, msg.pitch_omega,
+        msg.yaw_alpha, msg.pitch_alpha);
     EXPECT_EQ(sizeof(frame), 26U);
     EXPECT_EQ(frame.HeadFlag, 0x21U);
     EXPECT_EQ(frame.DownlinkTypeID, 0x05U);
@@ -79,7 +86,7 @@ TEST(MpcGimbalProtocol, ValidatesType11CrcAndRejectsCorruption)
 
 TEST(MpcGimbalProtocol, HandlesSampleTickOrderingAndWraparound)
 {
-    using LangYa::mpc_gimbal_protocol::IsNewerSampleTick;
+    using LangYa::IsNewerSampleTick;
     EXPECT_TRUE(IsNewerSampleTick(101U, 100U));
     EXPECT_FALSE(IsNewerSampleTick(100U, 100U));
     EXPECT_FALSE(IsNewerSampleTick(99U, 100U));
