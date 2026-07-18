@@ -2131,6 +2131,7 @@ namespace BehaviorTree {
         auto& task = config.RegionalAreaTaskSettings;
         auto& highland = task.MyHighland;
         auto& base = task.MyBase;
+        auto& pre_roadland = task.MyPreRoadland;
         auto& roadland = task.MyRoadland;
         auto& central = task.CommonCentral;
         auto& policy = task.DefaultPolicy;
@@ -2487,6 +2488,24 @@ namespace BehaviorTree {
                 UpsertMyBasePatrolGoalWeight(base.PatrolGoals, goal_id, weight);
             }
         }
+        auto pre_roadland_names = [](const std::string& key) {
+            return std::vector<std::string>{
+                "AreaManager.Area.MyArea.PreRoadland.Task.MyPreRoadland." + key,
+                "AreaManager/Area/MyArea/PreRoadland/Task/MyPreRoadland/" + key,
+                "AreaManager.Task.MyPreRoadland." + key,
+                "AreaManager/Task/MyPreRoadland/" + key,
+                "AreaManager.RegionalAreaTask.MyPreRoadland." + key,
+                "AreaManager/RegionalAreaTask/MyPreRoadland/" + key
+            };
+        };
+        ReadOptionalBoolParam(node_, pre_roadland_names("Enable"), pre_roadland.Enable);
+        ReadOptionalIntParam(
+            node_, pre_roadland_names("TravelTimeoutSec"), pre_roadland.TravelTimeoutSec);
+        ReadOptionalIntParam(
+            node_, pre_roadland_names("GoalHoldSec"), pre_roadland.GoalHoldSec);
+        ReadOptionalIntParam(
+            node_, pre_roadland_names("CommandHoldSec"), pre_roadland.CommandHoldSec);
+        ReadOptionalIntParam(node_, pre_roadland_names("SpeedLevel"), pre_roadland.SpeedLevel);
         ReadOptionalBoolParam(
             node_,
             {
@@ -2684,6 +2703,8 @@ namespace BehaviorTree {
         ReadOptionalIntParam(node_, policy_names("Ammo", "LowResourceFallbackAmmo"), policy.Ammo.LowResourceFallbackAmmo);
         ReadOptionalDoubleParam(node_, policy_names("Score", "WeightMyBase"), policy.Score.WeightMyBase);
         ReadOptionalDoubleParam(node_, policy_names("Score", "WeightMyHighland"), policy.Score.WeightMyHighland);
+        ReadOptionalDoubleParam(
+            node_, policy_names("Score", "WeightMyPreRoadland"), policy.Score.WeightMyPreRoadland);
         ReadOptionalDoubleParam(node_, policy_names("Score", "WeightMyRoadland"), policy.Score.WeightMyRoadland);
         ReadOptionalDoubleParam(node_, policy_names("Score", "WeightCommonCentral"), policy.Score.WeightCommonCentral);
         ReadOptionalDoubleParam(node_, policy_names("Score", "WeightEnemyBase"), policy.Score.WeightEnemyBase);
@@ -2699,7 +2720,7 @@ namespace BehaviorTree {
         ReadOptionalIntParam(node_, policy_names("Retry", "FailureCooldownSec"), policy.Retry.FailureCooldownSec);
         ReadOptionalIntParam(node_, policy_names("Retry", "UnreachableCooldownSec"), policy.Retry.UnreachableCooldownSec);
         ReadOptionalIntParam(node_, policy_names("Retry", "MaxRetry"), policy.Retry.MaxRetry);
-        if (highland.Enable || base.Enable || roadland.Enable || central.Enable) {
+        if (highland.Enable || base.Enable || pre_roadland.Enable || roadland.Enable || central.Enable) {
             task.Enable = true;
         }
     }

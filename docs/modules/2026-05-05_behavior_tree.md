@@ -130,7 +130,10 @@ rclcpp::shutdown();
 `Area.hpp` 的 `PreRoadland`、`Roadland` 是正式同級 `MainAreaKind`。`Roadland` 保留名稱，
 但邊界改用原 `ReadyRoadLand` 四邊形；`PreRoadland` 使用前段七邊形。導航 ID 25 為
 `PreRoadland`，ID 21/22 為 `Roadland` 穿越點；ID 22 座標為紅 `(515,100)`、藍
-`(2285,1400)`。舊 `MiniRoadland` 及 `Special.MiniRoadland` 已移除。
+`(2285,1400)`。舊 `MiniRoadland` 及 `Special.MiniRoadland` 已移除。正式
+`regional_competition.json` 與直接啟動的 `config.json` 都把兩區列入 `NaviGoal.MyArea`；
+`AreaManager.yaml` 分別擁有 `MyPreRoadland`、`MyRoadland` 的啟用、timeout、hold、速度與
+評分設定。`MyRoadland.UseFaceMode` 仍是獨立開關，baseline 目前為 `false`。
 
 #### 構造流程（`Application.cpp`）
 
@@ -449,8 +452,9 @@ SET_POSITION(BuffShoot, MyTeam);  // 設置導航目標為打符點位
 到點後按 `GoalHoldSec` 結束；它取代舊 `Special.MiniRoadland`，並由 Default policy 的
 獨立 score/retry/cooldown 選擇。`Area.MyArea.Roadland.Task.MyRoadland` 管我方道路後段：
 上游選中 Roadland 時，先去 `CentralToBase`；到點、不可達或超時後進入強綁定穿越段，
-打開 `FollowMode + FaceMode`，直到到達 `BaseToCentral`、不可達或超時才恢復巡邏/開火/
-小陀螺。穿越段不會被 Buff/Outpost 等高優先級邏輯直接取消。
+打開 `FollowMode`，並只在 `MyRoadland.UseFaceMode=true` 時請求 FaceMode；直到到達
+`BaseToCentral`、不可達或超時才恢復巡邏/開火/小陀螺。穿越段不會被 Buff/Outpost 等高優先級
+邏輯直接取消。
 
 `Area.CommonArea.Central.Task.CommonCentral` 管 Central 公共区域的健康巡逻任务：上游选中 Central 大区点且自身血量/弹量数据新鲜并达到阈值时，从当前坐标最近的巡逻点插入循环。循环顺序为 `my OutpostArea -> my RightShoot -> my BuffAround2 -> my LeftShoot -> my OutpostShoot -> enemy RightShoot -> enemy OccupyArea -> enemy OutpostShoot -> my OutpostArea`。拿不到自身坐标时从 `my OutpostArea` 开始；到达/不可达仍复用 `/ly/navi/reached`、`/ly/navi/reachable`。
 

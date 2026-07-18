@@ -1,5 +1,9 @@
 #include "../include/AreaManager.hpp"
 #include "../include/DefaultStrategyManager.hpp"
+#include "../module/json.hpp"
+
+#include <filesystem>
+#include <fstream>
 
 #include <gtest/gtest.h>
 
@@ -89,4 +93,22 @@ TEST(RoadlandSplitTaskTest, DefaultPolicyOffersSeparatePreAndRoadlandCandidates)
     }
     EXPECT_TRUE(found_pre);
     EXPECT_TRUE(found_road);
+}
+
+TEST(RoadlandSplitTaskTest, FormalRegionalProfileEnablesBothRoadlandAreas) {
+    const auto source_root = std::filesystem::path(__FILE__).parent_path().parent_path();
+    for (const auto& relative_path : {
+             std::filesystem::path{"Scripts/config.json"},
+             std::filesystem::path{"Scripts/ConfigJson/regional_competition.json"}}) {
+        const auto profile_path = source_root / relative_path;
+        std::ifstream profile_file(profile_path);
+        ASSERT_TRUE(profile_file.is_open()) << profile_path;
+
+        nlohmann::json profile;
+        profile_file >> profile;
+        const auto& my_area = profile.at("DecisionAutonomy").at("NaviGoal").at("MyArea");
+
+        EXPECT_TRUE(my_area.at("PreRoadland").get<bool>()) << profile_path;
+        EXPECT_TRUE(my_area.at("Roadland").get<bool>()) << profile_path;
+    }
 }

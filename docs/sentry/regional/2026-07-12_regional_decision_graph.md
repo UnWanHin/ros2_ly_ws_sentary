@@ -1,6 +1,6 @@
 # Regional 決策圖譜
 
-Updated: 2026-07-13
+Updated: 2026-07-18
 
 > 範圍：`competition_profile:=regional` 的 `behavior_tree` 決策順序、優先級、導航輸出與姿態選擇。此圖描述 source 現有行為；未自動下發強化姿態命令 `4/5/6`，它們保留給後續任務級觸發。
 
@@ -69,8 +69,9 @@ flowchart TD
 `PreRoadland` 與 `Roadland` 是正式同級 MainArea。`MyPreRoadland` 僅前往 ID 25，
 到點後按 `GoalHoldSec` 結束；它可被更高優先級任務取消。`MyRoadland` 保留原本的
 `CentralToBase(ID 22) -> BaseToCentral(ID 21)` 強綁定穿越、安全返回、FollowMode 和
-FaceMode 行為。ID 22 的正式座標為紅 `(515,100)`、藍 `(2285,1400)`，因此兩個穿越點
-都落在新 Roadland 邊界內。
+可選 FaceMode 行為。正式 `regional_competition.json` 已把兩區加入 `NaviGoal.MyArea`；
+`MyRoadland.UseFaceMode` baseline 為 `false`。ID 22 的正式座標為紅 `(515,100)`、藍
+`(2285,1400)`，因此兩個穿越點都落在新 Roadland 邊界內。
 
 ## 3. Regional 的輸入與導航閉環
 

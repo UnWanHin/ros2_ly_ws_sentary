@@ -1,6 +1,6 @@
 # Regional 決策框架說明
 
-Updated: 2026-07-08
+Updated: 2026-07-18
 
 本文記錄目前 `behavior_tree` 裡 regional 決策的區域狀態機框架：它會做哪些任務、怎麼啟動、怎麼判斷到達、會輸出什麼控制，以及哪些階段會被高優先級邏輯打斷。
 
@@ -10,10 +10,13 @@ Updated: 2026-07-08
 
 - `MyArea.Base`
 - `MyArea.Highland`
+- `MyArea.PreRoadland`
 - `MyArea.Roadland`
 - `CommonArea.Central`
 
-目前沒有寫 `EnemyArea.Base / EnemyArea.Highland / EnemyArea.Roadland` 的獨立狀態機，因為當前基本 regional 任務不需要它們。Central 任務裡會走到敵方側的中場點，但它仍然屬於 `CommonArea.Central`，不是敵方大區域任務。
+目前沒有寫 `EnemyArea.Base / EnemyArea.Highland / EnemyArea.PreRoadland / EnemyArea.Roadland`
+的獨立狀態機，因為當前基本 regional 任務不需要它們。Central 任務裡會走到敵方側的中場點，
+但它仍然屬於 `CommonArea.Central`，不是敵方大區域任務。
 
 主要相關文件：
 
@@ -47,10 +50,11 @@ Regional 不是單一點表，而是分層策略：
 Regional 目前已有的主要邏輯：
 
 - 回補/回基地：低血或低彈優先去 `Recovery`；這層高於 RegionalDefense。非 league regional 下，已在 `Recovery` 且血量未回到門檻時會繼續守住 Recovery。
-- Default 大區域任務：候選包含 `MyBase`、`MyHighland`、`MyRoadland`、`CommonCentral`；評分會看血量/彈量新鮮度、資源門檻、距離、目前區域、上一個區域、任務冷卻和失敗重試。
+- Default 大區域任務：候選包含 `MyBase`、`MyHighland`、`MyPreRoadland`、`MyRoadland`、`CommonCentral`；評分會看血量/彈量新鮮度、資源門檻、距離、目前區域、上一個區域、任務冷卻和失敗重試。正式 `regional_competition.json` 預設允許兩個道路候選。
 - `MyBase` 任務：在己方 Base 候選點中按 `Base.yaml` 權重和自身距離評估選點；候選包含四個 Castle 邊點、`HoleRoad`、`OutpostGuard`、`BuffOutpost`。完成 `MaxPatrolSteps` 後退出，交回 Default scorer 重新評估下一個大區域。
 - `MyHighland` 任務：`Highland` approach -> `Highland` hold -> `BuffShoot` -> `BuffShoot` hold -> `HoleRoad` 離開；approach/leave 仍是地形兼容階段，但正式配置下 Follow/Rotate 兼容交給 `/ly/navi/should_rotate`。
-- `MyRoadland` 任務：`CentralToBase -> BaseToCentral -> BaseToCentral hold -> CentralToBase return`；穿越段仍是強綁定調度段，不能被普通高優先級邏輯直接打斷。`GuardHoldSec` 到時或資源不健康時會返回並完成任務。正式配置下它不再靠 AreaTask 自己長時間開 `FollowMode / FaceMode` 做地形兼容，Follow/Rotate 由 `/ly/navi/should_rotate` 接管。
+- `MyPreRoadland` 任務：只前往 ID `25`，到點後按 `GoalHoldSec` 完成；它可被更高優先級任務取消，不繼承後段的強制穿越控制。
+- `MyRoadland` 任務：`CentralToBase -> BaseToCentral -> BaseToCentral hold -> CentralToBase return`；穿越段仍是強綁定調度段，不能被普通高優先級邏輯直接打斷。`GuardHoldSec` 到時或資源不健康時會返回並完成任務。它會維持 FollowMode；是否請求 FaceMode 由 `MyRoadland.UseFaceMode` 決定，baseline 為 `false`。
 - `CommonCentral` 任務：中場巡邏路線是 `my OutpostArea -> my RightShoot -> my BuffAround2 -> my LeftShoot -> my OutpostShoot -> enemy RightShoot -> enemy OccupyArea -> enemy OutpostShoot`，啟動時也按自身位置選最近點；完成 `MaxPatrolSteps` 後退出，交回 Default scorer 重新評估下一個大區域。
 - RegionalDefense：用官方敵方位置和 `event_data` 做戰術防守；敵方進我方 Base/Highland/Roadland/CommonCentral 或己方堡壘增益點 `2/3` 都可觸發。
 - 己方堡壘增益點 `2/3`：不去 `Castle`，只在 `CastleLeft1 / CastleLeft2 / CastleRight1 / CastleRight2` 搜索；若 Base 大區敵方數達門檻且普通裝甲目標已鎖定並允許開火，才原地停車、最高小陀螺開火；長時間無官方敵方位置且無視覺目標會退化忽略一段時間。

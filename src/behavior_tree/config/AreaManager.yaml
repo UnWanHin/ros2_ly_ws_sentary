@@ -59,7 +59,7 @@ behavior_tree:
           CommandHoldSec: 1  # 每次导航命令保持时间（秒）。
           SpeedLevel: 1  # 下发给导航的速度档位。
         MyRoadland:
-          Enable: false  # 是否允许选择己方道路区域任务。
+          Enable: true  # 是否允许选择己方道路后段区域任务。
           UseFaceMode: false  # 区域任务是否发布固定朝向 target_raw；false 不请求 FaceMode。
           TravelTimeoutSec: 12
           CrossTimeoutSec: 8
