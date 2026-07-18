@@ -1,8 +1,8 @@
 # ros2_ly_ws_sentry Knowledge Graph
 
-Generated: 2026-07-18T20:55:18+08:00
+Generated: 2026-07-18T21:00:42+08:00
 
-Checked against source HEAD: `3101770fd1f4bf864fa46f4727e67d044c67a90f` (working tree contains the local GimbalState contract tightening and protocol helper consolidation)
+Checked against source HEAD: `6b644e4008adbde11ec82e82f3b432d11a20df6c` (working tree only contains the user-owned docs/rules lock file)
 
 Current graph shape: 81 nodes, 101 edges, 6 layers.
 

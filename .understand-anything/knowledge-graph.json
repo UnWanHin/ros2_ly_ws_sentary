@@ -5,10 +5,10 @@
     "languages": ["cpp", "python", "shell", "json", "yaml", "markdown", "ros_msg", "xml"],
     "frameworks": ["ROS2 Humble", "colcon", "rclcpp", "rclpy", "BehaviorTree.CPP", "pygame simulator"],
     "description": "ROS2 Humble sentry workspace. The formal runtime consumes external /ly/aim/* and external TF/navigation, then behavior_tree publishes control to gimbal_driver.",
-    "analyzedAt": "2026-07-18T20:55:18+08:00",
-    "gitCommitHash": "3101770fd1f4bf864fa46f4727e67d044c67a90f",
-    "workingTreeStatus": "dirty with GimbalState contract tightening and BasicTypes protocol helper consolidation, plus the user-owned docs/rules lock file",
-    "lastCheckedNote": "Fallback graph source-checked after 3101770. gimbal_driver owns header plus yaw/pitch dynamics-only GimbalState and six-field GimbalTrajectory, receives external MPC trajectory on /ly/control/trajectory with SensorData QoS, rejects non-finite values, sends 0x05 26B, parses TypeID 11 dynamics with CRC8 and SampleTick ordering, and publishes state periodically with a 200ms dynamic timeout. gimbal_driver build, protocol tests, and static self-check passed; runtime hardware validation and external MPC migration remain pending.",
+    "analyzedAt": "2026-07-18T21:00:42+08:00",
+    "gitCommitHash": "6b644e4008adbde11ec82e82f3b432d11a20df6c",
+    "workingTreeStatus": "dirty only with the user-owned docs/rules lock file",
+    "lastCheckedNote": "Fallback graph source-checked after 6b644e4. gimbal_driver owns header plus yaw/pitch dynamics-only GimbalState and six-field GimbalTrajectory, receives external MPC trajectory on /ly/control/trajectory with SensorData QoS, rejects non-finite values, sends 0x05 26B, parses TypeID 11 dynamics with CRC8 and SampleTick ordering, and publishes state periodically with a 200ms dynamic timeout. gimbal_driver build, protocol tests, and static self-check passed; runtime hardware validation and external MPC migration remain pending.",
     "outputLanguage": "zh"
   },
   "nodes": [
