@@ -32,7 +32,7 @@
 - Consumes: `ChasePolicySetting`, an optional planned `AreaKey`, an optional exact target `ResolvedAreaKey`, Regional-mode and yieldable-owner flags.
 - Produces: `ChasePolicyResult { bool Allowed; ChasePolicyReason Reason; }` from `EvaluateRegionalChasePolicy(...)`.
 
-- [ ] **Step 1: Write failing pure-policy tests**
+- [x] **Step 1: Write failing pure-policy tests**
 
 ```cpp
 EXPECT_TRUE(EvaluateRegionalChasePolicy(setting, same_area_context).Allowed);
@@ -45,13 +45,13 @@ Cover every configured area mapping, side mismatch, kind mismatch, missing plan,
 non-yieldable plan, missing/stale target position, `ChasePolicy.Enable=false`,
 and non-Regional profile bypass.
 
-- [ ] **Step 2: Run the focused test before implementation**
+- [x] **Step 2: Run the focused test before implementation**
 
 Run: `colcon test --packages-select behavior_tree --ctest-args -R test_chase_policy --output-on-failure`
 
 Expected: test target is absent or fails because the policy interface does not exist.
 
-- [ ] **Step 3: Add the minimal policy data and implementation**
+- [x] **Step 3: Add the minimal policy data and implementation**
 
 Define `ChasePolicySetting` with only `Enable`, `MyBase`, `MyHighland`,
 `MyPreRoadland`, `MyReadyRoadland`, and `CommonCentral`. Define one helper that
@@ -59,12 +59,12 @@ maps an active task to its planned `AreaKey`, and one evaluator that requires
 an exact, fresh, matching target key and enabled planned area. Return enum
 reasons instead of formatting strings in the policy.
 
-- [ ] **Step 4: Register and run focused tests**
+- [x] **Step 4: Register and run focused tests**
 
 Add `test_chase_policy` to `CMakeLists.txt`, build the package, and run the
 command from Step 2. Expected: all policy cases pass.
 
-- [ ] **Step 5: Commit the isolated policy unit**
+- [x] **Step 5: Commit the isolated policy unit**
 
 ```bash
 git add src/behavior_tree/include/ChasePolicy.hpp src/behavior_tree/src/ChasePolicy.cpp \

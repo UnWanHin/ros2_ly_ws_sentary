@@ -702,6 +702,16 @@ namespace LangYa
         bool InvertStrafeDirection{false};
     };
 
+    // Regional 追击的区域所有权开关；距离和速度仍由 ChaseSetting 管理。
+    struct ChasePolicySetting {
+        bool Enable{false};
+        bool MyBase{false};
+        bool MyHighland{false};
+        bool MyPreRoadland{false};
+        bool MyReadyRoadland{false};
+        bool CommonCentral{false};
+    };
+
     // 姿态模块配置
     struct PostureSetting {
         bool Enable{true};
@@ -994,6 +1004,7 @@ namespace LangYa
         std::vector<int> AimTargetIgnore{};
         DecisionAutonomySetting DecisionAutonomySettings{};
         ChaseSetting ChaseSettings{};
+        ChasePolicySetting ChasePolicySettings{};
         PostureSetting PostureSettings{};
         int ScanCounter{1};  /// 扫描模式计数器，一定值后Yaw动一次
         std::string CompetitionProfile{"regional"};

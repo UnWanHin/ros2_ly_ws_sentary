@@ -290,6 +290,14 @@ if(BUILD_TESTING)
     std_msgs
     gimbal_driver
   )
+  ament_add_gtest(test_chase_policy
+    test/test_chase_policy.cpp
+    src/ChasePolicy.cpp
+  )
+  target_include_directories(test_chase_policy PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
+  )
 endif()
 
 add_executable(area_calculator
