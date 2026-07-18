@@ -56,7 +56,7 @@
 #include "gimbal_driver/msg/sentry_info.hpp"
 #include "gimbal_driver/msg/stamped_u_int16_multi_array.hpp"
 #include "gimbal_driver/msg/gimbal_state.hpp"
-#include "aim_msgs/msg/control_angles.hpp"
+#include "gimbal_driver/msg/gimbal_trajectory.hpp"
 
 #include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/u_int8.hpp>
@@ -78,7 +78,7 @@ using namespace LangYa;
 namespace
 {
     LY_DEF_ROS_TOPIC(ly_control_angles, "/ly/control/angles", gimbal_driver::msg::GimbalAngles);
-    LY_DEF_ROS_TOPIC(ly_control_trajectory, "/ly/control/trajectory", aim_msgs::msg::ControlAngles);
+    LY_DEF_ROS_TOPIC(ly_control_trajectory, "/ly/control/trajectory", gimbal_driver::msg::GimbalTrajectory);
     LY_DEF_ROS_TOPIC(ly_control_firecode, "/ly/control/firecode", gimbal_driver::msg::FireCode);
     LY_DEF_ROS_TOPIC(ly_control_vel, "/ly/control/vel", gimbal_driver::msg::ControlVelocity);
     LY_DEF_ROS_TOPIC(ly_control_posture, "/ly/control/posture", gimbal_driver::msg::SentryCmd);
@@ -242,7 +242,7 @@ namespace
         std::array<rclcpp::Publisher<gimbal_driver::msg::GimbalRawFrame>::SharedPtr,
             kDownloadTypeIdCount> serialModeDownloadPublishers_{};
         rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr subSentryPosition_{};
-        rclcpp::Subscription<aim_msgs::msg::ControlAngles>::SharedPtr trajectorySubscription_{};
+        rclcpp::Subscription<gimbal_driver::msg::GimbalTrajectory>::SharedPtr trajectorySubscription_{};
         rclcpp::Publisher<gimbal_driver::msg::GimbalState>::SharedPtr gimbalStatePublisher_{};
 
         enum FireCodeFieldIndex : std::size_t {
@@ -1055,7 +1055,7 @@ namespace
             }
         }
 
-        void SendGimbalTrajectory(const aim_msgs::msg::ControlAngles& msg) {
+        void SendGimbalTrajectory(const gimbal_driver::msg::GimbalTrajectory& msg) {
             if (!mpc_gimbal_protocol::IsFiniteTrajectory(msg)) {
                 roslog::warn("Drop /ly/control/trajectory with non-finite value");
                 return;
@@ -1395,10 +1395,10 @@ namespace
                                             g.GimbalAngles.Pitch = static_cast<float>(m.pitch);
                                         });
 
-            trajectorySubscription_ = Node.GetNode()->create_subscription<aim_msgs::msg::ControlAngles>(
+            trajectorySubscription_ = Node.GetNode()->create_subscription<gimbal_driver::msg::GimbalTrajectory>(
                 ly_control_trajectory::Name,
                 rclcpp::SensorDataQoS().keep_last(1),
-                [this](const aim_msgs::msg::ControlAngles::ConstSharedPtr msg) {
+                [this](const gimbal_driver::msg::GimbalTrajectory::ConstSharedPtr msg) {
                     if (!msg) {
                         return;
                     }

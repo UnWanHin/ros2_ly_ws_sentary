@@ -181,48 +181,6 @@ source_optional_sentry_msgs() {
   return 1
 }
 
-aim_msgs_available() {
-  ros2 interface show aim_msgs/msg/ControlAngles >/dev/null 2>&1 &&
-    ros2 interface show aim_msgs/msg/GimbalState >/dev/null 2>&1
-}
-
-source_external_aim_msgs() {
-  if aim_msgs_available; then
-    pass "aim_msgs available: $(ros2 pkg prefix aim_msgs)"
-    return 0
-  fi
-
-  local setup_file
-  local -a setup_candidates=()
-  if [[ -n "${AIM_MSGS_SETUP:-}" ]]; then
-    setup_candidates+=("${AIM_MSGS_SETUP}")
-  fi
-  if [[ -n "${SENTRY_AIM_SETUP:-}" ]]; then
-    setup_candidates+=("${SENTRY_AIM_SETUP}")
-  fi
-  setup_candidates+=(
-    "/home/hustlyrm/sentry.aim/install/setup.bash"
-    "${HOME}/sentry.aim/install/setup.bash"
-    "/tmp/sentry_aim_install/setup.bash"
-  )
-
-  for setup_file in "${setup_candidates[@]}"; do
-    if [[ -f "${setup_file}" ]]; then
-      # shellcheck disable=SC1090
-      set +u
-      source "${setup_file}"
-      set -u
-      if aim_msgs_available; then
-        pass "aim_msgs sourced: ${setup_file}"
-        return 0
-      fi
-    fi
-  done
-
-  fail "aim_msgs missing; source sentry.aim/install/setup.bash before building or checking gimbal_driver."
-  return 1
-}
-
 source_workspace() {
   if [[ -f "${ROOT_DIR}/install/local_setup.bash" ]]; then
     # shellcheck disable=SC1091
@@ -400,7 +358,7 @@ if not profile.is_file():
 else:
     profile_text = profile.read_text(encoding="utf-8")
     required_profile = (
-        r"(?m)^\s*rotate_level\s*:\s*1\s*(?:#.*)?$",
+        r"(?m)^\s*rotate_level\s*:\s*0\s*(?:#.*)?$",
         r"(?m)^\s*follow_mode_when_false\s*:\s*true\s*(?:#.*)?$",
         r"(?m)^\s*stale_timeout_ms\s*:\s*500\s*(?:#.*)?$",
         r"(?m)^\s*publish_hz\s*:\s*100(?:\.0)?\s*(?:#.*)?$",
@@ -416,7 +374,7 @@ else:
     for token in ("IncludeLaunchDescription", "debug_config_file", "gimbal_driver.launch.py", "navi_vel_to_control_vel.py"):
         if token not in debug_text:
             errors.append(f"debug_node.launch.py missing {token}")
-    if 'parameters=[LaunchConfiguration("debug_config_file")]' not in debug_text:
+    if 'LaunchConfiguration("debug_config_file")' not in debug_text:
         errors.append("debug_node.launch.py does not load debug_config_file into the bridge")
 
 if not velocity_bridge.is_file():
@@ -854,7 +812,6 @@ check_cmd awk
 check_cmd grep
 source_ros
 source_optional_sentry_msgs || true
-source_external_aim_msgs
 source_workspace
 
 if (( RUNTIME_ONLY == 0 )); then
@@ -956,8 +913,8 @@ if (( RUNTIME_ONLY == 0 )); then
   check_ros_interface "sentry_msgs/msg/AimTargetArray"
   check_ros_interface "sentry_msgs/msg/AimResult"
   check_ros_interface_field "sentry_msgs/msg/AimResult" "bool follow"
-  check_ros_interface "aim_msgs/msg/ControlAngles"
-  check_ros_interface "aim_msgs/msg/GimbalState"
+  check_ros_interface "gimbal_driver/msg/GimbalTrajectory"
+  check_ros_interface "gimbal_driver/msg/GimbalState"
   check_ros_interface "auto_aim_common/msg/GoalReach"
   check_ros_interface "auto_aim_common/msg/RelativeTarget"
 

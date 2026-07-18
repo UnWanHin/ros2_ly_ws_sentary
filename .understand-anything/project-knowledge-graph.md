@@ -1,10 +1,10 @@
 # ros2_ly_ws_sentry Knowledge Graph
 
-Generated: 2026-07-18T15:23:57+08:00
+Generated: 2026-07-18T20:45:56+08:00
 
-Checked against source HEAD: `5903207e501912b4a0bd773b6a4a59e54775bbbc` (working tree contains the MPC gimbal interface changes and a pre-existing debug profile change)
+Checked against source HEAD: `d7a30581465404a96550f571c7a7e4138e076bac` (working tree contains the local MPC gimbal message ownership change)
 
-Current graph shape: 81 nodes, 100 edges, 6 layers.
+Current graph shape: 81 nodes, 101 edges, 6 layers.
 
 Current ROS packages covered by graph:
 
@@ -19,7 +19,7 @@ Current ROS packages covered by graph:
 ```mermaid
 flowchart LR
   AIM[external sentry.aim] -->|/ly/aim/armor_targets + result| BT[behavior_tree]
-  AIM -->|/ly/control/trajectory ControlAngles| GD[gimbal_driver]
+  AIM -->|/ly/control/trajectory GimbalTrajectory| GD[gimbal_driver]
   BT -->|/ly/aim/select_target| AIM
   BT -->|/ly/control/angles firecode vel posture sentry_cmd| GD[gimbal_driver]
   GD -->|/ly/gimbal/state GimbalState| AIM
@@ -66,4 +66,4 @@ flowchart LR
 - `src/gimbal_driver/config/debug_mode.yaml` 是 `debug_node.launch.py` 載入的 bridge profile；內建 `navi_vel_to_control_vel.py` 以 100 Hz 將 `/ly/navi/vel` 轉為正式 `/ly/control/vel`、將 `/ly/navi/should_rotate` 轉為 partial `/ly/control/firecode`，500 ms stale 時發布零速度。driver 保持正式 control subscriber，兩類控制最終以同一 `GimbalControlFrame` 下行；此入口不啟動 BT，故不消費也不宣告 `SetPostureToMoveWhenFalse`。正式 root 相容路由明確略過 `navigation_test`／`navigation_mode`。
 - 正式 BT 的 `src/behavior_tree/config/NaviRotateControl.yaml` 可透過 `SetPostureToMoveWhenFalse` 讓新鮮 `/ly/navi/should_rotate=false` 僅覆蓋當拍目標姿態為 Move；現有 `PostureManager` 繼續獨佔 cooldown、hold、feedback 與 pending/retry。若冷卻等待中訊號轉 true 或過期，下一拍恢復原策略，因此不補發 Move。這是正式 BT key，不是 driver debug profile key。
 - 2026-07-16 source audit 移除本倉 `tf_tree` fallback；外部 `sentry_tf` 是唯一 gimbal TF provider。aim feedback、`/ly/control/sentry_cmd`、FaceMode solver、BT 0x04 position downlink、導航 feedback、`debug_node -> debug_mode.yaml` profile 與 root gimbal compatibility routing 保持不變；source ROS Humble、`sentry.common` 後，本次 `behavior_tree` 與 `simulator` 184 tests 及 static selfcheck（108 PASS／0 WARN／0 FAIL）均通過，完整 external aim runtime graph 驗證仍未執行。
-- 本圖譜為 source-checked fallback；因本機沒有可用 Understand Anything plugin core，未執行 plugin regeneration。MPC 接口来源为外部 `sentry.aim/src/aim_msgs/msg/ControlAngles.msg` 与 `GimbalState.msg`，本仓通过 `find_package(aim_msgs)` 使用。
+- 本圖譜為 source-checked fallback；因本機沒有可用 Understand Anything plugin core，未執行 plugin regeneration。MPC 的 ROS schema 由本倉 `gimbal_driver/msg/GimbalState.msg` 與 `GimbalTrajectory.msg` 定義；外部 `sentry.aim` 只經既有 topic 消費狀態、發布軌跡，不是本倉建置依賴。

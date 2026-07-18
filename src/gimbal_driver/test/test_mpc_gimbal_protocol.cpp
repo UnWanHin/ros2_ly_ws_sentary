@@ -12,7 +12,7 @@ namespace {
 
 TEST(MpcGimbalProtocol, RejectsNonFiniteTrajectory)
 {
-    aim_msgs::msg::ControlAngles msg;
+    gimbal_driver::msg::GimbalTrajectory msg;
     msg.yaw = 1.0F;
     msg.pitch = 2.0F;
     msg.yaw_omega = 3.0F;
@@ -27,7 +27,7 @@ TEST(MpcGimbalProtocol, RejectsNonFiniteTrajectory)
 
 TEST(MpcGimbalProtocol, MapsSixFieldsTo26ByteFrame)
 {
-    aim_msgs::msg::ControlAngles msg;
+    gimbal_driver::msg::GimbalTrajectory msg;
     msg.yaw = 10.0F;
     msg.pitch = -5.0F;
     msg.yaw_omega = 20.0F;

@@ -27,7 +27,7 @@ byte 0 都是 `0x21` (`'!'`)，byte 1 是 `DownlinkTypeID`；之後的 frame 長
 | `0x02` | `MapPathFrame` | 107B | `0x0307 map_data_t` | `/ly/control/map_path` |
 | `0x03` | `CustomInfoFrame` | 36B | `0x0308 custom_info_t` | `/ly/control/custom_info` |
 | `0x04` | `SentryCoordinateFrame` | 17B | 下位機自身座標使用 | `/ly/bt/sentry_position` |
-| `0x05` | `GimbalTrajectoryFrame` | 26B | MPC 云台原子轨迹 | `/ly/control/trajectory` (`aim_msgs/msg/ControlAngles`) |
+| `0x05` | `GimbalTrajectoryFrame` | 26B | MPC 云台原子轨迹 | `/ly/control/trajectory` (`gimbal_driver/msg/GimbalTrajectory`) |
 
 下位機必須先讀 byte 1，再按上表讀取剩餘字節；不可再把所有下發資料固定按 17B 解析。
 
@@ -153,7 +153,7 @@ IEEE-754 little-endian，单位为角度 `deg`、角速度 `deg/s`、角加速�
 | 18-21 | `YawAlpha` | `float32` | 目标 yaw 角加速度 |
 | 22-25 | `PitchAlpha` | `float32` | 目标 pitch 角加速度 |
 
-驱动从 `/ly/control/trajectory`（`aim_msgs/msg/ControlAngles`）缓存六个字段，每次消息更新
+驱动从 `/ly/control/trajectory`（`gimbal_driver/msg/GimbalTrajectory`）缓存六个字段，每次消息更新
 额外写入一帧；旧 `0x00` 控制帧仍由 `/ly/control/angles`、`/ly/control/vel` 和
 `/ly/control/firecode` 原路径发送。驱动使用 SensorData QoS，并拒绝六个字段中包含
 `NaN/Inf` 的消息；轨迹停止后的 200ms 回退由下位机负责，驱动不会伪造禁用帧。

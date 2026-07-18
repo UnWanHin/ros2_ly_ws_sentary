@@ -67,7 +67,6 @@
   <depend>std_msgs</depend>
   <depend>builtin_interfaces</depend>
   <depend>geometry_msgs</depend>
-  <depend>aim_msgs</depend>
 
   <test_depend>ament_cmake_gtest</test_depend>
 

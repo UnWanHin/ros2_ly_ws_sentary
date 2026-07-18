@@ -36,6 +36,8 @@ gimbal_driver/
 │   ├── PositionData.msg        # 機器人位置（UWB）
 │   ├── UWBPos.msg              # UWB位置
 │   ├── Chassis.msg             # TypeID=6 底盘状态四元
+│   ├── GimbalState.msg         # 下位机云台状态与动态反馈
+│   ├── GimbalTrajectory.msg    # 外部 MPC 下行轨迹
 │   └── Vel.msg                 # 速度指令
 └── module/
     ├── BasicTypes.hpp          # 底層數據結構定義
@@ -196,7 +198,7 @@ main()
 | `/ly/control/sentry_cmd` (`SentryCmd`) | `SentryCommandFrame.SentryCmd` | `0x01` 完整哨兵裁判命令入口 |
 | `/ly/control/map_path` (`MapPath`) | `MapPathFrame` | `0x02` 裁判 `0x0307` 小地圖路徑 |
 | `/ly/control/custom_info` (`CustomInfo`) | `CustomInfoFrame` | `0x03` 裁判 `0x0308` UTF-16 文字 |
-| `/ly/control/trajectory` (`aim_msgs/ControlAngles`) | `GimbalTrajectoryFrame.Yaw/Pitch/YawOmega/PitchOmega/YawAlpha/PitchAlpha` | `0x05` MPC 轨迹；SensorData QoS、非法浮点丢弃；每次更新额外发送，旧 `0x00` 不变 |
+| `/ly/control/trajectory` (`gimbal_driver/GimbalTrajectory`) | `GimbalTrajectoryFrame.Yaw/Pitch/YawOmega/PitchOmega/YawAlpha/PitchAlpha` | `0x05` MPC 轨迹；本包定义，外部 MPC 发布；SensorData QoS、非法浮点丢弃；每次更新额外发送，旧 `0x00` 不变 |
 | `/ly/bt/sentry_position` (`PointStamped`) | `SentryCoordinateFrame.X_cm/Y_cm` | BT 融合後自身坐標，m 轉 cm 後下發 |
 | `/ly/navi/vel` (`Vel`) | `ControlVelocity(raw_x/raw_y,use_raw=true)` | `debug_node.launch.py` 的 100 Hz bridge 轉發到 `/ly/control/vel`；500 ms stale 時發布零速度。`navigation_test=true` 與 `vel_chain=true` 仍只保留給舊腳本／自訂 overlay 相容。正式鏈仍經 BT，`sentry_all` 不路由這兩種導航直連鍵。 |
 | `/ly/navi/should_rotate` (`std_msgs/Bool`) | partial `FireCode(FIELD_FOLLOW_MODE|FIELD_ROTATE)` | debug bridge 以 100 Hz 發 `/ly/control/firecode`；true 發 `rotate_level`／FollowMode=false，false 發 Rotate=0 與可設定的 FollowMode=true。 |
@@ -324,7 +326,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 | Topic | 消息類型 | 說明 |
 |-------|----------|------|
 | `/ly/gimbal/angles` | `GimbalAngles` | **最重要**：雲台當前角度，`detector` 和 `behavior_tree` 都需要 |
-| `/ly/gimbal/state` | `gimbal_driver/msg/GimbalState` | TypeID 0 角度与 TypeID 11 动态反馈的组合；仅含角度与动态字段；动态帧超时后仅动态字段清零；默认每 20ms 周期发布 |
+| `/ly/gimbal/state` | `gimbal_driver/msg/GimbalState` | 本包定义的 TypeID 0 角度、弹速、AimMode 与 TypeID 11 动态反馈组合；动态帧超时后仅角速度/角加速度清零；默认每 20ms 周期发布 |
 | `/ly/friend/is_team_red` | `Bool` | 我方是否紅隊 |
 | `/ly/game/is_start` | `Bool` | 比賽是否開始 |
 | `/ly/game/time_left` | `UInt16` | 剩餘時間 |
@@ -350,7 +352,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 | Topic | 消息類型 | 說明 |
 |-------|----------|------|
 | `/ly/control/angles` | `GimbalAngles` | 接收決策節點的目標角度 |
-| `/ly/control/trajectory` | `aim_msgs/msg/ControlAngles` | 接收 MPC 角度/角速度/角加速度，并额外下发 `0x05` 26B frame |
+| `/ly/control/trajectory` | `gimbal_driver/msg/GimbalTrajectory` | 接收外部 MPC 的角度/角速度/角加速度，并额外下发 `0x05` 26B frame |
 | `/ly/control/firecode` | `FireCode` | 接收分字段火控指令 |
 | `/ly/control/vel` | `ControlVelocity` | 接收語義速度/原始速度指令 |
 | `/ly/control/posture` | `SentryCmd` | 接收姿態指令（上位決策輸入，只使用 `FIELD_POSTURE`） |

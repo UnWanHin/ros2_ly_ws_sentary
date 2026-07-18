@@ -57,7 +57,7 @@ Updated: 2026-07-18
 ├── sentry_cmd : gimbal_driver/msg/SentryCmd        [Embedded] 完整 sentry_cmd -> DownlinkTypeID=0x01
 ├── map_path   : gimbal_driver/msg/MapPath          [Embedded] 裁判 0x0307 -> DownlinkTypeID=0x02
 ├── custom_info: gimbal_driver/msg/CustomInfo       [Embedded] 裁判 0x0308 -> DownlinkTypeID=0x03
-└── trajectory : aim_msgs/msg/ControlAngles         [External MPC] -> DownlinkTypeID=0x05 26B
+└── trajectory : gimbal_driver/msg/GimbalTrajectory [External MPC] -> DownlinkTypeID=0x05 26B
 ```
 
 ### `/ly/game/path` - 導航轉裁判路徑
@@ -80,6 +80,7 @@ bridge 固定 `intention=3`；最多 50 點，超出 `uint16` 起點或 `int8` d
 ```text
 /ly/gimbal
 ├── angles          : gimbal_driver/msg/GimbalAngles  [Embedded] 当前云台 yaw/pitch
+├── state           : gimbal_driver/msg/GimbalState   [Embedded] yaw/pitch、弹速、AimMode 与动态反馈
 ├── firecode        : gimbal_driver/msg/FireCode      [Embedded] FireCode 回读
 ├── vel             : gimbal_driver/msg/Vel           [Embedded] 兼容速度回读
 ├── chassis         : gimbal_driver/msg/Chassis       [Embedded] 底盘舵角/角速度/速度

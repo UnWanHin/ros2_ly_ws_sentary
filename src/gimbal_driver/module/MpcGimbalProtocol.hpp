@@ -3,12 +3,12 @@
 #include <cmath>
 #include <cstdint>
 
-#include "aim_msgs/msg/control_angles.hpp"
+#include "gimbal_driver/msg/gimbal_trajectory.hpp"
 #include "BasicTypes.hpp"
 
 namespace LangYa::mpc_gimbal_protocol {
 
-inline bool IsFiniteTrajectory(const aim_msgs::msg::ControlAngles & msg) noexcept
+inline bool IsFiniteTrajectory(const gimbal_driver::msg::GimbalTrajectory & msg) noexcept
 {
     return std::isfinite(msg.yaw) &&
            std::isfinite(msg.pitch) &&
@@ -19,7 +19,7 @@ inline bool IsFiniteTrajectory(const aim_msgs::msg::ControlAngles & msg) noexcep
 }
 
 inline GimbalTrajectoryFrame ToTrajectoryFrame(
-    const aim_msgs::msg::ControlAngles & msg) noexcept
+    const gimbal_driver::msg::GimbalTrajectory & msg) noexcept
 {
     GimbalTrajectoryFrame frame;
     frame.Yaw = msg.yaw;

@@ -1,10 +1,10 @@
 {
-  "lastAnalyzedAt": "2026-07-18T15:23:57+08:00",
-  "gitCommitHash": "5903207e501912b4a0bd773b6a4a59e54775bbbc",
-  "workingTreeStatus": "dirty with MPC gimbal interface implementation, QoS/validation/state-period updates, synchronized protocol docs/graph, and pre-existing debug_mode.yaml change",
-  "lastCheckedNote": "Fallback graph source-checked after 5903207. gimbal_driver consumes external aim_msgs ControlAngles on /ly/control/trajectory with SensorData QoS, rejects non-finite trajectory values, sends 0x05 26B, parses TypeID 11 dynamics, and publishes combined GimbalState periodically with 200ms dynamic timeout. Targeted build and protocol tests passed with aim_msgs from external sentry.aim; runtime hardware validation and external MCU edits remain pending.",
+  "lastAnalyzedAt": "2026-07-18T20:45:56+08:00",
+  "gitCommitHash": "d7a30581465404a96550f571c7a7e4138e076bac",
+  "workingTreeStatus": "dirty with local gimbal_driver MPC message ownership, synchronized interface docs/self-check/graph, and the user-owned docs/rules lock file",
+  "lastCheckedNote": "Fallback graph source-checked after d7a3058. gimbal_driver owns GimbalState and GimbalTrajectory, receives external MPC trajectory on /ly/control/trajectory with SensorData QoS, rejects non-finite values, sends 0x05 26B, parses TypeID 11 dynamics, and publishes combined state periodically with a 200ms dynamic timeout. Isolated gimbal_driver build and protocol tests passed without aim_msgs; runtime hardware validation and external MPC migration remain pending.",
   "version": "1.0.0",
   "analyzedFiles": 554,
   "generator": "local-understand-anything-compatible-fallback",
-  "graphShape": {"nodes": 81, "edges": 100, "layers": 6}
+  "graphShape": {"nodes": 81, "edges": 101, "layers": 6}
 }

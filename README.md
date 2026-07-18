@@ -59,13 +59,13 @@ source /opt/ros/humble/setup.bash
 source /home/hustlyrm/sentry.aim/install/setup.bash
 colcon build --allow-overriding gimbal_driver
 source install/setup.bash
-source /home/hustlyrm/sentry.aim/install/setup.bash
 ./scripts/selfcheck.sh sentry --static-only
 ```
 
-`gimbal_driver` consumes the canonical `aim_msgs` interfaces from the external
-`sentry.aim` workspace. Source that workspace before building or running the
-driver; do not create a second `aim_msgs` package in this repository.
+`gimbal_driver` owns the MPC gimbal interfaces: `/ly/gimbal/state` uses
+`gimbal_driver/msg/GimbalState` and `/ly/control/trajectory` uses
+`gimbal_driver/msg/GimbalTrajectory`. External `sentry.aim` consumes/publishes
+these topics, but is not a build dependency of this workspace.
 
 正式/调试入口：
 

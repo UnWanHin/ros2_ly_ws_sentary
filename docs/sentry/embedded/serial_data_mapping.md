@@ -825,7 +825,7 @@ struct SentryInfo3AndOutpostHpData {
 | 裁判路径 | `MapPathFrame`（`0x02`） | `/ly/control/map_path` (`MapPath`) |
 | 裁判自定义信息 | `CustomInfoFrame`（`0x03`） | `/ly/control/custom_info` (`CustomInfo`) |
 | 哨兵自身坐标 x/y | `SentryCoordinateFrame.X_cm/Y_cm`（`0x04`） | `/ly/bt/sentry_position` (`PointStamped`) |
-| MPC 轨迹 | `GimbalTrajectoryFrame`（`0x05`） | `/ly/control/trajectory` (`aim_msgs/msg/ControlAngles`) |
+| MPC 轨迹 | `GimbalTrajectoryFrame`（`0x05`） | `/ly/control/trajectory` (`gimbal_driver/msg/GimbalTrajectory`) |
 
 ## 6.2 下位机 -> 上位机已对接
 

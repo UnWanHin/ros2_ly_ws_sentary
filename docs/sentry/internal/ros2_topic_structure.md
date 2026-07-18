@@ -45,7 +45,7 @@ Updated: 2026-07-18
 | `/ly/control/sentry_cmd` | `gimbal_driver/msg/SentryCmd` | 手动工具/后续策略 | `gimbal_driver` | 完整哨兵裁判命令入口，发独立 `DownlinkTypeID=0x01`，用于复活、兑弹、远程回血、能量机关确认等。 |
 | `/ly/control/map_path` | `gimbal_driver/msg/MapPath` | 上位机路径策略/工具 | `gimbal_driver` | 一次下发 `DownlinkTypeID=0x02`，裁判 `0x0307 map_data_t` 语义。 |
 | `/ly/control/custom_info` | `gimbal_driver/msg/CustomInfo` | 上位机工具 | `gimbal_driver` | 一次下发 `DownlinkTypeID=0x03`，裁判 `0x0308 custom_info_t`；携带完整 30B UTF-16 原始字节。 |
-| `/ly/control/trajectory` | `aim_msgs/msg/ControlAngles` | 外部 `sentry.aim` MPC | `gimbal_driver` | 每次更新额外发送 `DownlinkTypeID=0x05` 26B 原子轨迹；单位为 `deg`、`deg/s`、`deg/s^2`，旧 `0x00` 控制链保留。 |
+| `/ly/control/trajectory` | `gimbal_driver/msg/GimbalTrajectory` | 外部 `sentry.aim` MPC | `gimbal_driver` | 由本仓定义、外部 MPC 发布；每次更新额外发送 `DownlinkTypeID=0x05` 26B 原子轨迹；单位为 `deg`、`deg/s`、`deg/s^2`，旧 `0x00` 控制链保留。 |
 | `/ly/bt/sentry_position` | `geometry_msgs/msg/PointStamped` | `behavior_tree` | `gimbal_driver` | BT 融合后的哨兵自身位置，`frame_id=map`，单位 m；`gimbal_driver` 转 cm 后写入 `DownlinkTypeID=0x04` 坐标 frame。 |
 
 当前 posture 测试命令：
@@ -67,7 +67,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | Topic | Type | Consumer | 结构/语义 |
 |---|---|---|---|
 | `/ly/gimbal/angles` | `gimbal_driver/msg/GimbalAngles` | `behavior_tree`, FaceMode | 当前云台角 `yaw/pitch`。 |
-| `/ly/gimbal/state` | `gimbal_driver/msg/GimbalState` | 外部 `sentry.aim` MPC | TypeID 0 角度与 TypeID 11 实际动态反馈的组合；仅含 yaw/pitch 与角速度/角加速度；TypeID 11 超时后仅动态字段清零。 |
+| `/ly/gimbal/state` | `gimbal_driver/msg/GimbalState` | 外部 `sentry.aim` MPC | 本仓定义；TypeID 0 的 yaw/pitch、bullet_speed、aim_request 与 TypeID 11 实际动态反馈组合；TypeID 11 超时后仅动态字段清零。 |
 | `/ly/gimbal/firecode` | `gimbal_driver/msg/FireCode` | `behavior_tree` | 下位机回读火控状态，`field_mask=FIELD_ALL`。 |
 | `/ly/gimbal/vel` | `gimbal_driver/msg/Vel` | 调试/兼容 | `header`, `x`, `y`。 |
 | `/ly/gimbal/chassis` | `gimbal_driver/msg/Chassis` | `behavior_tree` | `steer_angle`, `angular_velocity`, `velocity_x`, `velocity_y`。 |
