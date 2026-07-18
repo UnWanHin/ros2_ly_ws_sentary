@@ -11,10 +11,10 @@ Updated: 2026-07-18
 - `MyArea.Base`
 - `MyArea.Highland`
 - `MyArea.PreRoadland`
-- `MyArea.Roadland`
+- `MyArea.ReadyRoadland`
 - `CommonArea.Central`
 
-目前沒有寫 `EnemyArea.Base / EnemyArea.Highland / EnemyArea.PreRoadland / EnemyArea.Roadland`
+目前沒有寫 `EnemyArea.Base / EnemyArea.Highland / EnemyArea.PreRoadland / EnemyArea.ReadyRoadland`
 的獨立狀態機，因為當前基本 regional 任務不需要它們。Central 任務裡會走到敵方側的中場點，
 但它仍然屬於 `CommonArea.Central`，不是敵方大區域任務。
 
@@ -40,23 +40,23 @@ Updated: 2026-07-18
 
 Regional 不是單一點表，而是分層策略：
 
-- `Hard`：最高優先級，先處理低血/低彈回 `Recovery`，以及 Roadland 強綁定穿越段。
+- `Hard`：最高優先級，先處理低血/低彈回 `Recovery`，以及 ReadyRoadland 強綁定穿越段。
 - `Task`：處理 Highland 兼容過渡和導航 watchdog 等支援任務，不再擁有基本大區域狀態機。
 - `Tactical`：處理 Buff、RegionalDefense、ProtectHero、Outpost 和 watchdog fallback。
 - `Special`：可開關的專項巡察層，目前只包含兩點線段 Patrol，優先級低於 Tactical、高於 Default。
-- `Default`：沒有事件、沒有任務、沒有 Buff/Outpost 時，按大區域候選分數選並持續 tick `MyBase / MyHighland / MyPreRoadland / MyRoadland / CommonCentral`。
+- `Default`：沒有事件、沒有任務、沒有 Buff/Outpost 時，按大區域候選分數選並持續 tick `MyBase / MyHighland / MyPreRoadland / MyReadyRoadland / CommonCentral`。
 - `Finalizer`：只做策略層狀態同步，不再做舊點表 fallback。
 
 Regional 目前已有的主要邏輯：
 
 - 回補/回基地：低血或低彈優先去 `Recovery`；這層高於 RegionalDefense。非 league regional 下，已在 `Recovery` 且血量未回到門檻時會繼續守住 Recovery。
-- Default 大區域任務：候選包含 `MyBase`、`MyHighland`、`MyPreRoadland`、`MyRoadland`、`CommonCentral`；評分會看血量/彈量新鮮度、資源門檻、距離、目前區域、上一個區域、任務冷卻和失敗重試。正式 `regional_competition.json` 預設允許兩個道路候選。
+- Default 大區域任務：候選包含 `MyBase`、`MyHighland`、`MyPreRoadland`、`MyReadyRoadland`、`CommonCentral`；評分會看血量/彈量新鮮度、資源門檻、距離、目前區域、上一個區域、任務冷卻和失敗重試。正式 `regional_competition.json` 預設允許兩個道路候選。
 - `MyBase` 任務：在己方 Base 候選點中按 `Base.yaml` 權重和自身距離評估選點；候選包含四個 Castle 邊點、`HoleRoad`、`OutpostGuard`、`BuffOutpost`。完成 `MaxPatrolSteps` 後退出，交回 Default scorer 重新評估下一個大區域。
 - `MyHighland` 任務：`Highland` approach -> `Highland` hold -> `BuffShoot` -> `BuffShoot` hold -> `HoleRoad` 離開；approach/leave 仍是地形兼容階段，但正式配置下 Follow/Rotate 兼容交給 `/ly/navi/should_rotate`。
 - `MyPreRoadland` 任務：只前往 ID `25`，到點後按 `GoalHoldSec` 完成；它可被更高優先級任務取消，不繼承後段的強制穿越控制。
-- `MyRoadland` 任務：`CentralToBase -> BaseToCentral -> BaseToCentral hold -> CentralToBase return`；穿越段仍是強綁定調度段，不能被普通高優先級邏輯直接打斷。`GuardHoldSec` 到時或資源不健康時會返回並完成任務。它會維持 FollowMode；是否請求 FaceMode 由 `MyRoadland.UseFaceMode` 決定，baseline 為 `false`。
+- `MyReadyRoadland` 任務：`CentralToBase -> BaseToCentral -> BaseToCentral hold -> CentralToBase return`；穿越段仍是強綁定調度段，不能被普通高優先級邏輯直接打斷。`GuardHoldSec` 到時或資源不健康時會返回並完成任務。它會維持 FollowMode；是否請求 FaceMode 由 `MyReadyRoadland.UseFaceMode` 決定，baseline 為 `false`。
 - `CommonCentral` 任務：中場巡邏路線是 `my OutpostArea -> my RightShoot -> my BuffAround2 -> my LeftShoot -> my OutpostShoot -> enemy RightShoot -> enemy OccupyArea -> enemy OutpostShoot`，啟動時也按自身位置選最近點；完成 `MaxPatrolSteps` 後退出，交回 Default scorer 重新評估下一個大區域。
-- RegionalDefense：用官方敵方位置和 `event_data` 做戰術防守；敵方進我方 Base/Highland/Roadland/CommonCentral 或己方堡壘增益點 `2/3` 都可觸發。
+- RegionalDefense：用官方敵方位置和 `event_data` 做戰術防守；道路前/後段分別統計後聚合為同一條 RoadCorridor 防守威脅，敵方進我方 Base/Highland/PreRoadland/ReadyRoadland/CommonCentral 或己方堡壘增益點 `2/3` 都可觸發。
 - 己方堡壘增益點 `2/3`：不去 `Castle`，只在 `CastleLeft1 / CastleLeft2 / CastleRight1 / CastleRight2` 搜索；若 Base 大區敵方數達門檻且普通裝甲目標已鎖定並允許開火，才原地停車、最高小陀螺開火；長時間無官方敵方位置且無視覺目標會退化忽略一段時間。
 - Recovery：Hard 層先回 `Recovery` 點；到達後若 3 秒內血量/彈量沒有回升，會在己方 `Recovery` 子區域內切換中心探測點，避免卡在補給區邊緣。
 - Buff：由能量機關裁判狀態、sentry info、timer、damage abort 和 timeout 決定是否進 `AimMode::Buff`；戰術站位使用 `BuffOutpost`，FaceMode 對己方目標側。
@@ -85,8 +85,8 @@ EvaluateEvents -> Hard -> Task -> PreprocessData -> SelectAimTarget -> Tactical 
 各層的責任是：
 
 - `EvaluateEvents`：語義整理層，只把裁判資料、視覺鎖定、受擊、導航狀態和 RegionalDefense 威脅收斂成 `EventSnapshot`。這層不發導航、不改火控、不接管輸出。
-- `Hard`：最高優先級保護，處理 recovery/補血補彈和 Roadland 強綁定穿越段。Roadland 強綁定段在這層 hard lock，避免被戰術層中途搶走。
-- `Task`：只保留 Highland 兼容過渡和導航 watchdog 這類支援任務；不再 tick Highland/Base/Roadland/Central 基本大區域狀態機。
+- `Hard`：最高優先級保護，處理 recovery/補血補彈和 ReadyRoadland 強綁定穿越段。ReadyRoadland 強綁定段在這層 hard lock，避免被戰術層中途搶走。
+- `Task`：只保留 Highland 兼容過渡和導航 watchdog 這類支援任務；不再 tick Highland/Base/PreRoadland/ReadyRoadland/Central 基本大區域狀態機。
 - `PreprocessData / SelectAimTarget`：在 Tactical 前整理可打目標、官方坐標和本 tick `targetArmor`，讓戰術層使用最新目標資料。
 - `Tactical`：regional 只保留明確戰術 overlay：`RegionalDefense`、ProtectHero、Buff/Outpost 任務站位、Chase 追擊和導航 watchdog；不再調用舊單策略點表。`LeagueSimple` 只在 `CompetitionProfile=league` 時使用，Showcase 只在明確 showcase 配置時使用。
 - `Special`：可選專項層；目前只有 `Special.Patrol.Enable=true` 時巡己方 `CentralLeft` 線。`PreRoadland` 已是 Default scope 內的正式 AreaTask；更高層回補、回防、前哨、打符仍會先接管。Special Patrol 默認抑制 Chase。
@@ -164,12 +164,12 @@ should_rotate=true
 
 所以正式當前配置下，`should_rotate=false` 表示「外部導航請求下位機 FollowMode bit + 關小陀螺檔位」。BT 仍會該巡航就巡航，該鎖敵開火就開火；`FollowMode` bit 本身只進最終 firecode 字段，不再觸發 BT 停火/停巡航分支。
 
-它和 `MyRoadland` 強鎖不是同一層：
+它和 `MyReadyRoadland` 強鎖不是同一層：
 
-- `MyRoadland` 強鎖是任務調度保護：在 `RoadlandCrossToBaseToCentral`、`RoadlandCrossToCentralToBase` 兩個 phase 裡，Buff/Outpost、RegionalDefense、Recovery 不會直接取消這個穿越段，要等到達、不可達或超時。
-- `/ly/navi/should_rotate` 是控制輸出兼容：告訴 BT 這一段要不要停小陀螺、開 FollowMode。它不會讓 Roadland task 進入或退出強鎖，也不會改變 Roadland phase。
+- `MyReadyRoadland` 強鎖是任務調度保護：在 `ReadyRoadlandCrossToBaseToCentral`、`ReadyRoadlandCrossToCentralToBase` 兩個 phase 裡，Buff/Outpost、RegionalDefense、Recovery 不會直接取消這個穿越段，要等到達、不可達或超時。
+- `/ly/navi/should_rotate` 是控制輸出兼容：告訴 BT 這一段要不要停小陀螺、開 FollowMode。它不會讓 ReadyRoadland task 進入或退出強鎖，也不會改變 ReadyRoadland phase。
 
-因此現在的責任邊界是：AreaManager 決定「我要不要做 MyRoadland，以及是不是處於不可讓出的 crossing phase」；外部導航通過 `/ly/navi/should_rotate` 決定「此刻底盤是否允許正常小陀螺」。這樣 Castle、Roadland、Highland 等地形細節可以放在導航側維護，BT 只保留任務優先級和戰術語義。
+因此現在的責任邊界是：AreaManager 決定「我要不要做 MyReadyRoadland，以及是不是處於不可讓出的 crossing phase」；外部導航通過 `/ly/navi/should_rotate` 決定「此刻底盤是否允許正常小陀螺」。這樣 Castle、ReadyRoadland、Highland 等地形細節可以放在導航側維護，BT 只保留任務優先級和戰術語義。
 
 ## FaceMode 統一仲裁
 
@@ -215,18 +215,18 @@ TrySetScopedPositionByBaseGoal()
 
 ## 當前配置
 
-### PreRoadland / Roadland 正式邊界
+### PreRoadland / ReadyRoadland 正式邊界
 
-`PreRoadland` 與 `Roadland` 已是同級 `MainAreaKind`，都參與目標區域解析、Default scorer、Regional task 和正式導航輸出。`Roadland` 保留既有名稱，但邊界改用原 ReadyRoadLand 四邊形；共用邊界依 `AreaManager` 的主區解析順序歸屬 `Roadland`。
+`PreRoadland` 與 `ReadyRoadland` 已是同級 `MainAreaKind`，都參與目標區域解析、Default scorer、Regional task 和正式導航輸出。`ReadyRoadland` 使用原 ReadyRoadLand 四邊形；共用邊界依 `AreaManager` 的主區解析順序歸屬 `ReadyRoadland`。
 
 ```text
 PreRoadland Red:  (687,380) -> (758,235) -> (510,235) -> (510,205) -> (510,19) -> (389,15) -> (391,373)
 PreRoadland Blue: (2113,1120) -> (2042,1265) -> (2290,1265) -> (2290,1295) -> (2290,1481) -> (2411,1485) -> (2409,1127)
-Roadland Red:  (510,235) -> (510,19) -> (1251,17) -> (1333,221)
-Roadland Blue: (2290,1265) -> (2290,1481) -> (1549,1483) -> (1467,1279)
+ReadyRoadland Red:  (510,235) -> (510,19) -> (1251,17) -> (1333,221)
+ReadyRoadland Blue: (2290,1265) -> (2290,1481) -> (1549,1483) -> (1467,1279)
 ```
 
-`MyPreRoadland` 固定使用 ID 25，抵達後按自身 `GoalHoldSec` 結束；`MyRoadland` 保留 ID 22 -> ID 21 的強綁定穿越、FollowMode 與 FaceMode。ID 22 目前是紅 `(515,100)`、藍 `(2285,1400)`，已落在新 Roadland 內。
+`MyPreRoadland` 固定使用 ID 25，抵達後按自身 `GoalHoldSec` 結束；`MyReadyRoadland` 保留 ID 22 -> ID 21 的強綁定穿越、FollowMode 與 FaceMode。ID 22 目前是紅 `(515,100)`、藍 `(2285,1400)`，已落在新 ReadyRoadland 內。
 
 目前 `src/behavior_tree/config/AreaManager.yaml` 的基本區域配置是：
 
@@ -256,7 +256,7 @@ AreaManager:
       Enable: true
     MyHighland:
       Enable: true
-    MyRoadland:
+    MyReadyRoadland:
       Enable: true
     CommonCentral:
       Enable: true
@@ -268,41 +268,41 @@ AreaManager:
 
 重要健康門檻：
 
-- `DefaultPolicy.Health.MyAreaHpMin`：我方 Highland/Roadland 的底層選區 HP 門檻，默認 250。
+- `DefaultPolicy.Health.MyAreaHpMin`：我方 Highland/ReadyRoadland 的底層選區 HP 門檻，默認 250。
 - `DefaultPolicy.Health.CommonCentralHpMin`：Central 底層選區 HP 門檻，默認 300。
 - `DefaultPolicy.Health.EnemyAreaHpMin`：敵方區域預留 HP 門檻，默認 350；目前敵方區域狀態機尚未接入 Default 候選。
 - `DefaultPolicy.Ammo.*`：與 HP 對應的彈量門檻。
-- `MyRoadland.HealthyHpMin`
-- `MyRoadland.HealthyAmmoMin`
+- `MyReadyRoadland.HealthyHpMin`
+- `MyReadyRoadland.HealthyAmmoMin`
 - `CommonCentral.HealthyHpMin`
 - `CommonCentral.HealthyAmmoMin`
 
-Roadland 用這些門檻決定是否離開駐守點並安全返回。Central 則要求啟動時血量/彈量數據新鮮且健康；任務中如果新鮮數據變成不健康，就完成並釋放控制。
+ReadyRoadland 用這些門檻決定是否離開駐守點並安全返回。Central 則要求啟動時血量/彈量數據新鮮且健康；任務中如果新鮮數據變成不健康，就完成並釋放控制。
 
 DefaultPolicy 的當前選區規則：
 
 - Area scope 是硬門檻：`MyArea / EnemyArea / CommonArea` 關掉的區域永遠不進候選。
 - `MyBase` 需要新鮮血量/彈量並達到我方區域門檻，健康時才會啟動基地巡遊。
 - `MyHighland` 需要新鮮血量/彈量並達到我方區域門檻。
-- `MyRoadland` 需要同時滿足 DefaultPolicy 我方門檻和 `MyRoadland.Healthy*` 門檻。
+- `MyReadyRoadland` 需要同時滿足 DefaultPolicy 我方門檻和 `MyReadyRoadland.Healthy*` 門檻。
 - `CommonCentral` 需要同時滿足 DefaultPolicy Central 門檻和 `CommonCentral.Healthy*` 門檻。
-- 候選分數會扣除距離、目前所在同區域、上次已選區域；Highland 任務正常完成後會臨時提高 MyBase/MyRoadland 分數。
+- 候選分數會扣除距離、目前所在同區域、上次已選區域；Highland 任務正常完成後會臨時提高 MyBase/MyReadyRoadland 分數。
 - `unreachable / timeout / unhealthy / canceled` 會進入 failure/unreachable cooldown，連續失敗數達到 `MaxRetry` 時使用更長的 unreachable cooldown。
 
 ## RegionalDefense
 
-RegionalDefense 是事件驅動戰術層，優先級高於 Default。敵方位置判斷只使用 `/ly/position/data` 寫入的官方場地坐標，不使用 map/odom 坐標混判；AreaManager 用 `Area.hpp` 官方點位區域邊界判斷敵方是否進入我方 Base/Highland/Roadland 或公共 Central。另有一個裁判事件來源：`/ly/game/event_data.self_fortress_gain_point_status == 2/3` 時，視為己方堡壘增益點有敵方占領，進入硬防守搜索。ProtectHero 的英雄保護條件會在 RegionalDefense 之前檢查；只有未命中英雄保護時，普通 RegionalDefense 才接管。
+RegionalDefense 是事件驅動戰術層，優先級高於 Default。敵方位置判斷只使用 `/ly/position/data` 寫入的官方場地坐標，不使用 map/odom 坐標混判；AreaManager 用 `Area.hpp` 官方點位區域邊界判斷敵方是否進入我方 Base/Highland/PreRoadland/ReadyRoadland 或公共 Central，兩段道路會聚合為同一 RoadCorridor 防守威脅。另有一個裁判事件來源：`/ly/game/event_data.self_fortress_gain_point_status == 2/3` 時，視為己方堡壘增益點有敵方占領，進入硬防守搜索。ProtectHero 的英雄保護條件會在 RegionalDefense 之前檢查；只有未命中英雄保護時，普通 RegionalDefense 才接管。
 
 當前防守搜索規則：
 
 - 敵方進入我方 Base：優先去 `Castle`，再 fallback 到左右 Castle 點。
 - `/ly/game/event_data` 顯示己方堡壘增益點被對方或雙方占領：不進 `Castle`，只在 `CastleLeft1 / CastleLeft2 / CastleRight1 / CastleRight2` 裡按自身位置選最近點搜索。默認仍沿用普通裝甲模式邊走邊打；若己方 Base 大區的新鮮官方敵方位置數達到 `RegionalDefense.FortressStandEnemyCountMin`，且普通裝甲目標已鎖定並允許開火，則把底盤速度壓為 0、小陀螺覆蓋到最高檔站樁開火。
-- 我方 Highland 和 Roadland 同時有敵方：優先去 `Castle`。
-- 敵方進入我方 Roadland：去 `CastleRight2 -> CastleRight1 -> Castle` 搜索。
+- 我方 Highland 和任一 RoadCorridor 段同時有敵方：優先去 `Castle`。
+- 敵方進入我方 PreRoadland 或 ReadyRoadland：去 `CastleRight2 -> CastleRight1 -> Castle` 搜索。
 - 敵方進入我方 Highland：去 `HoleRoad -> Highland -> Castle` 搜索，先利用 HoleRoad 視野，再進 Highland。
 - 敵方在公共 Central：去 `HoleRoad -> Castle` 搜索。
 
-搜索點會尊重 area scope，但不啟動 Base/Highland/Roadland 的 AreaManager 區域任務；它只做 scope 檢查、必要的 Highland transition，然後直接下導航點。`RegionalDefense.SearchHoldSec` 和 `RegionalDefense.SearchNoTargetSec` 控制「一直找不到」後切下一個搜索點；找不到的判斷使用 autoaim 最近有效目標時間，不混用 buff/outpost 目標。堡壘增益點事件還有退化保護：若連續 `RegionalDefense.FortressNoContactDegradeSec` 秒沒有己方 Base 大區官方敵方位置、也沒有普通裝甲視覺目標，會在 `RegionalDefense.FortressDegradeCooldownSec` 秒內暫時不把 `2/3` 當硬威脅。
+搜索點會尊重 area scope，但不啟動 Base/Highland/PreRoadland/ReadyRoadland 的 AreaManager 區域任務；它只做 scope 檢查、必要的 Highland transition，然後直接下導航點。`RegionalDefense.SearchHoldSec` 和 `RegionalDefense.SearchNoTargetSec` 控制「一直找不到」後切下一個搜索點；找不到的判斷使用 autoaim 最近有效目標時間，不混用 buff/outpost 目標。堡壘增益點事件還有退化保護：若連續 `RegionalDefense.FortressNoContactDegradeSec` 秒沒有己方 Base 大區官方敵方位置、也沒有普通裝甲視覺目標，會在 `RegionalDefense.FortressDegradeCooldownSec` 秒內暫時不把 `2/3` 當硬威脅。
 
 ## ProtectHero
 
@@ -355,9 +355,9 @@ CastleLeft1 / CastleLeft2 / CastleRight2 / CastleRight1 / HoleRoad / OutpostGuar
 
 MyBase 本身不開 `FollowMode`，也不開 `FaceMode`，就是普通基地巡遊狀態機。
 
-### MyRoadland
+### MyReadyRoadland
 
-觸發條件：上游選中的 goal 精確屬於我方 Roadland 大區域，並且當前不在我方 Highland 裡。
+觸發條件：上游選中的 goal 精確屬於我方 ReadyRoadland 大區域，並且當前不在我方 Highland 裡。
 
 任務路線：
 
@@ -379,7 +379,7 @@ CentralToBase
 - 如果血量/彈量新鮮數據低於門檻，開始安全返回 `CentralToBase`。
 - 如果非強綁定階段遇到更高優先級請求，也不是直接取消，而是請求安全返回。
 
-如果 `MyRoadland.UseFaceMode=true`，Roadland 的 FaceMode 目標就是當前穿越終點；正式配置目前是 `false`，地形朝向/跟隨主要交給外部導航的 `/ly/navi/should_rotate`：
+如果 `MyReadyRoadland.UseFaceMode=true`，ReadyRoadland 的 FaceMode 目標就是當前穿越終點；正式配置目前是 `false`，地形朝向/跟隨主要交給外部導航的 `/ly/navi/should_rotate`：
 
 - 往中場側穿越時，朝向 `BaseToCentral`；
 - 返回基地側時，朝向 `CentralToBase`。
@@ -446,12 +446,12 @@ MyHighland 目前不在這個低優先級 aim/defense 取消集合裡。它仍�
 
 - 唯一導航入口為 `PreRoadland`，BaseGoalId 固定為 `25`；
 - 到達後按 `AreaManager.RegionalAreaTask.MyPreRoadland.GoalHoldSec` 保持；
-- 不繼承 Roadland 的強綁定穿越、FollowMode 或 FaceMode；
+- 不繼承 ReadyRoadland 的強綁定穿越、FollowMode 或 FaceMode；
 - 在 Default policy 中有獨立權重、當前/上一區懲罰與 retry/cooldown。
 
-### Roadland 非強綁定階段
+### ReadyRoadland 非強綁定階段
 
-Roadland 非強綁定階段通常不直接取消，而是請求安全返回：
+ReadyRoadland 非強綁定階段通常不直接取消，而是請求安全返回：
 
 - Buff mode / Outpost mode 優先級更高；
 - regional defense 發現威脅；
@@ -460,12 +460,12 @@ Roadland 非強綁定階段通常不直接取消，而是請求安全返回：
 
 安全返回的意思是：狀態機切到返回 `CentralToBase` 的階段，而不是原地取消。
 
-### Roadland 強綁定穿越段
+### ReadyRoadland 強綁定穿越段
 
 這兩個 phase 是目前最強保護段：
 
-- `RoadlandCrossToBaseToCentral`
-- `RoadlandCrossToCentralToBase`
+- `ReadyRoadlandCrossToBaseToCentral`
+- `ReadyRoadlandCrossToCentralToBase`
 
 在這兩個階段：
 
@@ -537,7 +537,7 @@ FaceMode 負責固定點朝向和接管雲台角度。FollowMode 只負責下發
 
 因此正式 regional 的導航點來源應只來自：
 
-- `Hard` recovery / Roadland hard lock；
+- `Hard` recovery / ReadyRoadland hard lock；
 - `Task` 的 Highland transition、watchdog；
 - `Tactical` 的 `RegionalDefense`、ProtectHero、Buff/Outpost 任務站位或 Chase 追擊。
 - `Default` 選中並執行的 AreaManager 大區域任務。
@@ -551,7 +551,7 @@ FaceMode 負責固定點朝向和接管雲台角度。FollowMode 只負責下發
 - 我方 Base 巡遊由 MyBase 管；
 - 我方 Highland 進入、駐守、離開由 MyHighland 管；
 - 我方 PreRoadland 前段到點保持由 MyPreRoadland 管；
-- 我方 Roadland 強綁定穿越、安全返回由 MyRoadland 管；
+- 我方 ReadyRoadland 強綁定穿越、安全返回由 MyReadyRoadland 管；
 - 中場健康巡邏由 CommonCentral 管。
 
-敵方 Base/Highland/Roadland 之後如果有明確任務，再單獨加狀態機即可。目前不寫不影響這套基本 regional 框架。
+敵方 Base/Highland/PreRoadland/ReadyRoadland 之後如果有明確任務，再單獨加狀態機即可。目前不寫不影響這套基本 regional 框架。

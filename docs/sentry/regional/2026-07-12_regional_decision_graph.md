@@ -60,18 +60,18 @@ flowchart TD
   DEFAULT[Default / AreaManager] --> MY_BASE[MyBase]
   DEFAULT --> MY_HIGH[MyHighland]
   DEFAULT --> MY_PRE[MyPreRoadland\nID 25: PreRoadland]
-  DEFAULT --> MY_ROAD[MyRoadland]
+  DEFAULT --> MY_ROAD[MyReadyRoadland]
   DEFAULT --> CENTRAL[CommonCentral]
   DEFAULT --> ENEMY_AREA[敵方區域策略]
   DEFAULT --> SCORE[資源、距離、當前/上一區域懲罰\n選出 goal]
 ```
 
-`PreRoadland` 與 `Roadland` 是正式同級 MainArea。`MyPreRoadland` 僅前往 ID 25，
-到點後按 `GoalHoldSec` 結束；它可被更高優先級任務取消。`MyRoadland` 保留原本的
+`PreRoadland` 與 `ReadyRoadland` 是正式同級 MainArea。`MyPreRoadland` 僅前往 ID 25，
+到點後按 `GoalHoldSec` 結束；它可被更高優先級任務取消。`MyReadyRoadland` 保留原本的
 `CentralToBase(ID 22) -> BaseToCentral(ID 21)` 強綁定穿越、安全返回、FollowMode 和
 可選 FaceMode 行為。正式 `regional_competition.json` 已把兩區加入 `NaviGoal.MyArea`；
-`MyRoadland.UseFaceMode` baseline 為 `false`。ID 22 的正式座標為紅 `(515,100)`、藍
-`(2285,1400)`，因此兩個穿越點都落在新 Roadland 邊界內。
+`MyReadyRoadland.UseFaceMode` baseline 為 `false`。ID 22 的正式座標為紅 `(515,100)`、藍
+`(2285,1400)`，因此兩個穿越點都落在新 ReadyRoadland 邊界內。
 
 ## 3. Regional 的輸入與導航閉環
 

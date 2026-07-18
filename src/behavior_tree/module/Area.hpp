@@ -345,25 +345,11 @@ namespace Area {
         Base = 0,
         Highland = 1,
         PreRoadland = 2,
-        Roadland = 3,
+        ReadyRoadland = 3,
         Central = 4
     };
 
-    static const std::vector<Point<int>> RedRoadlandFollowModePoints = {
-        { 510, 192 },
-        { 987, 203 },
-        { 990, 29 },
-        { 510, 26 }
-    };
-
-    static const std::vector<Point<int>> BlueRoadlandFollowModePoints = {
-        { 2290, 1308 },
-        { 1813, 1297 },
-        { 1810, 1471 },
-        { 2290, 1474 }
-    };
-
-    // 正式道路前段主区域。与 Roadland 共用的边界点按 AreaManager 解析顺序归 Roadland。
+    // 正式道路前段主区域。与 ReadyRoadland 共用的边界点按 AreaManager 解析顺序归 ReadyRoadland。
     static const std::vector<Point<int>> RedPreRoadlandPoints = {
         { 687, 380 },
         { 758, 235 },
@@ -384,15 +370,15 @@ namespace Area {
         { 2409, 1127 }
     };
 
-    // 正式道路后段主区域，保留 Roadland 名称，替代旧单一大 Roadland 边界。
-    static const std::vector<Point<int>> RedMainAreaRoadlandPoints = {
+    // 正式道路后段主区域，使用旧 ReadyRoadLand 的边界。
+    static const std::vector<Point<int>> RedMainAreaReadyRoadlandPoints = {
         { 510, 235 },
         { 510, 19 },
         { 1251, 17 },
         { 1333, 221 }
     };
 
-    static const std::vector<Point<int>> BlueMainAreaRoadlandPoints = {
+    static const std::vector<Point<int>> BlueMainAreaReadyRoadlandPoints = {
         { 2290, 1265 },
         { 2290, 1481 },
         { 1549, 1483 },
@@ -581,7 +567,7 @@ namespace Area {
             case MainAreaKind::Base: return "base";
             case MainAreaKind::Highland: return "highland";
             case MainAreaKind::PreRoadland: return "pre_roadland";
-            case MainAreaKind::Roadland: return "roadland";
+            case MainAreaKind::ReadyRoadland: return "ready_roadland";
             case MainAreaKind::Central: return "central";
             default: return "unknown";
         }
@@ -598,8 +584,8 @@ namespace Area {
                 return is_blue ? BlueMainAreaHighlandPoints : RedMainAreaHighlandPoints;
             case MainAreaKind::PreRoadland:
                 return is_blue ? BluePreRoadlandPoints : RedPreRoadlandPoints;
-            case MainAreaKind::Roadland:
-                return is_blue ? BlueMainAreaRoadlandPoints : RedMainAreaRoadlandPoints;
+            case MainAreaKind::ReadyRoadland:
+                return is_blue ? BlueMainAreaReadyRoadlandPoints : RedMainAreaReadyRoadlandPoints;
             case MainAreaKind::Central:
                 return CommonMainAreaCentralPoints;
             default:
@@ -766,27 +752,6 @@ namespace Area {
             return false;
         }
         return IsPointInsideAreaShapes(ProtectHeroShapes(team), x, y);
-    }
-
-    inline const std::vector<Point<int>>& RoadlandFollowModeBoundary(const UnitTeam team) {
-        return PointLookupTeam(team) == UnitTeam::Blue
-            ? BlueRoadlandFollowModePoints
-            : RedRoadlandFollowModePoints;
-    }
-
-    inline std::vector<AreaShapeView> RoadlandFollowModeShapes(const UnitTeam team) {
-        std::vector<AreaShapeView> shapes{PolygonShape(RoadlandFollowModeBoundary(team))};
-        return shapes;
-    }
-
-    inline bool IsPointInsideRoadlandFollowModeArea(
-        const UnitTeam team,
-        const int x,
-        const int y) {
-        if (team != UnitTeam::Red && team != UnitTeam::Blue) {
-            return false;
-        }
-        return IsPointInsideAreaShapes(RoadlandFollowModeShapes(team), x, y);
     }
 
     inline const std::vector<Point<int>>& PreRoadlandBoundary(const UnitTeam team) {

@@ -46,9 +46,9 @@ UpdateGlobalData
 目前做兩類事情：
 
 - Recovery：`CheckPositionRecovery()`，低血/低彈回 `Recovery`，且高於所有 regional/tactical 行為。Regional 模式下若已到達但 3 秒內血量/彈量沒有回升，會在己方 `Recovery` 子區域內切換中心探測點。
-- Roadland 強綁定穿越段：如果 active regional task 是 `MyRoadland`，且當前 phase 不能讓出控制，會在 Hard 層繼續 `TickRegionalAreaTask()`。
+- ReadyRoadland 強綁定穿越段：如果 active regional task 是 `MyReadyRoadland`，且當前 phase 不能讓出控制，會在 Hard 層繼續 `TickRegionalAreaTask()`。
 
-Roadland 這裡看起來像 Default task，但它在不可讓出的穿越段會被提升到 Hard。這是地形/安全約束，不是普通巡邏優先級。
+ReadyRoadland 這裡看起來像 Default task，但它在不可讓出的穿越段會被提升到 Hard。這是地形/安全約束，不是普通巡邏優先級。
 
 ### Task
 
@@ -59,7 +59,7 @@ Roadland 這裡看起來像 Default task，但它在不可讓出的穿越段會�
 - Highland transition：`TickNaviAreaTransition()`。
 - Navi progress watchdog：`TickNaviProgressWatchdog()`。
 
-Task 現在不應該擁有 Highland/Base/Roadland/Central 這些普通大區域狀態機。這些已經搬到 Default。
+Task 現在不應該擁有 Highland/Base/PreRoadland/ReadyRoadland/Central 這些普通大區域狀態機。這些已經搬到 Default。
 
 要注意：`TickNaviProgressWatchdog()` 目前在 Task 和 Tactical 裡都會被嘗試一次。實際上先觸發的一層會 mark handled，後面的層不再接管。從架構清晰度看，watchdog 更像 Task/安全支援任務，後續可以考慮只保留一個 owner。
 
@@ -80,7 +80,7 @@ Task 現在不應該擁有 Highland/Base/Roadland/Central 這些普通大區域�
 - Navi progress watchdog fallback。
 - Chase tactical。
 
-Tactical 應該高於 Default。也就是有敵情、防守、保護英雄、前哨、打符、追擊這類明確戰術事件時，不應該被 Base 巡邏、Highland 駐守、Roadland 駐守、Central 遊走頂掉。
+Tactical 應該高於 Default。也就是有敵情、防守、保護英雄、前哨、打符、追擊這類明確戰術事件時，不應該被 Base 巡邏、Highland 駐守、PreRoadland/ReadyRoadland 駐守、Central 遊走頂掉。
 
 ### Special
 
@@ -107,7 +107,7 @@ Default 擁有這些普通大區域行為：
 - `MyHighland`：Highland 駐守/巡邏流程。
 - `MyBase`：Base 候選點加權巡邏，候選和權重在 `src/behavior_tree/config/Base.yaml`。
 - `MyPreRoadland`：正式道路前段任務，固定去 ID 25，按 `GoalHoldSec` 結束。
-- `MyRoadland`：Roadland 駐守/穿越流程，其中不可讓出的穿越段會臨時由 Hard 接管。
+- `MyReadyRoadland`：ReadyRoadland 駐守/穿越流程，其中不可讓出的穿越段會臨時由 Hard 接管。
 - `CommonCentral`：Central 遊走。
 
 Default 是底層行為。它只應該在 Hard/Task/Tactical/Special 都沒接管時輸出導航目標。
@@ -238,7 +238,7 @@ watchdog 的判斷順序：
 - `/ly/navi/reach_state` 發布完整 `auto_aim_common/msg/GoalReach`，供診斷和外部觀測使用。
 - watchdog 用移動距離刷新，不要求朝 goal 方向。
 - watchdog 的 140 cm 只防止 fallback，不推進 regional task。
-- Default 已經是 Highland/Base/Roadland/Central 的底層 owner。
+- Default 已經是 Highland/Base/PreRoadland/ReadyRoadland/Central 的底層 owner。
 
 需要保持分開的語義：
 

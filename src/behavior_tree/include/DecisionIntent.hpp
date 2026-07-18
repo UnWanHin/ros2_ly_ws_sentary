@@ -32,11 +32,11 @@ enum class DecisionReason : std::uint8_t {
     OwnBaseMulti = 4,
     OwnBaseChase = 5,
     OwnBaseGuard = 6,
-    OwnHighlandRoadland = 7,
-    OwnRoadland = 8,
+    OwnHighlandRoadCorridor = 7,
+    OwnRoadCorridor = 8,
     OwnHighland = 9,
     CommonCentral = 10,
-    EnemyRoadlandSoft = 11,
+    EnemyReadyRoadlandSoft = 11,
     EnemyHighlandSoft = 12,
     AimModeBuff = 13,
     AimModeOutpost = 14,
@@ -84,11 +84,11 @@ inline const char* DecisionReasonToString(const DecisionReason reason) noexcept 
         case DecisionReason::OwnBaseMulti: return "own_base_multi";
         case DecisionReason::OwnBaseChase: return "own_base_chase";
         case DecisionReason::OwnBaseGuard: return "own_base_guard";
-        case DecisionReason::OwnHighlandRoadland: return "own_highland_roadland";
-        case DecisionReason::OwnRoadland: return "own_roadland";
+        case DecisionReason::OwnHighlandRoadCorridor: return "own_highland_road_corridor";
+        case DecisionReason::OwnRoadCorridor: return "own_road_corridor";
         case DecisionReason::OwnHighland: return "own_highland";
         case DecisionReason::CommonCentral: return "common_central";
-        case DecisionReason::EnemyRoadlandSoft: return "enemy_roadland_soft";
+        case DecisionReason::EnemyReadyRoadlandSoft: return "enemy_road_corridor_soft";
         case DecisionReason::EnemyHighlandSoft: return "enemy_highland_soft";
         case DecisionReason::AimModeBuff: return "regional_tactical_buff_mode";
         case DecisionReason::AimModeOutpost: return "regional_tactical_aim_mode";
@@ -111,11 +111,11 @@ inline DecisionReason DecisionReasonFromString(const std::string_view reason) no
     if (reason == "own_base_multi") return DecisionReason::OwnBaseMulti;
     if (reason == "own_base_chase") return DecisionReason::OwnBaseChase;
     if (reason == "own_base_guard") return DecisionReason::OwnBaseGuard;
-    if (reason == "own_highland_roadland") return DecisionReason::OwnHighlandRoadland;
-    if (reason == "own_roadland") return DecisionReason::OwnRoadland;
+    if (reason == "own_highland_road_corridor") return DecisionReason::OwnHighlandRoadCorridor;
+    if (reason == "own_road_corridor") return DecisionReason::OwnRoadCorridor;
     if (reason == "own_highland") return DecisionReason::OwnHighland;
     if (reason == "common_central") return DecisionReason::CommonCentral;
-    if (reason == "enemy_roadland_soft") return DecisionReason::EnemyRoadlandSoft;
+    if (reason == "enemy_road_corridor_soft") return DecisionReason::EnemyReadyRoadlandSoft;
     if (reason == "enemy_highland_soft") return DecisionReason::EnemyHighlandSoft;
     if (reason == "regional_tactical_buff_mode") return DecisionReason::AimModeBuff;
     if (reason == "regional_tactical_aim_mode") return DecisionReason::AimModeOutpost;
@@ -137,11 +137,11 @@ inline DecisionLayer DecisionLayerForReason(const DecisionReason reason) noexcep
         case DecisionReason::OwnBaseMulti:
         case DecisionReason::OwnBaseChase:
         case DecisionReason::OwnBaseGuard:
-        case DecisionReason::OwnHighlandRoadland:
-        case DecisionReason::OwnRoadland:
+        case DecisionReason::OwnHighlandRoadCorridor:
+        case DecisionReason::OwnRoadCorridor:
         case DecisionReason::OwnHighland:
         case DecisionReason::CommonCentral:
-        case DecisionReason::EnemyRoadlandSoft:
+        case DecisionReason::EnemyReadyRoadlandSoft:
         case DecisionReason::EnemyHighlandSoft:
         case DecisionReason::RegionalDefense:
         case DecisionReason::OwnFortressGainPointEnemy:

@@ -1,21 +1,23 @@
 # 哨兵底層決策區塊記錄
 
-Updated: 2026-05-06
+Updated: 2026-07-18
 
-> 目的：先記錄新的底層決策區塊點位，後續再整理成可調參、可用包含判定的哨兵活動範圍配置。
+> 歷史座標記錄：本頁的 `roadland` Custom 區塊保留為早期資料來源，不再是目前 runtime
+> MainArea 的名稱或邊界定義。正式行為以 `src/behavior_tree/module/Area.hpp` 為準。
 
 ## 座標約定
 
 - 座標順序：先 `x`，再 `y`。
 - 單位：`cm`。
-- 本文件記錄的是新的底層決策區塊點位，不是 `src/behavior_tree/module/Area.hpp` 裡的 `Area` 點位。
-- `roadland` 是一個底層決策區塊；`Red-roadland` 和 `Blue-roadland` 分別是這個區塊的紅方版本與藍方版本。
+- 本文件記錄的是歷史底層決策區塊點位，不是 `src/behavior_tree/module/Area.hpp` 裡的正式 `Area` 點位。
+- 正式道路主區已拆為 `PreRoadland`（前段）與 `ReadyRoadland`（後段）；下列 `Red-roadland` /
+  `Blue-roadland` 是舊資料標籤，不可直接當成正式 polygon。
 - 後續新增區塊時，沿用 `<Team>-<block_name>` 的分組方式記錄。
 - 同一區塊先按紅藍分開，再按 `Custom ID` 編號遞增連線；若用作多邊形包含判定，第一點和最後一點相連形成閉合區域。
 
 ## 決策配置語義
 
-程式內已把這批區塊作為 `MainArea` 決策區域使用，和舊的 `CastleRed` / `RoadLandRed` / `BaseRed` 等歷史區域保持分離。
+正式 `MainArea` 由 `Area.hpp` 定義，並以 `PreRoadland` / `ReadyRoadland` 作為同級候選；本頁不再提供 runtime 邊界。
 
 JSON 配置入口：
 
@@ -27,12 +29,14 @@ JSON 配置入口：
     "MyArea": {
       "Base": true,
       "Highland": true,
-      "Roadland": false
+      "PreRoadland": true,
+      "ReadyRoadland": true
     },
     "EnemyArea": {
       "Base": true,
       "Highland": true,
-      "Roadland": false
+      "PreRoadland": false,
+      "ReadyRoadland": false
     },
     "CommonArea": {
       "Central": false

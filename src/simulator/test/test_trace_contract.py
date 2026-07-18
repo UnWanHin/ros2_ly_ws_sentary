@@ -550,7 +550,7 @@ def test_unit_info_records_are_parsed_when_trace_exposes_formal_unit_state() -> 
                 "position_fresh": True,
                 "position_source": "position_data",
                 "area_id": 3,
-                "area_name": "my_roadland",
+                "area_name": "my_ready_roadland",
             }
         ],
         "enemy": [
@@ -565,7 +565,7 @@ def test_unit_info_records_are_parsed_when_trace_exposes_formal_unit_state() -> 
                 "position_fresh": True,
                 "position_source": "navi_target_official",
                 "area_id": 6,
-                "area_name": "enemy_roadland",
+                "area_name": "enemy_ready_roadland",
             }
         ],
     }
@@ -582,7 +582,7 @@ def test_unit_info_records_are_parsed_when_trace_exposes_formal_unit_state() -> 
     assert enemy.position_cm == (1165.0, 1063.0)
     assert enemy.position_fresh
     assert enemy.position_source == "navi_target_official"
-    assert enemy.area_name == "enemy_roadland"
+    assert enemy.area_name == "enemy_ready_roadland"
     assert payload["unit_info"] == {
         "friend": 1,
         "enemy": 1,

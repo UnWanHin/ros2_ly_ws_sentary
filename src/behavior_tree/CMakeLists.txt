@@ -275,16 +275,16 @@ if(BUILD_TESTING)
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
   )
-  ament_add_gtest(test_roadland_split_task
-    test/test_roadland_split_task.cpp
+  ament_add_gtest(test_pre_ready_roadland_tasks
+    test/test_pre_ready_roadland_tasks.cpp
     src/AreaManager.cpp
     src/DefaultStrategyManager.cpp
   )
-  target_include_directories(test_roadland_split_task PRIVATE
+  target_include_directories(test_pre_ready_roadland_tasks PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
   )
-  ament_target_dependencies(test_roadland_split_task
+  ament_target_dependencies(test_pre_ready_roadland_tasks
     rclcpp
     std_msgs
     gimbal_driver

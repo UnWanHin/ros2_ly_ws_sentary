@@ -35,7 +35,7 @@ The offline mock publisher also covers formal decision inputs for referee event 
 - Asset manifest: `src/simulator/assets/manifest.yaml`
 - Asset loader: `src/simulator/simulator/assets.py`
 - Rule-aware structure overlay source: `src/simulator/config/default.yaml` -> `structures`
-- The structure overlay includes formal `PreRoadland.*` and `Roadland.*` main-area polygons, plus the separate `RoadlandFollow.*` crossing sub-area, `Recovery.*`, `CentralLeft.*`, and `SettleArea.*`. `Roadland` retains its runtime name but uses the former ReadyRoadLand boundary; `PreRoadland` is its same-level front-road peer.
+- The structure overlay includes formal `PreRoadland.*` and `ReadyRoadland.*` main-area polygons, plus `Recovery.*`, `CentralLeft.*`, and `SettleArea.*`. `ReadyRoadland` uses the former ReadyRoadLand boundary; `PreRoadland` is its same-level front-road peer.
 - Scripted route overlay source: `src/simulator/config/default.yaml` -> `scripted_path`
 - Interactive mock input source: `src/simulator/config/default.yaml` -> `simulator_inputs`
 - Field coordinate conversion: `src/simulator/simulator/field.py`

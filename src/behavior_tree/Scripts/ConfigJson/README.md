@@ -27,7 +27,7 @@ Only these three competition entry presets should stay in this directory root.
 - `regional/debug/armor_patrol_test.json`: armor patrol preset without firing.
 - `regional/test/regional_area_template.json`: canonical source for the four supported single-area test profiles.
   `scripts/areatest/regional_area_profile.py` creates a temporary JSON for `my_base`, `my_highland`,
-  `my_roadland`, or `common_central`; `--pure` adds only the route/hold-specific fire, recovery, and
+  `my_ready_roadland`, or `common_central`; `--pure` adds only the route/hold-specific fire, recovery, and
   posture overrides. `regional_area_test.sh` and `navi_control_chain.sh` own the temporary file lifecycle.
 - `regional/test/regional_area_my_pre_roadland.json`: retained separate fixture. Its shape intentionally
   differs and it is not a `regional_area_test.sh` CLI target.

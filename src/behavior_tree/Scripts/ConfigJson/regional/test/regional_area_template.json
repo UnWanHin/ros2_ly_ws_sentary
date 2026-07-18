@@ -53,13 +53,13 @@
         "Base": true,
         "Highland": false,
         "PreRoadland": false,
-        "Roadland": false
+        "ReadyRoadland": false
       },
       "EnemyArea": {
         "Base": false,
         "Highland": false,
         "PreRoadland": false,
-        "Roadland": false
+        "ReadyRoadland": false
       },
       "CommonArea": {
         "Central": false

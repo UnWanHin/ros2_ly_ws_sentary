@@ -842,7 +842,7 @@ namespace LangYa
         };
     };
 
-    struct MyRoadlandAreaTaskSetting {
+    struct MyReadyRoadlandAreaTaskSetting {
         bool Enable{false};
         bool UseFaceMode{true};
         int TravelTimeoutSec{12};
@@ -889,16 +889,16 @@ namespace LangYa
         double WeightMyBase{10.0};
         double WeightMyHighland{8.0};
         double WeightMyPreRoadland{7.0};
-        double WeightMyRoadland{7.0};
+        double WeightMyReadyRoadland{7.0};
         double WeightCommonCentral{6.0};
         double WeightEnemyBase{4.0};
         double WeightEnemyHighland{4.0};
-        double WeightEnemyRoadland{4.0};
+        double WeightEnemyReadyRoadland{4.0};
         double DistancePenaltyPerMeter{0.4};
         double CurrentAreaPenalty{2.0};
         double LastAreaPenalty{1.0};
         double AfterHighlandMyBaseBonus{5.0};
-        double AfterHighlandMyRoadlandBonus{3.0};
+        double AfterHighlandMyReadyRoadlandBonus{3.0};
         double LowResourceMyBaseBonus{4.0};
     };
 
@@ -924,7 +924,7 @@ namespace LangYa
         MyHighlandAreaTaskSetting MyHighland{};
         MyBaseAreaTaskSetting MyBase{};
         MyPreRoadlandAreaTaskSetting MyPreRoadland{};
-        MyRoadlandAreaTaskSetting MyRoadland{};
+        MyReadyRoadlandAreaTaskSetting MyReadyRoadland{};
         CommonCentralAreaTaskSetting CommonCentral{};
         DefaultPolicySetting DefaultPolicy{};
     };

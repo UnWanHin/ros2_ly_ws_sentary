@@ -132,7 +132,7 @@ std::uint8_t AreaId(const AreaKey& key) {
                 return Info::AREA_MY_HIGHLAND;
             case BehaviorTree::Area::MainAreaKind::PreRoadland:
                 return Info::AREA_MY_PRE_ROADLAND;
-            case BehaviorTree::Area::MainAreaKind::Roadland:
+            case BehaviorTree::Area::MainAreaKind::ReadyRoadland:
                 return Info::AREA_MY_ROADLAND;
             default:
                 return Info::AREA_UNKNOWN;
@@ -146,7 +146,7 @@ std::uint8_t AreaId(const AreaKey& key) {
                 return Info::AREA_ENEMY_HIGHLAND;
             case BehaviorTree::Area::MainAreaKind::PreRoadland:
                 return Info::AREA_ENEMY_PRE_ROADLAND;
-            case BehaviorTree::Area::MainAreaKind::Roadland:
+            case BehaviorTree::Area::MainAreaKind::ReadyRoadland:
                 return Info::AREA_ENEMY_ROADLAND;
             default:
                 return Info::AREA_UNKNOWN;
@@ -257,8 +257,6 @@ void PrintExactMembership(UnitTeam area_team, int x, int y) {
     }
     std::cout << "  " << TeamName(area_team) << "_protect_hero: "
               << (BehaviorTree::Area::IsPointInsideProtectHeroArea(area_team, x, y) ? "true" : "false") << "\n";
-    std::cout << "  " << TeamName(area_team) << "_roadland_follow_mode: "
-              << (BehaviorTree::Area::IsPointInsideRoadlandFollowModeArea(area_team, x, y) ? "true" : "false") << "\n";
     std::cout << "  " << TeamName(area_team) << "_pre_roadland: "
               << (BehaviorTree::Area::IsPointInsidePreRoadlandArea(area_team, x, y) ? "true" : "false") << "\n";
     std::cout << "  " << TeamName(area_team) << "_recovery_area: "

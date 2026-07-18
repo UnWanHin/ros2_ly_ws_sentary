@@ -168,8 +168,8 @@ enum class RegionalDefenseSearchKind : std::uint8_t {
     None = 0,
     OwnBase = 1,
     OwnHighland = 2,
-    OwnRoadland = 3,
-    OwnHighlandRoadland = 4,
+    OwnRoadCorridor = 3,
+    OwnHighlandRoadCorridor = 4,
     CommonCentral = 5,
     EnemySideSoft = 6,
     OwnFortressGainPoint = 7
@@ -713,7 +713,6 @@ public:
     bool IsHighlandCompatEnabled() const noexcept;
     bool IsHighlandCompatTarget(std::uint8_t base_goal_id, UnitTeam goal_team) const;
     bool IsSelfInMainArea(UnitTeam area_team, Area::MainAreaKind kind) const;
-    bool IsSelfInRoadlandFollowModeArea(UnitTeam area_team) const;
     bool IsNaviExternalStatusFreshForGoal(
         std::chrono::steady_clock::time_point last_rx,
         std::uint8_t goal_id,
@@ -766,7 +765,7 @@ public:
     bool ShouldSuppressChaseForOutpostTask() const noexcept;
     bool TrySetOutpostVisualScoutTravelGoal(UnitTeam my_team, UnitTeam enemy_team, const char* reason);
     void ApplyRegionalAreaTaskControl(const RegionalAreaTaskTickResult& result);
-    bool RequestRoadlandSafeReturn(const char* reason);
+    bool RequestReadyRoadlandSafeReturn(const char* reason);
     bool TickRegionalAreaTask(UnitTeam my_team, UnitTeam enemy_team);
     bool TryStartRegionalAreaTaskForGoal(
         std::uint8_t base_goal_id,

@@ -13,16 +13,16 @@ LangYa::Config SplitConfig() {
     LangYa::Config config;
     config.RegionalAreaTaskSettings.Enable = true;
     config.RegionalAreaTaskSettings.MyPreRoadland.Enable = true;
-    config.RegionalAreaTaskSettings.MyRoadland.Enable = true;
+    config.RegionalAreaTaskSettings.MyReadyRoadland.Enable = true;
     config.RegionalAreaTaskSettings.DefaultPolicy.Enable = true;
     config.DecisionAutonomySettings.NaviGoal.UseAreaScope = true;
-    config.DecisionAutonomySettings.NaviGoal.MyArea = {"pre_roadland", "roadland"};
+    config.DecisionAutonomySettings.NaviGoal.MyArea = {"pre_roadland", "ready_roadland"};
     return config;
 }
 
 }  // namespace
 
-TEST(RoadlandSplitTaskTest, GoalIdsResolveToTheirFormalMainAreas) {
+TEST(PreReadyRoadlandTaskTest, GoalIdsResolveToTheirFormalMainAreas) {
     using BehaviorTree::Area::MainAreaKind;
     using BehaviorTree::AreaManager;
     using LangYa::UnitTeam;
@@ -35,12 +35,12 @@ TEST(RoadlandSplitTaskTest, GoalIdsResolveToTheirFormalMainAreas) {
     for (const auto goal : {LangYa::CentralToBase.ID, LangYa::BaseToCentral.ID}) {
         const auto road = AreaManager::ResolveGoalMainArea(goal, UnitTeam::Red);
         ASSERT_TRUE(road.has_value());
-        EXPECT_EQ(road->Kind, MainAreaKind::Roadland);
+        EXPECT_EQ(road->Kind, MainAreaKind::ReadyRoadland);
         EXPECT_FALSE(road->UsedNearestFallback);
     }
 }
 
-TEST(RoadlandSplitTaskTest, AreaManagerStartsIndependentPreAndRoadlandTasks) {
+TEST(PreReadyRoadlandTaskTest, AreaManagerStartsIndependentPreAndReadyRoadlandTasks) {
     using BehaviorTree::AreaManager;
     using BehaviorTree::RegionalAreaTaskType;
     using LangYa::UnitTeam;
@@ -61,11 +61,11 @@ TEST(RoadlandSplitTaskTest, AreaManagerStartsIndependentPreAndRoadlandTasks) {
         LangYa::CentralToBase.ID, UnitTeam::Red, UnitTeam::Red, true,
         false, 0, 0, base_setting, selection, now, false);
     ASSERT_TRUE(road_plan.has_value());
-    EXPECT_EQ(road_plan->Type, RegionalAreaTaskType::MyRoadland);
+    EXPECT_EQ(road_plan->Type, RegionalAreaTaskType::MyReadyRoadland);
     EXPECT_EQ(road_plan->InitialBaseGoal, LangYa::CentralToBase.ID);
 }
 
-TEST(RoadlandSplitTaskTest, DefaultPolicyOffersSeparatePreAndRoadlandCandidates) {
+TEST(PreReadyRoadlandTaskTest, DefaultPolicyOffersSeparatePreAndReadyRoadlandCandidates) {
     using BehaviorTree::DefaultRegionalPolicyInput;
     using BehaviorTree::DefaultStrategyManager;
     using BehaviorTree::RegionalAreaTaskType;
@@ -84,18 +84,18 @@ TEST(RoadlandSplitTaskTest, DefaultPolicyOffersSeparatePreAndRoadlandCandidates)
     });
 
     bool found_pre = false;
-    bool found_road = false;
+    bool found_ready_roadland = false;
     for (const auto& candidate : candidates) {
         found_pre |= candidate.TaskType == RegionalAreaTaskType::MyPreRoadland &&
             candidate.BaseGoalId == LangYa::PreRoadland.ID;
-        found_road |= candidate.TaskType == RegionalAreaTaskType::MyRoadland &&
+        found_ready_roadland |= candidate.TaskType == RegionalAreaTaskType::MyReadyRoadland &&
             candidate.BaseGoalId == LangYa::CentralToBase.ID;
     }
     EXPECT_TRUE(found_pre);
-    EXPECT_TRUE(found_road);
+    EXPECT_TRUE(found_ready_roadland);
 }
 
-TEST(RoadlandSplitTaskTest, FormalRegionalProfileEnablesBothRoadlandAreas) {
+TEST(PreReadyRoadlandTaskTest, FormalRegionalProfileEnablesPreAndReadyRoadlandAreas) {
     const auto source_root = std::filesystem::path(__FILE__).parent_path().parent_path();
     for (const auto& relative_path : {
              std::filesystem::path{"Scripts/config.json"},
@@ -109,6 +109,28 @@ TEST(RoadlandSplitTaskTest, FormalRegionalProfileEnablesBothRoadlandAreas) {
         const auto& my_area = profile.at("DecisionAutonomy").at("NaviGoal").at("MyArea");
 
         EXPECT_TRUE(my_area.at("PreRoadland").get<bool>()) << profile_path;
-        EXPECT_TRUE(my_area.at("Roadland").get<bool>()) << profile_path;
+        EXPECT_TRUE(my_area.at("ReadyRoadland").get<bool>()) << profile_path;
+        EXPECT_FALSE(my_area.contains("Roadland")) << profile_path;
     }
+}
+
+TEST(PreReadyRoadlandTaskTest, AreaScopeUsesReadyRoadlandWithoutLegacyRoadlandToken) {
+    const auto ready = BehaviorTree::AreaManager::MainAreaKindFromToken("ready_roadland");
+    EXPECT_TRUE(ready.has_value());
+    const auto compact_ready = BehaviorTree::AreaManager::MainAreaKindFromToken("readyroadland");
+    EXPECT_TRUE(compact_ready.has_value());
+    EXPECT_FALSE(BehaviorTree::AreaManager::MainAreaKindFromToken("roadland").has_value());
+    EXPECT_FALSE(BehaviorTree::AreaManager::MainAreaKindFromToken("road_land").has_value());
+    EXPECT_FALSE(BehaviorTree::AreaManager::MainAreaKindFromToken("road").has_value());
+}
+
+TEST(PreReadyRoadlandTaskTest, RegionalDefenseKeepsThePreRoadlandThreatCoverage) {
+    BehaviorTree::AreaManager manager;
+    const auto threat = manager.AnalyzeRegionalDefenseThreat(
+        LangYa::UnitTeam::Red,
+        LangYa::UnitTeam::Blue,
+        false,
+        {{457, 72}});
+
+    EXPECT_TRUE(threat.HardThreat);
 }

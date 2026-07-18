@@ -232,7 +232,7 @@ def test_validation_checks_unit_info_bounds_and_reliable_enemy_positions() -> No
                 "position_fresh": True,
                 "position_source": "position_data",
                 "area_id": 6,
-                "area_name": "enemy_roadland",
+                "area_name": "enemy_ready_roadland",
             },
             {
                 "car_id": 107,

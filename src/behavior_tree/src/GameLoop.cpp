@@ -169,16 +169,16 @@ namespace BehaviorTree {
              &Area::MainAreaBoundary(UnitTeam::Red, Area::MainAreaKind::Base)},
             {"red_highland", UnitTeam::Red, Area::MainAreaKind::Highland,
              &Area::MainAreaBoundary(UnitTeam::Red, Area::MainAreaKind::Highland)},
-            {"red_roadland", UnitTeam::Red, Area::MainAreaKind::Roadland,
-             &Area::MainAreaBoundary(UnitTeam::Red, Area::MainAreaKind::Roadland)},
+            {"red_ready_roadland", UnitTeam::Red, Area::MainAreaKind::ReadyRoadland,
+             &Area::MainAreaBoundary(UnitTeam::Red, Area::MainAreaKind::ReadyRoadland)},
             {"common_central", UnitTeam::Unknown, Area::MainAreaKind::Central,
              &Area::MainAreaBoundary(UnitTeam::Red, Area::MainAreaKind::Central)},
             {"blue_base", UnitTeam::Blue, Area::MainAreaKind::Base,
              &Area::MainAreaBoundary(UnitTeam::Blue, Area::MainAreaKind::Base)},
             {"blue_highland", UnitTeam::Blue, Area::MainAreaKind::Highland,
              &Area::MainAreaBoundary(UnitTeam::Blue, Area::MainAreaKind::Highland)},
-            {"blue_roadland", UnitTeam::Blue, Area::MainAreaKind::Roadland,
-             &Area::MainAreaBoundary(UnitTeam::Blue, Area::MainAreaKind::Roadland)},
+            {"blue_ready_roadland", UnitTeam::Blue, Area::MainAreaKind::ReadyRoadland,
+             &Area::MainAreaBoundary(UnitTeam::Blue, Area::MainAreaKind::ReadyRoadland)},
         }};
     }
 
@@ -426,8 +426,8 @@ namespace BehaviorTree {
         switch (kind) {
             case RegionalDefenseSearchKind::OwnBase: return "own_base";
             case RegionalDefenseSearchKind::OwnHighland: return "own_highland";
-            case RegionalDefenseSearchKind::OwnRoadland: return "own_roadland";
-            case RegionalDefenseSearchKind::OwnHighlandRoadland: return "own_highland_roadland";
+            case RegionalDefenseSearchKind::OwnRoadCorridor: return "own_road_corridor";
+            case RegionalDefenseSearchKind::OwnHighlandRoadCorridor: return "own_highland_road_corridor";
             case RegionalDefenseSearchKind::CommonCentral: return "common_central";
             case RegionalDefenseSearchKind::EnemySideSoft: return "enemy_side_soft";
             case RegionalDefenseSearchKind::OwnFortressGainPoint: return "own_fortress_gain_point";
@@ -1754,13 +1754,13 @@ namespace BehaviorTree {
                 return;
             }
             if (areaManager_.RegionalAreaTaskActive() &&
-                areaManager_.RegionalAreaTask().Type == RegionalAreaTaskType::MyRoadland &&
+                areaManager_.RegionalAreaTask().Type == RegionalAreaTaskType::MyReadyRoadland &&
                 !areaManager_.RegionalAreaTaskCanYieldToHigherPriority()) {
                 outpostVisualScoutNavigationActive_ = false;
                 outpostPostArmorFaceSearchUntil_ = {};
                 outpostArmorInterruptActive_ = false;
                 aimMode = AimMode::RotateScan;
-                LoggerPtr->Info("Roadland hard crossing active: suppress Outpost aim mode.");
+                LoggerPtr->Info("ReadyRoadland hard crossing active: suppress Outpost aim mode.");
                 return;
             }
 
@@ -2756,23 +2756,6 @@ namespace BehaviorTree {
         return AreaManager::IsPositionInMainArea(area_team, kind, self_position.X, self_position.Y);
     }
 
-    bool Application::IsSelfInRoadlandFollowModeArea(const UnitTeam area_team) const {
-        if (area_team != UnitTeam::Red && area_team != UnitTeam::Blue) {
-            return false;
-        }
-        const auto self_position = GetSentryPositionState(std::chrono::steady_clock::now());
-        if (!self_position.Fresh) {
-            return false;
-        }
-        if (self_position.X <= 0 || self_position.Y <= 0) {
-            return false;
-        }
-        return AreaManager::IsPositionInRoadlandFollowModeArea(
-            area_team,
-            self_position.X,
-            self_position.Y);
-    }
-
     bool Application::IsNaviExternalStatusFreshForGoal(
         const std::chrono::steady_clock::time_point last_rx,
         const std::uint8_t goal_id,
@@ -3099,18 +3082,18 @@ namespace BehaviorTree {
         }
     }
 
-    bool Application::RequestRoadlandSafeReturn(const char* reason) {
+    bool Application::RequestReadyRoadlandSafeReturn(const char* reason) {
         if (!areaManager_.RegionalAreaTaskActive() ||
-            areaManager_.RegionalAreaTask().Type != RegionalAreaTaskType::MyRoadland) {
+            areaManager_.RegionalAreaTask().Type != RegionalAreaTaskType::MyReadyRoadland) {
             return false;
         }
         const auto before_phase = areaManager_.RegionalAreaTask().Phase;
-        areaManager_.RequestRoadlandReturnToBase(std::chrono::steady_clock::now());
+        areaManager_.RequestReadyRoadlandReturnToBase(std::chrono::steady_clock::now());
         const auto after_phase = areaManager_.RegionalAreaTask().Phase;
         const bool changed = before_phase != after_phase;
         if (changed && LoggerPtr) {
             LoggerPtr->Info(
-                "RegionalAreaTask[MyRoadland] safe return requested: {}.",
+                "RegionalAreaTask[MyReadyRoadland] safe return requested: {}.",
                 reason ? reason : "higher priority");
         }
         return changed;
@@ -3128,9 +3111,9 @@ namespace BehaviorTree {
         const bool active_low_priority_task =
             active_task_type == RegionalAreaTaskType::MyBase ||
             active_task_type == RegionalAreaTaskType::MyPreRoadland ||
-            active_task_type == RegionalAreaTaskType::MyRoadland ||
+            active_task_type == RegionalAreaTaskType::MyReadyRoadland ||
             active_task_type == RegionalAreaTaskType::CommonCentral;
-        const bool active_roadland_task = active_task_type == RegionalAreaTaskType::MyRoadland;
+        const bool active_ready_roadland_task = active_task_type == RegionalAreaTaskType::MyReadyRoadland;
         const bool can_yield_to_higher_priority = areaManager_.RegionalAreaTaskCanYieldToHigherPriority();
         const bool aim_task_has_higher_priority =
             aimMode == AimMode::Buff ||
@@ -3138,10 +3121,10 @@ namespace BehaviorTree {
             outpostVisualScoutNavigationActive_;
         if (active_low_priority_task && aim_task_has_higher_priority) {
             if (!can_yield_to_higher_priority) {
-                // Roadland crossing is a bound control segment; do not release regional control
+                // ReadyRoadland crossing is a bound control segment; do not release regional control
                 // until the far endpoint or timeout protection completes it.
-            } else if (active_roadland_task) {
-                RequestRoadlandSafeReturn("aim task has higher priority");
+            } else if (active_ready_roadland_task) {
+                RequestReadyRoadlandSafeReturn("aim task has higher priority");
             } else {
                 areaManager_.ClearRegionalAreaTask();
                 defaultStrategyManager_.RecordRegionalAreaResult(
@@ -3158,7 +3141,7 @@ namespace BehaviorTree {
             }
         }
         if (active_low_priority_task) {
-            if (active_roadland_task) {
+            if (active_ready_roadland_task) {
                 const auto threat = EvaluateRegionalDefenseThreat(my_team, enemy_team);
                 if (threat.has_value() && can_yield_to_higher_priority) {
                     const bool soft_threat_blocked =
@@ -3166,7 +3149,7 @@ namespace BehaviorTree {
                         (aimMode == AimMode::Buff || aimMode == AimMode::Outpost ||
                          !naviCommandIntervalClock.trigger());
                     if (!soft_threat_blocked) {
-                        RequestRoadlandSafeReturn("regional defense has higher priority");
+                        RequestReadyRoadlandSafeReturn("regional defense has higher priority");
                     }
                 }
             } else if (TrySetRegionalDefenseGoal(my_team, enemy_team)) {
@@ -3193,17 +3176,17 @@ namespace BehaviorTree {
                 last_rx.time_since_epoch().count() != 0 &&
                 now - last_rx <= std::chrono::seconds(2);
         };
-        const auto& roadland_setting = config.RegionalAreaTaskSettings.MyRoadland;
+        const auto& ready_roadland_setting = config.RegionalAreaTaskSettings.MyReadyRoadland;
         const auto& central_setting = config.RegionalAreaTaskSettings.CommonCentral;
-        const bool roadland_health_known =
+        const bool ready_roadland_health_known =
             referee_value_fresh(hasReceivedMyselfHealth_, lastMyselfHealthRxTime);
-        const bool roadland_ammo_known =
+        const bool ready_roadland_ammo_known =
             referee_value_fresh(hasReceivedAmmoLeft_, lastAmmoLeftRxTime);
-        const bool roadland_data_unhealthy =
-            roadland_health_known &&
-            roadland_ammo_known &&
-            (myselfHealth < static_cast<std::uint16_t>(std::max(0, roadland_setting.HealthyHpMin)) ||
-             ammoLeft < static_cast<std::uint16_t>(std::max(0, roadland_setting.HealthyAmmoMin)));
+        const bool ready_roadland_data_unhealthy =
+            ready_roadland_health_known &&
+            ready_roadland_ammo_known &&
+            (myselfHealth < static_cast<std::uint16_t>(std::max(0, ready_roadland_setting.HealthyHpMin)) ||
+             ammoLeft < static_cast<std::uint16_t>(std::max(0, ready_roadland_setting.HealthyAmmoMin)));
         const bool central_health_known =
             referee_value_fresh(hasReceivedMyselfHealth_, lastMyselfHealthRxTime);
         const bool central_ammo_known =
@@ -3239,11 +3222,11 @@ namespace BehaviorTree {
                 .HoleRoadUnreachable = IsBaseGoalExternallyUnreachable(LangYa::HoleRoad.ID, goal_team, apply_team_offset),
                 .CurrentBaseGoalArrived = IsBaseGoalArrived(current_base_goal, goal_team, apply_team_offset),
                 .CurrentBaseGoalUnreachable = IsBaseGoalExternallyUnreachable(current_base_goal, goal_team, apply_team_offset),
-                .RoadlandCentralToBaseArrived = IsBaseGoalArrived(LangYa::CentralToBase.ID, goal_team, apply_team_offset),
-                .RoadlandCentralToBaseUnreachable = IsBaseGoalExternallyUnreachable(LangYa::CentralToBase.ID, goal_team, apply_team_offset),
-                .RoadlandBaseToCentralArrived = IsBaseGoalArrived(LangYa::BaseToCentral.ID, goal_team, apply_team_offset),
-                .RoadlandBaseToCentralUnreachable = IsBaseGoalExternallyUnreachable(LangYa::BaseToCentral.ID, goal_team, apply_team_offset),
-                .RoadlandShouldLeave = active_roadland_task && roadland_data_unhealthy,
+                .ReadyRoadlandCentralToBaseArrived = IsBaseGoalArrived(LangYa::CentralToBase.ID, goal_team, apply_team_offset),
+                .ReadyRoadlandCentralToBaseUnreachable = IsBaseGoalExternallyUnreachable(LangYa::CentralToBase.ID, goal_team, apply_team_offset),
+                .ReadyRoadlandBaseToCentralArrived = IsBaseGoalArrived(LangYa::BaseToCentral.ID, goal_team, apply_team_offset),
+                .ReadyRoadlandBaseToCentralUnreachable = IsBaseGoalExternallyUnreachable(LangYa::BaseToCentral.ID, goal_team, apply_team_offset),
+                .ReadyRoadlandShouldLeave = active_ready_roadland_task && ready_roadland_data_unhealthy,
                 .CentralShouldLeave =
                     active_task_type == RegionalAreaTaskType::CommonCentral && central_data_unhealthy,
                 .HoldCurrentBaseGoal = hold_base_patrol_for_armor,
@@ -3294,7 +3277,7 @@ namespace BehaviorTree {
             (!config.RegionalAreaTaskSettings.MyHighland.Enable &&
              !config.RegionalAreaTaskSettings.MyBase.Enable &&
              !config.RegionalAreaTaskSettings.MyPreRoadland.Enable &&
-             !config.RegionalAreaTaskSettings.MyRoadland.Enable &&
+             !config.RegionalAreaTaskSettings.MyReadyRoadland.Enable &&
              !config.RegionalAreaTaskSettings.CommonCentral.Enable) ||
             areaManager_.HighlandTransitionActive() ||
             areaManager_.RegionalAreaTaskActive()) {
@@ -3320,18 +3303,18 @@ namespace BehaviorTree {
         if (!plan.has_value()) {
             return false;
         }
-        if (plan->Type == RegionalAreaTaskType::MyRoadland ||
+        if (plan->Type == RegionalAreaTaskType::MyReadyRoadland ||
             plan->Type == RegionalAreaTaskType::CommonCentral) {
             auto referee_value_fresh = [&](const bool received, const std::chrono::steady_clock::time_point last_rx) {
                 return received &&
                     last_rx.time_since_epoch().count() != 0 &&
                     now - last_rx <= std::chrono::seconds(2);
             };
-            const int healthy_hp_min = plan->Type == RegionalAreaTaskType::MyRoadland
-                ? config.RegionalAreaTaskSettings.MyRoadland.HealthyHpMin
+            const int healthy_hp_min = plan->Type == RegionalAreaTaskType::MyReadyRoadland
+                ? config.RegionalAreaTaskSettings.MyReadyRoadland.HealthyHpMin
                 : config.RegionalAreaTaskSettings.CommonCentral.HealthyHpMin;
-            const int healthy_ammo_min = plan->Type == RegionalAreaTaskType::MyRoadland
-                ? config.RegionalAreaTaskSettings.MyRoadland.HealthyAmmoMin
+            const int healthy_ammo_min = plan->Type == RegionalAreaTaskType::MyReadyRoadland
+                ? config.RegionalAreaTaskSettings.MyReadyRoadland.HealthyAmmoMin
                 : config.RegionalAreaTaskSettings.CommonCentral.HealthyAmmoMin;
             const bool data_healthy =
                 referee_value_fresh(hasReceivedMyselfHealth_, lastMyselfHealthRxTime) &&
@@ -3348,8 +3331,8 @@ namespace BehaviorTree {
              !config.RegionalAreaTaskSettings.MyBase.Enable) ||
             (plan->Type == RegionalAreaTaskType::MyPreRoadland &&
              !config.RegionalAreaTaskSettings.MyPreRoadland.Enable) ||
-            (plan->Type == RegionalAreaTaskType::MyRoadland &&
-             !config.RegionalAreaTaskSettings.MyRoadland.Enable) ||
+            (plan->Type == RegionalAreaTaskType::MyReadyRoadland &&
+             !config.RegionalAreaTaskSettings.MyReadyRoadland.Enable) ||
             (plan->Type == RegionalAreaTaskType::CommonCentral &&
              !config.RegionalAreaTaskSettings.CommonCentral.Enable)) {
             return false;
@@ -3368,9 +3351,9 @@ namespace BehaviorTree {
                     "RegionalAreaTask[MyPreRoadland] start from goal={} reason={}: goal=PreRoadland (BaseGoalId=25).",
                     static_cast<int>(ResolveGoalId(base_goal_id, goal_team, apply_team_offset)),
                     reason ? reason : "area_task");
-            } else if (plan->Type == RegionalAreaTaskType::MyRoadland) {
+            } else if (plan->Type == RegionalAreaTaskType::MyReadyRoadland) {
                 LoggerPtr->Info(
-                    "RegionalAreaTask[MyRoadland] start from goal={} reason={}: CentralToBase -> BaseToCentral guarded crossing.",
+                    "RegionalAreaTask[MyReadyRoadland] start from goal={} reason={}: CentralToBase -> BaseToCentral guarded crossing.",
                     static_cast<int>(ResolveGoalId(base_goal_id, goal_team, apply_team_offset)),
                     reason ? reason : "area_task");
             } else if (plan->Type == RegionalAreaTaskType::CommonCentral) {
@@ -4038,13 +4021,14 @@ namespace BehaviorTree {
                     LangYa::CastleRight1.ID,
                     LangYa::CastleLeft1.ID
                 };
-            } else if (threat.OwnHighlandCount > 0 && threat.OwnRoadlandCount > 0) {
-                search_kind = RegionalDefenseSearchKind::OwnHighlandRoadland;
-                reason = "own_highland_roadland";
+            } else if (threat.OwnHighlandCount > 0 &&
+                       (threat.OwnPreRoadlandCount > 0 || threat.OwnReadyRoadlandCount > 0)) {
+                search_kind = RegionalDefenseSearchKind::OwnHighlandRoadCorridor;
+                reason = "own_highland_road_corridor";
                 candidates = {LangYa::Castle.ID, LangYa::HoleRoad.ID, LangYa::CastleRight2.ID};
-            } else if (threat.OwnRoadlandCount > 0) {
-                search_kind = RegionalDefenseSearchKind::OwnRoadland;
-                reason = "own_roadland";
+            } else if (threat.OwnPreRoadlandCount > 0 || threat.OwnReadyRoadlandCount > 0) {
+                search_kind = RegionalDefenseSearchKind::OwnRoadCorridor;
+                reason = "own_road_corridor";
                 candidates = {LangYa::CastleRight2.ID, LangYa::CastleRight1.ID, LangYa::Castle.ID};
             } else if (threat.OwnHighlandCount > 0) {
                 search_kind = RegionalDefenseSearchKind::OwnHighland;
@@ -4057,7 +4041,9 @@ namespace BehaviorTree {
             }
         } else {
             search_kind = RegionalDefenseSearchKind::EnemySideSoft;
-            reason = threat.EnemyRoadlandCount > 0 ? "enemy_roadland_soft" : "enemy_highland_soft";
+            reason = (threat.EnemyPreRoadlandCount > 0 || threat.EnemyReadyRoadlandCount > 0)
+                ? "enemy_road_corridor_soft"
+                : "enemy_highland_soft";
             hold_sec = defense.SoftHoldSec;
             candidates = {LangYa::HoleRoad.ID, LangYa::Highland.ID, LangYa::Castle.ID};
         }
@@ -4149,7 +4135,7 @@ namespace BehaviorTree {
             speedLevel = 1;
             if (LoggerPtr) {
                 LoggerPtr->Info(
-                    "Regional defense {} kind={} search_index={} goal={} own_fortress_gain_point_enemy={} fortress_enemy_count={} own_base={} own_highland={} own_roadland={} common_central={} enemy_highland={} enemy_roadland={}",
+                    "Regional defense {} kind={} search_index={} goal={} own_fortress_gain_point_enemy={} fortress_enemy_count={} own_base={} own_highland={} own_pre_roadland={} own_ready_roadland={} common_central={} enemy_highland={} enemy_pre_roadland={} enemy_ready_roadland={}",
                     reason,
                     RegionalDefenseSearchKindToString(search_kind),
                     regionalDefenseSearchIndex_,
@@ -4158,10 +4144,12 @@ namespace BehaviorTree {
                     fortressGainPointEnemyCount_,
                     threat.OwnBaseCount,
                     threat.OwnHighlandCount,
-                    threat.OwnRoadlandCount,
+                    threat.OwnPreRoadlandCount,
+                    threat.OwnReadyRoadlandCount,
                     threat.CommonCentralCount,
                     threat.EnemyHighlandCount,
-                    threat.EnemyRoadlandCount);
+                    threat.EnemyPreRoadlandCount,
+                    threat.EnemyReadyRoadlandCount);
             }
             return true;
         };
@@ -4308,7 +4296,7 @@ namespace BehaviorTree {
         }
 
         if (areaManager_.RegionalAreaTaskActive()) {
-            if (areaManager_.RegionalAreaTask().Type == RegionalAreaTaskType::MyRoadland &&
+            if (areaManager_.RegionalAreaTask().Type == RegionalAreaTaskType::MyReadyRoadland &&
                 !areaManager_.RegionalAreaTaskCanYieldToHigherPriority()) {
                 return false;
             }
@@ -5189,8 +5177,8 @@ namespace BehaviorTree {
         int now_time = 420 - timeLeft;
         auto cancel_regional_area_task_for_recovery = [&]() -> bool {
             if (areaManager_.RegionalAreaTaskActive()) {
-                if (areaManager_.RegionalAreaTask().Type == RegionalAreaTaskType::MyRoadland) {
-                    RequestRoadlandSafeReturn("recovery has higher priority");
+                if (areaManager_.RegionalAreaTask().Type == RegionalAreaTaskType::MyReadyRoadland) {
+                    RequestReadyRoadlandSafeReturn("recovery has higher priority");
                     return TickRegionalAreaTask(MyTeam, EnemyTeam);
                 }
                 const auto canceled_task_type = areaManager_.RegionalAreaTask().Type;

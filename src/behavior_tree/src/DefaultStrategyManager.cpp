@@ -62,8 +62,8 @@ double BaseWeight(
             return score.WeightMyHighland;
         case RegionalAreaTaskType::MyPreRoadland:
             return score.WeightMyPreRoadland;
-        case RegionalAreaTaskType::MyRoadland:
-            return score.WeightMyRoadland;
+        case RegionalAreaTaskType::MyReadyRoadland:
+            return score.WeightMyReadyRoadland;
         case RegionalAreaTaskType::CommonCentral:
             return score.WeightCommonCentral;
         default:
@@ -163,8 +163,8 @@ std::vector<DefaultRegionalAreaCandidate> DefaultStrategyManager::BuildRegionalA
         if (last_completed_task_ == RegionalAreaTaskType::MyHighland) {
             if (candidate.TaskType == RegionalAreaTaskType::MyBase) {
                 candidate.Score += policy.Score.AfterHighlandMyBaseBonus;
-            } else if (candidate.TaskType == RegionalAreaTaskType::MyRoadland) {
-                candidate.Score += policy.Score.AfterHighlandMyRoadlandBonus;
+            } else if (candidate.TaskType == RegionalAreaTaskType::MyReadyRoadland) {
+                candidate.Score += policy.Score.AfterHighlandMyReadyRoadlandBonus;
             }
         }
         if (low_resource && candidate.TaskType == RegionalAreaTaskType::MyBase) {
@@ -220,18 +220,18 @@ std::vector<DefaultRegionalAreaCandidate> DefaultStrategyManager::BuildRegionalA
 
     add_candidate(
         DefaultRegionalAreaCandidate{
-            .Name = "MyRoadland",
-            .TaskType = RegionalAreaTaskType::MyRoadland,
+            .Name = "MyReadyRoadland",
+            .TaskType = RegionalAreaTaskType::MyReadyRoadland,
             .Side = AreaSide::My,
-            .Kind = Area::MainAreaKind::Roadland,
+            .Kind = Area::MainAreaKind::ReadyRoadland,
             .BaseGoalId = LangYa::CentralToBase.ID,
             .GoalTeam = input.MyTeam
         },
-        task.MyRoadland.Enable,
+        task.MyReadyRoadland.Enable,
         navi_goal.MyArea,
         true,
-        std::max(policy.Health.MyAreaHpMin, task.MyRoadland.HealthyHpMin),
-        std::max(policy.Ammo.MyAreaAmmoMin, task.MyRoadland.HealthyAmmoMin));
+        std::max(policy.Health.MyAreaHpMin, task.MyReadyRoadland.HealthyHpMin),
+        std::max(policy.Ammo.MyAreaAmmoMin, task.MyReadyRoadland.HealthyAmmoMin));
 
     add_candidate(
         DefaultRegionalAreaCandidate{

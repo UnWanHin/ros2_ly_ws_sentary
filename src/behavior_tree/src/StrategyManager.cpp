@@ -94,7 +94,7 @@ bool StrategyManager::RunHard(Application& app) {
     }
 
     if (app.areaManager_.RegionalAreaTaskActive() &&
-        app.areaManager_.RegionalAreaTask().Type == RegionalAreaTaskType::MyRoadland &&
+        app.areaManager_.RegionalAreaTask().Type == RegionalAreaTaskType::MyReadyRoadland &&
         !app.areaManager_.RegionalAreaTaskCanYieldToHigherPriority()) {
         if (app.TickRegionalAreaTask(my_team, enemy_team)) {
             MarkHandled(app, StrategyLayer::Hard, true);

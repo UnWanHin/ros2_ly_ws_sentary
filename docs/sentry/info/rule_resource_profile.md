@@ -203,8 +203,8 @@ BT 目前只存一份 runtime 當前資源值：
 | 模塊 | 當前門檻 |
 |---|---:|
 | `DefaultPolicy.Ammo.MyAreaAmmoMin` | 50 |
-| `MyRoadland.HealthyHpMin` | 300 |
-| `MyRoadland.HealthyAmmoMin` | 50 |
+| `MyReadyRoadland.HealthyHpMin` | 300 |
+| `MyReadyRoadland.HealthyAmmoMin` | 50 |
 | `CommonCentral.HealthyHpMin` | 300 |
 | `CommonCentral.HealthyAmmoMin` | 50 |
 
@@ -221,7 +221,7 @@ BT 目前只存一份 runtime 當前資源值：
 代碼位置：
 
 - `src/behavior_tree/src/GameLoop.cpp`
-  - Roadland/Central 健康判斷使用 `myselfHealth` 和 `ammoLeft`
+  - ReadyRoadland/Central 健康判斷使用 `myselfHealth` 和 `ammoLeft`
   - RegionalDefense 強資源判斷使用 `StrongHealthMin/StrongAmmoMin`
 - `src/behavior_tree/src/PostureLogic.cpp`
   - 姿態根據低血、極低血、低彈加權

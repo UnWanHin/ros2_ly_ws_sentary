@@ -133,10 +133,12 @@ struct RegionalIdlePatrolCandidate {
 struct RegionalDefenseThreat {
     int OwnBaseCount{0};
     int OwnHighlandCount{0};
-    int OwnRoadlandCount{0};
+    int OwnPreRoadlandCount{0};
+    int OwnReadyRoadlandCount{0};
     int CommonCentralCount{0};
     int EnemyHighlandCount{0};
-    int EnemyRoadlandCount{0};
+    int EnemyPreRoadlandCount{0};
+    int EnemyReadyRoadlandCount{0};
     bool OwnFortressGainPointEnemyOccupied{false};
     bool HardThreat{false};
     bool SoftEnemySideThreat{false};
@@ -191,7 +193,7 @@ enum class RegionalAreaTaskType : std::uint8_t {
     None = 0,
     MyHighland = 1,
     MyBase = 2,
-    MyRoadland = 3,
+    MyReadyRoadland = 3,
     CommonCentral = 4,
     MyPreRoadland = 5
 };
@@ -206,11 +208,11 @@ enum class RegionalAreaTaskPhase : std::uint8_t {
     BuffShootHold = 4,
     LeaveViaHoleRoad = 5,
     BasePatrol = 6,
-    RoadlandApproachCentralToBase = 7,
-    RoadlandCrossToBaseToCentral = 8,
-    RoadlandHoldBaseToCentral = 9,
-    RoadlandCrossToCentralToBase = 10,
-    RoadlandReturnToCentralToBase = 11,
+    ReadyRoadlandApproachCentralToBase = 7,
+    ReadyRoadlandCrossToBaseToCentral = 8,
+    ReadyRoadlandHoldBaseToCentral = 9,
+    ReadyRoadlandCrossToCentralToBase = 10,
+    ReadyRoadlandReturnToCentralToBase = 11,
     CentralPatrol = 12,
     PreRoadlandApproach = 13,
     PreRoadlandHold = 14
@@ -257,11 +259,11 @@ struct RegionalAreaTaskTickInput {
     bool HoleRoadUnreachable{false};
     bool CurrentBaseGoalArrived{false};
     bool CurrentBaseGoalUnreachable{false};
-    bool RoadlandCentralToBaseArrived{false};
-    bool RoadlandCentralToBaseUnreachable{false};
-    bool RoadlandBaseToCentralArrived{false};
-    bool RoadlandBaseToCentralUnreachable{false};
-    bool RoadlandShouldLeave{false};
+    bool ReadyRoadlandCentralToBaseArrived{false};
+    bool ReadyRoadlandCentralToBaseUnreachable{false};
+    bool ReadyRoadlandBaseToCentralArrived{false};
+    bool ReadyRoadlandBaseToCentralUnreachable{false};
+    bool ReadyRoadlandShouldLeave{false};
     bool CentralShouldLeave{false};
     bool HoldCurrentBaseGoal{false};
     bool HasSelfPosition{false};
@@ -388,7 +390,7 @@ public:
     void ClearRegionalAreaTask() noexcept { regional_area_task_.Clear(); }
     bool RegionalAreaTaskCriticalControlActive() const noexcept;
     bool RegionalAreaTaskCanYieldToHigherPriority() const noexcept;
-    void RequestRoadlandReturnToBase(AreaTimePoint now) noexcept;
+    void RequestReadyRoadlandReturnToBase(AreaTimePoint now) noexcept;
 
     static constexpr std::uint8_t MaxBaseGoalId() noexcept { return LangYa::CentralLeftB.ID; }
     static bool IsValidBaseGoalId(std::uint8_t base_goal_id) noexcept;
@@ -412,10 +414,6 @@ public:
     static bool IsPositionInMainArea(
         LangYa::UnitTeam area_team,
         Area::MainAreaKind kind,
-        int x,
-        int y);
-    static bool IsPositionInRoadlandFollowModeArea(
-        LangYa::UnitTeam area_team,
         int x,
         int y);
     static bool IsPositionInPreRoadlandArea(

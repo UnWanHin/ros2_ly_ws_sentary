@@ -54,8 +54,8 @@ std::string NormalizeMainAreaToken(std::string value) {
     if (value == "highland" || value == "high_land" || value == "high") {
         return "highland";
     }
-    if (value == "roadland" || value == "road_land" || value == "road") {
-        return "roadland";
+    if (value == "ready_roadland" || value == "readyroadland") {
+        return "ready_roadland";
     }
     if (value == "central" || value == "center" || value == "centre" || value == "middle") {
         return "central";
@@ -1164,7 +1164,7 @@ namespace LangYa {
         }
     }
 
-    void from_json(const json& j, MyRoadlandAreaTaskSetting& rs) {
+    void from_json(const json& j, MyReadyRoadlandAreaTaskSetting& rs) {
         rs.Enable = j.value("Enable", rs.Enable);
         rs.UseFaceMode = j.value("UseFaceMode", rs.UseFaceMode);
         rs.TravelTimeoutSec = j.value("TravelTimeoutSec", rs.TravelTimeoutSec);
@@ -1211,16 +1211,16 @@ namespace LangYa {
         ss.WeightMyBase = j.value("WeightMyBase", ss.WeightMyBase);
         ss.WeightMyHighland = j.value("WeightMyHighland", ss.WeightMyHighland);
         ss.WeightMyPreRoadland = j.value("WeightMyPreRoadland", ss.WeightMyPreRoadland);
-        ss.WeightMyRoadland = j.value("WeightMyRoadland", ss.WeightMyRoadland);
+        ss.WeightMyReadyRoadland = j.value("WeightMyReadyRoadland", ss.WeightMyReadyRoadland);
         ss.WeightCommonCentral = j.value("WeightCommonCentral", ss.WeightCommonCentral);
         ss.WeightEnemyBase = j.value("WeightEnemyBase", ss.WeightEnemyBase);
         ss.WeightEnemyHighland = j.value("WeightEnemyHighland", ss.WeightEnemyHighland);
-        ss.WeightEnemyRoadland = j.value("WeightEnemyRoadland", ss.WeightEnemyRoadland);
+        ss.WeightEnemyReadyRoadland = j.value("WeightEnemyReadyRoadland", ss.WeightEnemyReadyRoadland);
         ss.DistancePenaltyPerMeter = j.value("DistancePenaltyPerMeter", ss.DistancePenaltyPerMeter);
         ss.CurrentAreaPenalty = j.value("CurrentAreaPenalty", ss.CurrentAreaPenalty);
         ss.LastAreaPenalty = j.value("LastAreaPenalty", ss.LastAreaPenalty);
         ss.AfterHighlandMyBaseBonus = j.value("AfterHighlandMyBaseBonus", ss.AfterHighlandMyBaseBonus);
-        ss.AfterHighlandMyRoadlandBonus = j.value("AfterHighlandMyRoadlandBonus", ss.AfterHighlandMyRoadlandBonus);
+        ss.AfterHighlandMyReadyRoadlandBonus = j.value("AfterHighlandMyReadyRoadlandBonus", ss.AfterHighlandMyReadyRoadlandBonus);
         ss.LowResourceMyBaseBonus = j.value("LowResourceMyBaseBonus", ss.LowResourceMyBaseBonus);
     }
 
@@ -1268,8 +1268,8 @@ namespace LangYa {
         if (j.contains("MyPreRoadland") && j.at("MyPreRoadland").is_object()) {
             j.at("MyPreRoadland").get_to(rt.MyPreRoadland);
         }
-        if (j.contains("MyRoadland") && j.at("MyRoadland").is_object()) {
-            j.at("MyRoadland").get_to(rt.MyRoadland);
+        if (j.contains("MyReadyRoadland") && j.at("MyReadyRoadland").is_object()) {
+            j.at("MyReadyRoadland").get_to(rt.MyReadyRoadland);
         }
         if (j.contains("CommonCentral") && j.at("CommonCentral").is_object()) {
             j.at("CommonCentral").get_to(rt.CommonCentral);
@@ -2132,7 +2132,7 @@ namespace BehaviorTree {
         auto& highland = task.MyHighland;
         auto& base = task.MyBase;
         auto& pre_roadland = task.MyPreRoadland;
-        auto& roadland = task.MyRoadland;
+        auto& ready_roadland = task.MyReadyRoadland;
         auto& central = task.CommonCentral;
         auto& policy = task.DefaultPolicy;
 
@@ -2217,11 +2217,11 @@ namespace BehaviorTree {
         read_area_group(
             "MyArea",
             navi_goal.MyArea,
-            {{"Base", "base"}, {"Highland", "highland"}, {"Roadland", "roadland"}});
+            {{"Base", "base"}, {"Highland", "highland"}, {"ReadyRoadland", "ready_roadland"}});
         read_area_group(
             "EnemyArea",
             navi_goal.EnemyArea,
-            {{"Base", "base"}, {"Highland", "highland"}, {"Roadland", "roadland"}});
+            {{"Base", "base"}, {"Highland", "highland"}, {"ReadyRoadland", "ready_roadland"}});
         read_area_group(
             "CommonArea",
             navi_goal.CommonArea,
@@ -2277,10 +2277,10 @@ namespace BehaviorTree {
         ReadOptionalBoolParam(
             node_,
             {
-                "AreaManager.Area.MyArea.Roadland.Task.Enable",
-                "AreaManager/Area/MyArea/Roadland/Task/Enable"
+                "AreaManager.Area.MyArea.ReadyRoadland.Task.Enable",
+                "AreaManager/Area/MyArea/ReadyRoadland/Task/Enable"
             },
-            roadland.Enable);
+            ready_roadland.Enable);
         ReadOptionalBoolParam(
             node_,
             {
@@ -2509,102 +2509,102 @@ namespace BehaviorTree {
         ReadOptionalBoolParam(
             node_,
             {
-                "AreaManager.Area.MyArea.Roadland.Task.MyRoadland.Enable",
-                "AreaManager/Area/MyArea/Roadland/Task/MyRoadland/Enable",
-                "AreaManager.Task.MyRoadland.Enable",
-                "AreaManager/Task/MyRoadland/Enable",
-                "AreaManager.RegionalAreaTask.MyRoadland.Enable",
-                "AreaManager/RegionalAreaTask/MyRoadland/Enable"
+                "AreaManager.Area.MyArea.ReadyRoadland.Task.MyReadyRoadland.Enable",
+                "AreaManager/Area/MyArea/ReadyRoadland/Task/MyReadyRoadland/Enable",
+                "AreaManager.Task.MyReadyRoadland.Enable",
+                "AreaManager/Task/MyReadyRoadland/Enable",
+                "AreaManager.RegionalAreaTask.MyReadyRoadland.Enable",
+                "AreaManager/RegionalAreaTask/MyReadyRoadland/Enable"
             },
-            roadland.Enable);
+            ready_roadland.Enable);
         ReadOptionalBoolParam(
             node_,
             {
-                "AreaManager.Area.MyArea.Roadland.Task.MyRoadland.UseFaceMode",
-                "AreaManager/Area/MyArea/Roadland/Task/MyRoadland/UseFaceMode",
-                "AreaManager.Task.MyRoadland.UseFaceMode",
-                "AreaManager/Task/MyRoadland/UseFaceMode",
-                "AreaManager.RegionalAreaTask.MyRoadland.UseFaceMode",
-                "AreaManager/RegionalAreaTask/MyRoadland/UseFaceMode"
+                "AreaManager.Area.MyArea.ReadyRoadland.Task.MyReadyRoadland.UseFaceMode",
+                "AreaManager/Area/MyArea/ReadyRoadland/Task/MyReadyRoadland/UseFaceMode",
+                "AreaManager.Task.MyReadyRoadland.UseFaceMode",
+                "AreaManager/Task/MyReadyRoadland/UseFaceMode",
+                "AreaManager.RegionalAreaTask.MyReadyRoadland.UseFaceMode",
+                "AreaManager/RegionalAreaTask/MyReadyRoadland/UseFaceMode"
             },
-            roadland.UseFaceMode);
+            ready_roadland.UseFaceMode);
         ReadOptionalIntParam(
             node_,
             {
-                "AreaManager.Area.MyArea.Roadland.Task.MyRoadland.TravelTimeoutSec",
-                "AreaManager/Area/MyArea/Roadland/Task/MyRoadland/TravelTimeoutSec",
-                "AreaManager.Task.MyRoadland.TravelTimeoutSec",
-                "AreaManager/Task/MyRoadland/TravelTimeoutSec",
-                "AreaManager.RegionalAreaTask.MyRoadland.TravelTimeoutSec",
-                "AreaManager/RegionalAreaTask/MyRoadland/TravelTimeoutSec"
+                "AreaManager.Area.MyArea.ReadyRoadland.Task.MyReadyRoadland.TravelTimeoutSec",
+                "AreaManager/Area/MyArea/ReadyRoadland/Task/MyReadyRoadland/TravelTimeoutSec",
+                "AreaManager.Task.MyReadyRoadland.TravelTimeoutSec",
+                "AreaManager/Task/MyReadyRoadland/TravelTimeoutSec",
+                "AreaManager.RegionalAreaTask.MyReadyRoadland.TravelTimeoutSec",
+                "AreaManager/RegionalAreaTask/MyReadyRoadland/TravelTimeoutSec"
             },
-            roadland.TravelTimeoutSec);
+            ready_roadland.TravelTimeoutSec);
         ReadOptionalIntParam(
             node_,
             {
-                "AreaManager.Area.MyArea.Roadland.Task.MyRoadland.CrossTimeoutSec",
-                "AreaManager/Area/MyArea/Roadland/Task/MyRoadland/CrossTimeoutSec",
-                "AreaManager.Task.MyRoadland.CrossTimeoutSec",
-                "AreaManager/Task/MyRoadland/CrossTimeoutSec",
-                "AreaManager.RegionalAreaTask.MyRoadland.CrossTimeoutSec",
-                "AreaManager/RegionalAreaTask/MyRoadland/CrossTimeoutSec"
+                "AreaManager.Area.MyArea.ReadyRoadland.Task.MyReadyRoadland.CrossTimeoutSec",
+                "AreaManager/Area/MyArea/ReadyRoadland/Task/MyReadyRoadland/CrossTimeoutSec",
+                "AreaManager.Task.MyReadyRoadland.CrossTimeoutSec",
+                "AreaManager/Task/MyReadyRoadland/CrossTimeoutSec",
+                "AreaManager.RegionalAreaTask.MyReadyRoadland.CrossTimeoutSec",
+                "AreaManager/RegionalAreaTask/MyReadyRoadland/CrossTimeoutSec"
             },
-            roadland.CrossTimeoutSec);
+            ready_roadland.CrossTimeoutSec);
         ReadOptionalIntParam(
             node_,
             {
-                "AreaManager.Area.MyArea.Roadland.Task.MyRoadland.CommandHoldSec",
-                "AreaManager/Area/MyArea/Roadland/Task/MyRoadland/CommandHoldSec",
-                "AreaManager.Task.MyRoadland.CommandHoldSec",
-                "AreaManager/Task/MyRoadland/CommandHoldSec",
-                "AreaManager.RegionalAreaTask.MyRoadland.CommandHoldSec",
-                "AreaManager/RegionalAreaTask/MyRoadland/CommandHoldSec"
+                "AreaManager.Area.MyArea.ReadyRoadland.Task.MyReadyRoadland.CommandHoldSec",
+                "AreaManager/Area/MyArea/ReadyRoadland/Task/MyReadyRoadland/CommandHoldSec",
+                "AreaManager.Task.MyReadyRoadland.CommandHoldSec",
+                "AreaManager/Task/MyReadyRoadland/CommandHoldSec",
+                "AreaManager.RegionalAreaTask.MyReadyRoadland.CommandHoldSec",
+                "AreaManager/RegionalAreaTask/MyReadyRoadland/CommandHoldSec"
             },
-            roadland.CommandHoldSec);
+            ready_roadland.CommandHoldSec);
         ReadOptionalIntParam(
             node_,
             {
-                "AreaManager.Area.MyArea.Roadland.Task.MyRoadland.GuardHoldSec",
-                "AreaManager/Area/MyArea/Roadland/Task/MyRoadland/GuardHoldSec",
-                "AreaManager.Task.MyRoadland.GuardHoldSec",
-                "AreaManager/Task/MyRoadland/GuardHoldSec",
-                "AreaManager.RegionalAreaTask.MyRoadland.GuardHoldSec",
-                "AreaManager/RegionalAreaTask/MyRoadland/GuardHoldSec"
+                "AreaManager.Area.MyArea.ReadyRoadland.Task.MyReadyRoadland.GuardHoldSec",
+                "AreaManager/Area/MyArea/ReadyRoadland/Task/MyReadyRoadland/GuardHoldSec",
+                "AreaManager.Task.MyReadyRoadland.GuardHoldSec",
+                "AreaManager/Task/MyReadyRoadland/GuardHoldSec",
+                "AreaManager.RegionalAreaTask.MyReadyRoadland.GuardHoldSec",
+                "AreaManager/RegionalAreaTask/MyReadyRoadland/GuardHoldSec"
             },
-            roadland.GuardHoldSec);
+            ready_roadland.GuardHoldSec);
         ReadOptionalIntParam(
             node_,
             {
-                "AreaManager.Area.MyArea.Roadland.Task.MyRoadland.FaceTargetZCm",
-                "AreaManager/Area/MyArea/Roadland/Task/MyRoadland/FaceTargetZCm",
-                "AreaManager.Task.MyRoadland.FaceTargetZCm",
-                "AreaManager/Task/MyRoadland/FaceTargetZCm",
-                "AreaManager.RegionalAreaTask.MyRoadland.FaceTargetZCm",
-                "AreaManager/RegionalAreaTask/MyRoadland/FaceTargetZCm"
+                "AreaManager.Area.MyArea.ReadyRoadland.Task.MyReadyRoadland.FaceTargetZCm",
+                "AreaManager/Area/MyArea/ReadyRoadland/Task/MyReadyRoadland/FaceTargetZCm",
+                "AreaManager.Task.MyReadyRoadland.FaceTargetZCm",
+                "AreaManager/Task/MyReadyRoadland/FaceTargetZCm",
+                "AreaManager.RegionalAreaTask.MyReadyRoadland.FaceTargetZCm",
+                "AreaManager/RegionalAreaTask/MyReadyRoadland/FaceTargetZCm"
             },
-            roadland.FaceTargetZCm);
+            ready_roadland.FaceTargetZCm);
         ReadOptionalIntParam(
             node_,
             {
-                "AreaManager.Area.MyArea.Roadland.Task.MyRoadland.HealthyHpMin",
-                "AreaManager/Area/MyArea/Roadland/Task/MyRoadland/HealthyHpMin",
-                "AreaManager.Task.MyRoadland.HealthyHpMin",
-                "AreaManager/Task/MyRoadland/HealthyHpMin",
-                "AreaManager.RegionalAreaTask.MyRoadland.HealthyHpMin",
-                "AreaManager/RegionalAreaTask/MyRoadland/HealthyHpMin"
+                "AreaManager.Area.MyArea.ReadyRoadland.Task.MyReadyRoadland.HealthyHpMin",
+                "AreaManager/Area/MyArea/ReadyRoadland/Task/MyReadyRoadland/HealthyHpMin",
+                "AreaManager.Task.MyReadyRoadland.HealthyHpMin",
+                "AreaManager/Task/MyReadyRoadland/HealthyHpMin",
+                "AreaManager.RegionalAreaTask.MyReadyRoadland.HealthyHpMin",
+                "AreaManager/RegionalAreaTask/MyReadyRoadland/HealthyHpMin"
             },
-            roadland.HealthyHpMin);
+            ready_roadland.HealthyHpMin);
         ReadOptionalIntParam(
             node_,
             {
-                "AreaManager.Area.MyArea.Roadland.Task.MyRoadland.HealthyAmmoMin",
-                "AreaManager/Area/MyArea/Roadland/Task/MyRoadland/HealthyAmmoMin",
-                "AreaManager.Task.MyRoadland.HealthyAmmoMin",
-                "AreaManager/Task/MyRoadland/HealthyAmmoMin",
-                "AreaManager.RegionalAreaTask.MyRoadland.HealthyAmmoMin",
-                "AreaManager/RegionalAreaTask/MyRoadland/HealthyAmmoMin"
+                "AreaManager.Area.MyArea.ReadyRoadland.Task.MyReadyRoadland.HealthyAmmoMin",
+                "AreaManager/Area/MyArea/ReadyRoadland/Task/MyReadyRoadland/HealthyAmmoMin",
+                "AreaManager.Task.MyReadyRoadland.HealthyAmmoMin",
+                "AreaManager/Task/MyReadyRoadland/HealthyAmmoMin",
+                "AreaManager.RegionalAreaTask.MyReadyRoadland.HealthyAmmoMin",
+                "AreaManager/RegionalAreaTask/MyReadyRoadland/HealthyAmmoMin"
             },
-            roadland.HealthyAmmoMin);
+            ready_roadland.HealthyAmmoMin);
         ReadOptionalBoolParam(
             node_,
             {
@@ -2705,22 +2705,22 @@ namespace BehaviorTree {
         ReadOptionalDoubleParam(node_, policy_names("Score", "WeightMyHighland"), policy.Score.WeightMyHighland);
         ReadOptionalDoubleParam(
             node_, policy_names("Score", "WeightMyPreRoadland"), policy.Score.WeightMyPreRoadland);
-        ReadOptionalDoubleParam(node_, policy_names("Score", "WeightMyRoadland"), policy.Score.WeightMyRoadland);
+        ReadOptionalDoubleParam(node_, policy_names("Score", "WeightMyReadyRoadland"), policy.Score.WeightMyReadyRoadland);
         ReadOptionalDoubleParam(node_, policy_names("Score", "WeightCommonCentral"), policy.Score.WeightCommonCentral);
         ReadOptionalDoubleParam(node_, policy_names("Score", "WeightEnemyBase"), policy.Score.WeightEnemyBase);
         ReadOptionalDoubleParam(node_, policy_names("Score", "WeightEnemyHighland"), policy.Score.WeightEnemyHighland);
-        ReadOptionalDoubleParam(node_, policy_names("Score", "WeightEnemyRoadland"), policy.Score.WeightEnemyRoadland);
+        ReadOptionalDoubleParam(node_, policy_names("Score", "WeightEnemyReadyRoadland"), policy.Score.WeightEnemyReadyRoadland);
         ReadOptionalDoubleParam(node_, policy_names("Score", "DistancePenaltyPerMeter"), policy.Score.DistancePenaltyPerMeter);
         ReadOptionalDoubleParam(node_, policy_names("Score", "CurrentAreaPenalty"), policy.Score.CurrentAreaPenalty);
         ReadOptionalDoubleParam(node_, policy_names("Score", "LastAreaPenalty"), policy.Score.LastAreaPenalty);
         ReadOptionalDoubleParam(node_, policy_names("Score", "AfterHighlandMyBaseBonus"), policy.Score.AfterHighlandMyBaseBonus);
-        ReadOptionalDoubleParam(node_, policy_names("Score", "AfterHighlandMyRoadlandBonus"), policy.Score.AfterHighlandMyRoadlandBonus);
+        ReadOptionalDoubleParam(node_, policy_names("Score", "AfterHighlandMyReadyRoadlandBonus"), policy.Score.AfterHighlandMyReadyRoadlandBonus);
         ReadOptionalDoubleParam(node_, policy_names("Score", "LowResourceMyBaseBonus"), policy.Score.LowResourceMyBaseBonus);
         ReadOptionalIntParam(node_, policy_names("Retry", "CompleteCooldownSec"), policy.Retry.CompleteCooldownSec);
         ReadOptionalIntParam(node_, policy_names("Retry", "FailureCooldownSec"), policy.Retry.FailureCooldownSec);
         ReadOptionalIntParam(node_, policy_names("Retry", "UnreachableCooldownSec"), policy.Retry.UnreachableCooldownSec);
         ReadOptionalIntParam(node_, policy_names("Retry", "MaxRetry"), policy.Retry.MaxRetry);
-        if (highland.Enable || base.Enable || pre_roadland.Enable || roadland.Enable || central.Enable) {
+        if (highland.Enable || base.Enable || pre_roadland.Enable || ready_roadland.Enable || central.Enable) {
             task.Enable = true;
         }
     }
@@ -3024,15 +3024,15 @@ namespace BehaviorTree {
         LoggerPtr->Debug("MyPreRoadland.GoalHoldSec: {}", config.RegionalAreaTaskSettings.MyPreRoadland.GoalHoldSec);
         LoggerPtr->Debug("MyPreRoadland.CommandHoldSec: {}", config.RegionalAreaTaskSettings.MyPreRoadland.CommandHoldSec);
         LoggerPtr->Debug("MyPreRoadland.SpeedLevel: {}", config.RegionalAreaTaskSettings.MyPreRoadland.SpeedLevel);
-        LoggerPtr->Debug("MyRoadland.Enable: {}", config.RegionalAreaTaskSettings.MyRoadland.Enable);
-        LoggerPtr->Debug("MyRoadland.UseFaceMode: {}", config.RegionalAreaTaskSettings.MyRoadland.UseFaceMode);
-        LoggerPtr->Debug("MyRoadland.TravelTimeoutSec: {}", config.RegionalAreaTaskSettings.MyRoadland.TravelTimeoutSec);
-        LoggerPtr->Debug("MyRoadland.CrossTimeoutSec: {}", config.RegionalAreaTaskSettings.MyRoadland.CrossTimeoutSec);
-        LoggerPtr->Debug("MyRoadland.CommandHoldSec: {}", config.RegionalAreaTaskSettings.MyRoadland.CommandHoldSec);
-        LoggerPtr->Debug("MyRoadland.GuardHoldSec: {}", config.RegionalAreaTaskSettings.MyRoadland.GuardHoldSec);
-        LoggerPtr->Debug("MyRoadland.FaceTargetZCm: {}", config.RegionalAreaTaskSettings.MyRoadland.FaceTargetZCm);
-        LoggerPtr->Debug("MyRoadland.HealthyHpMin: {}", config.RegionalAreaTaskSettings.MyRoadland.HealthyHpMin);
-        LoggerPtr->Debug("MyRoadland.HealthyAmmoMin: {}", config.RegionalAreaTaskSettings.MyRoadland.HealthyAmmoMin);
+        LoggerPtr->Debug("MyReadyRoadland.Enable: {}", config.RegionalAreaTaskSettings.MyReadyRoadland.Enable);
+        LoggerPtr->Debug("MyReadyRoadland.UseFaceMode: {}", config.RegionalAreaTaskSettings.MyReadyRoadland.UseFaceMode);
+        LoggerPtr->Debug("MyReadyRoadland.TravelTimeoutSec: {}", config.RegionalAreaTaskSettings.MyReadyRoadland.TravelTimeoutSec);
+        LoggerPtr->Debug("MyReadyRoadland.CrossTimeoutSec: {}", config.RegionalAreaTaskSettings.MyReadyRoadland.CrossTimeoutSec);
+        LoggerPtr->Debug("MyReadyRoadland.CommandHoldSec: {}", config.RegionalAreaTaskSettings.MyReadyRoadland.CommandHoldSec);
+        LoggerPtr->Debug("MyReadyRoadland.GuardHoldSec: {}", config.RegionalAreaTaskSettings.MyReadyRoadland.GuardHoldSec);
+        LoggerPtr->Debug("MyReadyRoadland.FaceTargetZCm: {}", config.RegionalAreaTaskSettings.MyReadyRoadland.FaceTargetZCm);
+        LoggerPtr->Debug("MyReadyRoadland.HealthyHpMin: {}", config.RegionalAreaTaskSettings.MyReadyRoadland.HealthyHpMin);
+        LoggerPtr->Debug("MyReadyRoadland.HealthyAmmoMin: {}", config.RegionalAreaTaskSettings.MyReadyRoadland.HealthyAmmoMin);
         LoggerPtr->Debug("CommonCentral.Enable: {}", config.RegionalAreaTaskSettings.CommonCentral.Enable);
         LoggerPtr->Debug("CommonCentral.TravelTimeoutSec: {}", config.RegionalAreaTaskSettings.CommonCentral.TravelTimeoutSec);
         LoggerPtr->Debug("CommonCentral.CommandHoldSec: {}", config.RegionalAreaTaskSettings.CommonCentral.CommandHoldSec);
@@ -3803,48 +3803,48 @@ namespace BehaviorTree {
                 pre_roadland_task.SpeedLevel);
             pre_roadland_task.SpeedLevel = 255;
         }
-        auto& roadland_task = config.RegionalAreaTaskSettings.MyRoadland;
-        if (roadland_task.TravelTimeoutSec <= 0) {
+        auto& ready_roadland_task = config.RegionalAreaTaskSettings.MyReadyRoadland;
+        if (ready_roadland_task.TravelTimeoutSec <= 0) {
             LoggerPtr->Warning(
-                "Invalid RegionalAreaTask.MyRoadland.TravelTimeoutSec={}, fallback to 12.",
-                roadland_task.TravelTimeoutSec);
-            roadland_task.TravelTimeoutSec = 12;
+                "Invalid RegionalAreaTask.MyReadyRoadland.TravelTimeoutSec={}, fallback to 12.",
+                ready_roadland_task.TravelTimeoutSec);
+            ready_roadland_task.TravelTimeoutSec = 12;
         }
-        if (roadland_task.CrossTimeoutSec <= 0) {
+        if (ready_roadland_task.CrossTimeoutSec <= 0) {
             LoggerPtr->Warning(
-                "Invalid RegionalAreaTask.MyRoadland.CrossTimeoutSec={}, fallback to 8.",
-                roadland_task.CrossTimeoutSec);
-            roadland_task.CrossTimeoutSec = 8;
+                "Invalid RegionalAreaTask.MyReadyRoadland.CrossTimeoutSec={}, fallback to 8.",
+                ready_roadland_task.CrossTimeoutSec);
+            ready_roadland_task.CrossTimeoutSec = 8;
         }
-        if (roadland_task.CommandHoldSec <= 0) {
+        if (ready_roadland_task.CommandHoldSec <= 0) {
             LoggerPtr->Warning(
-                "Invalid RegionalAreaTask.MyRoadland.CommandHoldSec={}, fallback to 1.",
-                roadland_task.CommandHoldSec);
-            roadland_task.CommandHoldSec = 1;
+                "Invalid RegionalAreaTask.MyReadyRoadland.CommandHoldSec={}, fallback to 1.",
+                ready_roadland_task.CommandHoldSec);
+            ready_roadland_task.CommandHoldSec = 1;
         }
-        if (roadland_task.GuardHoldSec <= 0) {
+        if (ready_roadland_task.GuardHoldSec <= 0) {
             LoggerPtr->Warning(
-                "Invalid RegionalAreaTask.MyRoadland.GuardHoldSec={}, fallback to 2.",
-                roadland_task.GuardHoldSec);
-            roadland_task.GuardHoldSec = 2;
+                "Invalid RegionalAreaTask.MyReadyRoadland.GuardHoldSec={}, fallback to 2.",
+                ready_roadland_task.GuardHoldSec);
+            ready_roadland_task.GuardHoldSec = 2;
         }
-        if (roadland_task.FaceTargetZCm < 0) {
+        if (ready_roadland_task.FaceTargetZCm < 0) {
             LoggerPtr->Warning(
-                "Invalid RegionalAreaTask.MyRoadland.FaceTargetZCm={}, fallback to 100.",
-                roadland_task.FaceTargetZCm);
-            roadland_task.FaceTargetZCm = 100;
+                "Invalid RegionalAreaTask.MyReadyRoadland.FaceTargetZCm={}, fallback to 100.",
+                ready_roadland_task.FaceTargetZCm);
+            ready_roadland_task.FaceTargetZCm = 100;
         }
-        if (roadland_task.HealthyHpMin < 0) {
+        if (ready_roadland_task.HealthyHpMin < 0) {
             LoggerPtr->Warning(
-                "Invalid RegionalAreaTask.MyRoadland.HealthyHpMin={}, fallback to 300.",
-                roadland_task.HealthyHpMin);
-            roadland_task.HealthyHpMin = 300;
+                "Invalid RegionalAreaTask.MyReadyRoadland.HealthyHpMin={}, fallback to 300.",
+                ready_roadland_task.HealthyHpMin);
+            ready_roadland_task.HealthyHpMin = 300;
         }
-        if (roadland_task.HealthyAmmoMin < 0) {
+        if (ready_roadland_task.HealthyAmmoMin < 0) {
             LoggerPtr->Warning(
-                "Invalid RegionalAreaTask.MyRoadland.HealthyAmmoMin={}, fallback to 50.",
-                roadland_task.HealthyAmmoMin);
-            roadland_task.HealthyAmmoMin = 50;
+                "Invalid RegionalAreaTask.MyReadyRoadland.HealthyAmmoMin={}, fallback to 50.",
+                ready_roadland_task.HealthyAmmoMin);
+            ready_roadland_task.HealthyAmmoMin = 50;
         }
         auto& central_task = config.RegionalAreaTaskSettings.CommonCentral;
         if (central_task.TravelTimeoutSec <= 0) {

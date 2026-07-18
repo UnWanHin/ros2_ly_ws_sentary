@@ -20,7 +20,7 @@ updated: 2026-07-16
 
 ## Regional 與離線契約
 
-- `PreRoadland` 與 `Roadland` 是同級正式 MainArea；`MyPreRoadland` 使用 BaseGoalId 25 的到點保持，`MyRoadland` 保留 ID 21/22 的 guarded crossing。[[docs/sentry/regional/2026-07-12_regional_decision_graph|Regional 決策圖]]與 `test_ready_roadland_area.cpp`、`test_roadland_split_task.cpp` 是目前靜態證據。
+- `PreRoadland` 與 `ReadyRoadland` 是同級正式 MainArea；`MyPreRoadland` 使用 BaseGoalId 25 的到點保持，`MyReadyRoadland` 保留 ID 21/22 的 guarded crossing。[[docs/sentry/regional/2026-07-12_regional_decision_graph|Regional 決策圖]]與 `test_ready_roadland_area.cpp`、`test_pre_ready_roadland_tasks.cpp` 是目前靜態證據。
 - `DecisionTrace` 是 BT 到 [[docs/obsidian/_generated/Packages/simulator|simulator]] 的離線契約；修改決策輸出、導航點位、姿態、target 或 unit state 時，必須同步 simulator model／trace／validation／config 與文件。
 
 ## 串口與裁判
