@@ -1,8 +1,8 @@
 {
-  "lastAnalyzedAt": "2026-07-18T21:00:42+08:00",
-  "gitCommitHash": "6b644e4008adbde11ec82e82f3b432d11a20df6c",
-  "workingTreeStatus": "dirty only with the user-owned docs/rules lock file",
-  "lastCheckedNote": "Fallback graph source-checked after 6b644e4. gimbal_driver owns header plus yaw/pitch dynamics-only GimbalState and six-field GimbalTrajectory, receives external MPC trajectory on /ly/control/trajectory with SensorData QoS, rejects non-finite values, sends 0x05 26B, parses TypeID 11 dynamics, and publishes state periodically with a 200ms dynamic timeout. gimbal_driver build, protocol tests, and static self-check passed; runtime hardware validation and external MPC migration remain pending.",
+  "lastAnalyzedAt": "2026-07-18T21:16:29+08:00",
+  "gitCommitHash": "84cbb275c2a3dda9594978b4fdd180dbb8bb33f5",
+  "workingTreeStatus": "dirty with map-path fragmentation graph refresh and the user-owned docs/rules lock file",
+  "lastCheckedNote": "Fallback graph source-checked after 84cbb27. gimbal_driver keeps the 50-point MapPath logical payload at 107B but writes DownlinkTypeID 0x02 as two CRC16-protected 64B fragments with common sequence and indices 0/1; raw 0x02 observation records each physical fragment. gimbal_driver build, 189 protocol tests, and static self-check passed; lower-machine fragment reassembly and external MPC runtime validation remain pending.",
   "version": "1.0.0",
   "analyzedFiles": 554,
   "generator": "local-understand-anything-compatible-fallback",

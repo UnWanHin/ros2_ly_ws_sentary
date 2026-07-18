@@ -1,8 +1,8 @@
 # ros2_ly_ws_sentry Knowledge Graph
 
-Generated: 2026-07-18T21:00:42+08:00
+Generated: 2026-07-18T21:16:29+08:00
 
-Checked against source HEAD: `6b644e4008adbde11ec82e82f3b432d11a20df6c` (working tree only contains the user-owned docs/rules lock file)
+Checked against source HEAD: `84cbb275c2a3dda9594978b4fdd180dbb8bb33f5` (working tree contains the graph refresh and the user-owned docs/rules lock file)
 
 Current graph shape: 81 nodes, 101 edges, 6 layers.
 
@@ -60,7 +60,7 @@ flowchart LR
 - `PreRoadland`、`Roadland` 是正式同級 MainArea：前者走 ID 25 的 MyPreRoadland 到點保持；後者保留名稱但改用 ReadyRoadLand 邊界，保留 ID 21/22 的 MyRoadland 強綁定穿越。Simulator 會分別繪製兩個正式主區，並保留獨立的 `RoadlandFollow` 穿越子區。`UnitInfo.area_id` 新增 8/9 表示敵我 PreRoadland，既有 0-7 不變。
 - `auto_aim_common` 是正式共用介面包：`GoalReach` 用於 reached 狀態，`RelativeTarget` 用於導航追擊。
 - `TypeID=10` 提供 `sentry_info_3` 和精確敵我前哨血量；TypeID=1 的 `GameCode * 25` 只作 fallback。
-- `DownlinkTypeID=0x00~0x05` 為控制、SentryCmd、0x0307 路徑、0x0308 自訂訊息、自身座標與 MPC trajectory；TypeID 11 动态反馈与 TypeID 0 角度组合为 `/ly/gimbal/state`，driver 使用 SensorData QoS、拒绝非有限 trajectory，并默认每 20ms 周期发布状态。
+- `DownlinkTypeID=0x00~0x05` 為控制、SentryCmd、0x0307 路徑、0x0308 自訂訊息、自身座標與 MPC trajectory；0x02 每次以相同 sequence 的兩段 64B CRC16 fragment 傳送，重組後仍是完整 107B / 50 點路徑。TypeID 11 动态反馈与 TypeID 0 角度组合为 `/ly/gimbal/state`，driver 使用 SensorData QoS、拒绝非有限 trajectory，并默认每 20ms 周期发布状态。
 - `gimbal_driver` 的串口/下位機基線集中在 `src/gimbal_driver/config/gimbal_driver_config.yaml`；正式 `sentry_all` 透過 `gimbal_driver.launch.py` 載入它，並只把 root `base_config_file`／`config_file` 的安全 `io_config` 相容鍵路由給 driver，絕不把全域 YAML 注入 BT、導航或 FaceMode。
 - `io_config.serial_mode=true` 時，逐 ID raw 觀測 topic 為 `/ly/upload/typeid0..11` 與 `/ly/download/typeid0x00..05`；語義 topic 保持不變。
 - `src/gimbal_driver/config/debug_mode.yaml` 是 `debug_node.launch.py` 載入的 bridge profile；內建 `navi_vel_to_control_vel.py` 以 100 Hz 將 `/ly/navi/vel` 轉為正式 `/ly/control/vel`、將 `/ly/navi/should_rotate` 轉為 partial `/ly/control/firecode`，500 ms stale 時發布零速度。driver 保持正式 control subscriber，兩類控制最終以同一 `GimbalControlFrame` 下行；此入口不啟動 BT，故不消費也不宣告 `SetPostureToMoveWhenFalse`。正式 root 相容路由明確略過 `navigation_test`／`navigation_mode`。
