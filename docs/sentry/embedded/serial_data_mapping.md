@@ -1,6 +1,6 @@
 # 串口上下行数据映射总表
 
-Updated: 2026-07-18
+Updated: 2026-07-19
 
 > 配置归属：`gimbal_driver` 的串口、下位机与 raw 上行诊断基线集中在
 > `src/gimbal_driver/config/gimbal_driver_config.yaml`；根目录 `config/base_config.yaml`
@@ -767,9 +767,13 @@ ROS 语义：
 - `CmdSource` 是信息来源 ID，ID 对应关系见通信协议附录。
 - `0x0303` 触发发送后会以 `100ms` 间隔额外重发到共 5 包，并在下一次触发前以 `1Hz` 持续发送最近一次内容。任何会触发导航/行为的消费端必须自行去重。
 
-注意：RM2026 通信协议 V1.3.0 的 `0x0303` 总表写数据段长度为 `15`，但详细 `map_command_t`
-字段合计为 `12B`。本仓库 `TypeID=9` 使用详细结构的 `12B` payload；外层
-`TypedMessage<sizeof(GimbalData)>` 总长度仍为 `15B`。
+当前正式消费端是 `behavior_tree` 的 `Task.MapCommand`：坐标模式的非零点会在 BT Task 层持有
+默认 45 秒，并作为官方厘米坐标发布到 `/ly/navi/goal_pos_raw`，由 `navi_tf_bridge` 统一完成
+official-map 到 `map` 的标定转换。相同坐标的重发不续期；目标机器人模式无坐标，不触发导航。
+完整下位机和决策对接约束见 `docs/sentry/embedded/map_command_typeid9.md`。
+
+RM2026 V2.0 的 `map_command_t` 语义字段为 12B。本仓 `TypeID=9` 使用同一 12B payload；
+外层 `TypedMessage<sizeof(GimbalData)>` 总长度仍为 15B。
 
 ## 5.11 `TypeID=10` - `SentryInfo3AndOutpostHpData`
 
@@ -898,7 +902,7 @@ struct SentryInfo3AndOutpostHpData {
 | `0x0301 + data_cmd_id=0x0120 sentry_cmd` | 机器人 -> 裁判系统命令 | 姿态/完整命令经 `/ly/control/posture`、`/ly/control/sentry_cmd` 进入独立 `DownlinkTypeID=0x01 SentryCommandFrame`；V2.0 姿态为 bit21-23，能量确认在 bit24；下位机负责封装裁判 `0x0301/0x0120` |
 | `0x0307 map_data_t` | 机器人 -> 己方选手端路径显示 | `/ly/control/map_path` 进入两段 `DownlinkTypeID=0x02 MapPathFragmentFrame`；下位机 CRC/sequence 重组完整 50 点路径后封装裁判 `0x0307` |
 | `0x0308 custom_info_t` | 机器人 -> 己方选手端自定义文字 | `/ly/control/custom_info` 进入 `DownlinkTypeID=0x03 CustomInfoFrame`；30B UTF-16 原始字节由上游提供，下位机负责封装裁判 `0x0308` |
-| `0x0303 map_command_t` | 选手端 -> 机器人状态/指令输入 | 通过 TypeID=9 进入 `/ly/game/map_command`；BT 当前只缓存消息，不触发导航 |
+| `0x0303 map_command_t` | 选手端 -> 机器人状态/指令输入 | 通过 TypeID=9 进入 `/ly/game/map_command`；坐标模式由 BT `Task.MapCommand` 去重后导航，目标机器人模式只缓存 |
 
 ### 8.1 当前看弹量和兑弹怎么走
 

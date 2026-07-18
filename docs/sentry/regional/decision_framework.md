@@ -41,7 +41,7 @@ Updated: 2026-07-19
 Regional 不是單一點表，而是分層策略：
 
 - `Hard`：最高優先級，先處理低血/低彈回 `Recovery`，以及 ReadyRoadland 強綁定穿越段。
-- `Task`：處理 Highland 兼容過渡和導航 watchdog 等支援任務，不再擁有基本大區域狀態機。
+- `Task`：先處理裁判小地圖 `MapCommand`，再處理 Highland 兼容過渡和導航 watchdog 等支援任務，不擁有基本大區域狀態機。
 - `Tactical`：處理 Buff、RegionalDefense、ProtectHero、Outpost 和 watchdog fallback。
 - `Special`：可開關的專項巡察層，目前只包含兩點線段 Patrol，優先級低於 Tactical、高於 Default。
 - `Default`：沒有事件、沒有任務、沒有 Buff/Outpost 時，按大區域候選分數選並持續 tick `MyBase / MyHighland / MyPreRoadland / MyReadyRoadland / CommonCentral`。
@@ -59,6 +59,7 @@ Regional 目前已有的主要邏輯：
 - RegionalDefense：用官方敵方位置和 `event_data` 做戰術防守；道路前/後段分別統計後聚合為同一條 RoadCorridor 防守威脅，敵方進我方 Base/Highland/PreRoadland/ReadyRoadland/CommonCentral 或己方堡壘增益點 `2/3` 都可觸發。
 - 己方堡壘增益點 `2/3`：不去 `Castle`，只在 `CastleLeft1 / CastleLeft2 / CastleRight1 / CastleRight2` 搜索；若 Base 大區敵方數達門檻且普通裝甲目標已鎖定並允許開火，才原地停車、最高小陀螺開火；長時間無官方敵方位置且無視覺目標會退化忽略一段時間。
 - Recovery：Hard 層先回 `Recovery` 點；到達後若 3 秒內血量/彈量沒有回升，會在己方 `Recovery` 子區域內切換中心探測點，避免卡在補給區邊緣。
+- MapCommand：裁判 `0x0303` 坐標模式的非零官方地圖點會成為 45 秒（`Task.MapCommand.HoldSec`）的 Task 層導航任務。它直接走 `/ly/navi/goal_pos_raw -> navi_tf_bridge -> /goal_pose`，不偽裝成區域 Goal ID，也不進入 `GoalReachState`、AreaManager 或 watchdog。相同點的 5x/100ms 和後續 1Hz 重送不續期；目標機器人模式沒有座標，不導航。Hard Recovery 每拍取消這個任務並記住該點，恢復後不會自動續走。
 - Buff：由能量機關裁判狀態、sentry info、timer、damage abort 和 timeout 決定是否進 `AimMode::Buff`；戰術站位使用 `BuffOutpost`，FaceMode 對己方目標側。
 - Outpost：正式入口不依賴 `op_hp`，由血量/彈藥門檻、時間窗、damage abort、目標不可達狀態和 `Task.OutpostConfirm.VisualScoutWithoutHp` 決定是否去 `BuffOutpost` 偵查；Travel 階段保持選前哨，不讓遠距離普通車體接管 `/ly/aim/result`，但進入 `VisualScoutFaceDistanceCm` 前仍用普通裝甲視覺和 Move 姿態。進入該距離後開前哨視覺、敵方前哨 FaceMode 和 Attack 姿態，不再強依賴 `/ly/navi/reached=true`。120 秒時間窗內是高優先級任務，但己方 Base 有敵方時 RegionalDefense 可打斷；120 秒後按 `PostWindowScoutIntervalSec` 低優先級回 `BuffOutpost`，接近後用 `PostWindowScoutHoldMs` 短 FaceMode 偵查。普通裝甲目標若有效且不超過 `ArmorWarningDistanceCm`，會先打車；目標消失後若前哨 gate 仍允許，會按 `PostArmorFaceSearchMs` 回前哨 FaceMode 搜索。`op_hp` 接口保留，若它新鮮且為 0，可提前判定敵方前哨已毀並跳過任務。
 - Navi progress watchdog：檢測 goal 不可達或長時間無位移，按當前目標區域選 fallback 點。
@@ -86,7 +87,7 @@ EvaluateEvents -> Hard -> Task -> PreprocessData -> SelectAimTarget -> Tactical 
 
 - `EvaluateEvents`：語義整理層，只把裁判資料、視覺鎖定、受擊、導航狀態和 RegionalDefense 威脅收斂成 `EventSnapshot`。這層不發導航、不改火控、不接管輸出。
 - `Hard`：最高優先級保護，處理 recovery/補血補彈和 ReadyRoadland 強綁定穿越段。ReadyRoadland 強綁定段在這層 hard lock，避免被戰術層中途搶走。
-- `Task`：只保留 Highland 兼容過渡和導航 watchdog 這類支援任務；不再 tick Highland/Base/PreRoadland/ReadyRoadland/Central 基本大區域狀態機。
+- `Task`：先接受有效 `0x0303` MapCommand 並壓過 Tactical/Special/Default，再處理 Highland 兼容過渡和導航 watchdog；不再 tick Highland/Base/PreRoadland/ReadyRoadland/Central 基本大區域狀態機。整個 Hard 層都高於 MapCommand：包含 Recovery 與不可中斷的 ReadyRoadland 穿越段。
 - `PreprocessData / SelectAimTarget`：在 Tactical 前整理可打目標、官方坐標和本 tick `targetArmor`，讓戰術層使用最新目標資料。
 - `Tactical`：regional 只保留明確戰術 overlay：`RegionalDefense`、ProtectHero、Buff/Outpost 任務站位、Chase 追擊和導航 watchdog；不再調用舊單策略點表。`LeagueSimple` 只在 `CompetitionProfile=league` 時使用，Showcase 只在明確 showcase 配置時使用。
 - `Special`：可選專項層；目前只有 `Special.Patrol.Enable=true` 時巡己方 `CentralLeft` 線。`PreRoadland` 已是 Default scope 內的正式 AreaTask；更高層回補、回防、前哨、打符仍會先接管。Special Patrol 默認抑制 Chase。

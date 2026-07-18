@@ -1,6 +1,6 @@
 # TypeID 9 小地图命令对接（给下位机）
 
-Updated: 2026-06-06
+Updated: 2026-07-19
 
 本文说明下位机如何从裁判系统串口读取 `0x0303 map_command_t`，并打包成
 本仓库上下位机串口上行 `TypeID=9`，供 `gimbal_driver` 发布 `/ly/game/map_command`。
@@ -13,7 +13,7 @@ Updated: 2026-06-06
 电源管理模块 User 串口 <-> 机器人下位机
 ```
 
-通信协议 V1.3.0 的串口参数：
+RM2026 V2.0 的串口参数：
 
 | 项目 | 值 |
 |---|---|
@@ -53,7 +53,7 @@ cmd_id == 0x0303
 
 ## 3. 解析 `0x0303 map_command_t`
 
-按通信协议 V1.3.0 `1.3.1 选手端下发数据` 的详细结构解析：
+按 RM2026 V2.0 `0x0303 map_command_t` 的详细结构解析：
 
 | data offset | 类型 | 字段 | 说明 |
 |---:|---|---|---|
@@ -79,9 +79,8 @@ typedef struct {
 
 `sizeof(map_command_t)` 应为 `12`。
 
-注意：协议总表把 `0x0303` 数据段长度写为 `15`，但详细 `map_command_t` 字段合计为 `12B`。
-下位机应按详细结构解析前 `12B`；如果实际 `data_length` 为 `15`，剩余 `3B` 先保留或记录日志，
-不要当成坐标字段。
+`map_command_t` 数据段为 `12B`。外层裁判帧的 `data_length` 以实际收到的官方帧为准；本仓
+TypeID=9 只承载上表 12B 语义字段。
 
 ## 4. 重复包处理
 
@@ -91,7 +90,7 @@ typedef struct {
 - 此后到下一次触发前，服务器以 `1Hz` 持续发送最近一次内容。
 
 下位机可以原样上发每个 `0x0303` 包；如果下位机侧要直接触发动作，必须自行去重。
-当前上位机只发布 `/ly/game/map_command`，BT 只缓存消息，不直接触发导航。
+正式 BT 也会去重，不能依赖 1Hz 最新包来持续触发动作。
 
 ## 5. 上发给上位机的 TypeID=9
 
@@ -147,3 +146,20 @@ ROS 字段：
 
 本接口不改变 `/ly/control/posture`、`/ly/control/sentry_cmd`、`/ly/navi/reached`
 或 `/ly/navi/reachable` 的语义。
+
+## 7. 正式 BT 坐标导航策略
+
+`behavior_tree` 的 `Task.MapCommand` 消费本 topic：
+
+```text
+TypeID=9 -> /ly/game/map_command -> MapCommandTask
+  -> /ly/navi/goal_pos_raw (official cm)
+  -> navi_tf_bridge official_map -> map -> /goal_pose
+```
+
+- 仅 `target_robot_id == 0` 的坐标模式可导航；目标机器人模式没有坐标，因此只保留为缓存信息。
+- `(0,0)` 是下位机无命令默认值；接受范围为官方 `0..2800cm x 0..1500cm`。非有限值、负坐标、场地外坐标，或厘米取整后变成 `(0,0)` 的微小值一律忽略。
+- 有效点击默认持有 `45s`，可由 `Task.MapCommand.HoldSec` 配置；首次点击立即发布，之后沿用 BT 的 2Hz 导航目标刷新率。
+- 20cm 内的重复坐标不延长持有时间。到期后的相同 1Hz 重送也不会重新进入任务；协议没有 click sequence，只有坐标改变才能建立新任务。
+- MapCommand 高于 Default、前哨、普通回防、Special 与 Chase；整个 `Hard` 层更高，包括 Recovery 和不可中断的 ReadyRoadland 穿越段。Recovery 每拍会吸收并取消当前坐标，因此恢复后不会自动回到被取消的点。
+- 任意小地图点不是 AreaManager 的 BaseGoal。任务激活时会失效化旧 BaseGoal 的外部状态绑定，并暂停 `/ly/navi/reach_state` 发布，避免导航到小地图点时被误判为旧区域到点；它只按保持时间拥有导航输出。

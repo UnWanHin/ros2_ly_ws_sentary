@@ -3,7 +3,6 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
-#include <limits>
 #include <optional>
 
 #include "../module/BasicTypes.hpp"
@@ -71,16 +70,21 @@ private:
 
     static std::optional<MapCommandRawGoal> ToRawGoal(const MapCommandInput& input) noexcept {
         constexpr double kCentimetersPerMeter = 100.0;
+        constexpr std::uint16_t kOfficialFieldWidthCm = 2800;
+        constexpr std::uint16_t kOfficialFieldHeightCm = 1500;
         const double x_cm = static_cast<double>(input.XMeter) * kCentimetersPerMeter;
         const double y_cm = static_cast<double>(input.YMeter) * kCentimetersPerMeter;
         if (x_cm < 0.0 || y_cm < 0.0 ||
-            x_cm > static_cast<double>(std::numeric_limits<std::uint16_t>::max()) ||
-            y_cm > static_cast<double>(std::numeric_limits<std::uint16_t>::max())) {
+            x_cm > static_cast<double>(kOfficialFieldWidthCm) ||
+            y_cm > static_cast<double>(kOfficialFieldHeightCm)) {
             return std::nullopt;
         }
-        return MapCommandRawGoal{
+        const MapCommandRawGoal goal{
             static_cast<std::uint16_t>(std::lround(x_cm)),
             static_cast<std::uint16_t>(std::lround(y_cm))};
+        return (goal.XCentimeter == 0U && goal.YCentimeter == 0U)
+            ? std::nullopt
+            : std::optional<MapCommandRawGoal>{goal};
     }
 
     static bool WithinDedupDistance(

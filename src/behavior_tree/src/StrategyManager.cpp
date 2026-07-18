@@ -1,5 +1,6 @@
 #include "../include/Application.hpp"
 
+#include <limits>
 #include <optional>
 #include <string>
 
@@ -89,6 +90,7 @@ bool StrategyManager::RunHard(Application& app) {
     const UnitTeam my_team = app.team;
     const UnitTeam enemy_team = app.team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
     if (app.CheckPositionRecovery()) {
+        app.CancelMapCommandTask();
         MarkHandled(app, StrategyLayer::Hard);
         return true;
     }
@@ -96,6 +98,7 @@ bool StrategyManager::RunHard(Application& app) {
     if (app.areaManager_.RegionalAreaTaskActive() &&
         app.areaManager_.RegionalAreaTask().Type == RegionalAreaTaskType::MyReadyRoadland &&
         !app.areaManager_.RegionalAreaTaskCanYieldToHigherPriority()) {
+        app.CancelMapCommandTask();
         if (app.TickRegionalAreaTask(my_team, enemy_team)) {
             MarkHandled(app, StrategyLayer::Hard, true);
             return true;
@@ -137,6 +140,11 @@ bool StrategyManager::RunTask(Application& app) {
         return true;
     }
 
+    if (app.TrySetMapCommandGoal()) {
+        MarkHandled(app, StrategyLayer::Task);
+        return true;
+    }
+
     const UnitTeam my_team = app.team;
     const UnitTeam enemy_team = app.team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
     if (app.TickNaviAreaTransition() ||
@@ -145,6 +153,66 @@ bool StrategyManager::RunTask(Application& app) {
         return true;
     }
     return false;
+}
+
+bool Application::TrySetMapCommandGoal() {
+    const auto now = std::chrono::steady_clock::now();
+    if (handledMapCommandRxSequence_ != mapCommandRxSequence_) {
+        handledMapCommandRxSequence_ = mapCommandRxSequence_;
+        if (mapCommandTask_.Observe(
+                {.HasTargetPosition = mapCommand.has_target_position,
+                 .XMeter = mapCommand.target_position_x_m,
+                 .YMeter = mapCommand.target_position_y_m},
+                config.TaskSettings.MapCommand,
+                now)) {
+            mapCommandGoalPublishPending_ = true;
+            const auto raw_goal = mapCommandTask_.ActiveGoal(now);
+            if (raw_goal.has_value()) {
+                lastDecisionIntent_ = DecisionIntent{
+                    .Layer = DecisionLayer::Task,
+                    .Reason = DecisionReason::MapCommand,
+                    .BaseGoalId = std::numeric_limits<std::uint8_t>::max(),
+                    .ResolvedGoalId = std::numeric_limits<std::uint8_t>::max(),
+                    .GoalTeam = UnitTeam::Unknown,
+                    .ApplyTeamOffset = false,
+                    .Priority = DecisionPriorityForReason(DecisionReason::MapCommand),
+                    .Detail = "raw_cm=" + std::to_string(raw_goal->XCentimeter) + "," +
+                        std::to_string(raw_goal->YCentimeter)};
+            }
+        }
+    }
+
+    const auto raw_goal = mapCommandTask_.ActiveGoal(now);
+    if (!raw_goal.has_value()) {
+        activeMapCommandGoal_.reset();
+        mapCommandGoalPublishPending_ = false;
+        return false;
+    }
+
+    if (!activeMapCommandGoal_.has_value() ||
+        activeMapCommandGoal_->XCentimeter != raw_goal->XCentimeter ||
+        activeMapCommandGoal_->YCentimeter != raw_goal->YCentimeter) {
+        mapCommandGoalPublishPending_ = true;
+    }
+    activeMapCommandGoal_ = raw_goal;
+    naviExternalStatusGoalInitialized_ = false;
+    naviGoalPublishAllowed_ = true;
+    return true;
+}
+
+void Application::CancelMapCommandTask() noexcept {
+    if (handledMapCommandRxSequence_ != mapCommandRxSequence_) {
+        handledMapCommandRxSequence_ = mapCommandRxSequence_;
+        (void)mapCommandTask_.Observe(
+            {.HasTargetPosition = mapCommand.has_target_position,
+             .XMeter = mapCommand.target_position_x_m,
+             .YMeter = mapCommand.target_position_y_m},
+            config.TaskSettings.MapCommand,
+            std::chrono::steady_clock::now());
+    }
+    mapCommandTask_.Cancel();
+    activeMapCommandGoal_.reset();
+    mapCommandGoalPublishPending_ = false;
 }
 
 bool StrategyManager::RunTactical(Application& app) {

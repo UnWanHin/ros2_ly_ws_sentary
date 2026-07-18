@@ -1,6 +1,6 @@
 # Regional 決策圖譜
 
-Updated: 2026-07-18
+Updated: 2026-07-19
 
 > 範圍：`competition_profile:=regional` 的 `behavior_tree` 決策順序、優先級、導航輸出與姿態選擇。此圖描述 source 現有行為；未自動下發強化姿態命令 `4/5/6`，它們保留給後續任務級觸發。
 
@@ -33,11 +33,15 @@ flowchart TD
 flowchart TD
   HARD[Hard] --> RECOVERY{HP < 150\n或 ammo <= 30?}
   RECOVERY -->|是| HOME[Recovery / 回補\n持續到 HP >= 380 且 ammo > 30]
-  RECOVERY -->|否| TASK[Task]
+  RECOVERY -->|否| READY_LOCK[ReadyRoadland 不可中斷穿越?]
+  READY_LOCK -->|是| READY[ReadyRoadland hard lock\n取消 MapCommand]
+  READY_LOCK -->|否| TASK[Task]
 
-  TASK --> AREA_TRANSITION[導航區域轉換]
-  TASK --> NAV_WATCHDOG[導航 watchdog / fallback]
-  AREA_TRANSITION --> TACTICAL
+  TASK --> MAP_CMD{有效 0x0303 坐標?}
+  MAP_CMD -->|是| MAP_GOAL[MapCommand\n45s raw official cm -> bridge]
+  MAP_CMD -->|否| AREA_TRANSITION[導航區域轉換]
+  AREA_TRANSITION --> NAV_WATCHDOG[導航 watchdog / fallback]
+  MAP_GOAL --> TACTICAL
   NAV_WATCHDOG --> TACTICAL
 
   TACTICAL[Tactical] --> OPENING[開局前哨站/基地防守]
@@ -84,6 +88,7 @@ flowchart LR
   POS[/ly/friend/uwb_pos\n/ly/navi/position\n/ly/position/data] --> FUSION[SentryPositionFusion] --> DATA
   REACHED[/ly/navi/reached\n/ly/navi/reachable] --> REACH[GoalReachState] --> DATA
 
+  MAP_CMD[/ly/game/map_command\nTypeID 9 / 0x0303] --> REGIONAL
   DATA --> REGIONAL[Regional 決策]
   REGIONAL --> GOAL[/ly/navi/goal]
   REGIONAL --> RAW[/ly/navi/goal_pos_raw]
@@ -102,6 +107,11 @@ flowchart LR
   PATH_BRIDGE --> GAME_PATH[/ly/game/path\nMapPath dm + 原 header.stamp]
   GAME_PATH --> REF_PATH[0x02 -> map_data_t]
 ```
+
+`MapCommand` 只接受官方場地內的坐標模式點，預設持有 45 秒、20cm 去重；5 次 100ms 和後續
+1Hz 相同重送不續期。它不是 BaseGoal，任務持有期間會清除舊目標 external-status binding 並暫停
+`/ly/navi/reach_state`，因此到達小地圖點不會被誤判為區域任務到點。完整協議與邊界見
+`docs/sentry/embedded/map_command_typeid9.md`。
 
 ### `speed_level` 與 `vel` 的分工
 

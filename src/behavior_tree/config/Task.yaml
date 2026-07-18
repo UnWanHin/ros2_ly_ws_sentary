@@ -6,6 +6,10 @@ behavior_tree:
     Task:
       Buff: false  # 是否允许 Buff 任务进入策略选择。
       Outpost: true  # 是否允许前哨任务进入策略选择。
+      MapCommand:
+        Enable: true  # 是否接管裁判 0x0303 坐标模式的小地图点击。
+        HoldSec: 45  # 单次有效坐标的导航保持时间（秒）；重复包不会续期。
+        DedupDistanceCm: 20  # 小于等于此距离的重复坐标视为同一点击。
       OutpostConfirm:
         # 敵方前哨血量、自己血量/彈量等裁判資料超過這個時間未更新時，不主動進前哨任務。
         RefereeFreshTimeoutMs: 2000  # 裁判血量/资源信息的新鲜度（毫秒）。

@@ -675,6 +675,11 @@ namespace LangYa {
         os.ManualGoalMapYM = j.value("ManualGoalMapYM", os.ManualGoalMapYM);
         os.ManualGoalMapZM = j.value("ManualGoalMapZM", os.ManualGoalMapZM);
     }
+    void from_json(const json& j, MapCommandSetting& ms) {
+        ms.Enable = j.value("Enable", ms.Enable);
+        ms.HoldSec = j.value("HoldSec", ms.HoldSec);
+        ms.DedupDistanceCm = j.value("DedupDistanceCm", ms.DedupDistanceCm);
+    }
     void from_json(const json& j, TaskSetting& ts) {
         ts.Buff = j.value("Buff", ts.Buff);
         ts.Outpost = j.value("Outpost", ts.Outpost);
@@ -686,6 +691,9 @@ namespace LangYa {
         }
         if (j.contains("OutpostConfirm")) {
             j.at("OutpostConfirm").get_to(ts.OutpostConfirm);
+        }
+        if (j.contains("MapCommand")) {
+            j.at("MapCommand").get_to(ts.MapCommand);
         }
     }
 
@@ -1653,6 +1661,27 @@ namespace BehaviorTree {
                 "Task/OutpostConfirm/ManualGoalMapZM"
             },
             config.TaskSettings.OutpostConfirm.ManualGoalMapZM);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "Task.MapCommand.Enable",
+                "Task/MapCommand/Enable"
+            },
+            config.TaskSettings.MapCommand.Enable);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.MapCommand.HoldSec",
+                "Task/MapCommand/HoldSec"
+            },
+            config.TaskSettings.MapCommand.HoldSec);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "Task.MapCommand.DedupDistanceCm",
+                "Task/MapCommand/DedupDistanceCm"
+            },
+            config.TaskSettings.MapCommand.DedupDistanceCm);
     }
 
     void Application::ApplySpecialParameterOverrides() {
@@ -3161,6 +3190,19 @@ namespace BehaviorTree {
                 "Invalid DamageOpenGate.HealthDropThreshold={}, clamp to 400.",
                 config.DamageOpenGateSettings.HealthDropThreshold);
             config.DamageOpenGateSettings.HealthDropThreshold = 400;
+        }
+        auto& map_command = config.TaskSettings.MapCommand;
+        if (map_command.HoldSec <= 0) {
+            LoggerPtr->Warning(
+                "Invalid Task.MapCommand.HoldSec={}, fallback to 45.",
+                map_command.HoldSec);
+            map_command.HoldSec = 45;
+        }
+        if (map_command.DedupDistanceCm < 0) {
+            LoggerPtr->Warning(
+                "Invalid Task.MapCommand.DedupDistanceCm={}, fallback to 20.",
+                map_command.DedupDistanceCm);
+            map_command.DedupDistanceCm = 20;
         }
         auto& outpost_confirm = config.TaskSettings.OutpostConfirm;
         if (outpost_confirm.RefereeFreshTimeoutMs <= 0) {

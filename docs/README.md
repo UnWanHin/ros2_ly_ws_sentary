@@ -57,6 +57,7 @@ docs/
 [reports/2026-07-16_config_script_inventory.md](reports/2026-07-16_config_script_inventory.md)
 10. 重要行为变更与调参记录
 [record/2026-07-19_composite_arrival_default_holds.md](record/2026-07-19_composite_arrival_default_holds.md)
+[record/2026-07-19_map_command_navigation.md](record/2026-07-19_map_command_navigation.md)
 [record/2026-07-18_default_area_patrol.md](record/2026-07-18_default_area_patrol.md)
 [record/2026-07-18_rename_roadland_to_readyroadland.md](record/2026-07-18_rename_roadland_to_readyroadland.md)
 [record/2026-07-18_complete_regional_roadland_split_activation.md](record/2026-07-18_complete_regional_roadland_split_activation.md)

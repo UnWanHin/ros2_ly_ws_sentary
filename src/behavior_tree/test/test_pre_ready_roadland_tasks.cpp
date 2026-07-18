@@ -52,6 +52,8 @@ TEST(PreReadyRoadlandTaskTest, MapCommandAcceptsOnlyNonZeroCoordinateModeAndConv
 
     EXPECT_FALSE(task.Observe(
         {.HasTargetPosition = true, .XMeter = 0.0F, .YMeter = 0.0F}, setting, now));
+    EXPECT_FALSE(task.Observe(
+        {.HasTargetPosition = false, .XMeter = 2.5F, .YMeter = 3.25F}, setting, now));
     EXPECT_FALSE(task.Active(now));
 
     EXPECT_TRUE(task.Observe(
@@ -60,6 +62,21 @@ TEST(PreReadyRoadlandTaskTest, MapCommandAcceptsOnlyNonZeroCoordinateModeAndConv
     ASSERT_TRUE(raw_goal.has_value());
     EXPECT_EQ(raw_goal->XCentimeter, 250U);
     EXPECT_EQ(raw_goal->YCentimeter, 325U);
+}
+
+TEST(PreReadyRoadlandTaskTest, MapCommandRejectsOutOfFieldAndRoundedDefaultCoordinates) {
+    const auto now = std::chrono::steady_clock::now();
+    LangYa::MapCommandSetting setting;
+    BehaviorTree::MapCommandTask task;
+
+    EXPECT_FALSE(task.Observe(
+        {.HasTargetPosition = true, .XMeter = 0.004F, .YMeter = 0.0F}, setting, now));
+    EXPECT_FALSE(task.Observe(
+        {.HasTargetPosition = true, .XMeter = 28.01F, .YMeter = 10.0F}, setting, now));
+    EXPECT_FALSE(task.Observe(
+        {.HasTargetPosition = true, .XMeter = 10.0F, .YMeter = 15.01F}, setting, now));
+    EXPECT_TRUE(task.Observe(
+        {.HasTargetPosition = true, .XMeter = 0.0F, .YMeter = 15.0F}, setting, now));
 }
 
 TEST(PreReadyRoadlandTaskTest, MapCommandDeduplicatesRepeatsAndDropsOwnershipOnExpiryOrCancel) {
@@ -76,13 +93,17 @@ TEST(PreReadyRoadlandTaskTest, MapCommandDeduplicatesRepeatsAndDropsOwnershipOnE
     EXPECT_TRUE(task.Active(now + std::chrono::seconds(44)));
     EXPECT_FALSE(task.Active(now + std::chrono::seconds(45)));
 
-    EXPECT_TRUE(task.Observe(
-        {.HasTargetPosition = true, .XMeter = 2.8F, .YMeter = 3.25F},
-        setting,
-        now + std::chrono::seconds(46)));
+    const BehaviorTree::MapCommandInput replacement{
+        .HasTargetPosition = true, .XMeter = 2.8F, .YMeter = 3.25F};
+    EXPECT_TRUE(task.Observe(replacement, setting, now + std::chrono::seconds(46)));
     EXPECT_TRUE(task.Active(now + std::chrono::seconds(46)));
     task.Cancel();
     EXPECT_FALSE(task.Active(now + std::chrono::seconds(46)));
+    EXPECT_FALSE(task.Observe(replacement, setting, now + std::chrono::seconds(47)));
+    EXPECT_TRUE(task.Observe(
+        {.HasTargetPosition = true, .XMeter = 3.1F, .YMeter = 3.25F},
+        setting,
+        now + std::chrono::seconds(47)));
 }
 
 TEST(PreReadyRoadlandTaskTest, AreaManagerStartsIndependentPreAndReadyRoadlandTasks) {

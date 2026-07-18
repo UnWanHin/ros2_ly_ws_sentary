@@ -216,11 +216,12 @@ namespace BehaviorTree{
             app.lastSentryInfoRxTime_ = std::chrono::steady_clock::now();
         });
 
-        // ly_game_map_command: cache referee 0x0303 input only; no decision behavior yet.
+        // Preserve each receipt so the task policy can deduplicate 0x0303 repeats.
         GenSub<ly_game_map_command>([](Application& app, auto msg) {
             app.mapCommand = *msg;
             app.hasReceivedMapCommand_ = true;
             app.lastMapCommandRxTime_ = std::chrono::steady_clock::now();
+            ++app.mapCommandRxSequence_;
         });
 
         // ly_friend_is_team_red

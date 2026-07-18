@@ -51,6 +51,7 @@
 #include "DecisionIntent.hpp"
 #include "EventManager.hpp"
 #include "FaceModeManager.hpp"
+#include "MapCommandTask.hpp"
 #include "PostureManager.hpp"
 #include "OutpostEngagementLock.hpp"
 #include "StrategyManager.hpp"
@@ -240,6 +241,8 @@ private:
     gimbal_driver::msg::MapCommand mapCommand{};
     bool hasReceivedMapCommand_{false};
     std::chrono::steady_clock::time_point lastMapCommandRxTime_{};
+    std::uint64_t mapCommandRxSequence_{0};
+    std::uint64_t handledMapCommandRxSequence_{0};
     std::uint32_t extEventData{};
     bool hasReceivedEventData_{false};
     std::uint8_t eventSelfSmallEnergyStatus_{0};
@@ -324,6 +327,9 @@ private:
     std::uint8_t naviCommandGoal{0}; // 导航目标
     Area::Point<std::uint16_t> naviGoalPosition{}; // 导航定位目标
     bool naviGoalPublishAllowed_{true};
+    MapCommandTask mapCommandTask_{};
+    std::optional<MapCommandRawGoal> activeMapCommandGoal_{};
+    bool mapCommandGoalPublishPending_{false};
     std::uint8_t lastNaviComnamdGoal{0}; // 上一次导航目标
     VelocityType naviVelocityInput{0, 0}; /// 外部导航输入速度（/ly/navi/vel）
     VelocityType naviVelocity{0, 0}; /// 定义回调，接收导航的速度控制数据
@@ -623,6 +629,7 @@ public:
     void PubNaviRelativeTarget();
     void PubNaviGoal();
     void PubNaviGoalPos();
+    void PubMapCommandGoalPos();
     void PubNaviReachState();
     bool PubManualOutpostGoalPose(const char* reason);
     void PubFriendInfo();
@@ -688,6 +695,8 @@ public:
     bool RunStrategyLayerTactical();
     bool RunStrategyLayerSpecial();
     bool RunStrategyLayerFinalizer();
+    bool TrySetMapCommandGoal();
+    void CancelMapCommandTask() noexcept;
     void SetPositionLeagueSimple();
     void SetPositionShowcasePatrol();
     void SetPositionNaviDebugPlan();

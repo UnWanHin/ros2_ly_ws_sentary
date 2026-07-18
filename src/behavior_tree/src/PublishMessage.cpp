@@ -136,9 +136,16 @@ namespace BehaviorTree {
         if (chase_relative_target_publish_active) {
             PubNaviRelativeTarget();
         }
-        if(publishNaviGoal_ && naviCommandRateClock.trigger()) {
+        const bool map_command_goal_active = activeMapCommandGoal_.has_value();
+        if(publishNaviGoal_ &&
+           (mapCommandGoalPublishPending_ || naviCommandRateClock.trigger())) {
             naviCommandRateClock.tick();
+            mapCommandGoalPublishPending_ = false;
             if (!naviGoalPublishAllowed_) {
+                return;
+            }
+            if (map_command_goal_active) {
+                PubMapCommandGoalPos();
                 return;
             }
             const bool chase_bridge_active =
@@ -157,7 +164,7 @@ namespace BehaviorTree {
     }
 
     void Application::PubNaviReachState() {
-        if (!pub_navi_reach_state_) {
+        if (!pub_navi_reach_state_ || activeMapCommandGoal_.has_value()) {
             return;
         }
 
@@ -543,6 +550,19 @@ namespace BehaviorTree {
         }
         pub_navi_goal_pos_->publish(msg);
         UpdateNaviExternalStatusGoal(naviCommandGoal, naviGoalPosition);
+    }
+
+    void Application::PubMapCommandGoalPos() {
+        if (!activeMapCommandGoal_.has_value() || !pub_navi_goal_pos_raw_) {
+            return;
+        }
+        std_msgs::msg::UInt16MultiArray msg;
+        msg.data = {
+            activeMapCommandGoal_->XCentimeter,
+            activeMapCommandGoal_->YCentimeter};
+        // An arbitrary official-map point must not mutate area ownership or
+        // the composite GoalReach state used by formal regional tasks.
+        pub_navi_goal_pos_raw_->publish(msg);
     }
 
     bool Application::PubManualOutpostGoalPose(const char* reason) {
