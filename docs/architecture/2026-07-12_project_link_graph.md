@@ -1,6 +1,6 @@
 # 哨兵工程全鏈路圖
 
-Updated: 2026-07-12
+Updated: 2026-07-18
 
 > 範圍：`ros2_ly_ws_sentry` 的當前正式 decision-only 主鏈。外部導航、外部 `sentry.aim`、外部 `sentry_tf` 與下位機韌體不在本倉庫內；圖中只標示它們的 ROS 或串口契約，不把其內部實作當作本工程事實。
 
@@ -17,9 +17,9 @@ flowchart LR
   end
 
   subgraph GD[gimbal_driver]
-    SERIAL_RX[上行 serial 解包\nTypeID 1/4/6/7/8/10...]
+    SERIAL_RX[上行 serial 解包\nTypeID 1/4/6/7/8/10/11...]
     REF_MAP[裁判/下位機語義映射]
-    SERIAL_TX[下行 serial 封包\nDownlinkTypeID 0x00~0x04]
+    SERIAL_TX[下行 serial 封包\nDownlinkTypeID 0x00~0x05]
   end
 
   subgraph BT[behavior_tree]
@@ -44,6 +44,7 @@ flowchart LR
   LOWER --> SERIAL_RX
   SERIAL_RX --> REF_MAP --> INPUT
   AIM -->|/ly/aim/armor_targets\n/ly/aim/result| INPUT
+  AIM -->|/ly/control/trajectory\nControlAngles MPC| GD
   TF -.gimbal TF.-> BRIDGE
   INPUT --> DECISION --> FACE[FaceModeManager\nrequest -> decision] --> POSTURE --> OUTPUT
 
@@ -55,6 +56,7 @@ flowchart LR
   NAV -->|/ly/navi/reached\n/ly/navi/reachable\n/ly/navi/should_rotate\n/ly/navi/position| INPUT
 
   GD --> SERIAL_TX --> LOWER
+  GD -->|/ly/gimbal/state\nGimbalState| AIM
   OUTPUT --> TRACE --> SIM
   INPUT --> TRACE
   GRAPH -.source-backed architecture view.-> BT
@@ -71,12 +73,14 @@ flowchart TB
   LOWER_RX --> TYPE7[TypeID 7\n單位血量等狀態]
   LOWER_RX --> TYPE8[TypeID 8\nRFID status_2]
   LOWER_RX --> TYPE10[TypeID 10\nsentry_info_3 + 精確前哨站血量]
+  LOWER_RX --> TYPE11[TypeID 11\nYaw/Pitch 动态反馈]
 
   TYPE6 --> DIFF[/ly/game/damage_difference]
   TYPE4 --> RFID[/ly/game/rfid]
   TYPE7 --> HP[/ly/friend/hp\n/ly/enemy/hp]
   TYPE10 --> INFO3[/ly/game/sentry/info\nhas_sentry_info_3\nremaining seconds\nage_ms]
   TYPE10 --> OP_EXACT[/ly/friend/op_hp\n/ly/enemy/op_hp\n精確 HP、敵我分開]
+  TYPE11 --> GIMBAL_STATE[/ly/gimbal/state\n角度 + 角速度 + 角加速度]
   TYPE1 --> OP_FALLBACK[GameCode 前哨站 HP\n值 * 25，只作 fallback]
   OP_EXACT --> OP_SELECT[BT 前哨站血量使用值]
   OP_FALLBACK -.僅 TypeID 10 缺失/過期.-> OP_SELECT
@@ -93,11 +97,13 @@ flowchart TB
   FRESH -->|否| DROP[拒絕下發\n等新 path]
   BT_PATH[/ly/control/map_path\nlegacy/manual] -.相容入口.-> DL02
   BT_CUSTOM[/ly/control/custom_info] --> DL03[0x03 CustomInfoFrame\n36B / 0x0308]
+  AIM_TRAJECTORY[/ly/control/trajectory\nControlAngles] --> DL05[0x05 GimbalTrajectoryFrame\n26B MPC]
   DL00 --> LOWER_TX[下位機]
   DL01 --> LOWER_TX
   DL02 --> LOWER_TX
   DL03 --> LOWER_TX
   DL04 --> LOWER_TX
+  DL05 --> LOWER_TX
 ```
 
 ### 關鍵契約
@@ -106,6 +112,8 @@ flowchart TB
 |---|---|---|
 | TypeID 6 | `int16_t DamageDifference`，來自裁判 `0x0003 game_robot_HP_t` offset 8 | `gimbal_driver` 解包後發布 `/ly/game/damage_difference` |
 | TypeID 10 | byte 0..7=`sentry_info_3`，8..9=己方前哨站 HP，10..11=敵方前哨站 HP | `gimbal_driver` 保留資料新鮮度；BT 優先採精確前哨站 HP |
+| TypeID 11 | `int16 yaw/pitch omega`、`int16 yaw/pitch alpha`、`uint32 SampleTickMs`，上行 CRC8 | `gimbal_driver` 解碼後與 TypeID 0 角度合併發布 `/ly/gimbal/state`；动态回馈超时仅清零动态字段，状态 topic 默认每 20ms 周期发布 |
+| `/ly/control/trajectory` | `aim_msgs/msg/ControlAngles`，六个 `float32` | `gimbal_driver` 使用 SensorData QoS，拒绝非有限值，每次更新额外发送 `DownlinkTypeID=0x05` 26B；旧 `0x00` 控制帧保持不变 |
 | `/ly/navi/speed_level` | `std_msgs/UInt8`，BT 原樣發布策略選出的檔位 | 外部導航的檔位倍率不在本倉庫；BT 不以此縮放 `/ly/control/vel` |
 | `/ly/control/vel` | `gimbal_driver/msg/ControlVelocity` | 正式鏈由 BT 把 `naviVelocity.X/Y` 固定以 `0.025` raw-to-m/s 換算後下發到 `gimbal_driver`；隔離的 `debug_node` 以 100 Hz bridge 發同一 topic，兩者不可並行 |
 | `/ly/game/path` 新鮮度 | `header.stamp` 必須非 0，且不超過 `io_config.game_path_fresh_timeout_ms`（預設 5000ms） | `gimbal_driver` 不週期性重發快取 path；舊包重播在超時後被拒絕，等新 timestamp 才下發 |

@@ -1,9 +1,10 @@
 {
-  "lastAnalyzedAt": "2026-07-16T18:06:20+00:00",
-  "gitCommitHash": "a78134e43928c92f9745dc9f2363503f4e3caee8",
-  "workingTreeStatus": "dirty only for two unrelated Windows Zone.Identifier deletion entries and one document lock file under docs/rules",
-  "lastCheckedNote": "Fallback graph source-checked after a78134e. debug_node launches navi_vel_to_control_vel.py: it converts /ly/navi/vel to raw /ly/control/vel and /ly/navi/should_rotate to partial /ly/control/firecode at 100 Hz, keeping zero velocity after 500 ms stale. gimbal_driver remains on formal control subscribers; sentry_all still rejects navigation direct mode and keeps behavior_tree as the formal control owner. The static bridge contract and Python syntax check passed. ROS build/runtime validation is pending because the local host lacks ROS 2 and NUC SSH closed during key exchange.",
+  "lastAnalyzedAt": "2026-07-18T15:23:57+08:00",
+  "gitCommitHash": "5903207e501912b4a0bd773b6a4a59e54775bbbc",
+  "workingTreeStatus": "dirty with MPC gimbal interface implementation, QoS/validation/state-period updates, synchronized protocol docs/graph, and pre-existing debug_mode.yaml change",
+  "lastCheckedNote": "Fallback graph source-checked after 5903207. gimbal_driver consumes external aim_msgs ControlAngles on /ly/control/trajectory with SensorData QoS, rejects non-finite trajectory values, sends 0x05 26B, parses TypeID 11 dynamics, and publishes combined GimbalState periodically with 200ms dynamic timeout. Targeted build and protocol tests passed with aim_msgs from external sentry.aim; runtime hardware validation and external MCU edits remain pending.",
   "version": "1.0.0",
   "analyzedFiles": 554,
-  "generator": "local-understand-anything-compatible-fallback"
+  "generator": "local-understand-anything-compatible-fallback",
+  "graphShape": {"nodes": 81, "edges": 100, "layers": 6}
 }

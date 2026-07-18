@@ -31,6 +31,7 @@ find_package(Boost CONFIG REQUIRED COMPONENTS system)
 #find_package(Boost REQUIRED COMPONENTS system)
 find_package(fmt 6.1.2 CONFIG REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(aim_msgs REQUIRED)
 
 
 ## System dependencies are found with CMake's conventions
@@ -207,6 +208,7 @@ ament_target_dependencies(${PROJECT_NAME}_node
   rclcpp
   std_msgs
   geometry_msgs
+  aim_msgs
 )
 
 target_link_libraries(${PROJECT_NAME}_node
@@ -322,13 +324,23 @@ install(DIRECTORY module
 #         CATKIN_DEPENDS roscpp std_msgs message_runtime
 #         #  DEPENDS system_lib
 # )
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_mpc_gimbal_protocol
+    test/test_mpc_gimbal_protocol.cpp)
+  target_include_directories(test_mpc_gimbal_protocol PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/module)
+  ament_target_dependencies(test_mpc_gimbal_protocol aim_msgs)
+endif()
+
 # ament_export_dependencies(rosidl_default_runtime)
 # ament_export_include_directories(include)
 # ament_export_libraries(${PROJECT_NAME}_node)
 ament_export_dependencies(rosidl_default_runtime)
 
 #ament_export_libraries(${PROJECT_NAME}_node)
-ament_export_dependencies(rclcpp std_msgs geometry_msgs)
+ament_export_dependencies(rclcpp std_msgs geometry_msgs aim_msgs)
 
 
 ament_package() #ros2 ?N??catkin_package????K?[?b????

@@ -3,7 +3,7 @@
     # Single-node debug bridge profile. Do not load from sentry_all.
     # The bridge publishes formal /ly/control/vel and /ly/control/firecode;
     # gimbal_driver itself stays on the formal control subscriber path.
-    rotate_level: 1
+    rotate_level: 0
     follow_mode_when_false: true
     stale_timeout_ms: 500
     publish_hz: 100.0

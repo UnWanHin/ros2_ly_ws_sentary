@@ -1,10 +1,10 @@
 # ros2_ly_ws_sentry Knowledge Graph
 
-Generated: 2026-07-16T18:06:20+00:00
+Generated: 2026-07-18T15:23:57+08:00
 
-Checked against source HEAD: `a78134e43928c92f9745dc9f2363503f4e3caee8` (only two unrelated Windows `Zone.Identifier` deletion entries and one document lock file remain in the worktree)
+Checked against source HEAD: `5903207e501912b4a0bd773b6a4a59e54775bbbc` (working tree contains the MPC gimbal interface changes and a pre-existing debug profile change)
 
-Current graph shape: 76 nodes, 90 edges, 6 layers.
+Current graph shape: 81 nodes, 100 edges, 6 layers.
 
 Current ROS packages covered by graph:
 
@@ -19,9 +19,11 @@ Current ROS packages covered by graph:
 ```mermaid
 flowchart LR
   AIM[external sentry.aim] -->|/ly/aim/armor_targets + result| BT[behavior_tree]
+  AIM -->|/ly/control/trajectory ControlAngles| GD[gimbal_driver]
   BT -->|/ly/aim/select_target| AIM
   BT -->|/ly/control/angles firecode vel posture sentry_cmd| GD[gimbal_driver]
-  GD -->|serial 0x00~0x04| LOWER[lower controller / referee]
+  GD -->|/ly/gimbal/state GimbalState| AIM
+  GD -->|serial 0x00~0x05| LOWER[lower controller / referee]
   LOWER -->|gimbal + referee state| GD
   GD -->|/ly/gimbal/* /ly/game/* /ly/friend/*| BT
 
@@ -58,10 +60,10 @@ flowchart LR
 - `PreRoadland`、`Roadland` 是正式同級 MainArea：前者走 ID 25 的 MyPreRoadland 到點保持；後者保留名稱但改用 ReadyRoadLand 邊界，保留 ID 21/22 的 MyRoadland 強綁定穿越。Simulator 會分別繪製兩個正式主區，並保留獨立的 `RoadlandFollow` 穿越子區。`UnitInfo.area_id` 新增 8/9 表示敵我 PreRoadland，既有 0-7 不變。
 - `auto_aim_common` 是正式共用介面包：`GoalReach` 用於 reached 狀態，`RelativeTarget` 用於導航追擊。
 - `TypeID=10` 提供 `sentry_info_3` 和精確敵我前哨血量；TypeID=1 的 `GameCode * 25` 只作 fallback。
-- `DownlinkTypeID=0x00~0x04` 為控制、SentryCmd、0x0307 路徑、0x0308 自訂訊息與自身座標。
+- `DownlinkTypeID=0x00~0x05` 為控制、SentryCmd、0x0307 路徑、0x0308 自訂訊息、自身座標與 MPC trajectory；TypeID 11 动态反馈与 TypeID 0 角度组合为 `/ly/gimbal/state`，driver 使用 SensorData QoS、拒绝非有限 trajectory，并默认每 20ms 周期发布状态。
 - `gimbal_driver` 的串口/下位機基線集中在 `src/gimbal_driver/config/gimbal_driver_config.yaml`；正式 `sentry_all` 透過 `gimbal_driver.launch.py` 載入它，並只把 root `base_config_file`／`config_file` 的安全 `io_config` 相容鍵路由給 driver，絕不把全域 YAML 注入 BT、導航或 FaceMode。
-- `io_config.serial_mode=true` 時，逐 ID raw 觀測 topic 為 `/ly/upload/typeid0..10` 與 `/ly/download/typeid0x00..04`；語義 topic 保持不變。
+- `io_config.serial_mode=true` 時，逐 ID raw 觀測 topic 為 `/ly/upload/typeid0..11` 與 `/ly/download/typeid0x00..05`；語義 topic 保持不變。
 - `src/gimbal_driver/config/debug_mode.yaml` 是 `debug_node.launch.py` 載入的 bridge profile；內建 `navi_vel_to_control_vel.py` 以 100 Hz 將 `/ly/navi/vel` 轉為正式 `/ly/control/vel`、將 `/ly/navi/should_rotate` 轉為 partial `/ly/control/firecode`，500 ms stale 時發布零速度。driver 保持正式 control subscriber，兩類控制最終以同一 `GimbalControlFrame` 下行；此入口不啟動 BT，故不消費也不宣告 `SetPostureToMoveWhenFalse`。正式 root 相容路由明確略過 `navigation_test`／`navigation_mode`。
 - 正式 BT 的 `src/behavior_tree/config/NaviRotateControl.yaml` 可透過 `SetPostureToMoveWhenFalse` 讓新鮮 `/ly/navi/should_rotate=false` 僅覆蓋當拍目標姿態為 Move；現有 `PostureManager` 繼續獨佔 cooldown、hold、feedback 與 pending/retry。若冷卻等待中訊號轉 true 或過期，下一拍恢復原策略，因此不補發 Move。這是正式 BT key，不是 driver debug profile key。
 - 2026-07-16 source audit 移除本倉 `tf_tree` fallback；外部 `sentry_tf` 是唯一 gimbal TF provider。aim feedback、`/ly/control/sentry_cmd`、FaceMode solver、BT 0x04 position downlink、導航 feedback、`debug_node -> debug_mode.yaml` profile 與 root gimbal compatibility routing 保持不變；source ROS Humble、`sentry.common` 後，本次 `behavior_tree` 與 `simulator` 184 tests 及 static selfcheck（108 PASS／0 WARN／0 FAIL）均通過，完整 external aim runtime graph 驗證仍未執行。
-- 本圖譜為 source-checked fallback；因本機沒有可用 Understand Anything plugin core，未執行 plugin regeneration。
+- 本圖譜為 source-checked fallback；因本機沒有可用 Understand Anything plugin core，未執行 plugin regeneration。MPC 接口来源为外部 `sentry.aim/src/aim_msgs/msg/ControlAngles.msg` 与 `GimbalState.msg`，本仓通过 `find_package(aim_msgs)` 使用。

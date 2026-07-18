@@ -55,6 +55,8 @@
 #include "gimbal_driver/msg/sentry_cmd.hpp"
 #include "gimbal_driver/msg/sentry_info.hpp"
 #include "gimbal_driver/msg/stamped_u_int16_multi_array.hpp"
+#include "aim_msgs/msg/control_angles.hpp"
+#include "aim_msgs/msg/gimbal_state.hpp"
 
 #include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/u_int8.hpp>
@@ -66,6 +68,7 @@
 #include <geometry_msgs/msg/point_stamped.hpp>
 
 #include "module/BasicTypes.hpp"
+#include "module/MpcGimbalProtocol.hpp"
 #include "module/crc_checker.hpp"
 #include "module/IODevice.hpp"
 #include "module/ROSTools.hpp"
@@ -75,6 +78,7 @@ using namespace LangYa;
 namespace
 {
     LY_DEF_ROS_TOPIC(ly_control_angles, "/ly/control/angles", gimbal_driver::msg::GimbalAngles);
+    LY_DEF_ROS_TOPIC(ly_control_trajectory, "/ly/control/trajectory", aim_msgs::msg::ControlAngles);
     LY_DEF_ROS_TOPIC(ly_control_firecode, "/ly/control/firecode", gimbal_driver::msg::FireCode);
     LY_DEF_ROS_TOPIC(ly_control_vel, "/ly/control/vel", gimbal_driver::msg::ControlVelocity);
     LY_DEF_ROS_TOPIC(ly_control_posture, "/ly/control/posture", gimbal_driver::msg::SentryCmd);
@@ -87,6 +91,7 @@ namespace
     LY_DEF_ROS_TOPIC(ly_bt_sentry_position, "/ly/bt/sentry_position", geometry_msgs::msg::PointStamped);
 
     LY_DEF_ROS_TOPIC(ly_gimbal_angles, "/ly/gimbal/angles", gimbal_driver::msg::GimbalAngles);
+    LY_DEF_ROS_TOPIC(ly_gimbal_state, "/ly/gimbal/state", aim_msgs::msg::GimbalState);
     LY_DEF_ROS_TOPIC(ly_gimbal_firecode, "/ly/gimbal/firecode", gimbal_driver::msg::FireCode);
     LY_DEF_ROS_TOPIC(ly_gimbal_vel, "/ly/gimbal/vel", gimbal_driver::msg::Vel);
     LY_DEF_ROS_TOPIC(ly_gimbal_chassis, "/ly/gimbal/chassis", gimbal_driver::msg::Chassis);
@@ -146,6 +151,11 @@ namespace
         std::chrono::milliseconds firecodePartialHold_{100};
         std::chrono::milliseconds navigationTestStaleTimeout_{500};
         std::chrono::milliseconds gamePathFreshTimeout_{5000};
+        std::chrono::milliseconds gimbalDynamicsTimeout_{200};
+        std::chrono::milliseconds gimbalStatePublishPeriod_{20};
+        std::chrono::steady_clock::time_point nextGimbalStatePublishTime_{
+            std::chrono::steady_clock::time_point::min()
+        };
         float sentryCoordX_{0.0f};
         float sentryCoordY_{0.0f};
         bool sentryCoordPending_{false};
@@ -190,6 +200,19 @@ namespace
         bool hasBulletDataAndRfid2_{false};
         std::chrono::steady_clock::time_point preciseOutpostHpLastRxTime_{};
         std::chrono::milliseconds preciseOutpostHpFreshTimeout_{1500};
+        std::mutex gimbalStateMutex_{};
+        float latestGimbalYaw_{0.0F};
+        float latestGimbalPitch_{0.0F};
+        float latestGimbalYawOmega_{0.0F};
+        float latestGimbalPitchOmega_{0.0F};
+        float latestGimbalYawAlpha_{0.0F};
+        float latestGimbalPitchAlpha_{0.0F};
+        float latestGimbalBulletSpeed_{0.0F};
+        std::uint8_t latestGimbalAimRequest_{0};
+        bool hasGimbalDynamics_{false};
+        std::uint32_t latestGimbalSampleTickMs_{0};
+        std::chrono::steady_clock::time_point latestGimbalDynamicsRxTime_{};
+        GimbalTrajectoryFrame trajectoryShadow_{};
         bool rawSerialLogEnable_{false};
         bool rawSerialLogUplink_{true};
         bool rawSerialLogDownlink_{true};
@@ -207,8 +230,8 @@ namespace
         std::array<bool, 256> rawSerialTopicTypeIdEnabled_{};
         rclcpp::Publisher<gimbal_driver::msg::GimbalRawFrame>::SharedPtr rawSerialRxPublisher_{};
         rclcpp::Publisher<gimbal_driver::msg::GimbalRawFrame>::SharedPtr rawSerialTxPublisher_{};
-        static constexpr std::size_t kUploadTypeIdCount = 11;
-        static constexpr std::size_t kDownloadTypeIdCount = 5;
+        static constexpr std::size_t kUploadTypeIdCount = 12;
+        static constexpr std::size_t kDownloadTypeIdCount = 6;
         bool serialModeEnable_{false};
         bool serialModeUploadEnable_{true};
         bool serialModeDownloadEnable_{true};
@@ -219,6 +242,8 @@ namespace
         std::array<rclcpp::Publisher<gimbal_driver::msg::GimbalRawFrame>::SharedPtr,
             kDownloadTypeIdCount> serialModeDownloadPublishers_{};
         rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr subSentryPosition_{};
+        rclcpp::Subscription<aim_msgs::msg::ControlAngles>::SharedPtr trajectorySubscription_{};
+        rclcpp::Publisher<aim_msgs::msg::GimbalState>::SharedPtr gimbalStatePublisher_{};
 
         enum FireCodeFieldIndex : std::size_t {
             kFireStatusField = 0,
@@ -334,6 +359,7 @@ namespace
                 case BulletDataAndRfid2::TypeID: return "BulletDataAndRfid2";
                 case MapCommandData::TypeID: return "MapCommandData";
                 case SentryInfo3AndOutpostHpData::TypeID: return "SentryInfo3AndOutpostHpData";
+                case GimbalDynamicsData::TypeID: return "GimbalDynamicsData";
                 default: return "Unknown";
             }
         }
@@ -702,6 +728,18 @@ namespace
             rawSerialTxPublisher_->publish(msg);
         }
 
+        void PublishRawTxTopic(const GimbalTrajectoryFrame& data) {
+            if (!rawSerialTxPublisher_ || rawSerialTxPublisher_->get_subscription_count() == 0) {
+                return;
+            }
+            gimbal_driver::msg::GimbalRawFrame msg;
+            msg.header.stamp = Node.GetNode()->now();
+            msg.direction = gimbal_driver::msg::GimbalRawFrame::DIRECTION_TX;
+            msg.type_id = gimbal_driver::msg::GimbalRawFrame::TYPE_ID_TX_TRAJECTORY;
+            AssignRawBytes(msg, data);
+            rawSerialTxPublisher_->publish(msg);
+        }
+
         void LogUplinkRaw(const TypedMessage<sizeof(GimbalData)>& message) {
             if (rawSerialLogEnable_ &&
                 rawSerialLogUplink_ &&
@@ -794,6 +832,25 @@ namespace
                 PublishRawTxTopic(data);
             }
             PublishSerialModeDownloadTopic(data, SentryCoordinateFrame::DownlinkTypeIDValue);
+        }
+
+        void LogDownlinkRaw(const GimbalTrajectoryFrame& data, const char* reason) {
+            if (rawSerialLogEnable_ && rawSerialLogDownlink_) {
+                std::ostringstream extra;
+                extra << "reason=" << (reason ? reason : "trajectory")
+                      << " yaw=" << data.Yaw
+                      << " pitch=" << data.Pitch
+                      << " yaw_omega=" << data.YawOmega
+                      << " pitch_omega=" << data.PitchOmega
+                      << " yaw_alpha=" << data.YawAlpha
+                      << " pitch_alpha=" << data.PitchAlpha;
+                WriteRawSerialLogLine("tx", "trajectory", data, extra.str());
+            }
+
+            if (rawSerialTopicEnable_ && rawSerialTopicDownlink_) {
+                PublishRawTxTopic(data);
+            }
+            PublishSerialModeDownloadTopic(data, GimbalTrajectoryFrame::DownlinkTypeIDValue);
         }
 
         static gimbal_driver::msg::RfidStatus ToRfidStatusMsg(
@@ -996,6 +1053,22 @@ namespace
                 msg.data = self_hp;
                 Node.Publisher<topic>()->publish(msg);
             }
+        }
+
+        void SendGimbalTrajectory(const aim_msgs::msg::ControlAngles& msg) {
+            if (!mpc_gimbal_protocol::IsFiniteTrajectory(msg)) {
+                roslog::warn("Drop /ly/control/trajectory with non-finite value");
+                return;
+            }
+            if (DeviceError) {
+                return;
+            }
+            trajectoryShadow_ = mpc_gimbal_protocol::ToTrajectoryFrame(msg);
+            if (!Device.WriteRaw(trajectoryShadow_)) {
+                DeviceError = true;
+                return;
+            }
+            LogDownlinkRaw(trajectoryShadow_, "trajectory_callback");
         }
 
         void DegradeStaleFireCode(FireCodeType& firecode, const std::chrono::steady_clock::time_point now) const {
@@ -1319,8 +1392,18 @@ namespace
             GenSub<ly_control_angles>([](GimbalControlFrame& g, const gimbal_driver::msg::GimbalAngles& m)
                                         {
                                             g.GimbalAngles.Yaw = static_cast<float>(m.yaw);
-                                            g.GimbalAngles.Pitch = static_cast<float>(m.pitch);  
+                                            g.GimbalAngles.Pitch = static_cast<float>(m.pitch);
                                         });
+
+            trajectorySubscription_ = Node.GetNode()->create_subscription<aim_msgs::msg::ControlAngles>(
+                ly_control_trajectory::Name,
+                rclcpp::SensorDataQoS().keep_last(1),
+                [this](const aim_msgs::msg::ControlAngles::ConstSharedPtr msg) {
+                    if (!msg) {
+                        return;
+                    }
+                    SendGimbalTrajectory(*msg);
+                });
 
             GenSub<ly_control_firecode>([this](GimbalControlFrame& g, const gimbal_driver::msg::FireCode& m)
                                         {
@@ -1436,14 +1519,115 @@ namespace
             Node.Publisher<topic>()->publish(msg);
         }
 
+        void PublishGimbalState(const rclcpp::Time& stamp) {
+            aim_msgs::msg::GimbalState msg;
+            msg.header.stamp = stamp;
+
+            {
+                std::lock_guard lock{gimbalStateMutex_};
+                msg.yaw = latestGimbalYaw_;
+                msg.pitch = latestGimbalPitch_;
+                msg.bullet_speed = latestGimbalBulletSpeed_;
+                msg.aim_request = latestGimbalAimRequest_;
+
+                const auto dynamics_age = std::chrono::steady_clock::now() - latestGimbalDynamicsRxTime_;
+                if (hasGimbalDynamics_ &&
+                    dynamics_age <= gimbalDynamicsTimeout_) {
+                    msg.yaw_omega = latestGimbalYawOmega_;
+                    msg.pitch_omega = latestGimbalPitchOmega_;
+                    msg.yaw_alpha = latestGimbalYawAlpha_;
+                    msg.pitch_alpha = latestGimbalPitchAlpha_;
+                }
+            }
+
+            if (gimbalStatePublisher_) {
+                gimbalStatePublisher_->publish(msg);
+            }
+        }
+
+        void MaybePublishGimbalState() {
+            const auto now = std::chrono::steady_clock::now();
+            if (now < nextGimbalStatePublishTime_) {
+                return;
+            }
+            nextGimbalStatePublishTime_ = now + gimbalStatePublishPeriod_;
+            PublishGimbalState(Node.GetNode()->now());
+        }
+
+        void ResetGimbalInterfaceState() {
+            std::lock_guard lock{gimbalStateMutex_};
+            latestGimbalYaw_ = 0.0F;
+            latestGimbalPitch_ = 0.0F;
+            latestGimbalYawOmega_ = 0.0F;
+            latestGimbalPitchOmega_ = 0.0F;
+            latestGimbalYawAlpha_ = 0.0F;
+            latestGimbalPitchAlpha_ = 0.0F;
+            latestGimbalBulletSpeed_ = 0.0F;
+            latestGimbalAimRequest_ = 0;
+            hasGimbalDynamics_ = false;
+            latestGimbalSampleTickMs_ = 0;
+            latestGimbalDynamicsRxTime_ = {};
+            trajectoryShadow_ = {};
+            nextGimbalStatePublishTime_ = std::chrono::steady_clock::now();
+        }
+
+        void PubGimbalDynamics(
+            const TypedMessage<sizeof(GimbalData)>& frame,
+            const rclcpp::Time& stamp) {
+            if (!CRCChecker::CRC8::verify(
+                    reinterpret_cast<const std::uint8_t*>(&frame), sizeof(frame))) {
+                roslog::warn("Drop TypeID 11 gimbal dynamics frame with invalid CRC8");
+                return;
+            }
+
+            const auto& data = frame.GetDataAs<GimbalDynamicsData>();
+            {
+                std::lock_guard lock{gimbalStateMutex_};
+                if (hasGimbalDynamics_ &&
+                    !mpc_gimbal_protocol::IsNewerSampleTick(
+                        data.SampleTickMs, latestGimbalSampleTickMs_)) {
+                    roslog::warn(
+                        "Drop out-of-order TypeID 11 sample tick: current=%u previous=%u",
+                        data.SampleTickMs,
+                        latestGimbalSampleTickMs_);
+                    return;
+                }
+                if (hasGimbalDynamics_) {
+                    const auto sample_delta = data.SampleTickMs - latestGimbalSampleTickMs_;
+                    if (sample_delta > static_cast<std::uint32_t>(gimbalDynamicsTimeout_.count())) {
+                        roslog::warn(
+                            "TypeID 11 sample gap is %u ms (timeout=%ld ms)",
+                            sample_delta,
+                            static_cast<long>(gimbalDynamicsTimeout_.count()));
+                    }
+                }
+                latestGimbalYawOmega_ = static_cast<float>(data.YawOmegaDpsX10) / 10.0F;
+                latestGimbalPitchOmega_ = static_cast<float>(data.PitchOmegaDpsX10) / 10.0F;
+                latestGimbalYawAlpha_ = static_cast<float>(data.YawAlphaDps2);
+                latestGimbalPitchAlpha_ = static_cast<float>(data.PitchAlphaDps2);
+                latestGimbalSampleTickMs_ = data.SampleTickMs;
+                latestGimbalDynamicsRxTime_ = std::chrono::steady_clock::now();
+                hasGimbalDynamics_ = true;
+            }
+            PublishGimbalState(stamp);
+        }
+
         void  PubGimbalData(const GimbalData& data)
 	        {
+            const auto stamp = Node.GetNode()->now();
+            {
+                std::lock_guard lock{gimbalStateMutex_};
+                latestGimbalYaw_ = static_cast<float>(data.GimbalAngles.Yaw);
+                latestGimbalPitch_ = static_cast<float>(data.GimbalAngles.Pitch);
+                latestGimbalAimRequest_ = data.FireCode.AimMode;
+                latestGimbalBulletSpeed_ = hasBulletInitialSpeed_ ? latestBulletInitialSpeed_ : 0.0F;
+            }
             {
                 using topic = ly_gimbal_angles;
                 topic::Msg msg;
                 msg.yaw = static_cast<float>(data.GimbalAngles.Yaw);
                 msg.pitch = static_cast<float>(data.GimbalAngles.Pitch);
-                msg.header.stamp = Node.GetNode()->now();
+                msg.header.stamp = stamp;
                 Node.Publisher<topic>()->publish(msg);
             }
             {
@@ -1458,6 +1642,7 @@ namespace
                 msg.data = static_cast<std::uint8_t>(data.CapV);
                 Node.Publisher<topic>()->publish(msg);
             }
+            PublishGimbalState(stamp);
         }
 
         void PubGameData(const GameData& data)
@@ -1798,9 +1983,14 @@ namespace
                         PubSentryInfo3AndOutpostHpData(m.GetDataAs<SentryInfo3AndOutpostHpData>());
                         break;
                     }
+                    case GimbalDynamicsData::TypeID:
+                    {
+                        PubGimbalDynamics(m, Node.GetNode()->now());
+                        break;
+                    }
 
                     default:
-                        roslog::error("Application::LoopRead: invalid type id(%u)",
+                        roslog::warn("Application::LoopRead: ignore unknown type id(%u)",
                                       static_cast<unsigned int>(m.TypeID));
                         break;
                 }
@@ -1844,6 +2034,9 @@ namespace
             Node.Initialize(argc, argv);
             Node.Publisher<ly_gimbal_big_yaw_angles>();
             auto node = Node.GetNode();
+            gimbalStatePublisher_ = node->create_publisher<aim_msgs::msg::GimbalState>(
+                ly_gimbal_state::Name,
+                rclcpp::SensorDataQoS().keep_last(1));
             rclcpp::Rate rate(250);
             bool useVirtualDevice = false;
             std::string serialDeviceName{"/dev/ttyACM0"};
@@ -1863,6 +2056,8 @@ namespace
             int firecodePartialHoldMs = static_cast<int>(firecodePartialHold_.count());
             int navigationTestStaleTimeoutMs = static_cast<int>(navigationTestStaleTimeout_.count());
             int gamePathFreshTimeoutMs = static_cast<int>(gamePathFreshTimeout_.count());
+            int gimbalDynamicsTimeoutMs = static_cast<int>(gimbalDynamicsTimeout_.count());
+            int gimbalStatePublishPeriodMs = static_cast<int>(gimbalStatePublishPeriod_.count());
             int sentryCoordSendIntervalMs = static_cast<int>(sentryCoordSendInterval_.count());
             int sentryCoordFieldWidthX = sentryCoordFieldWidthX_;
             int sentryCoordFieldWidthY = sentryCoordFieldWidthY_;
@@ -1950,6 +2145,16 @@ namespace
                 "io_config.game_path_fresh_timeout_ms",
                 gamePathFreshTimeoutMs,
                 gamePathFreshTimeoutMs);
+            getParamCompat(
+                "io_config/gimbal_dynamics_timeout_ms",
+                "io_config.gimbal_dynamics_timeout_ms",
+                gimbalDynamicsTimeoutMs,
+                gimbalDynamicsTimeoutMs);
+            getParamCompat(
+                "io_config/gimbal_state_publish_period_ms",
+                "io_config.gimbal_state_publish_period_ms",
+                gimbalStatePublishPeriodMs,
+                gimbalStatePublishPeriodMs);
             getParamCompat(
                 "io_config/sentry_coord_send_interval_ms",
                 "io_config.sentry_coord_send_interval_ms",
@@ -2099,6 +2304,18 @@ namespace
                     gamePathFreshTimeoutMs);
                 gamePathFreshTimeoutMs = 5000;
             }
+            if (gimbalDynamicsTimeoutMs <= 0) {
+                roslog::warn(
+                    "Invalid gimbal_dynamics_timeout_ms=%d, fallback to 200",
+                    gimbalDynamicsTimeoutMs);
+                gimbalDynamicsTimeoutMs = 200;
+            }
+            if (gimbalStatePublishPeriodMs <= 0) {
+                roslog::warn(
+                    "Invalid gimbal_state_publish_period_ms=%d, fallback to 20",
+                    gimbalStatePublishPeriodMs);
+                gimbalStatePublishPeriodMs = 20;
+            }
             if (sentryCoordSendIntervalMs < 20) {
                 roslog::warn(
                     "Invalid sentry_coord_send_interval_ms=%d, fallback to 20",
@@ -2129,6 +2346,8 @@ namespace
             firecodePartialHold_ = std::chrono::milliseconds(firecodePartialHoldMs);
             navigationTestStaleTimeout_ = std::chrono::milliseconds(navigationTestStaleTimeoutMs);
             gamePathFreshTimeout_ = std::chrono::milliseconds(gamePathFreshTimeoutMs);
+            gimbalDynamicsTimeout_ = std::chrono::milliseconds(gimbalDynamicsTimeoutMs);
+            gimbalStatePublishPeriod_ = std::chrono::milliseconds(gimbalStatePublishPeriodMs);
             sentryCoordSendInterval_ = std::chrono::milliseconds(sentryCoordSendIntervalMs);
             sentryCoordFieldWidthX_ = sentryCoordFieldWidthX;
             sentryCoordFieldWidthY_ = sentryCoordFieldWidthY;
@@ -2216,6 +2435,10 @@ namespace
                          serialModeEnable_ ? "true" : "false",
                          serialModeUploadEnable_ ? "true" : "false",
                          serialModeDownloadEnable_ ? "true" : "false");
+            roslog::warn(
+                "gimbal state publish: period_ms=%d dynamics_timeout_ms=%d",
+                static_cast<int>(gimbalStatePublishPeriod_.count()),
+                static_cast<int>(gimbalDynamicsTimeout_.count()));
 
             subSentryPosition_ = node->create_subscription<ly_bt_sentry_position::Msg>(
                 ly_bt_sentry_position::Name,
@@ -2230,6 +2453,7 @@ namespace
                 std::this_thread::sleep_for(1s);
                 if (!Device.Initialize(useVirtualDevice, serialDeviceName, serialBaudRate)) continue;
                 DeviceError = false;
+                ResetGimbalInterfaceState();
                 posturePendingRepeat_ = 0;
                 postureLastSent_ = 0;
                 navigationTestVelocityActive_ = false;
@@ -2248,6 +2472,7 @@ namespace
                     MaybeApplyNavigationTestStaleFallback();
                     MaybeSendPostureTx();
                     MaybeSendSentryCoordinate();
+                    MaybePublishGimbalState();
                     rate.sleep();
                 }
             }

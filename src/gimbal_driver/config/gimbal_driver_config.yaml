@@ -11,6 +11,8 @@
       velocity_raw_to_mps: 0.025  # 导航 raw 速度到控制速度的换算系数（米/秒）。
       # /ly/game/path 的 header.stamp 超过此时效即不再下发；driver 不会周期性重发缓存路径。
       game_path_fresh_timeout_ms: 5000  # 地图路径新鲜度（毫秒）。
+      gimbal_dynamics_timeout_ms: 200  # TypeID 11 动态反馈超时后仅清零动态字段。
+      gimbal_state_publish_period_ms: 20  # /ly/gimbal/state 周期发布间隔（毫秒）。
       sentry_coord_send_interval_ms: 100  # 自身坐标下发间隔（毫秒）。
       sentry_coord_field_width_x: 2800  # 裁判小地图 X 场地宽度（厘米）。
       sentry_coord_field_width_y: 1500  # 裁判小地图 Y 场地宽度（厘米）。
@@ -53,6 +55,7 @@
         typeid8: true
         typeid9: true
         typeid10: true
+        typeid11: true
       download:
         enable: true  # /ly/download/typeid0xNN 的方向总开关。
         typeid0x00: true  # 0x00 GimbalControlFrame。
@@ -60,3 +63,4 @@
         typeid0x02: true  # 0x02 MapPathFrame / 0x0307。
         typeid0x03: true  # 0x03 CustomInfoFrame / 0x0308。
         typeid0x04: true  # 0x04 SentryCoordinateFrame。
+        typeid0x05: true  # 0x05 GimbalTrajectoryFrame。

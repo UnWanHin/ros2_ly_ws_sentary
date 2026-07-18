@@ -1,6 +1,6 @@
 # ROS2 Topic And Message Tree
 
-Updated: 2026-07-12
+Updated: 2026-07-18
 
 这份文档用 tree 方式整理当前哨兵上位机 ROS2 topic 和消息结构，重点回答两个问题：
 
@@ -56,7 +56,8 @@ Updated: 2026-07-12
 ├── posture    : gimbal_driver/msg/SentryCmd        [Embedded] BT 姿态主入口，只用 FIELD_POSTURE/posture
 ├── sentry_cmd : gimbal_driver/msg/SentryCmd        [Embedded] 完整 sentry_cmd -> DownlinkTypeID=0x01
 ├── map_path   : gimbal_driver/msg/MapPath          [Embedded] 裁判 0x0307 -> DownlinkTypeID=0x02
-└── custom_info: gimbal_driver/msg/CustomInfo       [Embedded] 裁判 0x0308 -> DownlinkTypeID=0x03
+├── custom_info: gimbal_driver/msg/CustomInfo       [Embedded] 裁判 0x0308 -> DownlinkTypeID=0x03
+└── trajectory : aim_msgs/msg/ControlAngles         [External MPC] -> DownlinkTypeID=0x05 26B
 ```
 
 ### `/ly/game/path` - 導航轉裁判路徑
@@ -94,8 +95,8 @@ bridge 固定 `intention=3`；最多 50 點，超出 `uint16` 起點或 `int8` d
 
 ```text
 /ly/log
-├── gimbal_raw_rx : gimbal_driver/msg/GimbalRawFrame  [Debug] 下位机 -> 上位机 raw TypeID 幀
-└── gimbal_raw_tx : gimbal_driver/msg/GimbalRawFrame  [Debug] 上位机 -> 下位机 raw downlink frame
+├── gimbal_raw_rx : gimbal_driver/msg/GimbalRawFrame  [Debug] 下位机 -> 上位机 raw TypeID 幀 0..11
+└── gimbal_raw_tx : gimbal_driver/msg/GimbalRawFrame  [Debug] 上位机 -> 下位机 raw downlink frame 0x00..0x05
 ```
 
 默认关闭，由 `config/common.yaml` 的 `gimbal_raw.topic.enable` 控制。`data` 是原始 bytes，不是 hex 字符串。
@@ -630,11 +631,16 @@ SentryCoordinateFrame (DownlinkTypeID=0x04)
 ├── Y_cm           : int16   # /ly/bt/sentry_position y, m -> cm
 ├── Reserved       : 10B     # 0
 └── CRC8           : uint8   # byte0-15, poly=0x31 init=0xFF
+
+GimbalTrajectoryFrame (DownlinkTypeID=0x05)
+├── Yaw/Pitch      : float32 # deg, /ly/control/trajectory
+├── YawOmega/PitchOmega : float32 # deg/s
+└── YawAlpha/PitchAlpha : float32 # deg/s^2
 ```
 
 若 `gimbal_raw.topic.enable=true` 且 `gimbal_raw.topic.downlink=true`，下行 raw frame 会同时发布到 `/ly/log/gimbal_raw_tx`：
-`type_id=255/254/253/252/251` 依次表示 `0x00` control、`0x01` sentry command、`0x02` map path、
-`0x03` custom info、`0x04` sentry coordinate frame。
+`type_id=255/254/253/252/251/250` 依次表示 `0x00` control、`0x01` sentry command、`0x02` map path、
+`0x03` custom info、`0x04` sentry coordinate、`0x05` trajectory frame。
 
 `SentryCmd` bit tree：
 

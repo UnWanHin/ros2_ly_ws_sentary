@@ -286,6 +286,17 @@ namespace LangYa
     };
     static_assert(sizeof(SentryInfo3AndOutpostHpData) == sizeof(GimbalData), "TypeID=10 payload must stay 12B");
 
+    /// @brief TypeID=11 payload: actual gimbal dynamics, with the frame CRC in TypedMessage::Tail.
+    struct GimbalDynamicsData {
+        static constexpr auto TypeID = 11;
+        std::int16_t YawOmegaDpsX10;
+        std::int16_t PitchOmegaDpsX10;
+        std::int16_t YawAlphaDps2;
+        std::int16_t PitchAlphaDps2;
+        std::uint32_t SampleTickMs;
+    };
+    static_assert(sizeof(GimbalDynamicsData) == sizeof(GimbalData), "TypeID=11 payload must stay 12B");
+
     // ==============================
     // Downlink: gimbal_driver -> lower machine
     // ==============================
@@ -298,6 +309,7 @@ namespace LangYa
         MapPath = 0x02,
         CustomInfo = 0x03,
         SentryCoordinate = 0x04,
+        Trajectory = 0x05,
     };
 
     constexpr std::uint8_t ToRawDownlinkTypeID(DownlinkFrameType type_id) noexcept {
@@ -390,6 +402,25 @@ namespace LangYa
         SentryCoordinateFrame::DownlinkTypeIDValue == ToRawDownlinkTypeID(SentryCoordinateFrame::FrameType),
         "SentryCoordinateFrame DownlinkTypeIDValue must match DownlinkFrameType");
     static_assert(sizeof(SentryCoordinateFrame) == 17, "SentryCoordinateFrame must stay 17B");
+
+    /// @brief DownlinkTypeID=0x05: atomic MPC trajectory, independent from the legacy 0x00 frame.
+    struct GimbalTrajectoryFrame {
+        static constexpr auto FrameType = DownlinkFrameType::Trajectory;
+        static constexpr std::uint8_t DownlinkTypeIDValue = 0x05;
+
+        std::uint8_t HeadFlag{ '!' };
+        std::uint8_t DownlinkTypeID{ DownlinkTypeIDValue };
+        float Yaw{ 0.0F };
+        float Pitch{ 0.0F };
+        float YawOmega{ 0.0F };
+        float PitchOmega{ 0.0F };
+        float YawAlpha{ 0.0F };
+        float PitchAlpha{ 0.0F };
+    };
+    static_assert(
+        GimbalTrajectoryFrame::DownlinkTypeIDValue == ToRawDownlinkTypeID(GimbalTrajectoryFrame::FrameType),
+        "GimbalTrajectoryFrame DownlinkTypeIDValue must match DownlinkFrameType");
+    static_assert(sizeof(GimbalTrajectoryFrame) == 26, "GimbalTrajectoryFrame must stay 26B");
 
 #pragma pack(pop)
 }

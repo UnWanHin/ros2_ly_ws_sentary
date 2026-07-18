@@ -1,6 +1,6 @@
 # 上位機下發協議總覽（給下位機）
 
-Updated: 2026-07-12
+Updated: 2026-07-18
 
 > 配置归属：`io_config.game_path_fresh_timeout_ms`、自身坐标下发频率/时效与串口 raw
 > 诊断都在 `src/gimbal_driver/config/gimbal_driver_config.yaml`。正式 `sentry_all` 与
@@ -27,6 +27,7 @@ byte 0 都是 `0x21` (`'!'`)，byte 1 是 `DownlinkTypeID`；之後的 frame 長
 | `0x02` | `MapPathFrame` | 107B | `0x0307 map_data_t` | `/ly/control/map_path` |
 | `0x03` | `CustomInfoFrame` | 36B | `0x0308 custom_info_t` | `/ly/control/custom_info` |
 | `0x04` | `SentryCoordinateFrame` | 17B | 下位機自身座標使用 | `/ly/bt/sentry_position` |
+| `0x05` | `GimbalTrajectoryFrame` | 26B | MPC 云台原子轨迹 | `/ly/control/trajectory` (`aim_msgs/msg/ControlAngles`) |
 
 下位機必須先讀 byte 1，再按上表讀取剩餘字節；不可再把所有下發資料固定按 17B 解析。
 
@@ -136,7 +137,28 @@ ID/裁判發送流程封裝 `0x0307`。
 資料來源是 `/ly/bt/sentry_position`。上位機預設每 100ms 最多發一次；位置超過 2000ms 未刷新則停止發送。
 CRC8 參數：poly `0x31`、init `0xFF`、非反射。
 
-## 8. 舊協議遷移
+## 8. `GimbalTrajectoryFrame`（`0x05`，26B）
+
+此 frame 与旧 `0x00` 控制帧并行发送，不携带底盘速度和 FireCode。所有浮点数为
+IEEE-754 little-endian，单位为角度 `deg`、角速度 `deg/s`、角加速度 `deg/s^2`。
+
+| byte offset | 字段 | 类型 | 说明 |
+|---|---|---|---|
+| 0 | `HeadFlag` | `uint8` | 固定 `0x21` |
+| 1 | `DownlinkTypeID` | `uint8` | 固定 `0x05` |
+| 2-5 | `Yaw` | `float32` | 目标 yaw 角 |
+| 6-9 | `Pitch` | `float32` | 目标 pitch 角 |
+| 10-13 | `YawOmega` | `float32` | 目标 yaw 角速度 |
+| 14-17 | `PitchOmega` | `float32` | 目标 pitch 角速度 |
+| 18-21 | `YawAlpha` | `float32` | 目标 yaw 角加速度 |
+| 22-25 | `PitchAlpha` | `float32` | 目标 pitch 角加速度 |
+
+驱动从 `/ly/control/trajectory`（`aim_msgs/msg/ControlAngles`）缓存六个字段，每次消息更新
+额外写入一帧；旧 `0x00` 控制帧仍由 `/ly/control/angles`、`/ly/control/vel` 和
+`/ly/control/firecode` 原路径发送。驱动使用 SensorData QoS，并拒绝六个字段中包含
+`NaN/Inf` 的消息；轨迹停止后的 200ms 回退由下位机负责，驱动不会伪造禁用帧。
+
+## 9. 舊協議遷移
 
 | 舊布局 | 新布局 |
 |---|---|

@@ -55,10 +55,17 @@ sentry.aim
 
 ```bash
 cd ~/ros2_ly_ws_sentry
-colcon build
+source /opt/ros/humble/setup.bash
+source /home/hustlyrm/sentry.aim/install/setup.bash
+colcon build --allow-overriding gimbal_driver
 source install/setup.bash
+source /home/hustlyrm/sentry.aim/install/setup.bash
 ./scripts/selfcheck.sh sentry --static-only
 ```
+
+`gimbal_driver` consumes the canonical `aim_msgs` interfaces from the external
+`sentry.aim` workspace. Source that workspace before building or running the
+driver; do not create a second `aim_msgs` package in this repository.
 
 正式/调试入口：
 

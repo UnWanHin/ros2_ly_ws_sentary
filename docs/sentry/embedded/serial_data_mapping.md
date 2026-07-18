@@ -1,13 +1,13 @@
 # 串口上下行数据映射总表
 
-Updated: 2026-07-12
+Updated: 2026-07-18
 
 > 配置归属：`gimbal_driver` 的串口、下位机与 raw 上行诊断基线集中在
 > `src/gimbal_driver/config/gimbal_driver_config.yaml`；根目录 `config/base_config.yaml`
 > 不再承载 `io_config`。
 
 > Raw 观测：开启 `io_config.serial_mode=true` 后，每个上行 TypeID 单独发布到
-> `/ly/upload/typeidN`，使用带 `header.stamp` 的 `gimbal_driver/msg/GimbalRawFrame`。这不替代
+> `/ly/upload/typeidN`（当前 `N=0..11`），使用带 `header.stamp` 的 `gimbal_driver/msg/GimbalRawFrame`。这不替代
 > 本文的语义 ROS topic，也不会在没有 subscriber 时组包发布。
 
 ## 1. 说明
@@ -43,7 +43,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 也就是说：
 
 1. 上行是**带 `TypeID` 的分型幀**
-2. 下行是**带 `DownlinkTypeID` 的可变长度 frame**：`0x00=13B`、`0x01=6B`、`0x02=107B`、`0x03=36B`、`0x04=17B`
+2. 下行是**带 `DownlinkTypeID` 的可变长度 frame**：`0x00=13B`、`0x01=6B`、`0x02=107B`、`0x03=36B`、`0x04=17B`、`0x05=26B`
 
 上行 `TypeID` 和下行 `DownlinkTypeID` 是独立编号空间，不共用语义。
 
@@ -121,6 +121,7 @@ raw topic 使用 `gimbal_driver/msg/GimbalRawFrame`，`data` 是原始二进制 
 | `0x02` | `MapPathFrame` | 107B | `/ly/control/map_path`，映射裁判 `0x0307` |
 | `0x03` | `CustomInfoFrame` | 36B | `/ly/control/custom_info`，映射裁判 `0x0308` |
 | `0x04` | `SentryCoordinateFrame` | 17B | `/ly/bt/sentry_position`，坐标 frame 保留 CRC8 |
+| `0x05` | `GimbalTrajectoryFrame` | 26B | `/ly/control/trajectory`，MPC 角度/角速度/角加速度 |
 
 完整字节布局、CRC8、V2.0 `SentryCmd` 位定义和旧协议迁移规则以
 [`docs/sentry/embedded/downlink_control_frame.md`](downlink_control_frame.md) 为准。
@@ -824,6 +825,7 @@ struct SentryInfo3AndOutpostHpData {
 | 裁判路径 | `MapPathFrame`（`0x02`） | `/ly/control/map_path` (`MapPath`) |
 | 裁判自定义信息 | `CustomInfoFrame`（`0x03`） | `/ly/control/custom_info` (`CustomInfo`) |
 | 哨兵自身坐标 x/y | `SentryCoordinateFrame.X_cm/Y_cm`（`0x04`） | `/ly/bt/sentry_position` (`PointStamped`) |
+| MPC 轨迹 | `GimbalTrajectoryFrame`（`0x05`） | `/ly/control/trajectory` (`aim_msgs/msg/ControlAngles`) |
 
 ## 6.2 下位机 -> 上位机已对接
 
@@ -864,6 +866,7 @@ struct SentryInfo3AndOutpostHpData {
 | `10` | 哨兵 `sentry_info_3` | `SentryInfo3AndOutpostHpData.SentryInfo3` | 更新 `/ly/game/sentry/info` 的 shadow，随 TypeID=7 发布 |
 | `10` | 我方前哨站精确血量 | `SentryInfo3AndOutpostHpData.SelfOutpostHealth` | `/ly/friend/op_hp` |
 | `10` | 敌方前哨站精确血量 | `SentryInfo3AndOutpostHpData.EnemyOutpostHealth` | `/ly/enemy/op_hp` |
+| `11` | 云台动态反馈 | `GimbalDynamicsData` | `/ly/gimbal/state`；速度除以 10，角加速度直接按 `deg/s^2` |
 
 ---
 
@@ -1060,3 +1063,4 @@ out_of_combat = alive && (now - last_combat_time >= 6s)
 - `TypeID=8`：`PubBulletDataAndRfid2()`
 - `TypeID=9`：`PubMapCommandData()`
 - `TypeID=10`：`PubSentryInfo3AndOutpostHpData()`
+- `TypeID=11`：`PubGimbalDynamics()`，先校验现有上行 CRC8，再检查 `SampleTickMs` 顺序；动态反馈超过 `gimbal_dynamics_timeout_ms` 时清零，角度仍由 TypeID 0 继续发布；`/ly/gimbal/state` 另外按 `gimbal_state_publish_period_ms` 周期发布

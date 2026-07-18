@@ -1,6 +1,6 @@
 # gimbal_driver — 雲台驅動節點
 
-Updated: 2026-07-16
+Updated: 2026-07-18
 
 ## 概述
 
@@ -74,7 +74,7 @@ ros2 launch gimbal_driver debug_node.launch.py use_virtual_device:=true
 
 ### 配置歸屬
 
-`src/gimbal_driver/config/gimbal_driver_config.yaml` 是串口、下位機、裁判下行、路徑/自身座標
+`src/gimbal_driver/config/gimbal_driver_config.yaml` 是串口、下位機、裁判下行、MPC 動態回饋、路徑/自身座標
 時效，以及 raw serial 診斷的唯一正式基線。YAML 只保留一套 nested `io_config` 設定，
 避免相同值維護兩次；`main.cpp` 仍相容 slash 與 dot 兩種 launch/CLI 參數寫法。
 
@@ -119,8 +119,8 @@ Velocity 與 FireCode 最終都由 driver 的正式 subscriber 寫入同一個 `
 
 | 方向 | raw topic | 範圍 |
 |---|---|---|
-| 下位機 -> 上位機 | `/ly/upload/typeid0` ... `/ly/upload/typeid10` | 當前上行 `TypeID=0..10` |
-| 上位機 -> 下位機 | `/ly/download/typeid0x00` ... `/ly/download/typeid0x04` | 當前下行 `DownlinkTypeID=0x00..0x04` |
+| 下位機 -> 上位機 | `/ly/upload/typeid0` ... `/ly/upload/typeid11` | 當前上行 `TypeID=0..11` |
+| 上位機 -> 下位機 | `/ly/download/typeid0x00` ... `/ly/download/typeid0x05` | 當前下行 `DownlinkTypeID=0x00..0x05` |
 
 這些只供協議/HZ/hex 觀測；`/ly/game/*`、`/ly/gimbal/*` 等語義 topic 不改名、不受開關影響。
 每個 raw topic 在沒有 subscriber 時不組包、不發布。舊 `/ly/log/gimbal_raw_rx` 與
@@ -155,7 +155,7 @@ main()
 #### 「讀取」路徑：`LoopRead()` → `Pub*()`
 
 從串口讀到 `TypedMessage`，根據 `TypeID` 分發到不同的 `Pub*` 函數。
-當前上行是分型幀模式，實際使用 `TypeID=0..10`：
+當前上行是分型幀模式，實際使用 `TypeID=0..11`：
 
 | TypeID 對應數據結構 | 調用函數 | 發布的 Topic |
 |---|---|---|
@@ -170,6 +170,7 @@ main()
 | `BulletDataAndRfid2` (`TypeID=8`) | `PubBulletDataAndRfid2()` | `/ly/game/bullet`, `/ly/game/rfid` |
 | `MapCommandData` (`TypeID=9`) | `PubMapCommandData()` | `/ly/game/map_command` |
 | `SentryInfo3AndOutpostHpData` (`TypeID=10`) | `PubSentryInfo3AndOutpostHpData()` | `/ly/friend/op_hp`, `/ly/enemy/op_hp`；更新 `/ly/game/sentry/info.sentry_info_3_raw` shadow |
+| `GimbalDynamicsData` (`TypeID=11`) | `PubGimbalDynamics()` | `/ly/gimbal/state` 的角速度/角加速度；CRC8、采样 tick 和 200ms 超时由 driver 检查；状态 topic 另按配置周期发布 |
 
 #### 「寫入」路徑：`GenSubs()` / 直接命令發送 → `Device.WriteRaw()`
 
@@ -184,6 +185,7 @@ main()
 | `0x02` | `MapPathFrame` | 107B | `0x0307 map_data_t` |
 | `0x03` | `CustomInfoFrame` | 36B | `0x0308 custom_info_t` |
 | `0x04` | `SentryCoordinateFrame` | 17B | BT 融合後自身座標 |
+| `0x05` | `GimbalTrajectoryFrame` | 26B | MPC 角度、角速度、角加速度原子轨迹 |
 
 | 訂閱 Topic | 對應字段 | 說明 |
 |---|---|---|
@@ -194,6 +196,7 @@ main()
 | `/ly/control/sentry_cmd` (`SentryCmd`) | `SentryCommandFrame.SentryCmd` | `0x01` 完整哨兵裁判命令入口 |
 | `/ly/control/map_path` (`MapPath`) | `MapPathFrame` | `0x02` 裁判 `0x0307` 小地圖路徑 |
 | `/ly/control/custom_info` (`CustomInfo`) | `CustomInfoFrame` | `0x03` 裁判 `0x0308` UTF-16 文字 |
+| `/ly/control/trajectory` (`aim_msgs/ControlAngles`) | `GimbalTrajectoryFrame.Yaw/Pitch/YawOmega/PitchOmega/YawAlpha/PitchAlpha` | `0x05` MPC 轨迹；SensorData QoS、非法浮点丢弃；每次更新额外发送，旧 `0x00` 不变 |
 | `/ly/bt/sentry_position` (`PointStamped`) | `SentryCoordinateFrame.X_cm/Y_cm` | BT 融合後自身坐標，m 轉 cm 後下發 |
 | `/ly/navi/vel` (`Vel`) | `ControlVelocity(raw_x/raw_y,use_raw=true)` | `debug_node.launch.py` 的 100 Hz bridge 轉發到 `/ly/control/vel`；500 ms stale 時發布零速度。`navigation_test=true` 與 `vel_chain=true` 仍只保留給舊腳本／自訂 overlay 相容。正式鏈仍經 BT，`sentry_all` 不路由這兩種導航直連鍵。 |
 | `/ly/navi/should_rotate` (`std_msgs/Bool`) | partial `FireCode(FIELD_FOLLOW_MODE|FIELD_ROTATE)` | debug bridge 以 100 Hz 發 `/ly/control/firecode`；true 發 `rotate_level`／FollowMode=false，false 發 Rotate=0 與可設定的 FollowMode=true。 |
@@ -216,6 +219,8 @@ main()
 | `SentryCommandFrame` | 上位機→電控：`DownlinkTypeID=0x01`，裁判 `0x0120 sentry_cmd` |
 | `MapPathFrame` / `CustomInfoFrame` | 上位機→電控：`0x02/0x03`，裁判 `0x0307/0x0308` payload |
 | `SentryCoordinateFrame` | 上位機→電控：`DownlinkTypeID=0x04`，哨兵自身 official-map 坐標 |
+| `GimbalTrajectoryFrame` | 上位機→電控：`DownlinkTypeID=0x05`，MPC 角度/角速度/角加速度 |
+| `GimbalDynamicsData` | 電控→上位機：`TypeID=11`，实际角速度/估算角加速度与 `SampleTickMs` |
 | `GameData` | 裁判系統數據：比賽狀態、血量、子彈數、時間 |
 | `HealthMyselfData` / `HealthEnemyData` | 我方/敵方各機器人血量 |
 | `RFIDAndBuffData` | `0x0209 rfid_status` 低 32 位 + `0x0204` 增益數據（防禦、攻擊、回血等） |
@@ -246,8 +251,8 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 ```
 
 含義：
-- 上行：讀 `TypedMessage`，依 `TypeID` 分發 `0..9`
-- 下行：按 `DownlinkTypeID=0x00~0x04` 發送不同長度 frame；`0x00=13B` 控制、`0x01=6B sentry_cmd`、`0x02=107B` 路徑、`0x03=36B` 自訂訊息、`0x04=17B` 座標
+- 上行：讀 `TypedMessage`，依 `TypeID` 分發 `0..11`
+- 下行：按 `DownlinkTypeID=0x00~0x05` 發送不同長度 frame；`0x00=13B` 控制、`0x01=6B sentry_cmd`、`0x02=107B` 路徑、`0x03=36B` 自訂訊息、`0x04=17B` 座標、`0x05=26B` MPC 轨迹
 
 **虛擬設備模式**（`useVirtualDevice=true`）：用於在沒有硬件時做本地迴環測試，通過 `TestVirtualLoopback()` 驗證數據收發。
 
@@ -319,6 +324,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 | Topic | 消息類型 | 說明 |
 |-------|----------|------|
 | `/ly/gimbal/angles` | `GimbalAngles` | **最重要**：雲台當前角度，`detector` 和 `behavior_tree` 都需要 |
+| `/ly/gimbal/state` | `aim_msgs/msg/GimbalState` | TypeID 0 角度与 TypeID 11 动态反馈的组合；动态帧超时后仅动态字段清零；默认每 20ms 周期发布 |
 | `/ly/friend/is_team_red` | `Bool` | 我方是否紅隊 |
 | `/ly/game/is_start` | `Bool` | 比賽是否開始 |
 | `/ly/game/time_left` | `UInt16` | 剩餘時間 |
@@ -344,6 +350,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 | Topic | 消息類型 | 說明 |
 |-------|----------|------|
 | `/ly/control/angles` | `GimbalAngles` | 接收決策節點的目標角度 |
+| `/ly/control/trajectory` | `aim_msgs/msg/ControlAngles` | 接收 MPC 角度/角速度/角加速度，并额外下发 `0x05` 26B frame |
 | `/ly/control/firecode` | `FireCode` | 接收分字段火控指令 |
 | `/ly/control/vel` | `ControlVelocity` | 接收語義速度/原始速度指令 |
 | `/ly/control/posture` | `SentryCmd` | 接收姿態指令（上位決策輸入，只使用 `FIELD_POSTURE`） |
