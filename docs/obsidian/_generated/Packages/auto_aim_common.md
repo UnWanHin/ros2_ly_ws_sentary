@@ -17,6 +17,7 @@ The auto_aim common pkg, include and msg
 ## Manifest dependencies
 
 - `ament_cmake`
+- `ament_cmake_gtest`
 - `builtin_interfaces`
 - `geometry_msgs`
 - `libfmt-dev`

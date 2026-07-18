@@ -17,11 +17,13 @@ Translate the messages that works in serial port communicating
 ## Manifest dependencies
 
 - `ament_cmake`
+- `ament_cmake_gtest`
 - `builtin_interfaces`
 - `geometry_msgs`
 - `libboost-all-dev`
 - `libfmt-dev`
 - `rclcpp`
+- `rclpy`
 - `rosidl_default_generators`
 - `rosidl_default_runtime`
 - `std_msgs`
@@ -39,6 +41,8 @@ Translate the messages that works in serial port communicating
 - [[docs/obsidian/_generated/Messages/gimbal_driver/GameData|GameData]]
 - [[docs/obsidian/_generated/Messages/gimbal_driver/GimbalAngles|GimbalAngles]]
 - [[docs/obsidian/_generated/Messages/gimbal_driver/GimbalRawFrame|GimbalRawFrame]]
+- [[docs/obsidian/_generated/Messages/gimbal_driver/GimbalState|GimbalState]]
+- [[docs/obsidian/_generated/Messages/gimbal_driver/GimbalTrajectory|GimbalTrajectory]]
 - [[docs/obsidian/_generated/Messages/gimbal_driver/GimbalYaw|GimbalYaw]]
 - [[docs/obsidian/_generated/Messages/gimbal_driver/Health|Health]]
 - [[docs/obsidian/_generated/Messages/gimbal_driver/MapCommand|MapCommand]]
@@ -64,6 +68,7 @@ Translate the messages that works in serial port communicating
 - [[docs/obsidian/_generated/Topics/ly__control__map_path|/ly/control/map_path]]
 - [[docs/obsidian/_generated/Topics/ly__control__posture|/ly/control/posture]]
 - [[docs/obsidian/_generated/Topics/ly__control__sentry_cmd|/ly/control/sentry_cmd]]
+- [[docs/obsidian/_generated/Topics/ly__control__trajectory|/ly/control/trajectory]]
 - [[docs/obsidian/_generated/Topics/ly__control__vel|/ly/control/vel]]
 - [[docs/obsidian/_generated/Topics/ly__download__typeid0xNN|/ly/download/typeid0xNN]]
 - [[docs/obsidian/_generated/Topics/ly__enemy__base_hp|/ly/enemy/base_hp]]
@@ -96,6 +101,7 @@ Translate the messages that works in serial port communicating
 - [[docs/obsidian/_generated/Topics/ly__gimbal__chassis|/ly/gimbal/chassis]]
 - [[docs/obsidian/_generated/Topics/ly__gimbal__firecode|/ly/gimbal/firecode]]
 - [[docs/obsidian/_generated/Topics/ly__gimbal__posture|/ly/gimbal/posture]]
+- [[docs/obsidian/_generated/Topics/ly__gimbal__state|/ly/gimbal/state]]
 - [[docs/obsidian/_generated/Topics/ly__gimbal__vel|/ly/gimbal/vel]]
 - [[docs/obsidian/_generated/Topics/ly__log__gimbal_raw_rx|/ly/log/gimbal_raw_rx]]
 - [[docs/obsidian/_generated/Topics/ly__log__gimbal_raw_tx|/ly/log/gimbal_raw_tx]]

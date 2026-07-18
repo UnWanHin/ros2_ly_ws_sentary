@@ -2,7 +2,7 @@
 # 同步範圍報告
 
 - ROS packages：5
-- 本地 messages：40
-- `/ly/...` topic nodes：73
+- 本地 messages：42
+- `/ly/...` topic nodes：75
 
 此報告是掃描計數，不取代 source review、launch composition 或 `.understand-anything/` 的人工架構分析。
