@@ -59,7 +59,7 @@ Expected: the new assertion fails because MyBase remains first.
 
 After the existing stable sort, find the candidate whose type equals `last_selected_task_`, erase it, and append it only if `candidates.size() > 1`. Re-run the Step 2 command; all focused tests must pass.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 Run `git add src/behavior_tree/src/DefaultStrategyManager.cpp src/behavior_tree/test/test_pre_ready_roadland_tasks.cpp && git commit -m 'behavior_tree: rotate default area patrol'`.
 

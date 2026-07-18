@@ -354,12 +354,14 @@
         ],
       },
       {
-        name: "Default / AreaManager", kind: "策略層 4", description: "沒有更高層處理時，依區域、資源、距離與區域懲罰選預設 goal。",
+        name: "Default / AreaManager", kind: "策略層 4", description: "沒有更高層處理時，只在 JSON 啟用區域評分；有替代時不立即重選剛選區域。",
         target: "file:src/behavior_tree/src/StrategyManager.cpp", children: [
           ["Active Area Task", "已激活區域任務時 TickRegionalAreaTask()", "file:src/behavior_tree/src/StrategyManager.cpp"],
-          ["MyBase / Highland / Roadland", "己方區域策略", "document:docs/sentry/regional/2026-07-12_regional_decision_graph.md"],
+          ["Enabled Area Scope", "DecisionAutonomy.NaviGoal 是 Default eligibility 唯一來源", "concept:default-area-patrol"],
+          ["MyBase", "四個 Castle 點、每點保持 15 秒；不含 BuffOutpost", "concept:default-area-patrol"],
+          ["MyHighland / PreRoadland / ReadyRoadland", "己方區域策略", "document:docs/sentry/regional/2026-07-12_regional_decision_graph.md"],
           ["CommonCentral / Enemy Area", "公共中央與敵方區域策略", "document:docs/sentry/regional/2026-07-12_regional_decision_graph.md"],
-          ["Goal Score", "資源、距離、當前/上一區域懲罰", "file:src/behavior_tree/src/StrategyManager.cpp"],
+          ["Goal Score", "資源、距離、當前/上一區域懲罰與去重選區", "concept:default-area-patrol"],
         ],
       },
       {
