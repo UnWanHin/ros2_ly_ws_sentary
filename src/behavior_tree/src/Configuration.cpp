@@ -1684,6 +1684,24 @@ namespace BehaviorTree {
             config.TaskSettings.MapCommand.DedupDistanceCm);
     }
 
+    void Application::ApplyChasePolicyParameterOverrides() {
+        auto& setting = config.ChasePolicySettings;
+        auto read = [this](const char* key, bool& value) {
+            ReadOptionalBoolParam(
+                node_,
+                std::vector<std::string>{
+                    std::string{"ChasePolicy."} + key,
+                    std::string{"ChasePolicy/"} + key},
+                value);
+        };
+        read("Enable", setting.Enable);
+        read("MyBase", setting.MyBase);
+        read("MyHighland", setting.MyHighland);
+        read("MyPreRoadland", setting.MyPreRoadland);
+        read("MyReadyRoadland", setting.MyReadyRoadland);
+        read("CommonCentral", setting.CommonCentral);
+    }
+
     void Application::ApplySpecialParameterOverrides() {
         auto& patrol = config.SpecialSettings.Patrol;
         ReadOptionalBoolParam(
@@ -2701,6 +2719,7 @@ namespace BehaviorTree {
         // 一次性反序列化到 Config，后续再做范围校验与默认回退。
         config = j.get<Config>();
         ApplyTaskParameterOverrides();
+        ApplyChasePolicyParameterOverrides();
         ApplyAreaManagerParameterOverrides();
         ApplySpecialParameterOverrides();
         ApplyStartGateParameterOverrides();
@@ -3100,6 +3119,14 @@ namespace BehaviorTree {
         LoggerPtr->Debug("YawDeadbandDeg: {}", config.ChaseSettings.YawDeadbandDeg);
         LoggerPtr->Debug("MaxStrafeSpeed: {}", config.ChaseSettings.MaxStrafeSpeed);
         LoggerPtr->Debug("InvertStrafeDirection: {}", config.ChaseSettings.InvertStrafeDirection);
+        LoggerPtr->Debug(
+            "ChasePolicy(enable/base/highland/pre/ready/central): {}/{}/{}/{}/{}/{}",
+            config.ChasePolicySettings.Enable,
+            config.ChasePolicySettings.MyBase,
+            config.ChasePolicySettings.MyHighland,
+            config.ChasePolicySettings.MyPreRoadland,
+            config.ChasePolicySettings.MyReadyRoadland,
+            config.ChasePolicySettings.CommonCentral);
         LoggerPtr->Debug("------ PostureSetting ------");
         LoggerPtr->Debug("Enable: {}", config.PostureSettings.Enable);
         LoggerPtr->Debug("SwitchCooldownSec: {}", config.PostureSettings.SwitchCooldownSec);

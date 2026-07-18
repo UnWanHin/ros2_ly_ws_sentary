@@ -86,25 +86,25 @@ git commit -m "behavior_tree: add regional chase policy"
   `ChasePolicy.MyHighland`, `ChasePolicy.MyPreRoadland`, `ChasePolicy.MyReadyRoadland`, and `ChasePolicy.CommonCentral`.
 - Produces: `config.ChasePolicySettings`, defaulting every missing value to `false`.
 
-- [ ] **Step 1: Write a launch/static assertion before adding the profile**
+- [x] **Step 1: Write a launch/static assertion before adding the profile**
 
 Add a focused launch-source test or existing static assertion proving that
 `sentry_all.launch.py` has a `chase_config_file` argument and passes it only
 to `behavior_tree`.
 
-- [ ] **Step 2: Add the safe default profile**
+- [x] **Step 2: Add the safe default profile**
 
 Create `Chase.yaml` with the six accepted keys. Use an explicit safe default
 for every area and do not duplicate any JSON `Chase` distance/velocity key.
 
-- [ ] **Step 3: Wire parameter loading and launch composition**
+- [x] **Step 3: Wire parameter loading and launch composition**
 
 Follow the existing `Task.yaml`/`Special.yaml` pattern: add the launch
 argument, pass the YAML to the BT node, and read dotted/slash-compatible
 parameters in `Configuration.cpp`. Include the effective values in config
 logging. Do not pass this file to `gimbal_driver` or `navi_tf_bridge`.
 
-- [ ] **Step 4: Build and check the launch source**
+- [x] **Step 4: Build and check the launch source**
 
 Run: `colcon build --packages-select behavior_tree --symlink-install`
 
@@ -113,7 +113,7 @@ Run: `python3 -m py_compile src/behavior_tree/launch/sentry_all.launch.py`
 Expected: build and launch syntax pass; the installed share contains
 `config/Chase.yaml`.
 
-- [ ] **Step 5: Commit configuration ownership separately**
+- [x] **Step 5: Commit configuration ownership separately**
 
 ```bash
 git add src/behavior_tree/config/Chase.yaml src/behavior_tree/src/Configuration.cpp \
