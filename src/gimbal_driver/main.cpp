@@ -55,8 +55,8 @@
 #include "gimbal_driver/msg/sentry_cmd.hpp"
 #include "gimbal_driver/msg/sentry_info.hpp"
 #include "gimbal_driver/msg/stamped_u_int16_multi_array.hpp"
+#include "gimbal_driver/msg/gimbal_state.hpp"
 #include "aim_msgs/msg/control_angles.hpp"
-#include "aim_msgs/msg/gimbal_state.hpp"
 
 #include <std_msgs/msg/float32.hpp>
 #include <std_msgs/msg/u_int8.hpp>
@@ -91,7 +91,7 @@ namespace
     LY_DEF_ROS_TOPIC(ly_bt_sentry_position, "/ly/bt/sentry_position", geometry_msgs::msg::PointStamped);
 
     LY_DEF_ROS_TOPIC(ly_gimbal_angles, "/ly/gimbal/angles", gimbal_driver::msg::GimbalAngles);
-    LY_DEF_ROS_TOPIC(ly_gimbal_state, "/ly/gimbal/state", aim_msgs::msg::GimbalState);
+    LY_DEF_ROS_TOPIC(ly_gimbal_state, "/ly/gimbal/state", gimbal_driver::msg::GimbalState);
     LY_DEF_ROS_TOPIC(ly_gimbal_firecode, "/ly/gimbal/firecode", gimbal_driver::msg::FireCode);
     LY_DEF_ROS_TOPIC(ly_gimbal_vel, "/ly/gimbal/vel", gimbal_driver::msg::Vel);
     LY_DEF_ROS_TOPIC(ly_gimbal_chassis, "/ly/gimbal/chassis", gimbal_driver::msg::Chassis);
@@ -243,7 +243,7 @@ namespace
             kDownloadTypeIdCount> serialModeDownloadPublishers_{};
         rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr subSentryPosition_{};
         rclcpp::Subscription<aim_msgs::msg::ControlAngles>::SharedPtr trajectorySubscription_{};
-        rclcpp::Publisher<aim_msgs::msg::GimbalState>::SharedPtr gimbalStatePublisher_{};
+        rclcpp::Publisher<gimbal_driver::msg::GimbalState>::SharedPtr gimbalStatePublisher_{};
 
         enum FireCodeFieldIndex : std::size_t {
             kFireStatusField = 0,
@@ -1520,7 +1520,7 @@ namespace
         }
 
         void PublishGimbalState(const rclcpp::Time& stamp) {
-            aim_msgs::msg::GimbalState msg;
+            gimbal_driver::msg::GimbalState msg;
             msg.header.stamp = stamp;
 
             {
@@ -2034,7 +2034,7 @@ namespace
             Node.Initialize(argc, argv);
             Node.Publisher<ly_gimbal_big_yaw_angles>();
             auto node = Node.GetNode();
-            gimbalStatePublisher_ = node->create_publisher<aim_msgs::msg::GimbalState>(
+            gimbalStatePublisher_ = node->create_publisher<gimbal_driver::msg::GimbalState>(
                 ly_gimbal_state::Name,
                 rclcpp::SensorDataQoS().keep_last(1));
             rclcpp::Rate rate(250);

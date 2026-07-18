@@ -67,7 +67,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | Topic | Type | Consumer | 结构/语义 |
 |---|---|---|---|
 | `/ly/gimbal/angles` | `gimbal_driver/msg/GimbalAngles` | `behavior_tree`, FaceMode | 当前云台角 `yaw/pitch`。 |
-| `/ly/gimbal/state` | `aim_msgs/msg/GimbalState` | 外部 `sentry.aim` MPC | TypeID 0 角度与 TypeID 11 实际动态反馈的组合；TypeID 11 超时后仅动态字段清零。 |
+| `/ly/gimbal/state` | `gimbal_driver/msg/GimbalState` | 外部 `sentry.aim` MPC | TypeID 0 角度与 TypeID 11 实际动态反馈的组合；仅含 yaw/pitch 与角速度/角加速度；TypeID 11 超时后仅动态字段清零。 |
 | `/ly/gimbal/firecode` | `gimbal_driver/msg/FireCode` | `behavior_tree` | 下位机回读火控状态，`field_mask=FIELD_ALL`。 |
 | `/ly/gimbal/vel` | `gimbal_driver/msg/Vel` | 调试/兼容 | `header`, `x`, `y`。 |
 | `/ly/gimbal/chassis` | `gimbal_driver/msg/Chassis` | `behavior_tree` | `steer_angle`, `angular_velocity`, `velocity_x`, `velocity_y`。 |

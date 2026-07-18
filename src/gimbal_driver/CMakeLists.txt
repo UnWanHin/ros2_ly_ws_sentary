@@ -94,6 +94,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/FireCode.msg"
   "msg/FaceModeStatus.msg"
   "msg/GimbalRawFrame.msg"
+  "msg/GimbalState.msg"
   "msg/GimbalYaw.msg"
   "msg/MapCommand.msg"
   "msg/MapPath.msg"
