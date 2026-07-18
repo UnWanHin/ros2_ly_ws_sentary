@@ -1,10 +1,10 @@
 {
-  "lastAnalyzedAt": "2026-07-18T23:57:29+08:00",
-  "gitCommitHash": "d613a8defc26d5a9158e458c8dd5b27e8fe640cb",
-  "workingTreeStatus": "clean except for the user-owned docs/rules lock file after graph artifact commit",
-  "lastCheckedNote": "Fallback graph source-checked against behavior_tree change d613a8d. Default uses only JSON-enabled areas and defers the last selected eligible area when another candidate exists; MyBase uses four code-owned Castle points with a 15-second hold, while BuffOutpost is Tactical-only. behavior_tree rebuilt; 7/7 BT tests, 28 simulator tests, and static self-check 109 PASS/0 WARN/0 FAIL passed. Complete external aim/navigation runtime validation remains pending.",
+  "lastAnalyzedAt": "2026-07-19T00:40:00+08:00",
+  "gitCommitHash": "2596a5004f3b86937660e25ff98c35f707d0a1f7",
+  "workingTreeStatus": "clean except for the user-owned docs/rules lock file after graph/document artifact commit",
+  "lastCheckedNote": "Fallback graph source-checked against behavior_tree change 2596a50. GoalReachState is the sole final arrival/unreachable contract for EventManager, regional area tasks, recovery, and the navigation watchdog; raw nav status remains evidence only. Default MyBase, MyHighland, MyPreRoadland, MyReadyRoadland guard, and each CommonCentral point hold for 15 seconds, while transit phases remain unheld. behavior_tree rebuilt; 7/7 BT tests and static self-check 109 PASS/0 WARN/0 FAIL passed. Complete external aim/navigation runtime validation remains pending.",
   "version": "1.0.0",
   "analyzedFiles": 554,
   "generator": "local-understand-anything-compatible-fallback",
-  "graphShape": {"nodes": 83, "edges": 103, "layers": 6}
+  "graphShape": {"nodes": 84, "edges": 104, "layers": 6}
 }

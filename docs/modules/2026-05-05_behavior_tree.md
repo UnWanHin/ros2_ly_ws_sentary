@@ -287,8 +287,8 @@ void TreeTick() {
 | `/ly/face_mode/angles` | `faceModeData` | FaceMode 角度输入；正式 `sentry_all` 中由 `map_aim_point_node` 输出到这个 topic |
 | `/ly/navi/position` | `SentryPositionFusion` source | 导航 TF 反解出的自身位置；BT 只消费 `StampedUInt16MultiArray data=[official_x_cm,official_y_cm]`，消息另带 `header.stamp` 和 map 系 `map_point` |
 | `/ly/navi/target_official` | `enemyRobots` fallback position | `navi_tf_bridge` 把 `/ly/aim/armor_targets` 中每个 target point 以及当前追击目标 TF 到 map 后反算回 official-map cm；BT 只在没有新鲜非零 `/ly/position/data` 时写入敌方对应 `armor_type` 的位置，并在 `/ly/enemy/info.position_source` 标记 `navi_target_official` |
-| `/ly/navi/reached` | `naviReach` | 導航當前目標是否已到達；外部狀態新鮮且匹配當前目標時優先使用 |
-| `/ly/navi/reachable` | `naviReachable` | 導航當前目標是否有有效路徑；超時/未收到/不匹配當前目標時退回內部距離判斷 |
+| `/ly/navi/reached` | `naviReach` | 外部到達證據；只由 `GoalReachState` 在 goal-scoped freshness 驗證後消費，不能直接推進任務 |
+| `/ly/navi/reachable` | `naviReachable` | 外部可達性證據；只由 `GoalReachState` 統一產生不可達結論 |
 | `/ly/navi/should_rotate` | `naviIsRotate` | 外部导航区域兼容旋转控制；true 恢复正常巡逻，false 关闭小陀螺并请求 FollowMode；`NaviRotateControl.SetPostureToMoveWhenFalse=true` 时还会在消息新鲜期间请求 Move 姿态 |
 | `/ly/gimbal/capV` | `capV` | 電容電壓 |
 
@@ -444,19 +444,19 @@ SET_POSITION(BuffShoot, MyTeam);  // 設置導航目標為打符點位
 
 当前区域过渡状态机会用 `Highland` 兼容点处理进入/离开我方高地：进入、经由、离开时开启 `FollowMode`；从我方高地回我方基地侧目标会优先经 `CastleLeft1`，到达后关闭 `FollowMode` 再继续原目标。高地兼容到达半径当前为 `DecisionAutonomy.NaviGoal.HighlandCompat.ArriveDistanceCm=20` cm。
 
-`Area.MyArea.Highland.Task.MyHighland` 是区域任务框架的第一条任务：上游选中我方 Highland 大区点时，任务会按 `Highland(FollowMode+FaceMode)` -> `Highland` 短暂停留并恢复巡逻/小陀螺 -> `BuffShoot` 到达后驻守 10 秒 -> `HoleRoad(FollowMode+FaceMode)` 离开。到达判断复用 `/ly/navi/reached`、`/ly/navi/reachable`，外部状态不可用时才回退到自身位置距离。
+`Area.MyArea.Highland.Task.MyHighland` 是区域任务框架的第一条任务：上游选中我方 Highland 大区点时，任务会按 `Highland(FollowMode+FaceMode)` -> `Highland` 驻留 15 秒并恢复巡逻/小陀螺 -> `BuffShoot` 到达后驻守 15 秒 -> `HoleRoad(FollowMode+FaceMode)` 离开。到达统一由 `GoalReachState` 判定，raw 导航状态与自身位置只作为其输入证据。
 
-`Area.MyArea.Base.Task.MyBase` 管我方 Base 的无特别事件巡游：上游选中我方 Base 大区点时，只会在程式固定的 `CastleLeft1`、`CastleLeft2`、`CastleRight2`、`CastleRight1` 中按自身距离、当前点与访问新鲜度评分；到点后保持 15 秒，一轮最多四点。`BuffOutpost`、`HoleRoad`、`OutpostGuard` 不再是 Default Base 候选，前者只由 Buff/Outpost tactical 使用。到达判断同样优先使用 `/ly/navi/reached`、`/ly/navi/reachable`。
+`Area.MyArea.Base.Task.MyBase` 管我方 Base 的无特别事件巡游：上游选中我方 Base 大区点时，只会在程式固定的 `CastleLeft1`、`CastleLeft2`、`CastleRight2`、`CastleRight1` 中按自身距离、当前点与访问新鲜度评分；到点后保持 15 秒，一轮最多四点。`BuffOutpost`、`HoleRoad`、`OutpostGuard` 不再是 Default Base 候选，前者只由 Buff/Outpost tactical 使用。到达统一消耗 `GoalReachState`。
 
 `Area.MyArea.PreRoadland.Task.MyPreRoadland` 管我方道路前段：只前往 ID 25 `PreRoadland`，
-到點後按 `GoalHoldSec` 結束；它取代舊 `Special.MiniRoadland`，並由 Default policy 的
+到點後按 `GoalHoldSec=15` 秒結束；它取代舊 `Special.MiniRoadland`，並由 Default policy 的
 獨立 score/retry/cooldown 選擇。`Area.MyArea.ReadyRoadland.Task.MyReadyRoadland` 管我方道路後段：
 上游選中 ReadyRoadland 時，先去 `CentralToBase`；到點、不可達或超時後進入強綁定穿越段，
 打開 `FollowMode`，並只在 `MyReadyRoadland.UseFaceMode=true` 時請求 FaceMode；直到到達
 `BaseToCentral`、不可達或超時才恢復巡邏/開火/小陀螺。穿越段不會被 Buff/Outpost 等高優先級
-邏輯直接取消。
+邏輯直接取消；guard phase 保持 15 秒，approach/cross/return 仍是純行進 phase。
 
-`Area.CommonArea.Central.Task.CommonCentral` 管 Central 公共区域的健康巡逻任务：上游选中 Central 大区点且自身血量/弹量数据新鲜并达到阈值时，从当前坐标最近的巡逻点插入循环。循环顺序为 `my OutpostArea -> my RightShoot -> my BuffAround2 -> my LeftShoot -> my OutpostShoot -> enemy RightShoot -> enemy OccupyArea -> enemy OutpostShoot -> my OutpostArea`。拿不到自身坐标时从 `my OutpostArea` 开始；到达/不可达仍复用 `/ly/navi/reached`、`/ly/navi/reachable`。
+`Area.CommonArea.Central.Task.CommonCentral` 管 Central 公共区域的健康巡逻任务：上游选中 Central 大区点且自身血量/弹量数据新鲜并达到阈值时，从当前坐标最近的巡逻点插入循环。循环顺序为 `my OutpostArea -> my RightShoot -> my BuffAround2 -> my LeftShoot -> my OutpostShoot -> enemy RightShoot -> enemy OccupyArea -> enemy OutpostShoot -> my OutpostArea`。拿不到自身坐标时从 `my OutpostArea` 开始；每个点经 `GoalReachState` 到达后保持 15 秒，不可达或 travel timeout 则按既有规则跳点。
 
 区域状态机参数集中在 `src/behavior_tree/config/AreaManager.yaml`：`AreaManager.Switch_Point` 默认 `false`，设为 `true` 时只交换 `Area.hpp` 中红/蓝官方点位和区域边界查找结果，不交换 `team` 语义和导航 goal ID。`AreaManager.SentryPositionFusion` 管自身哨兵三源坐标融合，来源是 `/ly/friend/uwb_pos`、`/ly/navi/position` 和 `/ly/position/data` 的 `friendcarid == Sentry`；`Mode=priority` 按 `Priority` 选择新鲜源，默认顺序是 UWB、Navi、PositionData，`Mode=weighted` 按 `Weight` 加权平均，`FreshTimeoutMs` 控制坐标新鲜度。Default Base route 是程式固定策略，不再載入 `Base.yaml` 或 `base_strategy_config_file`。`Task.Buff/Outpost` 开关集中在 `src/behavior_tree/config/Task.yaml`，会覆盖 JSON 同名字段。已移除的 `Special.MiniRoadland` 由 `AreaManager.RegionalAreaTask.MyPreRoadland` 取代：它固定去 ID 25，并拥有独立的 `GoalHoldSec`、`SpeedLevel`、Default scorer 和 retry/cooldown；`Special.yaml` 现在只保留 Special Patrol。`NaviRotateControl.yaml` 讓外部導航通過 `/ly/navi/should_rotate` 接管 Castle/ReadyRoadland/Highland 這類區域兼容的小陀螺/FollowMode；目前不干預區域任務 FaceMode。`Task.OutpostConfirm` 用正式 `/ly/enemy/op_hp` 判斷前哨存活，並只在其 tactical 鏈路去 `BuffOutpost`；Default 不會再發布該點。默认 YAML 不写 `Area.MyArea/EnemyArea/CommonArea` 区域开关，避免覆盖不同 `bt_config_file` 的区域选择；正式 regional 和单区域 areatest 的可选区域仍由 `ConfigJson` 里的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 控制。`AreaManager.RegionalAreaTask.MyHighland/MyBase/MyPreRoadland/MyReadyRoadland/CommonCentral` 管各自区域任务时序，`AreaManager.DefaultPolicy` 管 Default 层的血量/弹量门槛、区域权重、距离惩罚、冷却和重试。RegionalDefense 使用 `/ly/position/data` 的官方场地坐标判定敌方区域，高优先级搜索 Base/Highland/PreRoadland/ReadyRoadland/Central 威胁，不用 map/odom 坐标混判。区域任务需要动态切换 FaceMode 目标时，BT 发布 `/ly/face_mode/target_raw`，格式为 `[official_map_x, official_map_y, map_z]` cm。正式 regional 不再使用旧单策略点表兜底。
 

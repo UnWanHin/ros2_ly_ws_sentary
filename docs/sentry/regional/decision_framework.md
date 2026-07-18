@@ -1,6 +1,6 @@
 # Regional 決策框架說明
 
-Updated: 2026-07-18
+Updated: 2026-07-19
 
 本文記錄目前 `behavior_tree` 裡 regional 決策的區域狀態機框架：它會做哪些任務、怎麼啟動、怎麼判斷到達、會輸出什麼控制，以及哪些階段會被高優先級邏輯打斷。
 
@@ -408,6 +408,19 @@ CommonCentral 本身不開 `FollowMode`，也不開 `FaceMode`，就是普通中
 
 任務中如果血量/彈量新鮮數據變成不健康，CommonCentral 會完成並釋放控制。
 
+## Default 到點駐留
+
+Default 區域任務的實際到點/guard phase 統一保持 15 秒：
+
+- MyBase 的每個 Castle 點；
+- MyHighland 的 HighlandPatrol 和 BuffShootHold；
+- MyPreRoadland 的到點 hold；
+- MyReadyRoadland 的 guard hold；
+- CommonCentral 的每一個中央巡邏點。
+
+Highland approach/leave、ReadyRoadland approach/cross/return 等純行進或安全穿越 phase 不加入
+人為停留。不可達與 travel timeout 仍可跳過駐留並按各任務既有規則切點或完成。
+
 ## 到達與不可達
 
 每個當前 goal 的到達/不可達已統一成 goal-scoped `GoalReachState`，任務層不應分別讀 raw topic。當前順序是：
@@ -423,7 +436,7 @@ CommonCentral 本身不開 `FollowMode`，也不開 `FaceMode`，就是普通中
 4. timeout / watchdog
    - `GoalReachState.timeout` 用於顯示 goal timeout；watchdog 用於保護性 fallback。它們不應直接等同於物理 reached。
 
-因此 `/ly/navi/position` 不替代 `/ly/navi/reached`，而是作為自身融合坐標來源進入同一個內部 reached contract。`EventGoalReached` / `EventGoalUnreachable` 在正式 runtime 中由 composite `GoalReachState` 生成；decision trace 同時記錄 `goal_reach_state` 和 raw `navi_status` 觀測欄位。
+因此 `/ly/navi/position` 不替代 `/ly/navi/reached`，而是作為自身融合坐標來源進入同一個內部 reached contract。`EventGoalReached` / `EventGoalUnreachable` 與 watchdog 的到達/不可達 gate 都由 composite `GoalReachState` 生成；decision trace 同時記錄 `goal_reach_state` 和 raw `navi_status` 觀測欄位。
 
 ## 打斷規則
 

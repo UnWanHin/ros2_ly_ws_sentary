@@ -305,9 +305,9 @@
       {
         name: "EvaluateEvents", kind: "事件", description: "把導航到點、不可達、受擊、Buff、前哨站等狀態收斂到 EventSnapshot。",
         target: "file:src/behavior_tree/src/GameLoop.cpp", children: [
-          ["GoalReached", "/ly/navi/reached 優先，否則距離 fallback", "endpoint:ros-topic:/ly/navi/reached"],
-          ["GoalUnreachable", "/ly/navi/reachable 與 watchdog 相關狀態", "endpoint:ros-topic:/ly/navi/reachable"],
-          ["Composite Reach", "統一 GoalReachState / EventGoalReached", "concept:composite-goal-reach-contract"],
+          ["GoalReachState", "raw reached / reachable 與融合坐標的唯一 final 判定", "concept:composite-goal-reach-contract"],
+          ["Event / Watchdog", "只消費 GoalReachState status，raw topic 僅為證據", "concept:composite-goal-reach-contract"],
+          ["Raw navigation", "/ly/navi/reached、reachable 的 freshness 觀測", "endpoint:ros-topic:/ly/navi/reached"],
           ["裁判事件", "Buff、前哨站、Regional Defense、受擊", "endpoint:ros-topic:/ly/game/event_data"],
         ],
       },
@@ -358,9 +358,9 @@
         target: "file:src/behavior_tree/src/StrategyManager.cpp", children: [
           ["Active Area Task", "已激活區域任務時 TickRegionalAreaTask()", "file:src/behavior_tree/src/StrategyManager.cpp"],
           ["Enabled Area Scope", "DecisionAutonomy.NaviGoal 是 Default eligibility 唯一來源", "concept:default-area-patrol"],
-          ["MyBase", "四個 Castle 點、每點保持 15 秒；不含 BuffOutpost", "concept:default-area-patrol"],
-          ["MyHighland / PreRoadland / ReadyRoadland", "己方區域策略", "document:docs/sentry/regional/2026-07-12_regional_decision_graph.md"],
-          ["CommonCentral / Enemy Area", "公共中央與敵方區域策略", "document:docs/sentry/regional/2026-07-12_regional_decision_graph.md"],
+          ["Default Holds", "Base、Highland、PreRoadland、Ready guard、Central 每點均保持 15 秒", "concept:default-area-patrol"],
+          ["MyHighland / PreRoadland / ReadyRoadland", "己方區域策略；transit phase 不加駐留", "document:docs/sentry/regional/2026-07-12_regional_decision_graph.md"],
+          ["CommonCentral / Enemy Area", "公共中央每點 15 秒與敵方區域策略", "document:docs/sentry/regional/2026-07-12_regional_decision_graph.md"],
           ["Goal Score", "資源、距離、當前/上一區域懲罰與去重選區", "concept:default-area-patrol"],
         ],
       },
