@@ -265,7 +265,6 @@ def generate_launch_description():
     )
     default_override_config_file = os.path.join(behavior_tree_config_root, "override_config.yaml")
     default_area_manager_config_file = os.path.join(behavior_tree_config_root, "AreaManager.yaml")
-    default_base_strategy_config_file = os.path.join(behavior_tree_config_root, "Base.yaml")
     default_task_config_file = os.path.join(behavior_tree_config_root, "Task.yaml")
     default_navi_rotate_config_file = os.path.join(behavior_tree_config_root, "NaviRotateControl.yaml")
     default_point_manager_config_file = os.path.join(behavior_tree_config_root, "PointManager.yaml")
@@ -275,7 +274,6 @@ def generate_launch_description():
     mode = LaunchConfiguration("mode")
     config_file = LaunchConfiguration("config_file")
     area_manager_config_file = LaunchConfiguration("area_manager_config_file")
-    base_strategy_config_file = LaunchConfiguration("base_strategy_config_file")
     task_config_file = LaunchConfiguration("task_config_file")
     navi_rotate_config_file = LaunchConfiguration("navi_rotate_config_file")
     point_manager_config_file = LaunchConfiguration("point_manager_config_file")
@@ -398,11 +396,6 @@ def generate_launch_description():
             "area_manager_config_file",
             default_value=default_area_manager_config_file,
             description="AreaManager/state-machine YAML for behavior_tree.",
-        ),
-        DeclareLaunchArgument(
-            "base_strategy_config_file",
-            default_value=default_base_strategy_config_file,
-            description="Base-area strategy YAML for behavior_tree.",
         ),
         DeclareLaunchArgument(
             "task_config_file",
@@ -672,7 +665,6 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] base_config: ", base_config_file]),
         LogInfo(msg=["[sentry_all] gimbal_driver_config: ", gimbal_driver_config_file]),
         LogInfo(msg=["[sentry_all] area_manager_config: ", area_manager_config_file]),
-        LogInfo(msg=["[sentry_all] base_strategy_config: ", base_strategy_config_file]),
         LogInfo(msg=["[sentry_all] task_config: ", task_config_file]),
         LogInfo(msg=["[sentry_all] navi_rotate_config: ", navi_rotate_config_file]),
         LogInfo(msg=["[sentry_all] point_manager_config: ", point_manager_config_file]),
@@ -906,7 +898,6 @@ def generate_launch_description():
             output=output,
             parameters=[
                 area_manager_config_file,
-                base_strategy_config_file,
                 task_config_file,
                 navi_rotate_config_file,
                 point_manager_config_file,

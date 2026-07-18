@@ -21,7 +21,6 @@ def generate_launch_description():
     default_base_config_file = os.path.join(config_root, "base_config.yaml")
     default_override_config_file = os.path.join(config_root, "override_config.yaml")
     default_area_manager_config_file = os.path.join(config_root, "AreaManager.yaml")
-    default_base_strategy_config_file = os.path.join(config_root, "Base.yaml")
     default_task_config_file = os.path.join(config_root, "OutpostRegionalTest.yaml")
     default_navi_rotate_config_file = os.path.join(config_root, "NaviRotateControl.yaml")
     default_point_manager_config_file = os.path.join(config_root, "PointManager.yaml")
@@ -33,7 +32,6 @@ def generate_launch_description():
         DeclareLaunchArgument("config_file", default_value=default_override_config_file),
         DeclareLaunchArgument("base_config_file", default_value=default_base_config_file),
         DeclareLaunchArgument("area_manager_config_file", default_value=default_area_manager_config_file),
-        DeclareLaunchArgument("base_strategy_config_file", default_value=default_base_strategy_config_file),
         DeclareLaunchArgument("task_config_file", default_value=default_task_config_file),
         DeclareLaunchArgument("navi_rotate_config_file", default_value=default_navi_rotate_config_file),
         DeclareLaunchArgument("point_manager_config_file", default_value=default_point_manager_config_file),
@@ -80,7 +78,6 @@ def generate_launch_description():
             "config_file": LaunchConfiguration("config_file"),
             "base_config_file": LaunchConfiguration("base_config_file"),
             "area_manager_config_file": LaunchConfiguration("area_manager_config_file"),
-            "base_strategy_config_file": LaunchConfiguration("base_strategy_config_file"),
             "task_config_file": LaunchConfiguration("task_config_file"),
             "navi_rotate_config_file": LaunchConfiguration("navi_rotate_config_file"),
             "point_manager_config_file": LaunchConfiguration("point_manager_config_file"),

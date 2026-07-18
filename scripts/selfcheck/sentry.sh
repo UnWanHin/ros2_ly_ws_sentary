@@ -827,7 +827,6 @@ if (( RUNTIME_ONLY == 0 )); then
   check_file_exists "${ROOT_DIR}/src/gimbal_driver/config/gimbal_driver_config.yaml"
   check_file_exists "${ROOT_DIR}/src/gimbal_driver/config/debug_mode.yaml"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/config/AreaManager.yaml"
-  check_file_exists "${ROOT_DIR}/src/behavior_tree/config/Base.yaml"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/config/PointManager.yaml"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/config/Special.yaml"
   check_file_exists "${ROOT_DIR}/config/base_config.yaml"

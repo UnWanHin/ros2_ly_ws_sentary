@@ -96,19 +96,6 @@ bool AppendRegionalPatrolGoalByName(
     return true;
 }
 
-const std::vector<std::pair<const char*, std::uint8_t>>& MyBasePatrolGoalNameMap() {
-    static const std::vector<std::pair<const char*, std::uint8_t>> goals{
-        {"CastleLeft1", LangYa::CastleLeft1.ID},
-        {"CastleLeft2", LangYa::CastleLeft2.ID},
-        {"CastleRight2", LangYa::CastleRight2.ID},
-        {"CastleRight1", LangYa::CastleRight1.ID},
-        {"HoleRoad", LangYa::HoleRoad.ID},
-        {"OutpostGuard", LangYa::OutpostGuard.ID},
-        {"BuffOutpost", LangYa::BuffOutpost.ID}
-    };
-    return goals;
-}
-
 const std::vector<std::pair<const char*, std::uint8_t>>& PointManagerGoalNameMap() {
     static const std::vector<std::pair<const char*, std::uint8_t>> goals{
         {"Home", LangYa::Home.ID},
@@ -143,17 +130,6 @@ const std::vector<std::pair<const char*, std::uint8_t>>& PointManagerGoalNameMap
     return goals;
 }
 
-bool MyBasePatrolGoalIdByName(const std::string& goal_name, std::uint8_t& goal_id) {
-    const auto token = NormalizeAutonomyToken(goal_name);
-    for (const auto& [name, id] : MyBasePatrolGoalNameMap()) {
-        if (NormalizeAutonomyToken(name) == token) {
-            goal_id = id;
-            return true;
-        }
-    }
-    return false;
-}
-
 bool PointManagerGoalIdByName(const std::string& goal_name, std::uint8_t& goal_id) {
     const auto token = NormalizePointToken(goal_name);
     for (const auto& [name, id] : PointManagerGoalNameMap()) {
@@ -163,26 +139,6 @@ bool PointManagerGoalIdByName(const std::string& goal_name, std::uint8_t& goal_i
         }
     }
     return false;
-}
-
-void UpsertMyBasePatrolGoalWeight(
-    std::vector<LangYa::MyBasePatrolGoalSetting>& goals,
-    const std::uint8_t goal_id,
-    const double weight) {
-    const auto it = std::find_if(
-        goals.begin(),
-        goals.end(),
-        [goal_id](const LangYa::MyBasePatrolGoalSetting& goal) {
-            return goal.BaseGoalId == goal_id;
-        });
-    if (it != goals.end()) {
-        it->Weight = weight;
-        return;
-    }
-    goals.push_back(LangYa::MyBasePatrolGoalSetting{
-        .BaseGoalId = goal_id,
-        .Weight = weight
-    });
 }
 
 BehaviorTree::CompetitionProfile ParseCompetitionProfile(const std::string& value) {
@@ -1145,23 +1101,6 @@ namespace LangYa {
         bs.CommandHoldSec = j.value("CommandHoldSec", bs.CommandHoldSec);
         bs.GoalHoldSec = j.value("GoalHoldSec", bs.GoalHoldSec);
         bs.MaxPatrolSteps = j.value("MaxPatrolSteps", bs.MaxPatrolSteps);
-        if (j.contains("Patrol") && j.at("Patrol").is_object()) {
-            const auto& patrol = j.at("Patrol");
-            if (patrol.contains("GoalWeights") && patrol.at("GoalWeights").is_object()) {
-                bs.PatrolGoals.clear();
-                for (auto it = patrol.at("GoalWeights").begin(); it != patrol.at("GoalWeights").end(); ++it) {
-                    std::uint8_t goal_id = LangYa::Home.ID;
-                    if (!MyBasePatrolGoalIdByName(it.key(), goal_id) ||
-                        !it.value().is_number()) {
-                        continue;
-                    }
-                    bs.PatrolGoals.push_back(LangYa::MyBasePatrolGoalSetting{
-                        .BaseGoalId = goal_id,
-                        .Weight = it.value().get<double>()
-                    });
-                }
-            }
-        }
     }
 
     void from_json(const json& j, MyReadyRoadlandAreaTaskSetting& rs) {
@@ -2471,23 +2410,6 @@ namespace BehaviorTree {
             node_,
             patrol_selection_names("RecentVisitPenaltySec"),
             patrol_selection.RecentVisitPenaltySec);
-        for (const auto& [goal_name, goal_id] : MyBasePatrolGoalNameMap()) {
-            std::vector<std::string> weight_names;
-            const auto append_weight_names = [&weight_names, goal_name](const std::string& prefix) {
-                weight_names.push_back(prefix + ".GoalWeights." + goal_name);
-                weight_names.push_back(prefix + "/GoalWeights/" + goal_name);
-            };
-            append_weight_names("AreaManager.Area.MyArea.Base.Task.MyBase.Patrol");
-            append_weight_names("AreaManager/Area/MyArea/Base/Task/MyBase/Patrol");
-            append_weight_names("AreaManager.Task.MyBase.Patrol");
-            append_weight_names("AreaManager/Task/MyBase/Patrol");
-            append_weight_names("AreaManager.RegionalAreaTask.MyBase.Patrol");
-            append_weight_names("AreaManager/RegionalAreaTask/MyBase/Patrol");
-            double weight = 0.0;
-            if (ReadOptionalDoubleParam(node_, weight_names, weight)) {
-                UpsertMyBasePatrolGoalWeight(base.PatrolGoals, goal_id, weight);
-            }
-        }
         auto pre_roadland_names = [](const std::string& key) {
             return std::vector<std::string>{
                 "AreaManager.Area.MyArea.PreRoadland.Task.MyPreRoadland." + key,
@@ -3760,15 +3682,12 @@ namespace BehaviorTree {
             });
         if (!has_enabled_base_patrol_goal) {
             LoggerPtr->Warning(
-                "RegionalAreaTask.MyBase.Patrol has no enabled goal, fallback to default Base patrol weights.");
+                "RegionalAreaTask.MyBase.Patrol has no enabled goal, restore code-owned Base patrol route.");
             sanitized_base_patrol_goals = {
-                {LangYa::CastleLeft1.ID, 10.0},
-                {LangYa::CastleLeft2.ID, 10.0},
-                {LangYa::CastleRight2.ID, 10.0},
-                {LangYa::CastleRight1.ID, 10.0},
-                {LangYa::HoleRoad.ID, 7.0},
-                {LangYa::OutpostGuard.ID, 7.0},
-                {LangYa::BuffOutpost.ID, 6.0}
+                {LangYa::CastleLeft1.ID, 1.0},
+                {LangYa::CastleLeft2.ID, 1.0},
+                {LangYa::CastleRight2.ID, 1.0},
+                {LangYa::CastleRight1.ID, 1.0}
             };
         }
         base_task.PatrolGoals = std::move(sanitized_base_patrol_goals);

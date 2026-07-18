@@ -255,6 +255,20 @@ std::vector<DefaultRegionalAreaCandidate> DefaultStrategyManager::BuildRegionalA
             return lhs.Score > rhs.Score;
         });
 
+    if (candidates.size() > 1U && last_selected_task_ != RegionalAreaTaskType::None) {
+        const auto last_selected = std::find_if(
+            candidates.begin(),
+            candidates.end(),
+            [this](const DefaultRegionalAreaCandidate& candidate) {
+                return candidate.TaskType == last_selected_task_;
+            });
+        if (last_selected != candidates.end()) {
+            const auto previous = *last_selected;
+            candidates.erase(last_selected);
+            candidates.push_back(previous);
+        }
+    }
+
     return candidates;
 }
 

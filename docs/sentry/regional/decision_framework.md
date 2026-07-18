@@ -21,7 +21,6 @@ Updated: 2026-07-18
 主要相關文件：
 
 - `src/behavior_tree/config/AreaManager.yaml`
-- `src/behavior_tree/config/Base.yaml`
 - `src/behavior_tree/config/Task.yaml`
 - `src/behavior_tree/include/AreaManager.hpp`
 - `src/behavior_tree/src/AreaManager.cpp`
@@ -50,8 +49,8 @@ Regional 不是單一點表，而是分層策略：
 Regional 目前已有的主要邏輯：
 
 - 回補/回基地：低血或低彈優先去 `Recovery`；這層高於 RegionalDefense。非 league regional 下，已在 `Recovery` 且血量未回到門檻時會繼續守住 Recovery。
-- Default 大區域任務：候選包含 `MyBase`、`MyHighland`、`MyPreRoadland`、`MyReadyRoadland`、`CommonCentral`；評分會看血量/彈量新鮮度、資源門檻、距離、目前區域、上一個區域、任務冷卻和失敗重試。正式 `regional_competition.json` 預設允許兩個道路候選。
-- `MyBase` 任務：在己方 Base 候選點中按 `Base.yaml` 權重和自身距離評估選點；候選包含四個 Castle 邊點、`HoleRoad`、`OutpostGuard`、`BuffOutpost`。完成 `MaxPatrolSteps` 後退出，交回 Default scorer 重新評估下一個大區域。
+- Default 大區域任務：候選包含 `MyBase`、`MyHighland`、`MyPreRoadland`、`MyReadyRoadland`、`CommonCentral`；評分會看血量/彈量新鮮度、資源門檻、距離、目前區域、上一個區域、任務冷卻和失敗重試。只從 `DecisionAutonomy.NaviGoal` 已啟用的 area 選擇，若有其他合格區域，剛選過的區域會排到本輪最後，避免原地重複。
+- `MyBase` 任務：只在程式固定的四個 Castle 邊點中按自身距離、目前點與訪問新鮮度選點；到點保持 15 秒，完成 `MaxPatrolSteps` 後退出，交回 Default scorer 重新評估。`BuffOutpost`、`HoleRoad`、`OutpostGuard` 不屬 Default Base route。
 - `MyHighland` 任務：`Highland` approach -> `Highland` hold -> `BuffShoot` -> `BuffShoot` hold -> `HoleRoad` 離開；approach/leave 仍是地形兼容階段，但正式配置下 Follow/Rotate 兼容交給 `/ly/navi/should_rotate`。
 - `MyPreRoadland` 任務：只前往 ID `25`，到點後按 `GoalHoldSec` 完成；它可被更高優先級任務取消，不繼承後段的強制穿越控制。
 - `MyReadyRoadland` 任務：`CentralToBase -> BaseToCentral -> BaseToCentral hold -> CentralToBase return`；穿越段仍是強綁定調度段，不能被普通高優先級邏輯直接打斷。`GuardHoldSec` 到時或資源不健康時會返回並完成任務。它會維持 FollowMode；是否請求 FaceMode 由 `MyReadyRoadland.UseFaceMode` 決定，baseline 為 `false`。
@@ -262,7 +261,7 @@ AreaManager:
       Enable: true
 ```
 
-`src/behavior_tree/config/AreaManager.yaml` 不再默認寫 `Area.MyArea/EnemyArea/CommonArea` 的區域開關，避免它把不同 `bt_config_file` 裡的區域選擇全部覆蓋成同一套。正式 regional 和單區域 areatest 的「哪些區域可選」仍由對應 `ConfigJson` 裡的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 控制；DefaultPolicy 只會在這些已啟用區域內挑候選，JSON 裡為 `false` 的區域不會因為血量健康或權重高而被選中。`AreaManager.yaml` 保留 `Switch_Point`、`SentryPositionFusion`、區域狀態機任務時序、共用 PatrolSelection 評分，以及 DefaultPolicy 的門檻、權重、冷卻和重試參數。`Base.yaml` 只保留 MyBase patrol 的候選點權重與保持時間。`Task.yaml` 只管這局是否允許 `Task.Buff / Task.Outpost`，會覆蓋 JSON 裡同名字段。
+`src/behavior_tree/config/AreaManager.yaml` 不再默認寫 `Area.MyArea/EnemyArea/CommonArea` 的區域開關，避免它把不同 `bt_config_file` 裡的區域選擇全部覆蓋成同一套。正式 regional 和單區域 areatest 的「哪些區域可選」仍由對應 `ConfigJson` 裡的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 控制；DefaultPolicy 只會在這些已啟用區域內挑候選，JSON 裡為 `false` 的區域不會因為血量健康或權重高而被選中。`AreaManager.yaml` 保留 `Switch_Point`、`SentryPositionFusion`、區域狀態機任務時序、共用 PatrolSelection 評分，以及 DefaultPolicy 的門檻、權重、冷卻和重試參數；MyBase route 是程式固定的四 Castle 點，正式 launch 不再載入 `Base.yaml`。`Task.yaml` 只管這局是否允許 `Task.Buff / Task.Outpost`，會覆蓋 JSON 裡同名字段。
 
 `Switch_Point=true` 時只交換 `Area.hpp` 裡紅/藍官方點位和區域邊界查找結果，不交換 `team`、敵我語義或導航 goal ID。這是給導航零點/物理場地方向反了時使用的點位查找開關。
 
@@ -348,10 +347,10 @@ Highland 巡邏和 BuffShoot 駐守時：
 候選點：
 
 ```text
-CastleLeft1 / CastleLeft2 / CastleRight2 / CastleRight1 / HoleRoad / OutpostGuard / BuffOutpost
+CastleLeft1 / CastleLeft2 / CastleRight2 / CastleRight1
 ```
 
-每次啟動或切下一個巡邏點時，會按 `src/behavior_tree/config/Base.yaml` 裡的權重和自身距離評分，不按固定順序輪。拿不到自身坐標時只用權重評估；全部候選不可用時，保守回到 `CastleLeft2`。Default 啟動 MyBase 前會先檢查血量/彈量是否新鮮且達到 `DefaultPolicy` 我方區域門檻。
+每次啟動或切下一個巡邏點時，會按自身距離、目前點懲罰與訪問新鮮度評分，不按固定順序輪；拿不到自身坐標時按固定候選順序回退。每個點到達後保持 15 秒。Default 啟動 MyBase 前會先檢查血量/彈量是否新鮮且達到 `DefaultPolicy` 我方區域門檻；`BuffOutpost` 只由 Buff/Outpost tactical 發布。
 
 MyBase 本身不開 `FollowMode`，也不開 `FaceMode`，就是普通基地巡遊狀態機。
 

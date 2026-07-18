@@ -832,13 +832,10 @@ namespace LangYa
         int GoalHoldSec{15};
         int MaxPatrolSteps{4};
         std::vector<PatrolGoalSetting> PatrolGoals{
-            {LangYa::CastleLeft1.ID, 10.0},
-            {LangYa::CastleLeft2.ID, 10.0},
-            {LangYa::CastleRight2.ID, 10.0},
-            {LangYa::CastleRight1.ID, 10.0},
-            {LangYa::HoleRoad.ID, 7.0},
-            {LangYa::OutpostGuard.ID, 7.0},
-            {LangYa::BuffOutpost.ID, 6.0}
+            {LangYa::CastleLeft1.ID, 1.0},
+            {LangYa::CastleLeft2.ID, 1.0},
+            {LangYa::CastleRight2.ID, 1.0},
+            {LangYa::CastleRight1.ID, 1.0}
         };
     };
 

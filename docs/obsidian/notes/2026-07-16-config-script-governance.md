@@ -48,8 +48,8 @@ updated: 2026-07-16
 
 - 下一個實際 cleanup 候選應以無 consumer 的檔案或已確認廢棄的 alias 為準；現有 common.yaml
   不是刪除候選。
-- Base.yaml 與 AreaManager.yaml 的同值 PatrolSelection overlay 已去重；共用評分由
-  AreaManager.yaml 擁有，Base.yaml 保留 MyBase 專屬巡邏權重與保持時間。
+- Base.yaml 已在 2026-07-18 移除。Default MyBase 路線改為程式固定四個 Castle 點與 15 秒保持，
+  BuffOutpost 只由 Buff/Outpost tactical 擁有；AreaManager.yaml 保留共用區域評分與時序。
 - 六支 gimbal 測試／巡邏腳本已共用
   [[scripts/lib/gimbal_test_lifecycle.sh|gimbal_test_lifecycle]]；它只統一 driver lifecycle，保留現有
   debug 入口、topic stimulus、raw serial override 與各腳本額外 PID 回收。

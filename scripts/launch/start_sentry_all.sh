@@ -15,7 +15,6 @@ LAUNCH_ARGS=()
 DEFAULT_BASE_CONFIG_FILE="${ROOT_DIR}/config/base_config.yaml"
 DEFAULT_OVERRIDE_CONFIG_FILE="${ROOT_DIR}/config/override_config.yaml"
 DEFAULT_AREA_MANAGER_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/AreaManager.yaml"
-DEFAULT_BASE_STRATEGY_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/Base.yaml"
 DEFAULT_TASK_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/Task.yaml"
 DEFAULT_NAVI_ROTATE_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/NaviRotateControl.yaml"
 DEFAULT_POINT_MANAGER_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/PointManager.yaml"
@@ -382,13 +381,6 @@ if ! has_launch_arg_key "area_manager_config_file"; then
   echo "[INFO] default area_manager_config_file=${DEFAULT_AREA_MANAGER_CONFIG_FILE}"
 else
   for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == area_manager_config_file:=* ]] && echo "[INFO] override area_manager_config_file=${arg#area_manager_config_file:=}"; done
-fi
-
-if ! has_launch_arg_key "base_strategy_config_file"; then
-  LAUNCH_ARGS=("base_strategy_config_file:=${DEFAULT_BASE_STRATEGY_CONFIG_FILE}" "${LAUNCH_ARGS[@]}")
-  echo "[INFO] default base_strategy_config_file=${DEFAULT_BASE_STRATEGY_CONFIG_FILE}"
-else
-  for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == base_strategy_config_file:=* ]] && echo "[INFO] override base_strategy_config_file=${arg#base_strategy_config_file:=}"; done
 fi
 
 if ! has_launch_arg_key "task_config_file"; then

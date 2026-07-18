@@ -2,6 +2,8 @@
 #include "../include/DefaultStrategyManager.hpp"
 #include "../module/json.hpp"
 
+#include <algorithm>
+#include <array>
 #include <filesystem>
 #include <fstream>
 
@@ -93,6 +95,56 @@ TEST(PreReadyRoadlandTaskTest, DefaultPolicyOffersSeparatePreAndReadyRoadlandCan
     }
     EXPECT_TRUE(found_pre);
     EXPECT_TRUE(found_ready_roadland);
+}
+
+TEST(PreReadyRoadlandTaskTest, DefaultPolicyDoesNotImmediatelyRepeatLastEligibleArea) {
+    using BehaviorTree::DefaultRegionalPolicyInput;
+    using BehaviorTree::DefaultStrategyManager;
+    using BehaviorTree::RegionalAreaTaskType;
+    using LangYa::UnitTeam;
+
+    auto config = SplitConfig();
+    config.RegionalAreaTaskSettings.MyBase.Enable = true;
+    config.DecisionAutonomySettings.NaviGoal.MyArea = {
+        "base", "pre_roadland", "ready_roadland"};
+
+    DefaultStrategyManager manager;
+    const DefaultRegionalPolicyInput input{
+        .Config = &config,
+        .MyTeam = UnitTeam::Red,
+        .HealthFresh = true,
+        .AmmoFresh = true,
+        .Health = 400,
+        .Ammo = 100,
+        .Now = std::chrono::steady_clock::now()
+    };
+
+    const auto first = manager.BuildRegionalAreaCandidates(input);
+    ASSERT_FALSE(first.empty());
+    ASSERT_EQ(first.front().TaskType, RegionalAreaTaskType::MyBase);
+
+    manager.CommitRegionalAreaSelection(first.front(), input.Now);
+    const auto next = manager.BuildRegionalAreaCandidates(input);
+    ASSERT_GT(next.size(), 1U);
+    EXPECT_NE(next.front().TaskType, RegionalAreaTaskType::MyBase);
+}
+
+TEST(PreReadyRoadlandTaskTest, DefaultBasePatrolUsesOnlyCastlePoints) {
+    const LangYa::MyBaseAreaTaskSetting setting;
+    const std::array<std::uint8_t, 4> expected{
+        LangYa::CastleLeft1.ID,
+        LangYa::CastleLeft2.ID,
+        LangYa::CastleRight2.ID,
+        LangYa::CastleRight1.ID,
+    };
+
+    ASSERT_EQ(setting.PatrolGoals.size(), expected.size());
+    EXPECT_EQ(setting.GoalHoldSec, 15);
+    for (const auto& goal : setting.PatrolGoals) {
+        EXPECT_NE(
+            std::find(expected.begin(), expected.end(), goal.BaseGoalId),
+            expected.end());
+    }
 }
 
 TEST(PreReadyRoadlandTaskTest, FormalRegionalProfileEnablesPreAndReadyRoadlandAreas) {
