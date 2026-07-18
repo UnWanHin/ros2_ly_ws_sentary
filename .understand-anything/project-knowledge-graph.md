@@ -2,7 +2,7 @@
 
 Generated: 2026-07-19T01:23:57+08:00
 
-Checked against committed runtime source HEAD: `2596a5004f3b86937660e25ff98c35f707d0a1f7` plus the pending Regional goal-commitment runtime change (the user-owned docs/rules lock file remains untracked)
+Checked against committed runtime source HEAD: `e8bcf9b` (graph artifact commit follows; the user-owned docs/rules lock file remains untracked)
 
 Current graph shape: 85 nodes, 105 edges, 6 layers.
 
