@@ -122,12 +122,12 @@ Expected: build succeeds, all BT tests pass, and static self-check reports `FAIL
 
 Document that Default uses enabled areas only, avoids an immediate repeat when alternatives exist, uses four code-owned Base Castle points, and never publishes `BuffOutpost`; state that Buff/Outpost tactical owns that point.
 
-- [ ] **Step 2: Validate graph and vault**
+- [x] **Step 2: Validate graph and vault**
 
 Run `python3 scripts/obsidian_sync.py && python3 scripts/obsidian_sync.py --check && python3 -m json.tool .understand-anything/knowledge-graph.json >/dev/null && python3 -m json.tool .understand-anything/meta.json >/dev/null && git diff --check`.
 
 Expected: Obsidian check reports `writes=0 deletes=0 conflicts=0` and all validation commands exit `0`.
 
-- [ ] **Step 3: Final verification and push**
+- [x] **Step 3: Final verification and push**
 
 Run `PYTHONPATH=src/simulator python3 -m pytest -q src/simulator/test/test_regional_area_overlay.py src/simulator/test/test_trace_contract.py src/simulator/test/test_validation.py`, then `git fetch origin Behavion`, `git rev-list --left-right --count HEAD...origin/Behavion`, and `git push origin Behavion` after remote-only count is zero.
