@@ -1,5 +1,6 @@
 #include "../include/AreaManager.hpp"
 #include "../include/DefaultStrategyManager.hpp"
+#include "../include/DecisionIntent.hpp"
 #include "../include/EventManager.hpp"
 #include "../module/json.hpp"
 
@@ -128,6 +129,84 @@ TEST(PreReadyRoadlandTaskTest, DefaultPolicyDoesNotImmediatelyRepeatLastEligible
     const auto next = manager.BuildRegionalAreaCandidates(input);
     ASSERT_GT(next.size(), 1U);
     EXPECT_NE(next.front().TaskType, RegionalAreaTaskType::MyBase);
+}
+
+TEST(PreReadyRoadlandTaskTest, DefaultPolicyResumesPreemptedEligibleAreaBeforeRescoring) {
+    using BehaviorTree::DefaultRegionalPolicyInput;
+    using BehaviorTree::DefaultStrategyManager;
+    using BehaviorTree::RegionalAreaTaskType;
+    using LangYa::UnitTeam;
+
+    auto config = SplitConfig();
+    config.RegionalAreaTaskSettings.MyBase.Enable = true;
+    config.DecisionAutonomySettings.NaviGoal.MyArea = {
+        "base", "pre_roadland", "ready_roadland"};
+
+    DefaultStrategyManager manager;
+    const DefaultRegionalPolicyInput input{
+        .Config = &config,
+        .MyTeam = UnitTeam::Red,
+        .HealthFresh = true,
+        .AmmoFresh = true,
+        .Health = 400,
+        .Ammo = 100,
+        .Now = std::chrono::steady_clock::now()
+    };
+
+    manager.RecordRegionalAreaResult(
+        RegionalAreaTaskType::MyPreRoadland,
+        "preempted",
+        input.Now,
+        config.RegionalAreaTaskSettings.DefaultPolicy);
+
+    const auto candidates = manager.BuildRegionalAreaCandidates(input);
+    ASSERT_FALSE(candidates.empty());
+    EXPECT_EQ(candidates.front().TaskType, RegionalAreaTaskType::MyPreRoadland);
+}
+
+TEST(PreReadyRoadlandTaskTest, DefaultPolicyDoesNotResumePreemptedAreaOutsideScope) {
+    using BehaviorTree::DefaultRegionalPolicyInput;
+    using BehaviorTree::DefaultStrategyManager;
+    using BehaviorTree::RegionalAreaTaskType;
+    using LangYa::UnitTeam;
+
+    auto config = SplitConfig();
+    config.RegionalAreaTaskSettings.MyBase.Enable = true;
+    config.DecisionAutonomySettings.NaviGoal.MyArea = {"base", "ready_roadland"};
+
+    DefaultStrategyManager manager;
+    const DefaultRegionalPolicyInput input{
+        .Config = &config,
+        .MyTeam = UnitTeam::Red,
+        .HealthFresh = true,
+        .AmmoFresh = true,
+        .Health = 400,
+        .Ammo = 100,
+        .Now = std::chrono::steady_clock::now()
+    };
+
+    manager.RecordRegionalAreaResult(
+        RegionalAreaTaskType::MyPreRoadland,
+        "preempted",
+        input.Now,
+        config.RegionalAreaTaskSettings.DefaultPolicy);
+
+    const auto candidates = manager.BuildRegionalAreaCandidates(input);
+    ASSERT_FALSE(candidates.empty());
+    EXPECT_EQ(candidates.front().TaskType, RegionalAreaTaskType::MyBase);
+
+    config.DecisionAutonomySettings.NaviGoal.MyArea = {
+        "base", "pre_roadland", "ready_roadland"};
+    const auto later_candidates = manager.BuildRegionalAreaCandidates(input);
+    ASSERT_FALSE(later_candidates.empty());
+    EXPECT_EQ(later_candidates.front().TaskType, RegionalAreaTaskType::MyBase);
+}
+
+TEST(PreReadyRoadlandTaskTest, OpeningOutpostTravelHasAimModeDecisionIntent) {
+    EXPECT_EQ(
+        BehaviorTree::DecisionReasonFromString(
+            "regional_tactical_opening_outpost_scout_travel"),
+        BehaviorTree::DecisionReason::AimModeOutpost);
 }
 
 TEST(PreReadyRoadlandTaskTest, DefaultBasePatrolUsesOnlyCastlePoints) {

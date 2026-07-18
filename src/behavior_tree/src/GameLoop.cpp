@@ -3,6 +3,7 @@
 // Keep behavior and interface changes synchronized with related modules.
 
 #include "../include/Application.hpp"
+#include "../include/OutpostOpeningHold.hpp"
 
 #include <array>
 #include <algorithm>
@@ -1785,10 +1786,10 @@ namespace BehaviorTree {
             const bool in_time_window =
                 !opening_window_limited || now_time < outpost_confirm.MaxGameTimeSec;
             const int opening_hold_sec = std::max(0, outpost_confirm.OpeningHoldSec);
-            const bool opening_hard_hold_active =
-                outpost_confirm.OpeningHoldUntilWindowEnd &&
-                opening_hold_sec > 0 &&
-                now_time < opening_hold_sec;
+            const bool opening_hard_hold_active = IsOutpostOpeningHoldActive(
+                config.TaskSettings.Outpost,
+                outpost_confirm,
+                now_time);
             const bool post_window_scout_time =
                 opening_window_limited &&
                 now_time >= outpost_confirm.MaxGameTimeSec &&
@@ -3128,7 +3129,7 @@ namespace BehaviorTree {
                 areaManager_.ClearRegionalAreaTask();
                 defaultStrategyManager_.RecordRegionalAreaResult(
                     active_task_type,
-                    "canceled",
+                    "preempted",
                     now,
                     config.RegionalAreaTaskSettings.DefaultPolicy);
                 ResetRegionalAreaControlOverride();
@@ -3155,7 +3156,7 @@ namespace BehaviorTree {
                 areaManager_.ClearRegionalAreaTask();
                 defaultStrategyManager_.RecordRegionalAreaResult(
                     active_task_type,
-                    "canceled",
+                    "preempted",
                     now,
                     config.RegionalAreaTaskSettings.DefaultPolicy);
                 ResetRegionalAreaControlOverride();
@@ -3480,13 +3481,10 @@ namespace BehaviorTree {
 
     bool Application::IsOutpostOpeningHighPriorityActive() const noexcept {
         const auto& outpost = config.TaskSettings.OutpostConfirm;
-        const int opening_high_priority_sec = std::max(
-            outpost.MaxGameTimeSec,
-            outpost.OpeningHoldUntilWindowEnd ? outpost.OpeningHoldSec : 0);
-        return config.TaskSettings.Outpost &&
-            outpost.OpeningHighPriority &&
-            opening_high_priority_sec > 0 &&
-            ElapsedSeconds() < opening_high_priority_sec;
+        return IsOutpostOpeningPriorityActive(
+            config.TaskSettings.Outpost,
+            outpost,
+            ElapsedSeconds());
     }
 
     bool Application::ShouldSuppressChaseForOutpostTask() const noexcept {
@@ -4303,7 +4301,7 @@ namespace BehaviorTree {
             areaManager_.ClearRegionalAreaTask();
             defaultStrategyManager_.RecordRegionalAreaResult(
                 canceled_task_type,
-                "canceled",
+                "preempted",
                 std::chrono::steady_clock::now(),
                 config.RegionalAreaTaskSettings.DefaultPolicy);
             ResetRegionalAreaControlOverride();

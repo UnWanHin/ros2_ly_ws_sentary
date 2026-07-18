@@ -44,7 +44,7 @@ struct DefaultRegionalAreaCandidate {
 class DefaultStrategyManager {
 public:
     std::vector<DefaultRegionalAreaCandidate> BuildRegionalAreaCandidates(
-        const DefaultRegionalPolicyInput& input) const;
+        const DefaultRegionalPolicyInput& input);
 
     void CommitRegionalAreaSelection(
         const DefaultRegionalAreaCandidate& candidate,
@@ -72,6 +72,7 @@ private:
     std::array<TaskRuntime, 6> task_runtime_{};
     RegionalAreaTaskType last_selected_task_{RegionalAreaTaskType::None};
     RegionalAreaTaskType last_completed_task_{RegionalAreaTaskType::None};
+    RegionalAreaTaskType preempted_task_{RegionalAreaTaskType::None};
 };
 
 }  // namespace BehaviorTree

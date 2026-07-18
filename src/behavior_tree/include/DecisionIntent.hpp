@@ -118,7 +118,12 @@ inline DecisionReason DecisionReasonFromString(const std::string_view reason) no
     if (reason == "enemy_road_corridor_soft") return DecisionReason::EnemyReadyRoadlandSoft;
     if (reason == "enemy_highland_soft") return DecisionReason::EnemyHighlandSoft;
     if (reason == "regional_tactical_buff_mode") return DecisionReason::AimModeBuff;
-    if (reason == "regional_tactical_aim_mode") return DecisionReason::AimModeOutpost;
+    if (reason == "regional_tactical_aim_mode" ||
+        reason == "regional_tactical_opening_outpost_aim" ||
+        reason == "regional_tactical_opening_outpost_scout_travel" ||
+        reason == "regional_tactical_outpost_scout_travel") {
+        return DecisionReason::AimModeOutpost;
+    }
     if (reason == "navi_progress_watchdog") return DecisionReason::NaviProgressWatchdog;
     if (reason == "regional_idle_patrol") return DecisionReason::RegionalIdlePatrol;
     if (reason == "area_task") return DecisionReason::AreaTask;

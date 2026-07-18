@@ -1,4 +1,5 @@
 #include "../include/OutpostEngagementLock.hpp"
+#include "../include/OutpostOpeningHold.hpp"
 
 #include <chrono>
 
@@ -103,4 +104,34 @@ TEST(OutpostEngagementLockTest, StaleZeroAndUnreachableCancelPending) {
         EXPECT_FALSE(out.HoldTarget);
         EXPECT_TRUE(out.CancelPending);
     }
+}
+
+TEST(OutpostOpeningHoldTest, HoldsNavigationOnlyInsideConfiguredOpeningWindow) {
+    LangYa::OutpostConfirmSetting setting;
+    setting.OpeningHoldSec = 120;
+    setting.OpeningHoldUntilWindowEnd = true;
+
+    EXPECT_TRUE(BehaviorTree::IsOutpostOpeningHoldActive(true, setting, 119));
+    EXPECT_FALSE(BehaviorTree::IsOutpostOpeningHoldActive(true, setting, 120));
+
+    EXPECT_FALSE(BehaviorTree::IsOutpostOpeningHoldActive(false, setting, 10));
+    setting.OpeningHoldUntilWindowEnd = false;
+    EXPECT_FALSE(BehaviorTree::IsOutpostOpeningHoldActive(true, setting, 10));
+    setting.OpeningHoldUntilWindowEnd = true;
+    setting.OpeningHoldSec = 0;
+    EXPECT_FALSE(BehaviorTree::IsOutpostOpeningHoldActive(true, setting, 10));
+}
+
+TEST(OutpostOpeningHoldTest, HardHoldOwnsOpeningPriorityIndependentlyOfNormalOpeningPriority) {
+    LangYa::OutpostConfirmSetting setting;
+    setting.OpeningHighPriority = false;
+    setting.OpeningHoldSec = 120;
+    setting.OpeningHoldUntilWindowEnd = true;
+    setting.MaxGameTimeSec = 120;
+
+    EXPECT_TRUE(BehaviorTree::IsOutpostOpeningPriorityActive(true, setting, 119));
+    EXPECT_FALSE(BehaviorTree::IsOutpostOpeningPriorityActive(true, setting, 120));
+
+    setting.OpeningHoldUntilWindowEnd = false;
+    EXPECT_FALSE(BehaviorTree::IsOutpostOpeningPriorityActive(true, setting, 10));
 }

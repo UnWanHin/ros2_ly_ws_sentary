@@ -104,7 +104,7 @@ bool DefaultStrategyManager::IsResultFailure(
 }
 
 std::vector<DefaultRegionalAreaCandidate> DefaultStrategyManager::BuildRegionalAreaCandidates(
-    const DefaultRegionalPolicyInput& input) const {
+    const DefaultRegionalPolicyInput& input) {
     if (input.Config == nullptr || !IsKnownTeam(input.MyTeam)) {
         return {};
     }
@@ -269,6 +269,22 @@ std::vector<DefaultRegionalAreaCandidate> DefaultStrategyManager::BuildRegionalA
         }
     }
 
+    if (preempted_task_ != RegionalAreaTaskType::None) {
+        const auto preempted = std::find_if(
+            candidates.begin(),
+            candidates.end(),
+            [this](const DefaultRegionalAreaCandidate& candidate) {
+                return candidate.TaskType == preempted_task_;
+            });
+        if (preempted != candidates.end()) {
+            const auto interrupted = *preempted;
+            candidates.erase(preempted);
+            candidates.insert(candidates.begin(), interrupted);
+        } else {
+            preempted_task_ = RegionalAreaTaskType::None;
+        }
+    }
+
     return candidates;
 }
 
@@ -276,6 +292,9 @@ void DefaultStrategyManager::CommitRegionalAreaSelection(
     const DefaultRegionalAreaCandidate& candidate,
     const AreaTimePoint) noexcept {
     last_selected_task_ = candidate.TaskType;
+    if (candidate.TaskType == preempted_task_) {
+        preempted_task_ = RegionalAreaTaskType::None;
+    }
 }
 
 void DefaultStrategyManager::RecordRegionalAreaResult(
@@ -287,8 +306,17 @@ void DefaultStrategyManager::RecordRegionalAreaResult(
         return;
     }
 
+    if (reason == "preempted") {
+        preempted_task_ = type;
+        last_completed_task_ = RegionalAreaTaskType::None;
+        return;
+    }
+
     auto& runtime = task_runtime_[TaskIndex(type)];
     const bool failure = IsResultFailure(reason);
+    if (preempted_task_ == type) {
+        preempted_task_ = RegionalAreaTaskType::None;
+    }
     if (failure) {
         runtime.ConsecutiveFailures += 1;
         last_completed_task_ = RegionalAreaTaskType::None;
@@ -313,6 +341,7 @@ void DefaultStrategyManager::RecordRegionalAreaResult(
 void DefaultStrategyManager::ResetRegionalPolicy() noexcept {
     last_selected_task_ = RegionalAreaTaskType::None;
     last_completed_task_ = RegionalAreaTaskType::None;
+    preempted_task_ = RegionalAreaTaskType::None;
 }
 
 }  // namespace BehaviorTree

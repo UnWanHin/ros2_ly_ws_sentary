@@ -26,6 +26,7 @@ Updated: 2026-07-19
 - `src/behavior_tree/src/AreaManager.cpp`
 - `src/behavior_tree/include/DefaultStrategyManager.hpp`
 - `src/behavior_tree/src/DefaultStrategyManager.cpp`
+- `src/behavior_tree/include/OutpostOpeningHold.hpp`
 - `src/behavior_tree/include/EventManager.hpp`
 - `src/behavior_tree/src/EventManager.cpp`
 - `src/behavior_tree/include/StrategyManager.hpp`
@@ -450,6 +451,11 @@ Highland approach/leave、ReadyRoadland approach/cross/return 等純行進或安
 
 被取消時，BT 會清空當前 regional area task，重置 regional control override，並把 `FollowMode` 關掉。
 
+Buff/Outpost、RegionalDefense 和 Special Patrol 的這類可恢復打斷會記為 `preempted`。它們釋放後，
+Default 會先檢查原區域是否仍在 scope、啟用、資源健康且沒有 cooldown；全數成立才續走該區域，
+若首次恢復選擇已不合格就立即丟棄恢復權、不重新按分數跳回先前區域。Recovery、timeout、unreachable 和 unhealthy 則是終止結果，不保留
+Default 恢復權。
+
 MyHighland 目前不在這個低優先級 aim/defense 取消集合裡。它仍然可能被 recovery 或其他外層明確清任務的鏈路清掉。
 
 ### PreRoadland
@@ -494,6 +500,16 @@ ReadyRoadland 非強綁定階段通常不直接取消，而是請求安全返回
 - 到達穿越終點；
 - 穿越終點不可達；
 - 穿越超時。
+
+## 前哨開局承諾
+
+`Task.OutpostConfirm.OpeningHoldUntilWindowEnd=true` 且 `OpeningHoldSec>0` 時，
+`IsOutpostOpeningHoldActive()` 是唯一開局 hard hold 判定：elapsed 在 `[0, OpeningHoldSec)` 內才生效，
+因此預設 `120` 秒嚴格覆蓋 `0..119` 秒。有效期間 Outpost navigation ownership 固定為
+`BuffOutpost`，Default、Regional idle patrol、Special 與 soft tactical 不可換點。這個承諾不壓過
+前哨已毀、明確不可達、受擊 abort 或資源 gate；Hard Recovery 與己方 Base 的 RegionalDefense
+硬威脅也保留既有接管權，避免為了駐守前哨犧牲回補或基地安全。hard hold 自身會取得開局 priority，
+不依賴 `OpeningHighPriority`；該 YAML key 只控制不含 hard hold 的一般開局時間窗。
 
 ## 裝甲板選敵
 
