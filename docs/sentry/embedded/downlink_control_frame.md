@@ -119,6 +119,8 @@ payload 長度與 sequence；只有 index 0/1 同 sequence 都有效時才依序
 
 上位機只接受 `intention=1/2/3`。邏輯 `MapPath.msg` 的 `delta_x_dm`、`delta_y_dm` 仍各恰好 49 個元素：
 50 點規格沒有縮減。`/ly/download/typeid0x02` 與 raw log 會各記錄兩個實際 64B fragment。
+下位機的完整重組狀態機、錯誤處理、裁判 `0x0307` 一次性封裝與聯調步驟見
+[map_path_fragment_reassembly.md](map_path_fragment_reassembly.md)。
 
 ## 6. `CustomInfoFrame`（`0x03`，36B）
 
