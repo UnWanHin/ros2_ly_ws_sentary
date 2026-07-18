@@ -279,6 +279,7 @@ if(BUILD_TESTING)
     test/test_pre_ready_roadland_tasks.cpp
     src/AreaManager.cpp
     src/DefaultStrategyManager.cpp
+    src/EventManager.cpp
   )
   target_include_directories(test_pre_ready_roadland_tasks PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

@@ -1006,7 +1006,6 @@ namespace LangYa {
 
     void from_json(const json& j, NaviProgressWatchdogSetting& np) {
         np.Enable = j.value("Enable", np.Enable);
-        np.ArriveDistanceCm = j.value("ArriveDistanceCm", np.ArriveDistanceCm);
         np.MoveProgressCm = j.value("MoveProgressCm", np.MoveProgressCm);
         np.NoMoveTimeoutSec = j.value("NoMoveTimeoutSec", np.NoMoveTimeoutSec);
         np.FallbackHoldSec = j.value("FallbackHoldSec", np.FallbackHoldSec);
@@ -1126,6 +1125,7 @@ namespace LangYa {
     void from_json(const json& j, CommonCentralAreaTaskSetting& cs) {
         cs.Enable = j.value("Enable", cs.Enable);
         cs.TravelTimeoutSec = j.value("TravelTimeoutSec", cs.TravelTimeoutSec);
+        cs.GoalHoldSec = j.value("GoalHoldSec", cs.GoalHoldSec);
         cs.CommandHoldSec = j.value("CommandHoldSec", cs.CommandHoldSec);
         cs.MaxPatrolSteps = j.value("MaxPatrolSteps", cs.MaxPatrolSteps);
         cs.HealthyHpMin = j.value("HealthyHpMin", cs.HealthyHpMin);
@@ -2552,6 +2552,17 @@ namespace BehaviorTree {
         ReadOptionalIntParam(
             node_,
             {
+                "AreaManager.Area.CommonArea.Central.Task.CommonCentral.GoalHoldSec",
+                "AreaManager/Area/CommonArea/Central/Task/CommonCentral/GoalHoldSec",
+                "AreaManager.Task.CommonCentral.GoalHoldSec",
+                "AreaManager/Task/CommonCentral/GoalHoldSec",
+                "AreaManager.RegionalAreaTask.CommonCentral.GoalHoldSec",
+                "AreaManager/RegionalAreaTask/CommonCentral/GoalHoldSec"
+            },
+            central.GoalHoldSec);
+        ReadOptionalIntParam(
+            node_,
+            {
                 "AreaManager.Area.CommonArea.Central.Task.CommonCentral.CommandHoldSec",
                 "AreaManager/Area/CommonArea/Central/Task/CommonCentral/CommandHoldSec",
                 "AreaManager.Task.CommonCentral.CommandHoldSec",
@@ -2893,7 +2904,6 @@ namespace BehaviorTree {
         LoggerPtr->Debug("GoalBaseId: {}", static_cast<int>(config.HeroProtectionSettings.GoalBaseId));
         LoggerPtr->Debug("------ NaviProgressWatchdog ------");
         LoggerPtr->Debug("Enable: {}", config.NaviProgressWatchdogSettings.Enable);
-        LoggerPtr->Debug("ArriveDistanceCm: {}", config.NaviProgressWatchdogSettings.ArriveDistanceCm);
         LoggerPtr->Debug("MoveProgressCm: {}", config.NaviProgressWatchdogSettings.MoveProgressCm);
         LoggerPtr->Debug("NoMoveTimeoutSec: {}", config.NaviProgressWatchdogSettings.NoMoveTimeoutSec);
         LoggerPtr->Debug("FallbackHoldSec: {}", config.NaviProgressWatchdogSettings.FallbackHoldSec);
@@ -2957,6 +2967,7 @@ namespace BehaviorTree {
         LoggerPtr->Debug("MyReadyRoadland.HealthyAmmoMin: {}", config.RegionalAreaTaskSettings.MyReadyRoadland.HealthyAmmoMin);
         LoggerPtr->Debug("CommonCentral.Enable: {}", config.RegionalAreaTaskSettings.CommonCentral.Enable);
         LoggerPtr->Debug("CommonCentral.TravelTimeoutSec: {}", config.RegionalAreaTaskSettings.CommonCentral.TravelTimeoutSec);
+        LoggerPtr->Debug("CommonCentral.GoalHoldSec: {}", config.RegionalAreaTaskSettings.CommonCentral.GoalHoldSec);
         LoggerPtr->Debug("CommonCentral.CommandHoldSec: {}", config.RegionalAreaTaskSettings.CommonCentral.CommandHoldSec);
         LoggerPtr->Debug("CommonCentral.MaxPatrolSteps: {}", config.RegionalAreaTaskSettings.CommonCentral.MaxPatrolSteps);
         LoggerPtr->Debug("CommonCentral.HealthyHpMin: {}", config.RegionalAreaTaskSettings.CommonCentral.HealthyHpMin);
@@ -3476,11 +3487,6 @@ namespace BehaviorTree {
                                static_cast<int>(config.HeroProtectionSettings.GoalBaseId));
             config.HeroProtectionSettings.GoalBaseId = LangYa::Highland.ID;
         }
-        if (config.NaviProgressWatchdogSettings.ArriveDistanceCm <= 0) {
-            LoggerPtr->Warning("Invalid NaviProgressWatchdog.ArriveDistanceCm={}, fallback to 140.",
-                               config.NaviProgressWatchdogSettings.ArriveDistanceCm);
-            config.NaviProgressWatchdogSettings.ArriveDistanceCm = 140;
-        }
         if (config.NaviProgressWatchdogSettings.MoveProgressCm <= 0) {
             LoggerPtr->Warning("Invalid NaviProgressWatchdog.MoveProgressCm={}, fallback to 80.",
                                config.NaviProgressWatchdogSettings.MoveProgressCm);
@@ -3562,9 +3568,9 @@ namespace BehaviorTree {
         }
         if (highland_task.HighlandPatrolHoldSec < 0) {
             LoggerPtr->Warning(
-                "Invalid RegionalAreaTask.MyHighland.HighlandPatrolHoldSec={}, fallback to 2.",
+                "Invalid RegionalAreaTask.MyHighland.HighlandPatrolHoldSec={}, fallback to 15.",
                 highland_task.HighlandPatrolHoldSec);
-            highland_task.HighlandPatrolHoldSec = 2;
+            highland_task.HighlandPatrolHoldSec = 15;
         }
         if (highland_task.BuffShootTravelTimeoutSec <= 0) {
             LoggerPtr->Warning(
@@ -3574,9 +3580,9 @@ namespace BehaviorTree {
         }
         if (highland_task.BuffShootHoldSec < 0) {
             LoggerPtr->Warning(
-                "Invalid RegionalAreaTask.MyHighland.BuffShootHoldSec={}, fallback to 10.",
+                "Invalid RegionalAreaTask.MyHighland.BuffShootHoldSec={}, fallback to 15.",
                 highland_task.BuffShootHoldSec);
-            highland_task.BuffShootHoldSec = 10;
+            highland_task.BuffShootHoldSec = 15;
         }
         if (highland_task.LeaveTimeoutSec <= 0) {
             LoggerPtr->Warning(
@@ -3700,9 +3706,9 @@ namespace BehaviorTree {
         }
         if (pre_roadland_task.GoalHoldSec < 0) {
             LoggerPtr->Warning(
-                "Invalid RegionalAreaTask.MyPreRoadland.GoalHoldSec={}, fallback to 6.",
+                "Invalid RegionalAreaTask.MyPreRoadland.GoalHoldSec={}, fallback to 15.",
                 pre_roadland_task.GoalHoldSec);
-            pre_roadland_task.GoalHoldSec = 6;
+            pre_roadland_task.GoalHoldSec = 15;
         }
         if (pre_roadland_task.CommandHoldSec <= 0) {
             LoggerPtr->Warning(
@@ -3743,9 +3749,9 @@ namespace BehaviorTree {
         }
         if (ready_roadland_task.GuardHoldSec <= 0) {
             LoggerPtr->Warning(
-                "Invalid RegionalAreaTask.MyReadyRoadland.GuardHoldSec={}, fallback to 2.",
+                "Invalid RegionalAreaTask.MyReadyRoadland.GuardHoldSec={}, fallback to 15.",
                 ready_roadland_task.GuardHoldSec);
-            ready_roadland_task.GuardHoldSec = 2;
+            ready_roadland_task.GuardHoldSec = 15;
         }
         if (ready_roadland_task.FaceTargetZCm < 0) {
             LoggerPtr->Warning(
@@ -3771,6 +3777,12 @@ namespace BehaviorTree {
                 "Invalid RegionalAreaTask.CommonCentral.TravelTimeoutSec={}, fallback to 12.",
                 central_task.TravelTimeoutSec);
             central_task.TravelTimeoutSec = 12;
+        }
+        if (central_task.GoalHoldSec < 0) {
+            LoggerPtr->Warning(
+                "Invalid RegionalAreaTask.CommonCentral.GoalHoldSec={}, fallback to 15.",
+                central_task.GoalHoldSec);
+            central_task.GoalHoldSec = 15;
         }
         if (central_task.CommandHoldSec <= 0) {
             LoggerPtr->Warning(

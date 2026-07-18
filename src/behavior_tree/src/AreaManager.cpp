@@ -773,29 +773,15 @@ NaviProgressWatchdogDecision AreaManager::TickProgressWatchdog(
         return decision;
     }
 
-    if (input.ExternalReach.has_value() && *input.ExternalReach) {
+    if (input.IsCurrentGoalArrived) {
         progress_watchdog_.LastMoveTime = input.Now;
         return decision;
     }
 
-    const bool external_unreachable =
-        input.ExternalReachable.has_value() && !*input.ExternalReachable;
+    const bool goal_unreachable = input.IsCurrentGoalUnreachable;
 
-    if (!external_unreachable) {
+    if (!goal_unreachable) {
         if (!input.HasSelfPosition) {
-            return decision;
-        }
-
-        const int arrive_cm = std::max(1, input.Setting.ArriveDistanceCm);
-        const double distance_to_goal_sq = DistanceSq(
-            input.SelfX,
-            input.SelfY,
-            static_cast<int>(progress_watchdog_.GoalPosition.x),
-            static_cast<int>(progress_watchdog_.GoalPosition.y));
-        if (distance_to_goal_sq <= static_cast<double>(arrive_cm * arrive_cm)) {
-            progress_watchdog_.LastMoveTime = input.Now;
-            progress_watchdog_.LastX = input.SelfX;
-            progress_watchdog_.LastY = input.SelfY;
             return decision;
         }
 
@@ -831,7 +817,7 @@ NaviProgressWatchdogDecision AreaManager::TickProgressWatchdog(
     }
 
     decision.NeedFallback = true;
-    decision.ExternalUnreachable = external_unreachable;
+    decision.GoalUnreachable = goal_unreachable;
     decision.OriginalBaseGoal = progress_watchdog_.BaseGoal;
     decision.OriginalGoalId = progress_watchdog_.GoalId;
     decision.OriginalGoalTeam = progress_watchdog_.GoalTeam;
@@ -1071,7 +1057,7 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
         };
 
         if (regional_area_task_.Phase == RegionalAreaTaskPhase::PreRoadlandApproach) {
-            if (input.CurrentBaseGoalUnreachable) {
+            if (input.IsCurrentGoalUnreachable) {
                 complete_task("unreachable");
                 return result;
             }
@@ -1080,7 +1066,7 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
                 complete_task("timeout");
                 return result;
             }
-            if (input.CurrentBaseGoalArrived) {
+            if (input.IsCurrentGoalArrived) {
                 regional_area_task_.Phase = RegionalAreaTaskPhase::PreRoadlandHold;
                 regional_area_task_.PhaseStartTime = input.Now;
             }
@@ -1169,14 +1155,14 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
         } else {
             const bool hold_started =
                 regional_area_task_.BaseGoalArrivedTime.time_since_epoch().count() != 0;
-            const bool current_goal_arrived = hold_started || input.CurrentBaseGoalArrived;
+            const bool current_goal_arrived = hold_started || input.IsCurrentGoalArrived;
             const bool travel_timed_out =
                 !current_goal_arrived &&
                 !input.HoldCurrentBaseGoal &&
                 base_setting.TravelTimeoutSec > 0 &&
                 phase_elapsed() >= std::chrono::seconds(base_setting.TravelTimeoutSec);
-            if (input.CurrentBaseGoalUnreachable || travel_timed_out) {
-                if (!switch_to_next_base_goal(input.CurrentBaseGoalUnreachable
+            if (input.IsCurrentGoalUnreachable || travel_timed_out) {
+                if (!switch_to_next_base_goal(input.IsCurrentGoalUnreachable
                     ? "unreachable"
                     : "timeout")) {
                     return result;
@@ -1336,9 +1322,6 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
             return std::chrono::duration_cast<std::chrono::seconds>(
                 input.Now - regional_area_task_.PhaseStartTime);
         };
-        const bool travel_timed_out =
-            central_setting.TravelTimeoutSec > 0 &&
-            phase_elapsed() >= std::chrono::seconds(central_setting.TravelTimeoutSec);
         auto complete_central_task = [&](const char* reason) {
             result.Completed = true;
             result.Type = regional_area_task_.Type;
@@ -1355,6 +1338,7 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
             regional_area_task_.GoalTeam =
                 CommonCentralPatrolGoalTeam(regional_area_task_.OwnerTeam, spec);
             regional_area_task_.PhaseStartTime = input.Now;
+            regional_area_task_.BaseGoalArrivedTime = AreaTimePoint{};
         };
 
         if (input.CentralShouldLeave) {
@@ -1371,22 +1355,44 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
             regional_area_task_.OwnerTeam = regional_area_task_.GoalTeam;
         }
 
+        const bool hold_started =
+            regional_area_task_.BaseGoalArrivedTime.time_since_epoch().count() != 0;
+        const bool current_goal_arrived = hold_started || input.IsCurrentGoalArrived;
+        const bool travel_timed_out =
+            !current_goal_arrived &&
+            central_setting.TravelTimeoutSec > 0 &&
+            phase_elapsed() >= std::chrono::seconds(central_setting.TravelTimeoutSec);
+
         if (regional_area_task_.CurrentBaseGoal == LangYa::Home.ID ||
             regional_area_task_.Phase != RegionalAreaTaskPhase::CentralPatrol) {
             set_patrol_goal(regional_area_task_.PatrolIndex);
             regional_area_task_.PatrolStepCount = 0;
-        } else if (input.CurrentBaseGoalArrived ||
-                   input.CurrentBaseGoalUnreachable ||
-                   travel_timed_out) {
+        } else if (input.IsCurrentGoalUnreachable || travel_timed_out) {
             ++regional_area_task_.PatrolStepCount;
             if (central_setting.MaxPatrolSteps > 0 &&
                 regional_area_task_.PatrolStepCount >= central_setting.MaxPatrolSteps) {
-                complete_central_task(input.CurrentBaseGoalUnreachable
+                complete_central_task(input.IsCurrentGoalUnreachable
                     ? "unreachable"
                     : (travel_timed_out ? "timeout" : "patrol_complete"));
                 return result;
             }
             set_patrol_goal(NextCommonCentralPatrolIndex(regional_area_task_.PatrolIndex));
+        } else if (current_goal_arrived) {
+            if (!hold_started) {
+                regional_area_task_.BaseGoalArrivedTime = input.Now;
+            }
+            const auto hold_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+                input.Now - regional_area_task_.BaseGoalArrivedTime);
+            if (central_setting.GoalHoldSec <= 0 ||
+                hold_elapsed >= std::chrono::seconds(central_setting.GoalHoldSec)) {
+                ++regional_area_task_.PatrolStepCount;
+                if (central_setting.MaxPatrolSteps > 0 &&
+                    regional_area_task_.PatrolStepCount >= central_setting.MaxPatrolSteps) {
+                    complete_central_task("patrol_complete");
+                    return result;
+                }
+                set_patrol_goal(NextCommonCentralPatrolIndex(regional_area_task_.PatrolIndex));
+            }
         }
 
         result.Active = true;

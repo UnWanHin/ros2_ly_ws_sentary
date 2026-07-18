@@ -101,7 +101,6 @@ struct EventEvaluateInput {
     bool HasNaviReachable{false};
     bool NaviReachable{true};
     AreaTimePoint LastNaviReachableRxTime{};
-    bool HasCompositeGoalReachState{false};
     bool CompositeGoalReached{false};
     bool CompositeGoalUnreachable{false};
 

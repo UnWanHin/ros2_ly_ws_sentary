@@ -867,7 +867,6 @@ namespace BehaviorTree {
                 .HasNaviReachable = hasReceivedNaviReachable_,
                 .NaviReachable = naviReachable,
                 .LastNaviReachableRxTime = lastNaviReachableRxTime_,
-                .HasCompositeGoalReachState = true,
                 .CompositeGoalReached = current_goal_reach.Status == GoalReachStatus::Reached,
                 .CompositeGoalUnreachable = current_goal_reach.Status == GoalReachStatus::Unreachable,
                 .RegionalDefense = EvaluateRegionalDefenseThreat(my_team, enemy_team)
@@ -3220,8 +3219,8 @@ namespace BehaviorTree {
                 .BuffShootUnreachable = IsBaseGoalExternallyUnreachable(LangYa::BuffShoot.ID, goal_team, apply_team_offset),
                 .HoleRoadArrived = IsBaseGoalArrived(LangYa::HoleRoad.ID, goal_team, apply_team_offset),
                 .HoleRoadUnreachable = IsBaseGoalExternallyUnreachable(LangYa::HoleRoad.ID, goal_team, apply_team_offset),
-                .CurrentBaseGoalArrived = IsBaseGoalArrived(current_base_goal, goal_team, apply_team_offset),
-                .CurrentBaseGoalUnreachable = IsBaseGoalExternallyUnreachable(current_base_goal, goal_team, apply_team_offset),
+                .IsCurrentGoalArrived = IsBaseGoalArrived(current_base_goal, goal_team, apply_team_offset),
+                .IsCurrentGoalUnreachable = IsBaseGoalExternallyUnreachable(current_base_goal, goal_team, apply_team_offset),
                 .ReadyRoadlandCentralToBaseArrived = IsBaseGoalArrived(LangYa::CentralToBase.ID, goal_team, apply_team_offset),
                 .ReadyRoadlandCentralToBaseUnreachable = IsBaseGoalExternallyUnreachable(LangYa::CentralToBase.ID, goal_team, apply_team_offset),
                 .ReadyRoadlandBaseToCentralArrived = IsBaseGoalArrived(LangYa::BaseToCentral.ID, goal_team, apply_team_offset),
@@ -4485,10 +4484,12 @@ namespace BehaviorTree {
         const auto self_position = GetSentryPositionState(now);
         const bool has_self_position =
             self_position.Fresh && self_position.X > 0 && self_position.Y > 0;
-        const auto external_reach =
-            GetExternalNaviReachForGoal(runtime.GoalId, runtime.GoalPosition);
-        const auto external_reachable =
-            GetExternalNaviReachableForGoal(runtime.GoalId, runtime.GoalPosition);
+        const auto current_goal_reach = EvaluateNaviGoalReach(
+            runtime.GoalId,
+            runtime.GoalPosition,
+            std::max(1, config.DecisionAutonomySettings.NaviGoal.HighlandCompatArriveDistanceCm),
+            0,
+            runtime.BaseGoal);
 
         const auto decision = areaManager_.TickProgressWatchdog(
             NaviProgressWatchdogInput{
@@ -4497,8 +4498,8 @@ namespace BehaviorTree {
                 .HasSelfPosition = has_self_position,
                 .SelfX = has_self_position ? self_position.X : 0,
                 .SelfY = has_self_position ? self_position.Y : 0,
-                .ExternalReach = external_reach,
-                .ExternalReachable = external_reachable,
+                .IsCurrentGoalArrived = current_goal_reach.Status == GoalReachStatus::Reached,
+                .IsCurrentGoalUnreachable = current_goal_reach.Status == GoalReachStatus::Unreachable,
                 .Setting = watchdog,
                 .Now = now
             });
@@ -4525,7 +4526,7 @@ namespace BehaviorTree {
                     LoggerPtr->Warning(
                         "Navi progress watchdog: goal={} {}, fallback goal={}.",
                         static_cast<int>(decision.OriginalGoalId),
-                        decision.ExternalUnreachable ? "unreachable" : "no movement",
+                        decision.GoalUnreachable ? "unreachable" : "no movement",
                         static_cast<int>(naviCommandGoal));
                 }
                 return true;

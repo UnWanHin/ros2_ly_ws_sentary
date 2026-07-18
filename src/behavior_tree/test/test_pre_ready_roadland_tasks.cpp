@@ -1,5 +1,6 @@
 #include "../include/AreaManager.hpp"
 #include "../include/DefaultStrategyManager.hpp"
+#include "../include/EventManager.hpp"
 #include "../module/json.hpp"
 
 #include <algorithm>
@@ -145,6 +146,129 @@ TEST(PreReadyRoadlandTaskTest, DefaultBasePatrolUsesOnlyCastlePoints) {
             std::find(expected.begin(), expected.end(), goal.BaseGoalId),
             expected.end());
     }
+}
+
+TEST(PreReadyRoadlandTaskTest, DefaultAreaHoldDefaultsAreFifteenSeconds) {
+    const LangYa::MyBaseAreaTaskSetting base;
+    const LangYa::MyHighlandAreaTaskSetting highland;
+    const LangYa::MyPreRoadlandAreaTaskSetting pre_roadland;
+    const LangYa::MyReadyRoadlandAreaTaskSetting ready_roadland;
+    const LangYa::CommonCentralAreaTaskSetting central;
+
+    EXPECT_EQ(base.GoalHoldSec, 15);
+    EXPECT_EQ(highland.HighlandPatrolHoldSec, 15);
+    EXPECT_EQ(highland.BuffShootHoldSec, 15);
+    EXPECT_EQ(pre_roadland.GoalHoldSec, 15);
+    EXPECT_EQ(ready_roadland.GuardHoldSec, 15);
+    EXPECT_EQ(central.GoalHoldSec, 15);
+}
+
+TEST(PreReadyRoadlandTaskTest, CommonCentralHoldsAnArrivedPointBeforeAdvancing) {
+    using BehaviorTree::AreaManager;
+    using BehaviorTree::RegionalAreaTaskTickInput;
+    using LangYa::UnitTeam;
+
+    AreaManager manager;
+    const auto now = std::chrono::steady_clock::now();
+    LangYa::RegionalAreaTaskSetting setting;
+    setting.Enable = true;
+    setting.CommonCentral.Enable = true;
+    manager.StartRegionalAreaTask(BehaviorTree::RegionalAreaTaskPlan{
+        .Type = BehaviorTree::RegionalAreaTaskType::CommonCentral,
+        .GoalTeam = UnitTeam::Red,
+        .ApplyTeamOffset = true,
+        .TriggerBaseGoal = LangYa::OutpostArea.ID,
+        .InitialBaseGoal = LangYa::OutpostArea.ID,
+        .InitialGoalTeam = UnitTeam::Red,
+        .InitialPatrolIndex = 0,
+    }, now);
+    ASSERT_TRUE(manager.RegionalAreaTaskActive());
+    ASSERT_EQ(manager.RegionalAreaTask().Type, BehaviorTree::RegionalAreaTaskType::CommonCentral);
+
+    const auto before_arrival = manager.TickRegionalAreaTask(
+        RegionalAreaTaskTickInput{.Setting = setting, .Now = now});
+    ASSERT_TRUE(before_arrival.Active);
+
+    const auto arrived = manager.TickRegionalAreaTask(
+        RegionalAreaTaskTickInput{
+            .Setting = setting,
+            .Now = now + std::chrono::seconds(1),
+            .IsCurrentGoalArrived = true,
+        });
+    EXPECT_EQ(arrived.BaseGoalId, before_arrival.BaseGoalId);
+
+    const auto after_hold = manager.TickRegionalAreaTask(
+        RegionalAreaTaskTickInput{
+            .Setting = setting,
+            .Now = now + std::chrono::seconds(16),
+        });
+    EXPECT_NE(after_hold.BaseGoalId, before_arrival.BaseGoalId);
+}
+
+TEST(PreReadyRoadlandTaskTest, EventManagerDoesNotTreatRawReachedAsFinalArrival) {
+    BehaviorTree::EventManager manager;
+    const auto now = std::chrono::steady_clock::now();
+
+    const auto snapshot = manager.Evaluate(BehaviorTree::EventEvaluateInput{
+        .Now = now,
+        .HasNaviReach = true,
+        .NaviReach = true,
+        .LastNaviReachRxTime = now,
+    });
+
+    EXPECT_FALSE(snapshot.GoalReached);
+
+    const auto composite_snapshot = manager.Evaluate(BehaviorTree::EventEvaluateInput{
+        .Now = now,
+        .CompositeGoalReached = true,
+    });
+    EXPECT_TRUE(composite_snapshot.GoalReached);
+}
+
+TEST(PreReadyRoadlandTaskTest, ProgressWatchdogUsesCompositeArrivalOnly) {
+    using BehaviorTree::AreaManager;
+    using BehaviorTree::NaviProgressWatchdogInput;
+    using LangYa::UnitTeam;
+
+    AreaManager manager;
+    const auto now = std::chrono::steady_clock::now();
+    manager.UpdateProgressWatchdogGoal(
+        LangYa::BuffShoot.ID,
+        LangYa::BuffShoot.ID,
+        UnitTeam::Red,
+        true,
+        AreaManager::GoalPointByBaseId(LangYa::BuffShoot.ID, UnitTeam::Red),
+        1,
+        1,
+        now);
+
+    LangYa::NaviProgressWatchdogSetting setting;
+    setting.Enable = true;
+    setting.NoMoveTimeoutSec = 1;
+    setting.MoveProgressCm = 10;
+
+    const auto decision = manager.TickProgressWatchdog(NaviProgressWatchdogInput{
+        .Enabled = true,
+        .HasSelfPosition = true,
+        .SelfX = 1,
+        .SelfY = 1,
+        .IsCurrentGoalArrived = false,
+        .Setting = setting,
+        .Now = now + std::chrono::seconds(2),
+    });
+
+    EXPECT_TRUE(decision.NeedFallback);
+
+    const auto arrived = manager.TickProgressWatchdog(NaviProgressWatchdogInput{
+        .Enabled = true,
+        .HasSelfPosition = true,
+        .SelfX = 1,
+        .SelfY = 1,
+        .IsCurrentGoalArrived = true,
+        .Setting = setting,
+        .Now = now + std::chrono::seconds(3),
+    });
+    EXPECT_FALSE(arrived.NeedFallback);
 }
 
 TEST(PreReadyRoadlandTaskTest, FormalRegionalProfileEnablesPreAndReadyRoadlandAreas) {

@@ -764,7 +764,6 @@ namespace LangYa
 
     struct NaviProgressWatchdogSetting {
         bool Enable{false};
-        int ArriveDistanceCm{140};
         int MoveProgressCm{80};
         int NoMoveTimeoutSec{14};
         int FallbackHoldSec{5};
@@ -801,9 +800,9 @@ namespace LangYa
         bool Enable{false};
         bool UseFaceMode{true};
         int ApproachTimeoutSec{8};
-        int HighlandPatrolHoldSec{2};
+        int HighlandPatrolHoldSec{15};
         int BuffShootTravelTimeoutSec{8};
-        int BuffShootHoldSec{10};
+        int BuffShootHoldSec{15};
         int LeaveTimeoutSec{8};
     };
 
@@ -845,7 +844,7 @@ namespace LangYa
         int TravelTimeoutSec{12};
         int CrossTimeoutSec{8};
         int CommandHoldSec{1};
-        int GuardHoldSec{2};
+        int GuardHoldSec{15};
         int FaceTargetZCm{100};
         int HealthyHpMin{300};
         int HealthyAmmoMin{50};
@@ -854,7 +853,7 @@ namespace LangYa
     struct MyPreRoadlandAreaTaskSetting {
         bool Enable{false};
         int TravelTimeoutSec{12};
-        int GoalHoldSec{6};
+        int GoalHoldSec{15};
         int CommandHoldSec{1};
         int SpeedLevel{1};
     };
@@ -862,6 +861,7 @@ namespace LangYa
     struct CommonCentralAreaTaskSetting {
         bool Enable{false};
         int TravelTimeoutSec{12};
+        int GoalHoldSec{15};
         int CommandHoldSec{1};
         int MaxPatrolSteps{8};
         int HealthyHpMin{300};

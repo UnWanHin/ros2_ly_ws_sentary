@@ -173,15 +173,15 @@ struct NaviProgressWatchdogInput {
     bool HasSelfPosition{false};
     int SelfX{0};
     int SelfY{0};
-    std::optional<bool> ExternalReach{};
-    std::optional<bool> ExternalReachable{};
+    bool IsCurrentGoalArrived{false};
+    bool IsCurrentGoalUnreachable{false};
     LangYa::NaviProgressWatchdogSetting Setting{};
     AreaTimePoint Now{};
 };
 
 struct NaviProgressWatchdogDecision {
     bool NeedFallback{false};
-    bool ExternalUnreachable{false};
+    bool GoalUnreachable{false};
     std::uint8_t OriginalBaseGoal{LangYa::Home.ID};
     std::uint8_t OriginalGoalId{0};
     LangYa::UnitTeam OriginalGoalTeam{LangYa::UnitTeam::Unknown};
@@ -257,8 +257,8 @@ struct RegionalAreaTaskTickInput {
     bool BuffShootUnreachable{false};
     bool HoleRoadArrived{false};
     bool HoleRoadUnreachable{false};
-    bool CurrentBaseGoalArrived{false};
-    bool CurrentBaseGoalUnreachable{false};
+    bool IsCurrentGoalArrived{false};
+    bool IsCurrentGoalUnreachable{false};
     bool ReadyRoadlandCentralToBaseArrived{false};
     bool ReadyRoadlandCentralToBaseUnreachable{false};
     bool ReadyRoadlandBaseToCentralArrived{false};

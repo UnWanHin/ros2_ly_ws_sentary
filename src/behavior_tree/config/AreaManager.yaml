@@ -48,14 +48,14 @@ behavior_tree:
           Enable: true  # 是否允许选择己方高地任务。
           UseFaceMode: false  # 区域任务是否发布固定朝向 target_raw；false 不请求 FaceMode。
           ApproachTimeoutSec: 8
-          HighlandPatrolHoldSec: 2
+          HighlandPatrolHoldSec: 15
           BuffShootTravelTimeoutSec: 8
-          BuffShootHoldSec: 10
+          BuffShootHoldSec: 15
           LeaveTimeoutSec: 8
         MyPreRoadland:
           Enable: true  # 是否允许选择己方道路前段区域任务。
           TravelTimeoutSec: 12  # 前往 PreRoadland 目标的超时（秒）。
-          GoalHoldSec: 6  # 到达后保持该区域任务的时间（秒）。
+          GoalHoldSec: 15  # 到达后保持该区域任务的时间（秒）。
           CommandHoldSec: 1  # 每次导航命令保持时间（秒）。
           SpeedLevel: 1  # 下发给导航的速度档位。
         MyReadyRoadland:
@@ -64,13 +64,14 @@ behavior_tree:
           TravelTimeoutSec: 12
           CrossTimeoutSec: 8
           CommandHoldSec: 1
-          GuardHoldSec: 2
+          GuardHoldSec: 15
           FaceTargetZCm: 100
           HealthyHpMin: 300
           HealthyAmmoMin: 50
         CommonCentral:
           Enable: true  # 是否允许选择中央公共区域任务。
           TravelTimeoutSec: 12
+          GoalHoldSec: 15  # 每个中央巡逻点到达后的保持时间（秒）。
           CommandHoldSec: 1
           MaxPatrolSteps: 8
           HealthyHpMin: 300
