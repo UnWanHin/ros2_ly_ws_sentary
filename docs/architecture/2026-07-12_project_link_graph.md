@@ -93,7 +93,7 @@ flowchart TB
   NAV_PATH[/ly/navi/path\nnav_msgs/Path map/m + stamp] --> PATH_BRIDGE[map_path_to_game_path_node\n同一 navi_tf_bridge 矩陣反算]
   PATH_BRIDGE --> GAME_PATH[/ly/game/path\nMapPath official dm + 原 stamp]
   GAME_PATH --> FRESH{stamp 非 0 且\n<= 5s?}
-  FRESH -->|是| DL02[0x02 MapPathFrame\n107B / 0x0307]
+  FRESH -->|是| DL02[0x02 MapPathFragmentFrame\n64B x2 -> 107B / 50 points / 0x0307]
   FRESH -->|否| DROP[拒絕下發\n等新 path]
   BT_PATH[/ly/control/map_path\nlegacy/manual] -.相容入口.-> DL02
   BT_CUSTOM[/ly/control/custom_info] --> DL03[0x03 CustomInfoFrame\n36B / 0x0308]

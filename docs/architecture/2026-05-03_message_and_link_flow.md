@@ -287,7 +287,7 @@ if(control_result.valid){
 - `/ly/bt/sentry_position`
 
 **輸出**:
-- 串口通訊按 `DownlinkTypeID` 分包：`0x00` 13B 主控制、`0x01` 6B `SentryCmd`、`0x02` 107B 裁判 `0x0307` 路徑、`0x03` 36B 裁判 `0x0308` 自訂訊息、`0x04` 17B 哨兵自身座標。
+- 串口通訊按 `DownlinkTypeID` 分包：`0x00` 13B 主控制、`0x01` 6B `SentryCmd`、`0x02` 兩段 64B fragment（重組完整 107B / 50 點裁判 `0x0307` 路徑）、`0x03` 36B 裁判 `0x0308` 自訂訊息、`0x04` 17B 哨兵自身座標、`0x05` 26B MPC 軌跡。
 
 ---
 

@@ -16,7 +16,8 @@ Updated: 2026-07-18
 `DownlinkTypeID` 執行底盤/雲台控制或封裝對應的 RM2026 V2.0 裁判幀。
 
 上行 `TypeID` 與下行 `DownlinkTypeID` 是兩個獨立編號空間。所有下行 frame 的
-byte 0 都是 `0x21` (`'!'`)，byte 1 是 `DownlinkTypeID`；之後的 frame 長度由 ID 決定。
+byte 0 都是 `0x21` (`'!'`)，byte 1 是 `DownlinkTypeID`；之後的 frame 長度由 ID 決定。`0x02`
+例外地以兩個固定 64B fragment 組成一份邏輯路徑。
 
 ## 2. Frame 總表
 
@@ -24,7 +25,7 @@ byte 0 都是 `0x21` (`'!'`)，byte 1 是 `DownlinkTypeID`；之後的 frame 長
 |---|---|---:|---|---|
 | `0x00` | `GimbalControlFrame` | 13B | 無 | `/ly/control/angles`、`/ly/control/vel`、`/ly/control/firecode` |
 | `0x01` | `SentryCommandFrame` | 6B | `0x0301 + data_cmd_id=0x0120` | `/ly/control/posture`、`/ly/control/sentry_cmd` |
-| `0x02` | `MapPathFrame` | 107B | `0x0307 map_data_t` | `/ly/control/map_path` |
+| `0x02` | `MapPathFragmentFrame` | 64B x2 | 重組後 `0x0307 map_data_t` | `/ly/control/map_path` |
 | `0x03` | `CustomInfoFrame` | 36B | `0x0308 custom_info_t` | `/ly/control/custom_info` |
 | `0x04` | `SentryCoordinateFrame` | 17B | 下位機自身座標使用 | `/ly/bt/sentry_position` |
 | `0x05` | `GimbalTrajectoryFrame` | 26B | MPC 云台原子轨迹 | `/ly/control/trajectory` (`gimbal_driver/msg/GimbalTrajectory`) |
@@ -70,10 +71,11 @@ byte 0 都是 `0x21` (`'!'`)，byte 1 是 `DownlinkTypeID`；之後的 frame 長
 | 24 | `confirm_energy_activate` | 確認能量機關進入正在激活狀態 |
 | 25-31 | - | 保留，填 0 |
 
-## 5. `MapPathFrame`（`0x02`，107B）
+## 5. `MapPathFragmentFrame`（`0x02`，64B x2）
 
-此 frame 的 byte 2-106 是裁判 `0x0307 map_data_t` 原始 payload。下位機以自身機器人
-ID/裁判發送流程封裝 `0x0307`。
+完整的邏輯路徑仍是 107B：`!`、`0x02` 與 105B 裁判 `0x0307 map_data_t` payload。為符合
+下位機「每次串口寫入最多 64B」限制，driver 把那 105B payload 分成兩個固定 64B fragment；
+兩段到齊前，下位機不得封裝或發送裁判 `0x0307`。
 
 正式導航鏈路是 `/ly/navi/path`（`nav_msgs/Path`，`map` frame、m）經
 `map_path_to_game_path_node` 用 `navi_tf_bridge` 校準矩陣反算成 official-map dm，發布
@@ -82,7 +84,8 @@ ID/裁判發送流程封裝 `0x0307`。
 會原樣保留到 `/ly/game/path.header.stamp` 供 ROS 觀察；`map_data_t` 本身沒有 timestamp 欄位，
 所以串口 `0x02` 無法攜帶時間戳。
 
-`gimbal_driver` 不會週期性重發已收的 path。它只在收到 topic 消息時嘗試下發；對正式
+`gimbal_driver` 不會週期性重發已收的 path。它只在收到 topic 消息時嘗試下發；每次接受的
+path 使用一個新的 8-bit sequence，連續寫出 index `0`、`1` 兩段，不插入 sleep 或重試。對正式
 `/ly/game/path`，`header.stamp` 為 0 或距上位機 ROS 時間超過
 `io_config.game_path_fresh_timeout_ms`（預設 5000ms）會拒絕下發。收到帶新 timestamp 的 path
 才恢復發送。這避免導航停止更新或上游重播舊 path 時持續塗亂小地圖。
@@ -92,21 +95,30 @@ ID/裁判發送流程封裝 `0x0307`。
 `map_path_to_game_path_node` 只訂閱該 SentryInfo 欄位。`self_robot_id=0` 時不發布
 `/ly/game/path`，因此不會用固定 `0` 或選手端 ID 下發。
 
-`/ly/control/map_path` 保留為既有手動/測試相容入口；兩個 topic 都會下發同一種 `0x02` frame，
+`/ly/control/map_path` 保留為既有手動/測試相容入口；兩個 topic 都會下發同一組 `0x02` fragments，
 現場不可同時發布兩者，避免重複送路徑。
 
 | byte offset | 字段 | 類型 | 說明 |
 |---|---|---|---|
 | 0 | `HeadFlag` | `uint8` | 固定 `0x21` |
 | 1 | `DownlinkTypeID` | `uint8` | 固定 `0x02` |
-| 2 | `Intention` | `uint8` | `1` 到點攻擊、`2` 到點防守、`3` 移動到點 |
-| 3-4 | `StartPositionX_dm` | `uint16` | 小地圖起點 x，dm |
-| 5-6 | `StartPositionY_dm` | `uint16` | 小地圖起點 y，dm |
-| 7-55 | `DeltaX_dm[49]` | `int8[49]` | 相對上一點的 x 增量，dm |
-| 56-104 | `DeltaY_dm[49]` | `int8[49]` | 相對上一點的 y 增量，dm |
-| 105-106 | `SenderId` | `uint16` | 裁判發送者 ID |
+| 2 | `Sequence` | `uint8` | 每份邏輯路徑遞增；兩段必須相同 |
+| 3 | `FragmentIndex` | `uint8` | 第一段 `0`，第二段 `1` |
+| 4 | `FragmentCount` | `uint8` | 固定 `2` |
+| 5 | `PayloadLength` | `uint8` | 第一段 `56`，第二段 `49` |
+| 6-61 | `Payload[56]` | `uint8[56]` | 105B `map_data_t` 按序切片；第二段未使用位置填 0 |
+| 62-63 | `CRC16` | `uint16` | little-endian；計算 byte 0-61 |
 
-上位機只接受 `intention=1/2/3`。`MapPath.msg` 的 `delta_x_dm`、`delta_y_dm` 必須各恰好 49 個元素。
+CRC16 使用 reflected `0x1021`（右移多項式 `0x8408`）、init `0xFFFF`、無 xorout；算法與
+`2026HeroAim` 的 64B chunk 一致。下位機驗證 `HeadFlag`、ID、CRC、`FragmentCount=2`、index、
+payload 長度與 sequence；只有 index 0/1 同 sequence 都有效時才依序拼回 105B payload，再補回
+`!`/`0x02` 形成原始 107B `MapPathFrame`。收到新的 index 0、錯誤 CRC、越界欄位或重複/不匹配 sequence
+時，丟棄未完成暫存，不得使用半份路徑。
+
+下位機可用 ASCII `123456789` 驗證此 CRC16 算法，結果必須為 `0x6F91`。
+
+上位機只接受 `intention=1/2/3`。邏輯 `MapPath.msg` 的 `delta_x_dm`、`delta_y_dm` 仍各恰好 49 個元素：
+50 點規格沒有縮減。`/ly/download/typeid0x02` 與 raw log 會各記錄兩個實際 64B fragment。
 
 ## 6. `CustomInfoFrame`（`0x03`，36B）
 
@@ -165,7 +177,7 @@ IEEE-754 little-endian，单位为角度 `deg`、角速度 `deg/s`、角加速�
 | `0x00` 固定 17B，最後 4B 為 `SentryCmd` | `0x00` 改 13B，只保留速度/角度/FireCode |
 | `SentryCmd` 夾在控制包 byte 13-16 | 獨立為 `0x01` 6B frame |
 | `0x01` 是自身座標 | 自身座標改為 `0x04`，內容與 CRC8 規則不變 |
-| 無 `0x0307` / `0x0308` compact frame | 新增 `0x02` 107B 路徑、`0x03` 36B 自訂訊息 |
+| 無 `0x0307` / `0x0308` compact frame | 新增 `0x02` 兩段 64B 路徑（重組 107B）、`0x03` 36B 自訂訊息 |
 
 此變更不保留舊下行解析兼容。下位機與上位機必須同時切換，否則舊 `0x01` 座標包會被新固件當作
 `SentryCommandFrame`，造成錯誤解析。

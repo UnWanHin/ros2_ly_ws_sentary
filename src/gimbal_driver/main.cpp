@@ -150,6 +150,7 @@ namespace
         std::chrono::milliseconds firecodePartialHold_{100};
         std::chrono::milliseconds navigationTestStaleTimeout_{500};
         std::chrono::milliseconds gamePathFreshTimeout_{5000};
+        std::uint8_t nextMapPathSequence_{0};
         std::chrono::milliseconds gimbalDynamicsTimeout_{200};
         std::chrono::milliseconds gimbalStatePublishPeriod_{20};
         std::chrono::steady_clock::time_point nextGimbalStatePublishTime_{
@@ -689,7 +690,7 @@ namespace
             rawSerialTxPublisher_->publish(msg);
         }
 
-        void PublishRawTxTopic(const MapPathFrame& data) {
+        void PublishRawTxTopic(const MapPathFragmentFrame& data) {
             if (!rawSerialTxPublisher_ || rawSerialTxPublisher_->get_subscription_count() == 0) {
                 return;
             }
@@ -783,19 +784,21 @@ namespace
             PublishSerialModeDownloadTopic(data, SentryCommandFrame::DownlinkTypeIDValue);
         }
 
-        void LogDownlinkRaw(const MapPathFrame& data, const char* reason) {
+        void LogDownlinkRaw(const MapPathFragmentFrame& data, const char* reason) {
             if (rawSerialLogEnable_ && rawSerialLogDownlink_) {
                 std::ostringstream extra;
-                extra << "reason=" << (reason ? reason : "map_path")
-                      << " intention=" << static_cast<unsigned>(data.Intention)
-                      << " sender_id=" << data.SenderId;
-                WriteRawSerialLogLine("tx", "map_path", data, extra.str());
+                extra << "reason=" << (reason ? reason : "map_path_fragment")
+                      << " sequence=" << static_cast<unsigned>(data.Sequence)
+                      << " fragment=" << static_cast<unsigned>(data.FragmentIndex)
+                      << "/" << static_cast<unsigned>(data.FragmentCount)
+                      << " payload_length=" << static_cast<unsigned>(data.PayloadLength);
+                WriteRawSerialLogLine("tx", "map_path_fragment", data, extra.str());
             }
 
             if (rawSerialTopicEnable_ && rawSerialTopicDownlink_) {
                 PublishRawTxTopic(data);
             }
-            PublishSerialModeDownloadTopic(data, MapPathFrame::DownlinkTypeIDValue);
+            PublishSerialModeDownloadTopic(data, MapPathFragmentFrame::DownlinkTypeIDValue);
         }
 
         void LogDownlinkRaw(const CustomInfoFrame& data, const char* reason) {
@@ -1216,11 +1219,14 @@ namespace
             std::copy(msg.delta_x_dm.begin(), msg.delta_x_dm.end(), std::begin(frame.DeltaX_dm));
             std::copy(msg.delta_y_dm.begin(), msg.delta_y_dm.end(), std::begin(frame.DeltaY_dm));
             frame.SenderId = msg.sender_id;
-            if (!Device.WriteRaw(frame)) {
-                DeviceError = true;
-                return;
+            const auto fragments = MakeMapPathFragments(frame, nextMapPathSequence_++);
+            for (const auto& fragment : fragments) {
+                if (!Device.WriteRaw(fragment)) {
+                    DeviceError = true;
+                    return;
+                }
+                LogDownlinkRaw(fragment, "map_path_fragment");
             }
-            LogDownlinkRaw(frame, "map_path");
         }
 
         void SendCustomInfo(const gimbal_driver::msg::CustomInfo& msg) {

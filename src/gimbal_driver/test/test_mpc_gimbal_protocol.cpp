@@ -93,4 +93,69 @@ TEST(MpcGimbalProtocol, HandlesSampleTickOrderingAndWraparound)
     EXPECT_TRUE(IsNewerSampleTick(1U, 0xFFFFFFFFU));
 }
 
+TEST(MapPathFragmentProtocol, PreservesAllFiftyPointsWithinTwo64ByteFrames)
+{
+    LangYa::MapPathFrame path;
+    path.Intention = 3U;
+    path.StartPositionX_dm = 1234U;
+    path.StartPositionY_dm = 567U;
+    path.SenderId = 107U;
+    for (std::size_t index = 0; index < std::size(path.DeltaX_dm); ++index) {
+        path.DeltaX_dm[index] = static_cast<std::int8_t>(index - 24);
+        path.DeltaY_dm[index] = static_cast<std::int8_t>(24 - index);
+    }
+
+    const auto fragments = LangYa::MakeMapPathFragments(path, 0x5AU);
+    ASSERT_EQ(fragments.size(), 2U);
+
+    std::array<std::uint8_t, LangYa::kMapPathPayloadBytes> recovered{};
+    std::size_t recovered_size = 0;
+    for (std::size_t index = 0; index < fragments.size(); ++index) {
+        const auto& fragment = fragments[index];
+        EXPECT_LE(sizeof(fragment), 64U);
+        EXPECT_EQ(fragment.HeadFlag, 0x21U);
+        EXPECT_EQ(fragment.DownlinkTypeID, 0x02U);
+        EXPECT_EQ(fragment.Sequence, 0x5AU);
+        EXPECT_EQ(fragment.FragmentIndex, index);
+        EXPECT_EQ(fragment.FragmentCount, 2U);
+        EXPECT_EQ(fragment.PayloadLength, index == 0 ? 56U : 49U);
+        EXPECT_TRUE(LangYa::IsValidMapPathFragment(fragment));
+        std::memcpy(
+            recovered.data() + recovered_size,
+            fragment.Payload.data(),
+            fragment.PayloadLength);
+        recovered_size += fragment.PayloadLength;
+    }
+    EXPECT_EQ(recovered_size, LangYa::kMapPathPayloadBytes);
+
+    LangYa::MapPathFrame reconstructed;
+    std::memcpy(
+        reinterpret_cast<std::uint8_t*>(&reconstructed) + 2,
+        recovered.data(),
+        recovered.size());
+    EXPECT_EQ(reconstructed.Intention, path.Intention);
+    EXPECT_EQ(reconstructed.StartPositionX_dm, path.StartPositionX_dm);
+    EXPECT_EQ(reconstructed.StartPositionY_dm, path.StartPositionY_dm);
+    EXPECT_EQ(reconstructed.SenderId, path.SenderId);
+    EXPECT_EQ(
+        0,
+        std::memcmp(path.DeltaX_dm, reconstructed.DeltaX_dm, sizeof(path.DeltaX_dm)));
+    EXPECT_EQ(
+        0,
+        std::memcmp(path.DeltaY_dm, reconstructed.DeltaY_dm, sizeof(path.DeltaY_dm)));
+
+    auto corrupted = fragments[1];
+    corrupted.Payload[0] ^= 0x01U;
+    EXPECT_FALSE(LangYa::IsValidMapPathFragment(corrupted));
+}
+
+TEST(MapPathFragmentProtocol, UsesDocumentedCrc16Vector)
+{
+    constexpr std::array<std::uint8_t, 9> payload{
+        '1', '2', '3', '4', '5', '6', '7', '8', '9'};
+    EXPECT_EQ(
+        LangYa::CalculateMapPathFragmentCrc16(payload.data(), payload.size()),
+        0x6F91U);
+}
+
 }  // namespace

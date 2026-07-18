@@ -69,7 +69,7 @@ Updated: 2026-07-11
 - `/ly/friend/op_hp` 和 `/ly/enemy/op_hp` 優先使用 TypeID 10 的精確 `uint16_t` 血量；TypeID 1 的 `GameCode * 25` 只在 TypeID 10 未收到或 1500ms 內沒有更新時 fallback。
 - `0` 是合法前哨血量，表示前哨已毀；下位機若暫時拿不到 `0x0003` 前哨血量，應暫停發 TypeID 10，而不是用 `0` 或預設值占位，讓上位機自然 fallback 到 `GameCode * 25`。
 - `/ly/game/sentry/info` 新增 `sentry_info_3_raw`、`has_sentry_info_3` 和三種普通/強化姿態剩餘秒數字段；`sentry_info_3` shadow 由 TypeID 10 更新，實際 topic 發布仍跟隨 TypeID 7，避免高頻 HP 包刷新 `sentry_info_2` 新鮮度。
-- 下行協議改為 `DownlinkTypeID=0x00~0x04` 分包：`0x00` 13B 角度/速度/FireCode，`0x01` 6B `0x0120 sentry_cmd`，`0x02` 107B `0x0307 map_data_t`，`0x03` 36B `0x0308 custom_info_t`，`0x04` 17B 自身座標。
+- 下行協議為 `DownlinkTypeID=0x00~0x05`：`0x00` 13B 角度/速度/FireCode，`0x01` 6B `0x0120 sentry_cmd`，`0x02` 兩個 64B fragment（sequence、index、長度、CRC16；重組仍為完整 107B / 50 點 `0x0307 map_data_t`），`0x03` 36B `0x0308 custom_info_t`，`0x04` 17B 自身座標，`0x05` 26B MPC trajectory。
 - `0x0120 sentry_cmd` 已按 RM2026 V2.0 修正：姿態從 bit21-22 的 `1~3` 擴為 bit21-23 的 `1~6`，能量機關確認從 bit23 移到 bit24；舊下行 frame 不保留兼容。
 - 上游 BT 姿態計時：`/ly/game/sentry/info` 的 `sentry_info_3` 會帶 TypeID 10 實際接收 age；當 `has_sentry_info_3=true` 且 age 不超過 `Posture.RefereeInfo3FreshMs`（預設 1500ms）時，普通或強化姿態的裁判剩餘秒數優先決定提前輪換和弱化判定。內部 `AccumSec` 永遠繼續累積，裁判資料缺失或過期立即 fallback，避免下位機斷流卡住策略。
 - 上游 BT 姿態選擇：裁判 timer 新鮮時，`sentry_info_3` 剩餘秒數為 `0` 的姿態候選會被強烈扣分；低於 `Posture.RefereeRemainWarnSec`（預設 20s）會按接近 0 的程度扣分。若回讀 `enhanced_posture=true`，只給當前攻/防/移類別 `EnhancedCurrentPostureBonus`（預設 +3）保持偏好；本輪不自動下發 `4/5/6` 強化姿態命令。

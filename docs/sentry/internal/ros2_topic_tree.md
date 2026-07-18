@@ -619,8 +619,8 @@ SentryCommandFrame (DownlinkTypeID=0x01)
 ├── DownlinkTypeID : uint8   # 0x01
 └── SentryCmd       : 4B      # /ly/control/posture 或 /ly/control/sentry_cmd, V2.0 bit21-23 posture
 
-MapPathFrame (DownlinkTypeID=0x02)
-└── 105B map_data_t payload  # /ly/game/path 正式導航入口；/ly/control/map_path 相容入口，裁判 0x0307
+MapPathFragmentFrame (DownlinkTypeID=0x02)
+└── 64B x2 -> 重組 105B map_data_t payload  # 保留完整 50 點；/ly/game/path 正式導航入口；/ly/control/map_path 相容入口，裁判 0x0307
 
 CustomInfoFrame (DownlinkTypeID=0x03)
 └── 34B custom_info_t payload # /ly/control/custom_info, 裁判 0x0308

@@ -369,6 +369,95 @@ namespace LangYa
         "MapPathFrame DownlinkTypeIDValue must match DownlinkFrameType");
     static_assert(sizeof(MapPathFrame) == 107, "MapPathFrame must stay 107B");
 
+    // The lower machine accepts at most 64 bytes per physical serial write.  Keep the
+    // 107B MapPathFrame as the logical 50-point protocol, then transmit its 105B
+    // referee payload in two independently CRC-protected fragments.
+    inline constexpr std::size_t kMaxDownlinkFrameBytes = 64;
+    inline constexpr std::size_t kMapPathPayloadOffset = offsetof(MapPathFrame, Intention);
+    inline constexpr std::size_t kMapPathPayloadBytes = sizeof(MapPathFrame) - kMapPathPayloadOffset;
+    inline constexpr std::size_t kMapPathFragmentCount = 2;
+
+    struct MapPathFragmentFrame
+    {
+        static constexpr auto FrameType = DownlinkFrameType::MapPath;
+        static constexpr std::uint8_t DownlinkTypeIDValue = 0x02;
+        static constexpr std::size_t PayloadCapacity =
+            kMaxDownlinkFrameBytes - 6 - sizeof(std::uint16_t);
+
+        std::uint8_t HeadFlag{ '!' };
+        std::uint8_t DownlinkTypeID{ DownlinkTypeIDValue };
+        std::uint8_t Sequence{ 0 };
+        std::uint8_t FragmentIndex{ 0 };
+        std::uint8_t FragmentCount{ kMapPathFragmentCount };
+        std::uint8_t PayloadLength{ 0 };
+        std::array<std::uint8_t, PayloadCapacity> Payload{};
+        std::uint16_t Crc16{ 0 };
+    };
+    static_assert(
+        MapPathFragmentFrame::DownlinkTypeIDValue ==
+            ToRawDownlinkTypeID(MapPathFragmentFrame::FrameType),
+        "MapPathFragmentFrame DownlinkTypeIDValue must match DownlinkFrameType");
+    static_assert(sizeof(MapPathFragmentFrame) == kMaxDownlinkFrameBytes,
+        "MapPathFragmentFrame must stay within the lower-machine 64B limit");
+    static_assert(kMapPathPayloadBytes <=
+            kMapPathFragmentCount * MapPathFragmentFrame::PayloadCapacity,
+        "MapPath fragments must retain the complete 50-point payload");
+
+    inline std::uint16_t CalculateMapPathFragmentCrc16(
+        const std::uint8_t* data,
+        const std::size_t length) noexcept
+    {
+        // Matches the reflected 0x1021 / init 0xFFFF loop used by 2026HeroAim.
+        std::uint16_t crc = 0xFFFFU;
+        for (std::size_t index = 0; index < length; ++index) {
+            crc ^= data[index];
+            for (int bit = 0; bit < 8; ++bit) {
+                crc = (crc & 1U) != 0U
+                    ? static_cast<std::uint16_t>((crc >> 1U) ^ 0x8408U)
+                    : static_cast<std::uint16_t>(crc >> 1U);
+            }
+        }
+        return crc;
+    }
+
+    inline std::uint16_t CalculateMapPathFragmentCrc16(
+        const MapPathFragmentFrame& frame) noexcept
+    {
+        return CalculateMapPathFragmentCrc16(
+            reinterpret_cast<const std::uint8_t*>(&frame), offsetof(MapPathFragmentFrame, Crc16));
+    }
+
+    inline bool IsValidMapPathFragment(const MapPathFragmentFrame& frame) noexcept
+    {
+        return frame.HeadFlag == '!' &&
+               frame.DownlinkTypeID == MapPathFragmentFrame::DownlinkTypeIDValue &&
+               frame.FragmentCount == kMapPathFragmentCount &&
+               frame.FragmentIndex < frame.FragmentCount &&
+               frame.PayloadLength <= frame.Payload.size() &&
+               frame.Crc16 == CalculateMapPathFragmentCrc16(frame);
+    }
+
+    inline std::array<MapPathFragmentFrame, kMapPathFragmentCount> MakeMapPathFragments(
+        const MapPathFrame& path,
+        const std::uint8_t sequence) noexcept
+    {
+        std::array<MapPathFragmentFrame, kMapPathFragmentCount> fragments{};
+        const auto* payload = reinterpret_cast<const std::uint8_t*>(&path) + kMapPathPayloadOffset;
+
+        for (std::size_t index = 0; index < fragments.size(); ++index) {
+            auto& fragment = fragments[index];
+            const auto payload_offset = index * fragment.Payload.size();
+            const auto payload_length = std::min(
+                fragment.Payload.size(), kMapPathPayloadBytes - payload_offset);
+            fragment.Sequence = sequence;
+            fragment.FragmentIndex = static_cast<std::uint8_t>(index);
+            fragment.PayloadLength = static_cast<std::uint8_t>(payload_length);
+            std::copy_n(payload + payload_offset, payload_length, fragment.Payload.begin());
+            fragment.Crc16 = CalculateMapPathFragmentCrc16(fragment);
+        }
+        return fragments;
+    }
+
     /// @brief DownlinkTypeID=0x03: 裁判 0x0308 custom_info_t，来源 /ly/control/custom_info。
     struct CustomInfoFrame
     {

@@ -43,7 +43,7 @@ TypeID 7/8/9/10 的具体 12B 布局见：
 |---|---|---:|---|
 | `0x00` | `GimbalControlFrame` | 13B | 速度、云台角、FireCode |
 | `0x01` | `SentryCommandFrame` | 6B | 裁判 `0x0120 sentry_cmd` |
-| `0x02` | `MapPathFrame` | 107B | 裁判 `0x0307 map_data_t` |
+| `0x02` | `MapPathFragmentFrame` | 64B x2 | CRC/sequence 重组后裁判 `0x0307 map_data_t` |
 | `0x03` | `CustomInfoFrame` | 36B | 裁判 `0x0308 custom_info_t` |
 | `0x04` | `SentryCoordinateFrame` | 17B | 哨兵自身坐标 |
 
@@ -112,9 +112,9 @@ posture = 1/2/3
 
 也就是说，现阶段实车最先需要验证的是：
 
-1. 下位机按 byte1 分支解析五种下行 frame：`0x00=13B`、`0x01=6B`、`0x02=107B`、`0x03=36B`、`0x04=17B`。
+1. 下位机按 byte1 分支解析下行 frame：`0x00=13B`、`0x01=6B`、`0x02=64B fragment x2`、`0x03=36B`、`0x04=17B`、`0x05=26B`；所有实际串口写入不超过 64B。
 2. 下位机将 `0x01 SentryCommandFrame` 的 4B 命令字封装为裁判 `0x0301 + 0x0120`；姿态读取 bit21-23（`1~6`），能量机关确认读取 bit24。
-3. 下位机将 `0x02 MapPathFrame` 封装为裁判 `0x0307 map_data_t`，将 `0x03 CustomInfoFrame` 封装为 `0x0308 custom_info_t`。
+3. 下位机只在同一 sequence 的两段 `0x02 MapPathFragmentFrame` CRC 都正确后重组 107B / 50 点 `map_data_t` 并封装裁判 `0x0307`；`0x03 CustomInfoFrame` 直接封装为 `0x0308 custom_info_t`。
 4. 下位机通过 TypeID 7 透传 `0x020D sentry_info_2.posture`；有效姿态会发布到 `/ly/gimbal/posture`。TypeID 6 原姿态兼容字段已改为 `0x0003 damage_difference`。
 5. 下位机通过 TypeID 10 透传 `0x020D sentry_info_3`，并按官方 `0x0003` 顺序打包前哨血量：byte8~9 己方，byte10~11 敌方。上位机 `/ly/friend/op_hp`、`/ly/enemy/op_hp` 会优先使用这两个精确值，旧 `GameCode * 25` 只做 fallback。若下位机暂时拿不到 `0x0003` 前哨血量，应暂停发 TypeID 10，而不是用 `0` 或默认值占位，因为 `0` 表示前哨已毁。
 

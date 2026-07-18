@@ -184,7 +184,7 @@ main()
 |---|---|---:|---|
 | `0x00` | `GimbalControlFrame` | 13B | 雲台角、底盤速度、FireCode |
 | `0x01` | `SentryCommandFrame` | 6B | `0x0120 sentry_cmd` |
-| `0x02` | `MapPathFrame` | 107B | `0x0307 map_data_t` |
+| `0x02` | `MapPathFragmentFrame` | 64B x2 | 重組後 `0x0307 map_data_t`；完整 50 點不變 |
 | `0x03` | `CustomInfoFrame` | 36B | `0x0308 custom_info_t` |
 | `0x04` | `SentryCoordinateFrame` | 17B | BT 融合後自身座標 |
 | `0x05` | `GimbalTrajectoryFrame` | 26B | MPC 角度、角速度、角加速度原子轨迹 |
@@ -196,7 +196,7 @@ main()
 | `/ly/control/vel` (`ControlVelocity`) | `GimbalControlFrame.Velocity.X/Y` | 語義速度；`use_raw=true` 時保留原 int8 下發 |
 | `/ly/control/posture` (`SentryCmd`) | `SentryCommandFrame.SentryCmd.Posture` | `0x01` 姿態指令，只使用 `FIELD_POSTURE`；`1~3` 普通、`4~6` 強化姿態 |
 | `/ly/control/sentry_cmd` (`SentryCmd`) | `SentryCommandFrame.SentryCmd` | `0x01` 完整哨兵裁判命令入口 |
-| `/ly/control/map_path` (`MapPath`) | `MapPathFrame` | `0x02` 裁判 `0x0307` 小地圖路徑 |
+| `/ly/control/map_path` (`MapPath`) | `MapPathFragmentFrame` x2 | `0x02` 裁判 `0x0307` 小地圖路徑；重組前保留完整 50 點 |
 | `/ly/control/custom_info` (`CustomInfo`) | `CustomInfoFrame` | `0x03` 裁判 `0x0308` UTF-16 文字 |
 | `/ly/control/trajectory` (`gimbal_driver/GimbalTrajectory`) | `GimbalTrajectoryFrame.Yaw/Pitch/YawOmega/PitchOmega/YawAlpha/PitchAlpha` | `0x05` MPC 轨迹；本包定义，外部 MPC 发布；SensorData QoS、非法浮点丢弃；每次更新额外发送，旧 `0x00` 不变 |
 | `/ly/bt/sentry_position` (`PointStamped`) | `SentryCoordinateFrame.X_cm/Y_cm` | BT 融合後自身坐標，m 轉 cm 後下發 |
@@ -219,7 +219,7 @@ main()
 | `GimbalData` | 電控→上位機：雲台角、速度、開火狀態等 |
 | `GimbalControlFrame` | 上位機→電控：`DownlinkTypeID=0x00`，期望雲台角、開火指令、速度 |
 | `SentryCommandFrame` | 上位機→電控：`DownlinkTypeID=0x01`，裁判 `0x0120 sentry_cmd` |
-| `MapPathFrame` / `CustomInfoFrame` | 上位機→電控：`0x02/0x03`，裁判 `0x0307/0x0308` payload |
+| `MapPathFragmentFrame` / `CustomInfoFrame` | 上位機→電控：`0x02` 兩段 64B 重組 `0x0307` / `0x03` 裁判 `0x0308` payload |
 | `SentryCoordinateFrame` | 上位機→電控：`DownlinkTypeID=0x04`，哨兵自身 official-map 坐標 |
 | `GimbalTrajectoryFrame` | 上位機→電控：`DownlinkTypeID=0x05`，MPC 角度/角速度/角加速度 |
 | `GimbalDynamicsData` | 電控→上位機：`TypeID=11`，实际角速度/估算角加速度与 `SampleTickMs` |
@@ -254,7 +254,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 
 含義：
 - 上行：讀 `TypedMessage`，依 `TypeID` 分發 `0..11`
-- 下行：按 `DownlinkTypeID=0x00~0x05` 發送不同長度 frame；`0x00=13B` 控制、`0x01=6B sentry_cmd`、`0x02=107B` 路徑、`0x03=36B` 自訂訊息、`0x04=17B` 座標、`0x05=26B` MPC 轨迹
+- 下行：按 `DownlinkTypeID=0x00~0x05` 發送不同長度 frame；`0x00=13B` 控制、`0x01=6B sentry_cmd`、`0x02=64B x2` 路徑 fragments（重組後 107B / 50 點）、`0x03=36B` 自訂訊息、`0x04=17B` 座標、`0x05=26B` MPC 轨迹
 
 **虛擬設備模式**（`useVirtualDevice=true`）：用於在沒有硬件時做本地迴環測試，通過 `TestVirtualLoopback()` 驗證數據收發。
 

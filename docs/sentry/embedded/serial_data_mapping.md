@@ -43,7 +43,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 也就是说：
 
 1. 上行是**带 `TypeID` 的分型幀**
-2. 下行是**带 `DownlinkTypeID` 的可变长度 frame**：`0x00=13B`、`0x01=6B`、`0x02=107B`、`0x03=36B`、`0x04=17B`、`0x05=26B`
+2. 下行是**带 `DownlinkTypeID` 的可变长度 frame**：`0x00=13B`、`0x01=6B`、`0x02=64B x2`（重组 107B 路径）、`0x03=36B`、`0x04=17B`、`0x05=26B`
 
 上行 `TypeID` 和下行 `DownlinkTypeID` 是独立编号空间，不共用语义。
 
@@ -118,7 +118,7 @@ raw topic 使用 `gimbal_driver/msg/GimbalRawFrame`，`data` 是原始二进制 
 |---|---|---:|---|
 | `0x00` | `GimbalControlFrame` | 13B | `/ly/control/angles`、`/ly/control/vel`、`/ly/control/firecode` |
 | `0x01` | `SentryCommandFrame` | 6B | `/ly/control/posture`、`/ly/control/sentry_cmd`，映射裁判 `0x0120` |
-| `0x02` | `MapPathFrame` | 107B | `/ly/control/map_path`，映射裁判 `0x0307` |
+| `0x02` | `MapPathFragmentFrame` | 64B x2 | `/ly/control/map_path`；重组完整 50 点路径后映射裁判 `0x0307` |
 | `0x03` | `CustomInfoFrame` | 36B | `/ly/control/custom_info`，映射裁判 `0x0308` |
 | `0x04` | `SentryCoordinateFrame` | 17B | `/ly/bt/sentry_position`，坐标 frame 保留 CRC8 |
 | `0x05` | `GimbalTrajectoryFrame` | 26B | `/ly/control/trajectory`，MPC 角度/角速度/角加速度 |
@@ -822,7 +822,7 @@ struct SentryInfo3AndOutpostHpData {
 | 火控字段 | `GimbalControlFrame.FireCode` | `/ly/control/firecode` (`FireCode`) |
 | 姿态命令 | `SentryCommandFrame.SentryCmd.Posture`（`0x01`） | `/ly/control/posture` |
 | 哨兵裁判命令 | `SentryCommandFrame.SentryCmd`（`0x01`） | `/ly/control/sentry_cmd` (`SentryCmd`) |
-| 裁判路径 | `MapPathFrame`（`0x02`） | `/ly/control/map_path` (`MapPath`) |
+| 裁判路径 | `MapPathFragmentFrame`（`0x02`，64B x2） | `/ly/control/map_path` (`MapPath`)；重组后保持 50 点 |
 | 裁判自定义信息 | `CustomInfoFrame`（`0x03`） | `/ly/control/custom_info` (`CustomInfo`) |
 | 哨兵自身坐标 x/y | `SentryCoordinateFrame.X_cm/Y_cm`（`0x04`） | `/ly/bt/sentry_position` (`PointStamped`) |
 | MPC 轨迹 | `GimbalTrajectoryFrame`（`0x05`） | `/ly/control/trajectory` (`gimbal_driver/msg/GimbalTrajectory`) |
@@ -896,7 +896,7 @@ struct SentryInfo3AndOutpostHpData {
 | `0x0208 projectile_allowance` | 裁判系统 -> 机器人状态 | 已通过 TypeID=8 进入 `/ly/game/bullet`；旧 `/ly/friend/ammo_left` 仍保留 TypeID=1 来源 |
 | `0x020D sentry_info/sentry_info_2/sentry_info_3` | 裁判系统 -> 哨兵状态 | `sentry_info/sentry_info_2` 通过 TypeID=7 进入 `/ly/game/sentry/info`；`sentry_info_3` 通过 TypeID=10 更新 shadow，随 TypeID=7 发布；有效 `posture` 会覆盖 `/ly/gimbal/posture` |
 | `0x0301 + data_cmd_id=0x0120 sentry_cmd` | 机器人 -> 裁判系统命令 | 姿态/完整命令经 `/ly/control/posture`、`/ly/control/sentry_cmd` 进入独立 `DownlinkTypeID=0x01 SentryCommandFrame`；V2.0 姿态为 bit21-23，能量确认在 bit24；下位机负责封装裁判 `0x0301/0x0120` |
-| `0x0307 map_data_t` | 机器人 -> 己方选手端路径显示 | `/ly/control/map_path` 进入 `DownlinkTypeID=0x02 MapPathFrame`；下位机负责封装裁判 `0x0307` |
+| `0x0307 map_data_t` | 机器人 -> 己方选手端路径显示 | `/ly/control/map_path` 进入两段 `DownlinkTypeID=0x02 MapPathFragmentFrame`；下位机 CRC/sequence 重组完整 50 点路径后封装裁判 `0x0307` |
 | `0x0308 custom_info_t` | 机器人 -> 己方选手端自定义文字 | `/ly/control/custom_info` 进入 `DownlinkTypeID=0x03 CustomInfoFrame`；30B UTF-16 原始字节由上游提供，下位机负责封装裁判 `0x0308` |
 | `0x0303 map_command_t` | 选手端 -> 机器人状态/指令输入 | 通过 TypeID=9 进入 `/ly/game/map_command`；BT 当前只缓存消息，不触发导航 |
 
