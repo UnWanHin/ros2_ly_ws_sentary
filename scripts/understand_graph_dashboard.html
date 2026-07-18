@@ -324,12 +324,13 @@
         name: "Hard", kind: "策略層 0", description: "最高優先硬規則。命中後 StrategyManager 已 handled，後續策略層不會再覆蓋它。",
         target: "file:src/behavior_tree/src/StrategyManager.cpp", children: [
           ["Position Recovery", "CheckPositionRecovery()，HP / ammo 回補等", "file:src/behavior_tree/src/StrategyManager.cpp"],
-          ["Roadland 任務鎖", "MyRoadland 任務不可讓位時 hard lock", "file:src/behavior_tree/src/StrategyManager.cpp"],
+          ["ReadyRoadland 任務鎖", "不可讓位穿越段 hard lock，會取消 MapCommand", "file:src/behavior_tree/src/StrategyManager.cpp"],
         ],
       },
       {
-        name: "Task", kind: "策略層 1", description: "導航流程任務，不是戰術任務。處理區域轉換與導航 watchdog。",
+        name: "Task", kind: "策略層 1", description: "導航流程任務，不是戰術任務。先處理裁判 MapCommand，再處理區域轉換與導航 watchdog。",
         target: "file:src/behavior_tree/src/StrategyManager.cpp", children: [
+          ["MapCommand", "有效 0x0303 坐標持有 45 秒；同點重送不續期，raw cm 走 bridge", "concept:map-command-task"],
           ["Area Transition", "TickNaviAreaTransition()", "file:src/behavior_tree/src/StrategyManager.cpp"],
           ["Progress Watchdog", "TickNaviProgressWatchdog()", "file:src/behavior_tree/src/StrategyManager.cpp"],
         ],

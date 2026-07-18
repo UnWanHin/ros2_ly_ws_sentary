@@ -1,10 +1,10 @@
 {
-  "lastAnalyzedAt": "2026-07-19T01:23:57+08:00",
-  "gitCommitHash": "e8bcf9b",
+  "lastAnalyzedAt": "2026-07-19T02:50:00+08:00",
+  "gitCommitHash": "90578e4",
   "workingTreeStatus": "clean except for the user-owned docs/rules lock file after the graph artifact commit",
-  "lastCheckedNote": "Fallback graph source-checked against behavior_tree runtime commit e8bcf9b. GoalReachState remains the sole final arrival/unreachable contract. Default area tasks resume their preempted eligible area after Buff/Outpost, RegionalDefense, or Special interruption, but discard that one-shot resume if the next selection finds it ineligible; Recovery/timeout/unreachable/unhealthy remain terminal. OutpostOpeningHold owns BuffOutpost navigation for elapsed [0, OpeningHoldSec) independently of the normal OpeningHighPriority toggle, while Recovery and own-base hard defense retain priority. Outpost opening/scout reason strings map to the existing AimMode trace intent with original detail retained. behavior_tree rebuilt; all 42 current direct gtests and static self-check 109 PASS/0 WARN/0 FAIL passed.",
+  "lastCheckedNote": "Fallback graph source-checked against behavior_tree runtime commit 90578e4. TypeID 9 referee map_command now reaches the MapCommand Task layer, which accepts only valid official-map coordinates, deduplicates repeats for a 45-second hold, publishes existing /ly/navi/goal_pos_raw, and is cancelled by the Hard layer. It does not own BaseGoal or GoalReachState. GoalReachState remains the sole final arrival/unreachable contract for formal regional goals. behavior_tree rebuilt; all 7 current CTests and static self-check 109 PASS/0 WARN/0 FAIL passed.",
   "version": "1.0.0",
   "analyzedFiles": 554,
   "generator": "local-understand-anything-compatible-fallback",
-  "graphShape": {"nodes": 85, "edges": 105, "layers": 6}
+  "graphShape": {"nodes": 89, "edges": 113, "layers": 6}
 }
