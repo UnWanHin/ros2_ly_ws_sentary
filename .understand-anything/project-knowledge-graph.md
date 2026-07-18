@@ -1,8 +1,8 @@
 # ros2_ly_ws_sentry Knowledge Graph
 
-Generated: 2026-07-18T22:09:17+08:00
+Generated: 2026-07-18T22:12:02+08:00
 
-Checked against committed source HEAD: `183fd217c6ef168bc66619637400596fb25db21f` (working tree contains the source-checked Regional PreRoadland/Roadland activation, graph refresh, and the user-owned docs/rules lock file)
+Checked against committed source HEAD: `b072f3d61c0f9aa74e4f3dacb94c14f653b2b034` (working tree contains only the user-owned docs/rules lock file)
 
 Current graph shape: 81 nodes, 101 edges, 6 layers.
 

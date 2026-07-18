@@ -1,8 +1,8 @@
 {
-  "lastAnalyzedAt": "2026-07-18T22:09:17+08:00",
-  "gitCommitHash": "183fd217c6ef168bc66619637400596fb25db21f",
-  "workingTreeStatus": "dirty with source-checked Regional PreRoadland/Roadland activation, graph refresh, and the user-owned docs/rules lock file",
-  "lastCheckedNote": "Fallback graph source-checked against committed HEAD 183fd21 plus the current Regional Roadland activation working tree. MyPreRoadland now reads its AreaManager YAML settings and score override; formal regional Default enables both ID 25 PreRoadland and ID 21/22 Roadland. behavior_tree rebuilt, 29 focused BT tests and static self-check passed; complete external aim/navigation runtime validation remains pending.",
+  "lastAnalyzedAt": "2026-07-18T22:12:02+08:00",
+  "gitCommitHash": "b072f3d61c0f9aa74e4f3dacb94c14f653b2b034",
+  "workingTreeStatus": "dirty only with the user-owned docs/rules lock file",
+  "lastCheckedNote": "Fallback graph source-checked against committed HEAD b072f3d. MyPreRoadland reads its AreaManager YAML settings and score override; formal regional Default enables both ID 25 PreRoadland and ID 21/22 Roadland. behavior_tree rebuilt, 29 focused BT tests and static self-check passed; complete external aim/navigation runtime validation remains pending.",
   "version": "1.0.0",
   "analyzedFiles": 554,
   "generator": "local-understand-anything-compatible-fallback",
