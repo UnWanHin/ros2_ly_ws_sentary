@@ -85,10 +85,10 @@ def generate_launch_description():
         name: LaunchConfiguration(name) for name in argument_names
         if name not in ("debug_config_file", "patrol_config_file")
     }
-    velocity_bridge = Node(
+    debug_bridge = Node(
         package="gimbal_driver",
-        executable="navi_vel_to_control_vel.py",
-        name="navi_vel_to_control_vel",
+        executable="debug.py",
+        name="debug_control_bridge",
         output=LaunchConfiguration("output"),
         parameters=[
             LaunchConfiguration("debug_config_file"),
@@ -98,7 +98,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         *launch_arguments,
-        velocity_bridge,
+        debug_bridge,
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(gimbal_driver_launch),
             launch_arguments=driver_arguments.items(),

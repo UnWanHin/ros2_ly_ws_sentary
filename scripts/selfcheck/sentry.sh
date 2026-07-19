@@ -333,7 +333,7 @@ debug_launch = root / "src/gimbal_driver/launch/debug_node.launch.py"
 driver_launch = root / "src/gimbal_driver/launch/gimbal_driver.launch.py"
 driver_source = root / "src/gimbal_driver/main.cpp"
 driver_cmake = root / "src/gimbal_driver/CMakeLists.txt"
-velocity_bridge = root / "src/gimbal_driver/scripts/navi_vel_to_control_vel.py"
+debug_bridge = root / "src/gimbal_driver/scripts/debug.py"
 formal_launch = root / "src/behavior_tree/launch/sentry_all.launch.py"
 gimbal_lifecycle = root / "scripts/lib/gimbal_test_lifecycle.sh"
 legacy_velocity_files = (
@@ -371,16 +371,16 @@ if not debug_launch.is_file():
     errors.append("debug_node.launch.py is missing")
 else:
     debug_text = debug_launch.read_text(encoding="utf-8")
-    for token in ("IncludeLaunchDescription", "debug_config_file", "gimbal_driver.launch.py", "navi_vel_to_control_vel.py"):
+    for token in ("IncludeLaunchDescription", "debug_config_file", "gimbal_driver.launch.py", "debug.py"):
         if token not in debug_text:
             errors.append(f"debug_node.launch.py missing {token}")
     if 'LaunchConfiguration("debug_config_file")' not in debug_text:
         errors.append("debug_node.launch.py does not load debug_config_file into the bridge")
 
-if not velocity_bridge.is_file():
+if not debug_bridge.is_file():
     errors.append("debug control bridge is missing")
 else:
-    bridge_text = velocity_bridge.read_text(encoding="utf-8")
+    bridge_text = debug_bridge.read_text(encoding="utf-8")
     for token in ("/ly/navi/vel", "/ly/navi/should_rotate", "/ly/aim/result", "/ly/control/vel", "/ly/control/angles", "/ly/control/firecode", "ControlVelocity", "FireCode", "AimResult", "FIELD_ALL", "navi_mode", "aim_mode", "use_raw = True", "stale_timeout_ms", "debug_control_state"):
         if token not in bridge_text:
             errors.append(f"debug control bridge missing source token: {token}")
@@ -391,7 +391,7 @@ if not debug_control_state.is_file():
 
 if not driver_cmake.is_file():
     errors.append("gimbal_driver CMakeLists.txt is missing")
-elif "scripts/navi_vel_to_control_vel.py" not in driver_cmake.read_text(encoding="utf-8"):
+elif "scripts/debug.py" not in driver_cmake.read_text(encoding="utf-8"):
     errors.append("debug velocity bridge is not installed by gimbal_driver")
 
 if not driver_source.is_file():

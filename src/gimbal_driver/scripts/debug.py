@@ -33,7 +33,7 @@ def encode_navigation_raw(value: float) -> int:
 
 class NaviVelToControlVel(Node):
     def __init__(self) -> None:
-        super().__init__("navi_vel_to_control_vel")
+        super().__init__("debug_control_bridge")
         self.declare_parameter("navi_mode", True)
         self.declare_parameter("aim_mode", False)
         self.declare_parameter("stale_timeout_ms", 500)

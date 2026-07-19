@@ -266,7 +266,7 @@ install(TARGETS ${PROJECT_NAME}_node
 )
 
 install(PROGRAMS
-  scripts/navi_vel_to_control_vel.py
+  scripts/debug.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
