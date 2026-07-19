@@ -336,7 +336,7 @@
         ],
       },
       {
-        name: "Tactical", kind: "策略層 2", description: "戰術任務層。Outpost 在這一層，不在 Hard。依前後順序嘗試並選中第一個處理者。",
+        name: "Tactical", kind: "策略層 2", description: "戰術任務層。Outpost 與 planned-area Chase 都在這一層，不在 Hard；依前後順序嘗試並選中第一個處理者。",
         target: "file:src/behavior_tree/src/StrategyManager.cpp", children: [
           ["Opening Base Defense", "開局防守威脅時 RegionalDefense", "file:src/behavior_tree/src/StrategyManager.cpp"],
           ["Buff", "aimMode=Buff 時 Buff 任務", "file:src/behavior_tree/src/StrategyManager.cpp"],
@@ -344,14 +344,14 @@
           ["Outpost Aim", "aimMode=Outpost 時走 BuffOutpost goal", "file:src/behavior_tree/src/StrategyManager.cpp"],
           ["Protect Hero", "TrySetProtectHeroGoal()", "file:src/behavior_tree/src/StrategyManager.cpp"],
           ["Regional Defense", "TrySetRegionalDefenseGoal()", "file:src/behavior_tree/src/StrategyManager.cpp"],
-          ["Watchdog / Chase", "導航 watchdog 或已授權的跨區追擊", "file:src/behavior_tree/src/StrategyManager.cpp"],
+          ["Watchdog", "TickNaviProgressWatchdog()", "file:src/behavior_tree/src/StrategyManager.cpp"],
+          ["Chase", "只允許同一 planned Default area、精確新鮮官方坐標與 Chase.yaml 開關", "concept:regional-chase-policy"],
         ],
       },
       {
-        name: "Special", kind: "策略層 3", description: "特殊策略。當前 MiniRoadland 與 Special Patrol 預設關閉。",
+        name: "Special", kind: "策略層 3", description: "可選專項層。目前只保留 Special Patrol，且預設關閉；它位於 Tactical Chase 之後。",
         target: "file:src/behavior_tree/src/StrategyManager.cpp", children: [
           ["Special Patrol", "TrySetSpecialPatrolGoal()", "file:src/behavior_tree/src/StrategyManager.cpp"],
-          ["MiniRoadland", "TrySetSpecialMiniRoadlandGoal()", "file:src/behavior_tree/src/StrategyManager.cpp"],
         ],
       },
       {

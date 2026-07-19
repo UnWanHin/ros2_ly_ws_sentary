@@ -30,6 +30,7 @@ behavior_tree/
 ├── include/
 │   ├── Application.hpp         # 核心類：所有狀態變量 + 所有函數聲明
 │   ├── AreaManager.hpp         # regional 大區域任務與導航區域狀態機
+│   ├── ChasePolicy.hpp         # Regional 追擊的 planned-area 純授權策略
 │   ├── StrategyManager.hpp     # Hard/Task/Tactical/Special/Default/Finalizer 分層策略調度
 │   ├── Node.hpp                # BT節點定義（BT v4 動作節點/條件節點等）
 │   ├── Topic.hpp               # ROS Topic 定義（LY_DEF_ROS_TOPIC宏）
@@ -406,6 +407,8 @@ void TreeTick() {
 - 同時，`navi_tf_bridge` 會直接訂閱 `/ly/aim/armor_targets`，把 array 裡每個有效 target point 反算成 `/ly/navi/target_official`；BT 對每個 `armor_type` 做敵方位置 fallback 更新，但新鮮 `/ly/position/data` 仍優先。
 - `/ly/aim/armor_targets` 追擊點不可用且官方坐標源有效：`targetArmor -> enemyRobots[unit].position_`，結合自身官方坐標按 `PreferredDistanceCm` 留距後，BT 先按同一個 `Chase.AreaLimit` / `ChaseEnableCrossArea` 限制，再發布 `/ly/navi/goal_pos_raw`，由 `navi_tf_bridge` 的 4x4 靜態矩陣轉 `/goal_pose`。
 - `Chase.ToNavi=false` 仍是 BT 內部速度追擊，只使用視覺角度/距離計算 `/ly/gimbal/vel`。
+
+`src/behavior_tree/config/Chase.yaml` 只管理 Regional 的策略層准入，不覆蓋上述 JSON 的距離、速度、輸出或幾何設定。它的判斷發生在 `/ly/navi/target_rel` / `/ly/navi/goal_pos_raw` 產生之前；拒絕導航 Chase 不會關閉外部 aim 的瞄準或 fire。`navi_tf_bridge` 的 AreaLimit 從現行 `Area.hpp` 讀取紅/藍 Base、Highland、PreRoadland、ReadyRoadland 與 CommonCentral，共 9 個主區；舊 `roadland` token 僅兼容指向 ReadyRoadland。
 
 ### 黑板結構（兩種賽制一致）
 

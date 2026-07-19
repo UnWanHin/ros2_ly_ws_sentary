@@ -1,10 +1,10 @@
 # ros2_ly_ws_sentry Knowledge Graph
 
-Generated: 2026-07-19T02:50:00+08:00
+Generated: 2026-07-19T06:20:00+00:00
 
-Checked against committed runtime source HEAD: `90578e4` (graph artifact commit follows; the user-owned docs/rules lock file remains untracked)
+Checked against committed runtime source HEAD: `10aa6a7` (graph artifact commit follows; the user-owned docs/rules lock file remains untracked)
 
-Current graph shape: 89 nodes, 113 edges, 6 layers.
+Current graph shape: 92 nodes, 119 edges, 6 layers.
 
 Current ROS packages covered by graph:
 
@@ -60,6 +60,7 @@ flowchart LR
 - FaceMode 的 Regional、Buff、Outpost 請求統一由 `FaceModeManager` 收集並仲裁；最終角度/FireCode 仍只由 BT 的單一控制出口發布。
 - `PreRoadland`、`ReadyRoadland` 是正式同級 MainArea：前者走 ID 25 的 MyPreRoadland 到點保持；後者使用原 ReadyRoadLand 邊界，保留 ID 21/22 的 MyReadyRoadland 強綁定穿越。舊 `Roadland` alias 與未使用的 `RoadlandFollow` helper 已移除。正式 `regional_competition.json` 把兩者都列為 Default 可選區域；兩者設定分別由 `AreaManager.RegionalAreaTask.MyPreRoadland/MyReadyRoadland` 所有。RegionalDefense 將前後段聚合為 RoadCorridor 防守覆蓋。Simulator 會分別繪製兩個正式主區。`UnitInfo.area_id` 新增 8/9 表示敵我 PreRoadland，既有 0-7 不變。
 - Default 只會從各 BT JSON 的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 已啟用區域中評分；仍有替代候選時，剛選過的區域延後到本輪最後。若 MyBase/MyPreRoadland/CommonCentral 等 yieldable Default task 被 Buff/Outpost、RegionalDefense 或 Special 暫時搶占，會記為 `preempted`，下一次只要仍 eligible 就先續走原區域；首次恢復選點若不 eligible 則立即丟棄該恢復權，Recovery、timeout、unreachable、unhealthy 也維持終止。MyBase route 是程式固定的四個 Castle 點、每點保持 15 秒；`Base.yaml`／`base_strategy_config_file` 與 MyBase `Patrol.GoalWeights` 注入已移除。`BuffOutpost`、`HoleRoad`、`OutpostGuard` 不再由 Default 發布，`BuffOutpost` 只由 Buff/Outpost Tactical 擁有。
+- `ChasePolicy` 是 Regional Tactical 的導航授權：只在可讓出的 Default `RegionalAreaTask` 已承諾區域時，接受新鮮官方敵方坐標精確落在同一 `AreaKey`，並由 `Chase.yaml` 開啟該 planned area。缺失/過期座標、邊界外或 nearest fallback、異區、未開啟區域一律不追；拒絕只清本拍 chase 輸出，原 Default goal 持續。Chase 在 Tactical，位於目前預設關閉的 Special 之前；League/Showcase 保留既有 area-scope。bridge 的 `Chase.AreaLimit` 解析 Base、Highland、PreRoadland、ReadyRoadland 與 Central 共 9 個現行主區，舊 `roadland` token 只兼容 ReadyRoadland。
 - `Task.OutpostConfirm.OpeningHoldUntilWindowEnd=true` 時，`OutpostOpeningHold.hpp` 以 `[0, OpeningHoldSec)` 作為唯一 hard hold 邊界；預設 `OpeningHoldSec=120` 在前哨 safety gate 合格時固定 BuffOutpost navigation ownership 到第 120 秒前，Default、普通巡邏與 soft tactical 不可換點。hard hold 的 priority 不依賴 `OpeningHighPriority`，後者只控制非 hold 的一般開局時間窗。前哨已毀、不可達、受擊/資源安全 gate、Hard Recovery 與己方 Base 的 RegionalDefense 硬威脅保留接管權。
 - `GoalReachState` 是到達/不可達的唯一 final contract：raw `/ly/navi/reached`、`/ly/navi/reachable` 和融合坐標只提供證據。EventManager、regional area task、recovery 和 navigation watchdog 都只消費 composite status；watchdog 已移除 raw fallback 與獨立 140 cm 到達半徑。Default 的 MyHighland、MyPreRoadland、MyReadyRoadland guard 和每一個 CommonCentral 巡邏點均和 MyBase 一樣保持 15 秒；純行進 phase 不加駐留。
 - `TypeID=9` 的裁判 `0x0303 map_command_t` 以 `/ly/game/map_command` 進 BT。`Task.MapCommand` 只接受官方場地內的坐標模式點，預設持有 45 秒並在 20cm 內去重；它直接發布 `/ly/navi/goal_pos_raw` 官方厘米坐標給 bridge，不直接發布 `/goal_pose`。同點的 5x/100ms 與 1Hz 重送不續期；目標機器人模式沒有坐標，不導航。MapCommand 高於 Default/Tactical/Special，整個 Hard 層（Recovery 與 ReadyRoadland 不可中斷穿越）可取消它。其持有期間清除舊 BaseGoal 的外部 status binding 並不發布 `GoalReachState`，避免任意坐標污染區域到點契約。

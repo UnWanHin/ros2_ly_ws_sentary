@@ -11,6 +11,8 @@
     {"path":"src/auto_aim_common/msg/RelativeTarget.msg","language":"ros_msg","sizeLines":0,"fileCategory":"schema"},
     {"path":"src/behavior_tree/package.xml","language":"xml","sizeLines":0,"fileCategory":"manifest"},
     {"path":"src/behavior_tree/launch/sentry_all.launch.py","language":"python","sizeLines":0,"fileCategory":"config"},
+    {"path":"src/behavior_tree/config/Chase.yaml","language":"yaml","sizeLines":0,"fileCategory":"config"},
+    {"path":"src/behavior_tree/include/ChasePolicy.hpp","language":"cpp","sizeLines":0,"fileCategory":"code"},
     {"path":"src/behavior_tree/include/Topic.hpp","language":"cpp","sizeLines":0,"fileCategory":"code"},
     {"path":"src/behavior_tree/src/SubscribeMessage.cpp","language":"cpp","sizeLines":0,"fileCategory":"code"},
     {"path":"src/behavior_tree/src/StrategyManager.cpp","language":"cpp","sizeLines":0,"fileCategory":"code"},

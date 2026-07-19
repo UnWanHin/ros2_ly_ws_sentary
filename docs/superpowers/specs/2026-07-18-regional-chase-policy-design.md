@@ -36,7 +36,9 @@ For Regional mode, a Chase is authorized only when all of these are true:
    `FollowAimTarget`, supported aim mode, no outpost/special suppression).
 2. No higher owner is active: Recovery, an unyieldable ReadyRoadland crossing,
    MapCommand, Highland transition, Buff/Outpost navigation, RegionalDefense,
-   ProtectHero, or Special Patrol.
+   or ProtectHero. Chase is a Tactical decision and therefore runs before the
+   later Special layer. If Special Patrol is enabled in the future,
+   `Special.Patrol.SuppressChase=true` is its explicit opt-out.
 3. A yieldable Default `RegionalAreaTask` is active.  Its task type resolves
    to one planned `AreaKey`: `MyBase`, `MyHighland`, `MyPreRoadland`,
    `MyReadyRoadland`, or `CommonCentral`.

@@ -63,7 +63,7 @@ Regional 目前已有的主要邏輯：
 - Buff：由能量機關裁判狀態、sentry info、timer、damage abort 和 timeout 決定是否進 `AimMode::Buff`；戰術站位使用 `BuffOutpost`，FaceMode 對己方目標側。
 - Outpost：正式入口不依賴 `op_hp`，由血量/彈藥門檻、時間窗、damage abort、目標不可達狀態和 `Task.OutpostConfirm.VisualScoutWithoutHp` 決定是否去 `BuffOutpost` 偵查；Travel 階段保持選前哨，不讓遠距離普通車體接管 `/ly/aim/result`，但進入 `VisualScoutFaceDistanceCm` 前仍用普通裝甲視覺和 Move 姿態。進入該距離後開前哨視覺、敵方前哨 FaceMode 和 Attack 姿態，不再強依賴 `/ly/navi/reached=true`。120 秒時間窗內是高優先級任務，但己方 Base 有敵方時 RegionalDefense 可打斷；120 秒後按 `PostWindowScoutIntervalSec` 低優先級回 `BuffOutpost`，接近後用 `PostWindowScoutHoldMs` 短 FaceMode 偵查。普通裝甲目標若有效且不超過 `ArmorWarningDistanceCm`，會先打車；目標消失後若前哨 gate 仍允許，會按 `PostArmorFaceSearchMs` 回前哨 FaceMode 搜索。`op_hp` 接口保留，若它新鮮且為 0，可提前判定敵方前哨已毀並跳過任務。
 - Navi progress watchdog：檢測 goal 不可達或長時間無位移，按當前目標區域選 fallback 點。
-- Special Patrol：由 `src/behavior_tree/config/Special.yaml` 控制；啟用後在 Tactical 無事件時巡己方 `CentralLeft` 線的 A/B 端點。默認 `GoalHoldSec=0`，到點即切下一端；`SuppressChase=true`，鎖到目標時不追擊、不邊走邊打，而是把導航目標壓到當前自身坐標。
+- Special Patrol：由 `src/behavior_tree/config/Special.yaml` 控制；目前 `Enable=false`，不參與正式鏈路。日後啟用時才會在 Tactical 無事件時巡己方 `CentralLeft` 線；`SuppressChase=true` 是它對 Tactical Chase 的明確 opt-out。
 - Regional idle patrol：預留空閒巡邏，默認候選是 `HoleRoad / Castle / CastleRight2 / CastleRight1 / CastleLeft1 / CastleLeft2`。
 
 Regional 裡常見控制語義：
@@ -73,7 +73,7 @@ Regional 裡常見控制語義：
 - `AimMode::Outpost`：前哨視覺鏈路。
 - `FollowMode`：只表示下發到 `FireCode.FollowMode` 的語義位；BT 不再因這個 bit 自動停小陀螺、停巡邏或停開火。
 - `FaceMode`：雲台朝固定區域/點接管，可按配置停火；它本身不等於停小陀螺。
-- Chase：鎖到目標後可發布追擊目標或速度；是否使用取決於配置，但鏈路已存在。
+- Chase：Regional 僅在一個可讓出的 Default `RegionalAreaTask` 已承諾區域時允許導航追擊。`Chase.yaml` 的 `MyBase`、`MyHighland`、`MyPreRoadland`、`MyReadyRoadland`、`CommonCentral` 只開啟各 planned area；選中的敵人必須有新鮮官方坐標，且精確落在同一個 `AreaKey`（不接受 nearest fallback）。拒絕追擊只清本拍追擊輸出，保留原 Default 任務與目標；瞄準和開火鏈不受此導航授權限制。League/Showcase 維持既有 area-scope 行為。
 
 ## Strategy 分層
 
@@ -90,7 +90,7 @@ EvaluateEvents -> Hard -> Task -> PreprocessData -> SelectAimTarget -> Tactical 
 - `Task`：先接受有效 `0x0303` MapCommand 並壓過 Tactical/Special/Default，再處理 Highland 兼容過渡和導航 watchdog；不再 tick Highland/Base/PreRoadland/ReadyRoadland/Central 基本大區域狀態機。整個 Hard 層都高於 MapCommand：包含 Recovery 與不可中斷的 ReadyRoadland 穿越段。
 - `PreprocessData / SelectAimTarget`：在 Tactical 前整理可打目標、官方坐標和本 tick `targetArmor`，讓戰術層使用最新目標資料。
 - `Tactical`：regional 只保留明確戰術 overlay：`RegionalDefense`、ProtectHero、Buff/Outpost 任務站位、Chase 追擊和導航 watchdog；不再調用舊單策略點表。`LeagueSimple` 只在 `CompetitionProfile=league` 時使用，Showcase 只在明確 showcase 配置時使用。
-- `Special`：可選專項層；目前只有 `Special.Patrol.Enable=true` 時巡己方 `CentralLeft` 線。`PreRoadland` 已是 Default scope 內的正式 AreaTask；更高層回補、回防、前哨、打符仍會先接管。Special Patrol 默認抑制 Chase。
+- `Special`：可選專項層；目前 `Special.Patrol.Enable=false`。日後啟用時才巡己方 `CentralLeft` 線；`PreRoadland` 已是 Default scope 內的正式 AreaTask。Special 在 Tactical 之後，若啟用且 `SuppressChase=true`，它會主動禁止該專項期間的 Chase。
 - `Default`：無特別事件時的底層決策，按 `AreaManager.DefaultPolicy` 對已啟用的大區域做資源門檻、距離、目前區域、上次任務結果、冷卻和重試評分，再啟動 AreaManager 任務。每個 Default 區域任務都必須有完成/退出條件；任務完成後回到 scorer 重新評估，不寫死下一個大區域順序。沒有可用區域時不再 fallback 到任何舊點表。`RegionalIdlePatrol` 點表不再是正式 regional 的 Default 入口。
 - `Finalizer`：只做本 tick 策略層完成標記和黑板同步；regional 不再 fallback 到舊點表。
 
@@ -112,6 +112,21 @@ EvaluateEvents -> Hard -> Task -> PreprocessData -> SelectAimTarget -> Tactical 
 - `StrategyLayerDefaultRequested`
 
 這些字段只做監控和後續 Tactical 輸入，不改 ROS topic contract。
+
+### Regional Chase 區域授權
+
+`ChasePolicy` 是 Tactical 層的導航 overlay，不重新選目標、不改火控，也不重評 Default。
+它只在當前有一個可讓出的 Default `RegionalAreaTask` 時工作：任務映射到
+`MyBase`、`MyHighland`、`MyPreRoadland`、`MyReadyRoadland` 或 `CommonCentral` 的 planned
+`AreaKey`；選中的敵人必須有新鮮官方場地坐標，並以 `AreaManager::ResolveAreaKeyForPoint()`
+精確落入同一個 `AreaKey`。邊界外、過期座標、未知座標、nearest fallback、異 side/kind 或
+`src/behavior_tree/config/Chase.yaml` 未開啟的 planned area 都拒絕 Chase。
+
+拒絕時本拍不發布新的 `/ly/navi/target_rel` 或 official chase goal，仍由原 Default 任務持有
+既有導航目標；這不會禁止 `/ly/aim/*` 的瞄準與開火。`Chase.AreaLimit` 仍是 bridge/goal 的
+獨立幾何限制。`navi_tf_bridge` 會從 `Area.hpp` 解析 red/blue 的 Base、Highland、PreRoadland、
+ReadyRoadland 加 CommonCentral，共 9 個正式主區；舊 `roadland` scope token 僅兼容映射為
+`ready_roadland`。
 
 ## 數據來源
 

@@ -49,7 +49,7 @@ flowchart TD
   TACTICAL --> OUTPOST[前哨站 visual scout / outpost task]
   TACTICAL --> HERO[Protect Hero]
   TACTICAL --> REG_DEF[Regional Defense]
-  TACTICAL --> CHASE[Chase\n跨區追擊預設關閉]
+  TACTICAL --> CHASE[Chase\n同一 planned Default area 才追擊]
 
   OPENING --> SPECIAL
   BUFF --> SPECIAL
@@ -76,6 +76,11 @@ flowchart TD
 可選 FaceMode 行為。正式 `regional_competition.json` 已把兩區加入 `NaviGoal.MyArea`；
 `MyReadyRoadland.UseFaceMode` baseline 為 `false`。ID 22 的正式座標為紅 `(515,100)`、藍
 `(2285,1400)`，因此兩個穿越點都落在新 ReadyRoadland 邊界內。
+
+Chase 不會跨過 Default 的區域承諾：只有已啟動且可讓出的 Default 任務、敵方新鮮官方座標與
+該任務完全相同的 `AreaKey`，並且 `Chase.yaml` 開啟該區時，Tactical 才發布追擊導航輸入。
+拒絕後保留原區域任務的既有 goal；它不影響外部 aim 的瞄準或 fire。這條策略在 Tactical 內，
+因此優先於目前預設關閉的 Special；未來若開 Special Patrol，可用 `SuppressChase` 主動禁用。
 
 ## 3. Regional 的輸入與導航閉環
 
@@ -189,8 +194,8 @@ flowchart TB
 ## 6. Source of truth
 
 - `src/behavior_tree/Scripts/main.xml`
-- `src/behavior_tree/src/StrategyManager.cpp`、`src/behavior_tree/src/GameLoop.cpp`、`src/behavior_tree/src/FaceModeManager.cpp`
-- `src/behavior_tree/config/AreaManager.yaml`、`src/behavior_tree/config/Task.yaml`、`src/behavior_tree/config/Special.yaml`
+- `src/behavior_tree/src/StrategyManager.cpp`、`src/behavior_tree/src/GameLoop.cpp`、`src/behavior_tree/src/FaceModeManager.cpp`、`src/behavior_tree/src/ChasePolicy.cpp`
+- `src/behavior_tree/config/AreaManager.yaml`、`src/behavior_tree/config/Task.yaml`、`src/behavior_tree/config/Chase.yaml`、`src/behavior_tree/config/Special.yaml`
 - `src/behavior_tree/src/PostureLogic.cpp`、`src/behavior_tree/src/PostureManager.cpp`
 - `src/behavior_tree/src/PublishMessage.cpp`
 - `src/behavior_tree/Scripts/ConfigJson/regional_competition.json`

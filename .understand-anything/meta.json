@@ -1,10 +1,10 @@
 {
-  "lastAnalyzedAt": "2026-07-19T02:50:00+08:00",
-  "gitCommitHash": "90578e4",
+  "lastAnalyzedAt": "2026-07-19T06:20:00+00:00",
+  "gitCommitHash": "10aa6a7",
   "workingTreeStatus": "clean except for the user-owned docs/rules lock file after the graph artifact commit",
-  "lastCheckedNote": "Fallback graph source-checked against behavior_tree runtime commit 90578e4. TypeID 9 referee map_command now reaches the MapCommand Task layer, which accepts only valid official-map coordinates, deduplicates repeats for a 45-second hold, publishes existing /ly/navi/goal_pos_raw, and is cancelled by the Hard layer. It does not own BaseGoal or GoalReachState. GoalReachState remains the sole final arrival/unreachable contract for formal regional goals. behavior_tree rebuilt; all 7 current CTests and static self-check 109 PASS/0 WARN/0 FAIL passed.",
+  "lastCheckedNote": "Fallback graph source-checked against behavior_tree runtime commit 10aa6a7. Regional ChasePolicy authorizes Tactical chase only for a fresh official enemy coordinate exactly inside the active yieldable Default task AreaKey and enabled Chase.yaml area; denial retains the Default goal and does not alter aim/fire. League and Showcase retain legacy scope behavior. target_rel_to_goal_pos_node now parses all 9 current main-area boundaries. behavior_tree and navi_tf_bridge rebuilt; 62 current behavior_tree tests passed; bridge startup confirmed 9 parsed boundaries.",
   "version": "1.0.0",
   "analyzedFiles": 554,
   "generator": "local-understand-anything-compatible-fallback",
-  "graphShape": {"nodes": 89, "edges": 113, "layers": 6}
+  "graphShape": {"nodes": 92, "edges": 119, "layers": 6}
 }

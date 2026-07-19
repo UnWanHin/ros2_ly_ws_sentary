@@ -13,8 +13,8 @@
 - Preserve all existing ROS topics, messages, serial data, and `GoalReachState` semantics.
 - `Chase.yaml` controls only Regional strategic area permissions; existing JSON `Chase` settings retain distance, source, motion, and output ownership.
 - Exact containment is required for a Regional chase permit. Never use nearest-area fallback to make an enemy chaseable.
-- Keep Recovery, MapCommand, unyieldable ReadyRoadland, Highland transition, Buff/Outpost, RegionalDefense, ProtectHero, and Special Patrol above Chase.
-- Keep League, showcase, and explicit debug profiles on their current Chase behavior.
+- Keep Recovery, MapCommand, unyieldable ReadyRoadland, Highland transition, Buff/Outpost, RegionalDefense, and ProtectHero above Chase. Tactical Chase executes before Special; an enabled Special Patrol may opt out through `SuppressChase`.
+- Keep League and Showcase on their current Chase behavior. Retired regional debug JSONs are not formal runtime profiles.
 - Update source-backed docs, simulator trace only if trace fields change, and Understand Anything graph artifacts in the same runtime change.
 
 ---
@@ -135,29 +135,31 @@ git commit -m "behavior_tree: add chase area profile"
 - Produces: Chase output only after `ChasePolicyResult.Allowed`; denial retains
   the active Default task and emits no `target_rel`/official chase output.
 
-- [ ] **Step 1: Extend the failing test to model the application boundary**
+- [x] **Step 1: Extend the focused policy test for the application boundary inputs**
 
-Add integration-style coverage for a current `MyHighland` plan: target in
-MyHighland authorizes Chase; target in `CommonCentral` does not; an external
-aim point with stale/no official coordinate does not; a denied result leaves
-the prior regional task active.
+Cover a current `MyHighland` plan, every Default task-to-area mapping, target
+in `CommonCentral`, stale/no official coordinate, nearest fallback, disabled
+area, unyieldable plan, side mismatch and non-Regional bypass. Runtime keeps
+the area task untouched; a denial only returns `false` before publishing chase
+inputs.
 
-- [ ] **Step 2: Replace the global-only area-scope test**
+- [x] **Step 2: Replace the global-only area-scope test**
 
 In `TryApplyChaseTactical()`, retain the existing macro gates and selected
 target validation, then call the policy before constructing relative/official
-chase output. Resolve target coordinates with `ResolveAreaKeyForPoint`, not
-`ResolveAreaKeyForPointWithNearest`. Remove only the obsolete
-`IsAreaKeyAllowedForChaseTarget()` authorization path; retain all geometry
-functions used by `Chase.AreaLimit`.
+chase output. Regional resolves coordinates with `ResolveAreaKeyForPoint`, not
+`ResolveAreaKeyForPointWithNearest`. League and Showcase retain the legacy
+`IsAreaKeyAllowedForChaseTarget()` scope check; `Chase.AreaLimit` remains an
+independent geometry boundary. The bridge now parses all nine current main
+area boundaries, including both Roadland segments.
 
-- [ ] **Step 3: Keep temporary tactical ownership non-destructive**
+- [x] **Step 3: Keep temporary tactical ownership non-destructive**
 
 Do not clear, cancel, complete, or re-score the active RegionalAreaTask when
 Chase starts or stops. Preserve the existing per-tick output reset so failed
 policy authorization cannot leave an old chase target published.
 
-- [ ] **Step 4: Run target and package tests**
+- [x] **Step 4: Run target and package tests**
 
 Run: `colcon build --packages-select behavior_tree --symlink-install`
 
@@ -165,7 +167,7 @@ Run: `colcon test --packages-select behavior_tree --ctest-args --output-on-failu
 
 Expected: all behavior-tree tests pass, including `test_chase_policy`.
 
-- [ ] **Step 5: Commit the runtime ownership change**
+- [x] **Step 5: Commit the runtime ownership change**
 
 ```bash
 git add src/behavior_tree/include/Application.hpp src/behavior_tree/src/GameLoop.cpp \
@@ -190,19 +192,19 @@ git commit -m "behavior_tree: require planned area for chase"
 - Produces: current docs and graph showing Chase as a Regional Default-area
   tactical overlay, not a cross-area owner.
 
-- [ ] **Step 1: Update current documentation**
+- [x] **Step 1: Update current documentation**
 
 Describe the exact planned-area match, strict coordinate requirement, YAML
 ownership, preserved geometry limit, and return-to-retained-task behavior.
 Do not claim that aim/fire is disabled when navigation Chase is denied.
 
-- [ ] **Step 2: Refresh the fallback graph**
+- [x] **Step 2: Refresh the fallback graph**
 
 Update graph nodes/edges/tags and the Regional flow block with `ChasePolicy`
 and `Chase.yaml`; set metadata HEAD and graph counts to the source-checked
 post-change state.
 
-- [ ] **Step 3: Run all required validation**
+- [x] **Step 3: Run all required validation**
 
 Run:
 
@@ -218,7 +220,7 @@ git diff --check
 Also serve/check the graph dashboard root, `/graph.json`, `/project.md`, and
 `/regional.md`; do not leave the server running.
 
-- [ ] **Step 4: Commit docs and graph separately**
+- [x] **Step 4: Commit docs and graph separately**
 
 ```bash
 git add docs/modules/2026-05-05_behavior_tree.md docs/sentry/regional \
