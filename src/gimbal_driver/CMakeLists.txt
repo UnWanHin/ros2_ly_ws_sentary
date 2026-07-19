@@ -270,6 +270,11 @@ install(PROGRAMS
   DESTINATION lib/${PROJECT_NAME}
 )
 
+install(FILES
+  scripts/debug_control_state.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
 )
@@ -327,6 +332,7 @@ install(DIRECTORY module
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
+  find_package(ament_cmake_pytest REQUIRED)
   ament_add_gtest(test_mpc_gimbal_protocol
     test/test_mpc_gimbal_protocol.cpp)
   target_include_directories(test_mpc_gimbal_protocol PRIVATE
@@ -336,6 +342,8 @@ if(BUILD_TESTING)
     rclcpp
     std_msgs)
   add_dependencies(test_mpc_gimbal_protocol ${PROJECT_NAME})
+  ament_add_pytest_test(test_debug_control_bridge
+    test/test_debug_control_bridge.py)
 endif()
 
 # ament_export_dependencies(rosidl_default_runtime)

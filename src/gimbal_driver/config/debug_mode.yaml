@@ -1,10 +1,12 @@
 /**:
   ros__parameters:
-    # Single-node debug bridge profile. Do not load from sentry_all.
-    # The bridge publishes formal /ly/control/vel and /ly/control/firecode;
+    # Single-node debug profile. Do not load from sentry_all or run beside BT.
+    # The bridge is the only debug owner of the formal /ly/control/* topics;
     # gimbal_driver itself stays on the formal control subscriber path.
+    navi_mode: true  # Enable /ly/navi/vel and /ly/navi/should_rotate input.
+    aim_mode: false  # Enable formal /ly/aim/result -> angles/AimMode/fire output.
     rotate_level: 0
     follow_mode_when_false: true
     stale_timeout_ms: 500
     publish_hz: 100.0
-    patrol: false
+    patrol: false  # Use canonical Patrol.yaml only while no fresh valid aim exists.
