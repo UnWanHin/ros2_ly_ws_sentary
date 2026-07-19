@@ -30,6 +30,14 @@ def main(argv: list[str] | None = None) -> int:
         print(str(exc), flush=True)
         return 2
 
+    try:
+        from gimbal_driver.msg import ControlVelocity, FireCode, GimbalAngles, GimbalTrajectory
+    except ImportError:
+        ControlVelocity = None
+        FireCode = None
+        GimbalAngles = None
+        GimbalTrajectory = None
+
     state_file = Path(args.state_file).expanduser().resolve()
     state_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -42,10 +50,37 @@ def main(argv: list[str] | None = None) -> int:
             self.create_subscription(UInt16MultiArray, "/ly/navi/goal_pos_raw", self.on_goal_pos_raw, 10)
             self.create_subscription(UInt8, "/ly/navi/goal", self.on_goal, 10)
             self.create_subscription(UInt8, "/ly/navi/speed_level", self.on_speed_level, 10)
+            self.create_subscription(Bool, "/ly/navi/should_rotate", self.on_should_rotate, 10)
             self.create_subscription(Bool, "/ly/game/is_start", self.on_game_start, 10)
             self.create_subscription(UInt16, "/ly/game/time_left", self.on_time_left, 10)
+            optional_types_missing: list[str] = []
+            if GimbalAngles is None:
+                optional_types_missing.append("gimbal_driver/msg/GimbalAngles")
+            else:
+                self.create_subscription(GimbalAngles, "/ly/control/angles", self.on_control_angles, 10)
+            if FireCode is None:
+                optional_types_missing.append("gimbal_driver/msg/FireCode")
+            else:
+                self.create_subscription(FireCode, "/ly/control/firecode", self.on_control_firecode, 10)
+            if GimbalTrajectory is None:
+                optional_types_missing.append("gimbal_driver/msg/GimbalTrajectory")
+            else:
+                self.create_subscription(
+                    GimbalTrajectory,
+                    "/ly/control/trajectory",
+                    self.on_control_trajectory,
+                    10,
+                )
+            if ControlVelocity is None:
+                optional_types_missing.append("gimbal_driver/msg/ControlVelocity")
+            else:
+                self.create_subscription(ControlVelocity, "/ly/control/vel", self.on_control_vel, 10)
             self.timer = self.create_timer(1.0 / float(args.hz), self.write_state)
             self.get_logger().info(f"writing live ROS topic state to {state_file}")
+            if optional_types_missing:
+                self.get_logger().warn(
+                    "optional control topic monitoring unavailable: " + ", ".join(optional_types_missing)
+                )
 
         def put(self, topic: str, value: Any) -> None:
             self.values[topic] = {
@@ -73,6 +108,57 @@ def main(argv: list[str] | None = None) -> int:
 
         def on_speed_level(self, msg: Any) -> None:
             self.put("/ly/navi/speed_level", int(msg.data))
+
+        def on_should_rotate(self, msg: Any) -> None:
+            self.put("/ly/navi/should_rotate", bool(msg.data))
+
+        def on_control_angles(self, msg: Any) -> None:
+            self.put(
+                "/ly/control/angles",
+                {
+                    "yaw": float(msg.yaw),
+                    "pitch": float(msg.pitch),
+                },
+            )
+
+        def on_control_firecode(self, msg: Any) -> None:
+            self.put(
+                "/ly/control/firecode",
+                {
+                    "field_mask": int(msg.field_mask),
+                    "fire_status": int(msg.fire_status),
+                    "cap_state": int(msg.cap_state),
+                    "follow_mode": bool(msg.follow_mode),
+                    "aim_mode": bool(msg.aim_mode),
+                    "rotate": int(msg.rotate),
+                    "raw": int(msg.raw),
+                },
+            )
+
+        def on_control_trajectory(self, msg: Any) -> None:
+            self.put(
+                "/ly/control/trajectory",
+                {
+                    "yaw": float(msg.yaw),
+                    "yaw_omega": float(msg.yaw_omega),
+                    "yaw_alpha": float(msg.yaw_alpha),
+                    "pitch": float(msg.pitch),
+                    "pitch_omega": float(msg.pitch_omega),
+                    "pitch_alpha": float(msg.pitch_alpha),
+                },
+            )
+
+        def on_control_vel(self, msg: Any) -> None:
+            self.put(
+                "/ly/control/vel",
+                {
+                    "x_mps": float(msg.x_mps),
+                    "y_mps": float(msg.y_mps),
+                    "raw_x": int(msg.raw_x),
+                    "raw_y": int(msg.raw_y),
+                    "use_raw": bool(msg.use_raw),
+                },
+            )
 
         def on_game_start(self, msg: Any) -> None:
             self.put("/ly/game/is_start", bool(msg.data))

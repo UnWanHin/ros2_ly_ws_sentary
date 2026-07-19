@@ -368,6 +368,23 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Run decision offline: behavior_tree only, with built-in mock input topics.",
     )
     parser.add_argument(
+        "--input-owner",
+        choices=("mock", "manual_ros"),
+        default="mock",
+        help=(
+            "Formal ROS input owner. mock starts simulator inputs; manual_ros only observes while "
+            "Foxglove or a ROS CLI publisher supplies inputs externally (default: mock)."
+        ),
+    )
+    parser.add_argument(
+        "--external-input-publisher",
+        default="",
+        help=(
+            "Required nonempty acknowledgement label with --offline-decision --input-owner manual_ros, "
+            "for example foxglove or ros2-cli. The simulator never executes or starts this publisher."
+        ),
+    )
+    parser.add_argument(
         "--mock-preset",
         choices=tuple(MOCK_PRESETS.keys()),
         default="none",
@@ -825,6 +842,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error("--mock-preset requires --offline-decision")
     if str(args.mock_sequence).strip() and not args.offline_decision:
         parser.error("--mock-sequence requires --offline-decision")
+    external_input_publisher = str(args.external_input_publisher).strip()
+    if args.offline_decision and args.input_owner == "manual_ros" and not external_input_publisher:
+        parser.error(
+            "--offline-decision --input-owner manual_ros requires --external-input-publisher "
+            "(for example foxglove or ros2-cli)"
+        )
+    if args.input_owner == "mock" and external_input_publisher:
+        parser.error("--external-input-publisher is only valid with --input-owner manual_ros")
+    if args.input_owner == "manual_ros" and args.mock_preset != "none":
+        parser.error("--mock-preset is only available with --input-owner mock")
+    if args.input_owner == "manual_ros" and str(args.mock_sequence).strip():
+        parser.error("--mock-sequence is only available with --input-owner mock")
     if args.offline_decision:
         apply_mock_preset(args, explicit_dests)
     if args.every < 1:
@@ -1017,12 +1046,16 @@ def build_start_command(
 
 
 def build_mock_command(root: Path, args: argparse.Namespace) -> tuple[list[str], str]:
+    if args.input_owner != "mock":
+        raise ValueError("simulator.mock_inputs is only valid with --input-owner mock")
     system_python = Path("/usr/bin/python3")
     python_exec = str(system_python if system_python.exists() else Path(sys.executable))
     python_args = [
         python_exec,
         "-m",
         "simulator.mock_inputs",
+        "--input-owner",
+        "mock",
         "--team",
         args.mock_team,
         "--hz",
@@ -1388,8 +1421,14 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"decision mode: {args.mode}")
     print(f"bt config: {config_file}")
+    print(f"input owner: {args.input_owner}")
+    if args.input_owner == "manual_ros":
+        print(f"external input publisher: {str(args.external_input_publisher).strip()}")
     if args.offline_decision:
-        print("run profile: offline decision test (behavior_tree + mock inputs)")
+        if args.input_owner == "mock":
+            print("run profile: offline decision test (behavior_tree + mock inputs)")
+        else:
+            print("run profile: offline decision test (behavior_tree + external manual ROS inputs)")
         if args.mock_preset != "none":
             print(f"mock preset: {args.mock_preset} - {MOCK_PRESET_DESCRIPTIONS[args.mock_preset]}")
     else:
@@ -1426,7 +1465,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"failed to load mock sequence {mock_sequence_path}: {exc}", file=sys.stderr)
             return 2
         print(f"mock sequence actions: {mock_sequence_action_count}")
-    if args.offline_decision:
+    if args.offline_decision and args.input_owner == "mock":
         if str(args.control_file).strip():
             control_path = Path(args.control_file).expanduser().resolve()
             print(f"control file: {control_path}")
@@ -1440,7 +1479,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.mock_sequence_poll_sec,
             )
             print(f"mock sequence command: {sequence_cmd_desc}")
-    if args.live_view and not args.no_live_ros_monitor:
+    if (args.live_view and not args.no_live_ros_monitor) or args.input_owner == "manual_ros":
         ros_monitor_cmd, ros_monitor_cmd_desc = build_ros_topic_monitor_command(root, args.ros_state_file)
         print(f"live ROS topic state: {ros_state_path}")
         print(f"ROS topic monitor command: {ros_monitor_cmd_desc}")

@@ -8,6 +8,7 @@ from pathlib import Path
 from .control_bus import command_name, read_commands
 from .field import FieldGeometry
 from .interactive_inputs import SimulatorInputState, load_unit_scene_file, parse_position
+from .scene import OWNERSHIP_MODES, RosProjection
 
 
 def parse_bool(value: str) -> bool:
@@ -76,6 +77,12 @@ def payload_position_cm(payload: dict, field: FieldGeometry) -> tuple[int, int] 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Publish minimal offline mock topics for behavior_tree decision tests.")
+    parser.add_argument(
+        "--input-owner",
+        choices=tuple(sorted(OWNERSHIP_MODES)),
+        default="mock",
+        help="ROS input owner. Only mock may run this publisher (default: mock).",
+    )
     parser.add_argument("--team", choices=("red", "blue"), default="red")
     parser.add_argument("--hz", type=float, default=20.0)
     parser.add_argument("--yaw", type=float, default=0.0)
@@ -182,6 +189,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if args.input_owner != "mock":
+        print(
+            "manual_ros owns formal ROS inputs externally; simulator.mock_inputs does not publish in this mode. "
+            "Use simulator.start --input-owner manual_ros with Foxglove or a ROS CLI publisher.",
+            flush=True,
+        )
+        return 2
     unit_scene_items = None
     if str(args.unit_scene).strip():
         unit_scene_path = Path(args.unit_scene).expanduser().resolve()
@@ -248,9 +262,11 @@ def main(argv: list[str] | None = None) -> int:
                 ("friend", "base"): max(0, min(65535, int(args.self_base_health))),
                 ("enemy", "base"): max(0, min(65535, int(args.enemy_base_health))),
             }
-            self.sim_input_state = SimulatorInputState.with_defaults(
+            self.sim_input_state = SimulatorInputState(
                 field=FieldGeometry(),
                 structure_health_overrides=structure_health,
+                team=args.team,
+                ownership_mode=args.input_owner,
             )
             if unit_scene_items is not None:
                 self.sim_input_state.apply_unit_scene(unit_scene_items, clear=True)
@@ -281,6 +297,7 @@ def main(argv: list[str] | None = None) -> int:
                 self.match_started = True
                 self.match_running = True
             self.last_wall_time = time.monotonic()
+            self._last_projection_conflicts: tuple[object, ...] = ()
             self.control_path: Path | None = None
             self.control_offset = 0
             if str(args.control_file).strip():
@@ -340,7 +357,7 @@ def main(argv: list[str] | None = None) -> int:
             self.timer = self.create_timer(period, self._publish_all)
             self.get_logger().info(
                 "mock inputs started: "
-                f"team={args.team} hz={args.hz:.1f} "
+                f"input_owner={args.input_owner} team={args.team} hz={args.hz:.1f} "
                 f"time_left={self.time_left} ammo_left={self.ammo_left} "
                 f"enemy_outpost_hp={self.sim_input_state.structure_hp('enemy', 'outpost')} "
                 f"enemy_base_hp={self.sim_input_state.structure_hp('enemy', 'base')} "
@@ -484,25 +501,54 @@ def main(argv: list[str] | None = None) -> int:
             msg.data = [self._clamp_u16(value) for value in values]
             return msg
 
-        def _health_msg(self, side: str, stamp: object) -> Health:
+        def _report_projection_conflicts(self, projection: RosProjection) -> None:
+            if projection.conflicts == self._last_projection_conflicts:
+                return
+            previous = self._last_projection_conflicts
+            self._last_projection_conflicts = projection.conflicts
+            if projection.conflicts:
+                details = "; ".join(
+                    f"{item.kind}:{item.side}:{item.formal_key}={','.join(item.entity_ids)}"
+                    for item in projection.conflicts
+                )
+                self.get_logger().warn(
+                    "scene ROS projection conflict; conflicting scene values are withheld and baseline "
+                    "Health values remain: "
+                    + details
+                )
+            elif previous:
+                self.get_logger().info("scene ROS projection conflict resolved")
+
+        def _health_msg(self, side: str, stamp: object, projection: RosProjection) -> Health:
             msg = Health()
             msg.header.stamp = stamp
             base_hp = self.self_health if side == "friend" else self.enemy_health
-            for field, value in self.sim_input_state.health_fields(side, base_hp).items():
+            fields = {
+                unit.health_field: base_hp
+                for unit in self.sim_input_state.catalog.units
+                if unit.health_published and unit.health_field is not None
+            }
+            fields.update(projection.health[side])
+            for field, value in fields.items():
                 setattr(msg, field, max(0, min(65535, int(value))))
             return msg
 
-        def _publish_unit_positions(self, stamp: object) -> None:
-            for row in self.sim_input_state.position_rows():
-                msg = PositionData()
-                msg.header.stamp = stamp
-                msg.friendcarid = row.friend_car_id
-                msg.friendx = row.raw_x if row.friend_car_id else 0
-                msg.friendy = row.raw_y if row.friend_car_id else 0
-                msg.enemycarid = row.enemy_car_id
-                msg.enemyx = row.raw_x if row.enemy_car_id else 0
-                msg.enemyy = row.raw_y if row.enemy_car_id else 0
-                self.pub_position_data.publish(msg)
+        def _publish_unit_positions(self, stamp: object, projection: RosProjection) -> None:
+            for side in ("friend", "enemy"):
+                for car_id, point in sorted(projection.positions[side].items()):
+                    try:
+                        self.sim_input_state.catalog.unit_by_position_car_id(car_id, side)
+                    except KeyError:
+                        continue
+                    msg = PositionData()
+                    msg.header.stamp = stamp
+                    msg.friendcarid = car_id if side == "friend" else 0
+                    msg.friendx = int(point[0]) if side == "friend" else 0
+                    msg.friendy = int(point[1]) if side == "friend" else 0
+                    msg.enemycarid = car_id if side == "enemy" else 0
+                    msg.enemyx = int(point[0]) if side == "enemy" else 0
+                    msg.enemyy = int(point[1]) if side == "enemy" else 0
+                    self.pub_position_data.publish(msg)
 
         def _publish_navi_position(self, stamp: object) -> None:
             if not bool(args.publish_self_position):
@@ -703,6 +749,8 @@ def main(argv: list[str] | None = None) -> int:
                 if self.time_left_float <= 0.0:
                     self.match_running = False
             now = self.get_clock().now().to_msg()
+            projection = self.sim_input_state.scene.project_ros_inputs()
+            self._report_projection_conflicts(projection)
 
             gimbal = GimbalAngles()
             gimbal.yaw = float(args.yaw)
@@ -744,14 +792,14 @@ def main(argv: list[str] | None = None) -> int:
             game_all.exteventdata = clamp_u32(args.event_raw)
             self.pub_game_all.publish(game_all)
 
-            self._publish_u16(self.pub_friend_op_hp, self.sim_input_state.structure_hp("friend", "outpost"))
-            self._publish_u16(self.pub_enemy_op_hp, self.sim_input_state.structure_hp("enemy", "outpost"))
-            self._publish_u16(self.pub_friend_base_hp, self.sim_input_state.structure_hp("friend", "base"))
-            self._publish_u16(self.pub_enemy_base_hp, self.sim_input_state.structure_hp("enemy", "base"))
+            self._publish_u16(self.pub_friend_op_hp, projection.structures["friend"]["outpost"])
+            self._publish_u16(self.pub_enemy_op_hp, projection.structures["enemy"]["outpost"])
+            self._publish_u16(self.pub_friend_base_hp, projection.structures["friend"]["base"])
+            self._publish_u16(self.pub_enemy_base_hp, projection.structures["enemy"]["base"])
 
-            self.pub_me_hp.publish(self._health_msg("friend", now))
-            self.pub_enemy_hp.publish(self._health_msg("enemy", now))
-            self._publish_unit_positions(now)
+            self.pub_me_hp.publish(self._health_msg("friend", now, projection))
+            self.pub_enemy_hp.publish(self._health_msg("enemy", now, projection))
+            self._publish_unit_positions(now, projection)
 
             self.pub_team_buff.publish(self._team_buff_msg())
             self.pub_rfid.publish(self._rfid_msg(now))

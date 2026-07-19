@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
+import simulator.start as start_module
 from simulator.field import FieldGeometry
 from simulator.mock_inputs import (
     clamp_u8,
@@ -14,6 +17,8 @@ from simulator.mock_inputs import (
     payload_position_cm,
     uwb_raw_point,
 )
+from simulator.start import main as start_main
+from simulator.start import parse_args as parse_start_args
 
 
 def test_parse_args_accepts_decision_context_knobs() -> None:
@@ -172,6 +177,92 @@ def test_parse_args_accepts_decision_context_knobs() -> None:
 def test_parse_args_rejects_bad_bool() -> None:
     with pytest.raises(SystemExit):
         parse_args(["--navi-reachable", "maybe"])
+
+
+def test_manual_ros_owner_requires_an_explicit_external_publisher(tmp_path, capsys) -> None:
+    trace_path = tmp_path / "trace.jsonl"
+
+    with pytest.raises(SystemExit):
+        parse_start_args(["--offline-decision", "--input-owner", "manual_ros"])
+
+    assert (
+        start_main(
+            [
+                "--offline-decision",
+                "--input-owner",
+                "manual_ros",
+                "--external-input-publisher",
+                "foxglove",
+                "--trace",
+                str(trace_path),
+                "--dry-run",
+            ]
+        )
+        == 0
+    )
+    output = capsys.readouterr().out
+
+    assert "input owner: manual_ros" in output
+    assert "external input publisher: foxglove" in output
+    assert "simulator.mock_inputs" not in output
+    assert "simulator.ros_topic_monitor" in output
+
+
+def test_mock_inputs_manual_ros_exits_before_importing_ros(capsys) -> None:
+    from simulator.mock_inputs import main
+
+    assert main(["--input-owner", "manual_ros"]) == 2
+    output = capsys.readouterr().out
+
+    assert "manual_ros" in output
+
+
+def test_manual_ros_launches_only_the_observer_not_mock_inputs(tmp_path, monkeypatch) -> None:
+    launched: list[list[str]] = []
+
+    class FakeProcess:
+        def poll(self):
+            return None
+
+        def terminate(self) -> None:
+            return None
+
+        def wait(self, timeout=None) -> int:
+            del timeout
+            return 0
+
+        def kill(self) -> None:
+            return None
+
+    def fake_popen(command, *args, **kwargs):
+        del args, kwargs
+        launched.append(list(command))
+        return FakeProcess()
+
+    monkeypatch.setattr(start_module.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(start_module.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(returncode=0))
+    monkeypatch.setattr(start_module.time, "sleep", lambda _seconds: None)
+
+    assert (
+        start_module.main(
+            [
+                "--offline-decision",
+                "--input-owner",
+                "manual_ros",
+                "--external-input-publisher",
+                "foxglove",
+                "--trace",
+                str(tmp_path / "trace.jsonl"),
+                "--ros-state-file",
+                str(tmp_path / "topics.json"),
+            ]
+        )
+        == 0
+    )
+
+    launched_commands = [" ".join(command) for command in launched]
+    assert any("simulator.ros_topic_monitor" in command for command in launched_commands)
+    assert all("simulator.mock_inputs" not in command for command in launched_commands)
 
 
 def test_default_self_position_uses_team_base_or_clamped_override() -> None:

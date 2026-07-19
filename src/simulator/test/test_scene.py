@@ -41,6 +41,17 @@ def test_scene_projects_catalog_health_and_position_data() -> None:
     assert projection.conflicts == ()
 
 
+def test_mock_projection_uses_catalog_health_and_relative_position_encoding() -> None:
+    state = SceneState.from_catalog(load_catalog(), "red", ownership_mode="mock")
+    state.apply(SceneCommand.place_unit("enemy:sentry:a", "enemy", "sentry", 1200, 700, hp=300))
+
+    projection = state.project_ros_inputs()
+
+    assert projection.health["enemy"]["sentry"] == 300
+    assert projection.positions["enemy"][107] == (1200, 800)
+    assert projection.conflicts == ()
+
+
 def test_scene_reports_same_formal_unit_conflicts_without_overwriting() -> None:
     state = SceneState.from_catalog(load_catalog(), "red")
     state.apply(SceneCommand.place_unit("enemy:hero:a", "enemy", "hero", 1200, 700, hp=123))
