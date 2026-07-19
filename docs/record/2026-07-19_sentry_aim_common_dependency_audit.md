@@ -4,7 +4,7 @@ Updated: 2026-07-19
 
 ## 範圍與結論
 
-本記錄只盤點 source 與實機安裝環境，不修改 ROS 程式、launch、設定或遠端環境。檢查對象是
+本記錄盤點 source 與實機安裝環境，並記錄後續本倉正式 AimResult/trajectory 邊界的同步調整；不修改遠端環境。檢查對象是
 `192.168.3.50` 的 `~/sentry.common`、`~/sentry.aim` 與
 `~/ros2_ly_ws_sentry`。
 
@@ -29,7 +29,9 @@ Updated: 2026-07-19
 | `sentry_gimbal` | 無直接同名替代 | 本倉和 aim TF 均依賴 `gimbal_driver` 的 `/ly/gimbal/angles`，不是舊 `sentry_gimbal`。 |
 
 `sentry.common` 的 `sentry_msgs/AimResult` 是 `header, follow, fire, pitch, yaw`；
-aim 版本在相同型別名稱下多了 `yaw_omega`、`pitch_omega`、`yaw_alpha`、`pitch_alpha`。
+aim 版本在相同型別名稱下多了 `yaw_omega`、`pitch_omega`、`yaw_alpha`、`pitch_alpha`。本倉
+BT 與單節點 debug bridge 現在都會把這六個運動字段轉成自有
+`gimbal_driver/msg/GimbalTrajectory` 並下發 0x05，因此此版本已成為正式必要契約。
 這是 ROS message definition mismatch，不可讓 publisher 和 subscriber 分別從不同 workspace
 載入同名 package。
 
@@ -96,8 +98,10 @@ aim_msgs    -> ~/sentry.aim/install/aim_msgs
   common 已 source 的環境中建立。
 
 因此目前是 split-brain：可能取得 aim 的部分訊息包，同時卻啟動 common 的 `sentry_tf`。本倉
-`scripts/lib/ros_launch_common.sh` 和 `scripts/selfcheck/sentry.sh` 也仍把 common 當作預設
-`sentry_msgs` fallback。這些是下一次正式遷移的工作項，這次沒有修改。
+`scripts/lib/ros_launch_common.sh` 與 `scripts/selfcheck/sentry.sh` 已改為只尋找
+`sentry.aim`（或顯式 `SENTRY_MSGS_SETUP` / `SENTRY_AIM_SETUP`），並將五個 AimResult 欄位
+（`follow` 加四個 dynamics）列為硬門檻；它們不再以 common 作 fallback。舊 common 環境會被
+selfcheck 明確拒絕，而不是被誤判為可啟動正式鏈路。
 
 ## 後續驗收門檻
 
@@ -122,5 +126,7 @@ ros2 run tf2_ros tf2_echo gimbal_small_yaw usb_camera
 ```
 
 若正式使用 camera-based FaceMode，另需明確驗證所選 `gx_camera_0` 或 `gx_camera_1` 與
-`map_aim_point_node.camera_frame` 一致。完成這些檢查後，才可更新本倉腳本的外部 message setup
-預設並移除 common fallback。
+`map_aim_point_node.camera_frame` 一致。完成這些檢查後，應在同一乾淨 shell 重新 build 本倉
+`gimbal_driver` 與 `behavior_tree`，跑 `colcon test`、`./scripts/selfcheck.sh sentry --static-only`，
+再啟動實機鏈確認 `/ly/aim/result -> /ly/control/trajectory -> 0x05` 的唯一 publisher/subscriber
+關係與實際下位機行為。

@@ -562,6 +562,7 @@ private:
     rclcpp::Publisher<std_msgs::msg::UInt8>::SharedPtr pub_vision_mode_;
 
     rclcpp::Publisher<gimbal_driver::msg::GimbalAngles>::SharedPtr pub_gimbal_control_;
+    rclcpp::Publisher<gimbal_driver::msg::GimbalTrajectory>::SharedPtr pub_gimbal_trajectory_;
     rclcpp::Publisher<gimbal_driver::msg::FireCode>::SharedPtr pub_gimbal_firecode_;
     rclcpp::Publisher<gimbal_driver::msg::SentryCmd>::SharedPtr pub_control_posture_;
     rclcpp::Publisher<gimbal_driver::msg::SentryCmd>::SharedPtr pub_control_sentry_cmd_;

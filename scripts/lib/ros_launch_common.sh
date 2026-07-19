@@ -6,7 +6,7 @@
 
 
 source_optional_sentry_msgs() {
-  if ros2 pkg prefix sentry_msgs >/dev/null 2>&1 && sentry_msgs_aim_result_has_follow; then
+  if ros2 pkg prefix sentry_msgs >/dev/null 2>&1 && sentry_msgs_aim_result_has_dynamics; then
     return 0
   fi
 
@@ -14,19 +14,18 @@ source_optional_sentry_msgs() {
   if [[ -n "${SENTRY_MSGS_SETUP:-}" ]]; then
     setup_candidates+=("${SENTRY_MSGS_SETUP}")
   fi
-  if [[ -n "${SENTRY_COMMON_ROOT:-}" ]]; then
-    setup_candidates+=("${SENTRY_COMMON_ROOT}/install/sentry_msgs/share/sentry_msgs/local_setup.bash")
+  if [[ -n "${SENTRY_AIM_ROOT:-}" ]]; then
+    setup_candidates+=("${SENTRY_AIM_ROOT}/install/sentry_msgs/share/sentry_msgs/local_setup.bash")
   fi
-  setup_candidates+=("${HOME}/sentry.common/install/sentry_msgs/share/sentry_msgs/local_setup.bash")
-  if [[ -n "${SENTRY_COMMON_SETUP:-}" ]]; then
-    setup_candidates+=("${SENTRY_COMMON_SETUP}")
+  setup_candidates+=("${HOME}/sentry.aim/install/sentry_msgs/share/sentry_msgs/local_setup.bash")
+  if [[ -n "${SENTRY_AIM_SETUP:-}" ]]; then
+    setup_candidates+=("${SENTRY_AIM_SETUP}")
   fi
-  if [[ -n "${SENTRY_COMMON_ROOT:-}" ]]; then
-    setup_candidates+=("${SENTRY_COMMON_ROOT}/install/setup.bash")
+  if [[ -n "${SENTRY_AIM_ROOT:-}" ]]; then
+    setup_candidates+=("${SENTRY_AIM_ROOT}/install/setup.bash")
   fi
   setup_candidates+=(
-    "${HOME}/sentry.common/install/setup.bash"
-    "/tmp/sentry_msgs_install/sentry_msgs/share/sentry_msgs/local_setup.bash"
+    "${HOME}/sentry.aim/install/setup.bash"
   )
 
   local setup_file
@@ -36,7 +35,7 @@ source_optional_sentry_msgs() {
       # shellcheck disable=SC1090
       source "${setup_file}"
       set -u
-      if ros2 pkg prefix sentry_msgs >/dev/null 2>&1 && sentry_msgs_aim_result_has_follow; then
+      if ros2 pkg prefix sentry_msgs >/dev/null 2>&1 && sentry_msgs_aim_result_has_dynamics; then
         echo "[INFO] sourced sentry_msgs: ${setup_file}" >&2
         return 0
       fi
@@ -61,22 +60,26 @@ launch_arg_bool_is_false() {
   return 1
 }
 
-sentry_msgs_aim_result_has_follow() {
+sentry_msgs_aim_result_has_dynamics() {
   local interface_text
   interface_text="$(ros2 interface show sentry_msgs/msg/AimResult 2>/dev/null)" || return 1
-  grep -Fxq "bool follow" <<< "${interface_text}"
+  grep -Fxq "bool follow" <<< "${interface_text}" &&
+    grep -Fxq "float32 yaw_omega" <<< "${interface_text}" &&
+    grep -Fxq "float32 pitch_omega" <<< "${interface_text}" &&
+    grep -Fxq "float32 yaw_alpha" <<< "${interface_text}" &&
+    grep -Fxq "float32 pitch_alpha" <<< "${interface_text}"
 }
 
 require_sentry_msgs_for_behavior_tree() {
   if launch_arg_bool_is_false "use_behavior_tree"; then
     return 0
   fi
-  if ros2 pkg prefix sentry_msgs >/dev/null 2>&1 && sentry_msgs_aim_result_has_follow; then
+  if ros2 pkg prefix sentry_msgs >/dev/null 2>&1 && sentry_msgs_aim_result_has_dynamics; then
     return 0
   fi
 
-  echo "[ERROR] sentry_msgs with AimResult.follow is required for the formal /ly/aim/* chain." >&2
-  echo "        Build/source the updated ~/sentry.common, or set SENTRY_MSGS_SETUP to its local_setup.bash." >&2
+  echo "[ERROR] sentry.aim's extended AimResult is required for the formal /ly/aim/* chain." >&2
+  echo "        Build/source ~/sentry.aim without sentry.common underlay, or set SENTRY_MSGS_SETUP to its local_setup.bash." >&2
   exit 1
 }
 

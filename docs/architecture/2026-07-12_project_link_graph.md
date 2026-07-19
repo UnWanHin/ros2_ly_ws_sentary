@@ -44,11 +44,11 @@ flowchart LR
   LOWER --> SERIAL_RX
   SERIAL_RX --> REF_MAP --> INPUT
   AIM -->|/ly/aim/armor_targets\n/ly/aim/result| INPUT
-  AIM -->|/ly/control/trajectory\nGimbalTrajectory MPC| GD
+  AIM -->|/ly/aim/result\nangle + dynamics| INPUT
   TF -.gimbal TF.-> BRIDGE
   INPUT --> DECISION --> FACE[FaceModeManager\nrequest -> decision] --> POSTURE --> OUTPUT
 
-  OUTPUT -->|/ly/control/angles\n/ly/control/firecode\n/ly/control/vel\n/ly/control/posture\n/ly/control/sentry_cmd| GD
+  OUTPUT -->|/ly/control/angles / firecode / vel\nposture / sentry_cmd / trajectory| GD
   OUTPUT -->|/ly/navi/goal\n/ly/navi/goal_pos_raw\n/ly/navi/target_rel\n/ly/navi/speed_level| NAV
   FACE -->|/ly/face_mode/target_raw| FACE_BRIDGE
   FACE_BRIDGE -->|/ly/face_mode/angles| FACE
@@ -113,7 +113,7 @@ flowchart TB
 | TypeID 6 | `int16_t DamageDifference`，來自裁判 `0x0003 game_robot_HP_t` offset 8 | `gimbal_driver` 解包後發布 `/ly/game/damage_difference` |
 | TypeID 10 | byte 0..7=`sentry_info_3`，8..9=己方前哨站 HP，10..11=敵方前哨站 HP | `gimbal_driver` 保留資料新鮮度；BT 優先採精確前哨站 HP |
 | TypeID 11 | `int16 yaw/pitch omega`、`int16 yaw/pitch alpha`、`uint32 SampleTickMs`，上行 CRC8 | `gimbal_driver` 解碼後與 TypeID 0 角度合併發布 `/ly/gimbal/state`；动态回馈超时仅清零动态字段，状态 topic 默认每 20ms 周期发布 |
-| `/ly/control/trajectory` | `gimbal_driver/msg/GimbalTrajectory`，六个 `float32` | 本仓定义、外部 MPC 发布；`gimbal_driver` 使用 SensorData QoS，拒绝非有限值，每次更新额外发送 `DownlinkTypeID=0x05` 26B；旧 `0x00` 控制帧保持不变 |
+| `/ly/control/trajectory` | `gimbal_driver/msg/GimbalTrajectory`，六个 `float32` | 本倉定義；正式 BT 或單節點 debug bridge 由有效外部 AimResult 轉換後發布。`gimbal_driver` 使用 SensorData QoS，拒絕非有限值，每次更新額外發送 `DownlinkTypeID=0x05` 26B；舊 `0x00` 控制幀保持不變 |
 | `/ly/navi/speed_level` | `std_msgs/UInt8`，BT 原樣發布策略選出的檔位 | 外部導航的檔位倍率不在本倉庫；BT 不以此縮放 `/ly/control/vel` |
 | `/ly/control/vel` | `gimbal_driver/msg/ControlVelocity` | 正式鏈由 BT 把 `naviVelocity.X/Y` 固定以 `0.025` raw-to-m/s 換算後下發到 `gimbal_driver`；隔離的 `debug_node` 以 100 Hz bridge 發同一 topic，兩者不可並行 |
 | `/ly/game/path` 新鮮度 | `header.stamp` 必須非 0，且不超過 `io_config.game_path_fresh_timeout_ms`（預設 5000ms） | `gimbal_driver` 不週期性重發快取 path；舊包重播在超時後被拒絕，等新 timestamp 才下發 |

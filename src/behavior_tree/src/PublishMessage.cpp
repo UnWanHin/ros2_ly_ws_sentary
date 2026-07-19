@@ -3,6 +3,7 @@
 // Keep behavior and interface changes synchronized with related modules.
 
 #include "../include/Application.hpp"
+#include "../include/AimSource.hpp"
 
 #include <algorithm>
 
@@ -367,6 +368,16 @@ namespace BehaviorTree {
             msg.pitch = gimbalControlData.GimbalAngles.Pitch;
             msg.header.stamp = node_->now();
             pub_gimbal_control_->publish(msg);
+        }
+        // The external AimResult is the sole source of trajectory dynamics.
+        // FaceMode and patrol keep using the legacy angle command only.
+        if (pub_gimbal_trajectory_) {
+            const auto trajectory = MakeGimbalTrajectory(externalAimData);
+            if (trajectory.has_value()) {
+                auto msg = *trajectory;
+                msg.header.stamp = node_->now();
+                pub_gimbal_trajectory_->publish(msg);
+            }
         }
         {
             auto msg = MakeFireCodeMsg(gimbalControlData.FireCode, node_->now());

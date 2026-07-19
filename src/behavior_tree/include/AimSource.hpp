@@ -1,9 +1,11 @@
 #pragma once
 
 #include <chrono>
+#include <cmath>
 #include <optional>
 
 #include "../module/BasicTypes.hpp"
+#include "gimbal_driver/msg/gimbal_trajectory.hpp"
 
 namespace BehaviorTree {
 
@@ -28,6 +30,28 @@ inline AimSourceView MakeAimSourceView(
 
 inline bool AimFreshAndValid(const LangYa::AimData& data) noexcept {
     return data.Fresh && data.Valid;
+}
+
+inline std::optional<gimbal_driver::msg::GimbalTrajectory> MakeGimbalTrajectory(
+    const LangYa::AimData& data) noexcept {
+    if (!data.Valid ||
+        !std::isfinite(data.Angles.Yaw) ||
+        !std::isfinite(data.Angles.Pitch) ||
+        !std::isfinite(data.YawOmega) ||
+        !std::isfinite(data.PitchOmega) ||
+        !std::isfinite(data.YawAlpha) ||
+        !std::isfinite(data.PitchAlpha)) {
+        return std::nullopt;
+    }
+
+    gimbal_driver::msg::GimbalTrajectory trajectory;
+    trajectory.yaw = data.Angles.Yaw;
+    trajectory.pitch = data.Angles.Pitch;
+    trajectory.yaw_omega = data.YawOmega;
+    trajectory.pitch_omega = data.PitchOmega;
+    trajectory.yaw_alpha = data.YawAlpha;
+    trajectory.pitch_alpha = data.PitchAlpha;
+    return trajectory;
 }
 
 inline bool AimBuffTargetLocked(

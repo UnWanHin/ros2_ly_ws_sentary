@@ -38,7 +38,7 @@ gimbal_driver/
 │   ├── UWBPos.msg              # UWB位置
 │   ├── Chassis.msg             # TypeID=6 底盘状态四元
 │   ├── GimbalState.msg         # 下位机云台状态与动态反馈
-│   ├── GimbalTrajectory.msg    # 外部 MPC 下行轨迹
+│   ├── GimbalTrajectory.msg    # 本倉 MPC 下行軌跡
 │   └── Vel.msg                 # 速度指令
 └── module/
     ├── BasicTypes.hpp          # 底層數據結構定義
@@ -116,7 +116,8 @@ module baseline。`main.cpp` 對導航 debug 的預設值為關閉，因此正�
 `debug_node.launch.py` 啟動 `gimbal_driver` 與內建 control bridge。bridge 是此 debug profile
 唯一的 `/ly/control/vel`、`/ly/control/angles` 與 `/ly/control/firecode` publisher，driver 沿用正式
 control subscriber 組包；它不得與正在發布正式 `/ly/control/*` 的 BT 同時使用。此入口不選目標、
-不處理姿態、FaceMode 或導航任務，也不取代獨立 `/ly/control/trajectory -> 0x05` MPC 下發。之後若有其他 driver 單節點調試 profile，可用
+不處理姿態、FaceMode 或導航任務。`aim_mode=true` 時，它會把有效外部 AimResult 的六個
+軌跡字段發到獨立 `/ly/control/trajectory -> 0x05` MPC 下發；之後若有其他 driver 單節點調試 profile，可用
 `debug_config_file:=<profile.yaml>` 載入，無需改動正式入口。
 
 相容舊啟動腳本時，`sentry_all` 仍接受 `base_config_file:=...` 與 `config_file:=...`：其中僅
@@ -208,7 +209,7 @@ main()
 | `/ly/control/sentry_cmd` (`SentryCmd`) | `SentryCommandFrame.SentryCmd` | `0x01` 完整哨兵裁判命令入口 |
 | `/ly/control/map_path` (`MapPath`) | `MapPathFragmentFrame` x2 | `0x02` 裁判 `0x0307` 小地圖路徑；重組前保留完整 50 點 |
 | `/ly/control/custom_info` (`CustomInfo`) | `CustomInfoFrame` | `0x03` 裁判 `0x0308` UTF-16 文字 |
-| `/ly/control/trajectory` (`gimbal_driver/GimbalTrajectory`) | `GimbalTrajectoryFrame.Yaw/Pitch/YawOmega/PitchOmega/YawAlpha/PitchAlpha` | `0x05` MPC 轨迹；本包定义，外部 MPC 发布；SensorData QoS、非法浮点丢弃；每次更新额外发送，旧 `0x00` 不变 |
+| `/ly/control/trajectory` (`gimbal_driver/GimbalTrajectory`) | `GimbalTrajectoryFrame.Yaw/Pitch/YawOmega/PitchOmega/YawAlpha/PitchAlpha` | `0x05` MPC 軌跡；正式由 BT、單節點由 debug bridge 將有效 `/ly/aim/result` 六字段轉換後發布；SensorData QoS、非法浮點丟棄；每次更新額外發送，舊 `0x00` 不變 |
 | `/ly/bt/sentry_position` (`PointStamped`) | `SentryCoordinateFrame.X_cm/Y_cm` | BT 融合後自身坐標，m 轉 cm 後下發 |
 | `/ly/navi/vel` (`Vel`) | `ControlVelocity(raw_x/raw_y,use_raw=true)` | `debug_node.launch.py` 的 100 Hz bridge 轉發到 `/ly/control/vel`；500 ms stale 時發布零速度。`navigation_test=true` 與 `vel_chain=true` 仍只保留給舊腳本／自訂 overlay 相容。正式鏈仍經 BT，`sentry_all` 不路由這兩種導航直連鍵。 |
 | `/ly/navi/should_rotate` (`std_msgs/Bool`) | partial `FireCode(FIELD_FOLLOW_MODE|FIELD_ROTATE)` | debug bridge 以 100 Hz 發 `/ly/control/firecode`；true 發 `rotate_level`／FollowMode=false，false 發 Rotate=0 與可設定的 FollowMode=true。 |
@@ -362,7 +363,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 | Topic | 消息類型 | 說明 |
 |-------|----------|------|
 | `/ly/control/angles` | `GimbalAngles` | 接收決策節點的目標角度 |
-| `/ly/control/trajectory` | `gimbal_driver/msg/GimbalTrajectory` | 接收外部 MPC 的角度/角速度/角加速度，并额外下发 `0x05` 26B frame |
+| `/ly/control/trajectory` | `gimbal_driver/msg/GimbalTrajectory` | 接收本倉 BT 或 debug bridge 由外部 AimResult 轉換的角度/角速度/角加速度，並額外下發 `0x05` 26B frame |
 | `/ly/control/firecode` | `FireCode` | 接收分字段火控指令 |
 | `/ly/control/vel` | `ControlVelocity` | 接收語義速度/原始速度指令 |
 | `/ly/control/posture` | `SentryCmd` | 接收姿態指令（上位決策輸入，只使用 `FIELD_POSTURE`） |

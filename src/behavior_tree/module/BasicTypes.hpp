@@ -404,6 +404,10 @@ namespace LangYa
         bool HasLatchedAngles{false}; // 是否有上一帧可继续保持的有效锁角
         std::chrono::steady_clock::time_point LastValidTime{}; // 上一次收到有效锁角的时间
         GimbalAnglesType Angles; // 云台的控制角度
+        float YawOmega{0.0F}; // 目标 yaw 角速度，deg/s
+        float PitchOmega{0.0F}; // 目标 pitch 角速度，deg/s
+        float YawAlpha{0.0F}; // 目标 yaw 角加速度，deg/s^2
+        float PitchAlpha{0.0F}; // 目标 pitch 角加速度，deg/s^2
     };
 
     struct ExternalAimTargetCache {

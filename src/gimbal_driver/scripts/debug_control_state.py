@@ -10,6 +10,7 @@ import math
 class ControlSnapshot:
     velocity: tuple[int, int] | None
     angles: tuple[float, float] | None
+    trajectory: tuple[float, float, float, float, float, float] | None
     follow_mode: bool
     rotate: int
     aim_mode: bool
@@ -30,7 +31,7 @@ class DebugControlState:
         self.latest_velocity = (0, 0)
         self.last_navigation_ns: int | None = None
         self.should_rotate = True
-        self.latest_aim: tuple[float, float] | None = None
+        self.latest_aim: tuple[float, float, float, float, float, float] | None = None
         self.last_aim_ns: int | None = None
         self.pending_fire_toggle = False
 
@@ -49,9 +50,14 @@ class DebugControlState:
         yaw: float,
         pitch: float,
         received_ns: int,
+        yaw_omega: float = 0.0,
+        pitch_omega: float = 0.0,
+        yaw_alpha: float = 0.0,
+        pitch_alpha: float = 0.0,
     ) -> None:
-        valid = follow and math.isfinite(yaw) and math.isfinite(pitch)
-        self.latest_aim = (yaw, pitch) if valid else None
+        trajectory = (yaw, pitch, yaw_omega, pitch_omega, yaw_alpha, pitch_alpha)
+        valid = follow and all(math.isfinite(value) for value in trajectory)
+        self.latest_aim = trajectory if valid else None
         self.last_aim_ns = received_ns if valid else None
         self.pending_fire_toggle = valid and fire
 
@@ -75,7 +81,8 @@ class DebugControlState:
 
         return ControlSnapshot(
             velocity=velocity,
-            angles=self.latest_aim if aim_fresh else None,
+            angles=(self.latest_aim[0], self.latest_aim[1]) if aim_fresh else None,
+            trajectory=self.latest_aim if aim_fresh else None,
             follow_mode=navi_mode
             and self.follow_mode_when_false
             and not self.should_rotate,

@@ -556,14 +556,21 @@ namespace BehaviorTree{
             app.lastExternalAimTargetsRxTime_ = now;
         });
 
-        // ly_aim_result: external sentry.aim follow gate, final yaw/pitch, and fire gate.
+        // ly_aim_result: external sentry.aim final angle, dynamics, and fire gate.
         GenSub<ly_aim_result>([](Application& app, auto msg) {
             if (!app.config.ExternalAimSettings.Enable) {
                 return;
             }
             const auto yaw = static_cast<AngleType>(msg->yaw);
             const auto pitch = static_cast<AngleType>(msg->pitch);
-            const bool finite_angles = std::isfinite(yaw) && std::isfinite(pitch);
+            const auto yaw_omega = static_cast<float>(msg->yaw_omega);
+            const auto pitch_omega = static_cast<float>(msg->pitch_omega);
+            const auto yaw_alpha = static_cast<float>(msg->yaw_alpha);
+            const auto pitch_alpha = static_cast<float>(msg->pitch_alpha);
+            const bool finite_result =
+                std::isfinite(yaw) && std::isfinite(pitch) &&
+                std::isfinite(yaw_omega) && std::isfinite(pitch_omega) &&
+                std::isfinite(yaw_alpha) && std::isfinite(pitch_alpha);
             const auto now = std::chrono::steady_clock::now();
             bool target_context_valid = true;
             if (app.config.ExternalAimSettings.UseTargetArrayAsArmorList) {
@@ -578,8 +585,12 @@ namespace BehaviorTree{
                         now - cached.LastSeen <= std::chrono::milliseconds(fresh_ms);
                 }
             }
-            const bool result_valid = msg->follow && finite_angles && target_context_valid;
+            const bool result_valid = msg->follow && finite_result && target_context_valid;
             app.externalAimData.Angles = GimbalAnglesType{yaw, pitch};
+            app.externalAimData.YawOmega = yaw_omega;
+            app.externalAimData.PitchOmega = pitch_omega;
+            app.externalAimData.YawAlpha = yaw_alpha;
+            app.externalAimData.PitchAlpha = pitch_alpha;
             app.externalAimData.BuffFollow = false;
             app.externalAimData.FireStatus = result_valid && msg->fire;
             app.externalAimData.Valid = result_valid;

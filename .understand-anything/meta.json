@@ -1,8 +1,8 @@
 {
   "lastAnalyzedAt": "2026-07-19T07:52:47+00:00",
-  "gitCommitHash": "1243faf",
-  "workingTreeStatus": "camera-frame runtime source checked after 1243faf; navi_tf_bridge/behavior_tree and graph/document changes are pending commit, and the user-owned docs/rules lock file remains untracked",
-  "lastCheckedNote": "Fallback graph source-checked against current FaceMode source: camera_projection tries external sentry.aim long-focus gx_camera_0 first and gx_camera_1 only after TF, distance, or projection failure; FaceModeStatus reports the successful frame. relative_geometry does not use the camera fallback. The navi_tf_bridge/behavior_tree symlink build, CTest camera-frame contract, and static selfcheck (109 PASS, 0 WARN, 0 FAIL) passed; live external TF was unavailable for isolated dynamic fallback validation.",
+  "gitCommitHash": "7bd3e1e",
+  "workingTreeStatus": "AimResult dynamics-to-trajectory source, test, document, and graph changes are pending commit; no user-owned runtime file was modified.",
+  "lastCheckedNote": "Fallback graph source-checked against the remote sentry.aim AimResult contract and this workspace: the extended message supplies yaw/pitch plus yaw/pitch velocity and acceleration. behavior_tree and the standalone debug bridge each convert a fresh, valid result to the repository-owned GimbalTrajectory only in their mutually exclusive mode, and gimbal_driver remains the sole 0x05 serial owner. The gimbal_driver symlink build and 232 CTest cases passed. The selfcheck now intentionally rejects the local old sentry.common AimResult for its four missing dynamics fields; a behavior_tree build, full test, static selfcheck, and live topic validation remain required after a clean sentry.aim-only rebuild.",
   "version": "1.0.0",
   "analyzedFiles": 555,
   "generator": "local-understand-anything-compatible-fallback",

@@ -45,7 +45,7 @@ Updated: 2026-07-18
 | `/ly/control/sentry_cmd` | `gimbal_driver/msg/SentryCmd` | 手动工具/后续策略 | `gimbal_driver` | 完整哨兵裁判命令入口，发独立 `DownlinkTypeID=0x01`，用于复活、兑弹、远程回血、能量机关确认等。 |
 | `/ly/control/map_path` | `gimbal_driver/msg/MapPath` | 上位机路径策略/工具 | `gimbal_driver` | 一次下发 `DownlinkTypeID=0x02`，裁判 `0x0307 map_data_t` 语义。 |
 | `/ly/control/custom_info` | `gimbal_driver/msg/CustomInfo` | 上位机工具 | `gimbal_driver` | 一次下发 `DownlinkTypeID=0x03`，裁判 `0x0308 custom_info_t`；携带完整 30B UTF-16 原始字节。 |
-| `/ly/control/trajectory` | `gimbal_driver/msg/GimbalTrajectory` | 外部 `sentry.aim` MPC | `gimbal_driver` | 由本仓定义、外部 MPC 发布；每次更新额外发送 `DownlinkTypeID=0x05` 26B 原子轨迹；单位为 `deg`、`deg/s`、`deg/s^2`，旧 `0x00` 控制链保留。 |
+| `/ly/control/trajectory` | `gimbal_driver/msg/GimbalTrajectory` | `behavior_tree`；debug_node 的 `debug_control_bridge` | `gimbal_driver` | 本倉定義的六字段軌跡；兩個 owner 分別在正式／單節點模式把新鮮有效 `/ly/aim/result` 轉換後發布。每次更新額外發送 `DownlinkTypeID=0x05` 26B 原子軌跡；單位為 `deg`、`deg/s`、`deg/s^2`，舊 `0x00` 控制鏈保留。 |
 | `/ly/bt/sentry_position` | `geometry_msgs/msg/PointStamped` | `behavior_tree` | `gimbal_driver` | BT 融合后的哨兵自身位置，`frame_id=map`，单位 m；`gimbal_driver` 转 cm 后写入 `DownlinkTypeID=0x04` 坐标 frame。 |
 
 当前 posture 测试命令：
@@ -119,7 +119,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/bt/target` | `std_msgs/msg/UInt8` | `behavior_tree` -> debug/observer | 当前 BT 选择的目标类型；正式选目标同时发布 `/ly/aim/select_target`。 |
 | `/ly/aim/armor_targets` | `sentry_msgs/msg/AimTargetArray` | external aim -> `behavior_tree` | 外部辅瞄输出的可打目标列表；数组元素是 `AimTarget.msg`，BT 用它生成 `hitableTargets`、目標距離和 Chase 相對 point。 |
 | `/ly/aim/select_target` | `sentry_msgs/msg/AimTarget` | `behavior_tree` -> external aim | BT 选择的目标 `id`，`header.stamp` 为当前发布时间，`position` 尽量填最近一次 `/ly/aim/armor_targets` 中同 id 的位置。 |
-| `/ly/aim/result` | `sentry_msgs/msg/AimResult` | external aim -> `behavior_tree`；`debug_node` 的 bridge（`aim_mode=true`） | 外部辅瞄 `follow`、最终 yaw/pitch 和 `fire` 门控；`follow=true` 是结果有效性而不是 FireCode FollowMode。正式 BT 或 standalone bridge 接管角度，`fire=true` 时翻转 `/ly/control/firecode`。 |
+| `/ly/aim/result` | `sentry_msgs/msg/AimResult` | external aim -> `behavior_tree`；`debug_node` 的 bridge（`aim_mode=true`） | `header`、`follow`、`fire`、`yaw/pitch`、`yaw_omega/pitch_omega`、`yaw_alpha/pitch_alpha`。`follow=true` 且六個浮點均有限才有效；正式 BT 或 standalone bridge 接管角度、FireCode，並轉成本倉 GimbalTrajectory；`fire=true` 時翻轉 `/ly/control/firecode`。 |
 | `/ly/face_mode/target_raw` | `std_msgs/msg/UInt16MultiArray` | `behavior_tree` -> FaceMode solver | `[official_map_x, official_map_y, map_z]`，x/y 为官方地图 cm，z 为 map 系高度。 |
 | `/ly/face_mode/angles` | `gimbal_driver/msg/GimbalAngles` | FaceMode solver -> `behavior_tree` | 固定点朝向解算出的 yaw/pitch。正式 `sentry_all` 默认由 `map_aim_point_node` 用 TF 相对几何输出，BT 在 FaceMode 激活时转发到 `/ly/control/angles`。 |
 
@@ -177,7 +177,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `gimbal_driver/msg/GimbalRawFrame` | `header`, `direction`, `type_id`, `data`, `firecode_raw`, `sentry_cmd_raw` | 可选 raw 串口诊断 topic；TX `type_id=255/254/253/252/251/250` 依次为 control、sentry command、map path、custom info、sentry coordinate、trajectory。 |
 | `sentry_msgs/msg/AimTargetArray` | `header`, `aim_targets[]` | 外部 aim 可打目标列表；`/ly/aim/armor_targets` 使用 `SensorDataQoS`。 |
 | `sentry_msgs/msg/AimTarget` | `header`, `position`, `id` | 外部 aim 候选目标和 BT 目标选择共用结构；`id` 对齐 `ArmorType`，`position` 为米制 point，`header.frame_id` 非空时才作为 Chase 真值点参与 TF 转换。 |
-| `sentry_msgs/msg/AimResult` | `header`, `follow`, `fire`, `pitch`, `yaw` | 外部 aim 的角度接管、最终角度与开火门控。 |
+| `sentry_msgs/msg/AimResult` | `header`, `follow`, `fire`, `pitch`, `yaw`, `yaw_omega`, `pitch_omega`, `yaw_alpha`, `pitch_alpha` | 外部 aim 的角度接管、最終角度、角速度、角加速度與開火門控；本倉 BT/debug bridge 將六個運動欄位轉成 GimbalTrajectory。 |
 | `auto_aim_common/msg/Target` | `header`, `status`, `buff_follow`, `yaw`, `pitch` | predictor/buff/outpost 角度目标。 |
 | `auto_aim_common/msg/RelativeTarget` | `header`, `valid`, `x`, `y`, `z`, `distance_m`, `yaw_error_deg`, `pitch_error_deg`, `armor_type`, `aim_mode` | 追击相对目标。 |
 | `auto_aim_common/msg/Armors` | `header`, `Armor[] armors`, `Car[] cars`, `yaw`, `pitch`, predictor target index | 检测输出给跟踪/预测。 |

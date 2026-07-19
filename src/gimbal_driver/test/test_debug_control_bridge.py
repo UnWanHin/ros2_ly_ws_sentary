@@ -23,7 +23,17 @@ def make_state():
 def test_aim_result_follow_is_validity_not_follow_mode():
     state = make_state()
     state.update_should_rotate(False)
-    state.update_aim(follow=True, fire=False, yaw=12.0, pitch=-3.0, received_ns=10)
+    state.update_aim(
+        follow=True,
+        fire=False,
+        yaw=12.0,
+        pitch=-3.0,
+        yaw_omega=1.5,
+        pitch_omega=-2.5,
+        yaw_alpha=3.5,
+        pitch_alpha=-4.5,
+        received_ns=10,
+    )
 
     snapshot = state.snapshot(20, navi_mode=True, aim_mode=True)
 
@@ -31,6 +41,7 @@ def test_aim_result_follow_is_validity_not_follow_mode():
     assert snapshot.aim_mode is True
     assert snapshot.follow_mode is True
     assert snapshot.rotate == 0
+    assert snapshot.trajectory == (12.0, -3.0, 1.5, -2.5, 3.5, -4.5)
 
 
 def test_disabled_inputs_do_not_own_outputs():
@@ -84,6 +95,28 @@ def test_invalid_aim_never_controls_angles_or_fire():
     assert snapshot.aim_mode is False
     assert snapshot.fire_toggle is False
     assert snapshot.angles is None
+    assert snapshot.trajectory is None
+
+
+def test_nonfinite_aim_kinematics_never_controls_trajectory():
+    state = make_state()
+    state.update_aim(
+        follow=True,
+        fire=False,
+        yaw=10.0,
+        pitch=4.0,
+        yaw_omega=float("nan"),
+        pitch_omega=0.0,
+        yaw_alpha=0.0,
+        pitch_alpha=0.0,
+        received_ns=0,
+    )
+
+    snapshot = state.snapshot(10, navi_mode=False, aim_mode=True)
+
+    assert snapshot.aim_mode is False
+    assert snapshot.angles is None
+    assert snapshot.trajectory is None
 
 
 def test_stale_navigation_publishes_zero_velocity():

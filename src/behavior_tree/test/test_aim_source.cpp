@@ -2,6 +2,8 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
+
 namespace {
 
 LangYa::AimData FreshAim() {
@@ -66,4 +68,39 @@ TEST(AimSourceTest, LatchedTargetHonorsHoldWindowAndFreshFlags) {
             &latched_target));
     EXPECT_FALSE(fresh_target);
     EXPECT_TRUE(latched_target);
+}
+
+TEST(AimSourceTest, FreshValidAimMapsAllTrajectoryFields) {
+    using namespace BehaviorTree;
+    using namespace LangYa;
+
+    AimData aim = FreshAim();
+    aim.Angles = GimbalAnglesType{10.0F, -5.0F};
+    aim.YawOmega = 20.0F;
+    aim.PitchOmega = -10.0F;
+    aim.YawAlpha = 30.0F;
+    aim.PitchAlpha = -15.0F;
+
+    const auto trajectory = MakeGimbalTrajectory(aim);
+    ASSERT_TRUE(trajectory.has_value());
+    EXPECT_FLOAT_EQ(trajectory->yaw, 10.0F);
+    EXPECT_FLOAT_EQ(trajectory->pitch, -5.0F);
+    EXPECT_FLOAT_EQ(trajectory->yaw_omega, 20.0F);
+    EXPECT_FLOAT_EQ(trajectory->pitch_omega, -10.0F);
+    EXPECT_FLOAT_EQ(trajectory->yaw_alpha, 30.0F);
+    EXPECT_FLOAT_EQ(trajectory->pitch_alpha, -15.0F);
+}
+
+TEST(AimSourceTest, InvalidOrNonFiniteAimDoesNotMapTrajectory) {
+    using namespace BehaviorTree;
+    using namespace LangYa;
+
+    AimData aim = FreshAim();
+    aim.Angles = GimbalAnglesType{10.0F, -5.0F};
+    aim.YawOmega = std::numeric_limits<float>::quiet_NaN();
+    EXPECT_FALSE(MakeGimbalTrajectory(aim).has_value());
+
+    aim = FreshAim();
+    aim.Valid = false;
+    EXPECT_FALSE(MakeGimbalTrajectory(aim).has_value());
 }

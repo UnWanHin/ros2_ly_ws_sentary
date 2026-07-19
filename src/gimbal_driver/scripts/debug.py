@@ -7,10 +7,11 @@ import yaml
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import qos_profile_sensor_data
 
 from std_msgs.msg import Bool
 
-from gimbal_driver.msg import ControlVelocity, FireCode, GimbalAngles, Vel
+from gimbal_driver.msg import ControlVelocity, FireCode, GimbalAngles, GimbalTrajectory, Vel
 from sentry_msgs.msg import AimResult
 
 from debug_control_state import DebugControlState
@@ -20,6 +21,7 @@ NAV_VEL_TOPIC = "/ly/navi/vel"
 CONTROL_VEL_TOPIC = "/ly/control/vel"
 CONTROL_FIRECODE_TOPIC = "/ly/control/firecode"
 CONTROL_ANGLES_TOPIC = "/ly/control/angles"
+CONTROL_TRAJECTORY_TOPIC = "/ly/control/trajectory"
 GIMBAL_ANGLES_TOPIC = "/ly/gimbal/angles"
 VELOCITY_RAW_TO_MPS = 0.025
 
@@ -71,6 +73,9 @@ class NaviVelToControlVel(Node):
         self.velocity_publisher = self.create_publisher(ControlVelocity, CONTROL_VEL_TOPIC, 10)
         self.firecode_publisher = self.create_publisher(FireCode, CONTROL_FIRECODE_TOPIC, 10)
         self.angles_publisher = self.create_publisher(GimbalAngles, CONTROL_ANGLES_TOPIC, 10)
+        self.trajectory_publisher = self.create_publisher(
+            GimbalTrajectory, CONTROL_TRAJECTORY_TOPIC, qos_profile_sensor_data
+        )
         self.angle_subscription = self.create_subscription(
             GimbalAngles, GIMBAL_ANGLES_TOPIC, self.on_gimbal_angles, 10
         )
@@ -106,6 +111,10 @@ class NaviVelToControlVel(Node):
             fire=message.fire,
             yaw=message.yaw,
             pitch=message.pitch,
+            yaw_omega=message.yaw_omega,
+            pitch_omega=message.pitch_omega,
+            yaw_alpha=message.yaw_alpha,
+            pitch_alpha=message.pitch_alpha,
             received_ns=self.get_clock().now().nanoseconds,
         )
 
@@ -194,6 +203,19 @@ class NaviVelToControlVel(Node):
             angles.header.stamp = now.to_msg()
             angles.yaw, angles.pitch = angles_to_publish
             self.angles_publisher.publish(angles)
+
+        if snapshot.trajectory is not None:
+            trajectory = GimbalTrajectory()
+            trajectory.header.stamp = now.to_msg()
+            (
+                trajectory.yaw,
+                trajectory.pitch,
+                trajectory.yaw_omega,
+                trajectory.pitch_omega,
+                trajectory.yaw_alpha,
+                trajectory.pitch_alpha,
+            ) = snapshot.trajectory
+            self.trajectory_publisher.publish(trajectory)
 
 
 def main() -> None:

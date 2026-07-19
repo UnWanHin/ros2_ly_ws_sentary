@@ -50,6 +50,7 @@
 #include "auto_aim_common/msg/goal_reach.hpp"
 #include "gimbal_driver/msg/game_data.hpp"
 #include "gimbal_driver/msg/gimbal_angles.hpp"
+#include "gimbal_driver/msg/gimbal_trajectory.hpp"
 #include "gimbal_driver/msg/chassis.hpp"
 #include "gimbal_driver/msg/control_velocity.hpp"
 #include "gimbal_driver/msg/event_data.hpp"
@@ -78,6 +79,7 @@
 
 namespace BehaviorTree { 
     LY_DEF_ROS_TOPIC(ly_control_angles, "/ly/control/angles", gimbal_driver::msg::GimbalAngles);
+    LY_DEF_ROS_TOPIC(ly_control_trajectory, "/ly/control/trajectory", gimbal_driver::msg::GimbalTrajectory);
     LY_DEF_ROS_TOPIC(ly_control_firecode, "/ly/control/firecode", gimbal_driver::msg::FireCode);
     LY_DEF_ROS_TOPIC(ly_control_vel, "/ly/control/vel", gimbal_driver::msg::ControlVelocity);
     LY_DEF_ROS_TOPIC(ly_control_posture, "/ly/control/posture", gimbal_driver::msg::SentryCmd);

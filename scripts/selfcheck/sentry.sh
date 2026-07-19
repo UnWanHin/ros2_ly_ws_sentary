@@ -132,14 +132,18 @@ source_ros() {
 fail "No ROS2 setup found under /opt/ros"
 }
 
-sentry_msgs_aim_result_has_follow() {
+sentry_msgs_aim_result_has_dynamics() {
   local interface_text
   interface_text="$(ros2 interface show sentry_msgs/msg/AimResult 2>/dev/null)" || return 1
-  grep -Fxq "bool follow" <<< "${interface_text}"
+  grep -Fxq "bool follow" <<< "${interface_text}" &&
+    grep -Fxq "float32 yaw_omega" <<< "${interface_text}" &&
+    grep -Fxq "float32 pitch_omega" <<< "${interface_text}" &&
+    grep -Fxq "float32 yaw_alpha" <<< "${interface_text}" &&
+    grep -Fxq "float32 pitch_alpha" <<< "${interface_text}"
 }
 
 source_optional_sentry_msgs() {
-  if ros2 pkg prefix sentry_msgs >/dev/null 2>&1 && sentry_msgs_aim_result_has_follow; then
+  if ros2 pkg prefix sentry_msgs >/dev/null 2>&1 && sentry_msgs_aim_result_has_dynamics; then
     pass "sentry_msgs available: $(ros2 pkg prefix sentry_msgs)"
     return 0
   fi
@@ -148,19 +152,18 @@ source_optional_sentry_msgs() {
   if [[ -n "${SENTRY_MSGS_SETUP:-}" ]]; then
     setup_candidates+=("${SENTRY_MSGS_SETUP}")
   fi
-  if [[ -n "${SENTRY_COMMON_ROOT:-}" ]]; then
-    setup_candidates+=("${SENTRY_COMMON_ROOT}/install/sentry_msgs/share/sentry_msgs/local_setup.bash")
+  if [[ -n "${SENTRY_AIM_ROOT:-}" ]]; then
+    setup_candidates+=("${SENTRY_AIM_ROOT}/install/sentry_msgs/share/sentry_msgs/local_setup.bash")
   fi
-  setup_candidates+=("${HOME}/sentry.common/install/sentry_msgs/share/sentry_msgs/local_setup.bash")
-  if [[ -n "${SENTRY_COMMON_SETUP:-}" ]]; then
-    setup_candidates+=("${SENTRY_COMMON_SETUP}")
+  setup_candidates+=("${HOME}/sentry.aim/install/sentry_msgs/share/sentry_msgs/local_setup.bash")
+  if [[ -n "${SENTRY_AIM_SETUP:-}" ]]; then
+    setup_candidates+=("${SENTRY_AIM_SETUP}")
   fi
-  if [[ -n "${SENTRY_COMMON_ROOT:-}" ]]; then
-    setup_candidates+=("${SENTRY_COMMON_ROOT}/install/setup.bash")
+  if [[ -n "${SENTRY_AIM_ROOT:-}" ]]; then
+    setup_candidates+=("${SENTRY_AIM_ROOT}/install/setup.bash")
   fi
   setup_candidates+=(
-    "${HOME}/sentry.common/install/setup.bash"
-    "/tmp/sentry_msgs_install/sentry_msgs/share/sentry_msgs/local_setup.bash"
+    "${HOME}/sentry.aim/install/setup.bash"
   )
 
   local setup_file
@@ -170,14 +173,14 @@ source_optional_sentry_msgs() {
       set +u
       source "${setup_file}"
       set -u
-      if ros2 pkg prefix sentry_msgs >/dev/null 2>&1 && sentry_msgs_aim_result_has_follow; then
+      if ros2 pkg prefix sentry_msgs >/dev/null 2>&1 && sentry_msgs_aim_result_has_dynamics; then
         pass "sentry_msgs sourced: ${setup_file}"
         return 0
       fi
     fi
   done
 
-  warn "sentry_msgs not found or missing AimResult.follow; formal /ly/aim/* checks will fail until ~/sentry.common is built/sourced."
+  warn "sentry_msgs not found or missing AimResult dynamics; build/source ~/sentry.aim without sentry.common underlay."
   return 1
 }
 
@@ -381,7 +384,7 @@ if not debug_bridge.is_file():
     errors.append("debug control bridge is missing")
 else:
     bridge_text = debug_bridge.read_text(encoding="utf-8")
-    for token in ("/ly/navi/vel", "/ly/navi/should_rotate", "/ly/aim/result", "/ly/control/vel", "/ly/control/angles", "/ly/control/firecode", "ControlVelocity", "FireCode", "AimResult", "FIELD_ALL", "navi_mode", "aim_mode", "use_raw = True", "stale_timeout_ms", "debug_control_state"):
+    for token in ("/ly/navi/vel", "/ly/navi/should_rotate", "/ly/aim/result", "/ly/control/vel", "/ly/control/angles", "/ly/control/trajectory", "/ly/control/firecode", "ControlVelocity", "GimbalTrajectory", "FireCode", "AimResult", "yaw_omega", "pitch_omega", "yaw_alpha", "pitch_alpha", "FIELD_ALL", "navi_mode", "aim_mode", "use_raw = True", "stale_timeout_ms", "debug_control_state"):
         if token not in bridge_text:
             errors.append(f"debug control bridge missing source token: {token}")
 
@@ -916,6 +919,10 @@ if (( RUNTIME_ONLY == 0 )); then
   check_ros_interface "sentry_msgs/msg/AimTargetArray"
   check_ros_interface "sentry_msgs/msg/AimResult"
   check_ros_interface_field "sentry_msgs/msg/AimResult" "bool follow"
+  check_ros_interface_field "sentry_msgs/msg/AimResult" "float32 yaw_omega"
+  check_ros_interface_field "sentry_msgs/msg/AimResult" "float32 pitch_omega"
+  check_ros_interface_field "sentry_msgs/msg/AimResult" "float32 yaw_alpha"
+  check_ros_interface_field "sentry_msgs/msg/AimResult" "float32 pitch_alpha"
   check_ros_interface "gimbal_driver/msg/GimbalTrajectory"
   check_ros_interface "gimbal_driver/msg/GimbalState"
   check_ros_interface "auto_aim_common/msg/GoalReach"
