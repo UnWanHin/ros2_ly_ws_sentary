@@ -741,11 +741,12 @@ TypeID=4 的低 32 位 `rfid_status` 和 TypeID=8 的 `rfid_status_2` 分别维�
 
 ```cpp
 struct MapCommandData {
-    float TargetPositionX;
-    float TargetPositionY;
+    int16_t TargetPositionXCentimeter;
+    int16_t TargetPositionYCentimeter;
     uint8_t CmdKeyboard;
     uint8_t TargetRobotId;
     uint16_t CmdSource;
+    uint32_t Reserved;
 };
 ```
 
@@ -753,17 +754,18 @@ struct MapCommandData {
 
 | 串口字段 | 裁判系统字段 | 发布 topic / ROS 字段 |
 |---|---|---|
-| `TargetPositionX` | `0x0303 map_command_t.target_position_x` offset 0，单位 m | `/ly/game/map_command.target_position_x_m` |
-| `TargetPositionY` | `0x0303 map_command_t.target_position_y` offset 4，单位 m | `/ly/game/map_command.target_position_y_m` |
-| `CmdKeyboard` | `0x0303 map_command_t.cmd_keyboard` offset 8 | `/ly/game/map_command.cmd_keyboard` |
-| `TargetRobotId` | `0x0303 map_command_t.target_robot_id` offset 9 | `/ly/game/map_command.target_robot_id` |
-| `CmdSource` | `0x0303 map_command_t.cmd_source` offset 10 | `/ly/game/map_command.cmd_source` |
+| `TargetPositionXCentimeter` | 下位机将 `0x0303 map_command_t.target_position_x` 转为 `m * 100`，data offset 0 | `/ly/game/map_command.target_position_x_m = /100.0f` |
+| `TargetPositionYCentimeter` | 下位机将 `0x0303 map_command_t.target_position_y` 转为 `m * 100`，data offset 2 | `/ly/game/map_command.target_position_y_m = /100.0f` |
+| `CmdKeyboard` | 下位机 CAN 命令 offset 4，源自 `0x0303` | `/ly/game/map_command.cmd_keyboard` |
+| `TargetRobotId` | 下位机 CAN 命令 offset 5，源自 `0x0303` | `/ly/game/map_command.target_robot_id` |
+| `CmdSource` | 下位机 CAN 命令 offset 6，源自 `0x0303` | `/ly/game/map_command.cmd_source` |
+| `Reserved` | data offset 8~11 | 固定 0，driver 忽略 |
 
 ROS 语义：
 
 - `/ly/game/map_command.header.stamp` 是 `gimbal_driver` 收到 TypeID=9 后发布 ROS 消息的时间。
 - `TargetRobotId == 0` 表示坐标模式，`MapCommand.has_target_position=true`。
-- `TargetRobotId != 0` 表示目标机器人模式，`MapCommand.has_target_robot=true`；按裁判协议，此时 `TargetPositionX/Y` 应为 `0`。
+- `TargetRobotId != 0` 表示目标机器人模式，`MapCommand.has_target_robot=true`；按裁判协议，此时坐标应为 `0`。
 - `CmdSource` 是信息来源 ID，ID 对应关系见通信协议附录。
 - `0x0303` 触发发送后会以 `100ms` 间隔额外重发到共 5 包，并在下一次触发前以 `1Hz` 持续发送最近一次内容。任何会触发导航/行为的消费端必须自行去重。
 
@@ -772,8 +774,9 @@ ROS 语义：
 official-map 到 `map` 的标定转换。相同坐标的重发不续期；目标机器人模式无坐标，不触发导航。
 完整下位机和决策对接约束见 `docs/sentry/embedded/map_command_typeid9.md`。
 
-RM2026 V2.0 的 `map_command_t` 语义字段为 12B。本仓 `TypeID=9` 使用同一 12B payload；
-外层 `TypedMessage<sizeof(GimbalData)>` 总长度仍为 15B。
+RM2026 V2.0 的官方 `map_command_t` 语义字段为 12B、坐标为 float 米制。本仓下位机上发
+`TypeID=9` 同样使用 12B data，但其布局是前 8B 的 int16 厘米 CAN 命令加 4B 保留位，并非
+官方 float payload；外层 `TypedMessage<sizeof(GimbalData)>` 总长度仍为 15B，最后 1B 为 CRC8。
 
 ## 5.11 `TypeID=10` - `SentryInfo3AndOutpostHpData`
 
@@ -902,7 +905,7 @@ struct SentryInfo3AndOutpostHpData {
 | `0x0301 + data_cmd_id=0x0120 sentry_cmd` | 机器人 -> 裁判系统命令 | 姿态/完整命令经 `/ly/control/posture`、`/ly/control/sentry_cmd` 进入独立 `DownlinkTypeID=0x01 SentryCommandFrame`；V2.0 姿态为 bit21-23，能量确认在 bit24；下位机负责封装裁判 `0x0301/0x0120` |
 | `0x0307 map_data_t` | 机器人 -> 己方选手端路径显示 | `/ly/control/map_path` 进入两段 `DownlinkTypeID=0x02 MapPathFragmentFrame`；下位机 CRC/sequence 重组完整 50 点路径后封装裁判 `0x0307` |
 | `0x0308 custom_info_t` | 机器人 -> 己方选手端自定义文字 | `/ly/control/custom_info` 进入 `DownlinkTypeID=0x03 CustomInfoFrame`；30B UTF-16 原始字节由上游提供，下位机负责封装裁判 `0x0308` |
-| `0x0303 map_command_t` | 选手端 -> 机器人状态/指令输入 | 通过 TypeID=9 进入 `/ly/game/map_command`；坐标模式由 BT `Task.MapCommand` 去重后导航，目标机器人模式只缓存 |
+| `0x0303 map_command_t` | 选手端 -> 机器人状态/指令输入 | 下位机将官方 float 米制坐标转为 int16 厘米 TypeID=9，再由 driver 还原后进入 `/ly/game/map_command`；坐标模式由 BT `Task.MapCommand` 去重后导航，目标机器人模式只缓存 |
 
 ### 8.1 当前看弹量和兑弹怎么走
 

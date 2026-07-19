@@ -342,6 +342,11 @@ if(BUILD_TESTING)
     rclcpp
     std_msgs)
   add_dependencies(test_mpc_gimbal_protocol ${PROJECT_NAME})
+  ament_add_gtest(test_map_command_protocol
+    test/test_map_command_protocol.cpp)
+  target_include_directories(test_map_command_protocol PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/module)
+  add_dependencies(test_map_command_protocol ${PROJECT_NAME})
   ament_add_pytest_test(test_debug_control_bridge
     test/test_debug_control_bridge.py)
 endif()

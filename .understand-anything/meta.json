@@ -1,10 +1,10 @@
 {
-  "lastAnalyzedAt": "2026-07-19T07:52:47+00:00",
-  "gitCommitHash": "7bd3e1e",
-  "workingTreeStatus": "AimResult dynamics-to-trajectory source, test, document, and graph changes are pending commit; no user-owned runtime file was modified.",
-  "lastCheckedNote": "Fallback graph source-checked against the remote sentry.aim AimResult contract and this workspace: the extended message supplies yaw/pitch plus yaw/pitch velocity and acceleration. behavior_tree and the standalone debug bridge each convert a fresh, valid result to the repository-owned GimbalTrajectory only in their mutually exclusive mode, and gimbal_driver remains the sole 0x05 serial owner. The gimbal_driver symlink build and 232 CTest cases passed. The selfcheck now intentionally rejects the local old sentry.common AimResult for its four missing dynamics fields; a behavior_tree build, full test, static selfcheck, and live topic validation remain required after a clean sentry.aim-only rebuild.",
+  "lastAnalyzedAt": "2026-07-19T15:23:50+00:00",
+  "gitCommitHash": "0dcdcc1",
+  "workingTreeStatus": "formal Regional posture ACK configuration, TypeID 9 fixed-point decoding, their documentation, and graph updates are pending commit; the user-owned src/gimbal_driver/config/debug_mode.yaml change remains separate.",
+  "lastCheckedNote": "Fallback graph source-checked against current gimbal_driver TypeID 9 decoder: the lower controller sends x/y as int16 centimeters in data bytes 0..3, plus keyboard/robot/source in bytes 4..7 and four reserved bytes. gimbal_driver converts x/y to float meters before publishing MapCommand. The captured frame 21 09 87 03 36 02 00 00 06 01 00 00 00 00 82 is covered by a regression test. This local environment has no sentry_msgs package, so behavior_tree build and static selfcheck cannot validate the external AimResult interface until sentry.aim is sourced.",
   "version": "1.0.0",
   "analyzedFiles": 555,
   "generator": "local-understand-anything-compatible-fallback",
-  "graphShape": {"nodes": 95, "edges": 126, "layers": 6}
+  "graphShape": {"nodes": 96, "edges": 127, "layers": 6}
 }

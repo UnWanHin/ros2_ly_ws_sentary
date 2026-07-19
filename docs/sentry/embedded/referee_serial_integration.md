@@ -27,7 +27,7 @@ Updated: 2026-07-11
 | `0x0208` | `projectile_allowance_t` | TypeID 8 | `/ly/game/bullet` | 17mm、42mm、剩余金币、堡垒储备 17mm |
 | `0x0209` | `rfid_status_t` | TypeID 4/8 | `/ly/game/rfid` | 低 32 bit 仍走 TypeID 4，`rfid_status_2` 走 TypeID 8 |
 | `0x020D` | `sentry_info_t` | TypeID 7/10 | `/ly/game/sentry/info` | `sentry_info/sentry_info_2` 放 TypeID 7；`sentry_info_3` 放 TypeID 10 byte0~7 |
-| `0x0303` | `map_command_t` | TypeID 9 | `/ly/game/map_command` | 云台手/操作手小地图坐标、目标机器人 ID、按键值；重复包由消费端去重 |
+| `0x0303` | `map_command_t` | TypeID 9 | `/ly/game/map_command` | 下位机将官方 float 米制坐标转换为 int16 厘米 TypeID 9；包含目标机器人 ID、按键值，重复包由消费端去重 |
 
 TypeID 7/8/9/10 的具体 12B 布局见：
 

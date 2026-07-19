@@ -267,14 +267,24 @@ namespace LangYa
     };
     static_assert(sizeof(BulletDataAndRfid2) == sizeof(GimbalData), "TypeID=8 payload must stay 12B");
 
-    /// @brief TypeID=9: 裁判 0x0303 选手端小地图交互数据 map_command_t，发布到 /ly/game/map_command。
+    /// @brief TypeID=9: 下位机固定点小地图命令，发布到 /ly/game/map_command。
+    /// @note 下位机已将官方 0x0303 float 米制坐标转换为 int16 厘米坐标；保留 4B 填充以对齐 12B 上行 data。
     struct MapCommandData {
         static constexpr auto TypeID = 9;
-        float TargetPositionX;       // 0x0303 offset 0, m; target robot mode should send 0
-        float TargetPositionY;       // 0x0303 offset 4, m; target robot mode should send 0
-        std::uint8_t CmdKeyboard;    // 0x0303 offset 8
-        std::uint8_t TargetRobotId;  // 0x0303 offset 9; coordinate mode sends 0
-        std::uint16_t CmdSource;     // 0x0303 offset 10
+        std::int16_t TargetPositionXCentimeter;  // data offset 0, /100 -> m
+        std::int16_t TargetPositionYCentimeter;  // data offset 2, /100 -> m
+        std::uint8_t CmdKeyboard;                // data offset 4
+        std::uint8_t TargetRobotId;              // data offset 5; coordinate mode sends 0
+        std::uint16_t CmdSource;                 // data offset 6
+        std::uint32_t Reserved{};                // data offset 8, ignored
+
+        [[nodiscard]] float TargetPositionXMeter() const noexcept {
+            return static_cast<float>(TargetPositionXCentimeter) / 100.0F;
+        }
+
+        [[nodiscard]] float TargetPositionYMeter() const noexcept {
+            return static_cast<float>(TargetPositionYCentimeter) / 100.0F;
+        }
     };
     static_assert(sizeof(MapCommandData) == sizeof(GimbalData), "TypeID=9 payload must stay 12B");
 

@@ -1,5 +1,5 @@
 # Semantic view of referee 0x0303 map_command_t.
-# Transport source: lower-machine TypeID=9 MapCommandData.
+# Transport source: lower-machine TypeID=9 fixed-point MapCommandData; gimbal_driver converts cm to m.
 # 0x0303 repeats duplicate packets; consumers must deduplicate before actions.
 
 std_msgs/Header header

@@ -79,8 +79,11 @@ typedef struct {
 
 `sizeof(map_command_t)` 应为 `12`。
 
-`map_command_t` 数据段为 `12B`。外层裁判帧的 `data_length` 以实际收到的官方帧为准；本仓
-TypeID=9 只承载上表 12B 语义字段。
+`map_command_t` 数据段为 `12B`。外层裁判帧的 `data_length` 以实际收到的官方帧为准。
+
+官方 `0x0303` 与下位机上发的 `TypeID=9` 是两个不同的传输层：下位机先解析官方 float 米制
+坐标，再转换成厘米定点数发送给上位机。不要把官方 `map_command_t` 的 12B 原样复制为
+`TypeID=9`，否则上位机的定点解码会失效。
 
 ## 4. 重复包处理
 
@@ -101,18 +104,19 @@ TypeID=9 只承载上表 12B 语义字段。
 | `0` | `1` | `HeadFlag` | `'!'` / `0x21` |
 | `1` | `1` | `TypeID` | `9` |
 | `2` | `12` | `Data` | `MapCommandData` |
-| `14` | `1` | `Tail` | `0x00` |
+| `14` | `1` | `CRC8` | 前 14B 的 CRC8 |
 
-`Data` 的 12B 布局必须和 `map_command_t` 一致：
+`Data` 的前 8B 是下位机 CAN 命令的原样定点布局，后 4B 必须填 0：
 
 ```c
 #pragma pack(push, 1)
 typedef struct {
-    float target_position_x;   // offset 0
-    float target_position_y;   // offset 4
-    uint8_t cmd_keyboard;      // offset 8
-    uint8_t target_robot_id;   // offset 9
-    uint16_t cmd_source;       // offset 10
+    int16_t target_position_x_100;  // offset 0, m * 100，little-endian
+    int16_t target_position_y_100;  // offset 2, m * 100，little-endian
+    uint8_t cmd_keyboard;           // offset 4
+    uint8_t target_robot_id;        // offset 5
+    uint16_t cmd_source;            // offset 6, little-endian
+    uint32_t reserved;              // offset 8, 固定 0
 } upper_map_command_data_t;
 #pragma pack(pop)
 ```
@@ -122,6 +126,10 @@ typedef struct {
 ```c
 static_assert(sizeof(upper_map_command_data_t) == 12, "TypeID=9 payload must be 12B");
 ```
+
+例如 `21 09 87 03 36 02 00 00 06 01 00 00 00 00 82` 解码为
+`x=903cm=9.03m`、`y=566cm=5.66m`、`cmd_source=0x0106=262`。其中 byte 14 是 CRC8，
+不是固定尾字节。
 
 ## 6. 上位机输出
 
@@ -137,8 +145,8 @@ ROS 字段：
 | ROS 字段 | 来源 |
 |---|---|
 | `has_target_position` | `target_robot_id == 0` |
-| `target_position_x_m` | `target_position_x` |
-| `target_position_y_m` | `target_position_y` |
+| `target_position_x_m` | `target_position_x_100 / 100.0f` |
+| `target_position_y_m` | `target_position_y_100 / 100.0f` |
 | `has_target_robot` | `target_robot_id != 0` |
 | `target_robot_id` | `target_robot_id` |
 | `cmd_keyboard` | `cmd_keyboard` |
@@ -155,6 +163,16 @@ ROS 字段：
 TypeID=9 -> /ly/game/map_command -> MapCommandTask
   -> /ly/navi/goal_pos_raw (official cm)
   -> navi_tf_bridge official_map -> map -> /goal_pose
+```
+
+完整数据链为：
+
+```text
+官方 0x0303 float(m)
+  -> 下位机 int16 cm
+  -> TypeID=9
+  -> gimbal_driver /100.0f
+  -> /ly/game/map_command float(m)
 ```
 
 - 仅 `target_robot_id == 0` 的坐标模式可导航；目标机器人模式没有坐标，因此只保留为缓存信息。

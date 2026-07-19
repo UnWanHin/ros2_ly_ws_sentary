@@ -173,7 +173,7 @@
         "PendingAckTimeoutMs": 600,
         "RetryIntervalMs": 300,
         "MaxRetryCount": 3,
-        "OptimisticAck": true,
+        "OptimisticAck": false,
         "TargetKeepMs": 800,
         "DamageKeepSec": 4,
         "LowHealthThreshold": 120,

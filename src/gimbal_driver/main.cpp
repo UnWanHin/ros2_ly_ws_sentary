@@ -1915,8 +1915,8 @@ namespace
             topic::Msg msg;
             msg.header.stamp = Node.GetNode()->now();
             msg.has_target_position = data.TargetRobotId == 0;
-            msg.target_position_x_m = data.TargetPositionX;
-            msg.target_position_y_m = data.TargetPositionY;
+            msg.target_position_x_m = data.TargetPositionXMeter();
+            msg.target_position_y_m = data.TargetPositionYMeter();
             msg.has_target_robot = data.TargetRobotId != 0;
             msg.target_robot_id = data.TargetRobotId;
             msg.cmd_keyboard = data.CmdKeyboard;
