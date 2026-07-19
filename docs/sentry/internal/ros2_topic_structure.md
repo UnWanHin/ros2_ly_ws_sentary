@@ -38,9 +38,9 @@ Updated: 2026-07-18
 
 | Topic | Type | Publisher | Subscriber | 结构/语义 |
 |---|---|---|---|---|
-| `/ly/control/angles` | `gimbal_driver/msg/GimbalAngles` | `behavior_tree`；debug_node 的 `navi_vel_to_control_vel` bridge | `gimbal_driver` | `header`, `yaw`, `pitch`，云台目标角。debug `aim_mode=true` 时转发有效 `/ly/aim/result`；无新鲜 aim 且 `patrol=true` 时使用 Patrol.yaml。两者不能并行运行。 |
-| `/ly/control/firecode` | `gimbal_driver/msg/FireCode` | `behavior_tree`；debug_node 的 `navi_vel_to_control_vel` bridge | `gimbal_driver` | `field_mask`, `fire_status`, `cap_state`, `follow_mode`, `aim_mode`, `rotate`, `raw`。debug bridge 每 100 Hz 写完整 `FIELD_ALL` snapshot：`should_rotate` 管 FollowMode/Rotate，AimResult 管 AimMode/fire toggle，并保留下位机 FireStatus/CapState 回读；两者不能并行运行。 |
-| `/ly/control/vel` | `gimbal_driver/msg/ControlVelocity` | `behavior_tree`；debug_node 的 `navi_vel_to_control_vel` bridge | `gimbal_driver` | `x_mps`, `y_mps`, `raw_x`, `raw_y`, `use_raw`。当前 BT 与 debug bridge 都用 `use_raw=true`；两者不能并行运行。 |
+| `/ly/control/angles` | `gimbal_driver/msg/GimbalAngles` | `behavior_tree`；debug_node 的 `debug_control_bridge` | `gimbal_driver` | `header`, `yaw`, `pitch`，云台目标角。debug `aim_mode=true` 时转发有效 `/ly/aim/result`；无新鲜 aim 且 `patrol=true` 时使用 Patrol.yaml。两者不能并行运行。 |
+| `/ly/control/firecode` | `gimbal_driver/msg/FireCode` | `behavior_tree`；debug_node 的 `debug_control_bridge` | `gimbal_driver` | `field_mask`, `fire_status`, `cap_state`, `follow_mode`, `aim_mode`, `rotate`, `raw`。debug bridge 每 100 Hz 写完整 `FIELD_ALL` snapshot：`should_rotate` 管 FollowMode/Rotate，AimResult 管 AimMode/fire toggle，并保留下位机 FireStatus/CapState 回读；两者不能并行运行。 |
+| `/ly/control/vel` | `gimbal_driver/msg/ControlVelocity` | `behavior_tree`；debug_node 的 `debug_control_bridge` | `gimbal_driver` | `x_mps`, `y_mps`, `raw_x`, `raw_y`, `use_raw`。当前 BT 与 debug bridge 都用 `use_raw=true`；两者不能并行运行。 |
 | `/ly/control/posture` | `gimbal_driver/msg/SentryCmd` | `behavior_tree` | `gimbal_driver` | 姿态专用入口，只读 `FIELD_POSTURE/posture`，写入独立 `DownlinkTypeID=0x01` 的 `SentryCmd bit21-23`；可取 `1~6`。 |
 | `/ly/control/sentry_cmd` | `gimbal_driver/msg/SentryCmd` | 手动工具/后续策略 | `gimbal_driver` | 完整哨兵裁判命令入口，发独立 `DownlinkTypeID=0x01`，用于复活、兑弹、远程回血、能量机关确认等。 |
 | `/ly/control/map_path` | `gimbal_driver/msg/MapPath` | 上位机路径策略/工具 | `gimbal_driver` | 一次下发 `DownlinkTypeID=0x02`，裁判 `0x0307 map_data_t` 语义。 |

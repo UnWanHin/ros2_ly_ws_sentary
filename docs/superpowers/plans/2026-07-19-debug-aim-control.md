@@ -4,7 +4,7 @@
 
 **Goal:** Extend `debug_node.launch.py` so its single control bridge can independently test formal navigation and formal external aim output without starting the behavior tree.
 
-**Architecture:** Keep `navi_vel_to_control_vel.py` as the only debug publisher for `/ly/control/vel`, `/ly/control/angles`, and `/ly/control/firecode`. Add pure helpers for the public mode/stale/fire-state rules, cover them with Python tests, then let the ROS node subscribe only to the inputs enabled by `debug_mode.yaml`. The driver remains unchanged as the formal `/ly/control/*` subscriber and serial owner.
+**Architecture:** Keep `debug.py` as the only debug publisher for `/ly/control/vel`, `/ly/control/angles`, and `/ly/control/firecode`. Add pure helpers for the public mode/stale/fire-state rules, cover them with Python tests, then let the ROS node subscribe only to the inputs enabled by `debug_mode.yaml`. The driver remains unchanged as the formal `/ly/control/*` subscriber and serial owner.
 
 **Tech Stack:** ROS2 Humble, Python `rclpy`, `sentry_msgs/msg/AimResult`, `gimbal_driver` generated messages, `pytest`, `colcon`.
 
@@ -23,7 +23,7 @@
 ### Task 1: Make debug control state testable and add configuration gates
 
 **Files:**
-- Modify: `src/gimbal_driver/scripts/navi_vel_to_control_vel.py`
+- Modify: `src/gimbal_driver/scripts/debug.py`
 - Modify: `src/gimbal_driver/config/debug_mode.yaml`
 - Modify: `src/gimbal_driver/CMakeLists.txt`
 - Create: `src/gimbal_driver/test/test_debug_control_bridge.py`
@@ -130,7 +130,7 @@ Expected: `2 passed`.
 - [ ] **Step 5: Commit the testable state and mode gates**
 
 ```bash
-git add src/gimbal_driver/scripts/navi_vel_to_control_vel.py \
+git add src/gimbal_driver/scripts/debug.py \
   src/gimbal_driver/config/debug_mode.yaml src/gimbal_driver/CMakeLists.txt \
   src/gimbal_driver/package.xml src/gimbal_driver/test/test_debug_control_bridge.py
 git commit -m "gimbal_driver: gate debug navigation and aim inputs"
@@ -139,7 +139,7 @@ git commit -m "gimbal_driver: gate debug navigation and aim inputs"
 ### Task 2: Merge aim, navigation, and patrol into one output
 
 **Files:**
-- Modify: `src/gimbal_driver/scripts/navi_vel_to_control_vel.py`
+- Modify: `src/gimbal_driver/scripts/debug.py`
 - Modify: `src/gimbal_driver/test/test_debug_control_bridge.py`
 
 **Interfaces:**
@@ -215,7 +215,7 @@ Expected: gimbal_driver tests pass, including `test_debug_control_bridge` and ex
 - [ ] **Step 5: Commit the merged control behavior**
 
 ```bash
-git add src/gimbal_driver/scripts/navi_vel_to_control_vel.py \
+git add src/gimbal_driver/scripts/debug.py \
   src/gimbal_driver/test/test_debug_control_bridge.py
 git commit -m "gimbal_driver: route formal aim through debug bridge"
 ```
@@ -239,10 +239,10 @@ git commit -m "gimbal_driver: route formal aim through debug bridge"
 Run:
 
 ```bash
-python3 -m py_compile src/gimbal_driver/scripts/navi_vel_to_control_vel.py \
+python3 -m py_compile src/gimbal_driver/scripts/debug.py \
   src/gimbal_driver/launch/debug_node.launch.py
 rg -n 'navi_mode|aim_mode|/ly/aim/result|FIELD_ALL' \
-  src/gimbal_driver/scripts/navi_vel_to_control_vel.py \
+  src/gimbal_driver/scripts/debug.py \
   src/gimbal_driver/config/debug_mode.yaml
 ```
 

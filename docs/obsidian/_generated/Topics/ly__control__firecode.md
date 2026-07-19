@@ -23,6 +23,6 @@ topic: /ly/control/firecode
 - [[src/gimbal_driver/config/debug_mode.yaml|src/gimbal_driver/config/debug_mode.yaml]]
 - [[src/gimbal_driver/main.cpp|src/gimbal_driver/main.cpp]]
 - [[src/gimbal_driver/module/BasicTypes.hpp|src/gimbal_driver/module/BasicTypes.hpp]]
-- [[src/gimbal_driver/scripts/navi_vel_to_control_vel.py|src/gimbal_driver/scripts/navi_vel_to_control_vel.py]]
+- [[src/gimbal_driver/scripts/debug.py|src/gimbal_driver/scripts/debug.py]]
 - [[src/navi_tf_bridge/launch/map_aim_point.launch.py|src/navi_tf_bridge/launch/map_aim_point.launch.py]]
 - [[src/navi_tf_bridge/src/pointer_solver_node.cpp|src/navi_tf_bridge/src/pointer_solver_node.cpp]]

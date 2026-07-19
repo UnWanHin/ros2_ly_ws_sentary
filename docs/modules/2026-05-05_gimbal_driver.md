@@ -25,7 +25,7 @@ gimbal_driver/
 │   └── gimbal_driver.launch     # ROS 2 XML 兼容入口
 ├── scripts/
 │   ├── debug_control_state.py      # debug control 的純狀態/FireCode 合併規則
-│   └── navi_vel_to_control_vel.py  # debug navigation/aim -> formal control bridge
+│   └── debug.py                    # debug navigation/aim -> formal control bridge
 ├── config/
 │   ├── gimbal_driver_config.yaml # 串口/下位機正式基線
 │   └── debug_mode.yaml           # 單節點 driver debug overlay

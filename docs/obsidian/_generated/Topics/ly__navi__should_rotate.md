@@ -22,7 +22,7 @@ topic: /ly/navi/should_rotate
 - [[src/behavior_tree/include/Application.hpp|src/behavior_tree/include/Application.hpp]]
 - [[src/behavior_tree/include/Topic.hpp|src/behavior_tree/include/Topic.hpp]]
 - [[src/gimbal_driver/main.cpp|src/gimbal_driver/main.cpp]]
-- [[src/gimbal_driver/scripts/navi_vel_to_control_vel.py|src/gimbal_driver/scripts/navi_vel_to_control_vel.py]]
+- [[src/gimbal_driver/scripts/debug.py|src/gimbal_driver/scripts/debug.py]]
 - [[src/simulator/simulator/decision_input_coverage.py|src/simulator/simulator/decision_input_coverage.py]]
 - [[src/simulator/simulator/mock_inputs.py|src/simulator/simulator/mock_inputs.py]]
 - [[src/simulator/simulator/start.py|src/simulator/simulator/start.py]]

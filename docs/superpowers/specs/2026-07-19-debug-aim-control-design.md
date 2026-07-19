@@ -31,7 +31,7 @@ patrol: false
 
 ## Ownership and Data Flow
 
-現有 `navi_vel_to_control_vel.py` 擴充為單一 debug-control bridge，並繼續是
+`debug.py` 是單一 debug-control bridge，並繼續是
 `debug_node.launch.py` 唯一的 debug 控制 publisher：
 
 ```text

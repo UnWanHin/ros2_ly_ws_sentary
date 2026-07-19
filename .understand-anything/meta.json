@@ -1,8 +1,8 @@
 {
-  "lastAnalyzedAt": "2026-07-19T06:48:32+00:00",
-  "gitCommitHash": "cab76c9",
-  "workingTreeStatus": "runtime source checked at cab76c9; pending graph/document artifact commit and the user-owned docs/rules lock file remain untracked",
-  "lastCheckedNote": "Fallback graph source-checked against gimbal_driver runtime commit cab76c9. debug_node keeps one 100 Hz control bridge: navi_mode owns velocity/FollowMode/Rotate, aim_mode consumes formal AimResult for angles/AimMode/single fire toggle, and patrol is only a no-fresh-aim Patrol.yaml fallback. gimbal_driver built; 6 existing C++ protocol tests and 6 new debug-control state tests passed; debug launch print confirmed no behavior_tree process.",
+  "lastAnalyzedAt": "2026-07-19T07:02:45+00:00",
+  "gitCommitHash": "5ed6977",
+  "workingTreeStatus": "runtime source checked at 5ed6977; pending graph/document artifact commit and the user-owned docs/rules lock file remain untracked",
+  "lastCheckedNote": "Fallback graph source-checked against gimbal_driver runtime commit 5ed6977. debug_node keeps one 100 Hz debug.py bridge: navi_mode owns velocity/FollowMode/Rotate, aim_mode consumes formal AimResult for angles/AimMode/single fire toggle, and patrol is only a no-fresh-aim Patrol.yaml fallback. gimbal_driver built; 6 existing C++ protocol tests and 6 debug-control state tests passed; ros2 pkg executables exposes debug.py only, and debug launch print confirmed no behavior_tree process.",
   "version": "1.0.0",
   "analyzedFiles": 554,
   "generator": "local-understand-anything-compatible-fallback",

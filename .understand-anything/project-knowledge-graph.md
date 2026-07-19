@@ -1,8 +1,8 @@
 # ros2_ly_ws_sentry Knowledge Graph
 
-Generated: 2026-07-19T06:48:32+00:00
+Generated: 2026-07-19T07:02:45+00:00
 
-Checked against committed runtime source HEAD: `cab76c9` (graph/document artifact commit follows; the user-owned docs/rules lock file remains untracked)
+Checked against committed runtime source HEAD: `5ed6977` (graph/document artifact commit follows; the user-owned docs/rules lock file remains untracked)
 
 Current graph shape: 95 nodes, 126 edges, 6 layers.
 
@@ -71,7 +71,7 @@ flowchart LR
 - `DownlinkTypeID=0x00~0x05` 為控制、SentryCmd、0x0307 路徑、0x0308 自訂訊息、自身座標與 MPC trajectory；0x02 每次以相同 sequence 的兩段 64B CRC16 fragment 傳送，重組後仍是完整 107B / 50 點路徑。TypeID 11 动态反馈与 TypeID 0 角度组合为 `/ly/gimbal/state`，driver 使用 SensorData QoS、拒绝非有限 trajectory，并默认每 20ms 周期发布状态。
 - `gimbal_driver` 的串口/下位機基線集中在 `src/gimbal_driver/config/gimbal_driver_config.yaml`；正式 `sentry_all` 透過 `gimbal_driver.launch.py` 載入它，並只把 root `base_config_file`／`config_file` 的安全 `io_config` 相容鍵路由給 driver，絕不把全域 YAML 注入 BT、導航或 FaceMode。
 - `io_config.serial_mode=true` 時，逐 ID raw 觀測 topic 為 `/ly/upload/typeid0..11` 與 `/ly/download/typeid0x00..05`；語義 topic 保持不變。
-- `src/gimbal_driver/config/debug_mode.yaml` 是 `debug_node.launch.py` 載入的 bridge profile：`navi_mode`、`aim_mode`、`patrol` 獨立開關導航、正式 AimResult 與 Patrol fallback。內建 `navi_vel_to_control_vel.py` 是唯一 debug `/ly/control/vel`、`/ly/control/angles`、`/ly/control/firecode` publisher；它每 100 Hz 用完整 FireCode snapshot 合併導航的 FollowMode/Rotate、有效 AimResult 的角度/AimMode/單次 fire toggle，並保留下位機 FireStatus/CapState 回授。AimResult `follow` 是有效性而非 FollowMode；500 ms stale 時速度歸零、aim 釋放給 patrol/回授角度。driver 保持正式 control subscriber；此入口不啟動 BT，不消費或宣告 `SetPostureToMoveWhenFalse`，也不替代 FaceMode、姿態與 trajectory。正式 root 相容路由明確略過 `navigation_test`／`navigation_mode`。
+- `src/gimbal_driver/config/debug_mode.yaml` 是 `debug_node.launch.py` 載入的 bridge profile：`navi_mode`、`aim_mode`、`patrol` 獨立開關導航、正式 AimResult 與 Patrol fallback。內建 `debug.py` 是唯一 debug `/ly/control/vel`、`/ly/control/angles`、`/ly/control/firecode` publisher；它每 100 Hz 用完整 FireCode snapshot 合併導航的 FollowMode/Rotate、有效 AimResult 的角度/AimMode/單次 fire toggle，並保留下位機 FireStatus/CapState 回授。AimResult `follow` 是有效性而非 FollowMode；500 ms stale 時速度歸零、aim 釋放給 patrol/回授角度。driver 保持正式 control subscriber；此入口不啟動 BT，不消費或宣告 `SetPostureToMoveWhenFalse`，也不替代 FaceMode、姿態與 trajectory。正式 root 相容路由明確略過 `navigation_test`／`navigation_mode`。
 - 正式 BT 的 `src/behavior_tree/config/NaviRotateControl.yaml` 可透過 `SetPostureToMoveWhenFalse` 讓新鮮 `/ly/navi/should_rotate=false` 僅覆蓋當拍目標姿態為 Move；現有 `PostureManager` 繼續獨佔 cooldown、hold、feedback 與 pending/retry。若冷卻等待中訊號轉 true 或過期，下一拍恢復原策略，因此不補發 Move。這是正式 BT key，不是 driver debug profile key。
 - 2026-07-16 source audit 移除本倉 `tf_tree` fallback；外部 `sentry_tf` 是唯一 gimbal TF provider。aim feedback、`/ly/control/sentry_cmd`、FaceMode solver、BT 0x04 position downlink、導航 feedback、`debug_node -> debug_mode.yaml` profile 與 root gimbal compatibility routing 保持不變；source ROS Humble、`sentry.common` 後，本次 `behavior_tree` 與 `simulator` 184 tests 及 static selfcheck（108 PASS／0 WARN／0 FAIL）均通過，完整 external aim runtime graph 驗證仍未執行。
 - 本圖譜為 source-checked fallback；因本機沒有可用 Understand Anything plugin core，未執行 plugin regeneration。MPC 的 ROS schema 由本倉 `gimbal_driver/msg/GimbalState.msg` 與 `GimbalTrajectory.msg` 定義；外部 `sentry.aim` 只經既有 topic 消費狀態、發布軌跡，不是本倉建置依賴。
