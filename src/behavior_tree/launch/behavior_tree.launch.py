@@ -32,6 +32,11 @@ def generate_launch_description():
         "config",
         "Task.yaml",
     )
+    default_chase_config_file = os.path.join(
+        behavior_tree_share,
+        "config",
+        "Chase.yaml",
+    )
     default_navi_rotate_config_file = os.path.join(
         behavior_tree_share,
         "config",
@@ -59,6 +64,7 @@ def generate_launch_description():
     bt_tree_file = LaunchConfiguration("bt_tree_file")
     area_manager_config_file = LaunchConfiguration("area_manager_config_file")
     task_config_file = LaunchConfiguration("task_config_file")
+    chase_config_file = LaunchConfiguration("chase_config_file")
     navi_rotate_config_file = LaunchConfiguration("navi_rotate_config_file")
     point_manager_config_file = LaunchConfiguration("point_manager_config_file")
     patrol_config_file = LaunchConfiguration("patrol_config_file")
@@ -101,6 +107,11 @@ def generate_launch_description():
             "task_config_file",
             default_value=default_task_config_file,
             description="Task YAML for Buff/Outpost enable switches.",
+        ),
+        DeclareLaunchArgument(
+            "chase_config_file",
+            default_value=default_chase_config_file,
+            description="Regional Chase ownership YAML for behavior_tree.",
         ),
         DeclareLaunchArgument(
             "navi_rotate_config_file",
@@ -166,6 +177,7 @@ def generate_launch_description():
         LogInfo(msg=["[behavior_tree] bt_tree_file: ", bt_tree_file]),
         LogInfo(msg=["[behavior_tree] area_manager_config_file: ", area_manager_config_file]),
         LogInfo(msg=["[behavior_tree] task_config_file: ", task_config_file]),
+        LogInfo(msg=["[behavior_tree] chase_config_file: ", chase_config_file]),
         LogInfo(msg=["[behavior_tree] navi_rotate_config_file: ", navi_rotate_config_file]),
         LogInfo(msg=["[behavior_tree] point_manager_config_file: ", point_manager_config_file]),
         LogInfo(msg=["[behavior_tree] patrol_config_file: ", patrol_config_file]),
@@ -188,6 +200,7 @@ def generate_launch_description():
             parameters=[
                 area_manager_config_file,
                 task_config_file,
+                chase_config_file,
                 navi_rotate_config_file,
                 point_manager_config_file,
                 patrol_config_file,

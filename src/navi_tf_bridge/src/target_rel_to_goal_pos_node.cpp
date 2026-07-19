@@ -361,8 +361,11 @@ private:
         names.push_back(std::string(side) + "_base");
       } else if (token == "highland" || token == "high_land" || token == "high") {
         names.push_back(std::string(side) + "_highland");
-      } else if (token == "roadland" || token == "road_land" || token == "road") {
-        names.push_back(std::string(side) + "_roadland");
+      } else if (token == "pre_roadland" || token == "preroadland") {
+        names.push_back(std::string(side) + "_pre_roadland");
+      } else if (token == "ready_roadland" || token == "readyroadland" ||
+                 token == "roadland" || token == "road_land" || token == "road") {
+        names.push_back(std::string(side) + "_ready_roadland");
       }
     }
   }
@@ -490,11 +493,13 @@ private:
     const std::vector<std::pair<std::string, std::string>> expected_areas{
       {"RedMainAreaBasePoints", "red_base"},
       {"RedMainAreaHighlandPoints", "red_highland"},
-      {"RedMainAreaRoadlandPoints", "red_roadland"},
+      {"RedPreRoadlandPoints", "red_pre_roadland"},
+      {"RedMainAreaReadyRoadlandPoints", "red_ready_roadland"},
       {"CommonMainAreaCentralPoints", "common_central"},
       {"BlueMainAreaBasePoints", "blue_base"},
       {"BlueMainAreaHighlandPoints", "blue_highland"},
-      {"BlueMainAreaRoadlandPoints", "blue_roadland"},
+      {"BluePreRoadlandPoints", "blue_pre_roadland"},
+      {"BlueMainAreaReadyRoadlandPoints", "blue_ready_roadland"},
     };
 
     const std::regex vector_pattern(

@@ -3,6 +3,7 @@
 // Keep behavior and interface changes synchronized with related modules.
 
 #include "../include/Application.hpp"
+#include "../include/ChasePolicy.hpp"
 #include "../include/OutpostOpeningHold.hpp"
 
 #include <array>
@@ -164,12 +165,14 @@ namespace BehaviorTree {
         const std::vector<Area::Point<int>>* Boundary;
     };
 
-    std::array<MainAreaBoundaryView, 7> MainAreaBoundaries() {
+    std::array<MainAreaBoundaryView, 9> MainAreaBoundaries() {
         return {{
             {"red_base", UnitTeam::Red, Area::MainAreaKind::Base,
              &Area::MainAreaBoundary(UnitTeam::Red, Area::MainAreaKind::Base)},
             {"red_highland", UnitTeam::Red, Area::MainAreaKind::Highland,
              &Area::MainAreaBoundary(UnitTeam::Red, Area::MainAreaKind::Highland)},
+            {"red_pre_roadland", UnitTeam::Red, Area::MainAreaKind::PreRoadland,
+             &Area::MainAreaBoundary(UnitTeam::Red, Area::MainAreaKind::PreRoadland)},
             {"red_ready_roadland", UnitTeam::Red, Area::MainAreaKind::ReadyRoadland,
              &Area::MainAreaBoundary(UnitTeam::Red, Area::MainAreaKind::ReadyRoadland)},
             {"common_central", UnitTeam::Unknown, Area::MainAreaKind::Central,
@@ -178,6 +181,8 @@ namespace BehaviorTree {
              &Area::MainAreaBoundary(UnitTeam::Blue, Area::MainAreaKind::Base)},
             {"blue_highland", UnitTeam::Blue, Area::MainAreaKind::Highland,
              &Area::MainAreaBoundary(UnitTeam::Blue, Area::MainAreaKind::Highland)},
+            {"blue_pre_roadland", UnitTeam::Blue, Area::MainAreaKind::PreRoadland,
+             &Area::MainAreaBoundary(UnitTeam::Blue, Area::MainAreaKind::PreRoadland)},
             {"blue_ready_roadland", UnitTeam::Blue, Area::MainAreaKind::ReadyRoadland,
              &Area::MainAreaBoundary(UnitTeam::Blue, Area::MainAreaKind::ReadyRoadland)},
         }};
@@ -3520,32 +3525,72 @@ namespace BehaviorTree {
             *maybe_target_unit,
             official_position_fresh_ms,
             now);
-        if (target_position.Fresh) {
-            if (IsOfficialFieldPointValid(target_position.X, target_position.Y)) {
-                const auto target_area = AreaManager::ResolveAreaKeyForPointWithNearest(
-                    my_team,
-                    enemy_team,
-                    target_position.X,
-                    target_position.Y);
-                if (target_area.has_value() &&
-                    !IsAreaKeyAllowedForChaseTarget(
-                        target_area->Key,
-                        config.DecisionAutonomySettings.NaviGoal)) {
-                    if (LoggerPtr &&
-                        now - lastOfficialChaseAreaLimitLogTime_ > std::chrono::seconds(2)) {
-                        LoggerPtr->Info(
-                            "Chase blocked by area scope: target={} pos=({}, {}) side={} area={} nearest={}.",
-                            static_cast<int>(targetArmor.Type),
-                            target_position.X,
-                            target_position.Y,
-                            static_cast<int>(target_area->Key.Side),
-                            Area::MainAreaKindName(target_area->Key.Kind),
-                            target_area->UsedNearestFallback ? 1 : 0);
-                        lastOfficialChaseAreaLimitLogTime_ = now;
-                    }
-                    return false;
-                }
+        std::optional<ResolvedAreaKey> target_area;
+        if (target_position.Fresh &&
+            IsOfficialFieldPointValid(target_position.X, target_position.Y)) {
+            const auto exact_target_area = AreaManager::ResolveAreaKeyForPoint(
+                my_team,
+                enemy_team,
+                target_position.X,
+                target_position.Y);
+            if (exact_target_area.has_value()) {
+                target_area = ResolvedAreaKey{
+                    .Key = *exact_target_area,
+                    .UsedNearestFallback = false};
             }
+        }
+
+        const bool regional_policy_profile =
+            GetStrategyMode() == StrategyMode::Regional && !IsShowcasePatrolEnabled();
+        if (!regional_policy_profile && target_position.Fresh &&
+            IsOfficialFieldPointValid(target_position.X, target_position.Y)) {
+            const auto legacy_target_area = AreaManager::ResolveAreaKeyForPointWithNearest(
+                my_team,
+                enemy_team,
+                target_position.X,
+                target_position.Y);
+            if (legacy_target_area.has_value() &&
+                !IsAreaKeyAllowedForChaseTarget(
+                    legacy_target_area->Key,
+                    config.DecisionAutonomySettings.NaviGoal)) {
+                if (LoggerPtr &&
+                    now - lastOfficialChaseAreaLimitLogTime_ > std::chrono::seconds(2)) {
+                    LoggerPtr->Info(
+                        "Chase blocked by legacy area scope: target={} pos=({}, {}) side={} area={} nearest={}.",
+                        static_cast<int>(targetArmor.Type),
+                        target_position.X,
+                        target_position.Y,
+                        static_cast<int>(legacy_target_area->Key.Side),
+                        Area::MainAreaKindName(legacy_target_area->Key.Kind),
+                        legacy_target_area->UsedNearestFallback ? 1 : 0);
+                    lastOfficialChaseAreaLimitLogTime_ = now;
+                }
+                return false;
+            }
+        }
+        const ChasePolicyResult chase_policy = EvaluateRegionalChasePolicy(
+            config.ChasePolicySettings,
+            ChasePolicyContext{
+                .RegionalProfile = regional_policy_profile,
+                .YieldablePlan =
+                    areaManager_.RegionalAreaTaskActive() &&
+                    areaManager_.RegionalAreaTaskCanYieldToHigherPriority(),
+                .Plan = areaManager_.RegionalAreaTaskActive()
+                    ? std::optional<RegionalAreaTaskRuntime>{areaManager_.RegionalAreaTask()}
+                    : std::nullopt,
+                .TargetPositionFresh = target_position.Fresh,
+                .TargetArea = target_area});
+        if (!chase_policy.Allowed) {
+            if (LoggerPtr && now - lastOfficialChaseAreaLimitLogTime_ > std::chrono::seconds(2)) {
+                LoggerPtr->Info(
+                    "ChasePolicy blocked target={} reason={} position_fresh={} target_area_resolved={}.",
+                    static_cast<int>(targetArmor.Type),
+                    ChasePolicyReasonToString(chase_policy.Reason),
+                    target_position.Fresh ? 1 : 0,
+                    target_area.has_value() ? 1 : 0);
+                lastOfficialChaseAreaLimitLogTime_ = now;
+            }
+            return false;
         }
         const bool external_aim_active = config.ExternalAimSettings.Enable;
         if (external_aim_active &&

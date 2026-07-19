@@ -51,6 +51,29 @@ TEST(ChasePolicyTest, AllowsFreshExactTargetInEnabledPlannedArea) {
     EXPECT_TRUE(result.Allowed);
 }
 
+TEST(ChasePolicyTest, MapsEveryDefaultRegionalTaskToItsPlannedArea) {
+    const auto expect_area = [](const RegionalAreaTaskType type,
+                                const AreaSide side,
+                                const MainAreaKind kind,
+                                const UnitTeam team) {
+        RegionalAreaTaskRuntime task;
+        task.Active = true;
+        task.Type = type;
+        task.OwnerTeam = UnitTeam::Red;
+        const auto area = BehaviorTree::PlannedAreaKeyForChase(task);
+        ASSERT_TRUE(area.has_value());
+        EXPECT_EQ(area->Side, side);
+        EXPECT_EQ(area->Kind, kind);
+        EXPECT_EQ(area->Team, team);
+    };
+
+    expect_area(RegionalAreaTaskType::MyBase, AreaSide::My, MainAreaKind::Base, UnitTeam::Red);
+    expect_area(RegionalAreaTaskType::MyHighland, AreaSide::My, MainAreaKind::Highland, UnitTeam::Red);
+    expect_area(RegionalAreaTaskType::MyPreRoadland, AreaSide::My, MainAreaKind::PreRoadland, UnitTeam::Red);
+    expect_area(RegionalAreaTaskType::MyReadyRoadland, AreaSide::My, MainAreaKind::ReadyRoadland, UnitTeam::Red);
+    expect_area(RegionalAreaTaskType::CommonCentral, AreaSide::Common, MainAreaKind::Central, UnitTeam::Unknown);
+}
+
 TEST(ChasePolicyTest, RejectsTargetInAnotherEnabledArea) {
     auto context = SameHighlandContext();
     context.TargetArea = ResolvedAreaKey{
