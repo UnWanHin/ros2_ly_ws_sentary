@@ -378,12 +378,16 @@ else:
         errors.append("debug_node.launch.py does not load debug_config_file into the bridge")
 
 if not velocity_bridge.is_file():
-    errors.append("debug velocity bridge is missing")
+    errors.append("debug control bridge is missing")
 else:
     bridge_text = velocity_bridge.read_text(encoding="utf-8")
-    for token in ("/ly/navi/vel", "/ly/navi/should_rotate", "/ly/control/vel", "/ly/control/firecode", "ControlVelocity", "FireCode", "FIELD_FOLLOW_MODE", "FIELD_ROTATE", "use_raw = True", "stale_timeout_ms"):
+    for token in ("/ly/navi/vel", "/ly/navi/should_rotate", "/ly/aim/result", "/ly/control/vel", "/ly/control/angles", "/ly/control/firecode", "ControlVelocity", "FireCode", "AimResult", "FIELD_ALL", "navi_mode", "aim_mode", "use_raw = True", "stale_timeout_ms", "debug_control_state"):
         if token not in bridge_text:
-            errors.append(f"debug velocity bridge missing source token: {token}")
+            errors.append(f"debug control bridge missing source token: {token}")
+
+debug_control_state = root / "src/gimbal_driver/scripts/debug_control_state.py"
+if not debug_control_state.is_file():
+    errors.append("debug control state module is missing")
 
 if not driver_cmake.is_file():
     errors.append("gimbal_driver CMakeLists.txt is missing")

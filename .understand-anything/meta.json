@@ -1,10 +1,10 @@
 {
-  "lastAnalyzedAt": "2026-07-19T06:20:00+00:00",
-  "gitCommitHash": "10aa6a7",
-  "workingTreeStatus": "clean except for the user-owned docs/rules lock file after the graph artifact commit",
-  "lastCheckedNote": "Fallback graph source-checked against behavior_tree runtime commit 10aa6a7. Regional ChasePolicy authorizes Tactical chase only for a fresh official enemy coordinate exactly inside the active yieldable Default task AreaKey and enabled Chase.yaml area; denial retains the Default goal and does not alter aim/fire. League and Showcase retain legacy scope behavior. target_rel_to_goal_pos_node now parses all 9 current main-area boundaries. behavior_tree and navi_tf_bridge rebuilt; 62 current behavior_tree tests passed; bridge startup confirmed 9 parsed boundaries.",
+  "lastAnalyzedAt": "2026-07-19T06:48:32+00:00",
+  "gitCommitHash": "cab76c9",
+  "workingTreeStatus": "runtime source checked at cab76c9; pending graph/document artifact commit and the user-owned docs/rules lock file remain untracked",
+  "lastCheckedNote": "Fallback graph source-checked against gimbal_driver runtime commit cab76c9. debug_node keeps one 100 Hz control bridge: navi_mode owns velocity/FollowMode/Rotate, aim_mode consumes formal AimResult for angles/AimMode/single fire toggle, and patrol is only a no-fresh-aim Patrol.yaml fallback. gimbal_driver built; 6 existing C++ protocol tests and 6 new debug-control state tests passed; debug launch print confirmed no behavior_tree process.",
   "version": "1.0.0",
   "analyzedFiles": 554,
   "generator": "local-understand-anything-compatible-fallback",
-  "graphShape": {"nodes": 92, "edges": 119, "layers": 6}
+  "graphShape": {"nodes": 95, "edges": 126, "layers": 6}
 }

@@ -1,6 +1,6 @@
 # gimbal_driver — 雲台驅動節點
 
-Updated: 2026-07-18
+Updated: 2026-07-19
 
 ## 概述
 
@@ -24,7 +24,8 @@ gimbal_driver/
 │   ├── debug_node.launch.py     # 單節點 debug profile 入口
 │   └── gimbal_driver.launch     # ROS 2 XML 兼容入口
 ├── scripts/
-│   └── navi_vel_to_control_vel.py # debug /ly/navi/vel -> /ly/control/vel bridge
+│   ├── debug_control_state.py      # debug control 的純狀態/FireCode 合併規則
+│   └── navi_vel_to_control_vel.py  # debug navigation/aim -> formal control bridge
 ├── config/
 │   ├── gimbal_driver_config.yaml # 串口/下位機正式基線
 │   └── debug_mode.yaml           # 單節點 driver debug overlay
@@ -62,7 +63,7 @@ ros2 launch gimbal_driver gimbal_driver.launch.py
 ros2 launch gimbal_driver gimbal_driver.launch.py use_virtual_device:=true
 ```
 
-單節點 debug（導航 profile）：
+單節點 debug：
 
 ```bash
 ros2 launch gimbal_driver debug_node.launch.py
@@ -85,28 +86,37 @@ ros2 launch gimbal_driver debug_node.launch.py use_virtual_device:=true
 launch/CLI 覆蓋；root YAML 不會傳入其他節點。單獨啟動 `gimbal_driver.launch.py` 預設只讀
 module baseline。`main.cpp` 對導航 debug 的預設值為關閉，因此正式基線刻意不宣告任何 navigation debug key。
 
-### 導航 Control Bridge 調試
+### 單節點 Control Bridge 調試
 
 `debug_node.launch.py` 的 `debug_mode.yaml` 是 bridge-owned profile；driver 不啟用
 `io_config.navigation_mode`，維持正式 `/ly/control/* -> gimbal_driver` subscriber 邊界。
 
 | Key | 作用 |
 |---|---|
+| `navi_mode` | true 時訂閱 `/ly/navi/vel` 與 `/ly/navi/should_rotate`，以正式 `/ly/control/vel`、FireCode 的 FollowMode/Rotate 欄位下發。 |
+| `aim_mode` | true 時訂閱正式 `/ly/aim/result`；有效結果下發 `/ly/control/angles`、AimMode 與 fire toggle。 |
 | `rotate_level` | bridge 預設 Rotate 檔位，範圍 0..3；`should_rotate=true` 時寫入 `/ly/control/firecode.rotate`。 |
 | `follow_mode_when_false` | true 時，`should_rotate=false` 寫入 `/ly/control/firecode.follow_mode=true`，同時 Rotate=0。 |
-| `stale_timeout_ms` | `/ly/navi/vel` 超過此時間沒有更新時，bridge 以零速度發布 `/ly/control/vel`。 |
-| `publish_hz` | bridge 同時發布 `/ly/control/vel` 與 partial `/ly/control/firecode` 的頻率；預設 100 Hz。 |
+| `stale_timeout_ms` | `/ly/navi/vel` 超過此時間沒有更新時持續下發零速度；有效 aim 超過此時間後不再接管角度/開火。 |
+| `publish_hz` | bridge 的正式 control 輸出頻率；預設 100 Hz。 |
+| `patrol` | true 時，沒有新鮮有效 aim 才使用 canonical `Patrol.yaml` 的目前 `PatrolScan.Mode` 下發雲台掃描角度。 |
 
-`config/debug_mode.yaml` 是預設的單節點 bridge profile。`debug_node.launch.py` 以 100 Hz
-將 `/ly/navi/vel` 轉為正式 `/ly/control/vel`（500 ms 未更新即持續發零速度），並將
-`/ly/navi/should_rotate` 轉為 partial `/ly/control/firecode`（Rotate/FollowMode）。所以
-Velocity 與 FireCode 最終都由 driver 的正式 subscriber 寫入同一個 `GimbalControlFrame`。
+`config/debug_mode.yaml` 是預設的單節點 bridge profile。bridge 是 debug 期間唯一的
+`/ly/control/vel`、`/ly/control/angles`、`/ly/control/firecode` publisher；每 100 Hz 以完整
+`FIELD_ALL` FireCode snapshot 合併導航持有的 FollowMode/Rotate、aim 持有的 AimMode/FireStatus，
+並從 `/ly/gimbal/firecode` 保留 FireStatus/CapState 回授。`/ly/aim/result.follow` 僅表示 aim
+結果有效，絕不直接寫成 FireCode FollowMode；FollowMode 仍只由 `should_rotate` 決定。
+`fire=true` 每筆新鮮有效 aim 結果只翻轉一次 FireStatus。
+
+`navi_mode=false` 時 bridge 不訂閱導航輸入、不發速度；`aim_mode=false` 時不訂閱 aim；`patrol=true`
+只在沒有新鮮有效 aim 時接管角度。沒有 aim、patrol=false 時保留 `/ly/gimbal/angles` 回授角度。
 請用 `debug_node.launch.py` 載入，它的順序固定為：
 正式 baseline → `debug_config_file`（預設 `debug_mode.yaml`）→ 明確 CLI 覆蓋。
 
 `debug_node.launch.py` 啟動 `gimbal_driver` 與內建 control bridge。bridge 是此 debug profile
-唯一的 `/ly/control/vel` 與 `/ly/control/firecode` publisher，driver 沿用正式 control subscriber
-組包；它不得與正在發布正式 `/ly/control/*` 的 BT 同時使用。之後若有其他 driver 單節點調試 profile，可用
+唯一的 `/ly/control/vel`、`/ly/control/angles` 與 `/ly/control/firecode` publisher，driver 沿用正式
+control subscriber 組包；它不得與正在發布正式 `/ly/control/*` 的 BT 同時使用。此入口不選目標、
+不處理姿態、FaceMode 或導航任務，也不取代獨立 `/ly/control/trajectory -> 0x05` MPC 下發。之後若有其他 driver 單節點調試 profile，可用
 `debug_config_file:=<profile.yaml>` 載入，無需改動正式入口。
 
 相容舊啟動腳本時，`sentry_all` 仍接受 `base_config_file:=...` 與 `config_file:=...`：其中僅

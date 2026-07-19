@@ -38,8 +38,8 @@ Updated: 2026-07-18
 
 | Topic | Type | Publisher | Subscriber | 结构/语义 |
 |---|---|---|---|---|
-| `/ly/control/angles` | `gimbal_driver/msg/GimbalAngles` | `behavior_tree` 或 FaceMode | `gimbal_driver` | `header`, `yaw`, `pitch`，云台目标角。 |
-| `/ly/control/firecode` | `gimbal_driver/msg/FireCode` | `behavior_tree`；debug_node 的 `navi_vel_to_control_vel` bridge | `gimbal_driver` | `field_mask`, `fire_status`, `cap_state`, `follow_mode`, `aim_mode`, `rotate`, `raw`。debug bridge 只写 `FIELD_FOLLOW_MODE|FIELD_ROTATE`，两者不能并行运行。 |
+| `/ly/control/angles` | `gimbal_driver/msg/GimbalAngles` | `behavior_tree`；debug_node 的 `navi_vel_to_control_vel` bridge | `gimbal_driver` | `header`, `yaw`, `pitch`，云台目标角。debug `aim_mode=true` 时转发有效 `/ly/aim/result`；无新鲜 aim 且 `patrol=true` 时使用 Patrol.yaml。两者不能并行运行。 |
+| `/ly/control/firecode` | `gimbal_driver/msg/FireCode` | `behavior_tree`；debug_node 的 `navi_vel_to_control_vel` bridge | `gimbal_driver` | `field_mask`, `fire_status`, `cap_state`, `follow_mode`, `aim_mode`, `rotate`, `raw`。debug bridge 每 100 Hz 写完整 `FIELD_ALL` snapshot：`should_rotate` 管 FollowMode/Rotate，AimResult 管 AimMode/fire toggle，并保留下位机 FireStatus/CapState 回读；两者不能并行运行。 |
 | `/ly/control/vel` | `gimbal_driver/msg/ControlVelocity` | `behavior_tree`；debug_node 的 `navi_vel_to_control_vel` bridge | `gimbal_driver` | `x_mps`, `y_mps`, `raw_x`, `raw_y`, `use_raw`。当前 BT 与 debug bridge 都用 `use_raw=true`；两者不能并行运行。 |
 | `/ly/control/posture` | `gimbal_driver/msg/SentryCmd` | `behavior_tree` | `gimbal_driver` | 姿态专用入口，只读 `FIELD_POSTURE/posture`，写入独立 `DownlinkTypeID=0x01` 的 `SentryCmd bit21-23`；可取 `1~6`。 |
 | `/ly/control/sentry_cmd` | `gimbal_driver/msg/SentryCmd` | 手动工具/后续策略 | `gimbal_driver` | 完整哨兵裁判命令入口，发独立 `DownlinkTypeID=0x01`，用于复活、兑弹、远程回血、能量机关确认等。 |
@@ -68,7 +68,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 |---|---|---|---|
 | `/ly/gimbal/angles` | `gimbal_driver/msg/GimbalAngles` | `behavior_tree`, FaceMode | 当前云台角 `yaw/pitch`。 |
 | `/ly/gimbal/state` | `gimbal_driver/msg/GimbalState` | 外部 `sentry.aim` MPC | 本仓定义；`header.stamp` 是 driver 发布时刻，TypeID 0 的 yaw/pitch 与 TypeID 11 实际动态反馈组合；TypeID 11 超时后仅动态字段清零。 |
-| `/ly/gimbal/firecode` | `gimbal_driver/msg/FireCode` | `behavior_tree` | 下位机回读火控状态，`field_mask=FIELD_ALL`。 |
+| `/ly/gimbal/firecode` | `gimbal_driver/msg/FireCode` | `gimbal_driver` -> `behavior_tree`；debug_node bridge | 下位机回读火控状态，`field_mask=FIELD_ALL`；debug bridge 以它保留 FireStatus/CapState 后再输出完整 control snapshot。 |
 | `/ly/gimbal/vel` | `gimbal_driver/msg/Vel` | 调试/兼容 | `header`, `x`, `y`。 |
 | `/ly/gimbal/chassis` | `gimbal_driver/msg/Chassis` | `behavior_tree` | `steer_angle`, `angular_velocity`, `velocity_x`, `velocity_y`。 |
 | `/ly/gimbal/big_yaw_angles` | `std_msgs/msg/Float32` | 调试/可视化 | 大 yaw 角。 |
@@ -119,7 +119,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/bt/target` | `std_msgs/msg/UInt8` | `behavior_tree` -> debug/observer | 当前 BT 选择的目标类型；正式选目标同时发布 `/ly/aim/select_target`。 |
 | `/ly/aim/armor_targets` | `sentry_msgs/msg/AimTargetArray` | external aim -> `behavior_tree` | 外部辅瞄输出的可打目标列表；数组元素是 `AimTarget.msg`，BT 用它生成 `hitableTargets`、目標距離和 Chase 相對 point。 |
 | `/ly/aim/select_target` | `sentry_msgs/msg/AimTarget` | `behavior_tree` -> external aim | BT 选择的目标 `id`，`header.stamp` 为当前发布时间，`position` 尽量填最近一次 `/ly/aim/armor_targets` 中同 id 的位置。 |
-| `/ly/aim/result` | `sentry_msgs/msg/AimResult` | external aim -> `behavior_tree` | 外部辅瞄 `follow`、最终 yaw/pitch 和 `fire` 门控；`follow=true` 时 BT 接管角度并转发 `/ly/control/angles`，`fire=true` 时翻转 `/ly/control/firecode`。 |
+| `/ly/aim/result` | `sentry_msgs/msg/AimResult` | external aim -> `behavior_tree`；`debug_node` 的 bridge（`aim_mode=true`） | 外部辅瞄 `follow`、最终 yaw/pitch 和 `fire` 门控；`follow=true` 是结果有效性而不是 FireCode FollowMode。正式 BT 或 standalone bridge 接管角度，`fire=true` 时翻转 `/ly/control/firecode`。 |
 | `/ly/face_mode/target_raw` | `std_msgs/msg/UInt16MultiArray` | `behavior_tree` -> FaceMode solver | `[official_map_x, official_map_y, map_z]`，x/y 为官方地图 cm，z 为 map 系高度。 |
 | `/ly/face_mode/angles` | `gimbal_driver/msg/GimbalAngles` | FaceMode solver -> `behavior_tree` | 固定点朝向解算出的 yaw/pitch。正式 `sentry_all` 默认由 `map_aim_point_node` 用 TF 相对几何输出，BT 在 FaceMode 激活时转发到 `/ly/control/angles`。 |
 
@@ -140,10 +140,10 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/navi/reached` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree` | 外部导航到达源；true=导航端确认到达，false=导航端尚未确认到达。BT 内部最终 reached 还要结合自身融合坐标距离和保护逻辑。 |
 | `/ly/navi/reachable` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree` | 当前目标是否有有效路径；true=可达，false=不可达。 |
 | `/ly/navi/reach_state` | `auto_aim_common/msg/GoalReach` | `behavior_tree` -> diagnostics/consumers | BT 内部 composite goal reach state；包含 status、reason、goal id/坐标、external reached/reachable freshness、融合自身坐标距离、grace 和 timeout。 |
-| `/ly/navi/should_rotate` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree`；debug_node bridge | 区域兼容旋转控制；true=恢复 BT 正常小陀螺/巡逻，false=关闭小陀螺并请求 `FollowMode`。`NaviRotateControl.SetPostureToMoveWhenFalse=true` 时，新鲜 false 也只在 BT 本拍请求 Move 姿态，仍经既有姿态冷却/pending 机制。debug_node bridge 以 100 Hz 转为 `/ly/control/firecode` 的 Rotate/FollowMode partial command。 |
+| `/ly/navi/should_rotate` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree`；debug_node bridge（`navi_mode=true`） | 区域兼容旋转控制；true=恢复 BT 正常小陀螺/巡逻，false=关闭小陀螺并请求 `FollowMode`。`NaviRotateControl.SetPostureToMoveWhenFalse=true` 时，新鲜 false 也只在 BT 本拍请求 Move 姿态，仍经既有姿态冷却/pending 机制。debug bridge 以 100 Hz 合并到完整 `/ly/control/firecode` snapshot。 |
 | `/ly/navi/speed_level` | `std_msgs/msg/UInt8` | `behavior_tree` -> navigation/兼容 | 导航速度档位。 |
 | `/ly/navi/lower_head` | `std_msgs/msg/UInt8` | navigation/兼容 -> `behavior_tree` | 低头/通过特定路径时的兼容状态。 |
-| `/ly/navi/vel` | `gimbal_driver/msg/Vel` | 导航/兼容/调试 | 正式链路由 BT 接收后转 `/ly/control/vel`。推荐单节点调试入口 `ros2 launch gimbal_driver debug_node.launch.py` 以 100 Hz `navi_vel_to_control_vel` bridge 转发 velocity 到 `/ly/control/vel`、转 `should_rotate` 到 `/ly/control/firecode`，500 ms stale 时发零；driver 保持 formal subscriber。driver 仍保留 `io_config.navigation_test=true` 与 `vel_chain=true` 作为旧脚本／明确自订 overlay 兼容入口。正式 `sentry_all` 不会从 root YAML 路由这些导航直连键。 |
+| `/ly/navi/vel` | `gimbal_driver/msg/Vel` | 导航/兼容/调试 | 正式链路由 BT 接收后转 `/ly/control/vel`。单节点调试入口 `ros2 launch gimbal_driver debug_node.launch.py` 在 `navi_mode=true` 时以 100 Hz 转发 velocity 到 `/ly/control/vel`，500 ms stale 时发零；同一 bridge 可选 `aim_mode=true` 和 patrol fallback，driver 保持 formal subscriber。driver 仍保留 `io_config.navigation_test=true` 与 `vel_chain=true` 作为旧脚本／明确自订 overlay 兼容入口。正式 `sentry_all` 不会从 root YAML 路由这些导航直连键。 |
 
 追击多源退化顺序：`Chase.ToNavi=true` 时，BT 优先使用 `/ly/aim/armor_targets` 里当前选中目标的 point 发布 `/ly/navi/target_rel`，消息携带来源 frame（默认 `gimbal_world`），由 `navi_tf_bridge` 转成 `/goal_pose`。bridge 也会直接订阅 `/ly/aim/armor_targets`，把 array 中每个有效 target point 反算成 `/ly/navi/target_official`；BT 仅在对应敌方没有新鲜非零 `/ly/position/data` 时把它写回 `enemyRobots` 和 `/ly/enemy/info`。`Chase.AreaLimit` 来自 BT JSON：`/ly/aim/armor_targets` 追击路径由 `navi_tf_bridge` 限制 `/goal_pose`，全量 `/ly/navi/target_official` 只作为敌方位置 fallback，不直接发布导航目标；官方坐标 fallback 追击路径由 BT 在发布 `/ly/navi/goal_pos_raw` 前限制目标点。`ChaseEnableCrossArea=false` 时限制在自身当前大区域边界内侧；`true` 时可追到 `DecisionAutonomy.NaviGoal` 已开启的大区域，未开启区域仍不允许。该限制不关闭云台跟踪/开火。只有 `/ly/aim/armor_targets` 追击点不可用时，才退化到 `/ly/position/data` 官方坐标源。两条追击链路不会在同一 tick 同时作为有效导航目标发布。
 

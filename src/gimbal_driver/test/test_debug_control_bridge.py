@@ -67,3 +67,29 @@ def test_stale_aim_never_fires_and_releases_angles_for_patrol():
     assert snapshot.aim_mode is False
     assert snapshot.fire_toggle is False
     assert snapshot.angles is None
+
+
+def test_invalid_aim_never_controls_angles_or_fire():
+    state = make_state()
+    state.update_aim(
+        follow=False,
+        fire=True,
+        yaw=float("nan"),
+        pitch=4.0,
+        received_ns=0,
+    )
+
+    snapshot = state.snapshot(10, navi_mode=False, aim_mode=True)
+
+    assert snapshot.aim_mode is False
+    assert snapshot.fire_toggle is False
+    assert snapshot.angles is None
+
+
+def test_stale_navigation_publishes_zero_velocity():
+    state = make_state()
+    state.update_navigation(40, -10, 0)
+
+    snapshot = state.snapshot(500_000_001, navi_mode=True, aim_mode=False)
+
+    assert snapshot.velocity == (0, 0)
