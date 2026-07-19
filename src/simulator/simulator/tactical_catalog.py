@@ -34,6 +34,19 @@ class VisualTokens:
 
 
 @dataclass(frozen=True)
+class PositionDataProjection:
+    """The formal relative-side car-ID encoding used by /ly/position/data."""
+
+    friend_car_id_offset: int
+    enemy_car_id_offset: int
+
+    def car_id_for_side(self, base_car_id: int, side: str) -> int:
+        relative_side = _relative_side(side, "position data side")
+        offset = self.friend_car_id_offset if relative_side == "friend" else self.enemy_car_id_offset
+        return base_car_id + offset
+
+
+@dataclass(frozen=True)
 class UnitArchetype:
     key: str
     label: str
@@ -44,6 +57,14 @@ class UnitArchetype:
     position_car_id: int | None
     project_to_ros: bool
     decision_consumed: bool
+
+    @property
+    def health_published(self) -> bool:
+        return self.project_to_ros and self.health_field is not None
+
+    @property
+    def position_published(self) -> bool:
+        return self.project_to_ros and self.position_car_id is not None
 
 
 @dataclass(frozen=True)
@@ -89,6 +110,7 @@ class SceneCatalog:
     schema: str
     field: FieldSpec
     visual: VisualTokens
+    position_data: PositionDataProjection
     units: tuple[UnitArchetype, ...]
     structures: tuple[StructureArchetype, ...]
     goals: tuple[GoalMarker, ...]
@@ -118,6 +140,9 @@ class SceneCatalog:
 
         field_spec = _parse_field(_mapping(root.get("field"), "catalog field"))
         visual = _parse_visual(_mapping(root.get("visual"), "catalog visual"))
+        position_data = _parse_position_data_projection(
+            _mapping(root.get("ros_projection"), "catalog ros_projection")
+        )
         units = _parse_units(_items(root.get("units"), "catalog units"))
         structures = _parse_structures(_items(root.get("structures"), "catalog structures"), field_spec)
         goals = _parse_goals(_items(root.get("goals"), "catalog goals"), field_spec)
@@ -126,6 +151,7 @@ class SceneCatalog:
             schema=schema,
             field=field_spec,
             visual=visual,
+            position_data=position_data,
             units=units,
             structures=structures,
             goals=goals,
@@ -140,6 +166,13 @@ class SceneCatalog:
 
     def structure_by_key(self, key: str) -> StructureArchetype:
         return _lookup(self._structures_by_key, _canonical_key(key, "structure key"), "structure")
+
+    def position_car_id_for_side(self, unit_key: str, side: str) -> int | None:
+        unit = self.unit_by_key(unit_key)
+        if not unit.position_published:
+            return None
+        assert unit.position_car_id is not None
+        return self.position_data.car_id_for_side(unit.position_car_id, side)
 
     def goal_by_id(self, goal_id: int) -> GoalMarker:
         if isinstance(goal_id, bool) or not isinstance(goal_id, int):
@@ -186,6 +219,26 @@ def _parse_visual(raw: Mapping[str, Any]) -> VisualTokens:
         health_bar_height_px=_positive_int(raw.get("health_bar_height_px"), "catalog visual health_bar_height_px"),
         label_rule=_required_text(raw, "label_rule", "catalog visual"),
         team_colors=MappingProxyType(team_colors),
+    )
+
+
+def _parse_position_data_projection(raw: Mapping[str, Any]) -> PositionDataProjection:
+    position_data = _mapping(raw.get("position_data"), "catalog ros_projection position_data")
+    friend_offset = _nonnegative_int(
+        position_data.get("friend_car_id_offset"),
+        "catalog ros_projection position_data friend_car_id_offset",
+    )
+    enemy_offset = _nonnegative_int(
+        position_data.get("enemy_car_id_offset"),
+        "catalog ros_projection position_data enemy_car_id_offset",
+    )
+    if friend_offset != 0:
+        raise ValueError("catalog ros_projection position_data friend_car_id_offset must be 0")
+    if enemy_offset != 100:
+        raise ValueError("catalog ros_projection position_data enemy_car_id_offset must be 100")
+    return PositionDataProjection(
+        friend_car_id_offset=friend_offset,
+        enemy_car_id_offset=enemy_offset,
     )
 
 

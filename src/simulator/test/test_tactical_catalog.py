@@ -33,6 +33,12 @@ def valid_catalog_payload() -> dict:
             "label_rule": "compact_role",
             "team_colors": {"red": "#e85d5d", "blue": "#5d8ee8"},
         },
+        "ros_projection": {
+            "position_data": {
+                "friend_car_id_offset": 0,
+                "enemy_car_id_offset": 100,
+            }
+        },
         "units": [
             {
                 "key": "hero",
@@ -53,7 +59,7 @@ def valid_catalog_payload() -> dict:
                 "max_hp": 150,
                 "health_field": None,
                 "position_car_id": 6,
-                "project_to_ros": False,
+                "project_to_ros": True,
                 "decision_consumed": False,
             },
         ],
@@ -107,7 +113,7 @@ def test_catalog_has_single_formal_mapping_per_projectable_unit(tmp_path: Path) 
     assert catalog.field.frame == "left_bottom_origin_cm"
     assert catalog.unit_by_key("hero").health_field == "hero"
     assert catalog.unit_by_key("hero").position_car_id == 1
-    assert catalog.unit_by_key("drone").project_to_ros is False
+    assert catalog.unit_by_key("drone").project_to_ros is True
     assert [unit.key for unit in catalog.units] == [
         "hero",
         "engineer",
@@ -117,6 +123,17 @@ def test_catalog_has_single_formal_mapping_per_projectable_unit(tmp_path: Path) 
         "drone",
         "sentry",
     ]
+
+
+def test_catalog_preserves_drone_position_projection_without_health_or_bt_consumption() -> None:
+    catalog = SceneCatalog.load(default_catalog_path())
+    drone = catalog.unit_by_key("drone")
+
+    assert drone.health_published is False
+    assert drone.position_published is True
+    assert drone.decision_consumed is False
+    assert catalog.position_car_id_for_side("drone", "friend") == 6
+    assert catalog.position_car_id_for_side("drone", "enemy") == 106
 
 
 def test_catalog_captures_existing_structure_and_goal_positions() -> None:
@@ -147,6 +164,14 @@ def test_catalog_models_are_immutable() -> None:
 def test_catalog_rejects_duplicate_formal_position_ids(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="position_car_id"):
         SceneCatalog.from_mapping(duplicate_position_catalog())
+
+
+def test_catalog_rejects_wrong_position_data_enemy_offset() -> None:
+    raw = valid_catalog_payload()
+    raw["ros_projection"]["position_data"]["enemy_car_id_offset"] = 99
+
+    with pytest.raises(ValueError, match="enemy_car_id_offset"):
+        SceneCatalog.from_mapping(raw)
 
 
 @pytest.mark.parametrize(

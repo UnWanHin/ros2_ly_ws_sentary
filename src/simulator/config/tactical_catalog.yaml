@@ -16,9 +16,17 @@ visual:
     red: "#e85d5d"
     blue: "#5d8ee8"
 
+ros_projection:
+  # PositionData carries relative IDs: friend uses the base car ID and enemy
+  # uses the same base car ID plus 100. Consumers must call the catalog
+  # resolver instead of recreating this protocol rule.
+  position_data:
+    friend_car_id_offset: 0
+    enemy_car_id_offset: 100
+
 # Each archetype maps one semantic robot class to the existing formal Health
-# and PositionData conventions. Drone remains available as a visual piece but
-# is intentionally not projected into the behavior-tree input set.
+# and PositionData conventions. Drone publishes PositionData but has neither a
+# Health field nor a behavior-tree decision consumer.
 units:
   - key: hero
     label: Hero
@@ -72,7 +80,7 @@ units:
     max_hp: 150
     health_field: null
     position_car_id: 6
-    project_to_ros: false
+    project_to_ros: true
     decision_consumed: false
   - key: sentry
     label: Sentry
