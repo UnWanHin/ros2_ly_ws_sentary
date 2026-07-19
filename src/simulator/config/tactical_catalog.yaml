@@ -1,0 +1,165 @@
+schema: ly_simulator_tactical_catalog_v1
+
+field:
+  width_cm: 2800
+  height_cm: 1500
+  frame: left_bottom_origin_cm
+
+visual:
+  asset_manifest: assets/manifest.yaml
+  unit_scale_px: 42
+  trace_unit_scale_px: 34
+  drag_unit_scale_px: 46
+  health_bar_height_px: 5
+  label_rule: compact_role
+  team_colors:
+    red: "#e85d5d"
+    blue: "#5d8ee8"
+
+# Each archetype maps one semantic robot class to the existing formal Health
+# and PositionData conventions. Drone remains available as a visual piece but
+# is intentionally not projected into the behavior-tree input set.
+units:
+  - key: hero
+    label: Hero
+    asset_key: Hero
+    default_hp: 200
+    max_hp: 200
+    health_field: hero
+    position_car_id: 1
+    project_to_ros: true
+    decision_consumed: true
+  - key: engineer
+    label: Engineer
+    asset_key: Engineer
+    default_hp: 250
+    max_hp: 250
+    health_field: engineer
+    position_car_id: 2
+    project_to_ros: true
+    decision_consumed: true
+  - key: infantry1
+    label: Infantry1
+    asset_key: Infantry1
+    default_hp: 200
+    max_hp: 200
+    health_field: infantry1
+    position_car_id: 3
+    project_to_ros: true
+    decision_consumed: true
+  - key: infantry2
+    label: Infantry2
+    asset_key: Infantry2
+    default_hp: 200
+    max_hp: 200
+    health_field: infantry2
+    position_car_id: 4
+    project_to_ros: true
+    decision_consumed: true
+  - key: infantry3
+    label: Infantry3
+    asset_key: Infantry3
+    default_hp: 200
+    max_hp: 200
+    health_field: reserve
+    position_car_id: 5
+    project_to_ros: true
+    decision_consumed: false
+  - key: drone
+    label: Drone
+    asset_key: Drone
+    default_hp: 150
+    max_hp: 150
+    health_field: null
+    position_car_id: 6
+    project_to_ros: false
+    decision_consumed: false
+  - key: sentry
+    label: Sentry
+    asset_key: Sentry
+    default_hp: 400
+    max_hp: 400
+    health_field: sentry
+    position_car_id: 7
+    project_to_ros: true
+    decision_consumed: true
+
+# Positions are physical field-side positions. A scene resolves friend/enemy
+# through the selected team rather than duplicating red and blue structure IDs.
+structures:
+  - key: friend_outpost
+    label: Friend Outpost
+    side: friend
+    kind: outpost
+    default_hp: 60
+    max_hp: 60
+    step: 10
+    health_topic: /ly/friend/op_hp
+    positions_cm:
+      red: [1090, 370]
+      blue: [1707, 1141]
+  - key: enemy_outpost
+    label: Enemy Outpost
+    side: enemy
+    kind: outpost
+    default_hp: 60
+    max_hp: 60
+    step: 10
+    health_topic: /ly/enemy/op_hp
+    positions_cm:
+      red: [1090, 370]
+      blue: [1707, 1141]
+  - key: friend_base
+    label: Friend Base
+    side: friend
+    kind: base
+    default_hp: 5000
+    max_hp: 5000
+    step: 500
+    health_topic: /ly/friend/base_hp
+    positions_cm:
+      red: [245, 750]
+      blue: [2555, 750]
+  - key: enemy_base
+    label: Enemy Base
+    side: enemy
+    kind: base
+    default_hp: 5000
+    max_hp: 5000
+    step: 500
+    health_topic: /ly/enemy/base_hp
+    positions_cm:
+      red: [245, 750]
+      blue: [2555, 750]
+
+# Goal IDs and field coordinates intentionally match the maintained simulator
+# default configuration and therefore the current behavior-tree trace labels.
+goals:
+  - {id: 0, key: home, label: Home, category: home, marker_style: home, positions_cm: {red: [393, 810], blue: [2408, 683]}}
+  - {id: 1, key: base, label: Base, category: base, marker_style: objective, positions_cm: {red: [245, 750], blue: [2555, 750]}}
+  - {id: 2, key: recovery, label: Recovery, category: recovery, marker_style: recovery, positions_cm: {red: [183, 245], blue: [2619, 1249]}}
+  - {id: 3, key: buff_shoot, label: BuffShoot, category: buff, marker_style: tactical, positions_cm: {red: [924, 1388], blue: [1872, 115]}}
+  - {id: 4, key: left_high_land, label: LeftHighLand, category: highland, marker_style: tactical, positions_cm: {red: [406, 1332], blue: [2392, 187]}}
+  - {id: 5, key: castle_left_1, label: CastleLeft1, category: castle, marker_style: tactical, positions_cm: {red: [510, 964], blue: [2290, 536]}}
+  - {id: 6, key: castle, label: Castle, category: castle, marker_style: tactical, positions_cm: {red: [666, 749], blue: [2132, 749]}}
+  - {id: 7, key: castle_right_1, label: CastleRight1, category: castle, marker_style: tactical, positions_cm: {red: [505, 497], blue: [2293, 1014]}}
+  - {id: 8, key: castle_right_2, label: CastleRight2, category: castle, marker_style: tactical, positions_cm: {red: [831, 509], blue: [1971, 985]}}
+  - {id: 9, key: fly_road, label: FlyRoad, category: road, marker_style: tactical, positions_cm: {red: [868, 80], blue: [1929, 1402]}}
+  - {id: 10, key: outpost_area, label: OutpostArea, category: outpost, marker_style: objective, positions_cm: {red: [1138, 431], blue: [1635, 1079]}}
+  - {id: 11, key: mid_shoot, label: MidShoot, category: central, marker_style: tactical, positions_cm: {red: [1075, 898], blue: [1702, 609]}}
+  - {id: 12, key: left_shoot, label: LeftShoot, category: central, marker_style: tactical, positions_cm: {red: [1165, 1063], blue: [1644, 476]}}
+  - {id: 13, key: outpost_shoot, label: OutpostShoot, category: outpost, marker_style: tactical, positions_cm: {red: [1393, 1047], blue: [1434, 497]}}
+  - {id: 14, key: buff_around_1, label: BuffAround1, category: buff, marker_style: tactical, positions_cm: {red: [1372, 952], blue: [1459, 530]}}
+  - {id: 15, key: buff_around_2, label: BuffAround2, category: buff, marker_style: tactical, positions_cm: {red: [1203, 770], blue: [1591, 753]}}
+  - {id: 16, key: right_shoot, label: RightShoot, category: central, marker_style: tactical, positions_cm: {red: [1240, 559], blue: [1549, 923]}}
+  - {id: 17, key: hole_road, label: HoleRoad, category: road, marker_style: tactical, positions_cm: {red: [1074, 1249], blue: [1677, 204]}}
+  - {id: 18, key: occupy_area, label: OccupyArea, category: central, marker_style: objective, positions_cm: {red: [1075, 898], blue: [1702, 609]}}
+  - {id: 19, key: highland, label: Highland, category: highland, marker_style: objective, positions_cm: {red: [744, 1263], blue: [2056, 237]}}
+  - {id: 20, key: castle_left_2, label: CastleLeft2, category: castle, marker_style: tactical, positions_cm: {red: [831, 960], blue: [1969, 540]}}
+  - {id: 21, key: base_to_central, label: BaseToCentral, category: route, marker_style: route, positions_cm: {red: [1125, 155], blue: [1675, 1345]}}
+  - {id: 22, key: central_to_base, label: CentralToBase, category: route, marker_style: route, positions_cm: {red: [515, 100], blue: [2285, 1400]}}
+  - {id: 23, key: buff_outpost, label: BuffOutpost, category: outpost, marker_style: tactical, positions_cm: {red: [1100, 1130], blue: [1700, 370]}}
+  - {id: 24, key: outpost_guard, label: OutpostGuard, category: outpost, marker_style: objective, positions_cm: {red: [969, 368], blue: [1831, 1132]}}
+  - {id: 25, key: pre_roadland, label: PreRoadland, category: patrol, marker_style: route, positions_cm: {red: [457, 72], blue: [2343, 1428]}}
+  - {id: 26, key: central_left_a, label: CentralLeft.A, category: central, marker_style: route, positions_cm: {red: [1205, 1260], blue: [1595, 240]}}
+  - {id: 27, key: central_left_b, label: CentralLeft.B, category: central, marker_style: route, positions_cm: {red: [1026, 1006], blue: [1774, 494]}}
