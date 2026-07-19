@@ -21,9 +21,10 @@ TARGET_FRAME="${TARGET_FRAME:-official_map}"
 USE_RAW_GOAL_STATIC_CALIBRATION="${USE_RAW_GOAL_STATIC_CALIBRATION:-true}"
 RAW_GOAL_TARGET_FRAME="${RAW_GOAL_TARGET_FRAME:-map}"
 
-# 默认按 gx_camera 投影误差解 yaw/pitch；solve_frame 只用于日志和 base_link 绝对角 fallback。
+# 默认按长焦 gx_camera_0 投影误差解 yaw/pitch；不可用时回退短焦 gx_camera_1。
 AIM_FRAME="${AIM_FRAME:-gimbal_world}"
-CAMERA_FRAME="${CAMERA_FRAME:-gx_camera}"
+CAMERA_FRAME="${CAMERA_FRAME:-gx_camera_0}"
+CAMERA_FALLBACK_FRAME="${CAMERA_FALLBACK_FRAME:-gx_camera_1}"
 SOLVE_MODE="${SOLVE_MODE:-camera_projection}"
 SOLVE_FRAME="${SOLVE_FRAME:-base_link}"
 USE_GIMBAL="${USE_GIMBAL:-true}"
@@ -94,6 +95,7 @@ Other defaults:
   USE_RAW_GOAL_STATIC_CALIBRATION=${USE_RAW_GOAL_STATIC_CALIBRATION}
   RAW_GOAL_TARGET_FRAME=${RAW_GOAL_TARGET_FRAME}
   CAMERA_FRAME=${CAMERA_FRAME}
+  CAMERA_FALLBACK_FRAME=${CAMERA_FALLBACK_FRAME}
   SOLVE_MODE=${SOLVE_MODE}
   SOLVE_FRAME=${SOLVE_FRAME}
   USE_MOCK_MAP_TO_BASE=${USE_MOCK_MAP_TO_BASE}
@@ -326,6 +328,9 @@ if ! has_launch_arg_key "aim_frame"; then
 fi
 if ! has_launch_arg_key "camera_frame"; then
   LAUNCH_ARGS=("camera_frame:=${CAMERA_FRAME}" "${LAUNCH_ARGS[@]}")
+fi
+if ! has_launch_arg_key "camera_fallback_frame"; then
+  LAUNCH_ARGS=("camera_fallback_frame:=${CAMERA_FALLBACK_FRAME}" "${LAUNCH_ARGS[@]}")
 fi
 if ! has_launch_arg_key "solve_mode"; then
   LAUNCH_ARGS=("solve_mode:=${SOLVE_MODE}" "${LAUNCH_ARGS[@]}")

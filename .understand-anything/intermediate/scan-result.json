@@ -25,6 +25,7 @@
     {"path":"src/gimbal_driver/main.cpp","language":"cpp","sizeLines":0,"fileCategory":"code"},
     {"path":"src/gimbal_driver/module/BasicTypes.hpp","language":"cpp","sizeLines":0,"fileCategory":"code"},
     {"path":"src/navi_tf_bridge/package.xml","language":"xml","sizeLines":0,"fileCategory":"manifest"},
+    {"path":"src/navi_tf_bridge/test/test_camera_frame_fallback_contract.py","language":"python","sizeLines":0,"fileCategory":"code"},
     {"path":"src/navi_tf_bridge/src/target_rel_to_goal_pos_node.cpp","language":"cpp","sizeLines":0,"fileCategory":"code"},
     {"path":"src/navi_tf_bridge/src/map_path_to_game_path_node.cpp","language":"cpp","sizeLines":0,"fileCategory":"code"},
     {"path":"src/simulator/package.xml","language":"xml","sizeLines":0,"fileCategory":"manifest"},
@@ -36,12 +37,12 @@
     {"path":"docs/record/2026-07-12_remove_internal_vision_calibration_packages.md","language":"markdown","sizeLines":0,"fileCategory":"docs"},
     {"path":"scripts/understand_graph_dashboard.py","language":"python","sizeLines":0,"fileCategory":"script"}
   ],
-  "totalFiles": 554,
+  "totalFiles": 555,
   "filteredByIgnore": 0,
   "estimatedComplexity": "large",
   "stats": {
-    "filesScanned": 554,
-    "byCategory": {"docs":110,"config":68,"script":67,"code":179,"schema":40,"data":90},
-    "byLanguage": {"markdown":110,"yaml":22,"shell":67,"python":88,"cpp":91,"ros_msg":40,"xml":7,"json":36,"unknown":93}
+    "filesScanned": 555,
+    "byCategory": {"docs":110,"config":68,"script":67,"code":180,"schema":40,"data":90},
+    "byLanguage": {"markdown":110,"yaml":22,"shell":67,"python":89,"cpp":91,"ros_msg":40,"xml":7,"json":36,"unknown":93}
   }
 }

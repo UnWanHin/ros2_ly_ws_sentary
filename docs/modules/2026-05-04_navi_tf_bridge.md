@@ -89,7 +89,12 @@ FaceMode 默认：
 - `yaw_sign=-1.0`
 - `solve_mode=camera_projection`
 - `aim_frame=gimbal_world`
-- `camera_frame=gx_camera`
+- `camera_frame=gx_camera_0`
+- `camera_fallback_frame=gx_camera_1`
+  - `camera_projection` 會先完整嘗試長焦 `gx_camera_0`；TF、距離檢查或投影解算失敗時才改用
+    `gx_camera_1`。`/ly/gimbal/facemode.camera_frame` 會回報實際成功 frame，detail 會標記 fallback。
+  - 顯式 `camera_frame:=...`、`camera_fallback_frame:=...` 仍可覆寫；`relative_geometry` 與
+    `base_link` solve mode 不使用相機 fallback。
 
 正式 `sentry_all` 中的 BT FaceMode solver 使用 `solve_mode=relative_geometry`、`solve_frame=gimbal_barrel_joint`、`yaw_sign=1.0`，即按 TF 相对几何直接算朝向，不依赖相机投影看到目标。
 
@@ -118,5 +123,5 @@ FaceMode 默认：
 - 单独调试区域任务 FaceMode 时，运行 `scripts/navi/facemode.sh --bt-output ...`，避免和 BT 同时抢 `/ly/control/angles`。
 - 区域任务需要切换固定朝向点时，由 BT 发布 `/ly/face_mode/target_raw`；格式为 `[official_map_x, official_map_y, map_z]` cm。
 - `/ly/navi/position` 依赖 raw-goal static calibration；如果 `tf_config.yaml` 的 4x4 没准备好，节点不会发布这个补充位置。BT 会把 `data[0:2]` 作为 `AreaManager.SentryPositionFusion` 的 Navi 源；`map_point` 只提供 map 系原始位置给调试或新订阅者。
-- FaceMode 默认 `yaw_sign=-1.0`；`camera_projection` 下目标在 `gx_camera` 后方时会用几何 yaw/pitch fallback 先转向正面，再继续投影微调。
+- FaceMode 默认 `yaw_sign=-1.0`；`camera_projection` 下目标在实际选中的 camera frame 后方时会用几何 yaw/pitch fallback 先转向正面，再继续投影微调。
 - 详细变更记录见 [navi_tf_bridge / FaceMode / scripts 入口整理记录](../record/2026-05-03_navi_tf_bridge_facemode_and_script_layout.md)。

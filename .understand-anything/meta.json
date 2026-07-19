@@ -1,10 +1,10 @@
 {
-  "lastAnalyzedAt": "2026-07-19T07:02:45+00:00",
-  "gitCommitHash": "5ed6977",
-  "workingTreeStatus": "runtime source checked at 5ed6977; pending graph/document artifact commit and the user-owned docs/rules lock file remain untracked",
-  "lastCheckedNote": "Fallback graph source-checked against gimbal_driver runtime commit 5ed6977. debug_node keeps one 100 Hz debug.py bridge: navi_mode owns velocity/FollowMode/Rotate, aim_mode consumes formal AimResult for angles/AimMode/single fire toggle, and patrol is only a no-fresh-aim Patrol.yaml fallback. gimbal_driver built; 6 existing C++ protocol tests and 6 debug-control state tests passed; ros2 pkg executables exposes debug.py only, and debug launch print confirmed no behavior_tree process.",
+  "lastAnalyzedAt": "2026-07-19T07:52:47+00:00",
+  "gitCommitHash": "1243faf",
+  "workingTreeStatus": "camera-frame runtime source checked after 1243faf; navi_tf_bridge/behavior_tree and graph/document changes are pending commit, and the user-owned docs/rules lock file remains untracked",
+  "lastCheckedNote": "Fallback graph source-checked against current FaceMode source: camera_projection tries external sentry.aim long-focus gx_camera_0 first and gx_camera_1 only after TF, distance, or projection failure; FaceModeStatus reports the successful frame. relative_geometry does not use the camera fallback. The navi_tf_bridge/behavior_tree symlink build, CTest camera-frame contract, and static selfcheck (109 PASS, 0 WARN, 0 FAIL) passed; live external TF was unavailable for isolated dynamic fallback validation.",
   "version": "1.0.0",
-  "analyzedFiles": 554,
+  "analyzedFiles": 555,
   "generator": "local-understand-anything-compatible-fallback",
   "graphShape": {"nodes": 95, "edges": 126, "layers": 6}
 }

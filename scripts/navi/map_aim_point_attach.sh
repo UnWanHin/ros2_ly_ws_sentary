@@ -19,7 +19,8 @@ BRIDGE_CONFIG_FILE="${BRIDGE_CONFIG_FILE:-${ROOT_DIR}/src/navi_tf_bridge/config/
 
 # Use the frames/topics already published by the running stack.
 AIM_FRAME="${AIM_FRAME:-gimbal_world}"
-CAMERA_FRAME="${CAMERA_FRAME:-gx_camera}"
+CAMERA_FRAME="${CAMERA_FRAME:-gx_camera_0}"
+CAMERA_FALLBACK_FRAME="${CAMERA_FALLBACK_FRAME:-gx_camera_1}"
 SOLVE_MODE="${SOLVE_MODE:-camera_projection}"
 SOLVE_FRAME="${SOLVE_FRAME:-base_link}"
 GIMBAL_ANGLES_TOPIC="${GIMBAL_ANGLES_TOPIC:-/ly/gimbal/angles}"
@@ -79,6 +80,7 @@ Current defaults:
   RAW_GOAL_TARGET_FRAME=${RAW_GOAL_TARGET_FRAME}
   AIM_FRAME=${AIM_FRAME}
   CAMERA_FRAME=${CAMERA_FRAME}
+  CAMERA_FALLBACK_FRAME=${CAMERA_FALLBACK_FRAME}
   SOLVE_MODE=${SOLVE_MODE}
   SOLVE_FRAME=${SOLVE_FRAME}
   GIMBAL_ANGLES_TOPIC=${GIMBAL_ANGLES_TOPIC}
@@ -228,6 +230,7 @@ ROS_ARGS=(
   -p "target_frame:=${TARGET_FRAME}"
   -p "aim_frame:=${AIM_FRAME}"
   -p "camera_frame:=${CAMERA_FRAME}"
+  -p "camera_fallback_frame:=${CAMERA_FALLBACK_FRAME}"
   -p "solve_mode:=${SOLVE_MODE}"
   -p "solve_frame:=${SOLVE_FRAME}"
   -p "gimbal_angles_topic:=${GIMBAL_ANGLES_TOPIC}"

@@ -128,4 +128,11 @@ install(DIRECTORY config
   DESTINATION share/${PROJECT_NAME}
 )
 
+if(BUILD_TESTING)
+  find_package(ament_cmake_pytest REQUIRED)
+  ament_add_pytest_test(camera_frame_fallback_contract
+    test/test_camera_frame_fallback_contract.py
+  )
+endif()
+
 ament_package()

@@ -102,7 +102,9 @@ public:
     }
     target_frame_ = this->declare_parameter<std::string>("target_frame", "official_map");
     aim_frame_ = this->declare_parameter<std::string>("aim_frame", "gimbal_world");
-    camera_frame_ = this->declare_parameter<std::string>("camera_frame", "gx_camera");
+    camera_frame_ = this->declare_parameter<std::string>("camera_frame", "gx_camera_0");
+    camera_fallback_frame_ = this->declare_parameter<std::string>(
+      "camera_fallback_frame", "gx_camera_1");
     solve_mode_ = this->declare_parameter<std::string>("solve_mode", "camera_projection");
     solve_frame_ = this->declare_parameter<std::string>("solve_frame", "base_link");
 
@@ -183,7 +185,7 @@ public:
       this->get_logger(),
       "FaceMode started: initial_target=%s raw_target=(%.3f, %.3f, %.3f)m@%s "
       "active_target=(%.3f, %.3f, %.3f)m@%s "
-      "solve_mode=%s solve_frame=%s aim_frame=%s camera_frame=%s -> %s, status=%s, gimbal=%s, firecode=%s, "
+      "solve_mode=%s solve_frame=%s aim_frame=%s camera_frame=%s fallback=%s -> %s, status=%s, gimbal=%s, firecode=%s, "
       "use_gimbal_stamp_for_tf=%s, command_filter_alpha=%.2f, manual_target=%s",
       has_active_target_ ? "ready" : "waiting_for_face_target_raw",
       official_map_x_m_,
@@ -198,6 +200,7 @@ public:
       solve_frame_.c_str(),
       aim_frame_.c_str(),
       camera_frame_.c_str(),
+      camera_fallback_frame_.c_str(),
       control_topic.c_str(),
       status_topic.c_str(),
       gimbal_topic.c_str(),
@@ -492,6 +495,7 @@ private:
     double pitch_deg{0.0};
     geometry_msgs::msg::Point target{};
     std::string detail{};
+    std::string camera_frame{};
   };
 
   std::optional<SolvedCommand> solveBaseLinkAngles(
@@ -577,15 +581,17 @@ private:
     return SolvedCommand{yaw_cmd_deg, pitch_cmd_deg, *target, detail.str()};
   }
 
-  std::optional<SolvedCommand> solveCameraProjectionAngles(
+  std::optional<SolvedCommand> solveCameraProjectionAnglesForFrame(
+    const std::string & camera_frame,
     const rclcpp::Time & lookup_time,
     const double current_yaw_deg,
     const double current_pitch_deg)
   {
     const auto target_camera = lookupTargetInFrame(
-      camera_frame_,
+      camera_frame,
       lookup_time,
-      "; frame '" + camera_frame_ + "' is absent. Start sentry_tf and make sure gimbal_barrel -> gx_camera is published");
+      "; frame '" + camera_frame + "' is absent. Start sentry_tf and make sure gimbal_barrel -> " +
+      camera_frame + " is published");
     if (!target_camera) {
       return std::nullopt;
     }
@@ -596,20 +602,20 @@ private:
     const double distance = std::sqrt(cx * cx + cy * cy + cz * cz);
     if (distance < min_distance_m_) {
       warnThrottled(
-        "target too close in " + camera_frame_ + ": (" + std::to_string(cx) + ", " +
+        "target too close in " + camera_frame + ": (" + std::to_string(cx) + ", " +
         std::to_string(cy) + ", " + std::to_string(cz) + ")m");
       return std::nullopt;
     }
     if (max_target_distance_m_ > 0.0 && distance > max_target_distance_m_) {
       warnThrottled(
-        "target distance in " + camera_frame_ + " is unreasonable (" +
+        "target distance in " + camera_frame + " is unreasonable (" +
         std::to_string(distance) + "m); skip map aim command. Check odom/localization TF.");
       return std::nullopt;
     }
     const bool target_behind_camera = cz <= 0.0;
     if (target_behind_camera) {
       warnThrottled(
-        "target is behind " + camera_frame_ + ": (" + std::to_string(cx) + ", " +
+        "target is behind " + camera_frame + ": (" + std::to_string(cx) + ", " +
         std::to_string(cy) + ", " + std::to_string(cz) +
         ")m; use geometric yaw/pitch fallback to turn it into camera front");
     }
@@ -631,13 +637,38 @@ private:
 
     std::ostringstream detail;
     detail << "target_in_" << solve_frame_ << "=(" << target_solve->x << "," << target_solve->y
-           << "," << target_solve->z << ")m target_in_" << camera_frame_ << "=(" << cx << ","
+           << "," << target_solve->z << ")m target_in_" << camera_frame << "=(" << cx << ","
            << cy << "," << cz << ")m err_yaw=" << yaw_error_deg
            << " err_pitch=" << pitch_error_deg;
     if (target_behind_camera) {
       detail << " behind_fallback=geometric";
     }
-    return SolvedCommand{yaw_cmd_deg, pitch_cmd_deg, *target_camera, detail.str()};
+    return SolvedCommand{yaw_cmd_deg, pitch_cmd_deg, *target_camera, detail.str(), camera_frame};
+  }
+
+  std::optional<SolvedCommand> solveCameraProjectionAngles(
+    const rclcpp::Time & lookup_time,
+    const double current_yaw_deg,
+    const double current_pitch_deg)
+  {
+    if (const auto primary = solveCameraProjectionAnglesForFrame(
+        camera_frame_, lookup_time, current_yaw_deg, current_pitch_deg))
+    {
+      return primary;
+    }
+    if (camera_fallback_frame_.empty() || camera_fallback_frame_ == camera_frame_) {
+      return std::nullopt;
+    }
+
+    warnThrottled(
+      "FaceMode camera fallback: primary '" + camera_frame_ + "' unavailable; try '" +
+      camera_fallback_frame_ + "'");
+    auto fallback = solveCameraProjectionAnglesForFrame(
+      camera_fallback_frame_, lookup_time, current_yaw_deg, current_pitch_deg);
+    if (fallback) {
+      fallback->detail += " camera_fallback_from=" + camera_frame_;
+    }
+    return fallback;
   }
 
   void publishStatus(
@@ -669,9 +700,11 @@ private:
       raw_goal_static_calibration_ready_ && raw_goal_solver_.ready();
     msg.manual_target = manual_target_enable_;
 
+    const std::string & status_camera_frame =
+      solved != nullptr && !solved->camera_frame.empty() ? solved->camera_frame : camera_frame_;
     msg.tf_target_to_solve_frame = canTransformTargetToFrame(solve_frame_, lookup_time);
     msg.tf_target_to_aim_frame = canTransformTargetToFrame(aim_frame_, lookup_time);
-    msg.tf_target_to_camera_frame = canTransformTargetToFrame(camera_frame_, lookup_time);
+    msg.tf_target_to_camera_frame = canTransformTargetToFrame(status_camera_frame, lookup_time);
     msg.tf_target_to_gimbal_barrel_joint =
       canTransformTargetToFrame("gimbal_barrel_joint", lookup_time);
     msg.tf_target_to_gimbal_barrel =
@@ -697,7 +730,7 @@ private:
     msg.solve_mode = solve_mode_;
     msg.solve_frame = solve_frame_;
     msg.aim_frame = aim_frame_;
-    msg.camera_frame = camera_frame_;
+    msg.camera_frame = status_camera_frame;
     if (current_angles_) {
       msg.current_yaw = current_angles_->yaw;
       msg.current_pitch = current_angles_->pitch;
@@ -835,6 +868,7 @@ private:
   bool raw_goal_static_calibration_ready_{false};
   std::string aim_frame_;
   std::string camera_frame_;
+  std::string camera_fallback_frame_;
   std::string solve_mode_;
   std::string solve_frame_;
 

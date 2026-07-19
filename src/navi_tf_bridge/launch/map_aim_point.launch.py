@@ -29,6 +29,7 @@ def generate_launch_description():
     raw_goal_target_frame = LaunchConfiguration("raw_goal_target_frame")
     aim_frame = LaunchConfiguration("aim_frame")
     camera_frame = LaunchConfiguration("camera_frame")
+    camera_fallback_frame = LaunchConfiguration("camera_fallback_frame")
     solve_mode = LaunchConfiguration("solve_mode")
     solve_frame = LaunchConfiguration("solve_frame")
     output = LaunchConfiguration("output")
@@ -42,7 +43,8 @@ def generate_launch_description():
         DeclareLaunchArgument("require_initial_target", default_value="true"),
         DeclareLaunchArgument("target_frame", default_value="official_map"),
         DeclareLaunchArgument("aim_frame", default_value="gimbal_world"),
-        DeclareLaunchArgument("camera_frame", default_value="gx_camera"),
+        DeclareLaunchArgument("camera_frame", default_value="gx_camera_0"),
+        DeclareLaunchArgument("camera_fallback_frame", default_value="gx_camera_1"),
         DeclareLaunchArgument("solve_mode", default_value="camera_projection"),
         DeclareLaunchArgument("solve_frame", default_value="base_link"),
         DeclareLaunchArgument("gimbal_angles_topic", default_value="/ly/gimbal/angles"),
@@ -103,6 +105,8 @@ def generate_launch_description():
             aim_frame,
             " camera_frame=",
             camera_frame,
+            " camera_fallback_frame=",
+            camera_fallback_frame,
             " solve_mode=",
             solve_mode,
             " solve_frame=",
@@ -181,6 +185,8 @@ def generate_launch_description():
                 "target_frame": ParameterValue(target_frame, value_type=str),
                 "aim_frame": ParameterValue(aim_frame, value_type=str),
                 "camera_frame": ParameterValue(camera_frame, value_type=str),
+                "camera_fallback_frame": ParameterValue(
+                    camera_fallback_frame, value_type=str),
                 "solve_mode": ParameterValue(solve_mode, value_type=str),
                 "solve_frame": ParameterValue(solve_frame, value_type=str),
                 "gimbal_angles_topic": ParameterValue(

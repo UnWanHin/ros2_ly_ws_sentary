@@ -63,10 +63,16 @@ gimbal_small_yaw -> usb_camera
 `gimbal_world`，因為 `navi_tf_bridge/config/tf_config.yaml` 的
 `target_rel_default_frame` 已是 `gimbal_world`。
 
-仍有一個明確的 frame mismatch：`map_aim_point_node` 的預設 `camera_frame` 是
-`gx_camera`，但 aim TF 配置只發布 `gx_camera_0` 和 `gx_camera_1`。使用 camera / camera_projection
-FaceMode 時會找不到預設 `gx_camera`；只有 map / `gimbal_world` 流程不受此差異影響。這必須在
-後續整合工作中由明確選定的 camera index 與 launch/config 契約解決，不能靠舊 TF overlay 掩蓋。
+本倉已在本次審計後把 FaceMode camera projection 的預設改為長焦 `gx_camera_0`，並以
+`camera_fallback_frame=gx_camera_1` 作短焦 fallback。每次解算先嘗試 0；缺 TF、距離非法或投影
+解算失敗時才嘗試 1，status/detail 會回報實際成功的 frame。這消除了舊 `gx_camera` 名稱缺口；
+`relative_geometry` 與 `gimbal_world` 流程沒有改動。
+
+本倉驗收已完成 `navi_tf_bridge` / `behavior_tree` symlink build、`navi_tf_bridge` CTest 的
+camera-frame contract 與 static selfcheck（109 PASS／0 WARN／0 FAIL）。共享 ROS domain 已有既存
+`gx_camera_0` TF，無法在此環境構造「0 缺失、1 存在」的隔離動態測試；車上驗收仍需以獨立 domain
+確認 fallback 時 `FaceModeStatus.camera_frame=gx_camera_1` 且 detail 含
+`camera_fallback_from=gx_camera_0`。
 
 遠端檢查當刻沒有 ROS node、`/tf`、`/tf_static` 或 `/ly/gimbal/angles` publisher，所以無法驗收
 動態 yaw/pitch 更新、實際 TF timestamp 與 `tf2_echo` 連通性。本記錄只能確認 source 與靜態
