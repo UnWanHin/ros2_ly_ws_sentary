@@ -174,6 +174,24 @@ class SceneCatalog:
         assert unit.position_car_id is not None
         return self.position_data.car_id_for_side(unit.position_car_id, side)
 
+    def unit_by_position_car_id(self, car_id: int, side: str) -> UnitArchetype:
+        """Resolve a formal PositionData car ID without callers rebuilding offsets."""
+
+        if isinstance(car_id, bool) or not isinstance(car_id, int):
+            raise KeyError(f"unknown position car id: {car_id!r}")
+        relative_side = _relative_side(side, "position data side")
+        for unit in self.units:
+            if self.position_car_id_for_side(unit.key, relative_side) == car_id:
+                return unit
+        raise KeyError(f"unknown position car id: {car_id!r} for {relative_side}")
+
+    def health_topic_for_side(self, side: str) -> str:
+        return f"/ly/{_relative_side(side, 'health side')}/hp"
+
+    @property
+    def position_data_topic(self) -> str:
+        return "/ly/position/data"
+
     def goal_by_id(self, goal_id: int) -> GoalMarker:
         if isinstance(goal_id, bool) or not isinstance(goal_id, int):
             raise KeyError(f"unknown goal id: {goal_id!r}")

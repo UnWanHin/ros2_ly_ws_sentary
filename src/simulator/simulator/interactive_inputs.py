@@ -8,8 +8,8 @@ from typing import Any
 
 from .control_bus import command_name
 from .field import FieldGeometry, relative_side_to_field_side
-from .scene import SceneCommand, SceneState
-from .tactical_catalog import SceneCatalog, StructureArchetype, UnitArchetype, default_catalog_path
+from .scene import SceneCommand, SceneState, normalize_scene_command
+from .tactical_catalog import SceneCatalog, UnitArchetype, default_catalog_path
 
 
 PointCm = tuple[float, float]
@@ -90,12 +90,23 @@ def default_scene_catalog() -> SceneCatalog:
     return SceneCatalog.load(default_catalog_path())
 
 
-def _unit_for_type_id(type_id: int, catalog: SceneCatalog | None = None) -> UnitArchetype | None:
+def _unit_for_type_id(
+    type_id: int,
+    catalog: SceneCatalog | None = None,
+    side: str | None = None,
+) -> UnitArchetype | None:
     active_catalog = catalog or default_scene_catalog()
-    normalized = int(type_id) % 100
+    normalized = int(type_id)
     for unit in active_catalog.units:
         if unit.position_car_id == normalized:
             return unit
+    resolved_side = normalize_side(side)
+    candidate_sides = (resolved_side,) if resolved_side is not None else ("friend", "enemy")
+    for candidate_side in candidate_sides:
+        try:
+            return active_catalog.unit_by_position_car_id(normalized, candidate_side)
+        except KeyError:
+            continue
     return None
 
 
@@ -120,7 +131,7 @@ def unit_type_id(payload: dict[str, Any], catalog: SceneCatalog | None = None) -
             type_id = int(raw_type_id)
         except (TypeError, ValueError):
             type_id = 0
-        unit = _unit_for_type_id(type_id, catalog)
+        unit = _unit_for_type_id(type_id, catalog, normalize_side(payload.get("side")))
         if unit is not None:
             return int(unit.position_car_id or 0)
     unit = _unit_for_name(payload.get("type", payload.get("unit", payload.get("name", ""))), catalog)
@@ -139,7 +150,8 @@ def default_unit_name(type_id: int, catalog: SceneCatalog | None = None) -> str:
 
 def unit_decision_channels(side: str, type_id: int) -> dict[str, Any]:
     normalized_side = normalize_side(side) or str(side).strip().lower()
-    unit = _unit_for_type_id(type_id)
+    catalog = default_scene_catalog()
+    unit = _unit_for_type_id(type_id, catalog, normalized_side)
     if unit is None:
         return {
             "health_topic": "",
@@ -157,11 +169,11 @@ def unit_decision_channels(side: str, type_id: int) -> dict[str, Any]:
     health_consumed = unit.decision_consumed and unit.health_published
     position_consumed = unit.decision_consumed and unit.position_published
     return {
-        "health_topic": f"/ly/{normalized_side}/hp" if unit.health_published else "",
+        "health_topic": catalog.health_topic_for_side(normalized_side) if unit.health_published else "",
         "health_field": unit.health_field,
         "health_published": unit.health_published,
         "health_consumed_by_bt": health_consumed,
-        "position_topic": "/ly/position/data" if unit.position_published else "",
+        "position_topic": catalog.position_data_topic if unit.position_published else "",
         "position_data_published": unit.position_published,
         "position_consumed_by_bt": position_consumed,
         "unit_info_emitted_by_bt": unit.decision_consumed,
@@ -347,16 +359,17 @@ class UnitState(UnitSpec):
 class PositionDataRow:
     side: str
     type_id: int
+    formal_car_id: int
     raw_x: int
     raw_y: int
 
     @property
     def friend_car_id(self) -> int:
-        return self.type_id if self.side == "friend" else 0
+        return self.formal_car_id if self.side == "friend" else 0
 
     @property
     def enemy_car_id(self) -> int:
-        return 100 + self.type_id if self.side == "enemy" else 0
+        return self.formal_car_id if self.side == "enemy" else 0
 
 
 def _structure_specs(catalog: SceneCatalog) -> list[StructureSpec]:
@@ -605,16 +618,19 @@ class SimulatorInputState:
         projection = self.scene.project_ros_inputs()
         rows: list[PositionDataRow] = []
         for side in ("friend", "enemy"):
-            offset = (
-                self.catalog.position_data.friend_car_id_offset
-                if side == "friend"
-                else self.catalog.position_data.enemy_car_id_offset
-            )
             for car_id, point in projection.positions[side].items():
+                try:
+                    archetype = self.catalog.unit_by_position_car_id(car_id, side)
+                except KeyError:
+                    continue
+                formal_car_id = self.catalog.position_car_id_for_side(archetype.key, side)
+                if archetype.position_car_id is None or formal_car_id != car_id:
+                    continue
                 rows.append(
                     PositionDataRow(
                         side=side,
-                        type_id=int(car_id - offset),
+                        type_id=int(archetype.position_car_id),
+                        formal_car_id=int(formal_car_id),
                         raw_x=int(point[0]),
                         raw_y=int(point[1]),
                     )
@@ -718,6 +734,11 @@ class SimulatorInputState:
         }
 
     def _legacy_scene_command(self, command: str, body: dict[str, Any]) -> SceneCommand | None:
+        if command == "place_unit":
+            try:
+                return normalize_scene_command({"command": command, **body}, self.catalog)
+            except ValueError:
+                return None
         if command == "clear_units":
             return SceneCommand.clear_units()
         if command in {"set_structure_health", "set_structure_hp"}:

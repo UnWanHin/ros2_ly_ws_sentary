@@ -228,6 +228,47 @@ def test_control_bus_accepts_and_validates_canonical_place_unit() -> None:
     assert error == "place_unit requires a known side and unit_key"
 
 
+def test_canonical_place_unit_reaches_the_facade_command_path() -> None:
+    command, payload, error = normalize_api_control_payload(
+        {
+            "command": "place_unit",
+            "entity_id": "enemy:hero:manual",
+            "side": "enemy",
+            "unit_key": "hero",
+            "x": 1200,
+            "y": 700,
+            "hp": 123,
+        },
+        default_step_sec=10,
+    )
+    assert error is None
+    assert command is not None
+
+    state = SimulatorInputState.with_defaults(field=FieldGeometry())
+
+    assert state.apply_control_payload({"command": command, **payload})
+    assert "enemy:hero:manual" in state.scene.units
+    assert state.snapshot()["units"][0]["entity_id"] == "enemy:hero:manual"
+
+
+def test_facade_position_rows_keep_catalog_resolved_formal_car_ids() -> None:
+    state = SimulatorInputState.with_defaults(field=FieldGeometry())
+    for side, unit_key, x in (
+        ("friend", "Hero", 100),
+        ("enemy", "Hero", 200),
+        ("friend", "Drone", 300),
+        ("enemy", "Drone", 400),
+    ):
+        assert state.apply_command("set_unit", {"side": side, "type": unit_key, "x": x, "y": 200})
+
+    rows = {(row.side, row.type_id): row for row in state.position_rows()}
+
+    assert rows[("friend", 1)].formal_car_id == 1
+    assert rows[("enemy", 1)].formal_car_id == 101
+    assert rows[("friend", 6)].formal_car_id == 6
+    assert rows[("enemy", 6)].formal_car_id == 106
+
+
 def test_manual_ros_compatibility_facade_rejects_scene_mutations() -> None:
     state = SimulatorInputState(ownership_mode="manual_ros")
 
