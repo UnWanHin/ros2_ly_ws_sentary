@@ -27,10 +27,12 @@ SIMULATOR_INPUT_COMMANDS = {
     "set_unit_hp",
     "remove_unit",
     "clear_units",
+    "place_unit",
 }
 
 SUPPORTED_CONTROL_COMMANDS = MATCH_CONTROL_COMMANDS | SIMULATOR_INPUT_COMMANDS
 SECONDS_COMMANDS = {"rewind", "forward", "set_time_left"}
+CANONICAL_SCENE_COMMANDS = {"place_unit"}
 
 
 def command_name(payload: dict[str, Any]) -> str:
@@ -46,6 +48,14 @@ def normalize_api_control_payload(
         return (None, {}, f"unsupported command: {command}")
 
     payload = {key: value for key, value in data.items() if key not in {"command", "ts"}}
+    if command in CANONICAL_SCENE_COMMANDS:
+        try:
+            from .scene import normalize_scene_command
+            from .tactical_catalog import SceneCatalog, default_catalog_path
+
+            normalize_scene_command({"command": command, **payload}, SceneCatalog.load(default_catalog_path()))
+        except ValueError as exc:
+            return (None, {}, str(exc))
     if command in SECONDS_COMMANDS:
         try:
             payload["seconds"] = float(data.get("seconds", default_step_sec))

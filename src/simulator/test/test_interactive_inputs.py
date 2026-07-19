@@ -63,6 +63,33 @@ def test_unit_commands_feed_health_and_position_rows() -> None:
 
     assert state.apply_command("set_unit_hp", {"side": "enemy", "type_id": 1, "hp": 0})
     assert state.health_fields("enemy", 400)["hero"] == 0
+    assert tuple(state.scene.units) == ("enemy:hero",)
+
+
+def test_legacy_hp_commands_without_a_value_keep_the_current_value() -> None:
+    state = SimulatorInputState.with_defaults(field=FieldGeometry())
+    assert state.apply_command("set_unit", {"side": "enemy", "type": "Hero", "hp": 123, "x": 100, "y": 200})
+    assert state.apply_command("set_unit_hp", {"side": "enemy", "type": "Hero"})
+    assert state.health_fields("enemy", 400)["hero"] == 123
+
+    assert state.apply_command("set_structure_health", {"side": "friend", "structure": "base", "hp": 3000})
+    assert state.apply_command("set_structure_health", {"side": "friend", "structure": "base"})
+    assert state.structure_hp("friend", "base") == 3000
+
+
+def test_legacy_tuple_view_does_not_choose_between_conflicting_scene_instances() -> None:
+    state = SimulatorInputState.with_defaults(field=FieldGeometry())
+    assert state.apply_command(
+        "set_unit",
+        {"entity_id": "enemy:hero:a", "side": "enemy", "type": "Hero", "x": 100, "y": 200},
+    )
+    assert state.apply_command(
+        "set_unit",
+        {"entity_id": "enemy:hero:b", "side": "enemy", "type": "Hero", "x": 300, "y": 400},
+    )
+
+    assert state.units == {}
+    assert state.scene.project_ros_inputs().conflicts
 
 
 def test_unit_scene_file_imports_units(tmp_path) -> None:
@@ -172,6 +199,41 @@ def test_control_bus_accepts_simulator_input_commands() -> None:
     assert error is None
     assert command == "set_self_position"
     assert payload == {"x": 820, "y": 830}
+
+
+def test_control_bus_accepts_and_validates_canonical_place_unit() -> None:
+    command, payload, error = normalize_api_control_payload(
+        {
+            "command": "place_unit",
+            "entity_id": "enemy:hero:a",
+            "side": "enemy",
+            "unit_key": "hero",
+            "x": 1200,
+            "y": 700,
+        },
+        default_step_sec=10,
+    )
+
+    assert error is None
+    assert command == "place_unit"
+    assert payload["entity_id"] == "enemy:hero:a"
+
+    command, payload, error = normalize_api_control_payload(
+        {"command": "place_unit", "entity_id": "enemy:hero:a", "side": "enemy"},
+        default_step_sec=10,
+    )
+
+    assert command is None
+    assert payload == {}
+    assert error == "place_unit requires a known side and unit_key"
+
+
+def test_manual_ros_compatibility_facade_rejects_scene_mutations() -> None:
+    state = SimulatorInputState(ownership_mode="manual_ros")
+
+    assert not state.apply_command("set_unit", {"side": "enemy", "type": "Hero", "x": 1200, "y": 700})
+    assert not state.apply_command("set_structure_health", {"side": "friend", "structure": "base", "hp": 3000})
+    assert state.units == {}
 
 
 def test_input_state_snapshot_exposes_json_safe_decision_context() -> None:

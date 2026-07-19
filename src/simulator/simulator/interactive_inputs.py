@@ -2,72 +2,17 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from .control_bus import command_name
 from .field import FieldGeometry, relative_side_to_field_side
+from .scene import SceneCommand, SceneState
+from .tactical_catalog import SceneCatalog, StructureArchetype, UnitArchetype, default_catalog_path
 
 
 PointCm = tuple[float, float]
-
-UNIT_TYPES: dict[int, tuple[str, int]] = {
-    1: ("Hero", 200),
-    2: ("Engineer", 250),
-    3: ("Infantry1", 200),
-    4: ("Infantry2", 200),
-    5: ("Infantry3", 200),
-    6: ("Drone", 150),
-    7: ("Sentry", 400),
-}
-
-UNIT_NAME_TO_ID = {name.lower(): unit_id for unit_id, (name, _) in UNIT_TYPES.items()}
-HEALTH_FIELDS = {
-    1: "hero",
-    2: "engineer",
-    3: "infantry1",
-    4: "infantry2",
-    5: "reserve",
-    7: "sentry",
-}
-ALL_HEALTH_FIELDS = ("hero", "engineer", "infantry1", "infantry2", "reserve", "sentry")
-BT_HEALTH_TYPE_IDS = frozenset({1, 2, 3, 4, 7})
-BT_UNIT_INFO_TYPE_IDS = frozenset({1, 2, 3, 4, 7})
-
-SIM_UNIT_DEFAULTS = [
-    {"side": "friend", "type_id": 1, "type": "Hero", "hp": 200, "max_hp": 200},
-    {"side": "friend", "type_id": 2, "type": "Engineer", "hp": 250, "max_hp": 250},
-    {"side": "friend", "type_id": 3, "type": "Infantry1", "hp": 200, "max_hp": 200},
-    {"side": "friend", "type_id": 4, "type": "Infantry2", "hp": 200, "max_hp": 200},
-    {"side": "friend", "type_id": 5, "type": "Infantry3", "hp": 200, "max_hp": 200},
-    {"side": "friend", "type_id": 6, "type": "Drone", "hp": 150, "max_hp": 150},
-    {"side": "friend", "type_id": 7, "type": "Sentry", "hp": 400, "max_hp": 400},
-    {"side": "enemy", "type_id": 1, "type": "Hero", "hp": 200, "max_hp": 200},
-    {"side": "enemy", "type_id": 2, "type": "Engineer", "hp": 250, "max_hp": 250},
-    {"side": "enemy", "type_id": 3, "type": "Infantry1", "hp": 200, "max_hp": 200},
-    {"side": "enemy", "type_id": 4, "type": "Infantry2", "hp": 200, "max_hp": 200},
-    {"side": "enemy", "type_id": 5, "type": "Infantry3", "hp": 200, "max_hp": 200},
-    {"side": "enemy", "type_id": 6, "type": "Drone", "hp": 150, "max_hp": 150},
-    {"side": "enemy", "type_id": 7, "type": "Sentry", "hp": 400, "max_hp": 400},
-]
-
-SIM_STRUCTURE_DEFAULTS = [
-    {"key": "enemy_outpost", "label": "Enemy Outpost", "side": "enemy", "structure": "outpost", "hp": 60, "max_hp": 60, "step": 10},
-    {"key": "enemy_base", "label": "Enemy Base", "side": "enemy", "structure": "base", "hp": 5000, "max_hp": 5000, "step": 500},
-    {"key": "friend_outpost", "label": "Friend Outpost", "side": "friend", "structure": "outpost", "hp": 60, "max_hp": 60, "step": 10},
-    {"key": "friend_base", "label": "Friend Base", "side": "friend", "structure": "base", "hp": 5000, "max_hp": 5000, "step": 500},
-]
-
-DEFAULT_STRUCTURE_POSITIONS: dict[str, dict[str, PointCm]] = {
-    "outpost": {
-        "red": (1090.0, 370.0),
-        "blue": (1707.0, 1141.0),
-    },
-    "base": {
-        "red": (245.0, 750.0),
-        "blue": (2555.0, 750.0),
-    },
-}
 
 
 def as_dict(value: Any) -> dict[str, Any]:
@@ -119,6 +64,17 @@ def normalize_structure(value: Any) -> str | None:
     return None
 
 
+def normalize_bool(value: Any, default: bool) -> bool:
+    if value is None:
+        return default
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
 def point_payload(position: PointCm | None) -> dict[str, float] | None:
     if position is None:
         return None
@@ -129,23 +85,88 @@ def hp_ratio(hp: int, max_hp: int) -> float:
     return round(max(0.0, min(1.0, int(hp) / max(1, int(max_hp)))), 4)
 
 
+@lru_cache(maxsize=1)
+def default_scene_catalog() -> SceneCatalog:
+    return SceneCatalog.load(default_catalog_path())
+
+
+def _unit_for_type_id(type_id: int, catalog: SceneCatalog | None = None) -> UnitArchetype | None:
+    active_catalog = catalog or default_scene_catalog()
+    normalized = int(type_id) % 100
+    for unit in active_catalog.units:
+        if unit.position_car_id == normalized:
+            return unit
+    return None
+
+
+def _unit_for_name(value: Any, catalog: SceneCatalog | None = None) -> UnitArchetype | None:
+    text = str(value).strip().lower()
+    if not text:
+        return None
+    active_catalog = catalog or default_scene_catalog()
+    for unit in active_catalog.units:
+        if text in {unit.key.lower(), unit.label.lower(), unit.asset_key.lower()}:
+            return unit
+    return None
+
+
+def unit_type_id(payload: dict[str, Any], catalog: SceneCatalog | None = None) -> int | None:
+    raw_type_id = payload.get(
+        "type_id",
+        payload.get("unit_type_id", payload.get("id", payload.get("car_id"))),
+    )
+    if raw_type_id is not None:
+        try:
+            type_id = int(raw_type_id)
+        except (TypeError, ValueError):
+            type_id = 0
+        unit = _unit_for_type_id(type_id, catalog)
+        if unit is not None:
+            return int(unit.position_car_id or 0)
+    unit = _unit_for_name(payload.get("type", payload.get("unit", payload.get("name", ""))), catalog)
+    return None if unit is None else int(unit.position_car_id or 0)
+
+
+def default_unit_hp(type_id: int, catalog: SceneCatalog | None = None) -> int:
+    unit = _unit_for_type_id(type_id, catalog)
+    return int(unit.default_hp) if unit is not None else 0
+
+
+def default_unit_name(type_id: int, catalog: SceneCatalog | None = None) -> str:
+    unit = _unit_for_type_id(type_id, catalog)
+    return unit.label if unit is not None else f"Unit{type_id}"
+
+
 def unit_decision_channels(side: str, type_id: int) -> dict[str, Any]:
-    normalized = normalize_side(side) or str(side).strip().lower()
-    health_field = HEALTH_FIELDS.get(type_id)
-    health_consumed = type_id in BT_HEALTH_TYPE_IDS
-    unit_info = type_id in BT_UNIT_INFO_TYPE_IDS
-    position_published = type_id in UNIT_TYPES
+    normalized_side = normalize_side(side) or str(side).strip().lower()
+    unit = _unit_for_type_id(type_id)
+    if unit is None:
+        return {
+            "health_topic": "",
+            "health_field": None,
+            "health_published": False,
+            "health_consumed_by_bt": False,
+            "position_topic": "",
+            "position_data_published": False,
+            "position_consumed_by_bt": False,
+            "unit_info_emitted_by_bt": False,
+            "target_selection_consumed_by_bt": False,
+            "regional_defense_position_used_by_bt": False,
+            "visual_piece": False,
+        }
+    health_consumed = unit.decision_consumed and unit.health_published
+    position_consumed = unit.decision_consumed and unit.position_published
     return {
-        "health_topic": f"/ly/{normalized}/hp" if normalized in {"friend", "enemy"} else "",
-        "health_field": health_field,
-        "health_published": health_field is not None,
+        "health_topic": f"/ly/{normalized_side}/hp" if unit.health_published else "",
+        "health_field": unit.health_field,
+        "health_published": unit.health_published,
         "health_consumed_by_bt": health_consumed,
-        "position_topic": "/ly/position/data" if position_published else "",
-        "position_data_published": position_published,
-        "position_consumed_by_bt": unit_info,
-        "unit_info_emitted_by_bt": unit_info,
-        "target_selection_consumed_by_bt": normalized == "enemy" and health_consumed,
-        "regional_defense_position_used_by_bt": normalized == "enemy" and unit_info,
+        "position_topic": "/ly/position/data" if unit.position_published else "",
+        "position_data_published": unit.position_published,
+        "position_consumed_by_bt": position_consumed,
+        "unit_info_emitted_by_bt": unit.decision_consumed,
+        "target_selection_consumed_by_bt": normalized_side == "enemy" and health_consumed,
+        "regional_defense_position_used_by_bt": normalized_side == "enemy" and position_consumed,
         "visual_piece": True,
     }
 
@@ -168,63 +189,35 @@ def unit_decision_badges(side: str, type_id: int) -> list[str]:
 def unit_decision_summary(side: str, type_id: int) -> str:
     channels = unit_decision_channels(side, type_id)
     bt_parts: list[str] = []
-    pub_parts: list[str] = []
+    published_parts: list[str] = []
     if channels["health_consumed_by_bt"]:
         bt_parts.append("HP")
     elif channels["health_published"]:
-        pub_parts.append("HP")
+        published_parts.append("HP")
     if channels["position_consumed_by_bt"]:
         bt_parts.append("POS")
     elif channels["position_data_published"]:
-        pub_parts.append("POS")
+        published_parts.append("POS")
     if channels["unit_info_emitted_by_bt"]:
         bt_parts.append("UI")
     parts: list[str] = []
     if bt_parts:
         parts.append("BT:" + ",".join(bt_parts))
-    if pub_parts:
-        parts.append("PUB:" + ",".join(pub_parts))
+    if published_parts:
+        parts.append("PUB:" + ",".join(published_parts))
     if not channels["unit_info_emitted_by_bt"]:
         parts.append("noUI")
     return " ".join(parts) if parts else "visual"
 
 
-def unit_type_id(payload: dict[str, Any]) -> int | None:
-    raw_type_id = payload.get("type_id", payload.get("unit_type_id", payload.get("id", payload.get("car_id"))))
-    if raw_type_id is not None:
-        try:
-            type_id = int(raw_type_id)
-        except (TypeError, ValueError):
-            type_id = 0
-        type_id %= 100
-        if type_id in UNIT_TYPES:
-            return type_id
-    raw_name = str(payload.get("type", payload.get("unit", payload.get("name", "")))).strip().lower()
-    return UNIT_NAME_TO_ID.get(raw_name)
-
-
-def default_unit_hp(type_id: int) -> int:
-    return UNIT_TYPES.get(type_id, ("Unknown", 200))[1]
-
-
-def default_unit_name(type_id: int) -> str:
-    return UNIT_TYPES.get(type_id, (f"Unit{type_id}", 200))[0]
-
-
-def normalize_bool(value: Any, default: bool) -> bool:
-    if value is None:
-        return default
-    text = str(value).strip().lower()
-    if text in {"1", "true", "yes", "y", "on"}:
-        return True
-    if text in {"0", "false", "no", "n", "off"}:
-        return False
-    return default
-
-
-def unit_scene_payload(raw: dict[str, Any], fallback_side: str | None = None) -> dict[str, Any] | None:
+def unit_scene_payload(
+    raw: dict[str, Any],
+    fallback_side: str | None = None,
+    catalog: SceneCatalog | None = None,
+) -> dict[str, Any] | None:
+    active_catalog = catalog or default_scene_catalog()
     side = normalize_side(raw.get("side", fallback_side))
-    type_id = unit_type_id(raw)
+    type_id = unit_type_id(raw, active_catalog)
     position = (
         parse_position(raw.get("position_cm"))
         or parse_position(raw.get("position"))
@@ -233,21 +226,23 @@ def unit_scene_payload(raw: dict[str, Any], fallback_side: str | None = None) ->
     )
     if side is None or type_id is None or position is None:
         return None
-
-    max_hp = max(1, clamp_int(raw.get("max_hp"), 1, 65535, default_unit_hp(type_id)))
-    hp = clamp_int(raw.get("hp", raw.get("health")), 0, max_hp, max_hp)
+    archetype = _unit_for_type_id(type_id, active_catalog)
+    if archetype is None:
+        return None
+    hp = clamp_int(raw.get("hp", raw.get("health")), 0, archetype.max_hp, archetype.default_hp)
     return {
         "side": side,
-        "type_id": type_id,
-        "type": str(raw.get("type", raw.get("name", default_unit_name(type_id)))),
+        "type_id": int(archetype.position_car_id or 0),
+        "type": archetype.label,
         "hp": hp,
-        "max_hp": max_hp,
+        "max_hp": int(archetype.max_hp),
         "x": position[0],
         "y": position[1],
+        **({"entity_id": raw["entity_id"]} if isinstance(raw.get("entity_id"), str) else {}),
     }
 
 
-def unit_scene_items(scene: Any) -> list[dict[str, Any]]:
+def unit_scene_items(scene: Any, catalog: SceneCatalog | None = None) -> list[dict[str, Any]]:
     root = scene.get("units", scene) if isinstance(scene, dict) else scene
     raw_items: list[tuple[Any, str | None]] = []
     if isinstance(root, dict):
@@ -265,7 +260,7 @@ def unit_scene_items(scene: Any) -> list[dict[str, Any]]:
         item = as_dict(raw)
         if not item:
             continue
-        payload = unit_scene_payload(item, fallback_side=fallback_side)
+        payload = unit_scene_payload(item, fallback_side=fallback_side, catalog=catalog)
         if payload is not None:
             out.append(payload)
     return out
@@ -279,7 +274,6 @@ def load_unit_scene_file(path: str | Path) -> list[dict[str, Any]]:
                 import yaml
             except ImportError as exc:
                 raise RuntimeError("YAML unit scenes require PyYAML") from exc
-
             try:
                 scene = yaml.safe_load(stream) or {}
             except yaml.YAMLError as exc:
@@ -365,30 +359,70 @@ class PositionDataRow:
         return 100 + self.type_id if self.side == "enemy" else 0
 
 
+def _structure_specs(catalog: SceneCatalog) -> list[StructureSpec]:
+    return [
+        StructureSpec(
+            key=item.key,
+            label=item.label,
+            side=item.side,
+            structure=item.kind,
+            hp=int(item.default_hp),
+            max_hp=int(item.max_hp),
+            step=int(item.step),
+        )
+        for item in catalog.structures
+    ]
+
+
+def _unit_palette(catalog: SceneCatalog) -> list[UnitSpec]:
+    return [
+        UnitSpec(
+            side=side,
+            type_id=int(item.position_car_id or 0),
+            type_name=item.label,
+            hp=int(item.default_hp),
+            max_hp=int(item.max_hp),
+        )
+        for side in ("friend", "enemy")
+        for item in catalog.units
+        if item.position_car_id is not None
+    ]
+
+
 class SimulatorInputState:
+    """Compatibility facade over :class:`SceneState` for existing simulator clients."""
+
     def __init__(
         self,
-        structures: list[StructureSpec],
-        unit_palette: list[UnitSpec],
+        structures: list[StructureSpec] | None = None,
+        unit_palette: list[UnitSpec] | None = None,
         field: FieldGeometry | None = None,
         structure_positions: dict[str, dict[str, PointCm]] | None = None,
         structure_health_overrides: dict[tuple[str, str], int] | None = None,
+        *,
+        catalog: SceneCatalog | None = None,
+        team: str = "red",
+        ownership_mode: str = "mock",
     ) -> None:
-        self.field = field or FieldGeometry()
-        self.structures = structures
-        self.unit_palette = unit_palette
-        self.structure_positions = structure_positions or DEFAULT_STRUCTURE_POSITIONS
-        self.structure_health: dict[str, int] = {}
-        overrides = structure_health_overrides or {}
-        for item in self.structures:
-            override = overrides.get((item.side, item.structure))
-            hp = item.hp if override is None else override
-            self.structure_health[item.key] = clamp_int(hp, 0, item.max_hp, item.hp)
-        self.units: dict[tuple[str, int], UnitState] = {}
-        self.self_health = 400
-        self.ammo_left = 200
-        self.posture = 1
-        self.self_position_cm: PointCm | None = None
+        del structures, unit_palette, structure_positions
+        self.catalog = catalog or default_scene_catalog()
+        self.scene = SceneState.from_catalog(
+            self.catalog,
+            team,
+            ownership_mode=ownership_mode,
+            field=field,
+        )
+        self.field = self.scene.field
+        self.structures = _structure_specs(self.catalog)
+        self.unit_palette = _unit_palette(self.catalog)
+        self.structure_positions = parse_structure_positions({}, catalog=self.catalog)
+        sentry = _unit_for_name("sentry", self.catalog)
+        self._self_health = int(sentry.default_hp) if sentry is not None else 0
+        self._ammo_left = 200
+        self._posture = 1
+        self._self_position_cm: PointCm | None = None
+        for (side, structure), hp in (structure_health_overrides or {}).items():
+            self.scene.apply(SceneCommand.set_structure_hp(f"{side}:{structure}", int(hp)))
 
     @classmethod
     def from_config(
@@ -397,14 +431,8 @@ class SimulatorInputState:
         field: FieldGeometry | None = None,
         structure_health_overrides: dict[tuple[str, str], int] | None = None,
     ) -> "SimulatorInputState":
+        state = cls(field=field, structure_health_overrides=structure_health_overrides)
         config = as_dict(simulator_inputs)
-        state = cls(
-            structures=parse_structure_specs(config),
-            unit_palette=parse_unit_palette(config),
-            field=field,
-            structure_positions=parse_structure_positions(config),
-            structure_health_overrides=structure_health_overrides,
-        )
         if "initial_units" in config:
             state.apply_unit_scene(config.get("initial_units"), clear=True)
         return state
@@ -415,19 +443,79 @@ class SimulatorInputState:
         field: FieldGeometry | None = None,
         structure_health_overrides: dict[tuple[str, str], int] | None = None,
     ) -> "SimulatorInputState":
-        return cls.from_config({}, field=field, structure_health_overrides=structure_health_overrides)
+        return cls(field=field, structure_health_overrides=structure_health_overrides)
+
+    @property
+    def structure_health(self) -> dict[str, int]:
+        return self.scene.structure_health
+
+    @property
+    def units(self) -> dict[tuple[str, int], UnitState]:
+        grouped: dict[tuple[str, int], list[Any]] = {}
+        for unit in self.scene.units.values():
+            archetype = self.catalog.unit_by_key(unit.unit_key)
+            if archetype.position_car_id is None:
+                continue
+            key = (unit.side, int(archetype.position_car_id))
+            grouped.setdefault(key, []).append(unit)
+        out: dict[tuple[str, int], UnitState] = {}
+        for key, candidates in grouped.items():
+            if len(candidates) != 1:
+                continue
+            unit = candidates[0]
+            archetype = self.catalog.unit_by_key(unit.unit_key)
+            out[key] = UnitState(
+                side=unit.side,
+                type_id=int(archetype.position_car_id),
+                type_name=archetype.label,
+                hp=int(unit.hp),
+                max_hp=int(archetype.max_hp),
+                x=int(unit.x),
+                y=int(unit.y),
+            )
+        return out
+
+    @property
+    def self_health(self) -> int:
+        return self._self_health
+
+    @self_health.setter
+    def self_health(self, value: int) -> None:
+        self._self_health = clamp_int(value, 0, 65535, self._self_health)
+
+    @property
+    def ammo_left(self) -> int:
+        return self._ammo_left
+
+    @ammo_left.setter
+    def ammo_left(self, value: int) -> None:
+        self._ammo_left = clamp_int(value, 0, 65535, self._ammo_left)
+
+    @property
+    def posture(self) -> int:
+        return self._posture
+
+    @posture.setter
+    def posture(self, value: int) -> None:
+        self._posture = clamp_int(value, 0, 255, self._posture)
+
+    @property
+    def self_position_cm(self) -> PointCm | None:
+        return self._self_position_cm
 
     def find_structure(self, side: str, structure: str) -> StructureSpec | None:
+        normalized_side = normalize_side(side)
+        normalized_structure = normalize_structure(structure)
+        if normalized_side is None or normalized_structure is None:
+            return None
         for item in self.structures:
-            if item.side == side and item.structure == structure:
+            if item.side == normalized_side and item.structure == normalized_structure:
                 return item
         return None
 
     def structure_hp(self, side: str, structure: str) -> int:
         item = self.find_structure(side, structure)
-        if item is None:
-            return 0
-        return int(self.structure_health.get(item.key, item.hp))
+        return 0 if item is None else int(self.scene.structure_health[item.key])
 
     def structure_position(
         self,
@@ -435,48 +523,32 @@ class SimulatorInputState:
         team: str,
         goals: dict[int, dict[str, Any]],
     ) -> PointCm | None:
-        field_side = relative_side_to_field_side(item.side, team)
-        configured = self.structure_positions.get(item.structure, {}).get(field_side)
-        if configured is not None:
-            return configured
-        if item.structure == "base":
-            return parse_position(as_dict(goals.get(1)).get(field_side))
-        return DEFAULT_STRUCTURE_POSITIONS.get(item.structure, {}).get(field_side)
+        del goals
+        try:
+            archetype = self.catalog.structure_by_key(item.key)
+        except KeyError:
+            return None
+        field_side = relative_side_to_field_side(archetype.side, team)
+        return archetype.position_for_field_side(field_side)
 
     def apply_control_payload(self, payload: dict[str, Any]) -> bool:
         return self.apply_command(command_name(payload), payload)
 
     def apply_command(self, command: str, payload: dict[str, Any]) -> bool:
-        cmd = str(command).strip().lower()
-        body = payload or {}
-        if cmd == "set_self_health":
-            self.self_health = clamp_int(
-                body.get("hp", body.get("health", body.get("self_health"))),
-                0,
-                65535,
-                self.self_health,
-            )
+        body = dict(payload or {})
+        name = str(command).strip().lower()
+        if self.scene.ownership_mode == "manual_ros":
+            return False
+        if name == "set_self_health":
+            self.self_health = body.get("hp", body.get("health", body.get("self_health")))
             return True
-
-        if cmd == "set_ammo":
-            self.ammo_left = clamp_int(
-                body.get("ammo", body.get("ammo_left", body.get("count"))),
-                0,
-                65535,
-                self.ammo_left,
-            )
+        if name == "set_ammo":
+            self.ammo_left = body.get("ammo", body.get("ammo_left", body.get("count")))
             return True
-
-        if cmd == "set_posture":
-            self.posture = clamp_int(
-                body.get("posture", body.get("id", body.get("value"))),
-                0,
-                255,
-                self.posture,
-            )
+        if name == "set_posture":
+            self.posture = body.get("posture", body.get("id", body.get("value")))
             return True
-
-        if cmd == "set_self_position":
+        if name == "set_self_position":
             position = (
                 parse_position(body.get("position_cm"))
                 or parse_position(body.get("position"))
@@ -485,88 +557,31 @@ class SimulatorInputState:
             )
             if position is None:
                 return False
-            self.self_position_cm = (
+            self._self_position_cm = (
                 max(1, self.field.clamp_x(position[0])),
                 max(1, self.field.clamp_y(position[1])),
             )
             return True
-
-        if cmd in {"set_structure_health", "set_structure_hp"}:
-            side = normalize_side(body.get("side"))
-            structure = normalize_structure(body.get("structure", body.get("kind")))
-            if side is None or structure is None:
-                return False
-            item = self.find_structure(side, structure)
-            if item is None:
-                return False
-            current = self.structure_health.get(item.key, item.hp)
-            hp = clamp_int(body.get("hp", body.get("health")), 0, item.max_hp, current)
-            self.structure_health[item.key] = hp
+        if name == "set_units":
+            self.apply_unit_scene(body.get("units", body), clear=normalize_bool(body.get("clear"), True))
             return True
-
-        if cmd == "set_unit":
-            side = normalize_side(body.get("side"))
-            type_id = unit_type_id(body)
-            if side is None or type_id is None:
-                return False
-            max_hp = clamp_int(body.get("max_hp"), 1, 65535, default_unit_hp(type_id))
-            hp = clamp_int(body.get("hp", body.get("health")), 0, max_hp, max_hp)
-            x = self.field.clamp_x(body.get("x"))
-            y = self.field.clamp_y(body.get("y"))
-            self.units[(side, type_id)] = UnitState(
-                side=side,
-                type_id=type_id,
-                type_name=str(body.get("type", default_unit_name(type_id))),
-                hp=hp,
-                max_hp=max_hp,
-                x=x,
-                y=y,
-            )
-            return True
-
-        if cmd == "set_units":
-            clear = normalize_bool(body.get("clear"), True)
-            self.apply_unit_scene(body.get("units", body), clear=clear)
-            return True
-
-        if cmd == "set_unit_hp":
-            side = normalize_side(body.get("side"))
-            type_id = unit_type_id(body)
-            if side is None or type_id is None:
-                return False
-            unit = self.units.get((side, type_id))
-            if unit is None:
-                return False
-            hp = clamp_int(body.get("hp", body.get("health")), 0, unit.max_hp, unit.hp)
-            self.units[(side, type_id)] = UnitState(
-                side=unit.side,
-                type_id=unit.type_id,
-                type_name=unit.type_name,
-                hp=hp,
-                max_hp=unit.max_hp,
-                x=unit.x,
-                y=unit.y,
-            )
-            return True
-
-        if cmd == "remove_unit":
-            side = normalize_side(body.get("side"))
-            type_id = unit_type_id(body)
-            if side is None or type_id is None:
-                return False
-            self.units.pop((side, type_id), None)
-            return True
-
-        if cmd == "clear_units":
-            self.units.clear()
-            return True
-
-        return False
+        scene_command = self._legacy_scene_command(name, body)
+        if scene_command is None:
+            return False
+        result = self.scene.apply(scene_command)
+        return result.reason not in {
+            "manual_ros_observer_mode",
+            "invalid_scene_command",
+            "invalid_unit_command",
+            "unknown_structure",
+            "unsupported_scene_command",
+            "entity_not_found",
+        }
 
     def apply_unit_scene(self, scene: Any, clear: bool = True) -> int:
-        items = unit_scene_items(scene)
+        items = unit_scene_items(scene, catalog=self.catalog)
         if clear:
-            self.units.clear()
+            self.apply_command("clear_units", {})
         count = 0
         for item in items:
             if self.apply_command("set_unit", item):
@@ -574,35 +589,45 @@ class SimulatorInputState:
         return count
 
     def health_fields(self, side: str, base_hp: int) -> dict[str, int]:
-        fields = {field: base_hp for field in ALL_HEALTH_FIELDS}
-        for unit in self.units.values():
-            if unit.side != side:
-                continue
-            field = HEALTH_FIELDS.get(unit.type_id)
-            if field is not None:
-                fields[field] = unit.hp
+        normalized_side = normalize_side(side)
+        if normalized_side is None:
+            return {}
+        fields = {
+            unit.health_field: int(base_hp)
+            for unit in self.catalog.units
+            if unit.health_published and unit.health_field is not None
+        }
+        projection = self.scene.project_ros_inputs()
+        fields.update(projection.health[normalized_side])
         return fields
 
     def position_rows(self) -> list[PositionDataRow]:
+        projection = self.scene.project_ros_inputs()
         rows: list[PositionDataRow] = []
-        for unit in self.units.values():
-            rows.append(
-                PositionDataRow(
-                    side=unit.side,
-                    type_id=unit.type_id,
-                    raw_x=self.field.clamp_x(unit.x),
-                    raw_y=self.field.position_data_raw_y(unit.y),
-                )
+        for side in ("friend", "enemy"):
+            offset = (
+                self.catalog.position_data.friend_car_id_offset
+                if side == "friend"
+                else self.catalog.position_data.enemy_car_id_offset
             )
-        return rows
+            for car_id, point in projection.positions[side].items():
+                rows.append(
+                    PositionDataRow(
+                        side=side,
+                        type_id=int(car_id - offset),
+                        raw_x=int(point[0]),
+                        raw_y=int(point[1]),
+                    )
+                )
+        return sorted(rows, key=lambda item: (item.side, item.type_id))
 
     def snapshot(self, team: str = "red", goals: dict[int, dict[str, Any]] | None = None) -> dict[str, Any]:
-        goal_map = goals or {}
+        del goals
+        projection = self.scene.project_ros_inputs()
         structures: list[dict[str, Any]] = []
         destroyed_structures: list[str] = []
         for item in self.structures:
-            hp = int(self.structure_health.get(item.key, item.hp))
-            position = self.structure_position(item, team, goal_map)
+            hp = int(self.scene.structure_health[item.key])
             if hp <= 0:
                 destroyed_structures.append(item.key)
             structures.append(
@@ -613,145 +638,171 @@ class SimulatorInputState:
                     "field_side": relative_side_to_field_side(item.side, team),
                     "structure": item.structure,
                     "hp": hp,
-                    "max_hp": int(item.max_hp),
+                    "max_hp": item.max_hp,
                     "hp_ratio": hp_ratio(hp, item.max_hp),
-                    "position_cm": point_payload(position),
+                    "position_cm": point_payload(self.structure_position(item, team, {})),
                 }
             )
 
-        unit_items: list[dict[str, Any]] = []
+        units: list[dict[str, Any]] = []
         counts = {"friend": 0, "enemy": 0}
         low_hp_units: list[str] = []
-        for unit in sorted(self.units.values(), key=lambda item: (item.side, item.type_id)):
-            counts[unit.side] = counts.get(unit.side, 0) + 1
-            health_field = HEALTH_FIELDS.get(unit.type_id)
-            decision_channels = unit_decision_channels(unit.side, unit.type_id)
-            raw_y = self.field.position_data_raw_y(unit.y)
-            car_id = unit.type_id if unit.side == "friend" else 100 + unit.type_id
-            ratio = hp_ratio(unit.hp, unit.max_hp)
+        for scene_unit in sorted(self.scene.units.values(), key=lambda item: item.entity_id):
+            archetype = self.catalog.unit_by_key(scene_unit.unit_key)
+            counts[scene_unit.side] += 1
+            ratio = hp_ratio(scene_unit.hp, archetype.max_hp)
             if ratio <= 0.35:
-                low_hp_units.append(f"{unit.side}:{unit.type_name}")
-            unit_items.append(
+                low_hp_units.append(f"{scene_unit.side}:{archetype.label}")
+            type_id = int(archetype.position_car_id or 0)
+            formal_id = self.catalog.position_car_id_for_side(archetype.key, scene_unit.side)
+            units.append(
                 {
-                    "side": unit.side,
-                    "field_side": relative_side_to_field_side(unit.side, team),
-                    "type_id": int(unit.type_id),
-                    "type": unit.type_name,
-                    "hp": int(unit.hp),
-                    "max_hp": int(unit.max_hp),
+                    "entity_id": scene_unit.entity_id,
+                    "side": scene_unit.side,
+                    "field_side": relative_side_to_field_side(scene_unit.side, team),
+                    "type_id": type_id,
+                    "type": archetype.label,
+                    "hp": int(scene_unit.hp),
+                    "max_hp": int(archetype.max_hp),
                     "hp_ratio": ratio,
-                    "health_field": health_field,
-                    "health_published": health_field is not None,
-                    "decision_channels": decision_channels,
-                    "decision_badges": unit_decision_badges(unit.side, unit.type_id),
-                    "decision_summary": unit_decision_summary(unit.side, unit.type_id),
-                    "position_cm": {"x": int(unit.x), "y": int(unit.y)},
-                    "position_data": {"car_id": car_id, "raw_x": int(unit.x), "raw_y": int(raw_y)},
+                    "health_field": archetype.health_field,
+                    "health_published": archetype.health_published,
+                    "decision_channels": unit_decision_channels(scene_unit.side, type_id),
+                    "decision_badges": unit_decision_badges(scene_unit.side, type_id),
+                    "decision_summary": unit_decision_summary(scene_unit.side, type_id),
+                    "position_cm": {"x": scene_unit.x, "y": scene_unit.y},
+                    "position_data": (
+                        None
+                        if formal_id is None
+                        else {
+                            "car_id": formal_id,
+                            "raw_x": scene_unit.x,
+                            "raw_y": self.field.position_data_raw_y(scene_unit.y),
+                        }
+                    ),
                 }
             )
-
-        palette = [
-            {
-                "side": item.side,
-                "type_id": int(item.type_id),
-                "type": item.type_name,
-                "hp": int(item.hp),
-                "max_hp": int(item.max_hp),
-                "health_field": HEALTH_FIELDS.get(item.type_id),
-            }
-            for item in self.unit_palette
-        ]
+        palette: list[dict[str, Any]] = []
+        for item in self.unit_palette:
+            archetype = _unit_for_type_id(item.type_id, self.catalog)
+            palette.append(
+                {
+                    "side": item.side,
+                    "type_id": item.type_id,
+                    "type": item.type_name,
+                    "hp": item.hp,
+                    "max_hp": item.max_hp,
+                    "health_field": archetype.health_field if archetype is not None else None,
+                }
+            )
         return {
-            "team": team if team in {"red", "blue"} else "red",
+            "team": "blue" if str(team).strip().lower() == "blue" else "red",
             "summary": {
-                "unit_count": len(unit_items),
-                "friend_units": counts.get("friend", 0),
-                "enemy_units": counts.get("enemy", 0),
+                "unit_count": len(units),
+                "friend_units": counts["friend"],
+                "enemy_units": counts["enemy"],
                 "structure_count": len(structures),
                 "destroyed_structures": destroyed_structures,
                 "low_hp_units": low_hp_units,
             },
             "runtime": {
-                "self_health": int(self.self_health),
-                "ammo_left": int(self.ammo_left),
-                "posture": int(self.posture),
+                "self_health": self.self_health,
+                "ammo_left": self.ammo_left,
+                "posture": self.posture,
                 "self_position_cm": point_payload(self.self_position_cm),
             },
             "structures": structures,
-            "units": unit_items,
+            "units": units,
             "palette": palette,
+            "projection": projection.snapshot(),
         }
 
-
-def parse_structure_specs(config: dict[str, Any]) -> list[StructureSpec]:
-    raw_items = as_list(config.get("structures"))
-    if not raw_items:
-        raw_items = SIM_STRUCTURE_DEFAULTS
-    out: list[StructureSpec] = []
-    for raw in raw_items:
-        item = as_dict(raw)
-        side = normalize_side(item.get("side"))
-        structure = normalize_structure(item.get("structure", item.get("kind")))
-        if side is None or structure is None:
-            continue
-        max_hp = max(1, clamp_int(item.get("max_hp"), 1, 65535, 1))
-        hp = clamp_int(item.get("hp"), 0, max_hp, max_hp)
-        step = max(1, clamp_int(item.get("step"), 1, max_hp, max(1, max_hp // 6)))
-        key = str(item.get("key", f"{side}_{structure}")).strip() or f"{side}_{structure}"
-        out.append(
-            StructureSpec(
-                key=key,
-                label=str(item.get("label", key)),
-                side=side,
-                structure=structure,
-                hp=hp,
-                max_hp=max_hp,
-                step=step,
+    def _legacy_scene_command(self, command: str, body: dict[str, Any]) -> SceneCommand | None:
+        if command == "clear_units":
+            return SceneCommand.clear_units()
+        if command in {"set_structure_health", "set_structure_hp"}:
+            side = normalize_side(body.get("side"))
+            structure = normalize_structure(body.get("structure", body.get("kind")))
+            if side is None or structure is None:
+                return None
+            item = self.find_structure(side, structure)
+            if item is None:
+                return None
+            return SceneCommand.set_structure_hp(
+                f"{side}:{structure}",
+                clamp_int(
+                    body.get("hp", body.get("health")),
+                    0,
+                    item.max_hp,
+                    self.scene.structure_health[item.key],
+                ),
             )
-        )
-    return out
-
-
-def parse_unit_palette(config: dict[str, Any]) -> list[UnitSpec]:
-    raw_items = as_list(config.get("unit_palette"))
-    if not raw_items:
-        raw_items = SIM_UNIT_DEFAULTS
-    out: list[UnitSpec] = []
-    for raw in raw_items:
-        item = as_dict(raw)
-        side = normalize_side(item.get("side"))
-        if side is None:
-            continue
-        type_id = unit_type_id(item)
-        if type_id is None:
-            continue
-        max_hp = max(1, clamp_int(item.get("max_hp"), 1, 65535, default_unit_hp(type_id)))
-        hp = clamp_int(item.get("hp"), 1, max_hp, max_hp)
-        out.append(
-            UnitSpec(
-                side=side,
-                type_id=type_id,
-                type_name=str(item.get("type", item.get("name", default_unit_name(type_id)))),
-                hp=hp,
-                max_hp=max_hp,
+        if command == "set_unit":
+            side = normalize_side(body.get("side"))
+            type_id = unit_type_id(body, self.catalog)
+            if side is None or type_id is None:
+                return None
+            archetype = _unit_for_type_id(type_id, self.catalog)
+            if archetype is None:
+                return None
+            entity_id = body.get("entity_id") if isinstance(body.get("entity_id"), str) else f"{side}:{archetype.key}"
+            return SceneCommand.place_unit(
+                entity_id,
+                side,
+                archetype.key,
+                self.field.clamp_x(body.get("x")),
+                self.field.clamp_y(body.get("y")),
+                clamp_int(body.get("hp", body.get("health")), 0, archetype.max_hp, archetype.default_hp),
             )
-        )
-    return out
+        if command == "set_unit_hp":
+            entity_id = body.get("entity_id") if isinstance(body.get("entity_id"), str) else None
+            if entity_id is None:
+                side = normalize_side(body.get("side"))
+                type_id = unit_type_id(body, self.catalog)
+                archetype = _unit_for_type_id(type_id, self.catalog) if type_id is not None else None
+                if side is None or archetype is None:
+                    return None
+                entity_id = f"{side}:{archetype.key}"
+            existing = self.scene.units.get(entity_id)
+            if existing is None:
+                return None
+            archetype = self.catalog.unit_by_key(existing.unit_key)
+            return SceneCommand.set_unit_hp(
+                entity_id,
+                clamp_int(body.get("hp", body.get("health")), 0, archetype.max_hp, existing.hp),
+            )
+        if command == "remove_unit":
+            entity_id = body.get("entity_id") if isinstance(body.get("entity_id"), str) else None
+            if entity_id is None:
+                side = normalize_side(body.get("side"))
+                type_id = unit_type_id(body, self.catalog)
+                archetype = _unit_for_type_id(type_id, self.catalog) if type_id is not None else None
+                if side is None or archetype is None:
+                    return None
+                entity_id = f"{side}:{archetype.key}"
+            return SceneCommand.remove_unit(entity_id)
+        return None
 
 
-def parse_structure_positions(config: dict[str, Any]) -> dict[str, dict[str, PointCm]]:
-    out = {kind: dict(sides) for kind, sides in DEFAULT_STRUCTURE_POSITIONS.items()}
-    raw_root = as_dict(config.get("structure_positions"))
-    for structure, raw_sides in raw_root.items():
-        normalized_structure = normalize_structure(structure)
-        if normalized_structure is None:
-            continue
-        side_positions = out.setdefault(normalized_structure, {})
-        for side, raw_pos in as_dict(raw_sides).items():
-            side_text = str(side).strip().lower()
-            if side_text not in ("red", "blue"):
-                continue
-            pos = parse_position(raw_pos)
-            if pos is not None:
-                side_positions[side_text] = pos
-    return out
+def parse_structure_specs(config: dict[str, Any], catalog: SceneCatalog | None = None) -> list[StructureSpec]:
+    del config
+    return _structure_specs(catalog or default_scene_catalog())
+
+
+def parse_unit_palette(config: dict[str, Any], catalog: SceneCatalog | None = None) -> list[UnitSpec]:
+    del config
+    return _unit_palette(catalog or default_scene_catalog())
+
+
+def parse_structure_positions(
+    config: dict[str, Any],
+    catalog: SceneCatalog | None = None,
+) -> dict[str, dict[str, PointCm]]:
+    del config
+    active_catalog = catalog or default_scene_catalog()
+    positions: dict[str, dict[str, PointCm]] = {}
+    for item in active_catalog.structures:
+        kind_positions = positions.setdefault(item.kind, {})
+        kind_positions.setdefault("red", item.position_for_field_side("red"))
+        kind_positions.setdefault("blue", item.position_for_field_side("blue"))
+    return positions
