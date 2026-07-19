@@ -23,6 +23,7 @@
 #include <boost/filesystem/fstream.hpp>
 #include <deque>
 #include <array>
+#include <cstdint>
 #include <fstream>
 #include <string>
 #include <string_view>
@@ -164,6 +165,123 @@ struct GoalReachState {
     bool WithinFaceDistance{false};
     bool Timeout{false};
 };
+
+enum class ControlOutputSnapshotSource : std::uint8_t {
+    Normal = 0,
+    SafeControl = 1,
+};
+
+enum class ControlTrajectoryUnavailableReason : std::uint8_t {
+    None = 0,
+    NotRecorded = 1,
+    PublisherUnavailable = 2,
+    InvalidDynamics = 3,
+    SafeControl = 4,
+};
+
+struct TraceFireCodeSnapshot {
+    std::uint8_t FieldMask{0};
+    std::uint8_t Raw{0};
+    std::uint8_t FireStatus{0};
+    std::uint8_t CapState{0};
+    bool FollowMode{false};
+    bool AimMode{false};
+    std::uint8_t Rotate{0};
+};
+
+struct GimbalFeedbackTraceSnapshot {
+    bool Available{false};
+    TraceFireCodeSnapshot FireCode{};
+    std::chrono::steady_clock::time_point ReceivedAt{};
+};
+
+struct ControlOutputAnglesTraceSnapshot {
+    bool Published{false};
+    float Yaw{0.0F};
+    float Pitch{0.0F};
+};
+
+struct ControlOutputFireCodeTraceSnapshot {
+    bool Published{false};
+    TraceFireCodeSnapshot FireCode{};
+};
+
+struct ControlOutputTrajectoryTraceSnapshot {
+    bool Published{false};
+    bool Available{false};
+    ControlTrajectoryUnavailableReason UnavailableReason{
+        ControlTrajectoryUnavailableReason::NotRecorded};
+    float Yaw{0.0F};
+    float Pitch{0.0F};
+    float YawOmega{0.0F};
+    float PitchOmega{0.0F};
+    float YawAlpha{0.0F};
+    float PitchAlpha{0.0F};
+};
+
+struct ControlOutputTraceSnapshot {
+    bool Available{false};
+    std::uint64_t Sequence{0};
+    std::chrono::steady_clock::time_point PublishedAt{};
+    ControlOutputSnapshotSource Source{ControlOutputSnapshotSource::Normal};
+    ControlOutputAnglesTraceSnapshot Angles{};
+    ControlOutputFireCodeTraceSnapshot FireCode{};
+    ControlOutputTrajectoryTraceSnapshot Trajectory{};
+};
+
+inline TraceFireCodeSnapshot MakeTraceFireCodeSnapshot(
+    const gimbal_driver::msg::FireCode& message) noexcept {
+    return TraceFireCodeSnapshot{
+        .FieldMask = message.field_mask,
+        .Raw = message.raw,
+        .FireStatus = message.fire_status,
+        .CapState = message.cap_state,
+        .FollowMode = message.follow_mode,
+        .AimMode = message.aim_mode,
+        .Rotate = message.rotate,
+    };
+}
+
+inline ControlOutputTraceSnapshot MakeControlOutputTraceSnapshot(
+    const std::uint64_t sequence,
+    const std::chrono::steady_clock::time_point published_at,
+    const ControlOutputSnapshotSource source,
+    const gimbal_driver::msg::GimbalAngles& angles,
+    const bool angles_published,
+    const gimbal_driver::msg::FireCode& fire_code,
+    const bool fire_code_published,
+    const std::optional<gimbal_driver::msg::GimbalTrajectory>& trajectory,
+    const bool trajectory_published,
+    const ControlTrajectoryUnavailableReason trajectory_unavailable_reason) noexcept {
+    ControlOutputTraceSnapshot snapshot;
+    snapshot.Available = angles_published || fire_code_published || trajectory_published;
+    snapshot.Sequence = sequence;
+    snapshot.PublishedAt = published_at;
+    snapshot.Source = source;
+    snapshot.Angles.Published = angles_published;
+    if (angles_published) {
+        snapshot.Angles.Yaw = angles.yaw;
+        snapshot.Angles.Pitch = angles.pitch;
+    }
+    snapshot.FireCode.Published = fire_code_published;
+    if (fire_code_published) {
+        snapshot.FireCode.FireCode = MakeTraceFireCodeSnapshot(fire_code);
+    }
+    snapshot.Trajectory.Published = trajectory_published;
+    snapshot.Trajectory.Available = trajectory_published && trajectory.has_value();
+    snapshot.Trajectory.UnavailableReason = snapshot.Trajectory.Available
+        ? ControlTrajectoryUnavailableReason::None
+        : trajectory_unavailable_reason;
+    if (snapshot.Trajectory.Available) {
+        snapshot.Trajectory.Yaw = trajectory->yaw;
+        snapshot.Trajectory.Pitch = trajectory->pitch;
+        snapshot.Trajectory.YawOmega = trajectory->yaw_omega;
+        snapshot.Trajectory.PitchOmega = trajectory->pitch_omega;
+        snapshot.Trajectory.YawAlpha = trajectory->yaw_alpha;
+        snapshot.Trajectory.PitchAlpha = trajectory->pitch_alpha;
+    }
+    return snapshot;
+}
 
 enum class RegionalDefenseSearchKind : std::uint8_t {
     None = 0,
@@ -510,6 +628,23 @@ private:
     int decisionTraceEveryTicks_{5};
     std::uint64_t decisionTraceTickCount_{0};
     std::uint64_t decisionTraceWriteCount_{0};
+    std::mutex decisionTraceSnapshotMutex_{};
+    GimbalFeedbackTraceSnapshot gimbalFeedbackTraceSnapshot_{};
+    ControlOutputTraceSnapshot controlOutputTraceSnapshot_{};
+    std::uint64_t controlOutputTraceSequence_{0};
+    void CaptureGimbalFeedbackTraceSnapshot(
+        const gimbal_driver::msg::FireCode& message,
+        std::chrono::steady_clock::time_point received_at) noexcept;
+    void CaptureControlOutputTraceSnapshot(
+        const gimbal_driver::msg::GimbalAngles& angles,
+        bool angles_published,
+        const gimbal_driver::msg::FireCode& fire_code,
+        bool fire_code_published,
+        const std::optional<gimbal_driver::msg::GimbalTrajectory>& trajectory,
+        bool trajectory_published,
+        ControlTrajectoryUnavailableReason trajectory_unavailable_reason,
+        ControlOutputSnapshotSource source,
+        std::chrono::steady_clock::time_point published_at) noexcept;
 
     RateClock fireRateClock{20}, treeTickRateClock{100}, naviCommandRateClock{2}; // 频率控制
     TimerClock rotateTimerClock{Seconds{2}}; // 旋转时间

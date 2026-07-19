@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass
+import math
 from typing import Any
 
 from .model import TraceRecord
@@ -227,6 +228,8 @@ def validate_records(records: list[TraceRecord], config: dict[str, Any], bad_lin
                 )
             )
 
+        add_control_output_validation(record, issues)
+
         for unit in record.units:
             if unit.max_hp > 0 and not (0 <= unit.hp <= unit.max_hp):
                 issues.append(
@@ -291,6 +294,32 @@ def validate_records(records: list[TraceRecord], config: dict[str, Any], bad_lin
 
     add_scenario_diagnostics(records, issues)
     return issues
+
+
+def add_control_output_validation(record: TraceRecord, issues: list[ValidationIssue]) -> None:
+    trajectory = record.control_output.trajectory
+    if not trajectory.available:
+        return
+
+    values = {
+        "yaw": trajectory.yaw,
+        "pitch": trajectory.pitch,
+        "yaw_omega": trajectory.yaw_omega,
+        "pitch_omega": trajectory.pitch_omega,
+        "yaw_alpha": trajectory.yaw_alpha,
+        "pitch_alpha": trajectory.pitch_alpha,
+    }
+    invalid = [name for name, value in values.items() if value is None or not math.isfinite(value)]
+    if invalid:
+        issues.append(
+            make_issue(
+                "error",
+                record.index,
+                "control.trajectory_nonfinite",
+                "available control trajectory has missing/non-finite field(s): " + ", ".join(invalid),
+                "Record all six finite trajectory fields when control_output.trajectory.available=true; otherwise set available=false with an unavailable_reason.",
+            )
+        )
 
 
 def add_scenario_diagnostics(records: list[TraceRecord], issues: list[ValidationIssue]) -> None:

@@ -88,30 +88,44 @@ void Application::PublishSafeControl(const char* reason, const bool from_guard_t
         naviVelocityInput = VelocityType{0, 0};
         naviVelocity = VelocityType{0, 0};
 
+        gimbal_driver::msg::GimbalAngles angle_msg;
+        angle_msg.yaw = gimbalControlData.GimbalAngles.Yaw;
+        angle_msg.pitch = gimbalControlData.GimbalAngles.Pitch;
+        if (node_) {
+            angle_msg.header.stamp = node_->now();
+        }
+        bool angles_published = false;
         if (pub_gimbal_control_) {
-            gimbal_driver::msg::GimbalAngles angle_msg;
-            angle_msg.yaw = gimbalControlData.GimbalAngles.Yaw;
-            angle_msg.pitch = gimbalControlData.GimbalAngles.Pitch;
-            if (node_) {
-                angle_msg.header.stamp = node_->now();
-            }
             pub_gimbal_control_->publish(angle_msg);
+            angles_published = true;
         }
 
-        if (pub_gimbal_firecode_) {
-            gimbal_driver::msg::FireCode fire_msg;
-            if (node_) {
-                fire_msg.header.stamp = node_->now();
-            }
-            fire_msg.field_mask = gimbal_driver::msg::FireCode::FIELD_ALL;
-            fire_msg.fire_status = gimbalControlData.FireCode.FireStatus;
-            fire_msg.cap_state = gimbalControlData.FireCode.CapState;
-            fire_msg.follow_mode = gimbalControlData.FireCode.FollowMode != 0;
-            fire_msg.aim_mode = gimbalControlData.FireCode.AimMode != 0;
-            fire_msg.rotate = gimbalControlData.FireCode.Rotate;
-            fire_msg.raw = *reinterpret_cast<std::uint8_t*>(&gimbalControlData.FireCode);
-            pub_gimbal_firecode_->publish(fire_msg);
+        gimbal_driver::msg::FireCode fire_msg;
+        if (node_) {
+            fire_msg.header.stamp = node_->now();
         }
+        fire_msg.field_mask = gimbal_driver::msg::FireCode::FIELD_ALL;
+        fire_msg.fire_status = gimbalControlData.FireCode.FireStatus;
+        fire_msg.cap_state = gimbalControlData.FireCode.CapState;
+        fire_msg.follow_mode = gimbalControlData.FireCode.FollowMode != 0;
+        fire_msg.aim_mode = gimbalControlData.FireCode.AimMode != 0;
+        fire_msg.rotate = gimbalControlData.FireCode.Rotate;
+        fire_msg.raw = *reinterpret_cast<std::uint8_t*>(&gimbalControlData.FireCode);
+        bool fire_code_published = false;
+        if (pub_gimbal_firecode_) {
+            pub_gimbal_firecode_->publish(fire_msg);
+            fire_code_published = true;
+        }
+        CaptureControlOutputTraceSnapshot(
+            angle_msg,
+            angles_published,
+            fire_msg,
+            fire_code_published,
+            std::nullopt,
+            false,
+            ControlTrajectoryUnavailableReason::SafeControl,
+            ControlOutputSnapshotSource::SafeControl,
+            std::chrono::steady_clock::now());
 
         if (pub_gimbal_vel_) {
             gimbal_driver::msg::ControlVelocity vel_msg;

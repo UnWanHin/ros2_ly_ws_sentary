@@ -1,6 +1,6 @@
 # Simulator Trace And Viewer
 
-Updated: 2026-07-13
+Updated: 2026-07-19
 
 ## Purpose
 
@@ -689,7 +689,7 @@ ros2 run simulator simulator-quality --with-build
 Each line is one JSON object. Important top-level fields:
 
 - `schema`: currently `ly_decision_trace_v1`
-- `schema_version`: `2` adds `decision_output`, `decision_intent`, `events`, `target_state`, `goal_reach_state`, `navi_status`, `navi_velocity`, `navi_relative_target`, `face_mode`, `gimbal`, and `runtime_guard`; the viewer still reads older rows without those fields
+- `schema_version`: `2` adds `decision_output`, `decision_intent`, `events`, `target_state`, `goal_reach_state`, `navi_status`, `navi_velocity`, `navi_relative_target`, `face_mode`, `gimbal`, and `runtime_guard`; `3` adds `gimbal_feedback` and `control_output`. The viewer still reads older rows without the newer fields.
 - `event`: `game_start`, `tick`, or `stop`
 - `t`: seconds from `gameStartTime`
 - `field_cm`: map frame and field size
@@ -708,6 +708,8 @@ Each line is one JSON object. Important top-level fields:
 - `referee`: HP, ammo, time, outpost/base HP, RFID/RFID2 raw state, `rfid_match`, event-data energy/fortress gain-point state, and buff state
 - `unit_info`: optional formal FriendInfo/EnemyInfo-like unit records used by the viewer and validation when present
 - `gimbal.fire_code.follow_mode`: semantic firecode bit4; old `hole_mode` naming should no longer be used in new traces/docs
+- `gimbal_feedback`: callback-time `/ly/gimbal/firecode` feedback snapshot. `available` and `age_ms` distinguish no received frame from a real all-zero frame. Its nested fire-code fields are intentionally separate from legacy `gimbal.fire_code`, which remains a compatibility snapshot of mutable BT state.
+- `control_output`: the most recently constructed and actually published BT control snapshot, not a recomputation from current state. It has a monotonic `sequence`, `age_ms`, and `source` (`normal` or `safe_control`), plus independent `angles`, `fire_code`, and `trajectory` subobjects. Each subobject records `published`; trajectory also records `available` and an explicit `unavailable_reason`. `game_start` and `stop` records retain the latest snapshot or `not_recorded`; they never imply a new control publication.
 - `units`: friend/enemy unit records with type, HP, distance, and `position_cm`
 - `runtime_guard`: current fault and recovery state
 
@@ -727,6 +729,8 @@ Stable viewer-facing fields are:
 - `target_state`: active aim-source state, current/typed aim freshness, and target-set summaries.
 - `navi_relative_target`: relative chase/bridge payload, including the source frame when valid.
 - `posture`, `referee`, `gimbal`, `runtime_guard`, and `units`: runtime state needed to explain decisions.
+- `gimbal_feedback`: lower-machine fire-code feedback evidence captured before BT-local mutation.
+- `control_output`: final BT angle, fire-code, and optional trajectory publication evidence, including safe-control output.
 
 Behavior-tree internals may add optional debug fields under names such as `debug` or `bt_debug`.
 Adding or renaming those debug-only fields must not require simulator changes.

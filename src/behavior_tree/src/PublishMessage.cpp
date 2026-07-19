@@ -362,27 +362,49 @@ namespace BehaviorTree {
      * @param gimbalControlData 云台控制数据
      */
     void Application::PubGimbalControlData() {
-        {
-            gimbal_driver::msg::GimbalAngles msg;
-            msg.yaw   = gimbalControlData.GimbalAngles.Yaw;
-            msg.pitch = gimbalControlData.GimbalAngles.Pitch;
-            msg.header.stamp = node_->now();
-            pub_gimbal_control_->publish(msg);
+        gimbal_driver::msg::GimbalAngles angle_msg;
+        angle_msg.yaw = gimbalControlData.GimbalAngles.Yaw;
+        angle_msg.pitch = gimbalControlData.GimbalAngles.Pitch;
+        angle_msg.header.stamp = node_->now();
+        bool angles_published = false;
+        if (pub_gimbal_control_) {
+            pub_gimbal_control_->publish(angle_msg);
+            angles_published = true;
         }
+
+        std::optional<gimbal_driver::msg::GimbalTrajectory> trajectory_msg;
+        bool trajectory_published = false;
+        auto trajectory_unavailable_reason = ControlTrajectoryUnavailableReason::PublisherUnavailable;
         // The external AimResult is the sole source of trajectory dynamics.
         // FaceMode and patrol keep using the legacy angle command only.
         if (pub_gimbal_trajectory_) {
-            const auto trajectory = MakeGimbalTrajectory(externalAimData);
-            if (trajectory.has_value()) {
-                auto msg = *trajectory;
-                msg.header.stamp = node_->now();
-                pub_gimbal_trajectory_->publish(msg);
+            trajectory_msg = MakeGimbalTrajectory(externalAimData);
+            if (trajectory_msg.has_value()) {
+                trajectory_msg->header.stamp = node_->now();
+                pub_gimbal_trajectory_->publish(*trajectory_msg);
+                trajectory_published = true;
+                trajectory_unavailable_reason = ControlTrajectoryUnavailableReason::None;
+            } else {
+                trajectory_unavailable_reason = ControlTrajectoryUnavailableReason::InvalidDynamics;
             }
         }
-        {
-            auto msg = MakeFireCodeMsg(gimbalControlData.FireCode, node_->now());
-            pub_gimbal_firecode_->publish(msg);
+
+        auto fire_code_msg = MakeFireCodeMsg(gimbalControlData.FireCode, node_->now());
+        bool fire_code_published = false;
+        if (pub_gimbal_firecode_) {
+            pub_gimbal_firecode_->publish(fire_code_msg);
+            fire_code_published = true;
         }
+        CaptureControlOutputTraceSnapshot(
+            angle_msg,
+            angles_published,
+            fire_code_msg,
+            fire_code_published,
+            trajectory_msg,
+            trajectory_published,
+            trajectory_unavailable_reason,
+            ControlOutputSnapshotSource::Normal,
+            std::chrono::steady_clock::now());
     }
 
     void Application::PubPostureControlData() {

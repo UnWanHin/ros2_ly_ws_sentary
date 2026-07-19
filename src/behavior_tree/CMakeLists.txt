@@ -252,6 +252,23 @@ if(BUILD_TESTING)
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
   )
   ament_target_dependencies(test_aim_source gimbal_driver)
+  ament_add_gtest(test_decision_trace_control_output test/test_decision_trace_control_output.cpp)
+  target_include_directories(test_decision_trace_control_output PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
+  )
+  ament_target_dependencies(test_decision_trace_control_output
+    rclcpp
+    std_msgs
+    geometry_msgs
+    auto_aim_common
+    gimbal_driver
+    ament_index_cpp
+  )
+  target_link_libraries(test_decision_trace_control_output
+    ${BTCPP_LINK_TARGET}
+    Utils::Logger
+  )
   ament_add_gtest(test_navi_rotate_posture test/test_navi_rotate_posture.cpp)
   target_include_directories(test_navi_rotate_posture PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

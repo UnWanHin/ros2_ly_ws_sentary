@@ -157,6 +157,7 @@ namespace BehaviorTree{
 
         // ly_gimbal_firecode
         GenSub<ly_gimbal_firecode>([](Application& app, auto msg) {
+            app.CaptureGimbalFeedbackTraceSnapshot(*msg, std::chrono::steady_clock::now());
             app.RecFireCode.FireStatus = msg->fire_status & 0b11;
             app.RecFireCode.CapState = msg->cap_state & 0b11;
             app.RecFireCode.FollowMode = msg->follow_mode ? 1 : 0;

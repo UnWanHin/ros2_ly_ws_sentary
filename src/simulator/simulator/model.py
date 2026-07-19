@@ -324,6 +324,91 @@ class GimbalState:
 
 
 @dataclass(frozen=True)
+class FireCodeSnapshot:
+    field_mask: int | None
+    raw: int | None
+    fire_status: int | None
+    cap_state: int | None
+    follow_mode: bool | None
+    aim_mode: bool | None
+    rotate: int | None
+
+
+@dataclass(frozen=True)
+class GimbalFeedbackState:
+    available: bool
+    age_ms: int | None
+    fire_code: FireCodeSnapshot
+
+    @property
+    def fire_status(self) -> int | None:
+        return self.fire_code.fire_status
+
+    @property
+    def cap_state(self) -> int | None:
+        return self.fire_code.cap_state
+
+    @property
+    def follow_mode(self) -> bool | None:
+        return self.fire_code.follow_mode
+
+    @property
+    def aim_mode(self) -> bool | None:
+        return self.fire_code.aim_mode
+
+    @property
+    def rotate(self) -> int | None:
+        return self.fire_code.rotate
+
+
+@dataclass(frozen=True)
+class ControlAnglesState:
+    published: bool
+    yaw: float | None
+    pitch: float | None
+
+
+@dataclass(frozen=True)
+class ControlFireCodeState:
+    published: bool
+    field_mask: int | None
+    raw: int | None
+    fire_status: int | None
+    cap_state: int | None
+    follow_mode: bool | None
+    aim_mode: bool | None
+    rotate: int | None
+
+
+@dataclass(frozen=True)
+class ControlTrajectoryState:
+    published: bool
+    available: bool
+    unavailable_reason: str
+    yaw: float | None
+    pitch: float | None
+    yaw_omega: float | None
+    pitch_omega: float | None
+    yaw_alpha: float | None
+    pitch_alpha: float | None
+
+
+@dataclass(frozen=True)
+class ControlOutputState:
+    available: bool
+    sequence: int | None
+    age_ms: int | None
+    source: str
+    angles: ControlAnglesState
+    fire_code: ControlFireCodeState
+    trajectory: ControlTrajectoryState
+
+    @property
+    def is_available(self) -> bool:
+        return self.available
+
+
+@dataclass(frozen=True)
 class BulletInfoState:
     has_received: bool
     age_ms: int | None
@@ -536,5 +621,7 @@ class TraceRecord:
     units: tuple[UnitRecord, ...]
     unit_info: tuple[UnitInfoRecord, ...]
     gimbal: GimbalState
+    gimbal_feedback: GimbalFeedbackState
+    control_output: ControlOutputState
     bullet_info: BulletInfoState
     runtime_guard: RuntimeGuard

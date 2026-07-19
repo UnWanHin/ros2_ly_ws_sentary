@@ -247,7 +247,150 @@ json PostureEnumJson(const SentryPosture posture) {
     };
 }
 
+const char* ControlOutputSnapshotSourceToString(
+    const ControlOutputSnapshotSource source) noexcept {
+    switch (source) {
+        case ControlOutputSnapshotSource::Normal: return "normal";
+        case ControlOutputSnapshotSource::SafeControl: return "safe_control";
+        default: return "unknown";
+    }
+}
+
+const char* ControlTrajectoryUnavailableReasonToString(
+    const ControlTrajectoryUnavailableReason reason) noexcept {
+    switch (reason) {
+        case ControlTrajectoryUnavailableReason::None: return "";
+        case ControlTrajectoryUnavailableReason::NotRecorded: return "not_recorded";
+        case ControlTrajectoryUnavailableReason::PublisherUnavailable: return "publisher_unavailable";
+        case ControlTrajectoryUnavailableReason::InvalidDynamics: return "invalid_dynamics";
+        case ControlTrajectoryUnavailableReason::SafeControl: return "safe_control";
+        default: return "unknown";
+    }
+}
+
+json TraceFireCodeToJson(const TraceFireCodeSnapshot& fire_code, const bool available) {
+    if (!available) {
+        return {
+            {"field_mask", nullptr},
+            {"raw", nullptr},
+            {"fire_status", nullptr},
+            {"cap_state", nullptr},
+            {"follow_mode", nullptr},
+            {"aim_mode", nullptr},
+            {"rotate", nullptr},
+        };
+    }
+    return {
+        {"field_mask", static_cast<int>(fire_code.FieldMask)},
+        {"raw", static_cast<int>(fire_code.Raw)},
+        {"fire_status", static_cast<int>(fire_code.FireStatus)},
+        {"cap_state", static_cast<int>(fire_code.CapState)},
+        {"follow_mode", fire_code.FollowMode},
+        {"aim_mode", fire_code.AimMode},
+        {"rotate", static_cast<int>(fire_code.Rotate)},
+    };
+}
+
+json ControlOutputTraceToJson(
+    const ControlOutputTraceSnapshot& snapshot,
+    const std::chrono::steady_clock::time_point now) {
+    const bool snapshot_available = snapshot.Available;
+    const bool angles_published = snapshot_available && snapshot.Angles.Published;
+    const bool fire_code_published = snapshot_available && snapshot.FireCode.Published;
+    const bool trajectory_published = snapshot_available && snapshot.Trajectory.Published;
+    const bool trajectory_available = snapshot_available && snapshot.Trajectory.Available;
+    return {
+        {"available", snapshot_available},
+        {"sequence", snapshot_available ? json(snapshot.Sequence) : json(nullptr)},
+        {"age_ms", AgeMsOrNull(now, snapshot.PublishedAt, snapshot_available)},
+        {"source", snapshot_available
+            ? ControlOutputSnapshotSourceToString(snapshot.Source)
+            : "not_recorded"},
+        {"angles", {
+            {"published", angles_published},
+            {"yaw", angles_published ? FiniteFloat(snapshot.Angles.Yaw) : json(nullptr)},
+            {"pitch", angles_published ? FiniteFloat(snapshot.Angles.Pitch) : json(nullptr)},
+        }},
+        {"fire_code", {
+            {"published", fire_code_published},
+            {"field_mask", fire_code_published
+                ? json(static_cast<int>(snapshot.FireCode.FireCode.FieldMask)) : json(nullptr)},
+            {"raw", fire_code_published
+                ? json(static_cast<int>(snapshot.FireCode.FireCode.Raw)) : json(nullptr)},
+            {"fire_status", fire_code_published
+                ? json(static_cast<int>(snapshot.FireCode.FireCode.FireStatus)) : json(nullptr)},
+            {"cap_state", fire_code_published
+                ? json(static_cast<int>(snapshot.FireCode.FireCode.CapState)) : json(nullptr)},
+            {"follow_mode", fire_code_published
+                ? json(snapshot.FireCode.FireCode.FollowMode) : json(nullptr)},
+            {"aim_mode", fire_code_published
+                ? json(snapshot.FireCode.FireCode.AimMode) : json(nullptr)},
+            {"rotate", fire_code_published
+                ? json(static_cast<int>(snapshot.FireCode.FireCode.Rotate)) : json(nullptr)},
+        }},
+        {"trajectory", {
+            {"published", trajectory_published},
+            {"available", trajectory_available},
+            {"unavailable_reason", ControlTrajectoryUnavailableReasonToString(
+                snapshot_available
+                    ? snapshot.Trajectory.UnavailableReason
+                    : ControlTrajectoryUnavailableReason::NotRecorded)},
+            {"yaw", trajectory_available ? FiniteFloat(snapshot.Trajectory.Yaw) : json(nullptr)},
+            {"pitch", trajectory_available ? FiniteFloat(snapshot.Trajectory.Pitch) : json(nullptr)},
+            {"yaw_omega", trajectory_available ? FiniteFloat(snapshot.Trajectory.YawOmega) : json(nullptr)},
+            {"pitch_omega", trajectory_available ? FiniteFloat(snapshot.Trajectory.PitchOmega) : json(nullptr)},
+            {"yaw_alpha", trajectory_available ? FiniteFloat(snapshot.Trajectory.YawAlpha) : json(nullptr)},
+            {"pitch_alpha", trajectory_available ? FiniteFloat(snapshot.Trajectory.PitchAlpha) : json(nullptr)},
+        }},
+    };
+}
+
 }  // namespace
+
+void Application::CaptureGimbalFeedbackTraceSnapshot(
+    const gimbal_driver::msg::FireCode& message,
+    const std::chrono::steady_clock::time_point received_at) noexcept {
+    try {
+        std::lock_guard<std::mutex> lock(decisionTraceSnapshotMutex_);
+        gimbalFeedbackTraceSnapshot_.Available = true;
+        gimbalFeedbackTraceSnapshot_.FireCode = MakeTraceFireCodeSnapshot(message);
+        gimbalFeedbackTraceSnapshot_.ReceivedAt = received_at;
+    } catch (...) {
+    }
+}
+
+void Application::CaptureControlOutputTraceSnapshot(
+    const gimbal_driver::msg::GimbalAngles& angles,
+    const bool angles_published,
+    const gimbal_driver::msg::FireCode& fire_code,
+    const bool fire_code_published,
+    const std::optional<gimbal_driver::msg::GimbalTrajectory>& trajectory,
+    const bool trajectory_published,
+    const ControlTrajectoryUnavailableReason trajectory_unavailable_reason,
+    const ControlOutputSnapshotSource source,
+    const std::chrono::steady_clock::time_point published_at) noexcept {
+    try {
+        std::lock_guard<std::mutex> lock(decisionTraceSnapshotMutex_);
+        const auto next_sequence = controlOutputTraceSequence_ + 1;
+        const auto snapshot = MakeControlOutputTraceSnapshot(
+            next_sequence,
+            published_at,
+            source,
+            angles,
+            angles_published,
+            fire_code,
+            fire_code_published,
+            trajectory,
+            trajectory_published,
+            trajectory_unavailable_reason);
+        if (!snapshot.Available) {
+            return;
+        }
+        controlOutputTraceSequence_ = next_sequence;
+        controlOutputTraceSnapshot_ = snapshot;
+    } catch (...) {
+    }
+}
 
 bool Application::InitDecisionTrace() {
     if (!decisionTraceRequested_) {
@@ -326,6 +469,13 @@ void Application::WriteDecisionTrace(const std::string_view event) {
     const double elapsed_sec = std::chrono::duration<double>(now - gameStartTime).count();
     const auto wall_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         wall_now.time_since_epoch()).count();
+    GimbalFeedbackTraceSnapshot gimbal_feedback_snapshot;
+    ControlOutputTraceSnapshot control_output_snapshot;
+    {
+        std::lock_guard<std::mutex> lock(decisionTraceSnapshotMutex_);
+        gimbal_feedback_snapshot = gimbalFeedbackTraceSnapshot_;
+        control_output_snapshot = controlOutputTraceSnapshot_;
+    }
 
     const int goal_base_id = GoalBaseId(naviCommandGoal);
     const auto current_goal_reach = EvaluateNaviGoalReach(
@@ -380,7 +530,7 @@ void Application::WriteDecisionTrace(const std::string_view event) {
 
     json record;
     record["schema"] = "ly_decision_trace_v1";
-    record["schema_version"] = 2;
+    record["schema_version"] = 3;
     record["event"] = std::string(event);
     record["tick"] = trace_tick;
     record["t"] = elapsed_sec;
@@ -683,6 +833,17 @@ void Application::WriteDecisionTrace(const std::string_view event) {
             {"rotate", static_cast<int>(RecFireCode.Rotate)},
         }},
     };
+    record["gimbal_feedback"] = {
+        {"available", gimbal_feedback_snapshot.Available},
+        {"age_ms", AgeMsOrNull(
+            now,
+            gimbal_feedback_snapshot.ReceivedAt,
+            gimbal_feedback_snapshot.Available)},
+        {"fire_code", TraceFireCodeToJson(
+            gimbal_feedback_snapshot.FireCode,
+            gimbal_feedback_snapshot.Available)},
+    };
+    record["control_output"] = ControlOutputTraceToJson(control_output_snapshot, now);
 
     record["bullet_info"] = {
         {"has_received", hasReceivedBulletInfo_},

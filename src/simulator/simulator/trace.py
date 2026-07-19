@@ -7,10 +7,16 @@ from typing import Any
 
 from .model import (
     BulletInfoState,
+    ControlAnglesState,
+    ControlFireCodeState,
+    ControlOutputState,
+    ControlTrajectoryState,
     DecisionIntent,
     DecisionOutput,
     EventSnapshot,
     FieldState,
+    FireCodeSnapshot,
+    GimbalFeedbackState,
     GimbalState,
     GoalReachState,
     NaviStatus,
@@ -430,6 +436,120 @@ def normalize_gimbal(raw: dict[str, Any]) -> GimbalState:
     )
 
 
+def empty_fire_code_snapshot() -> FireCodeSnapshot:
+    return FireCodeSnapshot(
+        field_mask=None,
+        raw=None,
+        fire_status=None,
+        cap_state=None,
+        follow_mode=None,
+        aim_mode=None,
+        rotate=None,
+    )
+
+
+def normalize_fire_code_snapshot(raw: dict[str, Any], available: bool) -> FireCodeSnapshot:
+    if not available:
+        return empty_fire_code_snapshot()
+    return FireCodeSnapshot(
+        field_mask=optional_integer(raw.get("field_mask")),
+        raw=optional_integer(raw.get("raw")),
+        fire_status=optional_integer(raw.get("fire_status")),
+        cap_state=optional_integer(raw.get("cap_state")),
+        follow_mode=optional_bool(raw.get("follow_mode")),
+        aim_mode=optional_bool(raw.get("aim_mode")),
+        rotate=optional_integer(raw.get("rotate")),
+    )
+
+
+def normalize_gimbal_feedback(raw: dict[str, Any]) -> GimbalFeedbackState:
+    feedback = as_dict(raw.get("gimbal_feedback"))
+    available = boolean(feedback.get("available"))
+    return GimbalFeedbackState(
+        available=available,
+        age_ms=optional_integer(feedback.get("age_ms")) if available else None,
+        fire_code=normalize_fire_code_snapshot(as_dict(feedback.get("fire_code")), available),
+    )
+
+
+def empty_control_output() -> ControlOutputState:
+    return ControlOutputState(
+        available=False,
+        sequence=None,
+        age_ms=None,
+        source="not_recorded",
+        angles=ControlAnglesState(published=False, yaw=None, pitch=None),
+        fire_code=ControlFireCodeState(
+            published=False,
+            field_mask=None,
+            raw=None,
+            fire_status=None,
+            cap_state=None,
+            follow_mode=None,
+            aim_mode=None,
+            rotate=None,
+        ),
+        trajectory=ControlTrajectoryState(
+            published=False,
+            available=False,
+            unavailable_reason="not_recorded",
+            yaw=None,
+            pitch=None,
+            yaw_omega=None,
+            pitch_omega=None,
+            yaw_alpha=None,
+            pitch_alpha=None,
+        ),
+    )
+
+
+def normalize_control_output(raw: dict[str, Any]) -> ControlOutputState:
+    output = as_dict(raw.get("control_output"))
+    if not boolean(output.get("available")):
+        return empty_control_output()
+
+    angles_raw = as_dict(output.get("angles"))
+    angles_published = boolean(angles_raw.get("published"))
+    fire_raw = as_dict(output.get("fire_code"))
+    fire_published = boolean(fire_raw.get("published"))
+    trajectory_raw = as_dict(output.get("trajectory"))
+    trajectory_published = boolean(trajectory_raw.get("published"))
+    trajectory_available = boolean(trajectory_raw.get("available"))
+
+    return ControlOutputState(
+        available=True,
+        sequence=optional_integer(output.get("sequence")),
+        age_ms=optional_integer(output.get("age_ms")),
+        source=str(output.get("source", "unknown")),
+        angles=ControlAnglesState(
+            published=angles_published,
+            yaw=optional_number(angles_raw.get("yaw")) if angles_published else None,
+            pitch=optional_number(angles_raw.get("pitch")) if angles_published else None,
+        ),
+        fire_code=ControlFireCodeState(
+            published=fire_published,
+            field_mask=optional_integer(fire_raw.get("field_mask")) if fire_published else None,
+            raw=optional_integer(fire_raw.get("raw")) if fire_published else None,
+            fire_status=optional_integer(fire_raw.get("fire_status")) if fire_published else None,
+            cap_state=optional_integer(fire_raw.get("cap_state")) if fire_published else None,
+            follow_mode=optional_bool(fire_raw.get("follow_mode")) if fire_published else None,
+            aim_mode=optional_bool(fire_raw.get("aim_mode")) if fire_published else None,
+            rotate=optional_integer(fire_raw.get("rotate")) if fire_published else None,
+        ),
+        trajectory=ControlTrajectoryState(
+            published=trajectory_published,
+            available=trajectory_available,
+            unavailable_reason=str(trajectory_raw.get("unavailable_reason", "")),
+            yaw=optional_number(trajectory_raw.get("yaw")) if trajectory_available else None,
+            pitch=optional_number(trajectory_raw.get("pitch")) if trajectory_available else None,
+            yaw_omega=optional_number(trajectory_raw.get("yaw_omega")) if trajectory_available else None,
+            pitch_omega=optional_number(trajectory_raw.get("pitch_omega")) if trajectory_available else None,
+            yaw_alpha=optional_number(trajectory_raw.get("yaw_alpha")) if trajectory_available else None,
+            pitch_alpha=optional_number(trajectory_raw.get("pitch_alpha")) if trajectory_available else None,
+        ),
+    )
+
+
 def normalize_bullet_info(raw: dict[str, Any]) -> BulletInfoState:
     info = as_dict(raw.get("bullet_info"))
     has_initial_speed = boolean(info.get("has_initial_speed"))
@@ -586,6 +706,8 @@ def normalize_record(raw: dict[str, Any], index: int, goal_names: dict[int, str]
     navi_status = normalize_navi_status(raw)
     face_mode = normalize_face_mode(raw)
     gimbal = normalize_gimbal(raw)
+    gimbal_feedback = normalize_gimbal_feedback(raw)
+    control_output = normalize_control_output(raw)
     bullet_info = normalize_bullet_info(raw)
     runtime_guard = normalize_runtime_guard(raw)
     field = normalize_field(raw)
@@ -639,6 +761,8 @@ def normalize_record(raw: dict[str, Any], index: int, goal_names: dict[int, str]
         units=normalize_units(raw),
         unit_info=normalize_unit_info(raw),
         gimbal=gimbal,
+        gimbal_feedback=gimbal_feedback,
+        control_output=control_output,
         bullet_info=bullet_info,
         runtime_guard=runtime_guard,
     )
