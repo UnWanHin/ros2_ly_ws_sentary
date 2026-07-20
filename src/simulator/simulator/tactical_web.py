@@ -308,7 +308,7 @@ details.section:last-child {{ border-bottom:1px solid var(--line); }} .section-t
 .stepper {{ gap:5px; }} .stepper input {{ width:68px; min-height:36px; border:1px solid #536168; border-radius:4px; background:#14191b; color:var(--text); text-align:center; font-size:14px; }} .stepper .reset {{ color:#f5dfac; }} .debug-only {{ display:none; }} body.debug-on .debug-only {{ display:block; }}
 @media (max-width:1080px) {{ #topbar {{ align-items:flex-start; flex-direction:column; }} .commandbar {{ justify-content:flex-start; width:100%; }} .shell {{ min-height:calc(100vh - 122px); }} }}
 @media (max-width:860px) {{ .shell {{ grid-template-columns:1fr; }} .side {{ border-top:1px solid var(--line); border-left:0; overflow:visible; }} }}
-@media (max-width:560px) {{ #topbar {{ padding:10px 12px; }} .workspace {{ padding:10px; }} .command-group {{ padding-left:0; border-left:0; }} .status-strip {{ justify-content:flex-start; width:100%; overflow-x:auto; }} .piece {{ width:42px; height:42px; margin:-21px 0 0 -21px; }} .palette {{ grid-template-columns:1fr; }} }}
+@media (max-width:560px) {{ #topbar {{ padding:10px 12px; }} .workspace {{ padding:10px; }} .command-group {{ padding-left:0; border-left:0; }} .status-strip {{ justify-content:flex-start; width:100%; overflow-x:auto; }} .piece {{ width:42px; height:42px; margin:-21px 0 0 -21px; }} .palette {{ grid-template-columns:repeat(2,minmax(0,1fr)); }} }}
 </style>
 </head>
 <body>

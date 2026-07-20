@@ -268,6 +268,13 @@ def test_tactical_browser_interactions_emit_scene_commands_when_playwright_avail
                         timeout=5000,
                     )
 
+                    page.set_viewport_size({"width": 390, "height": 844})
+                    narrow_columns = page.locator("#palette").evaluate(
+                        "el => getComputedStyle(el).gridTemplateColumns.split(' ').length"
+                    )
+                    assert narrow_columns == 2
+                    page.set_viewport_size({"width": 1440, "height": 900})
+
                     page.locator("#palette button").click()
                     board_box = page.locator("#fieldBoard").bounding_box()
                     assert board_box is not None

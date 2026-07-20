@@ -87,6 +87,15 @@ For the first command, open `http://127.0.0.1:9000/tactical`. Map pointer coordi
 official field centimeters, never pixels. `manual_ros` can still display scene/trace data, but it cannot
 alter it.
 
+`/tactical` is a map-first command desk rather than a second simulator implementation. Its Red/Blue
+selector changes only the browser's field perspective: Blue rotates the map and mirrors screen projection,
+while pointer commands are converted back to the same official centimeter coordinates. Zoom, wheel zoom,
+Alt/middle-button pan, Reset view, accordion expansion, and Debug visibility are likewise browser-local.
+The top command bar keeps match Start/Pause/Reset and map controls direct. The inspector keeps Units,
+Structures, and Decision open; Tactical is folded by default, and Diagnostics appears only after Debug is
+enabled. Unit and structure health steppers retain the existing `set_unit_hp` and
+`set_structure_health` command payloads.
+
 In trace v4, `tactical.protect_castle` records configuration state and separately records RFID raw/effective
 activation and enemy-position activation. `tactical.regional_defense` carries the exact BT threat observation,
 last search kind, and counts. The simulator does not recreate those results from geometry. When reviewing

@@ -1,8 +1,8 @@
 # ros2_ly_ws_sentry Knowledge Graph
 
-Generated: 2026-07-20T07:17:20Z
+Generated: 2026-07-20T18:29:52Z
 
-Checked against runtime source baseline: `a16e1af` (DecisionTrace v4, the tactical simulator, and the final Regional Area/Tactical YAML wiring are reflected; an untracked LibreOffice temporary lock file is intentionally excluded)
+Checked against runtime source baseline: `4b0afb5` (DecisionTrace v4, the tactical simulator command desk, and the final Regional Area/Tactical YAML wiring are reflected; an untracked LibreOffice temporary lock file is intentionally excluded)
 
 Current graph shape: 107 nodes, 145 edges, 6 layers.
 
@@ -77,4 +77,5 @@ flowchart LR
 - `src/behavior_tree/config/Tactical.yaml` 是正式全域小陀螺預設與受擊 `0 -> 1 -> 2 -> 3` ramp 時序的唯一來源，並提供 `ProtectHero.Enable` 與 `ProtectCastle.Enable/RFID/EnemyPos`：前者最終覆蓋 HeroProtection 基線；ProtectCastle 的總開關關閉兩條來源，RFID 只關閉堡壘增益點 `2/3` 事件及站樁火控，EnemyPos 只關閉敵方實際進入 MyBase 的防守來源，Highland、道路與 Central 的普通 RegionalDefense 不受影響；PointManager 已移除。`AreaManager.yaml` 的 `RegionalAreaTask.Enable` 與 `MyBase/MyHighland/MyPreRoadland/MyReadyRoadland/CommonCentral.Enable` 是比賽切換可去區域的最終 core scope：`false` 不會產生該區域 Default 候選，也會停止已啟動的同類任務，並同步限制 bridge Chase；JSON `EnemyArea` 不受影響。任何 BT 策略本拍要求 `FollowMode=1` 都在 Tactical 與防守 Rotate 計算後強制輸出 `Rotate=0`；safe fallback 同樣先清 FollowMode，再發 `FIELD_ALL`。
 - 2026-07-20 離線 source 驗證：AreaManager scope 專屬測試與既有區域測試共 23/23 通過，無 node 的正式 launch 解析確認五個 YAML 開關會同步進 bridge，manual Outpost 時 bridge `/goal_pose` 有效值為 false。本機舊版 `sentry_msgs/AimResult` 缺少四個 dynamics 欄位時，BT 仍可建置並安全拒絕 legacy aim trajectory/fire；`offline:=true` 既不 source `sentry.aim`，也不要求 extended AimResult，因此可由 simulator mock 獨立啟動。正式鏈仍強制 extended AimResult contract。
 - `DecisionTrace` v4 以 BT 同一份 Tactical/RegionalDefense policy helper 寫入 ProtectCastle、ProtectHero 和 RegionalDefense evidence；它同時保留最後一次實際 `/ly/control/*` output snapshot，並與 lower-machine `/ly/gimbal/firecode` feedback 明確分開。v2/v3 replay 將未寫入的 evidence 標為 `not_recorded`，不以零值代替。`src/simulator/config/tactical_catalog.yaml` 與 `SceneState` 是 Pygame 和 `/tactical` 的共同 scene contract：`mock` 模式只有 `simulator.mock_inputs` 發正式輸入，`manual_ros` 只觀察 Foxglove/ROS CLI。`scripts/python/start.py` 預設載入 `tactical_board.yaml` 的紅藍完整 14 單位 roster，並保留敵 Hero 進 MyBase 的開局防守情境。MCAP 額外輸出 `control_output`、`tactical` 和 `scene` channels；browser 拖放和 `tactical_board.yaml` Pygame smoke 均有回歸驗證。
+- `/tactical` 的 Red/Blue 視角、縮放、Alt/中鍵平移、Reset view、Debug 診斷顯隱與折疊 inspector 都是 browser-local presentation state。它們不改 SceneState、command bus、ROS projection 或 BT 決策；Blue 視角會將螢幕座標反解回相同的官方厘米座標。常用 Start/Pause/Reset、地圖控制、單位放置與 HP stepper 保持直達。
 - 本圖譜為 source-checked fallback；因本機沒有可用 Understand Anything plugin core，未執行 plugin regeneration。MPC 的 ROS schema 由本倉 `gimbal_driver/msg/GimbalState.msg` 與 `GimbalTrajectory.msg` 定義；外部 `sentry.aim` 只經既有 topic 消費狀態、發布軌跡，不是本倉建置依賴。

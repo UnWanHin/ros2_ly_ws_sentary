@@ -22,27 +22,27 @@
 
 **Files:** `src/simulator/test/test_tactical_web.py`
 
-- [ ] Write failing tactical HTML assertions for `viewSideRed`, `viewSideBlue`,
+- [x] Write failing tactical HTML assertions for `viewSideRed`, `viewSideBlue`,
   `mapZoomIn`, `resetView`, `debugToggle`, `mapViewport`, and accordion
   `aria-expanded` controls.
-- [ ] Run `PYTHONPATH=src/simulator python3 -m pytest -q src/simulator/test/test_tactical_web.py` and verify the new contract fails.
-- [ ] Commit with `test: define tactical command desk contract`.
+- [x] Run `PYTHONPATH=src/simulator python3 -m pytest -q src/simulator/test/test_tactical_web.py` and verify the new contract fails.
+- [x] Commit with `test: define tactical command desk contract`.
 
 ### Task 2: Implement The Command Desk Presentation
 
 **Files:** `src/simulator/simulator/tactical_web.py`; test
 `src/simulator/test/test_tactical_web.py`.
 
-- [ ] Add a map-first DOM/CSS layout: a stable top command bar, `mapViewport`
+- [x] Add a map-first DOM/CSS layout: a stable top command bar, `mapViewport`
   around the existing field board, responsive inspector dock, matching button
   heights, and details/summary accordion cards.
-- [ ] Retain `command(payload)` and every existing payload name. Render unit
+- [x] Retain `command(payload)` and every existing payload name. Render unit
   and structure HP with decrement, number input, increment, and reset-to-max
   actions using existing `set_unit_hp` and `set_structure_health` commands.
-- [ ] Add local `{side, zoom, panX, panY, debug}` state. Apply it to the map,
+- [x] Add local `{side, zoom, panX, panY, debug}` state. Apply it to the map,
   and apply its inverse in `readPoint()` before existing official-centimeter
   command payloads are sent.
-- [ ] Run focused tactical and visual tests; commit with
+- [x] Run focused tactical and visual tests; commit with
   `simulator: polish tactical command desk`.
 
 ### Task 3: Document And Validate The UI
@@ -52,11 +52,11 @@
 `.understand-anything/project-knowledge-graph.md`, and
 `.understand-anything/meta.json`.
 
-- [ ] Document Red/Blue perspective, zoom/pan/reset, accordion cards, and
+- [x] Document Red/Blue perspective, zoom/pan/reset, accordion cards, and
   Debug as browser-local presentation controls with unchanged ROS semantics.
-- [ ] Run `PYTHONPATH=src/simulator python3 -m pytest -q src/simulator/test`,
+- [x] Run `PYTHONPATH=src/simulator python3 -m pytest -q src/simulator/test`,
   `git diff --check`, and JSON parsing for graph files.
-- [ ] Launch the local offline simulator on port 9011, inspect desktop and
+- [x] Launch the local offline simulator on port 9011, inspect desktop and
   narrow screenshots, verify the map image loads, and verify an existing
   `/api/control` command remains accepted.
-- [ ] Commit with `docs: describe tactical command desk`.
+- [x] Commit with `docs: describe tactical command desk`.
