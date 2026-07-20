@@ -101,6 +101,10 @@ The tactical board is available on the same server:
 http://127.0.0.1:9000/tactical
 ```
 
+The editable board requires the live viewer started by `simulator.start --offline-decision --live-view`.
+Do not start `simulator.main ... --web-stream` directly for scene editing: a standalone trace replay
+has no live decision input loop, so `/tactical` is intentionally read-only and shows the reason.
+
 ### Tactical Ownership And Evidence
 
 Use the shared editable board with the default mock owner:

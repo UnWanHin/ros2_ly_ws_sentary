@@ -16,6 +16,8 @@ from simulator.web_stream import SimulatorWebStream
 
 def tactical_metadata(*, ownership_mode: str = "mock") -> dict[str, Any]:
     return {
+        "control_enabled": True,
+        "replay": {"controls_available": True},
         "current_record": {
             "tick": 42,
             "strategy": "Regional",
@@ -195,6 +197,39 @@ def test_tactical_routes_use_shared_status_and_reject_manual_ros_mutation(tmp_pa
         assert response["ok"] is False
         assert response["message"] == "manual_ros_observer_mode"
         assert len(control_file.read_text(encoding="utf-8").splitlines()) == 1
+    finally:
+        stream.stop()
+
+
+def test_tactical_state_disables_scene_edits_without_a_control_consumer(tmp_path: Path) -> None:
+    metadata = tactical_metadata()
+    metadata["replay"]["controls_available"] = False
+
+    state = tactical_state_from_status(metadata)
+
+    assert state["scene"]["can_edit"] is False
+    assert state["scene"]["edit_reason"] == "control_consumer_unavailable"
+
+    stream, control_file = started_stream(tmp_path)
+    try:
+        stream.update_metadata(metadata)
+        status, response = post_json(
+            stream,
+            "/api/control",
+            {
+                "command": "place_unit",
+                "entity_id": "enemy:hero:b",
+                "side": "enemy",
+                "unit_key": "hero",
+                "x": 1111,
+                "y": 722,
+            },
+        )
+
+        assert status == 409
+        assert response["ok"] is False
+        assert response["message"] == "control_consumer_unavailable"
+        assert not control_file.exists()
     finally:
         stream.stop()
 

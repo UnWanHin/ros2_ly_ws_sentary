@@ -680,15 +680,13 @@ class SimulatorWebStream:
                     return
 
                 tactical_state = outer.tactical_state_snapshot()
-                if (
-                    tactical_state["scene"].get("ownership_mode") == "manual_ros"
-                    and is_scene_mutation(command)
-                ):
+                scene = tactical_state["scene"]
+                if is_scene_mutation(command) and not scene.get("can_edit", False):
                     self._json_response(
                         HTTPStatus.CONFLICT,
                         {
                             "ok": False,
-                            "message": "manual_ros_observer_mode",
+                            "message": scene.get("edit_reason", "scene_edit_unavailable"),
                             "command": command,
                             "payload": payload,
                         },

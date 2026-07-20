@@ -111,10 +111,25 @@ def tactical_state_from_status(
 
     enabled = bool(simulator_inputs.get("enabled", False))
     control_enabled = bool(root.get("control_enabled", False))
+    trace = as_dict(root.get("trace"))
+    replay = as_dict(root.get("replay"))
+    control_consumer_available = bool(
+        replay.get("controls_available", trace.get("controls_available", False))
+    )
     units = [_scene_item(value, asset_registry) for value in as_list(raw_scene.get("units"))]
     palette = [_scene_item(value, asset_registry) for value in as_list(raw_scene.get("palette"))]
     structures = [dict(as_dict(value)) for value in as_list(raw_scene.get("structures"))]
-    can_edit = enabled and control_enabled and ownership_mode == "mock"
+    if ownership_mode != "mock":
+        edit_reason = "manual_ros_observer_mode"
+    elif not enabled:
+        edit_reason = "simulator_inputs_disabled"
+    elif not control_enabled:
+        edit_reason = "control_file_unavailable"
+    elif not control_consumer_available:
+        edit_reason = "control_consumer_unavailable"
+    else:
+        edit_reason = "editable"
+    can_edit = edit_reason == "editable"
     goal = dict(as_dict(record.get("goal")))
     decision = as_dict(root.get("decision"))
     resolved_goal = as_dict(decision.get("goal"))
@@ -134,6 +149,7 @@ def tactical_state_from_status(
             "enabled": enabled,
             "ownership_mode": ownership_mode,
             "can_edit": can_edit,
+            "edit_reason": edit_reason,
             "show_trace_units": not bool(units),
             "selected_entity_id": raw_scene.get("selected_entity_id"),
             "units": units,
@@ -365,7 +381,7 @@ function renderDecision() {{
 }}
 function renderControl() {{ const output=state.control_output || {{}}; const fire=output.fire_code || {{}}; const trajectory=output.trajectory || {{}}; addKv(document.getElementById('control'), [['Sequence',output.sequence],['Source',output.source],['Angles',output.angles && output.angles.published ? 'yaw '+numeric(output.angles.yaw)+' pitch '+numeric(output.angles.pitch) : 'not published'],['Fire',fire.published ? 'follow '+text(fire.follow_mode)+' rotate '+text(fire.rotate) : 'not published'],['Trajectory',trajectory.available ? 'yaw '+numeric(trajectory.yaw)+' pitch '+numeric(trajectory.pitch) : text(trajectory.unavailable_reason,'unavailable')]]); const feedback=state.gimbal_feedback || {{}}; addKv(document.getElementById('feedback'), [['Available',feedback.available],['Age',feedback.age_ms===null||feedback.age_ms===undefined?'-':text(feedback.age_ms)+' ms'],['Rotate',feedback.fire_code && feedback.fire_code.rotate]]); setPill('controlPill', output.available ? ('control '+text(output.sequence)) : 'control -', output.available ? 'good' : 'warn'); }}
 function renderTactical() {{ const tactical=state.tactical || {{}}; const castle=tactical.protect_castle || {{}}; const hero=tactical.protect_hero || {{}}; const defense=tactical.regional_defense || {{}}; addKv(document.getElementById('tactical'), [['Evidence',tactical.available ? 'BT trace' : 'not recorded'],['Castle',castle.enabled],['RFID source',castle.rfid_event_active],['Enemy in base',castle.enemy_pos_active],['Hero protection',hero.active],['Defense threat',defense.threat_active],['Defense search',defense.search_kind],['Base enemies',defense.own_base_enemy_count]]); }}
-function renderOwner() {{ const owner=state.scene.ownership_mode; const readonly=owner==='manual_ros'||!state.scene.can_edit; setPill('ownerPill',owner,readonly?'warn':'good'); const message=document.getElementById('ownerMessage'); message.hidden=!readonly; message.textContent=readonly?'Manual ROS observer mode: Foxglove or ROS CLI owns scene facts.':''; for (const button of document.querySelectorAll('#matchActions button')) button.disabled=readonly; }}
+function renderOwner() {{ const owner=state.scene.ownership_mode; const readonly=!state.scene.can_edit; setPill('ownerPill',owner,readonly?'warn':'good'); const message=document.getElementById('ownerMessage'); const reason=text(state.scene.edit_reason); const labels={{manual_ros_observer_mode:'Manual ROS observer mode: Foxglove or ROS CLI owns scene facts.',simulator_inputs_disabled:'Scene input controls are disabled.',control_file_unavailable:'Scene command file is unavailable.',control_consumer_unavailable:'Replay viewer is read-only. Start the offline simulator to edit this board.'}}; message.hidden=!readonly; message.textContent=readonly?(labels[reason]||'Scene editing is unavailable.') : ''; for (const button of document.querySelectorAll('#matchActions button')) button.disabled=readonly; }}
 function render() {{ if (!state) return; mapImage.src=state.stream.map_url+'?frame='+encodeURIComponent(text(state.stream.frame_id,'0')); renderOwner(); renderPalette(); renderPieces(); renderStructures(); renderSelected(); renderDecision(); renderTactical(); renderControl(); }}
 function refresh() {{ return fetch('/api/tactical-state',{{cache:'no-store'}}).then((response)=>response.json()).then((next)=>{{ state=next; render(); }}).catch(()=>announce('Tactical state unavailable')); }}
 board.addEventListener('pointerdown',(event)=>{{ if (!state || !state.scene.can_edit || !paletteChoice || event.target.closest('.piece')) return; placementPointer={{pointerId:event.pointerId}}; }});

@@ -61,6 +61,11 @@ and lower-machine feedback are intentionally shown as different facts.
 are written to the command bus and then projected onto existing formal ROS input topics. The formal
 Regional launch path is unchanged.
 
+Browser edits are available only from the live viewer launched by
+`simulator.start --offline-decision --live-view`, because that viewer follows and consumes the command
+bus. A standalone `simulator.main ... --web-stream` trace replay exposes `/tactical` as read-only; it
+cannot claim to recompute a recorded decision from a dragged piece.
+
 `manual_ros` is observer-only. It is for Foxglove or `ros2 topic pub` users who already own the input
 topics. Both the browser UI and `/api/control` reject scene mutations in this mode, so mock and external
 publishers cannot race each other.
