@@ -352,6 +352,11 @@ One-command fixed regional wrapper:
 python3 scripts/python/start.py
 ```
 
+The wrapper loads `tactical_board.yaml` by default. It contains the complete
+14-piece red/blue roster and keeps one enemy Hero in MyBase so the first live
+decision can exercise ProtectCastle. Pass `--unit-scene` only to replace that
+default with a focused fixture.
+
 This offline entry neither sources nor requires `sentry.aim` or the extended
 `AimResult` velocity/acceleration fields. It uses the regular mock/referee
 inputs and does not publish `/ly/aim/*` unless `--mock-external-aim true` is

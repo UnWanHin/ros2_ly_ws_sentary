@@ -54,8 +54,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--unit-scene",
-        default="",
-        help="JSON/YAML unit scene loaded into the live viewer and mock inputs.",
+        default="src/simulator/sample/unit_scenes/tactical_board.yaml",
+        help="JSON/YAML unit scene loaded into the live viewer and mock inputs (default: full tactical roster).",
     )
     parser.add_argument(
         "--bypass-is-start",

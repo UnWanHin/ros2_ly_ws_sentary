@@ -63,9 +63,9 @@ def test_full_roster_summary_covers_all_visual_unit_assets() -> None:
 def test_tactical_board_scene_covers_protection_rehearsal_piece_assets() -> None:
     summary = build_scene_summary(TACTICAL_BOARD_SCENE, team="red")
 
-    assert summary["summary"]["unit_count"] == 6
-    assert summary["summary"]["friend_units"] == 3
-    assert summary["summary"]["enemy_units"] == 3
+    assert summary["summary"]["unit_count"] == 14
+    assert summary["summary"]["friend_units"] == 7
+    assert summary["summary"]["enemy_units"] == 7
     assert all(unit["asset"]["sprite_available"] for unit in summary["units"])
     enemy_hero = next(unit for unit in summary["units"] if unit["side"] == "enemy" and unit["type"] == "Hero")
     assert enemy_hero["position_cm"] == {"x": 640, "y": 749}

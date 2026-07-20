@@ -105,6 +105,11 @@ The editable board requires the live viewer started by `simulator.start --offlin
 Do not start `simulator.main ... --web-stream` directly for scene editing: a standalone trace replay
 has no live decision input loop, so `/tactical` is intentionally read-only and shows the reason.
 
+`scripts/python/start.py` loads the 14-piece `tactical_board.yaml` roster by
+default. The scene includes every Hero, Engineer, Infantry1/2/3, Drone, and
+Sentry on both sides, while keeping an enemy Hero in MyBase for the opening
+ProtectCastle decision check.
+
 ### Tactical Ownership And Evidence
 
 Use the shared editable board with the default mock owner:
