@@ -163,6 +163,13 @@ def test_tactical_routes_use_shared_status_and_reject_manual_ros_mutation(tmp_pa
         assert "pointerdown" in body
         assert "aria-live" in body
         assert 'id="tactical"' in body
+        assert 'id="viewSideRed"' in body
+        assert 'id="viewSideBlue"' in body
+        assert 'id="mapZoomIn"' in body
+        assert 'id="resetView"' in body
+        assert 'id="debugToggle"' in body
+        assert 'id="mapViewport"' in body
+        assert 'aria-expanded="true"' in body
 
         status, state = get_json(stream, "/api/tactical-state")
         assert status == 200
