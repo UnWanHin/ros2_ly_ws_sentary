@@ -17,7 +17,7 @@ DEFAULT_OVERRIDE_CONFIG_FILE="${ROOT_DIR}/config/override_config.yaml"
 DEFAULT_AREA_MANAGER_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/AreaManager.yaml"
 DEFAULT_TASK_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/Task.yaml"
 DEFAULT_NAVI_ROTATE_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/NaviRotateControl.yaml"
-DEFAULT_POINT_MANAGER_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/PointManager.yaml"
+DEFAULT_TACTICAL_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/Tactical.yaml"
 DEFAULT_PATROL_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/Patrol.yaml"
 DEFAULT_SPECIAL_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/Special.yaml"
 DEFAULT_COMMON_CONFIG_FILE="${ROOT_DIR}/config/common.yaml"
@@ -397,11 +397,11 @@ else
   for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == navi_rotate_config_file:=* ]] && echo "[INFO] override navi_rotate_config_file=${arg#navi_rotate_config_file:=}"; done
 fi
 
-if ! has_launch_arg_key "point_manager_config_file"; then
-  LAUNCH_ARGS=("point_manager_config_file:=${DEFAULT_POINT_MANAGER_CONFIG_FILE}" "${LAUNCH_ARGS[@]}")
-  echo "[INFO] default point_manager_config_file=${DEFAULT_POINT_MANAGER_CONFIG_FILE}"
+if ! has_launch_arg_key "tactical_config_file"; then
+  LAUNCH_ARGS=("tactical_config_file:=${DEFAULT_TACTICAL_CONFIG_FILE}" "${LAUNCH_ARGS[@]}")
+  echo "[INFO] default tactical_config_file=${DEFAULT_TACTICAL_CONFIG_FILE}"
 else
-  for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == point_manager_config_file:=* ]] && echo "[INFO] override point_manager_config_file=${arg#point_manager_config_file:=}"; done
+  for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == tactical_config_file:=* ]] && echo "[INFO] override tactical_config_file=${arg#tactical_config_file:=}"; done
 fi
 
 if ! has_launch_arg_key "patrol_config_file"; then

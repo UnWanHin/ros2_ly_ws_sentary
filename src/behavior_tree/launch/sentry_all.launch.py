@@ -21,6 +21,8 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+import yaml
+
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess, IncludeLaunchDescription, LogInfo, OpaqueFunction, SetLaunchConfiguration, Shutdown
 from launch.conditions import IfCondition
@@ -53,6 +55,58 @@ def _area_scope_csv(raw) -> str:
     else:
         tokens = []
     return ",".join(token for token in (_normalize_area_token(item) for item in tokens) if token)
+
+
+def _config_bool(raw, default: bool) -> bool:
+    if isinstance(raw, bool):
+        return raw
+    normalized = _normalize_bool(str(raw))
+    if normalized:
+        return normalized == "true"
+    return default
+
+
+def _regional_area_scope_from_yaml(config_path: Path) -> tuple[list[str], list[str]]:
+    with open(config_path, encoding="utf-8") as fh:
+        document = yaml.safe_load(fh)
+    if not isinstance(document, dict):
+        raise ValueError("root must be a mapping")
+
+    node_config = document.get("behavior_tree", document.get("/**", {}))
+    if not isinstance(node_config, dict):
+        raise ValueError("behavior_tree must be a mapping")
+    parameters = node_config.get("ros__parameters", {})
+    if not isinstance(parameters, dict):
+        raise ValueError("ros__parameters must be a mapping")
+    area_manager = parameters.get("AreaManager", {})
+    if not isinstance(area_manager, dict):
+        raise ValueError("AreaManager must be a mapping")
+    regional_task = area_manager.get("RegionalAreaTask", {})
+    if not isinstance(regional_task, dict):
+        raise ValueError("AreaManager.RegionalAreaTask must be a mapping")
+
+    if "Enable" not in regional_task:
+        raise ValueError("AreaManager.RegionalAreaTask.Enable is required")
+    if not _config_bool(regional_task["Enable"], True):
+        return [], []
+
+    def enabled(name: str) -> bool:
+        setting = regional_task.get(name, {})
+        if not isinstance(setting, dict) or "Enable" not in setting:
+            raise ValueError(f"AreaManager.RegionalAreaTask.{name}.Enable is required")
+        return _config_bool(setting["Enable"], True)
+
+    my_area = []
+    if enabled("MyBase"):
+        my_area.append("base")
+    if enabled("MyHighland"):
+        my_area.append("highland")
+    if enabled("MyPreRoadland"):
+        my_area.append("pre_roadland")
+    if enabled("MyReadyRoadland"):
+        my_area.append("ready_roadland")
+    common_area = ["central"] if enabled("CommonCentral") else []
+    return my_area, common_area
 
 
 def generate_launch_description():
@@ -196,6 +250,23 @@ def generate_launch_description():
         if use_navi_tf_bridge_override:
             resolved_use_navi_tf_bridge = use_navi_tf_bridge_override
 
+        if resolved_chase_area_limit_use_area_scope == "true":
+            area_manager_config_raw = LaunchConfiguration(
+                "area_manager_config_file"
+            ).perform(context).strip()
+            area_manager_config_path = Path(os.path.expanduser(area_manager_config_raw))
+            try:
+                my_area, common_area = _regional_area_scope_from_yaml(
+                    area_manager_config_path
+                )
+            except Exception as ex:
+                raise RuntimeError(
+                    f"[sentry_all] failed to parse area_manager_config_file "
+                    f"'{area_manager_config_path}': {ex}"
+                ) from ex
+            resolved_chase_area_limit_my_area = ",".join(my_area)
+            resolved_chase_area_limit_common_area = ",".join(common_area)
+
         return [
             SetLaunchConfiguration("resolved_use_navi_tf_bridge", resolved_use_navi_tf_bridge),
             SetLaunchConfiguration(
@@ -268,7 +339,7 @@ def generate_launch_description():
     default_task_config_file = os.path.join(behavior_tree_config_root, "Task.yaml")
     default_chase_config_file = os.path.join(behavior_tree_config_root, "Chase.yaml")
     default_navi_rotate_config_file = os.path.join(behavior_tree_config_root, "NaviRotateControl.yaml")
-    default_point_manager_config_file = os.path.join(behavior_tree_config_root, "PointManager.yaml")
+    default_tactical_config_file = os.path.join(behavior_tree_config_root, "Tactical.yaml")
     default_patrol_config_file = os.path.join(behavior_tree_config_root, "Patrol.yaml")
     default_special_config_file = os.path.join(behavior_tree_config_root, "Special.yaml")
 
@@ -278,7 +349,7 @@ def generate_launch_description():
     task_config_file = LaunchConfiguration("task_config_file")
     chase_config_file = LaunchConfiguration("chase_config_file")
     navi_rotate_config_file = LaunchConfiguration("navi_rotate_config_file")
-    point_manager_config_file = LaunchConfiguration("point_manager_config_file")
+    tactical_config_file = LaunchConfiguration("tactical_config_file")
     patrol_config_file = LaunchConfiguration("patrol_config_file")
     special_config_file = LaunchConfiguration("special_config_file")
     base_config_file = LaunchConfiguration("base_config_file")
@@ -415,9 +486,9 @@ def generate_launch_description():
             description="External navigation rotate/follow compatibility YAML for behavior_tree.",
         ),
         DeclareLaunchArgument(
-            "point_manager_config_file",
-            default_value=default_point_manager_config_file,
-            description="Navigation point default rotate gear YAML for behavior_tree.",
+            "tactical_config_file",
+            default_value=default_tactical_config_file,
+            description="Tactical damage Rotate policy YAML for behavior_tree.",
         ),
         DeclareLaunchArgument(
             "patrol_config_file",
@@ -666,6 +737,10 @@ def generate_launch_description():
     gimbal_use_virtual_device = PythonExpression([
         "'", offline, "'.lower() in ", truthy_values
     ])
+    effective_navi_publish_goal_pose = PythonExpression([
+        "'false' if '", outpost_manual_goal_enable, "'.lower() in ", truthy_values,
+        " else '", navi_publish_goal_pose, "'",
+    ])
     info_logs = [
         LogInfo(msg=["[sentry_all] mode: ", mode]),
         LogInfo(msg=["[sentry_all] config: ", config_file]),
@@ -675,7 +750,7 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] task_config: ", task_config_file]),
         LogInfo(msg=["[sentry_all] chase_config: ", chase_config_file]),
         LogInfo(msg=["[sentry_all] navi_rotate_config: ", navi_rotate_config_file]),
-        LogInfo(msg=["[sentry_all] point_manager_config: ", point_manager_config_file]),
+        LogInfo(msg=["[sentry_all] tactical_config: ", tactical_config_file]),
         LogInfo(msg=["[sentry_all] patrol_config: ", patrol_config_file]),
         LogInfo(msg=["[sentry_all] special_config: ", special_config_file]),
         LogInfo(msg=["[sentry_all] output: ", output]),
@@ -691,6 +766,10 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] runtime_rearm_start_gate: ", runtime_rearm_start_gate]),
         LogInfo(msg=["[sentry_all] publish_navi_goal: ", publish_navi_goal]),
         LogInfo(msg=["[sentry_all] navi_publish_goal_pose: ", navi_publish_goal_pose]),
+        LogInfo(msg=[
+            "[sentry_all] effective_navi_publish_goal_pose: ",
+            effective_navi_publish_goal_pose,
+        ]),
         LogInfo(msg=["[sentry_all] wait_for_game_start_timeout_sec: ", wait_for_game_start_timeout_sec]),
         LogInfo(msg=["[sentry_all] league_referee_stale_timeout_ms: ", league_referee_stale_timeout_ms]),
         LogInfo(msg=[
@@ -780,7 +859,7 @@ def generate_launch_description():
                 "input_topic": "/ly/navi/target_rel",
                 "input_goal_pos_raw_topic": "/ly/navi/goal_pos_raw",
                 "output_goal_pose_topic": "/goal_pose", #"output_goal_pose_topic": "/goal_pose_debug"
-                "publish_goal_pose": navi_publish_goal_pose,
+                "publish_goal_pose": effective_navi_publish_goal_pose,
                 "publish_goal_pos": "false",
                 "enable_goal_pos_raw_bridge": "true",
                 "goal_pos_raw_frame": "map",
@@ -910,7 +989,7 @@ def generate_launch_description():
                 task_config_file,
                 chase_config_file,
                 navi_rotate_config_file,
-                point_manager_config_file,
+                tactical_config_file,
                 patrol_config_file,
                 special_config_file,
                 {

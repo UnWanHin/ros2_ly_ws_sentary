@@ -453,8 +453,16 @@ for token in (
 ):
     if token not in formal_text:
         errors.append(f"formal launch does not retain scoped gimbal compatibility: {token}")
-if '"publish_goal_pose": navi_publish_goal_pose,' not in formal_text:
-    errors.append("navi_publish_goal_pose is not forwarded to navi_tf_bridge")
+for token in (
+    "effective_navi_publish_goal_pose = PythonExpression([",
+    '"publish_goal_pose": effective_navi_publish_goal_pose,',
+    "outpost_manual_goal_enable",
+):
+    if token not in formal_text:
+        errors.append(
+            "formal launch does not keep Outpost manual /goal_pose publisher ownership: "
+            + token
+        )
 
 if not gimbal_lifecycle.is_file():
     errors.append("gimbal test lifecycle helper is missing")
@@ -473,6 +481,116 @@ PY
     pass "gimbal formal/debug configuration boundary contract"
   else
     fail "gimbal formal/debug configuration boundary contract"
+  fi
+}
+
+check_area_manager_enable_contract() {
+  if python3 - "${ROOT_DIR}" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+root = Path(sys.argv[1])
+config = (root / "src/behavior_tree/config/AreaManager.yaml").read_text()
+source = (root / "src/behavior_tree/src/Configuration.cpp").read_text()
+scope_header = (root / "src/behavior_tree/include/RegionalAreaScope.hpp").read_text()
+formal_launch = (root / "src/behavior_tree/launch/sentry_all.launch.py").read_text()
+
+if re.search(r"^\s{6}RegionalAreaTask:\n\s{8}Enable:\s+(?:true|false)\s*$", config, re.MULTILINE) is None:
+    raise SystemExit("AreaManager.yaml lacks RegionalAreaTask.Enable")
+
+for name in ("MyBase", "MyHighland", "MyPreRoadland", "MyReadyRoadland", "CommonCentral"):
+    yaml_pattern = rf"^\s{{8}}{name}:\n\s{{10}}Enable:\s+(?:true|false)\s*$"
+    if re.search(yaml_pattern, config, re.MULTILINE) is None:
+        raise SystemExit(f"AreaManager.yaml lacks RegionalAreaTask.{name}.Enable")
+    parameter = f"AreaManager.RegionalAreaTask.{name}.Enable"
+    if parameter not in source:
+        raise SystemExit(f"Configuration.cpp does not read {parameter}")
+
+if "AreaManager.RegionalAreaTask.Enable" not in source:
+    raise SystemExit("Configuration.cpp does not read AreaManager.RegionalAreaTask.Enable")
+
+if "ApplyRegionalAreaTaskScopeOverride(" not in source:
+    raise SystemExit("Configuration.cpp does not apply the AreaManager final scope override")
+for token in (
+    "navi_goal.MyArea.clear()",
+    "navi_goal.CommonArea.clear()",
+    '"pre_roadland"',
+    '"ready_roadland"',
+):
+    if token not in scope_header:
+        raise SystemExit(f"RegionalAreaScope.hpp lacks final scope handling: {token}")
+for token in (
+    "_regional_area_scope_from_yaml",
+    '"area_manager_config_file"',
+    "resolved_chase_area_limit_my_area",
+    "resolved_chase_area_limit_common_area",
+):
+    if token not in formal_launch:
+        raise SystemExit(f"sentry_all.launch.py does not mirror AreaManager scope to bridge: {token}")
+PY
+  then
+    pass "AreaManager RegionalAreaTask Enable YAML-to-decision contract"
+  else
+    fail "AreaManager RegionalAreaTask Enable YAML-to-decision contract"
+  fi
+}
+
+check_tactical_protection_enable_contract() {
+  if python3 - "${ROOT_DIR}" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+root = Path(sys.argv[1])
+config = (root / "src/behavior_tree/config/Tactical.yaml").read_text()
+source = (root / "src/behavior_tree/src/Configuration.cpp").read_text()
+game_loop = (root / "src/behavior_tree/src/GameLoop.cpp").read_text()
+area_manager = (root / "src/behavior_tree/src/AreaManager.cpp").read_text()
+policy = (root / "src/behavior_tree/include/TacticalProtectionPolicy.hpp").read_text()
+
+castle_match = re.search(r"^\s{6}ProtectCastle:\n((?:\s{8}.*\n)+)", config, re.MULTILINE)
+if castle_match is None:
+    raise SystemExit("Tactical.yaml lacks Tactical.ProtectCastle")
+castle_body = castle_match.group(1)
+for key in ("Enable", "RFID", "EnemyPos"):
+    yaml_pattern = rf"^\s{{8}}{key}:\s+(?:true|false)\s*$"
+    if re.search(yaml_pattern, castle_body, re.MULTILINE) is None:
+        raise SystemExit(f"Tactical.yaml lacks Tactical.ProtectCastle.{key}")
+    parameter = f"Tactical.ProtectCastle.{key}"
+    if parameter not in source:
+        raise SystemExit(f"Configuration.cpp does not read {parameter}")
+
+hero_pattern = r"^\s{6}ProtectHero:\n\s{8}Enable:\s+(?:true|false)\s*$"
+if re.search(hero_pattern, config, re.MULTILINE) is None:
+    raise SystemExit("Tactical.yaml lacks Tactical.ProtectHero.Enable")
+if "Tactical.ProtectHero.Enable" not in source:
+    raise SystemExit("Configuration.cpp does not read Tactical.ProtectHero.Enable")
+
+for token in (
+    "ResolveTacticalFeatureEnable",
+    "IsProtectCastleRfidEventEnabled",
+    "IsProtectCastleEnemyPositionEnabled",
+):
+    if token not in policy:
+        raise SystemExit(f"TacticalProtectionPolicy.hpp lacks {token}")
+
+if "config.HeroProtectionSettings.Enable = ResolveTacticalFeatureEnable(" not in source:
+    raise SystemExit("Tactical.ProtectHero does not override HeroProtection.Enable")
+for token in (
+    "config.TacticalSettings.ProtectCastle",
+    "IsProtectCastleRfidEventEnabled",
+    "IsProtectCastleEnemyPositionEnabled",
+):
+    if token not in game_loop:
+        raise SystemExit(f"GameLoop.cpp lacks ProtectCastle handling: {token}")
+if "enable_own_base_enemy_position" not in area_manager:
+    raise SystemExit("AreaManager.cpp does not gate the MyBase enemy-position source")
+PY
+  then
+    pass "Tactical ProtectCastle/ProtectHero YAML-to-decision contract"
+  else
+    fail "Tactical ProtectCastle/ProtectHero YAML-to-decision contract"
   fi
 }
 
@@ -834,7 +952,7 @@ if (( RUNTIME_ONLY == 0 )); then
   check_file_exists "${ROOT_DIR}/src/gimbal_driver/config/gimbal_driver_config.yaml"
   check_file_exists "${ROOT_DIR}/src/gimbal_driver/config/debug_mode.yaml"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/config/AreaManager.yaml"
-  check_file_exists "${ROOT_DIR}/src/behavior_tree/config/PointManager.yaml"
+  check_file_exists "${ROOT_DIR}/src/behavior_tree/config/Tactical.yaml"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/config/Special.yaml"
   check_file_exists "${ROOT_DIR}/config/base_config.yaml"
   check_file_exists "${ROOT_DIR}/config/override_config.yaml"
@@ -948,6 +1066,8 @@ if (( RUNTIME_ONLY == 0 )); then
   fi
 
   check_gimbal_debug_profile_contract
+  check_area_manager_enable_contract
+  check_tactical_protection_enable_contract
 fi
 
 if (( STATIC_ONLY == 0 )); then
