@@ -18,6 +18,7 @@ topic: /ly/position/data
 
 ## Source occurrences
 
+- [[src/behavior_tree/config/Tactical.yaml|src/behavior_tree/config/Tactical.yaml]]
 - [[src/behavior_tree/include/Topic.hpp|src/behavior_tree/include/Topic.hpp]]
 - [[src/behavior_tree/module/BasicTypes.hpp|src/behavior_tree/module/BasicTypes.hpp]]
 - [[src/behavior_tree/src/GameLoop.cpp|src/behavior_tree/src/GameLoop.cpp]]
@@ -25,6 +26,6 @@ topic: /ly/position/data
 - [[src/gimbal_driver/main.cpp|src/gimbal_driver/main.cpp]]
 - [[src/gimbal_driver/module/BasicTypes.hpp|src/gimbal_driver/module/BasicTypes.hpp]]
 - [[src/simulator/simulator/decision_input_coverage.py|src/simulator/simulator/decision_input_coverage.py]]
-- [[src/simulator/simulator/interactive_inputs.py|src/simulator/simulator/interactive_inputs.py]]
 - [[src/simulator/simulator/mock_inputs.py|src/simulator/simulator/mock_inputs.py]]
+- [[src/simulator/simulator/tactical_catalog.py|src/simulator/simulator/tactical_catalog.py]]
 - [[src/simulator/simulator/validation.py|src/simulator/simulator/validation.py]]

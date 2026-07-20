@@ -18,6 +18,7 @@ Translate the messages that works in serial port communicating
 
 - `ament_cmake`
 - `ament_cmake_gtest`
+- `ament_cmake_pytest`
 - `builtin_interfaces`
 - `geometry_msgs`
 - `libboost-all-dev`
@@ -26,6 +27,7 @@ Translate the messages that works in serial port communicating
 - `rclpy`
 - `rosidl_default_generators`
 - `rosidl_default_runtime`
+- `sentry_msgs`
 - `std_msgs`
 
 ## Messages
@@ -59,6 +61,7 @@ Translate the messages that works in serial port communicating
 
 ## 掃描到的 /ly topics
 
+- [[docs/obsidian/_generated/Topics/ly__aim__result|/ly/aim/result]]
 - [[docs/obsidian/_generated/Topics/ly__bt__sentry_position|/ly/bt/sentry_position]]
 - [[docs/obsidian/_generated/Topics/ly__bullet__speed|/ly/bullet/speed]]
 - [[docs/obsidian/_generated/Topics/ly__control|/ly/control]]

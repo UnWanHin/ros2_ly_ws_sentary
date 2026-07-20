@@ -50,7 +50,7 @@ Updated: 2026-07-19
 
 ## 使用方式
 
-1. 以 repository root 開啟 vault，並先讀 [[docs/obsidian/README|使用與同步說明]]。
+1. 以 repository root 開啟 vault，並先讀 [[docs/obsidian/README|使用與同步說明]]；或執行 `./tools/Library.sh`，在 `1037` 以 Documentation、Graph、Split 閱讀同一批文件。
 2. 從自動索引選擇要追蹤的 package、topic 或 message，使用 Local Graph 查看一跳關係。
 3. 遇到需要人工判斷的情況，在 [[docs/obsidian/notes/README|人工筆記]] 新增 note，以 wikilink 連回相關生成節點與既有文件。
 4. 當來源改變時執行同步器；若 `--check` 顯示漂移，先確認 source 與正式文件是否已一致，再更新生成內容。

@@ -11,9 +11,10 @@ Run these commands from the workspace root:
 roster. Its default page is `http://127.0.0.1:9011/tactical`; all arguments are
 passed through to `scripts/python/start.py`.
 
-`Library.sh` serves the read-only project knowledge graph at
-`http://127.0.0.1:1037/`; all arguments are passed through to
-`scripts/understand_graph_dashboard.py`.
+`Library.sh` serves the local documentation website at `http://127.0.0.1:1037/`.
+Its Documentation, Graph, and Split modes are live views of `docs/**/*.md`:
+files create pages/nodes and their Markdown or Obsidian links create edges. All
+arguments are passed through to `scripts/understand_graph_dashboard.py`.
 
 The other retained tool directories are focused utilities, not additional
 simulation systems: `Behaviortree/` is the offline BT XML viewer, `maps/` is

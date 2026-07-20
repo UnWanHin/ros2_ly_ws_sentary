@@ -30,7 +30,7 @@ updated: 2026-07-16
 
 ## 圖譜與驗收狀態
 
-- `.understand-anything/` 的現有 source audit 已記錄外部 `sentry_tf -> navi_tf_bridge` 的唯一 TF 關係，以及 aim feedback、`sentry_cmd`、FaceMode solver、BT 0x04 與導航 feedback；後續 runtime/graph 變更應重新核對其 HEAD 與計數。
+- 當時的 `.understand-anything/` source audit 曾記錄外部 `sentry_tf -> navi_tf_bridge` 的唯一 TF 關係，以及 aim feedback、`sentry_cmd`、FaceMode solver、BT 0x04 與導航 feedback。該獨立圖譜已退役；目前關係視圖直接由 `docs/**/*.md` 的連結在本地 Documentation Library 生成。
 - Obsidian generated index 已涵蓋 package、message 與可靜態辨識的 `/ly/...` topic；手寫理解與調查保留在 `docs/obsidian/notes/`。
 - 本環境曾以 ROS Humble Bash 完成完整 `colcon build`；`tf_tree` 已於 2026-07-16 移除，後續 build 只涵蓋五個 package。正式 external aim runtime graph 驗證仍為 **pending**；可用外部 navigation、TF 與下位機／offline substitute 時，再執行 `./scripts/selfcheck.sh sentry --launch --wait 10`。
 - GitHub issue workflow 也為 **pending**：repo 規定用 `gh`，但本環境未安裝 `gh`。目前工作樹另有大量 `100644 -> 100755` mode-only noise，開始工程前應先確定它是否為 mount／檔案系統副作用，避免污染 review。

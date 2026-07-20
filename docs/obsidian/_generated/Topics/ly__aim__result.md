@@ -13,6 +13,7 @@ topic: /ly/aim/result
 ## Related packages
 
 - [[docs/obsidian/_generated/Packages/behavior_tree|behavior_tree]]
+- [[docs/obsidian/_generated/Packages/gimbal_driver|gimbal_driver]]
 - [[docs/obsidian/_generated/Packages/simulator|simulator]]
 
 ## Source occurrences
@@ -20,6 +21,8 @@ topic: /ly/aim/result
 - [[src/behavior_tree/config/Task.yaml|src/behavior_tree/config/Task.yaml]]
 - [[src/behavior_tree/include/Topic.hpp|src/behavior_tree/include/Topic.hpp]]
 - [[src/behavior_tree/src/GameLoop.cpp|src/behavior_tree/src/GameLoop.cpp]]
+- [[src/gimbal_driver/config/debug_mode.yaml|src/gimbal_driver/config/debug_mode.yaml]]
+- [[src/gimbal_driver/scripts/debug.py|src/gimbal_driver/scripts/debug.py]]
 - [[src/simulator/simulator/decision_input_coverage.py|src/simulator/simulator/decision_input_coverage.py]]
 - [[src/simulator/simulator/mock_inputs.py|src/simulator/simulator/mock_inputs.py]]
 - [[src/simulator/simulator/start.py|src/simulator/simulator/start.py]]

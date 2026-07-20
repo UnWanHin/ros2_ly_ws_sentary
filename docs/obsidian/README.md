@@ -2,7 +2,7 @@
 
 Updated: 2026-07-15
 
-此目錄把現有 ROS2 哨兵工作區整理成可瀏覽、可持續維護的工程知識庫。請以 **repository root**（本檔案所在倉庫的根目錄）開啟 Obsidian vault，而不是單獨開啟 `docs/obsidian/`；這樣既有文件、原始碼與生成索引都能在同一個 Graph 與 Local Graph 中互相跳轉。
+此目錄把現有 ROS2 哨兵工作區整理成可瀏覽、可持續維護的工程知識庫。請以 **repository root**（本檔案所在倉庫的根目錄）開啟 Obsidian vault，而不是單獨開啟 `docs/obsidian/`；這樣既有文件、原始碼與生成索引都能在同一個 Graph 與 Local Graph 中互相跳轉。`./tools/Library.sh` 的 `1037` 文件網站則直接以全部 `docs/**/*.md` 作為 Documentation、Graph、Split 的共同來源，不另存圖資料。
 
 從 [[docs/obsidian/Home|知識庫首頁]] 開始。它連到目前主鏈、模組／哨兵文件、人工筆記與由原始碼生成的索引。
 

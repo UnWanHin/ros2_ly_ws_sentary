@@ -21,6 +21,7 @@ topic: /ly/gimbal/firecode
 - [[src/behavior_tree/include/Topic.hpp|src/behavior_tree/include/Topic.hpp]]
 - [[src/gimbal_driver/main.cpp|src/gimbal_driver/main.cpp]]
 - [[src/gimbal_driver/module/BasicTypes.hpp|src/gimbal_driver/module/BasicTypes.hpp]]
+- [[src/gimbal_driver/scripts/debug.py|src/gimbal_driver/scripts/debug.py]]
 - [[src/simulator/simulator/decision_input_coverage.py|src/simulator/simulator/decision_input_coverage.py]]
 - [[src/simulator/simulator/mock_inputs.py|src/simulator/simulator/mock_inputs.py]]
 - [[src/simulator/simulator/start.py|src/simulator/simulator/start.py]]

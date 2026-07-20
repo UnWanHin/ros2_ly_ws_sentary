@@ -15,6 +15,7 @@ topic: /ly/control/angles
 - [[docs/obsidian/_generated/Packages/behavior_tree|behavior_tree]]
 - [[docs/obsidian/_generated/Packages/gimbal_driver|gimbal_driver]]
 - [[docs/obsidian/_generated/Packages/navi_tf_bridge|navi_tf_bridge]]
+- [[docs/obsidian/_generated/Packages/simulator|simulator]]
 
 ## Source occurrences
 
@@ -24,3 +25,4 @@ topic: /ly/control/angles
 - [[src/gimbal_driver/scripts/debug.py|src/gimbal_driver/scripts/debug.py]]
 - [[src/navi_tf_bridge/launch/map_aim_point.launch.py|src/navi_tf_bridge/launch/map_aim_point.launch.py]]
 - [[src/navi_tf_bridge/src/pointer_solver_node.cpp|src/navi_tf_bridge/src/pointer_solver_node.cpp]]
+- [[src/simulator/simulator/ros_topic_monitor.py|src/simulator/simulator/ros_topic_monitor.py]]

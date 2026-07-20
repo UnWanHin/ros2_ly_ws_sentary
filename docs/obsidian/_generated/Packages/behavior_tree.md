@@ -25,6 +25,7 @@ Make sentry thinking smartly
 - `fmt`
 - `geometry_msgs`
 - `gimbal_driver`
+- `python3-yaml`
 - `rclcpp`
 - `sentry_msgs`
 - `std_msgs`
@@ -46,6 +47,7 @@ Make sentry thinking smartly
 - [[docs/obsidian/_generated/Topics/ly__control__firecode|/ly/control/firecode]]
 - [[docs/obsidian/_generated/Topics/ly__control__posture|/ly/control/posture]]
 - [[docs/obsidian/_generated/Topics/ly__control__sentry_cmd|/ly/control/sentry_cmd]]
+- [[docs/obsidian/_generated/Topics/ly__control__trajectory|/ly/control/trajectory]]
 - [[docs/obsidian/_generated/Topics/ly__control__vel|/ly/control/vel]]
 - [[docs/obsidian/_generated/Topics/ly__enemy__base_hp|/ly/enemy/base_hp]]
 - [[docs/obsidian/_generated/Topics/ly__enemy__hp|/ly/enemy/hp]]

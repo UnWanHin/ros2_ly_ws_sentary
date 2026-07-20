@@ -83,6 +83,16 @@ these topics, but is not a build dependency of this workspace.
 python3 scripts/python/start.py
 ```
 
+本地文档与关系图：
+
+```bash
+./tools/Library.sh
+```
+
+打开 `http://127.0.0.1:1037/`。Documentation、Graph 和 Split 是同一份
+`docs/**/*.md` 的不同视图；Markdown 链接和 Obsidian wikilink 会自动显示为关系，
+不需要生成或维护独立图数据。
+
 ## 维护约定
 
 - 根目录只保留这份接手指南；新增文档放到 `docs/`。

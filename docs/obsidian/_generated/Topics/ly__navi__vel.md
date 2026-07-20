@@ -21,6 +21,7 @@ topic: /ly/navi/vel
 - [[src/behavior_tree/include/Application.hpp|src/behavior_tree/include/Application.hpp]]
 - [[src/behavior_tree/include/Topic.hpp|src/behavior_tree/include/Topic.hpp]]
 - [[src/behavior_tree/src/PublishMessage.cpp|src/behavior_tree/src/PublishMessage.cpp]]
+- [[src/gimbal_driver/config/debug_mode.yaml|src/gimbal_driver/config/debug_mode.yaml]]
 - [[src/gimbal_driver/main.cpp|src/gimbal_driver/main.cpp]]
 - [[src/gimbal_driver/scripts/debug.py|src/gimbal_driver/scripts/debug.py]]
 - [[src/simulator/simulator/decision_input_coverage.py|src/simulator/simulator/decision_input_coverage.py]]

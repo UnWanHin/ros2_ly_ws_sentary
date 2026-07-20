@@ -12,8 +12,13 @@ topic: /ly/control/trajectory
 
 ## Related packages
 
+- [[docs/obsidian/_generated/Packages/behavior_tree|behavior_tree]]
 - [[docs/obsidian/_generated/Packages/gimbal_driver|gimbal_driver]]
+- [[docs/obsidian/_generated/Packages/simulator|simulator]]
 
 ## Source occurrences
 
+- [[src/behavior_tree/include/Topic.hpp|src/behavior_tree/include/Topic.hpp]]
 - [[src/gimbal_driver/main.cpp|src/gimbal_driver/main.cpp]]
+- [[src/gimbal_driver/scripts/debug.py|src/gimbal_driver/scripts/debug.py]]
+- [[src/simulator/simulator/ros_topic_monitor.py|src/simulator/simulator/ros_topic_monitor.py]]

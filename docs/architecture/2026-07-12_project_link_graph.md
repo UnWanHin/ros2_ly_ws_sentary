@@ -164,4 +164,4 @@ flowchart LR
 - `src/gimbal_driver/main.cpp`、`src/gimbal_driver/include/basictype.hpp`
 - `docs/sentry/embedded/downlink_control_frame.md`
 - `docs/sentry/internal/ros2_topic_tree.md`、`docs/sentry/internal/ros2_topic_structure.md`
-- `.understand-anything/knowledge-graph.json`（本圖的可查詢 package/topic/file 索引）
+- `docs/README.md` 與其連結的現行 Markdown 文件（`./tools/Library.sh` 會由這些文件即時導出關係圖）

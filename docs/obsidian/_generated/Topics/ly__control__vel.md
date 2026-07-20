@@ -19,9 +19,9 @@ topic: /ly/control/vel
 ## Source occurrences
 
 - [[src/behavior_tree/include/Topic.hpp|src/behavior_tree/include/Topic.hpp]]
-- [[src/gimbal_driver/config/debug_mode.yaml|src/gimbal_driver/config/debug_mode.yaml]]
 - [[src/gimbal_driver/main.cpp|src/gimbal_driver/main.cpp]]
 - [[src/gimbal_driver/module/BasicTypes.hpp|src/gimbal_driver/module/BasicTypes.hpp]]
 - [[src/gimbal_driver/scripts/debug.py|src/gimbal_driver/scripts/debug.py]]
+- [[src/simulator/simulator/ros_topic_monitor.py|src/simulator/simulator/ros_topic_monitor.py]]
 - [[src/simulator/simulator/validation.py|src/simulator/simulator/validation.py]]
 - [[src/simulator/simulator/viewer.py|src/simulator/simulator/viewer.py]]

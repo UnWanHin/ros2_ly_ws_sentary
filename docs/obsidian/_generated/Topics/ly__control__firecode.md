@@ -15,14 +15,16 @@ topic: /ly/control/firecode
 - [[docs/obsidian/_generated/Packages/behavior_tree|behavior_tree]]
 - [[docs/obsidian/_generated/Packages/gimbal_driver|gimbal_driver]]
 - [[docs/obsidian/_generated/Packages/navi_tf_bridge|navi_tf_bridge]]
+- [[docs/obsidian/_generated/Packages/simulator|simulator]]
 
 ## Source occurrences
 
 - [[src/behavior_tree/include/Topic.hpp|src/behavior_tree/include/Topic.hpp]]
 - [[src/behavior_tree/launch/sentry_all.launch.py|src/behavior_tree/launch/sentry_all.launch.py]]
-- [[src/gimbal_driver/config/debug_mode.yaml|src/gimbal_driver/config/debug_mode.yaml]]
 - [[src/gimbal_driver/main.cpp|src/gimbal_driver/main.cpp]]
 - [[src/gimbal_driver/module/BasicTypes.hpp|src/gimbal_driver/module/BasicTypes.hpp]]
 - [[src/gimbal_driver/scripts/debug.py|src/gimbal_driver/scripts/debug.py]]
 - [[src/navi_tf_bridge/launch/map_aim_point.launch.py|src/navi_tf_bridge/launch/map_aim_point.launch.py]]
 - [[src/navi_tf_bridge/src/pointer_solver_node.cpp|src/navi_tf_bridge/src/pointer_solver_node.cpp]]
+- [[src/simulator/simulator/decision_input_coverage.py|src/simulator/simulator/decision_input_coverage.py]]
+- [[src/simulator/simulator/ros_topic_monitor.py|src/simulator/simulator/ros_topic_monitor.py]]

@@ -17,6 +17,7 @@ Convert relative target in base frame to map goal position for navigation.
 ## Manifest dependencies
 
 - `ament_cmake`
+- `ament_cmake_pytest`
 - `auto_aim_common`
 - `geometry_msgs`
 - `gimbal_driver`

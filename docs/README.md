@@ -2,6 +2,10 @@
 
 本目录是 `ros2_ly_ws_sentry` 的唯一文档入口，按“上手 -> 架构 -> 模块 -> 实机”组织。
 
+本地运行 `./tools/Library.sh` 后，`http://127.0.0.1:1037/` 提供 Documentation、Graph 和
+Split 三种视图。每个本目录下的 Markdown 页面自动成为图节点，Markdown 链接与 Obsidian
+wikilink 自动成为关系；文件本身是唯一数据源，无需单独同步图谱。
+
 当前 `Behavion` 正式主链是 decision-only：本仓 `sentry_all` 启动 `gimbal_driver`、`navi_tf_bridge` / FaceMode 和 `behavior_tree`，外部 `sentry.aim` / `sentry_tf` 提供相机、检测、追踪、弹道、gimbal TF 和最终 aim/fire 门控。内部视觉、预测、打符、前哨和射表标定包已移除。
 
 ## 目录结构

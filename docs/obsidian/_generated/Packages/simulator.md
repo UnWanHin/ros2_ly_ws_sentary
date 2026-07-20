@@ -28,6 +28,9 @@ Offline pygame simulator for sentry behavior-tree decision traces.
 
 - [[docs/obsidian/_generated/Topics/ly__aim__armor_targets|/ly/aim/armor_targets]]
 - [[docs/obsidian/_generated/Topics/ly__aim__result|/ly/aim/result]]
+- [[docs/obsidian/_generated/Topics/ly__control__angles|/ly/control/angles]]
+- [[docs/obsidian/_generated/Topics/ly__control__firecode|/ly/control/firecode]]
+- [[docs/obsidian/_generated/Topics/ly__control__trajectory|/ly/control/trajectory]]
 - [[docs/obsidian/_generated/Topics/ly__control__vel|/ly/control/vel]]
 - [[docs/obsidian/_generated/Topics/ly__enemy__base_hp|/ly/enemy/base_hp]]
 - [[docs/obsidian/_generated/Topics/ly__enemy__hp|/ly/enemy/hp]]

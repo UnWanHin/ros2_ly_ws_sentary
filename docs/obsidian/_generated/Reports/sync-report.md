@@ -5,4 +5,4 @@
 - 本地 messages：42
 - `/ly/...` topic nodes：75
 
-此報告是掃描計數，不取代 source review、launch composition 或 `.understand-anything/` 的人工架構分析。
+此報告是掃描計數，不取代 source review、launch composition 或目前 `docs/` 文件的架構說明。

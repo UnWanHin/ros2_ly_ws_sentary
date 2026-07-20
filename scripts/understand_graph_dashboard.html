@@ -1,427 +1,80 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LY Sentry Architecture Browser</title>
+  <title>LY Documentation Library</title>
   <style>
-    :root {
-      color-scheme: dark;
-      font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif;
-      --bg: #0f1518;
-      --panel: #182126;
-      --panel-strong: #202b30;
-      --line: #39494f;
-      --text: #e7eeee;
-      --muted: #9cafb2;
-      --gold: #e0ad50;
-      --cyan: #60bdcc;
-      --green: #7bc492;
-      --purple: #aa91d0;
-      --rose: #dc8277;
-    }
-    * { box-sizing: border-box; }
-    body { min-width: 320px; margin: 0; background: var(--bg); color: var(--text); }
-    button, input { font: inherit; }
-    button { cursor: pointer; }
-    header {
-      display: flex; align-items: center; justify-content: space-between; gap: 16px;
-      min-height: 67px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: #131c20;
-    }
-    h1 { margin: 0; color: #f1ca78; font-size: 19px; letter-spacing: 0; }
-    .subtitle, .muted { color: var(--muted); font-size: 13px; line-height: 1.5; }
-    .subtitle { margin: 4px 0 0; }
-    #status { max-width: 48%; color: #b8c8c9; font: 11px/1.4 ui-monospace, "Cascadia Code", monospace; text-align: right; }
-    main { display: grid; grid-template-columns: 272px minmax(0, 1fr); height: calc(100vh - 67px); }
-    aside { min-height: 0; overflow: auto; padding: 14px; border-right: 1px solid var(--line); background: #151e22; }
-    .nav-label { margin: 16px 5px 7px; color: #7f989d; font: 11px ui-monospace, monospace; letter-spacing: .06em; text-transform: uppercase; }
-    .nav-label:first-child { margin-top: 2px; }
-    .nav-button, .result-button, .relation-button, .card, .node-card {
-      border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--text); text-align: left;
-    }
-    .nav-button { display: block; width: 100%; padding: 9px 10px; }
-    .nav-button:hover, .nav-button:focus, .nav-button.active { border-color: #4a6269; background: #26353a; color: #f6faf9; outline: none; }
-    .nav-button.active { box-shadow: inset 3px 0 var(--gold); }
-    input {
-      width: 100%; padding: 9px 10px; border: 1px solid #4a5c62; border-radius: 4px;
-      background: #10171a; color: var(--text); outline: none;
-    }
-    input:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px #60bdcc26; }
-    .results { margin: 8px 0 0; padding: 0; list-style: none; }
-    .result-button { display: block; width: 100%; padding: 8px; border-bottom-color: #2b393e; }
-    .result-button:hover, .result-button:focus { background: #26353a; outline: none; }
-    .badge { display: inline-block; margin-bottom: 3px; color: var(--gold); font: 10px ui-monospace, monospace; }
-    .workspace { min-width: 0; min-height: 0; overflow: auto; padding: 20px 24px 30px; }
-    .breadcrumb { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 14px; color: var(--muted); font-size: 12px; }
-    .breadcrumb button { padding: 0; border: 0; background: none; color: #9dd6dd; text-decoration: underline; }
-    .breadcrumb span { color: #697e82; }
-    h2 { margin: 0; font-size: 23px; }
-    h3 { margin: 0; font-size: 15px; }
-    .page-heading { display: flex; justify-content: space-between; gap: 16px; align-items: start; margin-bottom: 17px; }
-    .page-heading p { max-width: 780px; margin: 6px 0 0; }
-    .metric { flex: 0 0 auto; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); font: 11px ui-monospace, monospace; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(235px, 1fr)); gap: 11px; }
-    .card, .node-card { min-height: 126px; padding: 15px; border-color: var(--line); background: var(--panel); }
-    .card:hover, .card:focus, .node-card:hover, .node-card:focus { border-color: #6d8d95; background: var(--panel-strong); outline: none; }
-    .card .count { color: #f0c974; font: 22px ui-monospace, monospace; }
-    .card p, .node-card p { margin: 7px 0 0; color: #b9c8ca; font-size: 12px; line-height: 1.55; }
-    .card .card-kicker, .node-card .card-kicker { display: block; margin-bottom: 7px; color: var(--gold); font: 10px ui-monospace, monospace; text-transform: uppercase; }
-    .section { margin-top: 26px; }
-    .section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
-    .section-heading span { color: var(--muted); font-size: 12px; }
-    .node-card { min-height: 122px; }
-    .node-card .node-name { display: block; overflow-wrap: anywhere; font-weight: 700; }
-    .node-card .node-id { display: block; margin-top: 5px; overflow-wrap: anywhere; color: #839a9e; font: 10px/1.35 ui-monospace, monospace; }
-    .empty { padding: 24px; border: 1px dashed #4a5d62; border-radius: 4px; color: var(--muted); }
-    .detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 15px; }
-    .detail-main, .side-panel { border: 1px solid var(--line); border-radius: 5px; background: var(--panel); }
-    .detail-main { padding: 18px; }
-    .side-panel { align-self: start; padding: 14px; }
-    .detail-type { margin: 7px 0; color: var(--gold); font: 11px ui-monospace, monospace; }
-    .detail-id { overflow-wrap: anywhere; color: #95aeb2; font: 11px/1.45 ui-monospace, monospace; }
-    .detail-summary { margin: 17px 0 0; line-height: 1.65; }
-    .property-list { margin: 18px 0 0; padding: 0; list-style: none; }
-    .property-list li { padding: 8px 0; border-top: 1px solid #2c3b40; color: #c8d4d5; font-size: 13px; }
-    .property-list b { color: #88bfc8; }
-    .local-graph { position: relative; min-height: 320px; margin-top: 20px; overflow: hidden; border: 1px solid #304249; border-radius: 4px; background-color: #11191c; background-image: linear-gradient(#23313755 1px, transparent 1px), linear-gradient(90deg, #23313755 1px, transparent 1px); background-size: 24px 24px; }
-    .local-graph svg { display: block; width: 100%; height: 320px; }
-    .graph-node { cursor: pointer; }
-    .graph-node rect { stroke-width: 1.4; filter: drop-shadow(0 2px 3px #0008); }
-    .graph-node text { fill: #f5f7f7; font: 12px "Noto Sans TC", "Microsoft JhengHei", sans-serif; pointer-events: none; }
-    .local-edge { stroke: #73919a; stroke-width: 1.25; marker-end: url(#arrow); }
-    .local-edge-label { fill: #9fb7ba; font: 10px ui-monospace, monospace; }
-    .relation-button { display: block; width: 100%; margin: 7px 0 0; padding: 9px; border-color: #35474d; background: #1d292e; }
-    .relation-button:hover, .relation-button:focus { border-color: #80a9b2; background: #26363c; outline: none; }
-    .relation-button .direction { display: block; color: var(--gold); font: 10px ui-monospace, monospace; }
-    .relation-button .relation-name { display: block; overflow-wrap: anywhere; margin-top: 3px; }
-    .relation-button .relation-summary { display: block; overflow-wrap: anywhere; margin-top: 4px; color: #95aaad; font-size: 11px; line-height: 1.4; }
-    .document { max-width: 1080px; }
-    .document pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 14px 0 0; padding: 16px; border: 1px solid var(--line); border-radius: 4px; background: #131b1f; color: #d5dfdf; font: 12px/1.6 ui-monospace, "Cascadia Code", monospace; }
-    .flow-tabs { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 14px; }
-    .flow-tab { padding: 8px 11px; border: 1px solid var(--line); border-radius: 4px; background: #19242a; color: #bdccce; }
-    .flow-tab:hover, .flow-tab:focus, .flow-tab.active { border-color: #779da5; background: #2a3a40; color: #f1ca78; outline: none; }
-    .flow-pane { min-height: 540px; padding: 20px; overflow: auto; border: 1px solid var(--line); border-radius: 5px; background-color: #121a1e; background-image: linear-gradient(#24323855 1px, transparent 1px), linear-gradient(90deg, #24323855 1px, transparent 1px); background-size: 24px 24px; }
-    .flow-column { display: flex; flex-direction: column; align-items: center; gap: 11px; min-width: 850px; }
-    .flow-row { display: flex; justify-content: center; gap: 12px; width: 100%; }
-    .flow-arrow { color: #8da8ad; font: 18px ui-monospace, monospace; line-height: 1; }
-    .flow-card { width: 195px; min-height: 72px; padding: 10px; border: 1px solid #608b94; border-radius: 4px; background: #1d2b30; color: #e9f0f0; text-align: left; }
-    .flow-card:hover, .flow-card:focus { border-color: #f0c974; background: #2b3a3f; outline: none; }
-    .flow-card.event { border-color: #cc7e72; background: #312426; }
-    .flow-card.task { border-color: #baa066; background: #302c20; }
-    .flow-card.output { border-color: #72b98b; background: #203126; }
-    .flow-card small { display: block; margin-top: 5px; color: #adbec0; font-size: 11px; line-height: 1.35; }
-    .flow-card .flow-kicker { display: block; color: #f2cb77; font: 10px ui-monospace, monospace; }
-    .regional-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 15px; align-items: start; }
-    .regional-nav { position: sticky; top: 0; padding: 12px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); }
-    .regional-nav button { display: block; width: 100%; margin-top: 6px; padding: 8px; border: 1px solid #34484e; border-radius: 4px; background: #1c282d; color: #c6d4d5; text-align: left; }
-    .regional-nav button:hover, .regional-nav button:focus { border-color: #84aab3; background: #26363b; outline: none; }
-    .regional-nav h3 { margin-top: 15px; color: #88abb1; font: 11px ui-monospace, monospace; text-transform: uppercase; }
-    .regional-nav h3:first-child { margin-top: 0; }
-    .bt-tree { min-width: 0; padding: 18px; border: 1px solid var(--line); border-radius: 5px; background-color: #121a1e; background-image: linear-gradient(#24323855 1px, transparent 1px), linear-gradient(90deg, #24323855 1px, transparent 1px); background-size: 24px 24px; }
-    .bt-root { width: min(410px, 100%); margin: 0 auto 18px; padding: 12px; border: 2px solid #f0c974; border-radius: 5px; background: #302b1e; color: #fff3cf; text-align: center; }
-    .bt-root small { display: block; margin-top: 5px; color: #d4c38f; font-size: 11px; }
-    .bt-trunk { width: 2px; height: 25px; margin: 0 auto; background: #7799a0; }
-    .bt-stage { position: relative; margin: 0 auto 12px; max-width: 900px; padding-left: 33px; }
-    .bt-stage::before { position: absolute; top: 24px; bottom: -16px; left: 13px; width: 2px; background: #5a757c; content: ""; }
-    .bt-stage:last-child::before { bottom: 32px; }
-    .bt-stage::after { position: absolute; top: 24px; left: 13px; width: 20px; height: 2px; background: #5a757c; content: ""; }
-    .bt-stage > details { border: 1px solid #56727a; border-radius: 5px; background: #1c292e; }
-    .bt-stage > details[open] { border-color: #c39d61; }
-    .bt-stage summary { display: flex; align-items: center; gap: 9px; padding: 11px 12px; cursor: pointer; list-style: none; }
-    .bt-stage summary::-webkit-details-marker { display: none; }
-    .bt-stage summary::before { color: #f0c974; content: "▸"; }
-    .bt-stage details[open] summary::before { content: "▾"; }
-    .bt-stage .stage-name { color: #f3f6f6; font-weight: 700; }
-    .bt-stage .stage-meta { margin-left: auto; color: #9fb4b7; font: 11px ui-monospace, monospace; }
-    .bt-stage .stage-description { padding: 0 12px 11px; color: #b9cacc; font-size: 12px; line-height: 1.5; }
-    .bt-children { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; padding: 0 12px 13px; }
-    .bt-child { min-height: 72px; padding: 9px; border: 1px solid #3c545b; border-radius: 4px; background: #162126; color: #dce7e7; text-align: left; }
-    .bt-child:hover, .bt-child:focus { border-color: #8cb5bd; background: #24343a; outline: none; }
-    .bt-child .child-type { display: block; color: #e2b35b; font: 10px ui-monospace, monospace; }
-    .bt-child small { display: block; margin-top: 5px; color: #9fb4b7; font-size: 11px; line-height: 1.4; }
-    .bt-note { max-width: 900px; margin: 15px auto 0; padding: 10px; border-left: 3px solid #d48a75; background: #302325; color: #d9c2c2; font-size: 12px; line-height: 1.55; }
-    @media (max-width: 820px) { .regional-layout { grid-template-columns: 1fr; } .regional-nav { position: static; } }
-    .error { color: #ffaaa1; }
-    @media (max-width: 960px) { .detail-layout { grid-template-columns: 1fr; } .side-panel { align-self: stretch; } }
-    @media (max-width: 720px) {
-      header { align-items: start; flex-direction: column; } #status { max-width: none; text-align: left; }
-      main { display: block; height: auto; } aside { max-height: 285px; border-right: 0; border-bottom: 1px solid var(--line); }
-      .workspace { min-height: calc(100vh - 352px); padding: 16px; } .page-heading { flex-direction: column; }
-    }
+    :root { --ink:#101518; --chrome:#171e22; --surface:#20292e; --surface-2:#263238; --line:#3b4a52; --text:#edf2f3; --muted:#a2b1b7; --accent:#8cabbf; --accent-strong:#b7d0dd; --edge:rgba(161,181,191,.16); --focus:rgba(147,183,202,.34); }
+    * { box-sizing:border-box; } html,body { width:100%; height:100%; margin:0; overflow:hidden; background:var(--ink); color:var(--text); font:14px/1.5 Inter,"Noto Sans",sans-serif; }
+    button,input { font:inherit; } button { color:inherit; } button:focus-visible,input:focus-visible { outline:2px solid var(--accent-strong); outline-offset:2px; }
+    .app { display:grid; grid-template-columns:252px minmax(0,1fr); height:100vh; }
+    .sidebar { display:flex; min-width:0; flex-direction:column; gap:14px; padding:16px 12px; border-right:1px solid var(--line); background:var(--chrome); overflow:auto; }
+    .brand { display:flex; align-items:center; gap:10px; padding:2px 5px 10px; } .brand-mark { display:grid; width:31px; height:31px; place-items:center; border:1px solid var(--accent); border-radius:5px; color:var(--accent-strong); font-weight:700; } .brand h1 { margin:0; font-size:15px; } .brand p { margin:0; color:var(--muted); font-size:14px; }
+    .sidebar h2 { margin:0 5px 5px; color:var(--muted); font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0; }
+    .nav-list { display:grid; gap:3px; } .nav-button { display:flex; min-height:36px; align-items:center; justify-content:space-between; gap:8px; width:100%; padding:7px 9px; border:1px solid transparent; border-radius:4px; background:transparent; color:var(--muted); text-align:left; cursor:pointer; transition:background .16s ease,border-color .16s ease,color .16s ease; }
+    .nav-button:hover { border-color:var(--line); background:var(--surface); color:var(--text); } .nav-button.active { border-color:#618197; background:#23323a; color:var(--accent-strong); } .count { color:var(--muted); font:12px/1 ui-monospace,SFMono-Regular,Consolas,monospace; }
+    .search { width:100%; min-height:38px; padding:8px 10px; border:1px solid var(--line); border-radius:4px; background:#11171a; color:var(--text); } .search::placeholder { color:#829198; }
+    #searchResults { display:grid; gap:3px; margin:0; padding:0; list-style:none; } .result { width:100%; padding:7px 9px; border:1px solid transparent; border-radius:4px; background:transparent; color:var(--muted); text-align:left; cursor:pointer; } .result:hover { border-color:var(--line); background:var(--surface); color:var(--text); }
+    .sidebar-footer { margin-top:auto; padding:8px 5px 0; border-top:1px solid var(--line); color:var(--muted); font-size:12px; }
+    .main { display:grid; grid-template-rows:auto minmax(0,1fr); min-width:0; min-height:0; height:100%; } .topbar { display:flex; min-height:62px; align-items:center; justify-content:space-between; gap:12px; padding:10px 18px; border-bottom:1px solid var(--line); background:var(--chrome); }
+    .context { min-width:0; } .context strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:15px; } .context span { color:var(--muted); font-size:14px; }
+    .view-switch { display:flex; overflow:hidden; border:1px solid var(--line); border-radius:5px; } .view-switch button { min-height:36px; padding:7px 13px; border:0; border-right:1px solid var(--line); background:var(--surface); cursor:pointer; transition:background .16s ease,color .16s ease; } .view-switch button:last-child { border-right:0; } .view-switch button[aria-pressed="true"] { background:#273940; color:var(--accent-strong); }
+    .workspace { position:relative; min-width:0; min-height:0; height:100%; overflow:hidden; } .pane { min-width:0; min-height:0; } .single .graph-pane,.single .reader-pane { display:none; } .single.docs .reader-pane,.single.graph .graph-pane { display:block; height:100%; } .split { display:grid; grid-template-columns:minmax(320px,43%) minmax(0,1fr); height:100%; } .split .reader-pane { border-right:1px solid var(--line); }
+    .reader-pane { overflow:auto; background:#151b1e; } .reader { max-width:900px; margin:0 auto; padding:30px clamp(20px,4vw,56px) 60px; color:#dae4e7; } .reader h1 { margin:0 0 8px; font-size:26px; letter-spacing:0; } .reader h2 { margin:28px 0 10px; color:var(--accent-strong); font-size:19px; } .reader h3 { margin:22px 0 8px; color:var(--text); font-size:16px; } .reader p,.reader li { font-size:15px; } .reader a { color:var(--accent-strong); text-decoration-color:#6f90a1; cursor:pointer; } .reader code { padding:2px 4px; border-radius:3px; background:#232e33; color:#d3e7ef; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; } .reader pre { overflow:auto; padding:14px; border:1px solid var(--line); border-radius:5px; background:#101518; } .reader pre code { padding:0; background:transparent; } .reader ul { padding-left:22px; } .empty { display:grid; height:100%; place-items:center; padding:24px; color:var(--muted); text-align:center; }
+    .graph-pane { position:relative; height:100%; overflow:hidden; background:radial-gradient(circle at 50% 40%,#1c282e 0,#111719 62%); } #graph { display:block; width:100%; height:100%; cursor:grab; touch-action:none; } #graph.dragging { cursor:grabbing; } .graph-hud { position:absolute; top:14px; right:16px; display:flex; gap:7px; align-items:center; pointer-events:none; } .hud-pill { padding:5px 8px; border:1px solid var(--line); border-radius:999px; background:#162025dc; color:var(--muted); font-size:12px; } .legend { position:absolute; bottom:14px; left:16px; color:var(--muted); font-size:12px; pointer-events:none; }
+    .status { position:absolute; right:18px; bottom:14px; color:var(--muted); font-size:12px; } .error { color:#e6a4a4; }
+    @media (max-width:840px) { .app { grid-template-columns:1fr; grid-template-rows:auto minmax(0,1fr); } .sidebar { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; max-height:210px; border-right:0; border-bottom:1px solid var(--line); padding:10px; } .brand { grid-column:1/-1; padding:0; } .sidebar-footer { display:none; } .sidebar section:last-of-type { overflow:auto; } .topbar { flex-wrap:wrap; align-content:center; padding:9px 12px; } .context { flex:1 1 100%; } .view-switch { margin-left:auto; } .split { grid-template-columns:1fr; grid-template-rows:minmax(260px,42%) minmax(0,1fr); } .split .reader-pane { border-right:0; border-bottom:1px solid var(--line); } .view-switch button { padding:7px 9px; } }
   </style>
 </head>
 <body>
-  <header>
-    <div><h1>LY Sentry Architecture Browser</h1><p class="subtitle">分層瀏覽工程域、ROS topic、資料處理與局部關係。</p></div>
-    <div id="status">正在讀取 source-checked graph…</div>
-  </header>
-  <main>
-    <aside>
-      <div class="nav-label">Architecture</div>
-      <button class="nav-button" data-action="home">工程域</button>
-      <button class="nav-button" data-action="catalog" data-category="topics">ROS topics</button>
-      <button class="nav-button" data-action="catalog" data-category="processing">資料處理</button>
-      <button class="nav-button" data-action="catalog" data-category="messages">Message schema</button>
-      <button class="nav-button" data-action="catalog" data-category="regional">Regional 決策</button>
-      <button class="nav-button" data-action="regional-flow">Regional 流程圖</button>
-      <button class="nav-button" data-action="catalog" data-category="referee">串口與裁判</button>
-      <div class="nav-label">Documents</div>
-      <button class="nav-button" data-action="document" data-document="project">工程 Mermaid</button>
-      <button class="nav-button" data-action="document" data-document="regional">Regional Mermaid</button>
-      <div class="nav-label">Search</div>
-      <input id="filter" type="search" placeholder="搜尋 topic、模組、檔案">
-      <ul id="results" class="results"></ul>
+  <div class="app">
+    <aside class="sidebar" aria-label="Documentation navigation">
+      <div class="brand"><div class="brand-mark">LY</div><div><h1>Documentation Library</h1><p>Source-derived knowledge view</p></div></div>
+      <section><h2>View</h2><div class="nav-list" id="viewNav"></div></section>
+      <section><h2>Documentation</h2><input id="search" class="search" type="search" placeholder="Search documentation" aria-label="Search documentation"><ul id="searchResults"></ul></section>
+      <section><h2>Categories</h2><div class="nav-list" id="categoryNav"></div></section>
+      <div class="sidebar-footer" id="sourceStatus">Reading current Markdown documents</div>
     </aside>
-    <section id="workspace" class="workspace"></section>
-  </main>
+    <main class="main">
+      <header class="topbar"><div class="context"><strong id="selectionTitle">Documentation</strong><span id="selectionMeta">Choose a page or explore the graph</span></div><div class="view-switch" role="group" aria-label="View mode"><button data-view="docs" aria-pressed="true">Documentation</button><button data-view="graph" aria-pressed="false">Graph</button><button data-view="split" aria-pressed="false">Split</button></div></header>
+      <section class="workspace single docs" id="workspace"><section class="pane reader-pane" id="readerPane"><div class="empty">Loading documentation...</div></section><section class="pane graph-pane" id="graphPane"><canvas id="graph" aria-label="Documentation relationship graph"></canvas><div class="graph-hud"><span class="hud-pill" id="nodeCount">0 pages</span><span class="hud-pill" id="edgeCount">0 links</span></div><div class="legend">Wheel: zoom · Drag empty space: pan · Drag a page: move · Double click: open document</div></section></section>
+    </main>
+  </div>
   <script>
-    const state = { graph: null, docs: {}, route: { view: "home" } };
-    const svgNs = "http://www.w3.org/2000/svg";
-    const typeColor = { module: "#50afbe", endpoint: "#dc9e3e", file: "#72bd87", config: "#a98ed0", schema: "#d57995", document: "#7899a5", concept: "#d47769", service: "#abb85c", tool: "#7dabb0" };
-    const esc = value => String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[char]));
-    const isTopic = node => node.type === "endpoint" && (node.tags || []).includes("ros_topic");
-    const isReferee = node => /referee|serial|embedded|gimbal_driver|downlink|typeid|0x0/.test([node.id, node.name, node.summary, ...(node.tags || [])].join(" ").toLowerCase());
-    const isRegional = node => /regional|behavior_tree|decision|posture|patrol|reach|\/ly\/navi|\/ly\/friend\/(hp|op_hp)|\/ly\/enemy\/(hp|op_hp)|damage_difference|sentry\/info|game\/path|gimbal_driver|navi_tf_bridge|sentry_position|map_path/.test([node.id, node.name, node.summary, node.filePath, ...(node.tags || [])].join(" ").toLowerCase());
-    const categoryDefinitions = {
-      topics: { title: "ROS topics", description: "所有 ROS topic。點進 topic 後可看 publisher、subscriber 與每條資料流語義。", test: isTopic },
-      processing: { title: "資料處理", description: "模組、原始碼、launch/config 等會轉換、合成或決定資料的節點。", test: node => ["module", "file", "config", "service", "concept"].includes(node.type) && !node.id.startsWith("document:") },
-      messages: { title: "Message schema", description: "ROS message 與 schema 定義；由它可跳到使用該資料的 topic 或處理節點。", test: node => node.type === "schema" },
-      regional: { title: "Regional 決策", description: "Regional 決策、導航、reached、姿態、血量和相關的資料處理。", test: isRegional },
-      referee: { title: "串口與裁判", description: "gimbal_driver、上/下行 frame、裁判資料映射及相關 ROS topic。", test: isReferee },
-    };
-    function nodesByLayer(layerId) {
-      const layer = state.graph.layers.find(item => item.id === layerId); const ids = new Set(layer?.nodeIds || []);
-      return state.graph.nodes.filter(node => ids.has(node.id));
-    }
-    function findNode(id) { return state.graph.nodes.find(node => node.id === id); }
-    function nodeName(id) { return findNode(id)?.name || id; }
-    function navigate(route) { state.route = route; updateNavigation(); render(); }
-    function updateNavigation() {
-      document.querySelectorAll(".nav-button").forEach(button => {
-        const active = (button.dataset.action === "home" && state.route.view === "home") ||
-          (button.dataset.action === "catalog" && state.route.view === "catalog" && button.dataset.category === state.route.category) ||
-          (button.dataset.action === "regional-flow" && state.route.view === "regional-flow") ||
-          (button.dataset.action === "document" && state.route.view === "document" && button.dataset.document === state.route.document);
-        button.classList.toggle("active", active);
-      });
-    }
-    function breadcrumb(items) {
-      return `<nav class="breadcrumb">${items.map((item, index) => `${index ? "<span>›</span>" : ""}${item.route ? `<button data-route='${esc(JSON.stringify(item.route))}'>${esc(item.label)}</button>` : `<span>${esc(item.label)}</span>`}`).join("")}</nav>`;
-    }
-    function pageHeading(title, description, metric) {
-      return `<div class="page-heading"><div><h2>${esc(title)}</h2><p class="muted">${esc(description)}</p></div>${metric ? `<div class="metric">${esc(metric)}</div>` : ""}</div>`;
-    }
-    function render() {
-      const workspace = document.querySelector("#workspace");
-      if (state.route.view === "home") renderHome(workspace);
-      else if (state.route.view === "catalog") renderCatalog(workspace, state.route.category);
-      else if (state.route.view === "layer") renderLayer(workspace, state.route.layerId);
-      else if (state.route.view === "detail") renderDetail(workspace, state.route.nodeId);
-      else if (state.route.view === "regional-flow") renderRegionalFlow(workspace, state.route.tab || "tick");
-      else if (state.route.view === "document") renderDocument(workspace, state.route.document);
-      bindRouteButtons(workspace);
-    }
-    function renderHome(workspace) {
-      const layers = state.graph.layers || [];
-      workspace.innerHTML = `${pageHeading("工程域", "先選你要看的系統邊界；這裡不把全部節點堆在同一張圖。", `${layers.length} domains`)}<div class="grid">${layers.map(layer => `<button class="card" data-route='${esc(JSON.stringify({ view: "layer", layerId: layer.id }))}'><span class="card-kicker">工程域</span><span class="count">${layer.nodeIds.length}</span><h3>${esc(layer.name)}</h3><p>${esc(layer.description || "無說明")}</p></button>`).join("")}</div><section class="section"><div class="section-heading"><h3>快速入口</h3><span>按資料種類收斂</span></div><div class="grid">${Object.entries(categoryDefinitions).map(([id, category]) => { const count = state.graph.nodes.filter(category.test).length; return `<button class="card" data-route='${esc(JSON.stringify({ view: "catalog", category: id }))}'><span class="card-kicker">目錄</span><span class="count">${count}</span><h3>${esc(category.title)}</h3><p>${esc(category.description)}</p></button>`; }).join("")}</div></section>`;
-    }
-    function renderCatalog(workspace, categoryId) {
-      const category = categoryDefinitions[categoryId];
-      if (!category) { navigate({ view: "home" }); return; }
-      const nodes = state.graph.nodes.filter(category.test).sort((a, b) => a.name.localeCompare(b.name));
-      workspace.innerHTML = `${breadcrumb([{ label: "工程域", route: { view: "home" } }, { label: category.title }])}${pageHeading(category.title, category.description, `${nodes.length} nodes`)}${nodeGrid(nodes)}`;
-    }
-    function renderLayer(workspace, layerId) {
-      const layer = state.graph.layers.find(item => item.id === layerId);
-      if (!layer) { navigate({ view: "home" }); return; }
-      const nodes = nodesByLayer(layerId).sort((a, b) => a.name.localeCompare(b.name));
-      const groups = [
-        ["ROS topics", nodes.filter(isTopic)],
-        ["資料處理", nodes.filter(node => ["module", "file", "config", "service", "concept"].includes(node.type))],
-        ["Message schema", nodes.filter(node => node.type === "schema")],
-        ["文件與工具", nodes.filter(node => ["document", "tool"].includes(node.type))],
-      ].filter(([, items]) => items.length);
-      workspace.innerHTML = `${breadcrumb([{ label: "工程域", route: { view: "home" } }, { label: layer.name }])}${pageHeading(layer.name, layer.description || "無說明", `${nodes.length} nodes`)}${groups.map(([title, items]) => `<section class="section"><div class="section-heading"><h3>${title}</h3><span>${items.length} nodes</span></div>${nodeGrid(items)}</section>`).join("")}`;
-    }
-    function nodeGrid(nodes) {
-      return nodes.length ? `<div class="grid">${nodes.map(node => `<button class="node-card" data-route='${esc(JSON.stringify({ view: "detail", nodeId: node.id }))}'><span class="card-kicker">${esc(node.type)}</span><span class="node-name">${esc(node.name)}</span><span class="node-id">${esc(node.id)}</span><p>${esc(compact(node.summary || "無摘要", 126))}</p></button>`).join("")}</div>` : "<div class='empty'>這個範圍目前沒有 graph 節點。</div>";
-    }
-    function compact(value, length) { const text = String(value); return text.length > length ? `${text.slice(0, length - 1)}…` : text; }
-    function renderDetail(workspace, nodeId) {
-      const node = findNode(nodeId); if (!node) { navigate({ view: "home" }); return; }
-      const incoming = state.graph.edges.filter(edge => edge.target === node.id);
-      const outgoing = state.graph.edges.filter(edge => edge.source === node.id);
-      const memberships = state.graph.layers.filter(layer => layer.nodeIds.includes(node.id));
-      const parentLayer = memberships[0];
-      workspace.innerHTML = `${breadcrumb([{ label: "工程域", route: { view: "home" } }, ...(parentLayer ? [{ label: parentLayer.name, route: { view: "layer", layerId: parentLayer.id } }] : []), { label: node.name }])}${pageHeading(node.name, "單一節點只呈現直接關係，避免在這裡堆出全工程大圖。", `${incoming.length} in · ${outgoing.length} out`)}<div class="detail-layout"><div class="detail-main"><h3>${esc(node.name)}</h3><div class="detail-type">${esc(node.type)}</div><div class="detail-id">${esc(node.id)}</div><p class="detail-summary">${esc(node.summary || "無摘要")}</p><ul class="property-list"><li><b>標籤：</b>${esc((node.tags || []).join(", ") || "無")}</li>${node.messageType ? `<li><b>Message type：</b>${esc(node.messageType)}</li>` : ""}${node.filePath ? `<li><b>檔案：</b>${esc(node.filePath)}</li>` : ""}${memberships.length ? `<li><b>工程域：</b>${esc(memberships.map(layer => layer.name).join("、"))}</li>` : ""}</ul><section class="section"><div class="section-heading"><h3>局部關係圖</h3><span>只畫一跳</span></div><div id="local-graph" class="local-graph"></div></section></div><aside class="side-panel"><h3>輸入 / 上游</h3>${relationList(incoming, "upstream")}<div class="section"><h3>輸出 / 下游</h3>${relationList(outgoing, "downstream")}</div></aside></div>`;
-      renderLocalGraph(document.querySelector("#local-graph"), node, incoming, outgoing);
-    }
-    function relationList(edges, direction) {
-      if (!edges.length) return "<p class='muted'>無已記錄直接關係。</p>";
-      return edges.map(edge => {
-        const otherId = direction === "upstream" ? edge.source : edge.target; const label = direction === "upstream" ? "→ 本節點" : "本節點 →";
-        return `<button class="relation-button" data-route='${esc(JSON.stringify({ view: "detail", nodeId: otherId }))}'><span class="direction">${esc(label)} · ${esc(edge.type)}</span><span class="relation-name">${esc(nodeName(otherId))}</span><span class="relation-summary">${esc(compact(edge.summary || "無邊說明", 130))}</span></button>`;
-      }).join("");
-    }
-    function renderLocalGraph(container, center, incoming, outgoing) {
-      const relations = [...incoming.map(edge => ({ edge, node: findNode(edge.source), side: "left" })), ...outgoing.map(edge => ({ edge, node: findNode(edge.target), side: "right" }))].filter(item => item.node).slice(0, 12);
-      const svg = document.createElementNS(svgNs, "svg"); svg.setAttribute("viewBox", "0 0 900 320");
-      svg.innerHTML = `<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#73919a"/></marker></defs>`;
-      const centerBox = { x: 350, y: 128, width: 200, height: 55 };
-      const left = relations.filter(item => item.side === "left"), right = relations.filter(item => item.side === "right");
-      const placements = relations.map((item, index) => {
-        const group = item.side === "left" ? left : right; const order = group.indexOf(item); const x = item.side === "left" ? 30 : 670; const y = 24 + order * Math.max(62, Math.min(78, 260 / Math.max(1, group.length)));
-        return { ...item, x, y, width: 200, height: 42, index };
-      });
-      for (const item of placements) {
-        const line = document.createElementNS(svgNs, "line"); line.classList.add("local-edge");
-        const fromCenter = item.side === "left"; line.setAttribute("x1", fromCenter ? item.x + item.width : centerBox.x); line.setAttribute("y1", fromCenter ? item.y + item.height / 2 : centerBox.y + centerBox.height / 2); line.setAttribute("x2", fromCenter ? centerBox.x : item.x); line.setAttribute("y2", fromCenter ? centerBox.y + centerBox.height / 2 : item.y + item.height / 2); svg.append(line);
-        const label = document.createElementNS(svgNs, "text"); label.classList.add("local-edge-label"); label.setAttribute("x", item.side === "left" ? 260 : 560); label.setAttribute("y", Math.min(307, Math.max(16, (item.y + centerBox.y + 24) / 2))); label.setAttribute("text-anchor", "middle"); label.textContent = item.edge.type; svg.append(label);
-      }
-      appendGraphNode(svg, centerBox, center, true);
-      for (const item of placements) appendGraphNode(svg, item, item.node, false);
-      container.append(svg);
-    }
-    function appendGraphNode(svg, box, node, selected) {
-      const group = document.createElementNS(svgNs, "g"); group.classList.add("graph-node"); group.setAttribute("transform", `translate(${box.x},${box.y})`);
-      const rect = document.createElementNS(svgNs, "rect"); rect.setAttribute("width", box.width); rect.setAttribute("height", box.height); rect.setAttribute("rx", "4"); rect.setAttribute("fill", typeColor[node.type] || "#6f8890"); rect.setAttribute("stroke", selected ? "#f2cb77" : "#c5d4d5");
-      const text = document.createElementNS(svgNs, "text"); text.setAttribute("x", "10"); text.setAttribute("y", selected ? "25" : "24"); text.textContent = compact(node.name, selected ? 25 : 23);
-      const title = document.createElementNS(svgNs, "title"); title.textContent = `${node.name}\n${node.summary || ""}`; group.append(rect, text, title);
-      group.addEventListener("click", () => navigate({ view: "detail", nodeId: node.id })); svg.append(group);
-    }
-    function renderDocument(workspace, documentId) {
-      const title = documentId === "regional" ? "Regional Mermaid" : "工程 Mermaid";
-      workspace.innerHTML = `${breadcrumb([{ label: "工程域", route: { view: "home" } }, { label: title }])}<article class="document">${pageHeading(title, "這是原始 Markdown/Mermaid；架構節點和處理鏈請從左側分層瀏覽。", "read-only") }<pre>${esc(state.docs[documentId] || "讀取中…")}</pre></article>`;
-    }
-    const regionalBtStages = [
-      {
-        name: "UpdateGlobalData", kind: "資料", description: "更新訂閱資料、新鮮度、位置融合、血量與裁判狀態。",
-        target: "file:src/behavior_tree/src/GameLoop.cpp", children: [
-          ["輸入資料", "HP、彈量、UWB / navigation / referee 位置", "file:src/behavior_tree/src/SubscribeMessage.cpp"],
-          ["位置融合", "SentryPositionFusion 產生決策位置", "concept:sentry-position-fusion"],
-          ["裁判狀態", "事件、sentry_info、前哨站血量", "endpoint:ros-topic:/ly/game/sentry/info"],
-        ],
-      },
-      {
-        name: "EvaluateEvents", kind: "事件", description: "把導航到點、不可達、受擊、Buff、前哨站等狀態收斂到 EventSnapshot。",
-        target: "file:src/behavior_tree/src/GameLoop.cpp", children: [
-          ["GoalReachState", "raw reached / reachable 與融合坐標的唯一 final 判定", "concept:composite-goal-reach-contract"],
-          ["Event / Watchdog", "只消費 GoalReachState status，raw topic 僅為證據", "concept:composite-goal-reach-contract"],
-          ["Raw navigation", "/ly/navi/reached、reachable 的 freshness 觀測", "endpoint:ros-topic:/ly/navi/reached"],
-          ["裁判事件", "Buff、前哨站、Regional Defense、受擊", "endpoint:ros-topic:/ly/game/event_data"],
-        ],
-      },
-      {
-        name: "Aim / Strategy 前置", kind: "前置", description: "SelectAimMode、SelectStrategyMode、PreprocessData、SelectAimTarget。",
-        target: "file:src/behavior_tree/src/Application.cpp", children: [
-          ["SelectAimMode", "Normal / Buff / Outpost 等瞄準模式", "file:src/behavior_tree/src/Application.cpp"],
-          ["SelectStrategyMode", "選 competition profile 與策略模式", "file:src/behavior_tree/src/Application.cpp"],
-          ["PreprocessData", "決策前資料整理", "file:src/behavior_tree/src/GameLoop.cpp"],
-          ["SelectAimTarget", "依模式與新鮮目標選 aim target", "file:src/behavior_tree/src/Application.cpp"],
-        ],
-      },
-      {
-        name: "Hard", kind: "策略層 0", description: "最高優先硬規則。命中後 StrategyManager 已 handled，後續策略層不會再覆蓋它。",
-        target: "file:src/behavior_tree/src/StrategyManager.cpp", children: [
-          ["Position Recovery", "CheckPositionRecovery()，HP / ammo 回補等", "file:src/behavior_tree/src/StrategyManager.cpp"],
-          ["ReadyRoadland 任務鎖", "不可讓位穿越段 hard lock，會取消 MapCommand", "file:src/behavior_tree/src/StrategyManager.cpp"],
-        ],
-      },
-      {
-        name: "Task", kind: "策略層 1", description: "導航流程任務，不是戰術任務。先處理裁判 MapCommand，再處理區域轉換與導航 watchdog。",
-        target: "file:src/behavior_tree/src/StrategyManager.cpp", children: [
-          ["MapCommand", "有效 0x0303 坐標持有 45 秒；同點重送不續期，raw cm 走 bridge", "concept:map-command-task"],
-          ["Area Transition", "TickNaviAreaTransition()", "file:src/behavior_tree/src/StrategyManager.cpp"],
-          ["Progress Watchdog", "TickNaviProgressWatchdog()", "file:src/behavior_tree/src/StrategyManager.cpp"],
-        ],
-      },
-      {
-        name: "Tactical", kind: "策略層 2", description: "戰術任務層。Outpost 與 planned-area Chase 都在這一層，不在 Hard；依前後順序嘗試並選中第一個處理者。",
-        target: "file:src/behavior_tree/src/StrategyManager.cpp", children: [
-          ["Opening Base Defense", "開局防守威脅時 RegionalDefense", "file:src/behavior_tree/src/StrategyManager.cpp"],
-          ["Buff", "aimMode=Buff 時 Buff 任務", "file:src/behavior_tree/src/StrategyManager.cpp"],
-          ["Outpost Visual Scout", "前哨站 visual scout travel", "file:src/behavior_tree/src/StrategyManager.cpp"],
-          ["Outpost Aim", "aimMode=Outpost 時走 BuffOutpost goal", "file:src/behavior_tree/src/StrategyManager.cpp"],
-          ["Protect Hero", "TrySetProtectHeroGoal()", "file:src/behavior_tree/src/StrategyManager.cpp"],
-          ["Regional Defense", "TrySetRegionalDefenseGoal()", "file:src/behavior_tree/src/StrategyManager.cpp"],
-          ["Watchdog", "TickNaviProgressWatchdog()", "file:src/behavior_tree/src/StrategyManager.cpp"],
-          ["Chase", "只允許同一 planned Default area、精確新鮮官方坐標與 Chase.yaml 開關", "concept:regional-chase-policy"],
-        ],
-      },
-      {
-        name: "Special", kind: "策略層 3", description: "可選專項層。目前只保留 Special Patrol，且預設關閉；它位於 Tactical Chase 之後。",
-        target: "file:src/behavior_tree/src/StrategyManager.cpp", children: [
-          ["Special Patrol", "TrySetSpecialPatrolGoal()", "file:src/behavior_tree/src/StrategyManager.cpp"],
-        ],
-      },
-      {
-        name: "Default / AreaManager", kind: "策略層 4", description: "沒有更高層處理時，只在 JSON 啟用區域評分；有替代時不立即重選剛選區域。",
-        target: "file:src/behavior_tree/src/StrategyManager.cpp", children: [
-          ["Active Area Task", "已激活區域任務時 TickRegionalAreaTask()", "file:src/behavior_tree/src/StrategyManager.cpp"],
-          ["Enabled Area Scope", "DecisionAutonomy.NaviGoal 是 Default eligibility 唯一來源", "concept:default-area-patrol"],
-          ["Default Holds", "Base、Highland、PreRoadland、Ready guard、Central 每點均保持 15 秒", "concept:default-area-patrol"],
-          ["MyHighland / PreRoadland / ReadyRoadland", "己方區域策略；transit phase 不加駐留", "document:docs/sentry/regional/2026-07-12_regional_decision_graph.md"],
-          ["CommonCentral / Enemy Area", "公共中央每點 15 秒與敵方區域策略", "document:docs/sentry/regional/2026-07-12_regional_decision_graph.md"],
-          ["Goal Score", "資源、距離、當前/上一區域懲罰與去重選區", "concept:default-area-patrol"],
-        ],
-      },
-      {
-        name: "Finalizer / Posture / Publish", kind: "收尾", description: "Finalizer 固化策略層結果；姿態最後選擇；PublishAll 發布控制與導航。",
-        target: "file:src/behavior_tree/src/StrategyManager.cpp", children: [
-          ["Finalizer", "未被處理時標記 Finalizer；否則發布 runtime blackboard", "file:src/behavior_tree/src/StrategyManager.cpp"],
-          ["SelectPosture", "裁判 sentry_info_3 計時優先，本地 fallback", "file:src/behavior_tree/src/GameLoop.cpp"],
-          ["PublishAll", "導航 goal、速度檔、控制、姿態", "file:src/behavior_tree/src/PublishMessage.cpp"],
-        ],
-      },
-    ];
-    const regionalSideGroups = [
-      ["輸入資料", [
-        ["血量", "endpoint:ros-topic:/ly/friend/hp"], ["前哨站血量", "endpoint:ros-topic:/ly/friend/op_hp"],
-        ["導航位置", "endpoint:ros-topic:/ly/navi/position"], ["裁判哨兵資訊", "endpoint:ros-topic:/ly/game/sentry/info"],
-      ]],
-      ["事件 / 到點", [
-        ["/ly/navi/reached", "endpoint:ros-topic:/ly/navi/reached"], ["/ly/navi/reachable", "endpoint:ros-topic:/ly/navi/reachable"],
-        ["GoalReachState", "concept:composite-goal-reach-contract"], ["裁判 EventData", "endpoint:ros-topic:/ly/game/event_data"],
-      ]],
-      ["策略層", regionalBtStages.slice(3, 8).map(stage => [stage.name, stage.target])],
-      ["輸出", [
-        ["/ly/navi/goal", "endpoint:ros-topic:/ly/navi/goal"], ["/ly/navi/goal_pos_raw", "endpoint:ros-topic:/ly/navi/goal_pos_raw"],
-        ["/ly/navi/target_rel", "endpoint:ros-topic:/ly/navi/target_rel"], ["/ly/navi/speed_level", "endpoint:ros-topic:/ly/navi/speed_level"],
-        ["/ly/control/posture", "endpoint:ros-topic:/ly/control/posture"],
-      ]],
-    ];
-    function regionalRoute(target) { return findNode(target) ? { view: "detail", nodeId: target } : { view: "document", document: "regional" }; }
-    function renderRegionalFlow(workspace) {
-      const stageHtml = regionalBtStages.map((stage, index) => `<div class="bt-stage"><details ${index < 3 ? "" : "open"}><summary data-route='${esc(JSON.stringify(regionalRoute(stage.target)))}'><span class="stage-name">${esc(stage.name)}</span><span class="stage-meta">${esc(stage.kind)}</span></summary><p class="stage-description">${esc(stage.description)}</p><div class="bt-children">${stage.children.map(([name, detail, target]) => `<button class="bt-child" data-route='${esc(JSON.stringify(regionalRoute(target)))}'><span class="child-type">task / condition</span>${esc(name)}<small>${esc(detail)}</small></button>`).join("")}</div></details></div>`).join("");
-      const sideHtml = regionalSideGroups.map(([title, items]) => `<h3>${esc(title)}</h3>${items.map(([label, target]) => `<button data-route='${esc(JSON.stringify(regionalRoute(target)))}'>${esc(label)}</button>`).join("")}`).join("");
-      workspace.innerHTML = `${breadcrumb([{ label: "工程域", route: { view: "home" } }, { label: "Regional BT 樹" }])}${pageHeading("Regional BT 決策樹", "以 MainSequence 為根，策略層可收合展開。左側按輸入、事件、策略與輸出分區；每個區塊和子任務可跳到 source、topic 或文件。", "collapsible BT tree") }<div class="regional-layout"><aside class="regional-nav">${sideHtml}</aside><section class="bt-tree"><div class="bt-root">MainSequence / Regional BT 根<small>每 tick 依 XML 順序執行；策略層由 StrategyManager 的 handled / hard lock 維持優先級。</small></div><div class="bt-trunk"></div>${stageHtml}<p class="bt-note"><b>語義提示：</b>BT XML 會依序 tick 所有 action，但 StrategyManager 一旦由較高優先級層標記 handled，後續層不會覆寫該決策。<b>Outpost Visual Scout / Outpost Aim</b> 屬於 <b>Tactical</b>，不是 Hard。</p></section></div>`;
-    }
-    function bindRouteButtons(root) {
-      root.querySelectorAll("[data-route]").forEach(button => button.addEventListener("click", () => { try { navigate(JSON.parse(button.dataset.route)); } catch { /* malformed UI route must not affect graph data */ } }));
-    }
-    function renderSearch() {
-      const needle = document.querySelector("#filter").value.trim().toLowerCase(); const results = document.querySelector("#results");
-      if (!needle) { results.innerHTML = ""; return; }
-      const matched = state.graph.nodes.filter(node => [node.id, node.name, node.type, node.summary, node.filePath, ...(node.tags || [])].join(" ").toLowerCase().includes(needle)).slice(0, 30);
-      results.innerHTML = matched.map(node => `<li><button class="result-button" data-route='${esc(JSON.stringify({ view: "detail", nodeId: node.id }))}'><span class="badge">${esc(node.type)}</span><br>${esc(node.name)}</button></li>`).join("") || "<li class='muted'>找不到節點。</li>";
-      bindRouteButtons(results);
-    }
-    async function boot() {
-      try {
-        const [graph, project, regional] = await Promise.all([fetch("/graph.json").then(response => response.json()), fetch("/project.md").then(response => response.text()), fetch("/regional.md").then(response => response.text())]);
-        state.graph = graph; state.docs = { project, regional };
-        document.querySelector("#status").textContent = `${graph.nodes.length} nodes · ${graph.edges.length} edges · ${graph.project.lastCheckedNote || "source-checked graph"}`;
-        updateNavigation(); render();
-      } catch (error) { document.querySelector("#workspace").innerHTML = `<p class="error">讀取圖譜失敗：${esc(error.message)}</p>`; }
-    }
-    document.querySelectorAll(".nav-button").forEach(button => button.addEventListener("click", () => {
-      if (button.dataset.action === "home") navigate({ view: "home" });
-      else if (button.dataset.action === "catalog") navigate({ view: "catalog", category: button.dataset.category });
-      else if (button.dataset.action === "regional-flow") navigate({ view: "regional-flow", tab: "tick" });
-      else if (button.dataset.action === "document") navigate({ view: "document", document: button.dataset.document });
-    }));
-    document.querySelector("#filter").addEventListener("input", renderSearch);
-    boot();
+    const state = { projection:null, selectedId:null, mode:'docs', category:'all', search:'', recent:new Map(), nodes:[], edges:[], byId:new Map(), adjacency:new Map(), camera:{x:0,y:0,zoom:1,targetX:0,targetY:0,targetZoom:1}, pointer:null, hoverId:null, dragNode:null, liveRevision:'', graphFitted:false };
+    const canvas = document.querySelector('#graph'), ctx = canvas.getContext('2d'), workspace = document.querySelector('#workspace'), readerPane = document.querySelector('#readerPane');
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    const categoryLabel = category => ({architecture:'Architecture','ros-topics':'ROS Topics','decision-tree':'Decision Tree',flow:'Flow','generated-index':'Generated index',general:'Documentation'}[category] || category.replaceAll('_',' '));
+    const seeded = value => { let hash=2166136261; for (const ch of value) { hash^=ch.charCodeAt(0); hash=Math.imul(hash,16777619); } return (hash>>>0)/4294967295; };
+    function colorFor(category) { const shades=[52,57,62,47,67,42]; return `hsl(204 28% ${shades[Math.floor(seeded(category)*shades.length)]}%)`; }
+    function categoryAnchor(category, index, total) { const angle=(index/Math.max(total,1))*Math.PI*2; const radius=Math.max(220,Math.min(520,total*42)); return {x:Math.cos(angle)*radius, y:Math.sin(angle)*radius*.72}; }
+    function viewButtons() { const list=document.querySelector('#viewNav'); list.innerHTML=['docs','graph','split'].map(mode=>`<button class="nav-button ${state.mode===mode?'active':''}" data-mode="${mode}"><span>${({docs:'Documentation',graph:'Knowledge Graph',split:'Split View'})[mode]}</span></button>`).join(''); list.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>setMode(button.dataset.mode))); }
+    function categoryButtons() { const list=document.querySelector('#categoryNav'), priority=['architecture','ros-topics','decision-tree','flow']; const categories=[...(state.projection?.categories||[])].sort((a,b)=>{const ai=priority.indexOf(a.id),bi=priority.indexOf(b.id);return (ai<0?priority.length:ai)-(bi<0?priority.length:bi)||a.id.localeCompare(b.id);}); list.innerHTML=[{id:'all',count:state.nodes.length},...categories].map(item=>`<button class="nav-button ${state.category===item.id?'active':''}" data-category="${esc(item.id)}"><span>${esc(item.id==='all'?'All documents':categoryLabel(item.id))}</span><span class="count">${item.count}</span></button>`).join(''); list.querySelectorAll('button').forEach(button=>button.addEventListener('click',()=>{state.category=button.dataset.category; categoryButtons(); kick(0.7);})); }
+    function setMode(mode) { state.mode=mode; workspace.className=`workspace ${mode==='split'?'split':'single '+mode}`; document.querySelectorAll('[data-view]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.view===mode))); viewButtons(); if(mode!=='docs'){resizeCanvas();if(!state.graphFitted)fitGraph();else centerSelected();} }
+    function linkedIds(id, depth=2) { if(!id) return new Set(); const result=new Set([id]); let frontier=[id]; for(let level=0;level<depth;level++){const next=[]; for(const current of frontier){for(const peer of state.adjacency.get(current)||[]){if(!result.has(peer)){result.add(peer);next.push(peer);}}} frontier=next;} return result; }
+    function renderSearch() { const needle=state.search.trim().toLowerCase(), list=document.querySelector('#searchResults'); if(!needle){list.innerHTML='';return;} const matches=state.nodes.filter(node=>`${node.title} ${node.category} ${node.path}`.toLowerCase().includes(needle)).slice(0,18); list.innerHTML=matches.map(node=>`<li><button class="result" data-id="${esc(node.id)}">${esc(node.title)}<br><small>${esc(categoryLabel(node.category))}</small></button></li>`).join('')||'<li class="result">No matching documentation</li>'; list.querySelectorAll('[data-id]').forEach(button=>button.addEventListener('click',()=>selectDocument(button.dataset.id,true))); }
+    function simpleInline(text, sourceId) { let value=esc(text); value=value.replace(/`([^`]+)`/g,'<code>$1</code>'); value=value.replace(/\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|([^\]]+))?\]\]/g,(_,target,label)=>`<a data-doc-link="${esc(resolveReference(target,sourceId))}" href="#">${label||target}</a>`); value=value.replace(/\[([^\]]+)\]\(([^)]+)\)/g,(_,label,target)=>{const id=resolveReference(target,sourceId); return id?`<a data-doc-link="${esc(id)}" href="#">${label}</a>`:label;}); return value; }
+    function resolveReference(raw, sourceId) { const clean=String(raw).split('#',1)[0].replace(/\.md$/,'').replace(/^docs\//,''); if(state.byId.has(clean))return clean; const parts=sourceId.split('/'); parts.pop(); for(const part of clean.split('/')){if(part==='..')parts.pop();else if(part!=='.'&&part)parts.push(part);} const relative=parts.join('/'); return state.byId.has(relative)?relative:''; }
+    function markdownHtml(content, sourceId) { const lines=content.split(/\r?\n/), html=[]; let code=false, list=false; const closeList=()=>{if(list){html.push('</ul>');list=false;}}; for(const line of lines){if(line.startsWith('```')){closeList(); code=!code; html.push(code?'<pre><code>':'</code></pre>');continue;} if(code){html.push(esc(line)+'\n');continue;} const heading=line.match(/^(#{1,3})\s+(.+)$/); if(heading){closeList();const level=heading[1].length;html.push(`<h${level}>${simpleInline(heading[2],sourceId)}</h${level}>`);continue;} if(/^\s*-\s+/.test(line)){if(!list){html.push('<ul>');list=true;}html.push(`<li>${simpleInline(line.replace(/^\s*-\s+/,''),sourceId)}</li>`);continue;} closeList(); if(!line.trim()){continue;} html.push(`<p>${simpleInline(line,sourceId)}</p>`);} closeList(); if(code)html.push('</code></pre>'); return html.join(''); }
+    async function renderReader() { const id=state.selectedId; if(!id){readerPane.innerHTML='<div class="empty">Select a documentation page from the sidebar or graph.</div>';return;} try{const response=await fetch(`/api/document?id=${encodeURIComponent(id)}`,{cache:'no-store'});if(!response.ok)throw new Error('Page was removed');const doc=await response.json(); if(id!==state.selectedId)return; readerPane.innerHTML=`<article class="reader"><p class="muted">${esc(id)}</p>${markdownHtml(doc.content,id)}</article>`; readerPane.querySelectorAll('[data-doc-link]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();if(link.dataset.docLink)selectDocument(link.dataset.docLink,true);})); }catch(error){readerPane.innerHTML=`<div class="empty error">${esc(error.message)}</div>`;} }
+    function updateContext() { const node=state.byId.get(state.selectedId); document.querySelector('#selectionTitle').textContent=node?node.title:'Documentation'; document.querySelector('#selectionMeta').textContent=node?`${categoryLabel(node.category)} · ${node.path}`:'Every page and relationship is derived from current Markdown.'; }
+    function selectDocument(id, openDocument) { if(!state.byId.has(id))return; state.selectedId=id; state.recent.set(id,performance.now()); updateContext(); renderReader(); if(openDocument&&state.mode==='graph')setMode('split'); centerSelected(); kick(1); }
+    function mergeProjection(projection) { const prior=new Map(state.nodes.map(node=>[node.id,node])); const categories=projection.categories||[]; const anchors=new Map(categories.map((category,index)=>[category.id,categoryAnchor(category.id,index,categories.length)])); state.nodes=projection.nodes.map(node=>{const old=prior.get(node.id), anchor=anchors.get(node.category)||{x:0,y:0};return {...node,x:old?.x??anchor.x+(seeded(node.id)*150-75),y:old?.y??anchor.y+(seeded(node.id+'y')*120-60),vx:old?.vx??0,vy:old?.vy??0,anchor};}); state.edges=projection.edges; state.byId=new Map(state.nodes.map(node=>[node.id,node])); state.adjacency=new Map(state.nodes.map(node=>[node.id,new Set()])); for(const edge of state.edges){state.adjacency.get(edge.source)?.add(edge.target);state.adjacency.get(edge.target)?.add(edge.source);} state.projection=projection; state.liveRevision=projection.revision; if(!state.selectedId||!state.byId.has(state.selectedId))selectDocument(state.nodes[0]?.id||'',false); document.querySelector('#nodeCount').textContent=`${state.nodes.length} pages`; document.querySelector('#edgeCount').textContent=`${state.edges.length} links`; document.querySelector('#sourceStatus').textContent=`${state.nodes.length} Markdown pages · live`; categoryButtons(); renderSearch(); updateContext(); kick(1); }
+    async function refreshProjection() { try { const response=await fetch('/api/documents',{cache:'no-store'});const projection=await response.json();if(projection.revision!==state.liveRevision){mergeProjection(projection); if(state.selectedId)renderReader();} } catch(error){document.querySelector('#sourceStatus').textContent='Documentation source unavailable';} }
+    function resizeCanvas() { const rect=canvas.getBoundingClientRect(),ratio=window.devicePixelRatio||1; canvas.width=Math.max(1,Math.floor(rect.width*ratio));canvas.height=Math.max(1,Math.floor(rect.height*ratio));ctx.setTransform(ratio,0,0,ratio,0,0);if(!state.camera.x&&!state.camera.y){state.camera.x=rect.width/2;state.camera.y=rect.height/2;state.camera.targetX=state.camera.x;state.camera.targetY=state.camera.y;}}
+    function screen(node){return{x:node.x*state.camera.zoom+state.camera.x,y:node.y*state.camera.zoom+state.camera.y};} function world(x,y){return{x:(x-state.camera.x)/state.camera.zoom,y:(y-state.camera.y)/state.camera.zoom};}
+    function fitGraph(){const rect=canvas.getBoundingClientRect();if(!rect.width||!rect.height||!state.nodes.length)return;const xs=state.nodes.map(node=>node.x),ys=state.nodes.map(node=>node.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),zoom=Math.max(.2,Math.min(1.15,Math.min((rect.width-100)/Math.max(1,maxX-minX),(rect.height-100)/Math.max(1,maxY-minY))));state.camera.zoom=zoom;state.camera.targetZoom=zoom;state.camera.x=rect.width/2-(minX+maxX)*zoom/2;state.camera.y=rect.height/2-(minY+maxY)*zoom/2;state.camera.targetX=state.camera.x;state.camera.targetY=state.camera.y;state.graphFitted=true;} function centerSelected(){const node=state.byId.get(state.selectedId);const rect=canvas.getBoundingClientRect();if(!node||!rect.width)return;state.camera.targetX=rect.width/2-node.x*state.camera.zoom;state.camera.targetY=rect.height/2-node.y*state.camera.zoom;}
+    let energy=1; function kick(amount=.45){energy=Math.max(energy,amount);} function physics(){if(!state.nodes.length)return; const bins=new Map(),cell=96; for(const node of state.nodes){const key=`${Math.floor(node.x/cell)},${Math.floor(node.y/cell)}`;(bins.get(key)||bins.set(key,[]).get(key)).push(node);} const byId=state.byId; for(const node of state.nodes){let fx=(node.anchor.x-node.x)*.0028,fy=(node.anchor.y-node.y)*.0028;const cx=Math.floor(node.x/cell),cy=Math.floor(node.y/cell);for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(const other of bins.get(`${cx+dx},${cy+dy}`)||[]){if(other===node)continue;let ox=node.x-other.x,oy=node.y-other.y,d=Math.max(18,Math.hypot(ox,oy));if(d<122){const push=(122-d)*.0009;fx+=ox/d*push;fy+=oy/d*push;}} node.fx=fx;node.fy=fy;} for(const edge of state.edges){const a=byId.get(edge.source),b=byId.get(edge.target);if(!a||!b)continue;const dx=b.x-a.x,dy=b.y-a.y,d=Math.max(1,Math.hypot(dx,dy)),pull=(d-135)*.0014;a.fx+=dx/d*pull;a.fy+=dy/d*pull;b.fx-=dx/d*pull;b.fy-=dy/d*pull;} for(const node of state.nodes){if(node===state.dragNode)continue;node.vx=(node.vx+node.fx)*.86;node.vy=(node.vy+node.fy)*.86;node.x+=node.vx;node.y+=node.vy;} }
+    function visible(node){return state.category==='all'||node.category===state.category;} function draw(){const rect=canvas.getBoundingClientRect();if(!rect.width)return;ctx.clearRect(0,0,rect.width,rect.height); state.camera.x+=(state.camera.targetX-state.camera.x)*.16;state.camera.y+=(state.camera.targetY-state.camera.y)*.16;state.camera.zoom+=(state.camera.targetZoom-state.camera.zoom)*.16;const active=state.hoverId||state.selectedId,focus=linkedIds(active,state.hoverId?2:1);ctx.lineWidth=1;for(const edge of state.edges){const a=state.byId.get(edge.source),b=state.byId.get(edge.target);if(!a||!b||!visible(a)||!visible(b))continue;const connected=!active||focus.has(a.id)&&focus.has(b.id);const sa=screen(a),sb=screen(b);ctx.strokeStyle=!active?'rgba(161,181,191,.16)':connected?'rgba(177,203,214,.34)':'rgba(161,181,191,.06)';ctx.beginPath();ctx.moveTo(sa.x,sa.y);ctx.lineTo(sb.x,sb.y);ctx.stroke();} const now=performance.now();for(const node of state.nodes){if(!visible(node))continue;const point=screen(node),focused=!active||focus.has(node.id),radius=(4+Math.min(8,Math.sqrt(node.degree||0)*1.9))*Math.max(.72,state.camera.zoom*.78);ctx.globalAlpha=focused?.9:.16;const recent=now-(state.recent.get(node.id)||-Infinity)<7000;if(recent){ctx.shadowBlur=16;ctx.shadowColor='rgba(159,199,217,.6)';}ctx.fillStyle=colorFor(node.category);ctx.beginPath();ctx.arc(point.x,point.y,radius,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;if(node.id===state.selectedId){ctx.strokeStyle='#d6e8ef';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(point.x,point.y,radius+3,0,Math.PI*2);ctx.stroke();}if(node.id===state.selectedId||node.id===state.hoverId){ctx.globalAlpha=.92;ctx.fillStyle='#dce9ed';ctx.font='12px Inter, sans-serif';ctx.fillText(node.title,point.x+radius+5,point.y+4);}}ctx.globalAlpha=1;}
+    function animate(){if(energy>.002){physics();energy*=.985;}draw();requestAnimationFrame(animate);} function hitNode(x,y){let hit=null,best=Infinity;for(const node of state.nodes){if(!visible(node))continue;const point=screen(node),distance=Math.hypot(point.x-x,point.y-y),radius=Math.max(18,(7+Math.sqrt(node.degree||0)*2)*state.camera.zoom);if(distance<radius&&distance<best){hit=node;best=distance;}}return hit;}
+    canvas.addEventListener('pointerdown',event=>{const rect=canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top,node=hitNode(x,y);canvas.setPointerCapture(event.pointerId);state.pointer={id:event.pointerId,x,y,cameraX:state.camera.targetX,cameraY:state.camera.targetY,moved:false};if(node){state.dragNode=node;selectDocument(node.id,false);}canvas.classList.add('dragging');});
+    canvas.addEventListener('pointermove',event=>{const rect=canvas.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top;if(state.pointer&&event.pointerId===state.pointer.id){const dx=x-state.pointer.x,dy=y-state.pointer.y;state.pointer.moved||=Math.hypot(dx,dy)>3;if(state.dragNode){const position=world(x,y);state.dragNode.x=position.x;state.dragNode.y=position.y;state.dragNode.vx=0;state.dragNode.vy=0;state.dragNode.anchor={x:position.x,y:position.y};kick(1);}else{state.camera.targetX=state.pointer.cameraX+dx;state.camera.targetY=state.pointer.cameraY+dy;}}else{const node=hitNode(x,y);if((node?.id||null)!==state.hoverId){state.hoverId=node?.id||null;kick(.2);}}});
+    canvas.addEventListener('pointerup',event=>{if(state.pointer?.id===event.pointerId){state.pointer=null;state.dragNode=null;canvas.classList.remove('dragging');}}); canvas.addEventListener('pointerleave',()=>{if(!state.pointer)state.hoverId=null;});
+    canvas.addEventListener('dblclick',event=>{const rect=canvas.getBoundingClientRect(),node=hitNode(event.clientX-rect.left,event.clientY-rect.top);if(node){selectDocument(node.id,false);setMode('docs');}});
+    canvas.addEventListener('wheel',event=>{event.preventDefault();const rect=canvas.getBoundingClientRect(),factor=event.deltaY<0?1.12:.89;state.camera.targetZoom=Math.max(.2,Math.min(3.4,state.camera.targetZoom*factor));const x=event.clientX-rect.left,y=event.clientY-rect.top;state.camera.targetX=x-(x-state.camera.targetX)*factor;state.camera.targetY=y-(y-state.camera.targetY)*factor;kick(.5);},{passive:false});
+    document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener('click',()=>setMode(button.dataset.view))); document.querySelector('#search').addEventListener('input',event=>{state.search=event.target.value;renderSearch();}); window.addEventListener('resize',resizeCanvas);
+    resizeCanvas(); viewButtons(); refreshProjection(); setInterval(refreshProjection,1200); requestAnimationFrame(animate);
   </script>
 </body>
 </html>

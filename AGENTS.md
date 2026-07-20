@@ -82,48 +82,37 @@ This is a single-context ROS2 sentry workspace; read the repo-level docs first, 
 
 ### Required project-understanding workflow
 
-For non-trivial work, combine the repo's default `$cautious-super-engineer` style with the installed Matt Pocock skills and the Understand Anything graph:
+For non-trivial work, combine the repo's default `$cautious-super-engineer` style with the installed Matt Pocock skills and the current documentation:
 
 - Read `README.md`, `docs/README.md`, and `docs/agents/domain.md` before changing runtime links, launch files, behavior-tree logic, message semantics, or simulator contracts.
 - Use `$zoom-out` when you need a module/caller map or when the task touches unfamiliar code paths.
-- Consult `.understand-anything/project-knowledge-graph.md` for the quick architecture map and `.understand-anything/knowledge-graph.json` for structured package/topic/file relationships.
-- Treat the graph as guidance, not authority. Source files, launch files, package manifests, and current docs remain authoritative.
-- If graph evidence conflicts with source evidence, trust source evidence, update the graph, and report the mismatch.
-- Before declaring non-trivial runtime/link/interface/architecture work complete, re-check the relevant docs and graph against current source evidence. If they are stale, update them in the same change and report the verification used.
+- Use `./tools/Library.sh` when a document/relationship view helps; it derives its Graph and Split views directly from `docs/**/*.md`.
+- Treat the graph as a visualization of current documentation, not an independent authority. Source files, launch files, package manifests, and current docs remain authoritative.
+- If a document conflicts with source evidence, trust source evidence and update the affected document in the same change.
+- Before declaring non-trivial runtime/link/interface/architecture work complete, re-check the relevant docs against current source evidence and update stale pages in the same change.
 
-### Understand Anything graph
+### Documentation-derived graph
 
-Use Understand Anything as the long-lived project map for this workspace.
+`docs/**/*.md` is the only persisted source for the documentation graph.
 
-- Preferred skills when available in the current runtime: `$understand`, `$understand-chat`, `$understand-dashboard`, `$understand-diff`, `$understand-domain`, `$understand-explain`, and `$understand-onboard`.
-- Canonical graph outputs live under `.understand-anything/`:
-  - `knowledge-graph.json` for structured graph consumers
-  - `project-knowledge-graph.md` for the human-readable Mermaid overview
-  - `intermediate/scan-result.json` for scan inventory
-  - `meta.json` for analyzed commit metadata
-- Update or regenerate the graph when changing ROS package boundaries, launch composition, topic publishers/subscribers, message schemas, behavior-tree decision outputs, navigation/FaceMode flows, simulator trace contracts, or architecture docs.
-- Treat graph freshness as part of the contract: keep `project-knowledge-graph.md`, `knowledge-graph.json`, and `meta.json` aligned with the current source-verified architecture, current HEAD, working tree status, and graph shape. Do not leave stale `Generated`, `Checked against HEAD`, `lastCheckedNote`, node counts, or edge counts after graph-relevant work.
-- Prefer Chinese output for generated summaries in this repo (`--language zh`) unless the user asks otherwise.
-- If the installed Understand Anything skill cannot run because its plugin root/core package is unavailable, create or update an Understand Anything-compatible fallback graph from repo docs, `package.xml`, launch files, topic definitions, and key source files. State clearly that fallback mode was used.
-- Do not let graph generation alter ROS runtime behavior. Keep graph updates as analysis artifacts unless the user explicitly asks for runtime changes.
+- Every Markdown page under `docs/` is one node. Markdown links and Obsidian wikilinks are the only graph edges.
+- Do not create, keep, or manually edit a graph JSON/database/node list/edge list. The server creates a transient in-memory projection for `/api/documents` on demand.
+- Adding, editing, or deleting a documentation page must be enough to add, update, or remove its graph node. Do not add a second synchronization step.
+- For package/topic/message/decision-flow changes, update the nearest current Markdown documentation. `localhost:1037` will reflect it automatically.
 
 ### Interactive graph browser maintenance
 
-- `scripts/understand_graph_dashboard.py` is the single local entry point for the read-only interactive graph browser; it serves `scripts/understand_graph_dashboard.html` plus the canonical `.understand-anything/` graph files.
-- Maintain the browser as a layered navigator, not a single all-node canvas: it must keep engineering-domain entry points, ROS topic catalog, data-processing catalog, message-schema catalog, Regional/referee catalogs, node detail pages, and one-hop local relation views.
-- Keep the dedicated `Regional 流程圖` current with the actual BT tick order, task-layer priority, event/reached handling, navigation outputs, and posture handoff. Each flow block must link to a current source file, ROS topic, config, or Regional document; update this view in the same change whenever those decision semantics change.
-- A node detail page must let users jump to every directly connected source/target. ROS topic nodes must expose their publisher/subscriber relations from graph edges; data-processing nodes must expose their input/output relations. Do not replace these with unlinked prose.
-- Whenever graph-relevant work changes a package/topic/message schema/processing edge/decision flow, update the corresponding nodes, edges, summaries, tags, and layer membership in `.understand-anything/knowledge-graph.json` so the browser categories and node-to-node navigation remain correct. Update `project-knowledge-graph.md` and `meta.json` in the same change.
-- When changing the browser itself, verify the served root page, `/graph.json`, `/project.md`, and `/regional.md`; validate inline JavaScript syntax, use `git diff --check`, and keep it dependency-free unless the user explicitly approves a new frontend dependency.
+- `scripts/understand_graph_dashboard.py` is the single local entry point for the documentation website. It serves `scripts/understand_graph_dashboard.html` with Documentation, Graph, and Split views.
+- Keep the browser as a layered document navigator, not a separate graph application. Category navigation, full-page reading, and graph selection must share the same selected document state.
+- Keep `docs/sentry/regional/2026-07-12_regional_decision_graph.md` current with the actual BT tick order, task-layer priority, event/reached handling, navigation outputs, and posture handoff. Its Markdown links become graph relationships automatically.
+- When changing the browser, verify `/`, `/api/documents`, and `/api/document?id=<known-doc-id>`; `/graph.json` must not exist. Validate inline JavaScript through the browser tests, use `git diff --check`, and keep it dependency-free unless the user explicitly approves a new frontend dependency.
 
 ### Documentation and graph freshness
 
-- Runtime behavior, ROS topic/msg/param semantics, launch composition, behavior-tree decisions, simulator trace contracts, navigation/FaceMode flows, and embedded serial mappings must not leave stale docs or stale graph entries behind.
+- Runtime behavior, ROS topic/msg/param semantics, launch composition, behavior-tree decisions, simulator trace contracts, navigation/FaceMode flows, and embedded serial mappings must not leave stale documentation behind.
 - When source evidence changes a documented behavior, update the closest current docs under `docs/` and any dated `Updated: YYYY-MM-DD` line in the same change. Historical reports may keep old analysis only if a clear current-status note explains what has been superseded.
-- When changing docs that describe architecture or interfaces, also check whether `.understand-anything/` must be updated. Architecture docs and graph files should agree on current package/topic/message/decision-flow facts.
-- Keep `.understand-anything/knowledge-graph.json`, `.understand-anything/project-knowledge-graph.md`, and `.understand-anything/meta.json` mutually consistent; also update `.understand-anything/intermediate/scan-result.json` when package/topic inventory is regenerated.
-- Before final response for graph-relevant work, validate JSON graph files with `python3 -m json.tool` or `jq`, run `git diff --check`, and run at least `./scripts/selfcheck.sh sentry --static-only`; use `./scripts/selfcheck.sh sentry --skip-hz` or launched self-check when runtime graph evidence is required.
-- If a full graph regeneration cannot run, keep the fallback graph update source-driven: cite source files, launch files, package manifests, and current docs used; record fallback mode in `meta.json` / graph notes.
+- Documentation changes need no graph regeneration: the document website calculates the live projection on every API request and the browser polls it while open.
+- Before final response for graph-relevant work, run the dashboard unit/browser tests, verify the live API routes, run `git diff --check`, and run at least `./scripts/selfcheck.sh sentry --static-only` for runtime-adjacent changes.
 
 ### Serial Protocol Observability
 
@@ -136,13 +125,13 @@ Use Understand Anything as the long-lived project map for this workspace.
   - `src/gimbal_driver/module/BasicTypes.hpp` and `src/gimbal_driver/main.cpp`
   - `src/gimbal_driver/config/gimbal_driver_config.yaml` SerialMode `upload.typeidN` / `download.typeid0xNN` switches
   - `docs/sentry/embedded/serial_data_mapping.md` and/or `docs/sentry/embedded/downlink_control_frame.md`
-  - `.understand-anything/` graph artifacts and the applicable protocol brief under `docs/plans/`
+  - the closest current protocol brief under `docs/`
 - Preserve the no-subscriber fast path for raw publishers. Raw observation must not add message allocation or
   publication work when no topic consumer is connected.
 
 ## Skill Auto-Match & Auto-Install
 - Automatically match and use the minimal relevant skill set when user intent clearly maps to available skills.
-- Prefer Understand Anything for codebase orientation, architecture graphing, onboarding maps, graph-backed explanations, and diff impact analysis. Use the existing graph first; regenerate only when it is missing, stale, or the task changes graph-relevant interfaces.
+- Prefer the documentation website at `localhost:1037` for codebase orientation, architecture graphing, onboarding maps, graph-backed explanations, and diff impact analysis. It is derived directly from the current Markdown pages.
 - Prefer the installed Matt Pocock skills when they match: `$diagnose` for bugs/failures, `$tdd` for test-first work, `$triage` for issue workflow, `$to-issues` for breaking plans into issues, `$to-prd` for PRDs, `$improve-codebase-architecture` for architecture work, `$zoom-out` for broader context, `$grill-me` / `$grill-with-docs` for stress-testing plans, `$handoff` for handoff summaries, and `$caveman` only when the user asks for terse mode.
 - Prefer the installed Addy Osmani skills as secondary engineering review tools when they match:
   - `$code-review-and-quality` for risk reviews, pre-merge review, and multi-axis checks of correctness/readability/architecture/security/performance.

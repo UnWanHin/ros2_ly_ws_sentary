@@ -271,7 +271,7 @@ topic: {topic}
 - 本地 messages：{sum(len(package.messages) for package in index.packages.values())}
 - `/ly/...` topic nodes：{len(index.topics)}
 
-此報告是掃描計數，不取代 source review、launch composition 或 `.understand-anything/` 的人工架構分析。
+此報告是掃描計數，不取代 source review、launch composition 或目前 `docs/` 文件的架構說明。
 """
     return pages
 
