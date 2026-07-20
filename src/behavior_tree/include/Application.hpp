@@ -294,6 +294,20 @@ enum class RegionalDefenseSearchKind : std::uint8_t {
     OwnFortressGainPoint = 7
 };
 
+inline constexpr const char* RegionalDefenseSearchKindToString(
+    const RegionalDefenseSearchKind kind) noexcept {
+    switch (kind) {
+        case RegionalDefenseSearchKind::OwnBase: return "own_base";
+        case RegionalDefenseSearchKind::OwnHighland: return "own_highland";
+        case RegionalDefenseSearchKind::OwnRoadCorridor: return "own_road_corridor";
+        case RegionalDefenseSearchKind::OwnHighlandRoadCorridor: return "own_highland_road_corridor";
+        case RegionalDefenseSearchKind::CommonCentral: return "common_central";
+        case RegionalDefenseSearchKind::EnemySideSoft: return "enemy_side_soft";
+        case RegionalDefenseSearchKind::OwnFortressGainPoint: return "own_fortress_gain_point";
+        default: return "none";
+    }
+}
+
     #define SET_POSITION(area, team) \
     do { \
         naviCommandGoal = LangYa::area(team); \

@@ -108,3 +108,20 @@ TEST(DecisionTraceControlOutput, SafeControlCapturesNoTrajectoryWithAnExplicitRe
     EXPECT_EQ(snapshot.Trajectory.UnavailableReason,
               BehaviorTree::ControlTrajectoryUnavailableReason::SafeControl);
 }
+
+TEST(DecisionTraceControlOutput, MapsRegionalDefenseSearchKindsForTraceEvidence) {
+    using BehaviorTree::RegionalDefenseSearchKind;
+
+    EXPECT_STREQ(BehaviorTree::RegionalDefenseSearchKindToString(RegionalDefenseSearchKind::None), "none");
+    EXPECT_STREQ(BehaviorTree::RegionalDefenseSearchKindToString(RegionalDefenseSearchKind::OwnBase), "own_base");
+    EXPECT_STREQ(BehaviorTree::RegionalDefenseSearchKindToString(RegionalDefenseSearchKind::OwnHighland), "own_highland");
+    EXPECT_STREQ(BehaviorTree::RegionalDefenseSearchKindToString(RegionalDefenseSearchKind::OwnRoadCorridor), "own_road_corridor");
+    EXPECT_STREQ(
+        BehaviorTree::RegionalDefenseSearchKindToString(RegionalDefenseSearchKind::OwnHighlandRoadCorridor),
+        "own_highland_road_corridor");
+    EXPECT_STREQ(BehaviorTree::RegionalDefenseSearchKindToString(RegionalDefenseSearchKind::CommonCentral), "common_central");
+    EXPECT_STREQ(BehaviorTree::RegionalDefenseSearchKindToString(RegionalDefenseSearchKind::EnemySideSoft), "enemy_side_soft");
+    EXPECT_STREQ(
+        BehaviorTree::RegionalDefenseSearchKindToString(RegionalDefenseSearchKind::OwnFortressGainPoint),
+        "own_fortress_gain_point");
+}
