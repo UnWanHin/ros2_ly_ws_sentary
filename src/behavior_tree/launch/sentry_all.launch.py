@@ -737,6 +737,10 @@ def generate_launch_description():
     gimbal_use_virtual_device = PythonExpression([
         "'", offline, "'.lower() in ", truthy_values
     ])
+    external_aim_log = PythonExpression([
+        "'offline mock: not required' if '", offline, "'.lower() in ", truthy_values,
+        " else 'required (/ly/aim/*)'",
+    ])
     effective_navi_publish_goal_pose = PythonExpression([
         "'false' if '", outpost_manual_goal_enable, "'.lower() in ", truthy_values,
         " else '", navi_publish_goal_pose, "'",
@@ -755,7 +759,7 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] special_config: ", special_config_file]),
         LogInfo(msg=["[sentry_all] output: ", output]),
         LogInfo(msg=["[sentry_all] offline: ", offline]),
-        LogInfo(msg=["[sentry_all] external aim: required (/ly/aim/*)"]),
+        LogInfo(msg=["[sentry_all] external aim: ", external_aim_log]),
         LogInfo(msg=["[sentry_all] competition_profile: ", competition_profile]),
         LogInfo(msg=["[sentry_all] bt_config_file: ", bt_config_file]),
         LogInfo(msg=["[sentry_all] resolved_mode: ", resolved_mode_kind]),

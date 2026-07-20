@@ -192,6 +192,9 @@ if(BTCPP_IS_PINNED AND EXISTS "${BTCPP_V4_ROOT}/lib")
     BUILD_RPATH "${BTCPP_V4_ROOT}/lib"
     INSTALL_RPATH "${BTCPP_V4_ROOT}/lib"
   )
+  # ROS setup puts /opt/ros first in LD_LIBRARY_PATH. Keep the pinned headers
+  # and library ABI paired instead of letting that environment override v4.
+  target_link_options(${PROJECT_NAME}_node PRIVATE "-Wl,--disable-new-dtags")
 endif()
 
 target_compile_definitions(${PROJECT_NAME}_node PRIVATE LY_ENABLE_SENTRY_MSGS=1)

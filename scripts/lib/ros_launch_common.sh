@@ -60,6 +60,21 @@ launch_arg_bool_is_false() {
   return 1
 }
 
+launch_arg_bool_is_true() {
+  local key="$1"
+  local arg
+  local value
+  for arg in "${LAUNCH_ARGS[@]:-}"; do
+    if [[ "${arg}" == "${key}:="* ]]; then
+      value="${arg#${key}:=}"
+      value="$(printf '%s' "${value}" | tr '[:upper:]' '[:lower:]')"
+      [[ "${value}" == "true" || "${value}" == "1" || "${value}" == "yes" || "${value}" == "on" ]]
+      return
+    fi
+  done
+  return 1
+}
+
 sentry_msgs_aim_result_has_dynamics() {
   local interface_text
   interface_text="$(ros2 interface show sentry_msgs/msg/AimResult 2>/dev/null)" || return 1
@@ -72,6 +87,11 @@ sentry_msgs_aim_result_has_dynamics() {
 
 require_sentry_msgs_for_behavior_tree() {
   if launch_arg_bool_is_false "use_behavior_tree"; then
+    return 0
+  fi
+  # Offline simulator input does not publish /ly/aim/*, so it needs only the
+  # already-built BT binary and its regular mock/referee messages.
+  if launch_arg_bool_is_true "offline"; then
     return 0
   fi
   if ros2 pkg prefix sentry_msgs >/dev/null 2>&1 && sentry_msgs_aim_result_has_dynamics; then
@@ -108,7 +128,11 @@ source_ros_workspace() {
     done
   fi
 
-  source_optional_sentry_msgs || true
+  # The offline simulator has no external /ly/aim producer and must remain
+  # runnable on a development laptop without a sentry.aim overlay.
+  if ! launch_arg_bool_is_true "offline"; then
+    source_optional_sentry_msgs || true
+  fi
 
   if [[ ! -f "${root_dir}/install/local_setup.bash" ]]; then
     echo "[ERROR] ${root_dir}/install/local_setup.bash not found." >&2

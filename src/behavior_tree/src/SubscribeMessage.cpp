@@ -564,47 +564,69 @@ namespace BehaviorTree{
             }
             const auto yaw = static_cast<AngleType>(msg->yaw);
             const auto pitch = static_cast<AngleType>(msg->pitch);
-            const auto yaw_omega = static_cast<float>(msg->yaw_omega);
-            const auto pitch_omega = static_cast<float>(msg->pitch_omega);
-            const auto yaw_alpha = static_cast<float>(msg->yaw_alpha);
-            const auto pitch_alpha = static_cast<float>(msg->pitch_alpha);
-            const bool finite_result =
-                std::isfinite(yaw) && std::isfinite(pitch) &&
-                std::isfinite(yaw_omega) && std::isfinite(pitch_omega) &&
-                std::isfinite(yaw_alpha) && std::isfinite(pitch_alpha);
             const auto now = std::chrono::steady_clock::now();
-            bool target_context_valid = true;
-            if (app.config.ExternalAimSettings.UseTargetArrayAsArmorList) {
-                target_context_valid = false;
-                const auto target_id = static_cast<std::size_t>(app.targetArmor.Type);
-                const int fresh_ms = std::max(1, app.config.ExternalAimSettings.TargetFreshTimeoutMs);
-                if (target_id < app.externalAimTargets_.size()) {
-                    const auto& cached = app.externalAimTargets_[target_id];
-                    target_context_valid =
-                        cached.Valid &&
-                        cached.LastSeen.time_since_epoch().count() != 0 &&
-                        now - cached.LastSeen <= std::chrono::milliseconds(fresh_ms);
-                }
-            }
-            const bool result_valid = msg->follow && finite_result && target_context_valid;
-            app.externalAimData.Angles = GimbalAnglesType{yaw, pitch};
-            app.externalAimData.YawOmega = yaw_omega;
-            app.externalAimData.PitchOmega = pitch_omega;
-            app.externalAimData.YawAlpha = yaw_alpha;
-            app.externalAimData.PitchAlpha = pitch_alpha;
-            app.externalAimData.BuffFollow = false;
-            app.externalAimData.FireStatus = result_valid && msg->fire;
-            app.externalAimData.Valid = result_valid;
-            app.externalAimData.Fresh = result_valid;
-            app.lastExternalAimResultRxTime_ = now;
-            if (result_valid) {
-                app.externalAimData.HasLatchedAngles = true;
-                app.externalAimData.LastValidTime = now;
-                app.isFindTargetAtomic = true;
-                app.lastTargetSeenTime = now;
-            } else {
+            if constexpr (!(requires {
+                msg->yaw_omega;
+                msg->pitch_omega;
+                msg->yaw_alpha;
+                msg->pitch_alpha;
+            })) {
+                // Offline builds may use the legacy AimResult. It has no
+                // dynamics, so it can never authorize trajectory output.
+                app.externalAimData.Angles = GimbalAnglesType{yaw, pitch};
+                app.externalAimData.YawOmega = 0.0F;
+                app.externalAimData.PitchOmega = 0.0F;
+                app.externalAimData.YawAlpha = 0.0F;
+                app.externalAimData.PitchAlpha = 0.0F;
+                app.externalAimData.BuffFollow = false;
                 app.externalAimData.FireStatus = false;
-                app.externalAimData.HasLatchedAngles = false;
+                app.externalAimData.Valid = false;
+                app.externalAimData.Fresh = false;
+                app.lastExternalAimResultRxTime_ = now;
+                return;
+            } else {
+
+                const auto yaw_omega = static_cast<float>(msg->yaw_omega);
+                const auto pitch_omega = static_cast<float>(msg->pitch_omega);
+                const auto yaw_alpha = static_cast<float>(msg->yaw_alpha);
+                const auto pitch_alpha = static_cast<float>(msg->pitch_alpha);
+                const bool finite_result =
+                    std::isfinite(yaw) && std::isfinite(pitch) &&
+                    std::isfinite(yaw_omega) && std::isfinite(pitch_omega) &&
+                    std::isfinite(yaw_alpha) && std::isfinite(pitch_alpha);
+                bool target_context_valid = true;
+                if (app.config.ExternalAimSettings.UseTargetArrayAsArmorList) {
+                    target_context_valid = false;
+                    const auto target_id = static_cast<std::size_t>(app.targetArmor.Type);
+                    const int fresh_ms = std::max(1, app.config.ExternalAimSettings.TargetFreshTimeoutMs);
+                    if (target_id < app.externalAimTargets_.size()) {
+                        const auto& cached = app.externalAimTargets_[target_id];
+                        target_context_valid =
+                            cached.Valid &&
+                            cached.LastSeen.time_since_epoch().count() != 0 &&
+                            now - cached.LastSeen <= std::chrono::milliseconds(fresh_ms);
+                    }
+                }
+                const bool result_valid = msg->follow && finite_result && target_context_valid;
+                app.externalAimData.Angles = GimbalAnglesType{yaw, pitch};
+                app.externalAimData.YawOmega = yaw_omega;
+                app.externalAimData.PitchOmega = pitch_omega;
+                app.externalAimData.YawAlpha = yaw_alpha;
+                app.externalAimData.PitchAlpha = pitch_alpha;
+                app.externalAimData.BuffFollow = false;
+                app.externalAimData.FireStatus = result_valid && msg->fire;
+                app.externalAimData.Valid = result_valid;
+                app.externalAimData.Fresh = result_valid;
+                app.lastExternalAimResultRxTime_ = now;
+                if (result_valid) {
+                    app.externalAimData.HasLatchedAngles = true;
+                    app.externalAimData.LastValidTime = now;
+                    app.isFindTargetAtomic = true;
+                    app.lastTargetSeenTime = now;
+                } else {
+                    app.externalAimData.FireStatus = false;
+                    app.externalAimData.HasLatchedAngles = false;
+                }
             }
         });
 #endif

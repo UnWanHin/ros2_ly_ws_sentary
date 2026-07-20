@@ -352,6 +352,12 @@ One-command fixed regional wrapper:
 python3 scripts/python/start.py
 ```
 
+This offline entry neither sources nor requires `sentry.aim` or the extended
+`AimResult` velocity/acceleration fields. It uses the regular mock/referee
+inputs and does not publish `/ly/aim/*` unless `--mock-external-aim true` is
+explicitly chosen. The formal `gated` and `nogate` launch paths still require
+the extended external AimResult contract.
+
 Offline mode keeps `/ly/game/is_start` gate enabled by default; press `Start` in viewer/web to publish game-start and enter match phase.
 Offline mode enables `runtime_rearm_start_gate:=true` by default. After `Reset`, behavior_tree re-enters start gate,
 holds safe-control, publishes Home navigation goal, and waits for next `Start`.

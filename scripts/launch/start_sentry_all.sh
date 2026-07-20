@@ -302,6 +302,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if (( OFFLINE_MODE == 1 )); then
+  LAUNCH_ARGS=("offline:=true" "${LAUNCH_ARGS[@]}")
+fi
+
 source_ros_workspace "${ROOT_DIR}"
 require_sentry_msgs_for_behavior_tree
 cleanup_existing_launch_tree "${CLEANUP_EXISTING}" "${STACK_LAUNCH_REGEX}"
@@ -462,8 +466,4 @@ add_common_scalar_launch_arg "gimbal_raw.topic.type_ids" "gimbal_raw_topic_type_
 if [[ -n "${MODE_ARG}" ]]; then
   LAUNCH_ARGS=("mode:=${MODE_ARG}" "${LAUNCH_ARGS[@]}")
 fi
-if (( OFFLINE_MODE == 1 )); then
-  LAUNCH_ARGS=("offline:=true" "${LAUNCH_ARGS[@]}")
-fi
-
 exec ros2 launch behavior_tree sentry_all.launch.py "${LAUNCH_ARGS[@]}"
