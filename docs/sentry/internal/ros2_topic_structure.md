@@ -2,7 +2,7 @@
 
 > 当前正式辅瞄输入仅为外部 `/ly/aim/*`。本文件中的 `auto_aim_common` 旧消息定义是接口库存，不代表仍有内部 detector/tracker/predictor 节点或 topic。
 
-Updated: 2026-07-18
+Updated: 2026-07-19
 
 本文记录当前哨兵上位机 ROS2 topic 结构，按接口边界分为：
 
@@ -125,7 +125,9 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 
 ## 5. External Navigation And TF Bridge
 
-这些 topic 是本仓和外部导航栈的边界。BT 不直接发布 `/goal_pose`，正常由 `navi_tf_bridge` 输出。
+这些 topic 是本仓和外部导航栈的边界。正常正式链由 `navi_tf_bridge` 输出 `/goal_pose`；仅在
+`outpost_manual_goal_enable=true` 的前哨手动测试中，BT 直接发布该 topic，同时 launch 强制 bridge
+停止发布，保持单一 publisher。
 
 | Topic | Type | Direction | 结构/语义 |
 |---|---|---|---|
@@ -136,7 +138,7 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/navi/target_map` | `geometry_msgs/msg/PointStamped` | `navi_tf_bridge` -> debug | 追击目标转换到 map/导航 frame 后的点。 |
 | `/ly/navi/target_official` | `gimbal_driver/msg/StampedUInt16MultiArray` | `navi_tf_bridge` -> `behavior_tree` | 有效追击目标和 `/ly/aim/armor_targets` 中每个有效 target point 反算到 official-map cm，`data=[official_x_cm, official_y_cm, armor_type]`；BT 用作敌方位置 fallback。 |
 | `/ly/navi/position` | `gimbal_driver/msg/StampedUInt16MultiArray` | `navi_tf_bridge` -> `behavior_tree` | TF 导出的自身位置；`data=[official_x_cm, official_y_cm]` 为逆变换后的官方地图 cm，作为 BT 自身坐标融合源；`header.stamp` 为 TF source stamp；`map_point` 为 map 系 m 坐标，附带 `map_frame/source_frame`。 |
-| `/goal_pose` | `geometry_msgs/msg/PoseStamped` | `navi_tf_bridge` -> external navigation | 最终导航目标。 |
+| `/goal_pose` | `geometry_msgs/msg/PoseStamped` | `navi_tf_bridge` -> external navigation；Outpost manual test 时 `behavior_tree` -> external navigation | 正常由 bridge 发布；`outpost_manual_goal_enable=true` 时 bridge 的 `publish_goal_pose` 被强制为 false，只有 BT 手动测试路径发布。 |
 | `/ly/navi/reached` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree` | 外部导航到达源；true=导航端确认到达，false=导航端尚未确认到达。BT 内部最终 reached 还要结合自身融合坐标距离和保护逻辑。 |
 | `/ly/navi/reachable` | `std_msgs/msg/Bool` | external navigation -> `behavior_tree` | 当前目标是否有有效路径；true=可达，false=不可达。 |
 | `/ly/navi/reach_state` | `auto_aim_common/msg/GoalReach` | `behavior_tree` -> diagnostics/consumers | BT 内部 composite goal reach state；包含 status、reason、goal id/坐标、external reached/reachable freshness、融合自身坐标距离、grace 和 timeout。 |

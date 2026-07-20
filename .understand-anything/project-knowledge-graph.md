@@ -1,10 +1,10 @@
 # ros2_ly_ws_sentry Knowledge Graph
 
-Generated: 2026-07-19T15:23:50+00:00
+Generated: 2026-07-20T07:17:20Z
 
-Checked against committed runtime source HEAD: `0dcdcc1` (formal Regional posture ACK configuration, graph, and behavior documentation are pending commit; the user-owned `debug_mode.yaml` change remains separate)
+Checked against runtime source baseline: `a16e1af` (DecisionTrace v4, the tactical simulator, and the final Regional Area/Tactical YAML wiring are reflected; an untracked LibreOffice temporary lock file is intentionally excluded)
 
-Current graph shape: 96 nodes, 127 edges, 6 layers.
+Current graph shape: 107 nodes, 145 edges, 6 layers.
 
 Current ROS packages covered by graph:
 
@@ -43,7 +43,9 @@ flowchart LR
   PATH -->|/ly/game/path official dm + stamp| GD
 
   TF[external sentry_tf] -.sole gimbal TF provider.-> BRIDGE
-  BT -->|DecisionTrace JSONL| SIM[simulator]
+  BT -->|DecisionTrace v4 JSONL\nfeedback + final control + tactical evidence| SIM[simulator]
+  SIM -->|shared SceneCatalog + SceneState| BOARD[Pygame + /tactical]
+  SIM -->|MCAP decision/control/tactical/scene| FOX[Foxglove]
 ```
 
 ## Outputs
@@ -59,8 +61,8 @@ flowchart LR
 
 - 正式目標來源只有外部 `/ly/aim/armor_targets` 與 `/ly/aim/result`；BT 不再訂閱舊內部輔瞄 topic。
 - FaceMode 的 Regional、Buff、Outpost 請求統一由 `FaceModeManager` 收集並仲裁；最終角度/FireCode 仍只由 BT 的單一控制出口發布。`camera_projection` 預設先查長焦 `gx_camera_0`，只有 TF、距離或投影解算失敗時才回退短焦 `gx_camera_1`；status 會回報實際成功 frame，`relative_geometry` 不使用這個 fallback。
-- `PreRoadland`、`ReadyRoadland` 是正式同級 MainArea：前者走 ID 25 的 MyPreRoadland 到點保持；後者使用原 ReadyRoadLand 邊界，保留 ID 21/22 的 MyReadyRoadland 強綁定穿越。舊 `Roadland` alias 與未使用的 `RoadlandFollow` helper 已移除。正式 `regional_competition.json` 把兩者都列為 Default 可選區域；兩者設定分別由 `AreaManager.RegionalAreaTask.MyPreRoadland/MyReadyRoadland` 所有。RegionalDefense 將前後段聚合為 RoadCorridor 防守覆蓋。Simulator 會分別繪製兩個正式主區。`UnitInfo.area_id` 新增 8/9 表示敵我 PreRoadland，既有 0-7 不變。
-- Default 只會從各 BT JSON 的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 已啟用區域中評分；仍有替代候選時，剛選過的區域延後到本輪最後。若 MyBase/MyPreRoadland/CommonCentral 等 yieldable Default task 被 Buff/Outpost、RegionalDefense 或 Special 暫時搶占，會記為 `preempted`，下一次只要仍 eligible 就先續走原區域；首次恢復選點若不 eligible 則立即丟棄該恢復權，Recovery、timeout、unreachable、unhealthy 也維持終止。MyBase route 是程式固定的四個 Castle 點、每點保持 15 秒；`Base.yaml`／`base_strategy_config_file` 與 MyBase `Patrol.GoalWeights` 注入已移除。`BuffOutpost`、`HoleRoad`、`OutpostGuard` 不再由 Default 發布，`BuffOutpost` 只由 Buff/Outpost Tactical 擁有。
+- `PreRoadland`、`ReadyRoadland` 是正式同級 MainArea：前者走 ID 25 的 MyPreRoadland 到點保持；後者使用原 ReadyRoadLand 邊界，保留 ID 21/22 的 MyReadyRoadland 強綁定穿越。舊 `Roadland` alias 與未使用的 `RoadlandFollow` helper 已移除。正式 `regional_competition.json` 把兩者都列為 Default 可選區域；巡邏時序與門檻由程式正式預設所有，不再由 AreaManager 注入。RegionalDefense 將前後段聚合為 RoadCorridor 防守覆蓋。Simulator 會分別繪製兩個正式主區。`UnitInfo.area_id` 新增 8/9 表示敵我 PreRoadland，既有 0-7 不變。
+- JSON 的 `DecisionAutonomy.NaviGoal` 保留完整 profile 基線；正式 Regional 讀完 `AreaManager.yaml` 後，其全域和五個 per-area Enable 會重寫 `MyArea/CommonArea` 的最終可達 scope，`EnemyArea` 保持 JSON。`sentry_all` 將同一份 YAML 的結果同步傳給 `navi_tf_bridge` Chase area limit。仍有替代候選時，剛選過的區域延後到本輪最後。若 MyBase/MyPreRoadland/CommonCentral 等 yieldable Default task 被 Buff/Outpost、RegionalDefense 或 Special 暫時搶占，會記為 `preempted`，下一次只要仍 eligible 就先續走原區域；首次恢復選點若不 eligible 則立即丟棄該恢復權，Recovery、timeout、unreachable、unhealthy 也維持終止。MyBase route 是程式固定的四個 Castle 點、每點保持 15 秒；`Base.yaml`／`base_strategy_config_file` 與 MyBase `Patrol.GoalWeights` 注入已移除。`BuffOutpost`、`HoleRoad`、`OutpostGuard` 不再由 Default 發布，`BuffOutpost` 只由 Buff/Outpost Tactical 擁有。
 - `ChasePolicy` 是 Regional Tactical 的導航授權：只在可讓出的 Default `RegionalAreaTask` 已承諾區域時，接受新鮮官方敵方坐標精確落在同一 `AreaKey`，並由 `Chase.yaml` 開啟該 planned area。缺失/過期座標、邊界外或 nearest fallback、異區、未開啟區域一律不追；拒絕只清本拍 chase 輸出，原 Default goal 持續。Chase 在 Tactical，位於目前預設關閉的 Special 之前；League/Showcase 保留既有 area-scope。bridge 的 `Chase.AreaLimit` 解析 Base、Highland、PreRoadland、ReadyRoadland 與 Central 共 9 個現行主區，舊 `roadland` token 只兼容 ReadyRoadland。
 - `Task.OutpostConfirm.OpeningHoldUntilWindowEnd=true` 時，`OutpostOpeningHold.hpp` 以 `[0, OpeningHoldSec)` 作為唯一 hard hold 邊界；預設 `OpeningHoldSec=120` 在前哨 safety gate 合格時固定 BuffOutpost navigation ownership 到第 120 秒前，Default、普通巡邏與 soft tactical 不可換點。hard hold 的 priority 不依賴 `OpeningHighPriority`，後者只控制非 hold 的一般開局時間窗。前哨已毀、不可達、受擊/資源安全 gate、Hard Recovery 與己方 Base 的 RegionalDefense 硬威脅保留接管權。
 - `GoalReachState` 是到達/不可達的唯一 final contract：raw `/ly/navi/reached`、`/ly/navi/reachable` 和融合坐標只提供證據。EventManager、regional area task、recovery 和 navigation watchdog 都只消費 composite status；watchdog 已移除 raw fallback 與獨立 140 cm 到達半徑。Default 的 MyHighland、MyPreRoadland、MyReadyRoadland guard 和每一個 CommonCentral 巡邏點均和 MyBase 一樣保持 15 秒；純行進 phase 不加駐留。
@@ -72,5 +74,7 @@ flowchart LR
 - `io_config.serial_mode=true` 時，逐 ID raw 觀測 topic 為 `/ly/upload/typeid0..11` 與 `/ly/download/typeid0x00..05`；語義 topic 保持不變。
 - `/ly/aim/result` 是外部 aim 唯一輸出：`follow`、`fire`、yaw/pitch 及 yaw/pitch 的速度、加速度。正式 BT 與 `debug_mode.yaml` 的單節點 bridge 各自在所屬模式把新鮮有效的六個運動欄位轉為本倉 `GimbalTrajectory`，並以 100 Hz `/ly/control/trajectory` 驅動 0x05；兩者不可並行。任一欄非有限、`follow=false` 或 stale 時不發 trajectory，angles／FireCode 的既有有效性語義也一併失效。
 - 正式 BT 的 `src/behavior_tree/config/NaviRotateControl.yaml` 可透過 `SetPostureToMoveWhenFalse` 讓新鮮 `/ly/navi/should_rotate=false` 僅覆蓋當拍目標姿態為 Move；現有 `PostureManager` 繼續獨佔 cooldown、hold、feedback 與 pending/retry。若冷卻等待中訊號轉 true 或過期，下一拍恢復原策略，因此不補發 Move。這是正式 BT key，不是 driver debug profile key。
-- 2026-07-16 source audit 移除本倉 `tf_tree` fallback；外部 `sentry_tf` 是唯一 gimbal TF provider。aim feedback、`/ly/control/sentry_cmd`、FaceMode solver、BT 0x04 position downlink、導航 feedback、`debug_node -> debug_mode.yaml` profile 與 root gimbal compatibility routing 保持不變；source ROS Humble、`sentry.common` 後，本次 `behavior_tree` 與 `simulator` 184 tests 及 static selfcheck（108 PASS／0 WARN／0 FAIL）均通過，完整 external aim runtime graph 驗證仍未執行。
+- `src/behavior_tree/config/Tactical.yaml` 是正式全域小陀螺預設與受擊 `0 -> 1 -> 2 -> 3` ramp 時序的唯一來源，並提供 `ProtectHero.Enable` 與 `ProtectCastle.Enable/RFID/EnemyPos`：前者最終覆蓋 HeroProtection 基線；ProtectCastle 的總開關關閉兩條來源，RFID 只關閉堡壘增益點 `2/3` 事件及站樁火控，EnemyPos 只關閉敵方實際進入 MyBase 的防守來源，Highland、道路與 Central 的普通 RegionalDefense 不受影響；PointManager 已移除。`AreaManager.yaml` 的 `RegionalAreaTask.Enable` 與 `MyBase/MyHighland/MyPreRoadland/MyReadyRoadland/CommonCentral.Enable` 是比賽切換可去區域的最終 core scope：`false` 不會產生該區域 Default 候選，也會停止已啟動的同類任務，並同步限制 bridge Chase；JSON `EnemyArea` 不受影響。任何 BT 策略本拍要求 `FollowMode=1` 都在 Tactical 與防守 Rotate 計算後強制輸出 `Rotate=0`；safe fallback 同樣先清 FollowMode，再發 `FIELD_ALL`。
+- 2026-07-19 當前 source 驗證：AreaManager scope 專屬測試與既有區域測試共 23/23 通過，無 node 的正式 launch 解析確認五個 YAML 開關會同步進 bridge，manual Outpost 時 bridge `/goal_pose` 有效值為 false。完整 `behavior_tree_node` 建置與 static selfcheck 仍只被本機 `sentry_msgs/AimResult` 缺少四個 dynamics 欄位擋住；此環境問題不屬 Area scope 改動。
+- `DecisionTrace` v4 以 BT 同一份 Tactical/RegionalDefense policy helper 寫入 ProtectCastle、ProtectHero 和 RegionalDefense evidence；它同時保留最後一次實際 `/ly/control/*` output snapshot，並與 lower-machine `/ly/gimbal/firecode` feedback 明確分開。v2/v3 replay 將未寫入的 evidence 標為 `not_recorded`，不以零值代替。`src/simulator/config/tactical_catalog.yaml` 與 `SceneState` 是 Pygame 和 `/tactical` 的共同 scene contract：`mock` 模式只有 `simulator.mock_inputs` 發正式輸入，`manual_ros` 只觀察 Foxglove/ROS CLI。MCAP 額外輸出 `control_output`、`tactical` 和 `scene` channels；browser 拖放和 `tactical_board.yaml` Pygame smoke 均有回歸驗證。
 - 本圖譜為 source-checked fallback；因本機沒有可用 Understand Anything plugin core，未執行 plugin regeneration。MPC 的 ROS schema 由本倉 `gimbal_driver/msg/GimbalState.msg` 與 `GimbalTrajectory.msg` 定義；外部 `sentry.aim` 只經既有 topic 消費狀態、發布軌跡，不是本倉建置依賴。

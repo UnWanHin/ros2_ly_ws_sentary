@@ -1,6 +1,6 @@
 # YAML 與腳本現況盤點
 
-Updated: 2026-07-16
+Updated: 2026-07-19
 
 ## 結論與邊界
 
@@ -28,12 +28,12 @@ Updated: 2026-07-16
 | config/common.yaml | wrapper 的現場操作 profile | scripts/launch/start_sentry_all.sh、map_aim_point_test.sh | 保留；集中日誌、rosbag、raw serial 觀測與明確的 stack 級覆蓋。 |
 | config/override_config.yaml | workspace gimbal compatibility override | sentry_all.launch.py、decision_chase.launch.py、navi_control_chain.sh、selfcheck | 保留；安全 gimbal 鍵在 base 之後覆蓋，空檔仍提供 `config_file` 入口。 |
 | scripts/feature_test/config/sentry_feature_test.yaml | feature-test scenario | scripts/feature_test/run_feature_test.sh | 保留；是該框架的預設輸入。 |
-| src/behavior_tree/config/AreaManager.yaml | BT 區域、位置融合正式 baseline | sentry_all.launch.py、behavior_tree.launch.py | 保留。 |
+| src/behavior_tree/config/AreaManager.yaml | BT 區域、位置融合正式 baseline | sentry_all.launch.py、behavior_tree.launch.py | 保留；正式 Regional 的五個 area Enable 是 JSON baseline 之後的最終 MyArea/CommonArea scope。wrapper 傳 source path，因此改完重啟即可生效。 |
 | src/behavior_tree/config/Base.yaml | BT Base／Regional 正式補充 | sentry_all.launch.py | 保留；standalone BT launch 故意不載入它。 |
 | src/behavior_tree/config/NaviRotateControl.yaml | BT 正式 /ly/navi/should_rotate 仲裁 | sentry_all.launch.py、behavior_tree.launch.py、chase.sh | 保留；不得與 driver direct-debug 合併。 |
 | src/behavior_tree/config/OutpostRegionalTest.yaml | 前哨聯調 overlay | outpost_regional_test.launch.py | 保留；不是正式 baseline。 |
 | src/behavior_tree/config/Patrol.yaml | BT 巡邏掃描與 task override | sentry_all.launch.py、behavior_tree.launch.py、patrol/debug scripts | 保留。 |
-| src/behavior_tree/config/PointManager.yaml | BT 導航點位 | sentry_all.launch.py、behavior_tree.launch.py | 保留。 |
+| src/behavior_tree/config/Tactical.yaml | BT 全域小陀螺、受擊 ramp、英雄/城堡 Tactical 開關 | sentry_all.launch.py、behavior_tree.launch.py | 保留；`ProtectHero.Enable` 最終覆蓋 HeroProtection 基線；`ProtectCastle.Enable` 為總開關，`RFID` 只控制堡壘增益點事件與站樁火控，`EnemyPos` 只控制敵方實際進入 MyBase 的防守來源；Highland、道路與 Central 的 RegionalDefense 不受影響。取代已移除的 PointManager.yaml。 |
 | src/behavior_tree/config/Special.yaml | BT 特殊區域策略 | sentry_all.launch.py、behavior_tree.launch.py | 保留。 |
 | src/behavior_tree/config/Task.yaml | BT 任務、StartGate、FaceMode baseline | sentry_all.launch.py、behavior_tree.launch.py | 保留。 |
 | src/gimbal_driver/config/debug_mode.yaml | 單節點 driver direct-debug overlay | gimbal_driver/debug_node.launch.py | 保留；只允許 debug node 載入。 |
@@ -52,7 +52,7 @@ Updated: 2026-07-16
    單節點 direct-debug，不能以載入順序猜測誰生效。
 2. NaviRotateControl.yaml 是正式 BT 鏈的導航 Rotate 仲裁；debug_mode.yaml 是 driver
    直連 /ly/navi/*。名稱接近，但 owner 與控制鏈不同。
-3. BT 的 AreaManager、Task、Patrol、PointManager、Special 是按決策責任分區，目前不應
+3. BT 的 AreaManager、Task、Tactical、Patrol、Special 是按決策責任分區，目前不應
    為了減少檔數合併。
 4. calibration examples 與 simulator QA profile 有明確人機／測試用途；它們不是 production
    runtime baseline，但仍是受維護資產。
@@ -66,7 +66,7 @@ Updated: 2026-07-16
 | --- | --- | --- |
 | ros2 launch behavior_tree sentry_all.launch.py | driver baseline → root legacy base/override 的安全 gimbal 鍵 → launch parameter list | 正式 stack；BT、導航與 FaceMode 不吃 root YAML，driver 直連 navigation debug 鍵會被略過。 |
 | scripts/launch/start_sentry_all.sh | wrapper 解析 common.yaml → 呼叫 sentry_all.launch.py → wrapper 轉出的 inline ROS parameters 為最後層 | common.yaml 是現場操作 profile；其 firecode、velocity、StartGate、FaceMode key 可明確覆蓋 package YAML。 |
-| ros2 launch behavior_tree behavior_tree.launch.py | AreaManager.yaml → Task.yaml → NaviRotateControl.yaml → PointManager.yaml → Patrol.yaml → Special.yaml → CLI | standalone path 不載入 Base.yaml，也沒有 sentry_all 的 inline ExternalAim／StartGate/manual-goal 層。 |
+| ros2 launch behavior_tree behavior_tree.launch.py | AreaManager.yaml → Task.yaml → NaviRotateControl.yaml → Tactical.yaml → Patrol.yaml → Special.yaml → CLI | standalone path 不載入 Base.yaml，也沒有 sentry_all 的 inline ExternalAim／StartGate/manual-goal 層。 |
 | ros2 launch gimbal_driver gimbal_driver.launch.py | gimbal_driver_config.yaml → config_file（若明確指定）→ CLI | 安全的單節點正式 driver 預設；不帶 navigation direct-debug。 |
 | ros2 launch gimbal_driver debug_node.launch.py | gimbal_driver_config.yaml → debug_config_file（預設 debug_mode.yaml）→ explicit CLI | 建議的 driver 直連 `/ly/navi/vel` 與 `/ly/navi/should_rotate` 入口；一般 driver launch 也可明確指定同一 overlay，正式 sentry_all 不會帶入。 |
 | ros2 launch navi_tf_bridge target_rel_to_goal_pos.launch.py | tf_config.yaml → launch arguments → sentry_all 從選定 BT JSON 解析出的 bridge inline values | BT JSON 的 NaviSetting/Chase 可覆蓋 bridge target-rel 設定。 |

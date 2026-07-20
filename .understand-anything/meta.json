@@ -1,10 +1,10 @@
 {
-  "lastAnalyzedAt": "2026-07-19T15:23:50+00:00",
-  "gitCommitHash": "0dcdcc1",
-  "workingTreeStatus": "formal Regional posture ACK configuration, TypeID 9 fixed-point decoding, their documentation, and graph updates are pending commit; the user-owned src/gimbal_driver/config/debug_mode.yaml change remains separate.",
-  "lastCheckedNote": "Fallback graph source-checked against current gimbal_driver TypeID 9 decoder: the lower controller sends x/y as int16 centimeters in data bytes 0..3, plus keyboard/robot/source in bytes 4..7 and four reserved bytes. gimbal_driver converts x/y to float meters before publishing MapCommand. The captured frame 21 09 87 03 36 02 00 00 06 01 00 00 00 00 82 is covered by a regression test. This local environment has no sentry_msgs package, so behavior_tree build and static selfcheck cannot validate the external AimResult interface until sentry.aim is sourced.",
+  "lastAnalyzedAt": "2026-07-20T07:17:20Z",
+  "gitCommitHash": "a16e1af",
+  "workingTreeStatus": "Runtime source baseline is committed through a16e1af; this graph and its companion documentation describe DecisionTrace v4, the tactical simulator, and the final Regional Area/Tactical YAML wiring. An untracked LibreOffice temporary lock file is intentionally excluded from version control.",
+  "lastCheckedNote": "Fallback graph source-checked against the a16e1af runtime baseline: JSON retains the complete Regional baseline, while AreaManager.yaml is the final live owner of the four MyArea and CommonCentral scope switches; EnemyArea remains JSON-owned. Tactical.yaml owns the final ProtectHero switch and ProtectCastle: Enable gates both castle sources, RFID gates only self_fortress_gain_point_status=2/3 plus stand-fire, and EnemyPos gates only enemy coordinates in MyBase; other RegionalDefense areas remain active. sentry_all gives navi_tf_bridge the same YAML-derived Chase scope. Safe fallback clears FireCode.FollowMode before FIELD_ALL publication, and Outpost manual goal mode suppresses bridge /goal_pose publication. DecisionTrace v4 records BT-authored tactical evidence plus the last actual control-output snapshot independently from lower-machine feedback; simulator v2/v3 adapters preserve missing evidence as not_recorded. Pygame and /tactical share SceneCatalog/SceneState; mock is the only simulator input owner and manual_ros is observer-only. MCAP export includes decision/control_output/tactical/scene channels. TacticalProtectionPolicy, DecisionTraceControlOutput, and MyBase source-gate RegionalDefense tests passed; simulator suite passed 199/199 after browser/Pygame regression additions. The full node build reaches DecisionTrace/GameLoop and remains blocked only by the installed sentry_msgs AimResult missing four dynamics fields. Static selfcheck cannot fully pass in this host shell because ros2 is unavailable.",
   "version": "1.0.0",
-  "analyzedFiles": 555,
+  "analyzedFiles": 561,
   "generator": "local-understand-anything-compatible-fallback",
-  "graphShape": {"nodes": 96, "edges": 127, "layers": 6}
+  "graphShape": {"nodes": 107, "edges": 145, "layers": 6}
 }

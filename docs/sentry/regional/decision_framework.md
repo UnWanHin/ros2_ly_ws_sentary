@@ -42,7 +42,7 @@ Regional 不是單一點表，而是分層策略：
 
 - `Hard`：最高優先級，先處理低血/低彈回 `Recovery`，以及 ReadyRoadland 強綁定穿越段。
 - `Task`：先處理裁判小地圖 `MapCommand`，再處理 Highland 兼容過渡和導航 watchdog 等支援任務，不擁有基本大區域狀態機。
-- `Tactical`：處理 Buff、RegionalDefense、ProtectHero、Outpost 和 watchdog fallback。
+- `Tactical`：處理 Buff、RegionalDefense（含 ProtectCastle）、ProtectHero、Outpost 和 watchdog fallback。
 - `Special`：可開關的專項巡察層，目前只包含兩點線段 Patrol，優先級低於 Tactical、高於 Default。
 - `Default`：沒有事件、沒有任務、沒有 Buff/Outpost 時，按大區域候選分數選並持續 tick `MyBase / MyHighland / MyPreRoadland / MyReadyRoadland / CommonCentral`。
 - `Finalizer`：只做策略層狀態同步，不再做舊點表 fallback。
@@ -50,7 +50,7 @@ Regional 不是單一點表，而是分層策略：
 Regional 目前已有的主要邏輯：
 
 - 回補/回基地：低血或低彈優先去 `Recovery`；這層高於 RegionalDefense。非 league regional 下，已在 `Recovery` 且血量未回到門檻時會繼續守住 Recovery。
-- Default 大區域任務：候選包含 `MyBase`、`MyHighland`、`MyPreRoadland`、`MyReadyRoadland`、`CommonCentral`；評分會看血量/彈量新鮮度、資源門檻、距離、目前區域、上一個區域、任務冷卻和失敗重試。只從 `DecisionAutonomy.NaviGoal` 已啟用的 area 選擇，若有其他合格區域，剛選過的區域會排到本輪最後，避免原地重複。
+- Default 大區域任務：候選包含 `MyBase`、`MyHighland`、`MyPreRoadland`、`MyReadyRoadland`、`CommonCentral`；評分會看血量/彈量新鮮度、資源門檻、距離、目前區域、上一個區域、任務冷卻和失敗重試。JSON 的 `DecisionAutonomy.NaviGoal` 保留完整基線；正式 Regional 在讀完 `AreaManager.yaml` 後，會由 `RegionalAreaTask.Enable` 與五個 per-area `Enable` 重寫己方四區和 Central 的最終 scope，`EnemyArea` 維持 JSON。若有其他合格區域，剛選過的區域會排到本輪最後，避免原地重複。
 - `MyBase` 任務：只在程式固定的四個 Castle 邊點中按自身距離、目前點與訪問新鮮度選點；到點保持 15 秒，完成 `MaxPatrolSteps` 後退出，交回 Default scorer 重新評估。`BuffOutpost`、`HoleRoad`、`OutpostGuard` 不屬 Default Base route。
 - `MyHighland` 任務：`Highland` approach -> `Highland` hold -> `BuffShoot` -> `BuffShoot` hold -> `HoleRoad` 離開；approach/leave 仍是地形兼容階段，但正式配置下 Follow/Rotate 兼容交給 `/ly/navi/should_rotate`。
 - `MyPreRoadland` 任務：只前往 ID `25`，到點後按 `GoalHoldSec` 完成；它可被更高優先級任務取消，不繼承後段的強制穿越控制。
@@ -91,7 +91,7 @@ EvaluateEvents -> Hard -> Task -> PreprocessData -> SelectAimTarget -> Tactical 
 - `PreprocessData / SelectAimTarget`：在 Tactical 前整理可打目標、官方坐標和本 tick `targetArmor`，讓戰術層使用最新目標資料。
 - `Tactical`：regional 只保留明確戰術 overlay：`RegionalDefense`、ProtectHero、Buff/Outpost 任務站位、Chase 追擊和導航 watchdog；不再調用舊單策略點表。`LeagueSimple` 只在 `CompetitionProfile=league` 時使用，Showcase 只在明確 showcase 配置時使用。
 - `Special`：可選專項層；目前 `Special.Patrol.Enable=false`。日後啟用時才巡己方 `CentralLeft` 線；`PreRoadland` 已是 Default scope 內的正式 AreaTask。Special 在 Tactical 之後，若啟用且 `SuppressChase=true`，它會主動禁止該專項期間的 Chase。
-- `Default`：無特別事件時的底層決策，按 `AreaManager.DefaultPolicy` 對已啟用的大區域做資源門檻、距離、目前區域、上次任務結果、冷卻和重試評分，再啟動 AreaManager 任務。每個 Default 區域任務都必須有完成/退出條件；任務完成後回到 scorer 重新評估，不寫死下一個大區域順序。沒有可用區域時不再 fallback 到任何舊點表。`RegionalIdlePatrol` 點表不再是正式 regional 的 Default 入口。
+- `Default`：無特別事件時的底層決策，只在已啟用的大區域中以程式內建的資源門檻、距離、目前區域、上次任務結果、冷卻和重試評分，再啟動 AreaManager 任務。每個 Default 區域任務都必須有完成/退出條件；任務完成後回到 scorer 重新評估，不寫死下一個大區域順序。沒有可用區域時不再 fallback 到任何舊點表。`RegionalIdlePatrol` 點表不再是正式 regional 的 Default 入口。
 - `Finalizer`：只做本 tick 策略層完成標記和黑板同步；regional 不再 fallback 到舊點表。
 
 分層狀態會寫入 BT blackboard：
@@ -248,7 +248,19 @@ ReadyRoadland Blue: (2290,1265) -> (2290,1481) -> (1549,1483) -> (1467,1279)
 
 ```yaml
 AreaManager:
-  Switch_Point: false
+  SwitchPoint: false
+  RegionalAreaTask:
+    Enable: true
+    MyBase:
+      Enable: true
+    MyHighland:
+      Enable: true
+    MyPreRoadland:
+      Enable: true
+    MyReadyRoadland:
+      Enable: true
+    CommonCentral:
+      Enable: true
   SentryPositionFusion:
     Enable: true
     Mode: priority
@@ -266,38 +278,17 @@ AreaManager:
         Enable: true
         Priority: 1
         Weight: 0.8
-  RegionalAreaTask:
-    Enable: true
-    MyBase:
-      Enable: true
-    MyHighland:
-      Enable: true
-    MyReadyRoadland:
-      Enable: true
-    CommonCentral:
-      Enable: true
 ```
 
-`src/behavior_tree/config/AreaManager.yaml` 不再默認寫 `Area.MyArea/EnemyArea/CommonArea` 的區域開關，避免它把不同 `bt_config_file` 裡的區域選擇全部覆蓋成同一套。正式 regional 和單區域 areatest 的「哪些區域可選」仍由對應 `ConfigJson` 裡的 `DecisionAutonomy.NaviGoal.MyArea/EnemyArea/CommonArea` 控制；DefaultPolicy 只會在這些已啟用區域內挑候選，JSON 裡為 `false` 的區域不會因為血量健康或權重高而被選中。`AreaManager.yaml` 保留 `Switch_Point`、`SentryPositionFusion`、區域狀態機任務時序、共用 PatrolSelection 評分，以及 DefaultPolicy 的門檻、權重、冷卻和重試參數；MyBase route 是程式固定的四 Castle 點，正式 launch 不再載入 `Base.yaml`。`Task.yaml` 只管這局是否允許 `Task.Buff / Task.Outpost`，會覆蓋 JSON 裡同名字段。
+正式 regional 和單區域 areatest 的 profile `DecisionAutonomy.NaviGoal` 保留完整地圖 scope 基線；`AreaManager.RegionalAreaTask.Enable` 與五個區域 `Enable` 是它們的最終、現場可改覆寫層：總開關為 `false` 時清空己方四區與 Central，個別為 `false` 時只從對應 scope 移除該區。`EnemyArea` 與其他 JSON 設定完全保留。設為 `false` 時，Default 不會產生該區域候選，正在跑的同類任務也不再輸出。`sentry_all` 也會把同一份 YAML 解析給 `navi_tf_bridge` 的 Chase area limit；使用 `./scripts/start.sh gated --mode regional` 時 wrapper 傳入 source YAML，改完重啟即可生效，不需要 `colcon build`。`AreaManager.yaml` 只保留 `SwitchPoint`、這六個核心 Enable 開關、`SentryPositionFusion` 與 `BuffOutpostCompat`。巡邏時序、共用評分、資源門檻、冷卻和重試都是程式內建預設；MyBase route 仍是程式固定的四 Castle 點，正式 launch 不再載入 `Base.yaml`。`Task.yaml` 只管這局是否允許 `Task.Buff / Task.Outpost`，會覆蓋 JSON 裡同名字段。
 
-`Switch_Point=true` 時只交換 `Area.hpp` 裡紅/藍官方點位和區域邊界查找結果，不交換 `team`、敵我語義或導航 goal ID。這是給導航零點/物理場地方向反了時使用的點位查找開關。
+`SwitchPoint=true` 時只交換 `Area.hpp` 裡紅/藍官方點位和區域邊界查找結果，不交換 `team`、敵我語義或導航 goal ID。這是給導航零點/物理場地方向反了時使用的點位查找開關。
 
-重要健康門檻：
-
-- `DefaultPolicy.Health.MyAreaHpMin`：我方 Highland/ReadyRoadland 的底層選區 HP 門檻，默認 250。
-- `DefaultPolicy.Health.CommonCentralHpMin`：Central 底層選區 HP 門檻，默認 300。
-- `DefaultPolicy.Health.EnemyAreaHpMin`：敵方區域預留 HP 門檻，默認 350；目前敵方區域狀態機尚未接入 Default 候選。
-- `DefaultPolicy.Ammo.*`：與 HP 對應的彈量門檻。
-- `MyReadyRoadland.HealthyHpMin`
-- `MyReadyRoadland.HealthyAmmoMin`
-- `CommonCentral.HealthyHpMin`
-- `CommonCentral.HealthyAmmoMin`
-
-ReadyRoadland 用這些門檻決定是否離開駐守點並安全返回。Central 則要求啟動時血量/彈量數據新鮮且健康；任務中如果新鮮數據變成不健康，就完成並釋放控制。
+巡邏資源門檻與評分是 source-owned 的正式預設；ReadyRoadland 以健康門檻決定是否離開駐守點並安全返回，Central 則要求啟動與執行期間的血量/彈量新鮮且健康。若比賽調參確實需要變更，應以小範圍程式改動連同測試調整，不再從 AreaManager YAML 注入一整組策略參數。
 
 DefaultPolicy 的當前選區規則：
 
-- Area scope 是硬門檻：`MyArea / EnemyArea / CommonArea` 關掉的區域永遠不進候選。
+- Area scope 是硬門檻：Regional 的 `MyArea / CommonArea` 最終由 `AreaManager.yaml` 的六個 Enable 決定；`EnemyArea` 保持 JSON。關掉的區域永遠不進 Default 候選。
 - `MyBase` 需要新鮮血量/彈量並達到我方區域門檻，健康時才會啟動基地巡遊。
 - `MyHighland` 需要新鮮血量/彈量並達到我方區域門檻。
 - `MyReadyRoadland` 需要同時滿足 DefaultPolicy 我方門檻和 `MyReadyRoadland.Healthy*` 門檻。
@@ -307,7 +298,7 @@ DefaultPolicy 的當前選區規則：
 
 ## RegionalDefense
 
-RegionalDefense 是事件驅動戰術層，優先級高於 Default。敵方位置判斷只使用 `/ly/position/data` 寫入的官方場地坐標，不使用 map/odom 坐標混判；AreaManager 用 `Area.hpp` 官方點位區域邊界判斷敵方是否進入我方 Base/Highland/PreRoadland/ReadyRoadland 或公共 Central，兩段道路會聚合為同一 RoadCorridor 防守威脅。另有一個裁判事件來源：`/ly/game/event_data.self_fortress_gain_point_status == 2/3` 時，視為己方堡壘增益點有敵方占領，進入硬防守搜索。ProtectHero 的英雄保護條件會在 RegionalDefense 之前檢查；只有未命中英雄保護時，普通 RegionalDefense 才接管。
+RegionalDefense 是事件驅動戰術層，優先級高於 Default。敵方位置判斷只使用 `/ly/position/data` 寫入的官方場地坐標，不使用 map/odom 坐標混判；AreaManager 用 `Area.hpp` 官方點位區域邊界判斷敵方是否進入我方 Base/Highland/PreRoadland/ReadyRoadland 或公共 Central，兩段道路會聚合為同一 RoadCorridor 防守威脅。城堡保護有兩條獨立來源：`Tactical.ProtectCastle.RFID` 控制 `/ly/game/event_data.self_fortress_gain_point_status == 2/3` 的堡壘事件，`Tactical.ProtectCastle.EnemyPos` 控制敵方官方坐標進入我方 Base。`ProtectCastle.Enable=false` 會同時關閉兩條來源；`RFID=false` 只關事件和其站樁火控；`EnemyPos=false` 只忽略 MyBase 敵方坐標，Highland、兩段道路與 Central 的 RegionalDefense 不受影響。ProtectHero 的英雄保護條件會在 RegionalDefense 之前檢查；只有未命中英雄保護時，普通 RegionalDefense 才接管。
 
 當前防守搜索規則：
 
@@ -322,7 +313,7 @@ RegionalDefense 是事件驅動戰術層，優先級高於 Default。敵方位�
 
 ## ProtectHero
 
-ProtectHero 是 Tactical 層的己方英雄保護點位。比賽開始 `HeroProtection.StartElapsedSec` 秒後，如果己方 Hero 的官方坐標新鮮、血量不是已知 0，且落在己方 Highland 大區或 `ProtectHero` 子區域內，BT 會評估 RegionalDefense 威脅。當我方 Base 和我方 Highland 同時有新鮮敵方官方坐標時，ProtectHero 會優先於普通 RegionalDefense 下發 `HeroProtection.GoalBaseId`，默認為 `Highland`，並用 `HeroProtection.HoldSec` 控制駐守重發週期。
+ProtectHero 是 Tactical 層的己方英雄保護點位。`Tactical.ProtectHero.Enable` 是正式 YAML 的最終開關，會覆蓋 JSON／程式的 HeroProtection 基線。比賽開始 `HeroProtection.StartElapsedSec` 秒後，如果己方 Hero 的官方坐標新鮮、血量不是已知 0，且落在己方 Highland 大區或 `ProtectHero` 子區域內，BT 會評估 RegionalDefense 威脅。當我方 Base 和我方 Highland 同時有新鮮敵方官方坐標時，ProtectHero 會優先於普通 RegionalDefense 下發 `HeroProtection.GoalBaseId`，默認為 `Highland`，並用 `HeroProtection.HoldSec` 控制駐守重發週期。
 
 ProtectHero 觸發後會保持保護狀態；只要仍有 RegionalDefense 敵情就刷新保護保持時間。當連續 `HeroProtection.NoEnemyReleaseSec` 秒沒有 RegionalDefense 敵情時，保護狀態釋放，後續 tick 交回普通 RegionalDefense、Buff/Outpost、watchdog 或 Default 區域任務。
 
@@ -479,7 +470,7 @@ MyHighland 目前不在這個低優先級 aim/defense 取消集合裡。它仍�
 `MyPreRoadland` 是正式道路前段區域任務，取代已移除的 `Special.MiniRoadland`：
 
 - 唯一導航入口為 `PreRoadland`，BaseGoalId 固定為 `25`；
-- 到達後按 `AreaManager.RegionalAreaTask.MyPreRoadland.GoalHoldSec` 保持；
+- 到達後按程式預設保持 15 秒；
 - 不繼承 ReadyRoadland 的強綁定穿越、FollowMode 或 FaceMode；
 - 在 Default policy 中有獨立權重、當前/上一區懲罰與 retry/cooldown。
 
@@ -559,8 +550,9 @@ Hero -> Infantry1 -> Infantry2 -> Sentry -> Engineer
 Area task 使用既有 BT 控制鏈路輸出：
 
 - 通過 `SetPositionByBaseGoal()` 發導航目標；
+- `Tactical.yaml` 的 `DamageRotate` 管全域預設小陀螺檔位與受擊後 `0 -> 1 -> 2 -> 3` ramp；
 - 通過 `FireCode.FollowMode` 控 FollowMode bit；
-- 若啟用 `NaviRotateControl.yaml`，新鮮 `/ly/navi/should_rotate` 會接管區域兼容用的 FollowMode/小陀螺；目前不接管 regional FaceMode；
+- 任一 BT 策略在本拍要求 `FollowMode=1` 時，最終都強制 `Rotate=0`，會壓過 Tactical ramp 與防守檔位；新鮮 `/ly/navi/should_rotate=false` 同樣以此規則輸出 Follow；目前不接管 regional FaceMode；
 - 需要固定朝向時，通過 `/ly/face_mode/target_raw` 發 FaceMode 目標；
 - 需要停火時，覆蓋本輪 fire 狀態。
 
