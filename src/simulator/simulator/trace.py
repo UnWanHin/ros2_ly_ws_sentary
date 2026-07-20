@@ -28,6 +28,7 @@ from .model import (
     RelativeTarget,
     RfidMatchState,
     RuntimeGuard,
+    TacticalDecisionState,
     TargetState,
     TraceRecord,
     UnitInfoRecord,
@@ -550,6 +551,49 @@ def normalize_control_output(raw: dict[str, Any]) -> ControlOutputState:
     )
 
 
+def empty_tactical_state() -> TacticalDecisionState:
+    return TacticalDecisionState(
+        available=False,
+        protect_castle_enabled=None,
+        protect_castle_rfid_enabled=None,
+        protect_castle_enemy_pos_enabled=None,
+        protect_castle_rfid_event_raw_active=None,
+        protect_castle_rfid_event_active=None,
+        protect_castle_enemy_pos_active=None,
+        protect_hero_enabled=None,
+        protect_hero_active=None,
+        regional_defense_threat_active=None,
+        regional_defense_search_kind="not_recorded",
+        regional_defense_fortress_enemy_count=None,
+        regional_defense_own_base_enemy_count=None,
+    )
+
+
+def normalize_tactical(raw: dict[str, Any]) -> TacticalDecisionState:
+    tactical = as_dict(raw.get("tactical"))
+    if not boolean(tactical.get("available")):
+        return empty_tactical_state()
+
+    protect_castle = as_dict(tactical.get("protect_castle"))
+    protect_hero = as_dict(tactical.get("protect_hero"))
+    regional_defense = as_dict(tactical.get("regional_defense"))
+    return TacticalDecisionState(
+        available=True,
+        protect_castle_enabled=optional_bool(protect_castle.get("enabled")),
+        protect_castle_rfid_enabled=optional_bool(protect_castle.get("rfid_enabled")),
+        protect_castle_enemy_pos_enabled=optional_bool(protect_castle.get("enemy_pos_enabled")),
+        protect_castle_rfid_event_raw_active=optional_bool(protect_castle.get("rfid_event_raw_active")),
+        protect_castle_rfid_event_active=optional_bool(protect_castle.get("rfid_event_active")),
+        protect_castle_enemy_pos_active=optional_bool(protect_castle.get("enemy_pos_active")),
+        protect_hero_enabled=optional_bool(protect_hero.get("enabled")),
+        protect_hero_active=optional_bool(protect_hero.get("active")),
+        regional_defense_threat_active=optional_bool(regional_defense.get("threat_active")),
+        regional_defense_search_kind=str(regional_defense.get("search_kind", "unknown")),
+        regional_defense_fortress_enemy_count=optional_integer(regional_defense.get("fortress_enemy_count")),
+        regional_defense_own_base_enemy_count=optional_integer(regional_defense.get("own_base_enemy_count")),
+    )
+
+
 def normalize_bullet_info(raw: dict[str, Any]) -> BulletInfoState:
     info = as_dict(raw.get("bullet_info"))
     has_initial_speed = boolean(info.get("has_initial_speed"))
@@ -708,6 +752,7 @@ def normalize_record(raw: dict[str, Any], index: int, goal_names: dict[int, str]
     gimbal = normalize_gimbal(raw)
     gimbal_feedback = normalize_gimbal_feedback(raw)
     control_output = normalize_control_output(raw)
+    tactical = normalize_tactical(raw)
     bullet_info = normalize_bullet_info(raw)
     runtime_guard = normalize_runtime_guard(raw)
     field = normalize_field(raw)
@@ -763,6 +808,7 @@ def normalize_record(raw: dict[str, Any], index: int, goal_names: dict[int, str]
         gimbal=gimbal,
         gimbal_feedback=gimbal_feedback,
         control_output=control_output,
+        tactical=tactical,
         bullet_info=bullet_info,
         runtime_guard=runtime_guard,
     )

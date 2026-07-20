@@ -116,6 +116,17 @@ def validate_records(records: list[TraceRecord], config: dict[str, Any], bad_lin
                 )
             )
 
+        if schema_version >= 4 and not record.tactical.available:
+            issues.append(
+                make_issue(
+                    "error",
+                    record.index,
+                    "schema.missing_tactical_evidence",
+                    "schema_version >= 4 missing tactical evidence",
+                    "Write tactical.available=true with ProtectCastle, ProtectHero, and regional-defense evidence, or keep the row on schema v3.",
+                )
+            )
+
         if last_t is not None and record.t < last_t:
             issues.append(
                 make_issue(

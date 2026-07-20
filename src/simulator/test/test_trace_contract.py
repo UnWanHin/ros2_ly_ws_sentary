@@ -358,6 +358,47 @@ def test_trace_record_exposes_stable_simulator_contract() -> None:
     assert not record.posture_runtime.feedback_stale
 
 
+def test_v4_trace_preserves_bt_tactical_protection_evidence() -> None:
+    raw = stable_trace_row()
+    raw["schema_version"] = 4
+    raw["tactical"] = {
+        "available": True,
+        "protect_castle": {
+            "enabled": True,
+            "rfid_enabled": True,
+            "enemy_pos_enabled": True,
+            "rfid_event_raw_active": True,
+            "rfid_event_active": True,
+            "enemy_pos_active": True,
+        },
+        "protect_hero": {"enabled": True, "active": False},
+        "regional_defense": {
+            "threat_active": True,
+            "search_kind": "own_fortress_gain_point",
+            "fortress_enemy_count": 2,
+            "own_base_enemy_count": 1,
+        },
+    }
+
+    record = normalize_record(raw, 0, {18: "OccupyArea"})
+    payload = record_status_payload(record)
+
+    assert record.tactical.available is True
+    assert record.tactical.protect_castle_enemy_pos_active is True
+    assert record.tactical.protect_castle_rfid_event_active is True
+    assert record.tactical.regional_defense_search_kind == "own_fortress_gain_point"
+    assert record.tactical.regional_defense_fortress_enemy_count == 2
+    assert payload["tactical"]["protect_castle"]["enemy_pos_active"] is True
+
+
+def test_legacy_trace_keeps_tactical_evidence_explicitly_unavailable() -> None:
+    record = normalize_record(stable_trace_row(), 0, {18: "OccupyArea"})
+
+    assert record.tactical.available is False
+    assert record.tactical.protect_castle_enabled is None
+    assert record.tactical.regional_defense_search_kind == "not_recorded"
+
+
 def test_goal_reach_preserves_known_but_stale_position_contract() -> None:
     raw = stable_trace_row()
     raw["goal_reach_state"].update(
@@ -530,6 +571,65 @@ def test_record_status_payload_is_json_safe_debug_summary() -> None:
             "projectile_allowance_42mm": 6,
             "remaining_gold_coin": 14,
             "projectile_allowance_fortress_17mm": 32,
+        },
+        "gimbal_feedback": {
+            "available": False,
+            "age_ms": None,
+            "fire_code": {
+                "field_mask": None,
+                "raw": None,
+                "fire_status": None,
+                "cap_state": None,
+                "follow_mode": None,
+                "aim_mode": None,
+                "rotate": None,
+            },
+        },
+        "control_output": {
+            "available": False,
+            "sequence": None,
+            "age_ms": None,
+            "source": "not_recorded",
+            "angles": {"published": False, "yaw": None, "pitch": None},
+            "fire_code": {
+                "published": False,
+                "field_mask": None,
+                "raw": None,
+                "fire_status": None,
+                "cap_state": None,
+                "follow_mode": None,
+                "aim_mode": None,
+                "rotate": None,
+            },
+            "trajectory": {
+                "published": False,
+                "available": False,
+                "unavailable_reason": "not_recorded",
+                "yaw": None,
+                "pitch": None,
+                "yaw_omega": None,
+                "pitch_omega": None,
+                "yaw_alpha": None,
+                "pitch_alpha": None,
+            },
+        },
+        "tactical": {
+            "available": False,
+            "protect_castle": {
+                "enabled": None,
+                "rfid_enabled": None,
+                "enemy_pos_enabled": None,
+                "rfid_event_raw_active": None,
+                "rfid_event_active": None,
+                "enemy_pos_active": None,
+            },
+            "protect_hero": {"enabled": None, "active": None},
+            "regional_defense": {
+                "threat_active": None,
+                "search_kind": "not_recorded",
+                "fortress_enemy_count": None,
+                "own_base_enemy_count": None,
+            },
         },
         "runtime_guard": {"fault": "None", "recovering": False},
     }

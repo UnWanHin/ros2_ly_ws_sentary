@@ -409,6 +409,48 @@ class ControlOutputState:
 
 
 @dataclass(frozen=True)
+class TacticalDecisionState:
+    """BT-owned tactical evidence serialized alongside a decision trace row."""
+
+    available: bool
+    protect_castle_enabled: bool | None
+    protect_castle_rfid_enabled: bool | None
+    protect_castle_enemy_pos_enabled: bool | None
+    protect_castle_rfid_event_raw_active: bool | None
+    protect_castle_rfid_event_active: bool | None
+    protect_castle_enemy_pos_active: bool | None
+    protect_hero_enabled: bool | None
+    protect_hero_active: bool | None
+    regional_defense_threat_active: bool | None
+    regional_defense_search_kind: str
+    regional_defense_fortress_enemy_count: int | None
+    regional_defense_own_base_enemy_count: int | None
+
+    def as_payload(self) -> dict[str, Any]:
+        return {
+            "available": self.available,
+            "protect_castle": {
+                "enabled": self.protect_castle_enabled,
+                "rfid_enabled": self.protect_castle_rfid_enabled,
+                "enemy_pos_enabled": self.protect_castle_enemy_pos_enabled,
+                "rfid_event_raw_active": self.protect_castle_rfid_event_raw_active,
+                "rfid_event_active": self.protect_castle_rfid_event_active,
+                "enemy_pos_active": self.protect_castle_enemy_pos_active,
+            },
+            "protect_hero": {
+                "enabled": self.protect_hero_enabled,
+                "active": self.protect_hero_active,
+            },
+            "regional_defense": {
+                "threat_active": self.regional_defense_threat_active,
+                "search_kind": self.regional_defense_search_kind,
+                "fortress_enemy_count": self.regional_defense_fortress_enemy_count,
+                "own_base_enemy_count": self.regional_defense_own_base_enemy_count,
+            },
+        }
+
+
+@dataclass(frozen=True)
 class BulletInfoState:
     has_received: bool
     age_ms: int | None
@@ -623,5 +665,6 @@ class TraceRecord:
     gimbal: GimbalState
     gimbal_feedback: GimbalFeedbackState
     control_output: ControlOutputState
+    tactical: TacticalDecisionState
     bullet_info: BulletInfoState
     runtime_guard: RuntimeGuard
