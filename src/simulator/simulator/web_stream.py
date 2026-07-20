@@ -13,6 +13,12 @@ from typing import Any
 from urllib.parse import urlparse
 
 from .control_bus import append_command, normalize_api_control_payload
+from .tactical_web import (
+    TacticalAssetRegistry,
+    build_tactical_html,
+    is_scene_mutation,
+    tactical_state_from_status,
+)
 
 
 def json_safe(value: Any) -> Any:
@@ -393,6 +399,7 @@ class SimulatorWebStream:
         jpeg_quality: int = 80,
         control_file: str = "",
         default_step_sec: int = 10,
+        map_path: str = "",
     ) -> None:
         fps_value = float(fps)
         if not math.isfinite(fps_value) or fps_value <= 0:
@@ -417,6 +424,12 @@ class SimulatorWebStream:
         if str(control_file).strip():
             self.control_file = Path(control_file).expanduser().resolve()
         self.default_step_sec = max(1, int(default_step_sec))
+        self.map_path: Path | None = None
+        if str(map_path).strip():
+            candidate = Path(map_path).expanduser().resolve()
+            if candidate.is_file() and candidate.suffix.lower() in {".png", ".jpg", ".jpeg"}:
+                self.map_path = candidate
+        self.tactical_assets = TacticalAssetRegistry.load()
 
         try:
             from PIL import Image  # noqa: F401
@@ -512,6 +525,9 @@ class SimulatorWebStream:
         except OSError as exc:
             return (False, str(exc))
 
+    def tactical_state_snapshot(self) -> dict[str, Any]:
+        return tactical_state_from_status(self.status_snapshot(), asset_registry=self.tactical_assets)
+
     def _build_handler(self):
         outer = self
 
@@ -526,6 +542,18 @@ class SimulatorWebStream:
                     return
                 if path == "/status.json":
                     self._serve_status()
+                    return
+                if path == "/tactical":
+                    self._serve_tactical()
+                    return
+                if path == "/api/tactical-state":
+                    self._serve_tactical_state()
+                    return
+                if path == "/tactical-map.png":
+                    self._serve_tactical_map()
+                    return
+                if path.startswith("/assets/"):
+                    self._serve_asset(path[len("/assets/") :])
                     return
                 if path == "/healthz":
                     self._serve_healthz()
@@ -577,6 +605,53 @@ class SimulatorWebStream:
             def _serve_status(self) -> None:
                 self._json_response(HTTPStatus.OK, outer.status_snapshot())
 
+            def _serve_tactical(self) -> None:
+                body = build_tactical_html(outer.port)
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def _serve_tactical_state(self) -> None:
+                self._json_response(HTTPStatus.OK, outer.tactical_state_snapshot())
+
+            def _serve_tactical_map(self) -> None:
+                map_path = outer.map_path
+                if map_path is None:
+                    self.send_error(HTTPStatus.NOT_FOUND, "tactical map not configured")
+                    return
+                try:
+                    body = map_path.read_bytes()
+                except OSError:
+                    self.send_error(HTTPStatus.NOT_FOUND, "tactical map unavailable")
+                    return
+                content_type = "image/png" if map_path.suffix.lower() == ".png" else "image/jpeg"
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def _serve_asset(self, relative_path: str) -> None:
+                asset_path, content_type = outer.tactical_assets.resolve_public_path(relative_path)
+                if asset_path is None or content_type is None:
+                    self.send_error(HTTPStatus.NOT_FOUND, "asset not found")
+                    return
+                try:
+                    body = asset_path.read_bytes()
+                except OSError:
+                    self.send_error(HTTPStatus.NOT_FOUND, "asset unavailable")
+                    return
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Cache-Control", "public, max-age=300")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
             def _serve_healthz(self) -> None:
                 status = outer.status_snapshot()
                 ready = bool(status.get("ready"))
@@ -602,6 +677,22 @@ class SimulatorWebStream:
                 command, payload, error = normalize_api_control_payload(data, outer.default_step_sec)
                 if error is not None or command is None:
                     self._json_response(HTTPStatus.BAD_REQUEST, {"ok": False, "message": error or "invalid command"})
+                    return
+
+                tactical_state = outer.tactical_state_snapshot()
+                if (
+                    tactical_state["scene"].get("ownership_mode") == "manual_ros"
+                    and is_scene_mutation(command)
+                ):
+                    self._json_response(
+                        HTTPStatus.CONFLICT,
+                        {
+                            "ok": False,
+                            "message": "manual_ros_observer_mode",
+                            "command": command,
+                            "payload": payload,
+                        },
+                    )
                     return
 
                 ok, message = outer.submit_control(command, payload or None)

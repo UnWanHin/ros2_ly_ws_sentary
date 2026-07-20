@@ -44,6 +44,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Offline pygame viewer for behavior_tree decision JSONL traces.")
     parser.add_argument("trace", nargs="?", default="", help="Decision trace JSONL. Defaults to config paths.sample_trace.")
     parser.add_argument("--config", default="", help="Optional YAML override for viewer layout, colors, field, and goals.")
+    parser.add_argument(
+        "--input-owner",
+        choices=("mock", "manual_ros"),
+        default="mock",
+        help="Scene input owner; manual_ros renders an observer-only tactical board.",
+    )
     parser.add_argument("--map", dest="map_path", default="", help="Basemap image path.")
     parser.add_argument("--points-json", default="", help="Optional tools/maps map_plugin JSON/YAML with point coordinates.")
     parser.add_argument("--start-paused", action="store_true", help="Start playback paused.")
@@ -211,6 +217,8 @@ def main(argv: list[str] | None = None) -> int:
     simulator_inputs_cfg = (
         dict(config.get("simulator_inputs", {})) if isinstance(config.get("simulator_inputs"), dict) else {}
     )
+    simulator_inputs_cfg["input_owner"] = args.input_owner
+    config["simulator_inputs"] = simulator_inputs_cfg
 
     web_stream_enabled = (
         bool(args.web_stream)
@@ -301,12 +309,16 @@ def main(argv: list[str] | None = None) -> int:
                 jpeg_quality=web_jpeg_quality,
                 control_file=control_file,
                 default_step_sec=control_step_sec,
+                map_path=map_path.as_posix(),
             )
             streamer.start()
             if web_host == "0.0.0.0":
-                print(f"web stream: http://127.0.0.1:{web_port}/ (LAN: http://<your-ip>:{web_port}/)")
+                print(
+                    f"web stream: http://127.0.0.1:{web_port}/ "
+                    f"(tactical: /tactical, LAN: http://<your-ip>:{web_port}/tactical)"
+                )
             else:
-                print(f"web stream: http://{web_host}:{web_port}/")
+                print(f"web stream: http://{web_host}:{web_port}/ (tactical: /tactical)")
         except Exception as exc:
             print(f"web stream disabled: {exc}", file=sys.stderr)
             streamer = None

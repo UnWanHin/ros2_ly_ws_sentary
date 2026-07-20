@@ -8,21 +8,35 @@ from simulator import web_visual_check
 class FakePage:
     def __init__(self) -> None:
         self.urls: list[str] = []
+        self.current_url = ""
 
     def goto(self, url: str, wait_until: str, timeout: int) -> None:
         self.urls.append(url)
+        self.current_url = url
         assert wait_until == "domcontentloaded"
         assert timeout > 0
 
     def wait_for_selector(self, selector: str, timeout: int) -> None:
-        assert selector == "#dashboard"
+        assert selector in {"#dashboard", "#fieldBoard"}
         assert timeout > 0
 
     def wait_for_function(self, expression: str, timeout: int) -> None:
-        assert "readyPill" in expression or "naturalWidth" in expression
+        assert "readyPill" in expression or "naturalWidth" in expression or "ownerPill" in expression
         assert timeout > 0
 
     def evaluate(self, script: str) -> dict[str, object]:
+        if "fieldBoard" in script:
+            return {
+                "title": "LY Tactical Board",
+                "owner": "mock",
+                "boardWidth": 920,
+                "boardHeight": 492,
+                "pieceCount": 2,
+                "sideWidth": 360,
+                "scrollWidth": 390,
+                "clientWidth": 390,
+                "bodyText": "Pieces Structures Selected piece Decision Tactical Final control output Lower-machine feedback Match",
+            }
         assert "#dashboard" in script or "dashboard" in script
         return {
             "title": "Simulator Live",
@@ -136,7 +150,9 @@ def test_visual_check_captures_desktop_and_narrow_screenshots_with_browser(tmp_p
     assert result["findings"] == []
     assert [Path(path).name for path in result["screenshots"]] == [
         "web-dashboard-desktop.png",
+        "web-tactical-desktop.png",
         "web-dashboard-narrow.png",
+        "web-tactical-narrow.png",
     ]
     for path in result["screenshots"]:
         assert Path(path).read_bytes().startswith(b"\x89PNG")

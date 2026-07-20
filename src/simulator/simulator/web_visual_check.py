@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from .config import resolve_path
 from .web_stream import SimulatorWebStream, json_safe
 
 
@@ -128,10 +129,28 @@ def demo_metadata() -> dict[str, Any]:
             "aim": "external",
             "goal": {"name": "CentralLeft.Attack", "id": 22, "pos_cm": [1505.0, 905.0]},
             "output": {"kind": "goal_pos", "topic": "/ly/navi/goal_pos", "frame_id": "map"},
+            "gimbal_feedback": {"available": True, "age_ms": 8, "fire_code": {"rotate": 1}},
+            "control_output": {
+                "available": True,
+                "sequence": 60,
+                "source": "normal",
+                "angles": {"published": True, "yaw": 12.0, "pitch": -3.0},
+                "fire_code": {"published": True, "follow_mode": True, "rotate": 0},
+                "trajectory": {"available": True, "yaw": 12.0, "pitch": -3.0},
+            },
+            "tactical": {
+                "available": True,
+                "protect_castle": {"enabled": True, "rfid_event_active": False, "enemy_pos_active": True},
+                "protect_hero": {"enabled": True, "active": False},
+                "regional_defense": {"threat_active": True, "search_kind": "own_base", "own_base_enemy_count": 1},
+            },
         },
         "simulator_inputs": {
             "enabled": True,
             "state": {
+                "ownership_mode": "mock",
+                "field": {"width_cm": 2800, "height_cm": 1500, "frame": "left_bottom_origin_cm"},
+                "selected_entity_id": "enemy:hero:demo",
                 "runtime": {
                     "self_health": 280,
                     "ammo_left": 80,
@@ -145,38 +164,73 @@ def demo_metadata() -> dict[str, Any]:
                     "destroyed_structures": ["enemy_outpost"],
                 },
                 "structures": [
-                    {"key": "enemy_outpost", "hp": 0, "max_hp": 1500, "hp_ratio": 0.0},
-                    {"key": "enemy_base", "hp": 4200, "max_hp": 5000, "hp_ratio": 0.84},
+                    {
+                        "key": "enemy_outpost",
+                        "label": "Enemy Outpost",
+                        "side": "enemy",
+                        "kind": "outpost",
+                        "hp": 0,
+                        "max_hp": 1500,
+                        "hp_ratio": 0.0,
+                    },
+                    {
+                        "key": "enemy_base",
+                        "label": "Enemy Base",
+                        "side": "enemy",
+                        "kind": "base",
+                        "hp": 4200,
+                        "max_hp": 5000,
+                        "hp_ratio": 0.84,
+                    },
                 ],
                 "units": [
                     {
+                        "entity_id": "friend:hero:demo",
                         "side": "friend",
+                        "field_side": "red",
+                        "unit_key": "hero",
+                        "asset_key": "hero",
                         "type": "Hero",
                         "hp": 420,
                         "max_hp": 500,
-                        "position_cm": [1250.0, 760.0],
+                        "position_cm": {"x": 1250.0, "y": 760.0},
                     },
                     {
+                        "entity_id": "friend:sentry:demo",
                         "side": "friend",
+                        "field_side": "red",
+                        "unit_key": "sentry",
+                        "asset_key": "sentry",
                         "type": "Sentry",
                         "hp": 280,
                         "max_hp": 400,
-                        "position_cm": [1470.0, 870.0],
+                        "position_cm": {"x": 1470.0, "y": 870.0},
                     },
                     {
+                        "entity_id": "enemy:hero:demo",
                         "side": "enemy",
+                        "field_side": "blue",
+                        "unit_key": "hero",
+                        "asset_key": "hero",
                         "type": "Hero",
                         "hp": 260,
                         "max_hp": 500,
-                        "position_cm": [1940.0, 1100.0],
+                        "position_cm": {"x": 1940.0, "y": 1100.0},
                     },
                     {
+                        "entity_id": "enemy:infantry3:demo",
                         "side": "enemy",
+                        "field_side": "blue",
+                        "unit_key": "infantry3",
+                        "asset_key": "infantry3",
                         "type": "Infantry3",
                         "hp": 80,
                         "max_hp": 400,
-                        "position_cm": [1710.0, 940.0],
+                        "position_cm": {"x": 1710.0, "y": 940.0},
                     },
+                ],
+                "palette": [
+                    {"side": "enemy", "unit_key": "hero", "asset_key": "hero", "type": "Hero", "hp": 200, "max_hp": 200}
                 ],
             },
         },
@@ -263,6 +317,46 @@ def inspect_dashboard(page: Any, viewport: Viewport) -> list[str]:
     return issues
 
 
+def inspect_tactical(page: Any, viewport: Viewport) -> list[str]:
+    metrics = page.evaluate(
+        """() => {
+          const board = document.getElementById('fieldBoard');
+          const side = document.querySelector('.side');
+          const boardBox = board ? board.getBoundingClientRect() : null;
+          const sideBox = side ? side.getBoundingClientRect() : null;
+          return {
+            title: document.title,
+            owner: document.getElementById('ownerPill')?.textContent || '',
+            boardWidth: boardBox ? boardBox.width : 0,
+            boardHeight: boardBox ? boardBox.height : 0,
+            pieceCount: document.querySelectorAll('.piece').length,
+            sideWidth: sideBox ? sideBox.width : 0,
+            scrollWidth: document.documentElement.scrollWidth,
+            clientWidth: document.documentElement.clientWidth,
+            bodyText: document.body ? document.body.innerText : '',
+          };
+        }"""
+    )
+    issues: list[str] = []
+    if metrics.get("title") != "LY Tactical Board":
+        issues.append(f"{viewport.name}: unexpected tactical title {metrics.get('title')!r}")
+    if "mock" not in str(metrics.get("owner", "")).lower():
+        issues.append(f"{viewport.name}: tactical ownership pill did not reach mock mode")
+    if float(metrics.get("boardWidth") or 0) < 250 or float(metrics.get("boardHeight") or 0) < 130:
+        issues.append(f"{viewport.name}: tactical field is not visibly framed")
+    if int(metrics.get("pieceCount") or 0) < 2:
+        issues.append(f"{viewport.name}: tactical pieces are missing")
+    if float(metrics.get("sideWidth") or 0) < 250:
+        issues.append(f"{viewport.name}: tactical evidence panel is too narrow")
+    if int(metrics.get("scrollWidth") or 0) > int(metrics.get("clientWidth") or 0) + 2:
+        issues.append(f"{viewport.name}: tactical page has horizontal overflow")
+    body_text = str(metrics.get("bodyText") or "")
+    for expected in ("Pieces", "Structures", "Decision", "Tactical", "Final control output", "Match"):
+        if expected not in body_text:
+            issues.append(f"{viewport.name}: missing tactical text {expected!r}")
+    return issues
+
+
 def run_browser_check(
     url: str,
     output_dir: Path,
@@ -297,6 +391,18 @@ def run_browser_check(
                         screenshot_path = output_dir / f"web-dashboard-{viewport.name}.png"
                         page.screenshot(path=screenshot_path.as_posix(), full_page=True)
                         screenshots.append(screenshot_path.as_posix())
+
+                        tactical_page = context.new_page()
+                        tactical_page.goto(f"{url}/tactical", wait_until="domcontentloaded", timeout=timeout_ms)
+                        tactical_page.wait_for_selector("#fieldBoard", timeout=timeout_ms)
+                        tactical_page.wait_for_function(
+                            "document.getElementById('ownerPill')?.textContent.includes('mock')",
+                            timeout=timeout_ms,
+                        )
+                        issues.extend(inspect_tactical(tactical_page, viewport))
+                        tactical_screenshot_path = output_dir / f"web-tactical-{viewport.name}.png"
+                        tactical_page.screenshot(path=tactical_screenshot_path.as_posix(), full_page=True)
+                        screenshots.append(tactical_screenshot_path.as_posix())
                     except Exception as exc:
                         issues.append(f"{viewport.name}: browser check failed: {exc}")
                     finally:
@@ -332,6 +438,7 @@ def run_visual_check(
             jpeg_quality=82,
             control_file=control_file.as_posix(),
             default_step_sec=10,
+            map_path=resolve_path("tools/maps/basemaps/buff_map_field.png").as_posix(),
         )
         stream.start()
         frame = DemoSurface(1500, 900, demo_frame_rgb())
