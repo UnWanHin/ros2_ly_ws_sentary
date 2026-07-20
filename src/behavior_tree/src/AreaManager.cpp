@@ -664,6 +664,7 @@ RegionalDefenseThreat AreaManager::AnalyzeRegionalDefenseThreat(
     const LangYa::UnitTeam my_team,
     const LangYa::UnitTeam enemy_team,
     const bool enable_soft_enemy_side_threat,
+    const bool enable_own_base_enemy_position,
     const std::vector<RegionalDefenseEnemyPosition>& enemies) const {
     RegionalDefenseThreat threat{};
     for (const auto& enemy : enemies) {
@@ -675,7 +676,9 @@ RegionalDefenseThreat AreaManager::AnalyzeRegionalDefenseThreat(
         if (own_area.has_value()) {
             switch (*own_area) {
                 case Area::MainAreaKind::Base:
-                    ++threat.OwnBaseCount;
+                    if (enable_own_base_enemy_position) {
+                        ++threat.OwnBaseCount;
+                    }
                     break;
                 case Area::MainAreaKind::Highland:
                     ++threat.OwnHighlandCount;
@@ -1031,8 +1034,33 @@ void AreaManager::RequestReadyRoadlandReturnToBase(const AreaTimePoint now) noex
 RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
     const RegionalAreaTaskTickInput& input) {
     RegionalAreaTaskTickResult result{};
-    if (!regional_area_task_.Active ||
-        !input.Setting.Enable) {
+    if (!regional_area_task_.Active) {
+        return result;
+    }
+
+    const auto is_current_task_enabled = [&]() {
+        switch (regional_area_task_.Type) {
+            case RegionalAreaTaskType::MyBase:
+                return input.Setting.MyBase.Enable;
+            case RegionalAreaTaskType::MyHighland:
+                return input.Setting.MyHighland.Enable;
+            case RegionalAreaTaskType::MyPreRoadland:
+                return input.Setting.MyPreRoadland.Enable;
+            case RegionalAreaTaskType::MyReadyRoadland:
+                return input.Setting.MyReadyRoadland.Enable;
+            case RegionalAreaTaskType::CommonCentral:
+                return input.Setting.CommonCentral.Enable;
+            case RegionalAreaTaskType::None:
+                return false;
+        }
+        return false;
+    };
+    if (!input.Setting.Enable || !is_current_task_enabled()) {
+        result.Completed = true;
+        result.Type = regional_area_task_.Type;
+        result.Phase = regional_area_task_.Phase;
+        result.Reason = "disabled";
+        regional_area_task_.Clear();
         return result;
     }
 

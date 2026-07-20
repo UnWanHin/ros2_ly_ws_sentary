@@ -3,6 +3,9 @@
 // Keep behavior and interface changes synchronized with related modules.
 
 #include "../include/Application.hpp"
+#include "../include/DamageRotatePolicy.hpp"
+#include "../include/RegionalAreaScope.hpp"
+#include "../include/TacticalProtectionPolicy.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -29,19 +32,6 @@ std::string NormalizeAutonomyToken(std::string value) {
     return value;
 }
 
-std::string NormalizePointToken(std::string value) {
-    value = NormalizeAutonomyToken(std::move(value));
-    value.erase(
-        std::remove_if(
-            value.begin(),
-            value.end(),
-            [](const char c) {
-                return c == '_' || c == '.' || c == '/';
-            }),
-        value.end());
-    return value;
-}
-
 std::uint8_t ClampRotateGear(const int rotate) noexcept {
     return static_cast<std::uint8_t>(std::clamp(rotate, 0, 3));
 }
@@ -53,6 +43,9 @@ std::string NormalizeMainAreaToken(std::string value) {
     }
     if (value == "highland" || value == "high_land" || value == "high") {
         return "highland";
+    }
+    if (value == "pre_roadland" || value == "preroadland") {
+        return "pre_roadland";
     }
     if (value == "ready_roadland" || value == "readyroadland") {
         return "ready_roadland";
@@ -94,51 +87,6 @@ bool AppendRegionalPatrolGoalByName(
     }
     goals.push_back(goal_id);
     return true;
-}
-
-const std::vector<std::pair<const char*, std::uint8_t>>& PointManagerGoalNameMap() {
-    static const std::vector<std::pair<const char*, std::uint8_t>> goals{
-        {"Home", LangYa::Home.ID},
-        {"Base", LangYa::Base.ID},
-        {"Recovery", LangYa::Recovery.ID},
-        {"BuffShoot", LangYa::BuffShoot.ID},
-        {"LeftHighLand", LangYa::LeftHighLand.ID},
-        {"CastleLeft1", LangYa::CastleLeft1.ID},
-        {"CastleLeft2", LangYa::CastleLeft2.ID},
-        {"Castle", LangYa::Castle.ID},
-        {"CastleRight1", LangYa::CastleRight1.ID},
-        {"CastleRight2", LangYa::CastleRight2.ID},
-        {"FlyRoad", LangYa::FlyRoad.ID},
-        {"OutpostArea", LangYa::OutpostArea.ID},
-        {"MidShoot", LangYa::MidShoot.ID},
-        {"LeftShoot", LangYa::LeftShoot.ID},
-        {"OutpostShoot", LangYa::OutpostShoot.ID},
-        {"BuffAround1", LangYa::BuffAround1.ID},
-        {"BuffAround2", LangYa::BuffAround2.ID},
-        {"RightShoot", LangYa::RightShoot.ID},
-        {"HoleRoad", LangYa::HoleRoad.ID},
-        {"OccupyArea", LangYa::OccupyArea.ID},
-        {"Highland", LangYa::Highland.ID},
-        {"BaseToCentral", LangYa::BaseToCentral.ID},
-        {"CentralToBase", LangYa::CentralToBase.ID},
-        {"BuffOutpost", LangYa::BuffOutpost.ID},
-        {"OutpostGuard", LangYa::OutpostGuard.ID},
-        {"PreRoadland", LangYa::PreRoadland.ID},
-        {"CentralLeftA", LangYa::CentralLeftA.ID},
-        {"CentralLeftB", LangYa::CentralLeftB.ID}
-    };
-    return goals;
-}
-
-bool PointManagerGoalIdByName(const std::string& goal_name, std::uint8_t& goal_id) {
-    const auto token = NormalizePointToken(goal_name);
-    for (const auto& [name, id] : PointManagerGoalNameMap()) {
-        if (NormalizePointToken(name) == token) {
-            goal_id = id;
-            return true;
-        }
-    }
-    return false;
 }
 
 BehaviorTree::CompetitionProfile ParseCompetitionProfile(const std::string& value) {
@@ -761,34 +709,6 @@ namespace LangYa {
             j.value("SetPostureToMoveWhenFalse", nr.SetPostureToMoveWhenFalse);
     }
 
-    void from_json(const json& j, PointRotateSetting& pr) {
-        pr.Enable = j.value("Enable", pr.Enable);
-        pr.Rotate = j.value("Rotate", pr.Rotate);
-    }
-
-    void from_json(const json& j, PointManagerSetting& pm) {
-        if (j.contains("Global") && j.at("Global").is_object()) {
-            j.at("Global").get_to(pm.Global);
-        }
-        if (!j.contains("Points") || !j.at("Points").is_object()) {
-            return;
-        }
-        for (const auto& [point_name, point_value] : j.at("Points").items()) {
-            std::uint8_t goal_id = LangYa::Home.ID;
-            if (!PointManagerGoalIdByName(point_name, goal_id)) {
-                continue;
-            }
-            PointRotateSetting setting{};
-            if (point_value.is_object()) {
-                point_value.get_to(setting);
-            } else if (point_value.is_number_integer()) {
-                setting.Enable = true;
-                setting.Rotate = point_value.get<int>();
-            }
-            pm.Points[goal_id] = setting;
-        }
-    }
-
     void from_json(const json& j, SentryPositionFusionSourceSetting& source) {
         source.Enable = j.value("Enable", source.Enable);
         source.Priority = j.value("Priority", source.Priority);
@@ -1276,9 +1196,6 @@ namespace LangYa {
         if (j.contains("NaviRotateControl")) {
             j.at("NaviRotateControl").get_to(c.NaviRotateControlSettings);
         }
-        if (j.contains("PointManager")) {
-            j.at("PointManager").get_to(c.PointManagerSettings);
-        }
         if (j.contains("SentryPositionFusion")) {
             j.at("SentryPositionFusion").get_to(c.SentryPositionFusionSettings);
         }
@@ -1331,23 +1248,6 @@ namespace LangYa {
 namespace BehaviorTree {
     using namespace LangYa;
     using json = nlohmann::json;
-
-    std::uint8_t Application::ResolvePointDefaultRotate(
-        const std::uint8_t base_goal_id,
-        const std::uint8_t fallback) const noexcept {
-        if (config.PointManagerSettings.Global.Enable) {
-            return ClampRotateGear(config.PointManagerSettings.Global.Rotate);
-        }
-        const std::uint8_t effective_base_goal_id =
-            base_goal_id >= LangYa::TeamedLocation::LocationCount
-                ? static_cast<std::uint8_t>(base_goal_id - LangYa::TeamedLocation::LocationCount)
-                : base_goal_id;
-        const auto it = config.PointManagerSettings.Points.find(effective_base_goal_id);
-        if (it != config.PointManagerSettings.Points.end()) {
-            return it->second.Enable ? ClampRotateGear(it->second.Rotate) : 0;
-        }
-        return ClampRotateGear(fallback);
-    }
 
     void Application::ApplyTaskParameterOverrides() {
         ReadOptionalBoolParam(
@@ -1854,61 +1754,85 @@ namespace BehaviorTree {
             setting.SetPostureToMoveWhenFalse);
     }
 
-    void Application::ApplyPointManagerParameterOverrides() {
-        auto& setting = config.PointManagerSettings;
-        ReadOptionalBoolParam(
-            node_,
-            {
-                "PointManager.Global.Enable",
-                "PointManager/Global/Enable"
-            },
-            setting.Global.Enable);
-        int global_rotate = setting.Global.Rotate;
+    void Application::ApplyTacticalParameterOverrides() {
+        auto& tactical = config.TacticalSettings;
+        auto& setting = tactical.DamageRotate;
+        int default_gear = setting.DefaultGear;
         if (ReadOptionalIntParam(
                 node_,
-                {
-                    "PointManager.Global.Rotate",
-                    "PointManager/Global/Rotate"
-                },
-                global_rotate)) {
-            setting.Global.Rotate = ClampRotateGear(global_rotate);
+                {"Tactical.DamageRotate.DefaultGear", "Tactical/DamageRotate/DefaultGear"},
+                default_gear)) {
+            setting.DefaultGear = ClampRotateGear(default_gear);
         }
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.DamageRotate.NoHitTimeoutMs", "Tactical/DamageRotate/NoHitTimeoutMs"},
+            setting.NoHitTimeoutMs);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.DamageRotate.Gear0HoldMs", "Tactical/DamageRotate/Gear0HoldMs"},
+            setting.Gear0HoldMs);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.DamageRotate.Gear1HoldMs", "Tactical/DamageRotate/Gear1HoldMs"},
+            setting.Gear1HoldMs);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.DamageRotate.Gear2HoldMs", "Tactical/DamageRotate/Gear2HoldMs"},
+            setting.Gear2HoldMs);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.DamageRotate.ScanBoostWindowMs", "Tactical/DamageRotate/ScanBoostWindowMs"},
+            setting.ScanBoostWindowMs);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.DamageRotate.ScanYawPhaseMs", "Tactical/DamageRotate/ScanYawPhaseMs"},
+            setting.ScanYawPhaseMs);
 
-        for (const auto& [point_name, base_goal_id] : PointManagerGoalNameMap()) {
-            auto point_setting = setting.Points.count(base_goal_id) != 0
-                ? setting.Points.at(base_goal_id)
-                : LangYa::PointRotateSetting{};
-            bool touched = setting.Points.count(base_goal_id) != 0;
-            const std::string name{point_name};
-            if (ReadOptionalBoolParam(
-                    node_,
-                    {
-                        "PointManager.Points." + name + ".Enable",
-                        "PointManager/Points/" + name + "/Enable",
-                        "PointManager." + name + ".Enable",
-                        "PointManager/" + name + "/Enable"
-                    },
-                    point_setting.Enable)) {
-                touched = true;
-            }
-            int rotate = point_setting.Rotate;
-            if (ReadOptionalIntParam(
-                    node_,
-                    {
-                        "PointManager.Points." + name + ".Rotate",
-                        "PointManager/Points/" + name + "/Rotate",
-                        "PointManager." + name + ".Rotate",
-                        "PointManager/" + name + "/Rotate"
-                    },
-                    rotate)) {
-                point_setting.Rotate = ClampRotateGear(rotate);
-                touched = true;
-            }
-            if (touched) {
-                point_setting.Rotate = ClampRotateGear(point_setting.Rotate);
-                setting.Points[base_goal_id] = point_setting;
-            }
-        }
+        auto& protect_castle = tactical.ProtectCastle;
+        bool protect_castle_enable = protect_castle.Enable;
+        const bool protect_castle_yaml_provided = ReadOptionalBoolParam(
+            node_,
+            {"Tactical.ProtectCastle.Enable", "Tactical/ProtectCastle/Enable"},
+            protect_castle_enable);
+        protect_castle.Enable = ResolveTacticalFeatureEnable(
+            protect_castle.Enable,
+            protect_castle_yaml_provided,
+            protect_castle_enable);
+
+        bool protect_castle_rfid = protect_castle.RFID;
+        const bool protect_castle_rfid_yaml_provided = ReadOptionalBoolParam(
+            node_,
+            {"Tactical.ProtectCastle.RFID", "Tactical/ProtectCastle/RFID"},
+            protect_castle_rfid);
+        protect_castle.RFID = ResolveTacticalFeatureEnable(
+            protect_castle.RFID,
+            protect_castle_rfid_yaml_provided,
+            protect_castle_rfid);
+
+        bool protect_castle_enemy_pos = protect_castle.EnemyPos;
+        const bool protect_castle_enemy_pos_yaml_provided = ReadOptionalBoolParam(
+            node_,
+            {"Tactical.ProtectCastle.EnemyPos", "Tactical/ProtectCastle/EnemyPos"},
+            protect_castle_enemy_pos);
+        protect_castle.EnemyPos = ResolveTacticalFeatureEnable(
+            protect_castle.EnemyPos,
+            protect_castle_enemy_pos_yaml_provided,
+            protect_castle_enemy_pos);
+
+        bool protect_hero_enable = tactical.ProtectHero.Enable;
+        const bool protect_hero_yaml_provided = ReadOptionalBoolParam(
+            node_,
+            {"Tactical.ProtectHero.Enable", "Tactical/ProtectHero/Enable"},
+            protect_hero_enable);
+        tactical.ProtectHero.Enable = ResolveTacticalFeatureEnable(
+            tactical.ProtectHero.Enable,
+            protect_hero_yaml_provided,
+            protect_hero_enable);
+        config.HeroProtectionSettings.Enable = ResolveTacticalFeatureEnable(
+            config.HeroProtectionSettings.Enable,
+            protect_hero_yaml_provided,
+            protect_hero_enable);
     }
 
     void Application::ApplyPatrolScanParameterOverrides() {
@@ -2113,596 +2037,65 @@ namespace BehaviorTree {
     }
 
     void Application::ApplyAreaManagerParameterOverrides() {
-        auto& navi_goal = config.DecisionAutonomySettings.NaviGoal;
-        auto& task = config.RegionalAreaTaskSettings;
-        auto& highland = task.MyHighland;
-        auto& base = task.MyBase;
-        auto& pre_roadland = task.MyPreRoadland;
-        auto& ready_roadland = task.MyReadyRoadland;
-        auto& central = task.CommonCentral;
-        auto& policy = task.DefaultPolicy;
-
         ReadOptionalBoolParam(
             node_,
-            {
-                "AreaManager.Switch_Point",
-                "AreaManager/Switch_Point",
-                "AreaManager.SwitchPoint",
-                "AreaManager/SwitchPoint",
-                "Switch_Point",
-                "SwitchPoint"
-            },
+            {"AreaManager.SwitchPoint"},
             config.SwitchPoint);
         Area::SetSwitchPoint(config.SwitchPoint);
 
-        auto& sentry_position_fusion = config.SentryPositionFusionSettings;
-        auto fusion_names = [](const std::string& key) {
-            return std::vector<std::string>{
-                "AreaManager.SentryPositionFusion." + key,
-                "AreaManager/SentryPositionFusion/" + key
-            };
+        auto& fusion = config.SentryPositionFusionSettings;
+        ReadOptionalBoolParam(node_, {"AreaManager.SentryPositionFusion.Enable"}, fusion.Enable);
+        ReadOptionalStringParam(node_, {"AreaManager.SentryPositionFusion.Mode"}, fusion.Mode);
+        ReadOptionalIntParam(
+            node_,
+            {"AreaManager.SentryPositionFusion.FreshTimeoutMs"},
+            fusion.FreshTimeoutMs);
+        const auto read_fusion_source = [&](const char* name, SentryPositionFusionSourceSetting& source) {
+            const std::string prefix = "AreaManager.SentryPositionFusion.Sources." + std::string{name};
+            ReadOptionalBoolParam(node_, {prefix + ".Enable"}, source.Enable);
+            ReadOptionalIntParam(node_, {prefix + ".Priority"}, source.Priority);
+            ReadOptionalDoubleParam(node_, {prefix + ".Weight"}, source.Weight);
+            ReadOptionalIntParam(node_, {prefix + ".FreshTimeoutMs"}, source.FreshTimeoutMs);
         };
-        auto fusion_source_names = [](const std::vector<std::string>& source_names,
-                                      const std::string& key) {
-            std::vector<std::string> names;
-            names.reserve(source_names.size() * 4U);
-            for (const auto& source_name : source_names) {
-                names.push_back("AreaManager.SentryPositionFusion.Sources." + source_name + "." + key);
-                names.push_back("AreaManager/SentryPositionFusion/Sources/" + source_name + "/" + key);
-                names.push_back("AreaManager.SentryPositionFusion." + source_name + "." + key);
-                names.push_back("AreaManager/SentryPositionFusion/" + source_name + "/" + key);
-            }
-            return names;
-        };
-        auto read_fusion_source = [&](const std::vector<std::string>& source_names,
-                                      SentryPositionFusionSourceSetting& source) {
-            ReadOptionalBoolParam(node_, fusion_source_names(source_names, "Enable"), source.Enable);
-            ReadOptionalIntParam(node_, fusion_source_names(source_names, "Priority"), source.Priority);
-            ReadOptionalDoubleParam(node_, fusion_source_names(source_names, "Weight"), source.Weight);
-            ReadOptionalIntParam(node_, fusion_source_names(source_names, "FreshTimeoutMs"), source.FreshTimeoutMs);
-        };
-        ReadOptionalBoolParam(node_, fusion_names("Enable"), sentry_position_fusion.Enable);
-        ReadOptionalStringParam(node_, fusion_names("Mode"), sentry_position_fusion.Mode);
-        ReadOptionalIntParam(node_, fusion_names("FreshTimeoutMs"), sentry_position_fusion.FreshTimeoutMs);
-        read_fusion_source({"Uwb", "UWB"}, sentry_position_fusion.Uwb);
-        read_fusion_source({"PositionData"}, sentry_position_fusion.PositionData);
-        read_fusion_source({"Navi", "NaviPosition"}, sentry_position_fusion.Navi);
+        read_fusion_source("Uwb", fusion.Uwb);
+        read_fusion_source("PositionData", fusion.PositionData);
+        read_fusion_source("Navi", fusion.Navi);
 
-        auto read_area_group = [&](const std::string& group_name,
-                                   std::vector<std::string>& area_list,
-                                   const std::vector<std::pair<std::string, std::string>>& area_tokens) {
-            bool any_configured = false;
-            std::vector<std::string> next_area_list;
-            next_area_list.reserve(area_tokens.size());
-            for (const auto& [display_name, token] : area_tokens) {
-                bool enabled =
-                    std::find(area_list.begin(), area_list.end(), token) != area_list.end();
-                const bool configured = ReadOptionalBoolParam(
-                    node_,
-                    std::vector<std::string>{
-                        "AreaManager.Area." + group_name + "." + display_name + ".Enable",
-                        "AreaManager.Area." + group_name + "." + display_name,
-                        "AreaManager/Area/" + group_name + "/" + display_name + "/Enable",
-                        "AreaManager/Area/" + group_name + "/" + display_name
-                    },
-                    enabled);
-                any_configured = any_configured || configured;
-                if (enabled) {
-                    next_area_list.push_back(token);
-                }
-            }
-            if (any_configured) {
-                area_list = std::move(next_area_list);
-            }
-        };
+        auto& regional_task = config.RegionalAreaTaskSettings;
+        auto& navi_goal = config.DecisionAutonomySettings.NaviGoal;
+        ReadOptionalBoolParam(
+            node_,
+            {"AreaManager.RegionalAreaTask.Enable"},
+            regional_task.Enable);
+        ReadOptionalBoolParam(
+            node_,
+            {"AreaManager.RegionalAreaTask.MyBase.Enable"},
+            regional_task.MyBase.Enable);
+        ReadOptionalBoolParam(
+            node_,
+            {"AreaManager.RegionalAreaTask.MyHighland.Enable"},
+            regional_task.MyHighland.Enable);
+        ReadOptionalBoolParam(
+            node_,
+            {"AreaManager.RegionalAreaTask.MyPreRoadland.Enable"},
+            regional_task.MyPreRoadland.Enable);
+        ReadOptionalBoolParam(
+            node_,
+            {"AreaManager.RegionalAreaTask.MyReadyRoadland.Enable"},
+            regional_task.MyReadyRoadland.Enable);
+        ReadOptionalBoolParam(
+            node_,
+            {"AreaManager.RegionalAreaTask.CommonCentral.Enable"},
+            regional_task.CommonCentral.Enable);
 
         ReadOptionalBoolParam(
             node_,
-            {"AreaManager.Area.UseAreaScope", "AreaManager/Area/UseAreaScope"},
-            navi_goal.UseAreaScope);
-        read_area_group(
-            "MyArea",
-            navi_goal.MyArea,
-            {{"Base", "base"}, {"Highland", "highland"}, {"ReadyRoadland", "ready_roadland"}});
-        read_area_group(
-            "EnemyArea",
-            navi_goal.EnemyArea,
-            {{"Base", "base"}, {"Highland", "highland"}, {"ReadyRoadland", "ready_roadland"}});
-        read_area_group(
-            "CommonArea",
-            navi_goal.CommonArea,
-            {{"Central", "central"}});
-
-        ReadOptionalBoolParam(
-            node_,
-            {
-                "AreaManager.Area.BuffOutpostCompat.Enable",
-                "AreaManager/Area/BuffOutpostCompat/Enable",
-                "DecisionAutonomy.NaviGoal.BuffOutpostCompat.Enable",
-                "DecisionAutonomy/NaviGoal/BuffOutpostCompat/Enable"
-            },
+            {"AreaManager.BuffOutpostCompat.Enable"},
             navi_goal.BuffOutpostCompatEnable);
         ReadOptionalIntParam(
             node_,
-            {
-                "AreaManager.Area.BuffOutpostCompat.TimeoutSec",
-                "AreaManager/Area/BuffOutpostCompat/TimeoutSec",
-                "DecisionAutonomy.NaviGoal.BuffOutpostCompat.TimeoutSec",
-                "DecisionAutonomy/NaviGoal/BuffOutpostCompat/TimeoutSec"
-            },
+            {"AreaManager.BuffOutpostCompat.TimeoutSec"},
             navi_goal.BuffOutpostCompatTimeoutSec);
-
-        ReadOptionalBoolParam(
-            node_,
-            {
-                "AreaManager.RegionalAreaTask.IgnoreRecovery",
-                "AreaManager/RegionalAreaTask/IgnoreRecovery",
-                "AreaManager.Task.IgnoreRecovery",
-                "AreaManager/Task/IgnoreRecovery"
-            },
-            task.IgnoreRecovery);
-
-        ReadOptionalBoolParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.Highland.Task.Enable",
-                "AreaManager/Area/MyArea/Highland/Task/Enable",
-                "AreaManager.Task.Enable",
-                "AreaManager/Task/Enable",
-                "AreaManager.RegionalAreaTask.Enable",
-                "AreaManager/RegionalAreaTask/Enable"
-            },
-            task.Enable);
-        ReadOptionalBoolParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.Base.Task.Enable",
-                "AreaManager/Area/MyArea/Base/Task/Enable"
-            },
-            base.Enable);
-        ReadOptionalBoolParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.ReadyRoadland.Task.Enable",
-                "AreaManager/Area/MyArea/ReadyRoadland/Task/Enable"
-            },
-            ready_roadland.Enable);
-        ReadOptionalBoolParam(
-            node_,
-            {
-                "AreaManager.Area.CommonArea.Central.Task.Enable",
-                "AreaManager/Area/CommonArea/Central/Task/Enable"
-            },
-            central.Enable);
-        ReadOptionalBoolParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.Highland.Task.MyHighland.Enable",
-                "AreaManager/Area/MyArea/Highland/Task/MyHighland/Enable",
-                "AreaManager.Task.MyHighland.Enable",
-                "AreaManager/Task/MyHighland/Enable",
-                "AreaManager.RegionalAreaTask.MyHighland.Enable",
-                "AreaManager/RegionalAreaTask/MyHighland/Enable"
-            },
-            highland.Enable);
-        ReadOptionalBoolParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.Highland.Task.MyHighland.UseFaceMode",
-                "AreaManager/Area/MyArea/Highland/Task/MyHighland/UseFaceMode",
-                "AreaManager.Task.MyHighland.UseFaceMode",
-                "AreaManager/Task/MyHighland/UseFaceMode",
-                "AreaManager.RegionalAreaTask.MyHighland.UseFaceMode",
-                "AreaManager/RegionalAreaTask/MyHighland/UseFaceMode"
-            },
-            highland.UseFaceMode);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.Highland.Task.MyHighland.ApproachTimeoutSec",
-                "AreaManager/Area/MyArea/Highland/Task/MyHighland/ApproachTimeoutSec",
-                "AreaManager.Task.MyHighland.ApproachTimeoutSec",
-                "AreaManager/Task/MyHighland/ApproachTimeoutSec",
-                "AreaManager.RegionalAreaTask.MyHighland.ApproachTimeoutSec",
-                "AreaManager/RegionalAreaTask/MyHighland/ApproachTimeoutSec"
-            },
-            highland.ApproachTimeoutSec);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.Highland.Task.MyHighland.HighlandPatrolHoldSec",
-                "AreaManager/Area/MyArea/Highland/Task/MyHighland/HighlandPatrolHoldSec",
-                "AreaManager.Task.MyHighland.HighlandPatrolHoldSec",
-                "AreaManager/Task/MyHighland/HighlandPatrolHoldSec",
-                "AreaManager.RegionalAreaTask.MyHighland.HighlandPatrolHoldSec",
-                "AreaManager/RegionalAreaTask/MyHighland/HighlandPatrolHoldSec"
-            },
-            highland.HighlandPatrolHoldSec);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.Highland.Task.MyHighland.BuffShootTravelTimeoutSec",
-                "AreaManager/Area/MyArea/Highland/Task/MyHighland/BuffShootTravelTimeoutSec",
-                "AreaManager.Task.MyHighland.BuffShootTravelTimeoutSec",
-                "AreaManager/Task/MyHighland/BuffShootTravelTimeoutSec",
-                "AreaManager.RegionalAreaTask.MyHighland.BuffShootTravelTimeoutSec",
-                "AreaManager/RegionalAreaTask/MyHighland/BuffShootTravelTimeoutSec"
-            },
-            highland.BuffShootTravelTimeoutSec);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.Highland.Task.MyHighland.BuffShootHoldSec",
-                "AreaManager/Area/MyArea/Highland/Task/MyHighland/BuffShootHoldSec",
-                "AreaManager.Task.MyHighland.BuffShootHoldSec",
-                "AreaManager/Task/MyHighland/BuffShootHoldSec",
-                "AreaManager.RegionalAreaTask.MyHighland.BuffShootHoldSec",
-                "AreaManager/RegionalAreaTask/MyHighland/BuffShootHoldSec"
-            },
-            highland.BuffShootHoldSec);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.Highland.Task.MyHighland.LeaveTimeoutSec",
-                "AreaManager/Area/MyArea/Highland/Task/MyHighland/LeaveTimeoutSec",
-                "AreaManager.Task.MyHighland.LeaveTimeoutSec",
-                "AreaManager/Task/MyHighland/LeaveTimeoutSec",
-                "AreaManager.RegionalAreaTask.MyHighland.LeaveTimeoutSec",
-                "AreaManager/RegionalAreaTask/MyHighland/LeaveTimeoutSec"
-            },
-            highland.LeaveTimeoutSec);
-        ReadOptionalBoolParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.Base.Task.MyBase.Enable",
-                "AreaManager/Area/MyArea/Base/Task/MyBase/Enable",
-                "AreaManager.Task.MyBase.Enable",
-                "AreaManager/Task/MyBase/Enable",
-                "AreaManager.RegionalAreaTask.MyBase.Enable",
-                "AreaManager/RegionalAreaTask/MyBase/Enable"
-            },
-            base.Enable);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.Base.Task.MyBase.TravelTimeoutSec",
-                "AreaManager/Area/MyArea/Base/Task/MyBase/TravelTimeoutSec",
-                "AreaManager.Task.MyBase.TravelTimeoutSec",
-                "AreaManager/Task/MyBase/TravelTimeoutSec",
-                "AreaManager.RegionalAreaTask.MyBase.TravelTimeoutSec",
-                "AreaManager/RegionalAreaTask/MyBase/TravelTimeoutSec"
-            },
-            base.TravelTimeoutSec);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.Base.Task.MyBase.CommandHoldSec",
-                "AreaManager/Area/MyArea/Base/Task/MyBase/CommandHoldSec",
-                "AreaManager.Task.MyBase.CommandHoldSec",
-                "AreaManager/Task/MyBase/CommandHoldSec",
-                "AreaManager.RegionalAreaTask.MyBase.CommandHoldSec",
-                "AreaManager/RegionalAreaTask/MyBase/CommandHoldSec"
-            },
-            base.CommandHoldSec);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.Base.Task.MyBase.GoalHoldSec",
-                "AreaManager/Area/MyArea/Base/Task/MyBase/GoalHoldSec",
-                "AreaManager.Task.MyBase.GoalHoldSec",
-                "AreaManager/Task/MyBase/GoalHoldSec",
-                "AreaManager.RegionalAreaTask.MyBase.GoalHoldSec",
-                "AreaManager/RegionalAreaTask/MyBase/GoalHoldSec"
-            },
-            base.GoalHoldSec);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.Base.Task.MyBase.MaxPatrolSteps",
-                "AreaManager/Area/MyArea/Base/Task/MyBase/MaxPatrolSteps",
-                "AreaManager.Task.MyBase.MaxPatrolSteps",
-                "AreaManager/Task/MyBase/MaxPatrolSteps",
-                "AreaManager.RegionalAreaTask.MyBase.MaxPatrolSteps",
-                "AreaManager/RegionalAreaTask/MyBase/MaxPatrolSteps"
-            },
-            base.MaxPatrolSteps);
-        auto& patrol_selection = task.PatrolSelection;
-        auto patrol_selection_names = [](const std::string& key) {
-            std::vector<std::string> names;
-            const auto append = [&names, &key](const std::string& prefix) {
-                names.push_back(prefix + "." + key);
-                names.push_back(prefix + "/" + key);
-            };
-            append("AreaManager.RegionalAreaTask.PatrolSelection");
-            append("AreaManager/RegionalAreaTask/PatrolSelection");
-            append("AreaManager.RegionalAreaTask.Patrol");
-            append("AreaManager/RegionalAreaTask/Patrol");
-            append("AreaManager.Area.MyArea.Base.Task.MyBase.Patrol");
-            append("AreaManager/Area/MyArea/Base/Task/MyBase/Patrol");
-            append("AreaManager.Task.MyBase.Patrol");
-            append("AreaManager/Task/MyBase/Patrol");
-            append("AreaManager.RegionalAreaTask.MyBase.Patrol");
-            append("AreaManager/RegionalAreaTask/MyBase/Patrol");
-            return names;
-        };
-        ReadOptionalDoubleParam(
-            node_,
-            patrol_selection_names("DistancePenaltyPerMeter"),
-            patrol_selection.DistancePenaltyPerMeter);
-        ReadOptionalDoubleParam(
-            node_,
-            patrol_selection_names("CurrentGoalPenalty"),
-            patrol_selection.CurrentGoalPenalty);
-        ReadOptionalBoolParam(
-            node_,
-            patrol_selection_names("AvoidCurrentGoal"),
-            patrol_selection.AvoidCurrentGoal);
-        ReadOptionalDoubleParam(
-            node_,
-            patrol_selection_names("UnvisitedBonus"),
-            patrol_selection.UnvisitedBonus);
-        ReadOptionalDoubleParam(
-            node_,
-            patrol_selection_names("FreshnessBonusMax"),
-            patrol_selection.FreshnessBonusMax);
-        ReadOptionalIntParam(
-            node_,
-            patrol_selection_names("FreshnessTimeoutSec"),
-            patrol_selection.FreshnessTimeoutSec);
-        ReadOptionalDoubleParam(
-            node_,
-            patrol_selection_names("RecentVisitPenalty"),
-            patrol_selection.RecentVisitPenalty);
-        ReadOptionalIntParam(
-            node_,
-            patrol_selection_names("RecentVisitPenaltySec"),
-            patrol_selection.RecentVisitPenaltySec);
-        auto pre_roadland_names = [](const std::string& key) {
-            return std::vector<std::string>{
-                "AreaManager.Area.MyArea.PreRoadland.Task.MyPreRoadland." + key,
-                "AreaManager/Area/MyArea/PreRoadland/Task/MyPreRoadland/" + key,
-                "AreaManager.Task.MyPreRoadland." + key,
-                "AreaManager/Task/MyPreRoadland/" + key,
-                "AreaManager.RegionalAreaTask.MyPreRoadland." + key,
-                "AreaManager/RegionalAreaTask/MyPreRoadland/" + key
-            };
-        };
-        ReadOptionalBoolParam(node_, pre_roadland_names("Enable"), pre_roadland.Enable);
-        ReadOptionalIntParam(
-            node_, pre_roadland_names("TravelTimeoutSec"), pre_roadland.TravelTimeoutSec);
-        ReadOptionalIntParam(
-            node_, pre_roadland_names("GoalHoldSec"), pre_roadland.GoalHoldSec);
-        ReadOptionalIntParam(
-            node_, pre_roadland_names("CommandHoldSec"), pre_roadland.CommandHoldSec);
-        ReadOptionalIntParam(node_, pre_roadland_names("SpeedLevel"), pre_roadland.SpeedLevel);
-        ReadOptionalBoolParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.ReadyRoadland.Task.MyReadyRoadland.Enable",
-                "AreaManager/Area/MyArea/ReadyRoadland/Task/MyReadyRoadland/Enable",
-                "AreaManager.Task.MyReadyRoadland.Enable",
-                "AreaManager/Task/MyReadyRoadland/Enable",
-                "AreaManager.RegionalAreaTask.MyReadyRoadland.Enable",
-                "AreaManager/RegionalAreaTask/MyReadyRoadland/Enable"
-            },
-            ready_roadland.Enable);
-        ReadOptionalBoolParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.ReadyRoadland.Task.MyReadyRoadland.UseFaceMode",
-                "AreaManager/Area/MyArea/ReadyRoadland/Task/MyReadyRoadland/UseFaceMode",
-                "AreaManager.Task.MyReadyRoadland.UseFaceMode",
-                "AreaManager/Task/MyReadyRoadland/UseFaceMode",
-                "AreaManager.RegionalAreaTask.MyReadyRoadland.UseFaceMode",
-                "AreaManager/RegionalAreaTask/MyReadyRoadland/UseFaceMode"
-            },
-            ready_roadland.UseFaceMode);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.ReadyRoadland.Task.MyReadyRoadland.TravelTimeoutSec",
-                "AreaManager/Area/MyArea/ReadyRoadland/Task/MyReadyRoadland/TravelTimeoutSec",
-                "AreaManager.Task.MyReadyRoadland.TravelTimeoutSec",
-                "AreaManager/Task/MyReadyRoadland/TravelTimeoutSec",
-                "AreaManager.RegionalAreaTask.MyReadyRoadland.TravelTimeoutSec",
-                "AreaManager/RegionalAreaTask/MyReadyRoadland/TravelTimeoutSec"
-            },
-            ready_roadland.TravelTimeoutSec);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.ReadyRoadland.Task.MyReadyRoadland.CrossTimeoutSec",
-                "AreaManager/Area/MyArea/ReadyRoadland/Task/MyReadyRoadland/CrossTimeoutSec",
-                "AreaManager.Task.MyReadyRoadland.CrossTimeoutSec",
-                "AreaManager/Task/MyReadyRoadland/CrossTimeoutSec",
-                "AreaManager.RegionalAreaTask.MyReadyRoadland.CrossTimeoutSec",
-                "AreaManager/RegionalAreaTask/MyReadyRoadland/CrossTimeoutSec"
-            },
-            ready_roadland.CrossTimeoutSec);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.ReadyRoadland.Task.MyReadyRoadland.CommandHoldSec",
-                "AreaManager/Area/MyArea/ReadyRoadland/Task/MyReadyRoadland/CommandHoldSec",
-                "AreaManager.Task.MyReadyRoadland.CommandHoldSec",
-                "AreaManager/Task/MyReadyRoadland/CommandHoldSec",
-                "AreaManager.RegionalAreaTask.MyReadyRoadland.CommandHoldSec",
-                "AreaManager/RegionalAreaTask/MyReadyRoadland/CommandHoldSec"
-            },
-            ready_roadland.CommandHoldSec);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.ReadyRoadland.Task.MyReadyRoadland.GuardHoldSec",
-                "AreaManager/Area/MyArea/ReadyRoadland/Task/MyReadyRoadland/GuardHoldSec",
-                "AreaManager.Task.MyReadyRoadland.GuardHoldSec",
-                "AreaManager/Task/MyReadyRoadland/GuardHoldSec",
-                "AreaManager.RegionalAreaTask.MyReadyRoadland.GuardHoldSec",
-                "AreaManager/RegionalAreaTask/MyReadyRoadland/GuardHoldSec"
-            },
-            ready_roadland.GuardHoldSec);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.ReadyRoadland.Task.MyReadyRoadland.FaceTargetZCm",
-                "AreaManager/Area/MyArea/ReadyRoadland/Task/MyReadyRoadland/FaceTargetZCm",
-                "AreaManager.Task.MyReadyRoadland.FaceTargetZCm",
-                "AreaManager/Task/MyReadyRoadland/FaceTargetZCm",
-                "AreaManager.RegionalAreaTask.MyReadyRoadland.FaceTargetZCm",
-                "AreaManager/RegionalAreaTask/MyReadyRoadland/FaceTargetZCm"
-            },
-            ready_roadland.FaceTargetZCm);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.ReadyRoadland.Task.MyReadyRoadland.HealthyHpMin",
-                "AreaManager/Area/MyArea/ReadyRoadland/Task/MyReadyRoadland/HealthyHpMin",
-                "AreaManager.Task.MyReadyRoadland.HealthyHpMin",
-                "AreaManager/Task/MyReadyRoadland/HealthyHpMin",
-                "AreaManager.RegionalAreaTask.MyReadyRoadland.HealthyHpMin",
-                "AreaManager/RegionalAreaTask/MyReadyRoadland/HealthyHpMin"
-            },
-            ready_roadland.HealthyHpMin);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.MyArea.ReadyRoadland.Task.MyReadyRoadland.HealthyAmmoMin",
-                "AreaManager/Area/MyArea/ReadyRoadland/Task/MyReadyRoadland/HealthyAmmoMin",
-                "AreaManager.Task.MyReadyRoadland.HealthyAmmoMin",
-                "AreaManager/Task/MyReadyRoadland/HealthyAmmoMin",
-                "AreaManager.RegionalAreaTask.MyReadyRoadland.HealthyAmmoMin",
-                "AreaManager/RegionalAreaTask/MyReadyRoadland/HealthyAmmoMin"
-            },
-            ready_roadland.HealthyAmmoMin);
-        ReadOptionalBoolParam(
-            node_,
-            {
-                "AreaManager.Area.CommonArea.Central.Task.CommonCentral.Enable",
-                "AreaManager/Area/CommonArea/Central/Task/CommonCentral/Enable",
-                "AreaManager.Task.CommonCentral.Enable",
-                "AreaManager/Task/CommonCentral/Enable",
-                "AreaManager.RegionalAreaTask.CommonCentral.Enable",
-                "AreaManager/RegionalAreaTask/CommonCentral/Enable"
-            },
-            central.Enable);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.CommonArea.Central.Task.CommonCentral.TravelTimeoutSec",
-                "AreaManager/Area/CommonArea/Central/Task/CommonCentral/TravelTimeoutSec",
-                "AreaManager.Task.CommonCentral.TravelTimeoutSec",
-                "AreaManager/Task/CommonCentral/TravelTimeoutSec",
-                "AreaManager.RegionalAreaTask.CommonCentral.TravelTimeoutSec",
-                "AreaManager/RegionalAreaTask/CommonCentral/TravelTimeoutSec"
-            },
-            central.TravelTimeoutSec);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.CommonArea.Central.Task.CommonCentral.GoalHoldSec",
-                "AreaManager/Area/CommonArea/Central/Task/CommonCentral/GoalHoldSec",
-                "AreaManager.Task.CommonCentral.GoalHoldSec",
-                "AreaManager/Task/CommonCentral/GoalHoldSec",
-                "AreaManager.RegionalAreaTask.CommonCentral.GoalHoldSec",
-                "AreaManager/RegionalAreaTask/CommonCentral/GoalHoldSec"
-            },
-            central.GoalHoldSec);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.CommonArea.Central.Task.CommonCentral.CommandHoldSec",
-                "AreaManager/Area/CommonArea/Central/Task/CommonCentral/CommandHoldSec",
-                "AreaManager.Task.CommonCentral.CommandHoldSec",
-                "AreaManager/Task/CommonCentral/CommandHoldSec",
-                "AreaManager.RegionalAreaTask.CommonCentral.CommandHoldSec",
-                "AreaManager/RegionalAreaTask/CommonCentral/CommandHoldSec"
-            },
-            central.CommandHoldSec);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.CommonArea.Central.Task.CommonCentral.MaxPatrolSteps",
-                "AreaManager/Area/CommonArea/Central/Task/CommonCentral/MaxPatrolSteps",
-                "AreaManager.Task.CommonCentral.MaxPatrolSteps",
-                "AreaManager/Task/CommonCentral/MaxPatrolSteps",
-                "AreaManager.RegionalAreaTask.CommonCentral.MaxPatrolSteps",
-                "AreaManager/RegionalAreaTask/CommonCentral/MaxPatrolSteps"
-            },
-            central.MaxPatrolSteps);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.CommonArea.Central.Task.CommonCentral.HealthyHpMin",
-                "AreaManager/Area/CommonArea/Central/Task/CommonCentral/HealthyHpMin",
-                "AreaManager.Task.CommonCentral.HealthyHpMin",
-                "AreaManager/Task/CommonCentral/HealthyHpMin",
-                "AreaManager.RegionalAreaTask.CommonCentral.HealthyHpMin",
-                "AreaManager/RegionalAreaTask/CommonCentral/HealthyHpMin"
-            },
-            central.HealthyHpMin);
-        ReadOptionalIntParam(
-            node_,
-            {
-                "AreaManager.Area.CommonArea.Central.Task.CommonCentral.HealthyAmmoMin",
-                "AreaManager/Area/CommonArea/Central/Task/CommonCentral/HealthyAmmoMin",
-                "AreaManager.Task.CommonCentral.HealthyAmmoMin",
-                "AreaManager/Task/CommonCentral/HealthyAmmoMin",
-                "AreaManager.RegionalAreaTask.CommonCentral.HealthyAmmoMin",
-                "AreaManager/RegionalAreaTask/CommonCentral/HealthyAmmoMin"
-            },
-            central.HealthyAmmoMin);
-
-        auto policy_names = [](const std::string& section, const std::string& key) {
-            return std::vector<std::string>{
-                "AreaManager.DefaultPolicy." + section + "." + key,
-                "AreaManager/DefaultPolicy/" + section + "/" + key,
-                "AreaManager.RegionalAreaTask.DefaultPolicy." + section + "." + key,
-                "AreaManager/RegionalAreaTask/DefaultPolicy/" + section + "/" + key,
-                "AreaManager.Task.DefaultPolicy." + section + "." + key,
-                "AreaManager/Task/DefaultPolicy/" + section + "/" + key
-            };
-        };
-        ReadOptionalBoolParam(
-            node_,
-            {
-                "AreaManager.DefaultPolicy.Enable",
-                "AreaManager/DefaultPolicy/Enable",
-                "AreaManager.RegionalAreaTask.DefaultPolicy.Enable",
-                "AreaManager/RegionalAreaTask/DefaultPolicy/Enable",
-                "AreaManager.Task.DefaultPolicy.Enable",
-                "AreaManager/Task/DefaultPolicy/Enable"
-            },
-            policy.Enable);
-        ReadOptionalIntParam(node_, policy_names("Health", "MyAreaHpMin"), policy.Health.MyAreaHpMin);
-        ReadOptionalIntParam(node_, policy_names("Health", "CommonCentralHpMin"), policy.Health.CommonCentralHpMin);
-        ReadOptionalIntParam(node_, policy_names("Health", "EnemyAreaHpMin"), policy.Health.EnemyAreaHpMin);
-        ReadOptionalIntParam(node_, policy_names("Health", "LowResourceFallbackHp"), policy.Health.LowResourceFallbackHp);
-        ReadOptionalIntParam(node_, policy_names("Ammo", "MyAreaAmmoMin"), policy.Ammo.MyAreaAmmoMin);
-        ReadOptionalIntParam(node_, policy_names("Ammo", "CommonCentralAmmoMin"), policy.Ammo.CommonCentralAmmoMin);
-        ReadOptionalIntParam(node_, policy_names("Ammo", "EnemyAreaAmmoMin"), policy.Ammo.EnemyAreaAmmoMin);
-        ReadOptionalIntParam(node_, policy_names("Ammo", "LowResourceFallbackAmmo"), policy.Ammo.LowResourceFallbackAmmo);
-        ReadOptionalDoubleParam(node_, policy_names("Score", "WeightMyBase"), policy.Score.WeightMyBase);
-        ReadOptionalDoubleParam(node_, policy_names("Score", "WeightMyHighland"), policy.Score.WeightMyHighland);
-        ReadOptionalDoubleParam(
-            node_, policy_names("Score", "WeightMyPreRoadland"), policy.Score.WeightMyPreRoadland);
-        ReadOptionalDoubleParam(node_, policy_names("Score", "WeightMyReadyRoadland"), policy.Score.WeightMyReadyRoadland);
-        ReadOptionalDoubleParam(node_, policy_names("Score", "WeightCommonCentral"), policy.Score.WeightCommonCentral);
-        ReadOptionalDoubleParam(node_, policy_names("Score", "WeightEnemyBase"), policy.Score.WeightEnemyBase);
-        ReadOptionalDoubleParam(node_, policy_names("Score", "WeightEnemyHighland"), policy.Score.WeightEnemyHighland);
-        ReadOptionalDoubleParam(node_, policy_names("Score", "WeightEnemyReadyRoadland"), policy.Score.WeightEnemyReadyRoadland);
-        ReadOptionalDoubleParam(node_, policy_names("Score", "DistancePenaltyPerMeter"), policy.Score.DistancePenaltyPerMeter);
-        ReadOptionalDoubleParam(node_, policy_names("Score", "CurrentAreaPenalty"), policy.Score.CurrentAreaPenalty);
-        ReadOptionalDoubleParam(node_, policy_names("Score", "LastAreaPenalty"), policy.Score.LastAreaPenalty);
-        ReadOptionalDoubleParam(node_, policy_names("Score", "AfterHighlandMyBaseBonus"), policy.Score.AfterHighlandMyBaseBonus);
-        ReadOptionalDoubleParam(node_, policy_names("Score", "AfterHighlandMyReadyRoadlandBonus"), policy.Score.AfterHighlandMyReadyRoadlandBonus);
-        ReadOptionalDoubleParam(node_, policy_names("Score", "LowResourceMyBaseBonus"), policy.Score.LowResourceMyBaseBonus);
-        ReadOptionalIntParam(node_, policy_names("Retry", "CompleteCooldownSec"), policy.Retry.CompleteCooldownSec);
-        ReadOptionalIntParam(node_, policy_names("Retry", "FailureCooldownSec"), policy.Retry.FailureCooldownSec);
-        ReadOptionalIntParam(node_, policy_names("Retry", "UnreachableCooldownSec"), policy.Retry.UnreachableCooldownSec);
-        ReadOptionalIntParam(node_, policy_names("Retry", "MaxRetry"), policy.Retry.MaxRetry);
-        if (highland.Enable || base.Enable || pre_roadland.Enable || ready_roadland.Enable || central.Enable) {
-            task.Enable = true;
-        }
     }
 
     bool Application::ConfigurationInit() {
@@ -2721,10 +2114,13 @@ namespace BehaviorTree {
         ApplyTaskParameterOverrides();
         ApplyChasePolicyParameterOverrides();
         ApplyAreaManagerParameterOverrides();
+        ApplyRegionalAreaTaskScopeOverride(
+            config.RegionalAreaTaskSettings,
+            config.DecisionAutonomySettings.NaviGoal);
         ApplySpecialParameterOverrides();
         ApplyStartGateParameterOverrides();
         ApplyNaviRotateControlParameterOverrides();
-        ApplyPointManagerParameterOverrides();
+        ApplyTacticalParameterOverrides();
         ApplyPatrolScanParameterOverrides();
         ApplyFaceModeParameterOverrides();
         auto& patrol_scan = config.PatrolScanSettings;
@@ -2732,7 +2128,7 @@ namespace BehaviorTree {
         ApplyLegacyFaceModePatrolOverrides(patrol_scan, face_mode);
         MirrorPatrolScanTaskOverridesToFaceMode(patrol_scan, face_mode);
         ApplyExternalAimParameterOverrides();
-        LoggerPtr->Debug("Switch_Point: {}", config.SwitchPoint);
+        LoggerPtr->Debug("SwitchPoint: {}", config.SwitchPoint);
         LoggerPtr->Debug("------ AimDebug ------");
         LoggerPtr->Debug("StopFire: {}", config.AimDebugSettings.StopFire);
         LoggerPtr->Debug("StopRotate: {}", config.AimDebugSettings.StopRotate);
@@ -2863,24 +2259,11 @@ namespace BehaviorTree {
         LoggerPtr->Debug("ClearRegionalFaceModeWhenTrue: {}", config.NaviRotateControlSettings.ClearRegionalFaceModeWhenTrue);
         LoggerPtr->Debug("StopRotateWhenFalse: {}", config.NaviRotateControlSettings.StopRotateWhenFalse);
         LoggerPtr->Debug("SetPostureToMoveWhenFalse: {}", config.NaviRotateControlSettings.SetPostureToMoveWhenFalse);
-        LoggerPtr->Debug("------ PointManager ------");
-        LoggerPtr->Debug(
-            "Global.Enable: {}",
-            config.PointManagerSettings.Global.Enable);
-        LoggerPtr->Debug(
-            "Global.Rotate: {}",
-            config.PointManagerSettings.Global.Rotate);
-        for (const auto& [point_name, base_goal_id] : PointManagerGoalNameMap()) {
-            const auto it = config.PointManagerSettings.Points.find(base_goal_id);
-            if (it == config.PointManagerSettings.Points.end()) {
-                continue;
-            }
-            LoggerPtr->Debug(
-                "{}: enable={} rotate={}",
-                point_name,
-                it->second.Enable,
-                it->second.Rotate);
-        }
+        LoggerPtr->Debug("------ Tactical ------");
+        LoggerPtr->Debug("ProtectCastle.Enable: {}", config.TacticalSettings.ProtectCastle.Enable);
+        LoggerPtr->Debug("ProtectCastle.RFID: {}", config.TacticalSettings.ProtectCastle.RFID);
+        LoggerPtr->Debug("ProtectCastle.EnemyPos: {}", config.TacticalSettings.ProtectCastle.EnemyPos);
+        LoggerPtr->Debug("ProtectHero.Enable: {}", config.TacticalSettings.ProtectHero.Enable);
         LoggerPtr->Debug("------ SentryPositionFusion ------");
         LoggerPtr->Debug("Enable: {}", config.SentryPositionFusionSettings.Enable);
         LoggerPtr->Debug("Mode: {}", config.SentryPositionFusionSettings.Mode);
@@ -3366,11 +2749,20 @@ namespace BehaviorTree {
                 config.NaviRotateControlSettings.FreshTimeoutMs);
             config.NaviRotateControlSettings.FreshTimeoutMs = 500;
         }
-        config.PointManagerSettings.Global.Rotate =
-            ClampRotateGear(config.PointManagerSettings.Global.Rotate);
-        for (auto& [base_goal_id, point_setting] : config.PointManagerSettings.Points) {
-            point_setting.Rotate = ClampRotateGear(point_setting.Rotate);
-        }
+        auto& damage_rotate = config.TacticalSettings.DamageRotate;
+        damage_rotate.DefaultGear = ClampRotateGear(damage_rotate.DefaultGear);
+        auto sanitize_damage_rotate_ms = [this](const char* key, int& value, const int fallback) {
+            if (value <= 0) {
+                LoggerPtr->Warning("Invalid {}={}, fallback to {}.", key, value, fallback);
+                value = fallback;
+            }
+        };
+        sanitize_damage_rotate_ms("Tactical.DamageRotate.NoHitTimeoutMs", damage_rotate.NoHitTimeoutMs, 1800);
+        sanitize_damage_rotate_ms("Tactical.DamageRotate.Gear0HoldMs", damage_rotate.Gear0HoldMs, 220);
+        sanitize_damage_rotate_ms("Tactical.DamageRotate.Gear1HoldMs", damage_rotate.Gear1HoldMs, 220);
+        sanitize_damage_rotate_ms("Tactical.DamageRotate.Gear2HoldMs", damage_rotate.Gear2HoldMs, 220);
+        sanitize_damage_rotate_ms("Tactical.DamageRotate.ScanBoostWindowMs", damage_rotate.ScanBoostWindowMs, 1300);
+        sanitize_damage_rotate_ms("Tactical.DamageRotate.ScanYawPhaseMs", damage_rotate.ScanYawPhaseMs, 160);
         auto& sentry_position_fusion = config.SentryPositionFusionSettings;
         if (sentry_position_fusion.FreshTimeoutMs <= 0) {
             LoggerPtr->Warning(

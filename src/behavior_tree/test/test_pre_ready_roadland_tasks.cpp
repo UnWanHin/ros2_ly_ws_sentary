@@ -3,6 +3,7 @@
 #include "../include/DecisionIntent.hpp"
 #include "../include/EventManager.hpp"
 #include "../include/MapCommandTask.hpp"
+#include "../include/RegionalAreaScope.hpp"
 #include "../module/json.hpp"
 
 #include <algorithm>
@@ -26,6 +27,64 @@ LangYa::Config SplitConfig() {
 }
 
 }  // namespace
+
+TEST(RegionalAreaScopeTest, AreaManagerYamlReplacesRegionalOwnAndCentralScopeOnly) {
+    LangYa::NaviGoalAutonomySetting scope;
+    scope.UseAreaScope = true;
+    scope.MyArea = {"base", "pre_roadland", "ready_roadland"};
+    scope.EnemyArea = {"base", "highland"};
+    scope.CommonArea = {};
+
+    LangYa::RegionalAreaTaskSetting task;
+    task.Enable = true;
+    task.MyBase.Enable = true;
+    task.MyHighland.Enable = true;
+    task.MyPreRoadland.Enable = true;
+    task.MyReadyRoadland.Enable = true;
+    task.CommonCentral.Enable = true;
+
+    BehaviorTree::ApplyRegionalAreaTaskScopeOverride(task, scope);
+
+    EXPECT_EQ(
+        scope.MyArea,
+        (std::vector<std::string>{"base", "highland", "pre_roadland", "ready_roadland"}));
+    EXPECT_EQ(scope.CommonArea, (std::vector<std::string>{"central"}));
+    EXPECT_EQ(scope.EnemyArea, (std::vector<std::string>{"base", "highland"}));
+}
+
+TEST(RegionalAreaScopeTest, GlobalAreaManagerDisableBlocksAllRegionalOwnAndCentralScope) {
+    LangYa::NaviGoalAutonomySetting scope;
+    scope.UseAreaScope = true;
+    scope.MyArea = {"base", "highland", "pre_roadland", "ready_roadland"};
+    scope.EnemyArea = {"base"};
+    scope.CommonArea = {"central"};
+
+    LangYa::RegionalAreaTaskSetting task;
+    task.Enable = false;
+
+    BehaviorTree::ApplyRegionalAreaTaskScopeOverride(task, scope);
+
+    EXPECT_TRUE(scope.MyArea.empty());
+    EXPECT_TRUE(scope.CommonArea.empty());
+    EXPECT_EQ(scope.EnemyArea, (std::vector<std::string>{"base"}));
+}
+
+TEST(RegionalAreaScopeTest, DisabledUseAreaScopePreservesJsonBaseline) {
+    LangYa::NaviGoalAutonomySetting scope;
+    scope.UseAreaScope = false;
+    scope.MyArea = {"base"};
+    scope.EnemyArea = {"highland"};
+    scope.CommonArea = {"central"};
+
+    LangYa::RegionalAreaTaskSetting task;
+    task.Enable = false;
+
+    BehaviorTree::ApplyRegionalAreaTaskScopeOverride(task, scope);
+
+    EXPECT_EQ(scope.MyArea, (std::vector<std::string>{"base"}));
+    EXPECT_EQ(scope.EnemyArea, (std::vector<std::string>{"highland"}));
+    EXPECT_EQ(scope.CommonArea, (std::vector<std::string>{"central"}));
+}
 
 TEST(PreReadyRoadlandTaskTest, GoalIdsResolveToTheirFormalMainAreas) {
     using BehaviorTree::Area::MainAreaKind;
@@ -159,6 +218,62 @@ TEST(PreReadyRoadlandTaskTest, DefaultPolicyOffersSeparatePreAndReadyRoadlandCan
     }
     EXPECT_TRUE(found_pre);
     EXPECT_TRUE(found_ready_roadland);
+}
+
+TEST(PreReadyRoadlandTaskTest, DefaultPolicyHonorsPerAreaEnableSwitches) {
+    using BehaviorTree::DefaultRegionalPolicyInput;
+    using BehaviorTree::DefaultStrategyManager;
+    using BehaviorTree::RegionalAreaTaskType;
+    using LangYa::UnitTeam;
+
+    auto config = SplitConfig();
+    config.RegionalAreaTaskSettings.MyPreRoadland.Enable = false;
+    DefaultStrategyManager manager;
+    const DefaultRegionalPolicyInput input{
+        .Config = &config,
+        .MyTeam = UnitTeam::Red,
+        .HealthFresh = true,
+        .AmmoFresh = true,
+        .Health = 400,
+        .Ammo = 100,
+        .Now = std::chrono::steady_clock::now()
+    };
+
+    const auto without_pre_roadland = manager.BuildRegionalAreaCandidates(input);
+    ASSERT_EQ(without_pre_roadland.size(), 1U);
+    EXPECT_EQ(without_pre_roadland.front().TaskType, RegionalAreaTaskType::MyReadyRoadland);
+
+    config.RegionalAreaTaskSettings.MyReadyRoadland.Enable = false;
+    EXPECT_TRUE(manager.BuildRegionalAreaCandidates(input).empty());
+}
+
+TEST(PreReadyRoadlandTaskTest, DisablingActiveAreaTaskReleasesItsOwnership) {
+    using BehaviorTree::AreaManager;
+    using BehaviorTree::RegionalAreaTaskPlan;
+    using BehaviorTree::RegionalAreaTaskTickInput;
+    using BehaviorTree::RegionalAreaTaskType;
+    using LangYa::UnitTeam;
+
+    AreaManager manager;
+    LangYa::RegionalAreaTaskSetting setting;
+    const auto now = std::chrono::steady_clock::now();
+    manager.StartRegionalAreaTask(RegionalAreaTaskPlan{
+        .Type = RegionalAreaTaskType::MyPreRoadland,
+        .GoalTeam = UnitTeam::Red,
+        .ApplyTeamOffset = true,
+        .TriggerBaseGoal = LangYa::PreRoadland.ID,
+        .InitialBaseGoal = LangYa::PreRoadland.ID,
+    }, now);
+    ASSERT_TRUE(manager.RegionalAreaTaskActive());
+
+    setting.MyPreRoadland.Enable = false;
+    const auto result = manager.TickRegionalAreaTask(
+        RegionalAreaTaskTickInput{.Setting = setting, .Now = now});
+
+    EXPECT_TRUE(result.Completed);
+    EXPECT_EQ(result.Type, RegionalAreaTaskType::MyPreRoadland);
+    EXPECT_EQ(result.Reason, "disabled");
+    EXPECT_FALSE(manager.RegionalAreaTaskActive());
 }
 
 TEST(PreReadyRoadlandTaskTest, DefaultPolicyDoesNotImmediatelyRepeatLastEligibleArea) {
@@ -441,13 +556,36 @@ TEST(PreReadyRoadlandTaskTest, AreaScopeUsesReadyRoadlandWithoutLegacyRoadlandTo
     EXPECT_FALSE(BehaviorTree::AreaManager::MainAreaKindFromToken("road").has_value());
 }
 
-TEST(PreReadyRoadlandTaskTest, RegionalDefenseKeepsThePreRoadlandThreatCoverage) {
+TEST(PreReadyRoadlandTaskTest, RegionalDefenseCanDisableOnlyTheMyBaseEnemyPositionSource) {
     BehaviorTree::AreaManager manager;
-    const auto threat = manager.AnalyzeRegionalDefenseThreat(
+    const auto castle = BehaviorTree::AreaManager::GoalPointByBaseId(
+        LangYa::Castle.ID,
+        LangYa::UnitTeam::Red);
+    const auto base_enabled = manager.AnalyzeRegionalDefenseThreat(
         LangYa::UnitTeam::Red,
         LangYa::UnitTeam::Blue,
         false,
+        true,
+        {{static_cast<int>(castle.x), static_cast<int>(castle.y)}});
+    EXPECT_EQ(base_enabled.OwnBaseCount, 1);
+    EXPECT_TRUE(base_enabled.HardThreat);
+
+    const auto base_disabled = manager.AnalyzeRegionalDefenseThreat(
+        LangYa::UnitTeam::Red,
+        LangYa::UnitTeam::Blue,
+        false,
+        false,
+        {{static_cast<int>(castle.x), static_cast<int>(castle.y)}});
+    EXPECT_EQ(base_disabled.OwnBaseCount, 0);
+    EXPECT_FALSE(base_disabled.HardThreat);
+
+    const auto non_base_threat = manager.AnalyzeRegionalDefenseThreat(
+        LangYa::UnitTeam::Red,
+        LangYa::UnitTeam::Blue,
+        false,
+        false,
         {{457, 72}});
 
-    EXPECT_TRUE(threat.HardThreat);
+    EXPECT_TRUE(non_base_threat.HardThreat);
+    EXPECT_GT(non_base_threat.OwnPreRoadlandCount, 0);
 }

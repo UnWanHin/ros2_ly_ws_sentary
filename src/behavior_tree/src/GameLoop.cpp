@@ -3,8 +3,10 @@
 // Keep behavior and interface changes synchronized with related modules.
 
 #include "../include/Application.hpp"
+#include "../include/DamageRotatePolicy.hpp"
 #include "../include/ChasePolicy.hpp"
 #include "../include/OutpostOpeningHold.hpp"
+#include "../include/TacticalProtectionPolicy.hpp"
 
 #include <array>
 #include <algorithm>
@@ -932,8 +934,7 @@ namespace BehaviorTree {
         static constexpr auto buff_yaw = -50.0f + 360.0f;
         const auto& patrol_scan = config.PatrolScanSettings;
         static constexpr auto kTwoPi = 6.2831853071795864769f;
-        static constexpr int kDamageScanBoostWindowMs = 1300;
-        static constexpr int kDamageScanYawPhaseMs = 160;
+        const auto& damage_rotate_setting = config.TacticalSettings.DamageRotate;
         bool navi_rotate_control_stop_request = false;
         bool navi_rotate_control_release_request = false;
         bool navi_rotate_control_follow_output = false;
@@ -953,28 +954,22 @@ namespace BehaviorTree {
                 external_is_rotate_fresh &&
                 external_is_rotate &&
                 config.NaviRotateControlSettings.ClearFollowModeWhenTrue;
-            if (navi_rotate_control_release_request) {
-                gimbalControlData.FireCode.FollowMode = 0;
-            } else if (navi_rotate_control_stop_request &&
+            if (!navi_rotate_control_release_request &&
+                navi_rotate_control_stop_request &&
                 config.NaviRotateControlSettings.ForceFollowModeWhenFalse) {
                 navi_rotate_control_follow_output = true;
             }
         }
         
         // 小陀螺策略：
-        // 1) 平时使用点位默认档；
+        // 1) 平时使用 Tactical 全局默认档；
         // 2) 受击后按 0 -> 1 -> 2 -> 3 递进换档；
         // 3) 到 3 档后持续保持；
-        // 4) 仅在一段时间未受击后，回落到点位默认档。
+        // 4) 仅在一段时间未受击后，回落到 Tactical 全局默认档。
         const auto rotate_now = std::chrono::steady_clock::now();
         static auto last_damage_rotate_time = std::chrono::steady_clock::time_point{};
         static auto rotate_ramp_start_time = std::chrono::steady_clock::time_point{};
         static bool rotate_under_fire = false;
-
-        constexpr int kRotateNoHitTimeoutMs = 1800;
-        constexpr int kRotateGear0HoldMs = 220;
-        constexpr int kRotateGear1HoldMs = 220;
-        constexpr int kRotateGear2HoldMs = 220;
 
         if (healthDecreaseDetector.trigger(myselfHealth)) { // 血量减少
             last_damage_rotate_time = rotate_now;
@@ -988,40 +983,30 @@ namespace BehaviorTree {
         bool in_damage_rotate_window = false;
         int damage_rotate_elapsed_ms = -1;
         const auto current_base_goal_id = BaseGoalIdFromResolvedGoal(naviCommandGoal);
-        const std::uint8_t point_default_rotate_gear =
-            ResolvePointDefaultRotate(current_base_goal_id, 0);
-        std::uint8_t rotate_gear = point_default_rotate_gear;
+        const std::uint8_t default_rotate_gear = damage_rotate_setting.DefaultGear;
+        std::uint8_t rotate_gear = default_rotate_gear;
 
         if (last_damage_rotate_time.time_since_epoch().count() != 0) {
             const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                 rotate_now - last_damage_rotate_time).count();
             damage_rotate_elapsed_ms = static_cast<int>(elapsed_ms);
-            in_damage_rotate_window = elapsed_ms <= kDamageScanBoostWindowMs;
+            in_damage_rotate_window = elapsed_ms <= damage_rotate_setting.ScanBoostWindowMs;
         }
 
         if (rotate_under_fire) {
             const auto no_hit_ms = (last_damage_rotate_time.time_since_epoch().count() == 0)
-                ? kRotateNoHitTimeoutMs + 1
+                ? damage_rotate_setting.NoHitTimeoutMs + 1
                 : static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(
                     rotate_now - last_damage_rotate_time).count());
 
-            if (no_hit_ms > kRotateNoHitTimeoutMs) {
+            if (no_hit_ms > damage_rotate_setting.NoHitTimeoutMs) {
                 rotate_under_fire = false;
-                rotate_gear = point_default_rotate_gear;
+                rotate_gear = default_rotate_gear;
             } else {
                 const auto ramp_ms = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(
                     rotate_now - rotate_ramp_start_time).count());
-                std::uint8_t damage_rotate_gear = 0;
-                if (ramp_ms < kRotateGear0HoldMs) {
-                    damage_rotate_gear = 0;
-                } else if (ramp_ms < (kRotateGear0HoldMs + kRotateGear1HoldMs)) {
-                    damage_rotate_gear = 1;
-                } else if (ramp_ms < (kRotateGear0HoldMs + kRotateGear1HoldMs + kRotateGear2HoldMs)) {
-                    damage_rotate_gear = 2;
-                } else {
-                    damage_rotate_gear = 3;
-                }
-                rotate_gear = std::max(point_default_rotate_gear, damage_rotate_gear);
+                rotate_gear = ResolveDamageRotateGear(
+                    damage_rotate_setting, default_rotate_gear, ramp_ms);
             }
         }
 
@@ -1066,19 +1051,22 @@ namespace BehaviorTree {
             config.NaviRotateControlSettings.StopRotateWhenFalse) {
             gimbalControlData.FireCode.Rotate = 0;
         }
+        gimbalControlData.FireCode.Rotate = ResolveRotateGearWithFollowPriority(
+            gimbalControlData.FireCode.Rotate,
+            gimbalControlData.FireCode.FollowMode != 0 || navi_rotate_control_follow_output);
 
         static auto last_rotate_log = std::chrono::steady_clock::time_point{};
         if (now_time >= 0) {
             const auto log_now = std::chrono::steady_clock::now();
             if (log_now - last_rotate_log > std::chrono::seconds(2)) {
                 LoggerPtr->Debug(
-                    "Rotate Gear: {} (base_goal={} point_default={} under_fire={} damage_elapsed_ms={} no_hit_timeout_ms={})",
+                    "Rotate Gear: {} (base_goal={} tactical_default={} under_fire={} damage_elapsed_ms={} no_hit_timeout_ms={})",
                     gimbalControlData.FireCode.Rotate,
                     static_cast<int>(current_base_goal_id),
-                    static_cast<int>(point_default_rotate_gear),
+                    static_cast<int>(default_rotate_gear),
                     rotate_under_fire ? 1 : 0,
                     damage_rotate_elapsed_ms,
-                    kRotateNoHitTimeoutMs);
+                    damage_rotate_setting.NoHitTimeoutMs);
                 last_rotate_log = log_now;
             }
         }
@@ -1233,7 +1221,7 @@ namespace BehaviorTree {
                     const bool boost_patrol_scan =
                         aimMode == AimMode::RotateScan &&
                         damage_rotate_elapsed_ms >= 0 &&
-                        damage_rotate_elapsed_ms <= kDamageScanBoostWindowMs;
+                        damage_rotate_elapsed_ms <= damage_rotate_setting.ScanBoostWindowMs;
                     float yaw_scan_step = static_cast<float>(boost_patrol_scan
                         ? patrol_scan.Mode1YawBoostStepDegPerTick
                         : patrol_scan.Mode1YawStepDegPerTick);
@@ -1284,7 +1272,7 @@ namespace BehaviorTree {
                             patrolScanActiveMode_ = patrol_mode;
                         }
                         yaw_scan_direction = boost_patrol_scan
-                            ? (((damage_rotate_elapsed_ms / kDamageScanYawPhaseMs) % 2 == 0) ? 1 : -1)
+                            ? (((damage_rotate_elapsed_ms / damage_rotate_setting.ScanYawPhaseMs) % 2 == 0) ? 1 : -1)
                             : 1;
                     }
                     if (now - last_searching_log > std::chrono::seconds(2)) {
@@ -3809,12 +3797,16 @@ namespace BehaviorTree {
     }
 
     bool Application::IsFortressGainPointEnemyOccupiedEventRawFresh(const int referee_fresh_ms) const noexcept {
-        return hasReceivedEventData_ &&
+        const auto& protect_castle = config.TacticalSettings.ProtectCastle;
+        return IsProtectCastleRfidEventEnabled(
+            protect_castle.Enable,
+            protect_castle.RFID,
+            hasReceivedEventData_ &&
             lastEventDataRxTime_.time_since_epoch().count() != 0 &&
             std::chrono::steady_clock::now() - lastEventDataRxTime_ <=
                 std::chrono::milliseconds(std::max(0, referee_fresh_ms)) &&
             (eventSelfFortressGainPointStatus_ == 2U ||
-             eventSelfFortressGainPointStatus_ == 3U);
+             eventSelfFortressGainPointStatus_ == 3U));
     }
 
     bool Application::IsFortressGainPointEnemyOccupiedEventFresh(const int referee_fresh_ms) const noexcept {
@@ -3887,10 +3879,15 @@ namespace BehaviorTree {
                 .Y = enemy_position.Y});
         }
 
+        const auto& protect_castle = config.TacticalSettings.ProtectCastle;
+        const bool protect_castle_enemy_position = IsProtectCastleEnemyPositionEnabled(
+            protect_castle.Enable,
+            protect_castle.EnemyPos);
         auto threat = areaManager_.AnalyzeRegionalDefenseThreat(
             my_team,
             enemy_team,
             defense.EnableSoftEnemySideThreat,
+            protect_castle_enemy_position,
             fresh_enemies);
 
         const int referee_fresh_ms = std::max(
@@ -4200,7 +4197,8 @@ namespace BehaviorTree {
         const UnitTeam my_team,
         const UnitTeam enemy_team) {
         const auto& protection = config.HeroProtectionSettings;
-        if (!protection.Enable ||
+        if (!config.TacticalSettings.ProtectHero.Enable ||
+            !protection.Enable ||
             IsLeagueProfile() ||
             IsShowcasePatrolEnabled() ||
             ElapsedSeconds() < protection.StartElapsedSec) {

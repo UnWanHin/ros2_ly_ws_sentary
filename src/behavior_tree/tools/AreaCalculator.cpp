@@ -163,7 +163,7 @@ void PrintUsage(const char* argv0) {
         << "Options:\n"
         << "  --team <red|blue>       Print one formal my/enemy perspective.\n"
         << "                           If omitted, both red and blue perspectives are printed.\n"
-        << "  --switch-point <bool>   Match AreaManager.Switch_Point lookup behavior.\n"
+        << "  --switch-point <bool>   Match AreaManager.SwitchPoint lookup behavior.\n"
         << "  --help                  Show this message.\n";
 }
 

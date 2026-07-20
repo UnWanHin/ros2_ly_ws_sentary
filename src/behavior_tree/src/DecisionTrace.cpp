@@ -528,9 +528,32 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         final_goal_pos_topic = uses_goal_pos_bridge ? "/goal_pose" : ly_navi_goal_pos::Name;
     }
 
+    // Tactical trace evidence is intentionally captured in BT from the same
+    // policy helpers that make the decision. The simulator consumes these
+    // facts as observations and never reconstructs ProtectCastle from UI data.
+    const auto& tactical_settings = config.TacticalSettings;
+    const int tactical_referee_fresh_ms = std::max(
+        std::max(0, config.TaskSettings.BuffConfirm.RefereeFreshTimeoutMs),
+        std::max(0, config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs));
+    const bool protect_castle_rfid_raw_active =
+        IsFortressGainPointEnemyOccupiedEventRawFresh(tactical_referee_fresh_ms);
+    const bool protect_castle_rfid_event_active =
+        IsFortressGainPointEnemyOccupiedEventFresh(tactical_referee_fresh_ms);
+    const UnitTeam tactical_enemy_team =
+        team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
+    const auto tactical_regional_threat =
+        EvaluateRegionalDefenseThreat(team, tactical_enemy_team);
+    const int tactical_own_base_enemy_count = tactical_regional_threat.has_value()
+        ? tactical_regional_threat->OwnBaseCount
+        : 0;
+    const bool protect_castle_enemy_pos_active =
+        tactical_settings.ProtectCastle.Enable &&
+        tactical_settings.ProtectCastle.EnemyPos &&
+        tactical_own_base_enemy_count > 0;
+
     json record;
     record["schema"] = "ly_decision_trace_v1";
-    record["schema_version"] = 3;
+    record["schema_version"] = 4;
     record["event"] = std::string(event);
     record["tick"] = trace_tick;
     record["t"] = elapsed_sec;
@@ -594,6 +617,27 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         {"self_fortress_gain_point_status", static_cast<int>(eventSnapshot_.SelfFortressGainPointStatus)},
         {"self_outpost_gain_point_status", static_cast<int>(eventSnapshot_.SelfOutpostGainPointStatus)},
         {"self_base_gain_point_status", eventSnapshot_.SelfBaseGainPointStatus},
+    };
+    record["tactical"] = {
+        {"available", true},
+        {"protect_castle", {
+            {"enabled", tactical_settings.ProtectCastle.Enable},
+            {"rfid_enabled", tactical_settings.ProtectCastle.RFID},
+            {"enemy_pos_enabled", tactical_settings.ProtectCastle.EnemyPos},
+            {"rfid_event_raw_active", protect_castle_rfid_raw_active},
+            {"rfid_event_active", protect_castle_rfid_event_active},
+            {"enemy_pos_active", protect_castle_enemy_pos_active},
+        }},
+        {"protect_hero", {
+            {"enabled", tactical_settings.ProtectHero.Enable},
+            {"active", protectHeroActive_},
+        }},
+        {"regional_defense", {
+            {"threat_active", tactical_regional_threat.has_value()},
+            {"search_kind", RegionalDefenseSearchKindToString(regionalDefenseSearchKind_)},
+            {"fortress_enemy_count", fortressGainPointEnemyCount_},
+            {"own_base_enemy_count", tactical_own_base_enemy_count},
+        }},
     };
     record["goal_reach_state"] = {
         {"status", GoalReachStatusToString(current_goal_reach.Status)},

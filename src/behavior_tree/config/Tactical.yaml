@@ -1,0 +1,27 @@
+behavior_tree:
+  ros__parameters:
+    Tactical:
+      # 城堡防守總開關；關閉時 RFID 與 MyBase 敵方座標兩條來源都不啟用。
+      ProtectCastle:
+        Enable: true
+        # 裁判 event_data 的己方堡壘增益點被占（status 2/3）來源。
+        RFID: true
+        # /ly/position/data 的敵方座標進入我方 MyBase 來源。
+        EnemyPos: true
+
+      # 控制己方 Hero 位於高地/ProtectHero 區域時的戰術保護站位。
+      ProtectHero:
+        Enable: true
+
+      DamageRotate:
+        # 全域底盤小陀螺預設。
+        DefaultGear: 0
+        # 最後一次受擊超過此時間後，回到 DefaultGear。
+        NoHitTimeoutMs: 1800
+        # 受擊 ramp：先保持 0 檔，再依序進入 1、2、3 檔。
+        Gear0HoldMs: 220
+        Gear1HoldMs: 220
+        Gear2HoldMs: 220
+        # 無目標受擊期間的雲台掃描加速與抖掃方向切換。
+        ScanBoostWindowMs: 1300
+        ScanYawPhaseMs: 160

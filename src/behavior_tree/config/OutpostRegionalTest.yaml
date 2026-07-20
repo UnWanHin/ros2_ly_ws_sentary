@@ -38,6 +38,3 @@ behavior_tree:
       Enable: true  # 联调允许 FaceMode。
       LostTargetHoldMs: 300  # 固定朝向目标丢失后的保持时间（毫秒）。
       SuppressFire: true  # FaceMode 联调期间禁止开火。
-    AreaManager:
-      RegionalAreaTask:
-        IgnoreRecovery: true  # 联调时忽略 Hard Recovery 对区域任务的抢占。

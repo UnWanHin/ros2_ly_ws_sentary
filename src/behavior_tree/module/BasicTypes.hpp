@@ -599,14 +599,30 @@ namespace LangYa
         bool SetPostureToMoveWhenFalse{false};
     };
 
-    struct PointRotateSetting {
-        bool Enable{false};
-        int Rotate{0};
+    struct DamageRotateSetting {
+        std::uint8_t DefaultGear{0};
+        int NoHitTimeoutMs{1800};
+        int Gear0HoldMs{220};
+        int Gear1HoldMs{220};
+        int Gear2HoldMs{220};
+        int ScanBoostWindowMs{1300};
+        int ScanYawPhaseMs{160};
     };
 
-    struct PointManagerSetting {
-        PointRotateSetting Global{false, 0};
-        std::unordered_map<std::uint8_t, PointRotateSetting> Points{};
+    struct TacticalFeatureSetting {
+        bool Enable{true};
+    };
+
+    struct ProtectCastleSetting {
+        bool Enable{true};
+        bool RFID{true};
+        bool EnemyPos{true};
+    };
+
+    struct TacticalSetting {
+        DamageRotateSetting DamageRotate{};
+        ProtectCastleSetting ProtectCastle{};
+        TacticalFeatureSetting ProtectHero{};
     };
 
     struct SentryPositionFusionSourceSetting {
@@ -818,8 +834,8 @@ namespace LangYa
     };
 
     struct MyHighlandAreaTaskSetting {
-        bool Enable{false};
-        bool UseFaceMode{true};
+        bool Enable{true};
+        bool UseFaceMode{false};
         int ApproachTimeoutSec{8};
         int HighlandPatrolHoldSec{15};
         int BuffShootTravelTimeoutSec{8};
@@ -846,7 +862,7 @@ namespace LangYa
     using MyBasePatrolGoalSetting = PatrolGoalSetting;
 
     struct MyBaseAreaTaskSetting {
-        bool Enable{false};
+        bool Enable{true};
         int TravelTimeoutSec{12};
         int CommandHoldSec{1};
         int GoalHoldSec{15};
@@ -860,8 +876,8 @@ namespace LangYa
     };
 
     struct MyReadyRoadlandAreaTaskSetting {
-        bool Enable{false};
-        bool UseFaceMode{true};
+        bool Enable{true};
+        bool UseFaceMode{false};
         int TravelTimeoutSec{12};
         int CrossTimeoutSec{8};
         int CommandHoldSec{1};
@@ -872,7 +888,7 @@ namespace LangYa
     };
 
     struct MyPreRoadlandAreaTaskSetting {
-        bool Enable{false};
+        bool Enable{true};
         int TravelTimeoutSec{12};
         int GoalHoldSec{15};
         int CommandHoldSec{1};
@@ -880,7 +896,7 @@ namespace LangYa
     };
 
     struct CommonCentralAreaTaskSetting {
-        bool Enable{false};
+        bool Enable{true};
         int TravelTimeoutSec{12};
         int GoalHoldSec{15};
         int CommandHoldSec{1};
@@ -936,7 +952,7 @@ namespace LangYa
     };
 
     struct RegionalAreaTaskSetting {
-        bool Enable{false};
+        bool Enable{true};
         bool IgnoreRecovery{false};
         PatrolGoalSelectionSetting PatrolSelection{};
         MyHighlandAreaTaskSetting MyHighland{};
@@ -987,7 +1003,7 @@ namespace LangYa
         FaceModeSetting FaceModeSettings{};
         ExternalAimSetting ExternalAimSettings{};
         NaviRotateControlSetting NaviRotateControlSettings{};
-        PointManagerSetting PointManagerSettings{};
+        TacticalSetting TacticalSettings{};
         SentryPositionFusionSetting SentryPositionFusionSettings{};
         LeagueStrategySetting LeagueStrategySettings{};
         ShowcasePatrolSetting ShowcasePatrolSettings{};

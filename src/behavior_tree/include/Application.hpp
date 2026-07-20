@@ -1003,9 +1003,6 @@ public:
     bool OutpostAimFreshOrLatched(std::chrono::steady_clock::time_point now, int hold_ms) const noexcept;
     bool IsUnderFireRecent() const;
     bool IsUnderFireBurst() const;
-    std::uint8_t ResolvePointDefaultRotate(
-        std::uint8_t base_goal_id,
-        std::uint8_t fallback = 0) const noexcept;
 
     // 行为树初始化
     bool LoadBehaviorTree() noexcept;
@@ -1025,7 +1022,7 @@ public:
     void ApplySpecialParameterOverrides();
     void ApplyStartGateParameterOverrides();
     void ApplyNaviRotateControlParameterOverrides();
-    void ApplyPointManagerParameterOverrides();
+    void ApplyTacticalParameterOverrides();
     void ApplyPatrolScanParameterOverrides();
     void ApplyFaceModeParameterOverrides();
     void ApplyExternalAimParameterOverrides();

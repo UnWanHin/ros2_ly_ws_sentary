@@ -347,6 +347,7 @@ public:
         LangYa::UnitTeam my_team,
         LangYa::UnitTeam enemy_team,
         bool enable_soft_enemy_side_threat,
+        bool enable_own_base_enemy_position,
         const std::vector<RegionalDefenseEnemyPosition>& enemies) const;
     void StartRegionalDefenseSuppress(AreaTimePoint now, int hold_sec);
     bool IsRegionalDefenseAimSuppressActive(AreaTimePoint now) const noexcept;

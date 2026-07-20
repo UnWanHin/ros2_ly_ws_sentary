@@ -274,6 +274,16 @@ if(BUILD_TESTING)
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
   )
+  ament_add_gtest(test_damage_rotate_policy test/test_damage_rotate_policy.cpp)
+  target_include_directories(test_damage_rotate_policy PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
+  )
+  ament_add_gtest(test_tactical_protection_policy test/test_tactical_protection_policy.cpp)
+  target_include_directories(test_tactical_protection_policy PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
+  )
   ament_add_gtest(test_face_mode_manager
     test/test_face_mode_manager.cpp
     src/FaceModeManager.cpp
