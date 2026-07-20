@@ -30,6 +30,7 @@ def test_workflow_catalog_has_unique_ids_and_valid_references() -> None:
         "multi-unit-target-priority",
         "low-resource-recovery-exit",
         "full-roster-visual-inputs",
+        "tactical-protection",
     } <= set(keys)
     for workflow in WORKFLOWS:
         assert validate_workflow(workflow) == []
@@ -125,6 +126,25 @@ def test_workflow_commands_for_full_roster_visual_inputs_include_clean_asset_qa(
     assert any("src/simulator/config/visual_asset_qa.yaml" in command for command in post_run)
     assert any("/tmp/ly-simulator-full-roster-visual-qa.png" in command for command in post_run)
     assert any("simulator.visual_asset_qa" in command for command in post_run)
+
+
+def test_workflow_commands_for_tactical_protection_include_scene_and_evidence() -> None:
+    workflow = workflow_by_key()["tactical-protection"]
+    trace = default_trace_path(workflow)
+
+    start = start_command(
+        workflow,
+        trace=trace,
+        live_view=False,
+        control_file="/tmp/tactical-protection.jsonl",
+        trace_on=True,
+    )
+    post_run = post_run_commands(workflow, trace=trace)
+
+    assert "--mock-sequence src/simulator/sample/mock_sequences/tactical_protection.json" in start
+    assert "--unit-scene src/simulator/sample/unit_scenes/tactical_board.yaml" in start
+    assert any("tactical_protect_castle.jsonl --validate-only" in command for command in post_run)
+    assert any("tactical_follow_rotate.jsonl --validate-only" in command for command in post_run)
 
 
 def test_main_lists_workflows(capsys) -> None:

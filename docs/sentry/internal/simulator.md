@@ -1,11 +1,13 @@
 # Simulator Trace And Viewer
 
-Updated: 2026-07-19
+Updated: 2026-07-20
 
 ## Purpose
 
 `simulator` is the maintained offline viewer for sentry decision behavior.
 It replays JSONL rows written by `behavior_tree` and draws the current decision on a 2D field map.
+Trace v4 adds BT-authored `tactical` evidence plus `control_output`, which is the final published
+control snapshot. It remains separate from asynchronous lower-machine `gimbal_feedback`.
 The viewer shows whether the current navigation output is bridge `/goal_pose`, direct `UseXY` (`/ly/navi/goal_pos`), or goal-ID (`/ly/navi/goal`) mode.
 The right panel shows live ROS topic values from `/goal_pose`, `/ly/navi/goal_pos_raw`, `/ly/navi/goal`, `/ly/navi/speed_level`, `/ly/navi/should_rotate`, and `/ly/control/vel` when started through the offline live wrapper.
 In live mode, the current-goal marker and recent path prefer live `/goal_pose`; if that topic is absent, the viewer falls back to legacy `/ly/navi/goal_pos`, trace records, and labels the marker as `TRACE`.
@@ -30,6 +32,8 @@ The offline mock publisher also covers formal decision inputs for referee event 
 - Simulator-facing trace adapter: `src/simulator/simulator/trace.py`
 - Simulator-facing view model: `src/simulator/simulator/model.py`
 - Foxglove offline exporter: `src/simulator/simulator/foxglove_export.py`
+- Tactical browser board: `src/simulator/simulator/tactical_web.py` (`/tactical`)
+- Canonical scene catalog/state: `src/simulator/config/tactical_catalog.yaml`, `simulator.scene`, and `simulator.interactive_inputs`
 - Viewer config: `src/simulator/config/default.yaml`
 - Default map: `tools/maps/basemaps/buff_map_field.png`
 - Asset manifest: `src/simulator/assets/manifest.yaml`
@@ -46,6 +50,55 @@ The offline mock publisher also covers formal decision inputs for referee event 
 - Clean visual asset QA config: `src/simulator/config/visual_asset_qa.yaml`
 - File/API command bus schema: `src/simulator/simulator/control_bus.py`
 - Energy mechanism debug fields are recorded under `referee`: `has_sentry_info`, `sentry_can_activate_energy`, and `energy_activate_confirm_pulse`.
+
+## Tactical Sandbox
+
+The pygame `Inputs` view and browser `http://127.0.0.1:9000/tactical` use the same catalog-backed
+scene commands. Pieces, base/outpost HP, target goal, route, tactical evidence, final control output,
+and lower-machine feedback are intentionally shown as different facts.
+
+`mock` is the default input owner. Only this mode starts `simulator.mock_inputs`; browser/Pygame edits
+are written to the command bus and then projected onto existing formal ROS input topics. The formal
+Regional launch path is unchanged.
+
+`manual_ros` is observer-only. It is for Foxglove or `ros2 topic pub` users who already own the input
+topics. Both the browser UI and `/api/control` reject scene mutations in this mode, so mock and external
+publishers cannot race each other.
+
+```bash
+# Editable scene, mock input owner, Pygame plus the browser tactical board.
+PYTHONPATH=src/simulator python3 -m simulator.start \
+  --offline-decision --mode regional --live-view --input-owner mock \
+  --unit-scene src/simulator/sample/unit_scenes/tactical_board.yaml \
+  --mock-sequence src/simulator/sample/mock_sequences/tactical_protection.json
+
+# Observe external Foxglove/ROS input only. The acknowledgement label never starts a publisher.
+PYTHONPATH=src/simulator python3 -m simulator.start \
+  --offline-decision --mode regional --live-view --trace-on \
+  --input-owner manual_ros --external-input-publisher foxglove
+```
+
+For the first command, open `http://127.0.0.1:9000/tactical`. Map pointer coordinates are sent as
+official field centimeters, never pixels. `manual_ros` can still display scene/trace data, but it cannot
+alter it.
+
+In trace v4, `tactical.protect_castle` records configuration state and separately records RFID raw/effective
+activation and enemy-position activation. `tactical.regional_defense` carries the exact BT threat observation,
+last search kind, and counts. The simulator does not recreate those results from geometry. When reviewing
+FollowMode, read `control_output.fire_code.follow_mode` and `control_output.fire_code.rotate`; do not infer
+the final command from `gimbal_feedback`.
+
+Foxglove MCAP export writes the existing decision/metrics/goal channels plus:
+
+- `/sentry/simulator/decision/control_output`
+- `/sentry/simulator/decision/tactical`
+- `/sentry/simulator/scene`
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.foxglove_export \
+  src/simulator/sample/scenarios/tactical_protect_castle.jsonl \
+  --output /tmp/tactical_protect_castle.mcap
+```
 
 ## Trace Recording
 
@@ -401,6 +454,8 @@ The current suite covers:
 - `start_gate_lifecycle`: reset re-arms the start gate, Home is held, then the first active regional patrol goal is selected after game start.
 - `route_churn_warning`: expected-WARN fixture for rapid route selection churn.
 - `multi_unit_decision_context`: multi-unit HP/position/unit-info context, including reliable enemy position source evidence.
+- `tactical_protect_castle`: trace v4 ProtectCastle EnemyPos evidence and castle defense goal.
+- `tactical_follow_rotate`: trace v4 proof that final FollowMode forces final Rotate to zero while feedback may still report another gear.
 
 The manifest records expected validation status, record count, schema-version coverage, output-kind coverage, intent layers/reasons, goals, aim modes, and important event/target/runtime flags.
 For multi-record fixtures, the manifest can also assert event, goal, intent-reason, publish-allowed, match-time, and warning-code sequences.

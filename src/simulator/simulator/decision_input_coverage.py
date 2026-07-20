@@ -339,6 +339,45 @@ COVERAGE: tuple[DecisionInputCoverage, ...] = (
         viewer_surfaces=("Runtime tab gimbal/posture rows", "Decision tab aim mode", "/status.json.current_record.gimbal"),
     ),
     DecisionInputCoverage(
+        key="tactical_protection",
+        label="ProtectCastle, ProtectHero, And Final FollowMode",
+        status="covered",
+        purpose=(
+            "Exercise BT-owned Tactical protection evidence from fresh enemy position and referee event "
+            "sources, while keeping final FollowMode/Rotate output separate from lower-machine feedback."
+        ),
+        formal_topics=(
+            "/ly/position/data",
+            "/ly/game/event_data",
+            "/ly/gimbal/firecode",
+            "/ly/control/firecode",
+        ),
+        mock_inputs=(
+            "--unit-scene",
+            "--mock-event-self-fortress-gain-point-status",
+            "--mock-navi-should-rotate",
+        ),
+        command_bus=("set_unit", "set_unit_hp", "set_self_position"),
+        trace_fields=(
+            "tactical.protect_castle",
+            "tactical.protect_hero",
+            "tactical.regional_defense",
+            "control_output.fire_code",
+            "gimbal_feedback.fire_code",
+        ),
+        fixtures=("tactical_protect_castle", "tactical_follow_rotate"),
+        workflows=("tactical-protection",),
+        viewer_surfaces=(
+            "Tactical browser panel",
+            "Pygame Control tab",
+            "Foxglove decision/tactical and decision/control_output channels",
+        ),
+        notes=(
+            "ProtectCastle source activation is written by behavior_tree trace v4; simulator clients do not infer it from scene geometry.",
+            "FollowMode/Rotate acceptance must use control_output, not the asynchronous gimbal feedback snapshot.",
+        ),
+    ),
+    DecisionInputCoverage(
         key="external_aim",
         label="Optional External Aim",
         status="optional_covered",

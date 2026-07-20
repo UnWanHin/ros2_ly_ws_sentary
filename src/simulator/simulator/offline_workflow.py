@@ -217,6 +217,28 @@ WORKFLOWS: tuple[OfflineWorkflow, ...] = (
             ),
         ),
     ),
+    OfflineWorkflow(
+        key="tactical-protection",
+        title="Tactical ProtectCastle And FollowMode Evidence",
+        purpose=(
+            "Rehearse an enemy entering MyBase with the editable tactical board, then inspect BT-authored "
+            "ProtectCastle evidence and the final FollowMode/Rotate control contract."
+        ),
+        mode="regional",
+        bt_config="regional_competition.json",
+        mock_preset="multi-unit-regional",
+        mock_sequence="tactical_protection.json",
+        unit_scene="src/simulator/sample/unit_scenes/tactical_board.yaml",
+        expected_evidence=(
+            "The browser Tactical panel should show the same editable scene as Pygame while mock owns inputs.",
+            "A BT v4 trace should expose tactical.protect_castle.enemy_pos_active only from BT policy evidence.",
+            "Final control_output.fire_code should be inspected separately from gimbal_feedback; FollowMode must leave final Rotate at zero.",
+        ),
+        fixture_checks=(
+            "PYTHONPATH=src/simulator python3 -m simulator.main src/simulator/sample/scenarios/tactical_protect_castle.jsonl --validate-only",
+            "PYTHONPATH=src/simulator python3 -m simulator.main src/simulator/sample/scenarios/tactical_follow_rotate.jsonl --validate-only",
+        ),
+    ),
 )
 
 

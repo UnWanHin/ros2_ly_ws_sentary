@@ -118,6 +118,17 @@ def test_text_whitespace_check_reports_untracked_text_files(tmp_path: Path, caps
     assert "src/simulator/new_quality_case.py:2: merge conflict marker" in captured.err
 
 
+def test_simulator_docs_describe_tactical_board_trace_and_input_ownership() -> None:
+    docs = (REPO_ROOT / "docs" / "sentry" / "internal" / "simulator.md").read_text(encoding="utf-8")
+    readme = (REPO_ROOT / "src" / "simulator" / "README.md").read_text(encoding="utf-8")
+
+    for text in (docs, readme):
+        assert "/tactical" in text
+        assert "manual_ros" in text
+        assert "control_output" in text
+        assert "tactical_protect_castle" in text
+
+
 def test_run_steps_returns_failing_step_code(capsys) -> None:
     calls: list[str] = []
 

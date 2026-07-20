@@ -14,6 +14,9 @@ from .trace import load_trace
 DECISION_SCHEMA_NAME = "ly_simulator.DecisionFrame"
 METRICS_SCHEMA_NAME = "ly_simulator.DecisionMetrics"
 POINT2_SCHEMA_NAME = "foxglove.Point2"
+CONTROL_OUTPUT_SCHEMA_NAME = "ly_simulator.ControlOutput"
+TACTICAL_SCHEMA_NAME = "ly_simulator.TacticalEvidence"
+SCENE_SCHEMA_NAME = "ly_simulator.SceneObservation"
 
 
 def decision_frame_schema() -> dict[str, Any]:
@@ -122,6 +125,108 @@ def point2_schema() -> dict[str, Any]:
         "additionalProperties": False,
         "properties": {"x": {"type": "number"}, "y": {"type": "number"}},
         "required": ["x", "y"],
+    }
+
+
+def control_output_schema() -> dict[str, Any]:
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "schema": {"type": "string"},
+            "schema_version": {"type": "integer"},
+            "source_schema": {"type": "string"},
+            "source_schema_version": {"type": "integer"},
+            "tick": {"type": "integer"},
+            "t": {"type": "number"},
+            "available": {"type": "boolean"},
+            "sequence": {"type": ["integer", "null"]},
+            "age_ms": {"type": ["integer", "null"]},
+            "source": {"type": "string"},
+            "angles": {"type": "object"},
+            "fire_code": {"type": "object"},
+            "trajectory": {"type": "object"},
+        },
+        "required": [
+            "schema",
+            "schema_version",
+            "source_schema",
+            "source_schema_version",
+            "tick",
+            "t",
+            "available",
+            "sequence",
+            "age_ms",
+            "source",
+            "angles",
+            "fire_code",
+            "trajectory",
+        ],
+    }
+
+
+def tactical_schema() -> dict[str, Any]:
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "schema": {"type": "string"},
+            "schema_version": {"type": "integer"},
+            "source_schema": {"type": "string"},
+            "source_schema_version": {"type": "integer"},
+            "tick": {"type": "integer"},
+            "t": {"type": "number"},
+            "available": {"type": "boolean"},
+            "protect_castle": {"type": "object"},
+            "protect_hero": {"type": "object"},
+            "regional_defense": {"type": "object"},
+        },
+        "required": [
+            "schema",
+            "schema_version",
+            "source_schema",
+            "source_schema_version",
+            "tick",
+            "t",
+            "available",
+            "protect_castle",
+            "protect_hero",
+            "regional_defense",
+        ],
+    }
+
+
+def scene_observation_schema() -> dict[str, Any]:
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "schema": {"type": "string"},
+            "schema_version": {"type": "integer"},
+            "source_schema": {"type": "string"},
+            "source_schema_version": {"type": "integer"},
+            "tick": {"type": "integer"},
+            "t": {"type": "number"},
+            "field": {"type": "object"},
+            "team": {"type": "string"},
+            "units": {"type": "array", "items": {"type": "object"}},
+            "structures": {"type": "array", "items": {"type": "object"}},
+        },
+        "required": [
+            "schema",
+            "schema_version",
+            "source_schema",
+            "source_schema_version",
+            "tick",
+            "t",
+            "field",
+            "team",
+            "units",
+            "structures",
+        ],
     }
 
 
@@ -388,6 +493,101 @@ def record_to_decision_frame(record: TraceRecord) -> dict[str, Any]:
     }
 
 
+def record_to_control_output(record: TraceRecord) -> dict[str, Any]:
+    output = record.control_output
+    fire_code = output.fire_code
+    trajectory = output.trajectory
+    return {
+        "schema": "ly_simulator_control_output_v1",
+        "schema_version": 1,
+        "source_schema": record.schema,
+        "source_schema_version": record.schema_version,
+        "tick": record.tick,
+        "t": record.t,
+        "available": output.available,
+        "sequence": output.sequence,
+        "age_ms": output.age_ms,
+        "source": output.source,
+        "angles": {
+            "published": output.angles.published,
+            "yaw": output.angles.yaw,
+            "pitch": output.angles.pitch,
+        },
+        "fire_code": {
+            "published": fire_code.published,
+            "field_mask": fire_code.field_mask,
+            "raw": fire_code.raw,
+            "fire_status": fire_code.fire_status,
+            "cap_state": fire_code.cap_state,
+            "follow_mode": fire_code.follow_mode,
+            "aim_mode": fire_code.aim_mode,
+            "rotate": fire_code.rotate,
+        },
+        "trajectory": {
+            "published": trajectory.published,
+            "available": trajectory.available,
+            "unavailable_reason": trajectory.unavailable_reason,
+            "yaw": trajectory.yaw,
+            "pitch": trajectory.pitch,
+            "yaw_omega": trajectory.yaw_omega,
+            "pitch_omega": trajectory.pitch_omega,
+            "yaw_alpha": trajectory.yaw_alpha,
+            "pitch_alpha": trajectory.pitch_alpha,
+        },
+    }
+
+
+def record_to_tactical_evidence(record: TraceRecord) -> dict[str, Any]:
+    tactical = record.tactical.as_payload()
+    return {
+        "schema": "ly_simulator_tactical_evidence_v1",
+        "schema_version": 1,
+        "source_schema": record.schema,
+        "source_schema_version": record.schema_version,
+        "tick": record.tick,
+        "t": record.t,
+        **tactical,
+    }
+
+
+def record_to_scene_observation(record: TraceRecord) -> dict[str, Any]:
+    structures = (
+        ("friend", "outpost", record.referee.self_outpost_hp),
+        ("enemy", "outpost", record.referee.enemy_outpost_hp),
+        ("friend", "base", record.referee.self_base_hp),
+        ("enemy", "base", record.referee.enemy_base_hp),
+    )
+    return {
+        "schema": "ly_simulator_scene_observation_v1",
+        "schema_version": 1,
+        "source_schema": record.schema,
+        "source_schema_version": record.schema_version,
+        "tick": record.tick,
+        "t": record.t,
+        "field": {
+            "width_cm": record.field.width,
+            "height_cm": record.field.height,
+            "frame": record.field.frame,
+        },
+        "team": record.team,
+        "units": [
+            {
+                "side": unit.side,
+                "type": unit.type_name,
+                "type_id": unit.type_id,
+                "hp": unit.hp,
+                "max_hp": unit.max_hp,
+                "position_cm": point_to_json(unit.position_cm),
+            }
+            for unit in record.units
+        ],
+        "structures": [
+            {"side": side, "kind": kind, "hp": hp}
+            for side, kind, hp in structures
+        ],
+    }
+
+
 def record_to_metrics(record: TraceRecord) -> dict[str, Any]:
     scale = record.navi_velocity.raw_to_mps
     return {
@@ -451,6 +651,94 @@ def time_ns(record: TraceRecord) -> int:
     return max(0, int(record.t * 1_000_000_000))
 
 
+def export_records_with_writer(
+    writer: Any,
+    records: list[TraceRecord],
+    *,
+    topic_prefix: str = "/sentry/simulator",
+    include_metrics: bool = True,
+    include_goal_points: bool = True,
+    message_encoding: Any = "json",
+    schema_encoding: Any = "jsonschema",
+) -> None:
+    """Register the stable MCAP channels and write normalized trace evidence.
+
+    Keeping the writer protocol separate from file ownership makes the channel
+    contract testable without importing the optional ``mcap`` package.
+    """
+
+    prefix = "/" + topic_prefix.strip("/")
+
+    def register_json_channel(name: str, schema: dict[str, Any], topic: str) -> int:
+        schema_id = writer.register_schema(
+            name=name,
+            encoding=schema_encoding,
+            data=json_bytes(schema),
+        )
+        return writer.register_channel(
+            topic=topic,
+            message_encoding=message_encoding,
+            schema_id=schema_id,
+        )
+
+    channels = {
+        "decision": register_json_channel(
+            DECISION_SCHEMA_NAME,
+            decision_frame_schema(),
+            f"{prefix}/decision",
+        ),
+        "control_output": register_json_channel(
+            CONTROL_OUTPUT_SCHEMA_NAME,
+            control_output_schema(),
+            f"{prefix}/decision/control_output",
+        ),
+        "tactical": register_json_channel(
+            TACTICAL_SCHEMA_NAME,
+            tactical_schema(),
+            f"{prefix}/decision/tactical",
+        ),
+        "scene": register_json_channel(
+            SCENE_SCHEMA_NAME,
+            scene_observation_schema(),
+            f"{prefix}/scene",
+        ),
+    }
+    if include_metrics:
+        channels["metrics"] = register_json_channel(
+            METRICS_SCHEMA_NAME,
+            metrics_schema(),
+            f"{prefix}/metrics",
+        )
+    if include_goal_points:
+        channels["goal_point"] = register_json_channel(
+            POINT2_SCHEMA_NAME,
+            point2_schema(),
+            f"{prefix}/goal_point_cm",
+        )
+
+    def write(channel: str, sequence: int, stamp: int, payload: dict[str, Any]) -> None:
+        writer.add_message(
+            channel_id=channels[channel],
+            log_time=stamp,
+            publish_time=stamp,
+            sequence=sequence,
+            data=json_bytes(payload),
+        )
+
+    for sequence, record in enumerate(records):
+        stamp = time_ns(record)
+        write("decision", sequence, stamp, record_to_decision_frame(record))
+        write("control_output", sequence, stamp, record_to_control_output(record))
+        write("tactical", sequence, stamp, record_to_tactical_evidence(record))
+        write("scene", sequence, stamp, record_to_scene_observation(record))
+        if "metrics" in channels:
+            write("metrics", sequence, stamp, record_to_metrics(record))
+        if "goal_point" in channels:
+            point = record_to_goal_point(record)
+            if point is not None:
+                write("goal_point", sequence, stamp, point)
+
+
 def export_records_to_mcap(
     records: list[TraceRecord],
     output_path: Path,
@@ -468,76 +756,18 @@ def export_records_to_mcap(
         ) from exc
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    prefix = "/" + topic_prefix.strip("/")
     with output_path.open("wb") as stream:
         writer = Writer(stream)
         writer.start(library="ly simulator foxglove_export")
-
-        decision_schema_id = writer.register_schema(
-            name=DECISION_SCHEMA_NAME,
-            encoding=SchemaEncoding.JSONSchema,
-            data=json_bytes(decision_frame_schema()),
-        )
-        decision_channel_id = writer.register_channel(
-            topic=f"{prefix}/decision",
+        export_records_with_writer(
+            writer,
+            records,
+            topic_prefix=topic_prefix,
+            include_metrics=include_metrics,
+            include_goal_points=include_goal_points,
             message_encoding=MessageEncoding.JSON,
-            schema_id=decision_schema_id,
+            schema_encoding=SchemaEncoding.JSONSchema,
         )
-
-        metrics_channel_id = None
-        if include_metrics:
-            metrics_schema_id = writer.register_schema(
-                name=METRICS_SCHEMA_NAME,
-                encoding=SchemaEncoding.JSONSchema,
-                data=json_bytes(metrics_schema()),
-            )
-            metrics_channel_id = writer.register_channel(
-                topic=f"{prefix}/metrics",
-                message_encoding=MessageEncoding.JSON,
-                schema_id=metrics_schema_id,
-            )
-
-        goal_channel_id = None
-        if include_goal_points:
-            point_schema_id = writer.register_schema(
-                name=POINT2_SCHEMA_NAME,
-                encoding=SchemaEncoding.JSONSchema,
-                data=json_bytes(point2_schema()),
-            )
-            goal_channel_id = writer.register_channel(
-                topic=f"{prefix}/goal_point_cm",
-                message_encoding=MessageEncoding.JSON,
-                schema_id=point_schema_id,
-            )
-
-        for sequence, record in enumerate(records):
-            stamp = time_ns(record)
-            writer.add_message(
-                channel_id=decision_channel_id,
-                log_time=stamp,
-                publish_time=stamp,
-                sequence=sequence,
-                data=json_bytes(record_to_decision_frame(record)),
-            )
-            if metrics_channel_id is not None:
-                writer.add_message(
-                    channel_id=metrics_channel_id,
-                    log_time=stamp,
-                    publish_time=stamp,
-                    sequence=sequence,
-                    data=json_bytes(record_to_metrics(record)),
-                )
-            if goal_channel_id is not None:
-                point = record_to_goal_point(record)
-                if point is not None:
-                    writer.add_message(
-                        channel_id=goal_channel_id,
-                        log_time=stamp,
-                        publish_time=stamp,
-                        sequence=sequence,
-                        data=json_bytes(point),
-                    )
-
         writer.finish()
 
 

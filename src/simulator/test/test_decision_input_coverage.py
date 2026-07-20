@@ -23,6 +23,7 @@ def test_decision_input_coverage_catalog_has_expected_inputs() -> None:
         "gimbal_fire_posture",
         "external_aim",
         "bullet_state",
+        "tactical_protection",
     } <= keys
 
 
@@ -45,6 +46,10 @@ def test_coverage_payload_marks_known_partial_items_without_catalog_issues() -> 
     assert "bullet_info_resource" in by_key["bullet_state"]["fixtures"]
     assert "bullet-info-resource-snapshot" in by_key["bullet_state"]["workflows"]
     assert by_key["bullet_state"]["gaps"] == []
+    assert by_key["tactical_protection"]["status"] == "covered"
+    assert "tactical.protect_castle" in by_key["tactical_protection"]["trace_fields"]
+    assert "tactical_protect_castle" in by_key["tactical_protection"]["fixtures"]
+    assert "tactical-protection" in by_key["tactical_protection"]["workflows"]
 
 
 def test_coverage_cli_outputs_summary_and_detail(capsys) -> None:

@@ -121,6 +121,37 @@ def assert_rfid_expectations(records: list[Any], expected: dict[str, Any], label
         assert actual == expected_value, f"{label}: rfid_match.{field} expected {expected_value}, got {actual}"
 
 
+def assert_nested_evidence(actual: Any, expected: Any, label: str) -> None:
+    if isinstance(expected, dict):
+        assert isinstance(actual, dict), f"{label}: expected object, got {actual!r}"
+        for key, expected_value in expected.items():
+            assert key in actual, f"{label}: missing {key}"
+            assert_nested_evidence(actual[key], expected_value, f"{label}.{key}")
+        return
+    assert actual == expected, f"{label}: expected {expected!r}, got {actual!r}"
+
+
+def assert_tactical_expectations(records: list[Any], expected: dict[str, Any], label: str) -> None:
+    tactical_expected = expected.get("tactical")
+    if tactical_expected is not None:
+        for record in records:
+            assert_nested_evidence(record.tactical.as_payload(), tactical_expected, f"{label}: tactical")
+
+    final_control_expected = expected.get("final_control")
+    if final_control_expected is not None:
+        for record in records:
+            actual = {
+                "available": record.control_output.available,
+                "source": record.control_output.source,
+                "fire_code": {
+                    "published": record.control_output.fire_code.published,
+                    "follow_mode": record.control_output.fire_code.follow_mode,
+                    "rotate": record.control_output.fire_code.rotate,
+                },
+            }
+            assert_nested_evidence(actual, final_control_expected, f"{label}: final_control")
+
+
 def test_manifest_paths_are_unique_and_present() -> None:
     manifest = load_manifest()
     scenarios = manifest["scenarios"]
@@ -177,6 +208,7 @@ def test_all_scenario_fixtures_validate_against_manifest() -> None:
         assert_bullet_info_expectations(records, expected, scenario["name"])
         assert_target_expectations(records, expected, scenario["name"])
         assert_rfid_expectations(records, expected, scenario["name"])
+        assert_tactical_expectations(records, expected, scenario["name"])
 
         for flag in expected.get("target_state_true", []):
             assert any(getattr(record.target_state, flag) is True for record in records), (
@@ -192,12 +224,13 @@ def test_all_scenario_fixtures_validate_against_manifest() -> None:
         "chase_goal_pos": 1,
         "chase_goal_pos_raw_bridge": 1,
         "goal_id": 1,
-        "goal_pos": 17,
+        "goal_pos": 19,
         "goal_pos_raw_bridge": 1,
         "relative_target_bridge": 1,
     }
     assert {record.decision_intent.layer for record in scenario_records} == {
         "Startup",
+        "RegionalDefense",
         "RegionalPatrol",
         "BuffTask",
         "Chase",

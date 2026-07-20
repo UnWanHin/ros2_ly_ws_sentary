@@ -2,7 +2,7 @@
 
 Offline pygame viewer for sentry behavior-tree decision traces.
 
-Updated: 2026-06-02
+Updated: 2026-07-20
 
 ## Scope
 
@@ -27,6 +27,9 @@ Updated: 2026-06-02
 - Runs automated full-roster sprite visibility QA against a clean visual config, while keeping the normal full-roster smoke screenshot for manual UI/overlay review.
 - Uses `tools/maps/basemaps/buff_map_field.png` by default, but the map is selectable.
 - Keeps window size, field size, colors, point coordinates, terrain overlays, unit styles, layer switches, and web stream defaults in `config/default.yaml`.
+- Serves a second, responsive tactical board at `/tactical`. It uses the same catalog-backed scene state as pygame, has map-piece drag/drop, structure HP controls, current BT goal/route, ProtectCastle/ProtectHero evidence, and distinct final-control versus lower-machine-feedback panels.
+- Supports explicit input ownership: `mock` is editable and publishes only through `simulator.mock_inputs`; `manual_ros` is a read-only observer for a Foxglove or ROS CLI publisher.
+- Reads trace v2/v3 for replay and trace v4 for BT-authored `tactical` evidence. `control_output` represents actual published control messages and must not be confused with `gimbal_feedback`.
 
 ## Record
 
@@ -91,6 +94,50 @@ Override live-view stream port from wrapper:
 ```bash
 PYTHONPATH=src/simulator python3 -m simulator.start --mode league --live-view --live-web-port 9010
 ```
+
+The tactical board is available on the same server:
+
+```text
+http://127.0.0.1:9000/tactical
+```
+
+### Tactical Ownership And Evidence
+
+Use the shared editable board with the default mock owner:
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.start \
+  --offline-decision --mode regional --live-view --input-owner mock \
+  --unit-scene src/simulator/sample/unit_scenes/tactical_board.yaml \
+  --mock-sequence src/simulator/sample/mock_sequences/tactical_protection.json
+```
+
+Use `manual_ros` only when an external input publisher is already intentional. The required label is an
+acknowledgement, not a command the simulator runs. The tactical board becomes read-only and its HTTP
+mutation endpoint returns a conflict instead of creating a second input owner.
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.start \
+  --offline-decision --mode regional --live-view --trace-on \
+  --input-owner manual_ros --external-input-publisher foxglove
+```
+
+The named `tactical-protection` offline workflow includes the board scene, enemy-in-MyBase sequence, and
+two compact trace fixtures: `tactical_protect_castle` proves the BT v4 ProtectCastle EnemyPos evidence;
+`tactical_follow_rotate` proves final `control_output.fire_code.follow_mode=true` publishes
+`rotate=0` even when `gimbal_feedback` reports another rotate gear.
+
+Export either fixture to Foxglove MCAP with:
+
+```bash
+PYTHONPATH=src/simulator python3 -m simulator.foxglove_export \
+  src/simulator/sample/scenarios/tactical_protect_castle.jsonl \
+  --output /tmp/tactical_protect_castle.mcap
+```
+
+The MCAP includes `/sentry/simulator/decision/control_output`,
+`/sentry/simulator/decision/tactical`, and `/sentry/simulator/scene` alongside the existing decision,
+metrics, and goal-point channels.
 
 ### Offline Decision Test (Not Replay)
 

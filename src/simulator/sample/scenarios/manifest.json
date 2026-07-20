@@ -260,6 +260,60 @@
       }
     },
     {
+      "name": "tactical_protect_castle",
+      "path": "tactical_protect_castle.jsonl",
+      "description": "ProtectCastle EnemyPos evidence is active when a fresh enemy Hero enters MyBase, producing the castle defense goal.",
+      "expected": {
+        "status": "PASS",
+        "records": 1,
+        "schema_versions": {"v4": 1},
+        "output_kinds": {"goal_pos": 1},
+        "intent_layers": ["RegionalDefense"],
+        "intent_reasons": ["OwnBaseGuard"],
+        "goal_names": ["Castle"],
+        "aim_modes": ["RotateScan"],
+        "events_true": ["regional_defense_active"],
+        "tactical": {
+          "available": true,
+          "protect_castle": {
+            "enabled": true,
+            "enemy_pos_enabled": true,
+            "enemy_pos_active": true,
+            "rfid_event_active": false
+          },
+          "regional_defense": {
+            "threat_active": true,
+            "search_kind": "own_base",
+            "own_base_enemy_count": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "tactical_follow_rotate",
+      "path": "tactical_follow_rotate.jsonl",
+      "description": "The final BT FireCode output keeps FollowMode enabled and Rotate at zero even while lower-machine feedback reports Rotate three.",
+      "expected": {
+        "status": "PASS",
+        "records": 1,
+        "schema_versions": {"v4": 1},
+        "output_kinds": {"goal_pos": 1},
+        "intent_layers": ["RegionalPatrol"],
+        "intent_reasons": ["TargetVisible"],
+        "goal_names": ["OccupyArea"],
+        "aim_modes": ["AutoAim"],
+        "tactical": {
+          "available": true,
+          "regional_defense": {"threat_active": false, "search_kind": "none"}
+        },
+        "final_control": {
+          "available": true,
+          "source": "normal",
+          "fire_code": {"published": true, "follow_mode": true, "rotate": 0}
+        }
+      }
+    },
+    {
       "name": "rfid_full_zone_context",
       "path": "rfid_full_zone_context.jsonl",
       "description": "Full RFID match-state coverage with raw/status2, self-side zones, enemy-side zones, tunnel, center, fly-ramp, and side aggregate evidence.",
