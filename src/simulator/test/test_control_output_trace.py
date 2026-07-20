@@ -4,6 +4,7 @@ from copy import deepcopy
 
 from simulator.trace import normalize_record
 from simulator.validation import validate_records
+from simulator.viewer import Viewer, record_status_payload
 
 from test_trace_contract import stable_trace_row
 
@@ -67,6 +68,31 @@ def test_v3_trace_keeps_feedback_and_final_command_distinct() -> None:
     assert record.control_output.fire_code.follow_mode is True
     assert record.control_output.trajectory.published is True
     assert record.control_output.trajectory.available is True
+
+
+def test_web_status_keeps_final_output_and_feedback_as_distinct_evidence() -> None:
+    record = normalize_record(v3_row(feedback_rotate=1, final_rotate=0), 0, {18: "OccupyArea"})
+
+    payload = record_status_payload(record)
+
+    assert payload["gimbal_feedback"]["available"] is True
+    assert payload["gimbal_feedback"]["fire_code"]["rotate"] == 1
+    assert payload["control_output"]["available"] is True
+    assert payload["control_output"]["fire_code"]["rotate"] == 0
+    assert payload["control_output"]["trajectory"]["available"] is True
+
+
+def test_pygame_control_panel_keeps_final_output_and_feedback_distinct() -> None:
+    record = normalize_record(v3_row(feedback_rotate=1, final_rotate=0), 0, {18: "OccupyArea"})
+    viewer = object.__new__(Viewer)
+
+    output_rows = dict(viewer.control_output_rows(record))
+    feedback_rows = dict(viewer.gimbal_feedback_rows(record))
+
+    assert output_rows["FireCode"] == "fire=1 cap=1 follow=1 aim=1 rotate=0"
+    assert output_rows["Trajectory"] == "published=1 valid=1 yaw=12.5 pitch=-3.2"
+    assert feedback_rows["Available"] == "Y age=8ms"
+    assert feedback_rows["FireCode"] == "fire=0 cap=1 follow=0 aim=0 rotate=1"
 
 
 def test_v2_trace_replay_uses_empty_control_output() -> None:

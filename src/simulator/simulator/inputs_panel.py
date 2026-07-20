@@ -153,7 +153,9 @@ class InputsPanel:
         state = viewer.sim_input_state
         viewer.draw_text("Placed Pieces", x, y, viewer.font, viewer.palette["accent"], max_width)
         y += 24
-        if not state.units:
+        snapshot = state.snapshot(team=viewer.records[viewer.current_index].team, goals=viewer.goals)
+        units = [item for item in snapshot.get("units", []) if isinstance(item, dict)]
+        if not units:
             return viewer.draw_text(
                 "Drag a piece onto the field map.",
                 x,
@@ -167,27 +169,34 @@ class InputsPanel:
         gap = 5
         icon_w = 34
         label_w = max_width - button_w * 3 - gap * 2 - icon_w - 12
-        units = sorted(state.units.values(), key=lambda unit: (unit.side, unit.type_id))
+        units.sort(key=lambda unit: (str(unit.get("side", "")), str(unit.get("entity_id", ""))))
         for unit in units:
             row_h = 32
             if y > panel.bottom - row_h - 8:
                 viewer.draw_text("...", x, y, viewer.small_font, viewer.palette["muted"], max_width)
                 break
-            pos = f"{unit.x},{unit.y}"
-            channels = compact_decision_summary(unit.side, unit.type_id)
-            text = f"{unit.side[:1].upper()} {unit.type_name} {unit.hp}/{unit.max_hp} @{pos} {channels}"
+            position = as_dict(unit.get("position_cm"))
+            side = str(unit.get("side", "friend"))
+            type_id = int(unit.get("type_id", 0) or 0)
+            type_name = str(unit.get("type", "?"))
+            hp = int(unit.get("hp", 0) or 0)
+            max_hp = max(1, int(unit.get("max_hp", 1) or 1))
+            entity_id = str(unit.get("entity_id", ""))
+            pos = f"{position.get('x', 0)},{position.get('y', 0)}"
+            channels = str(unit.get("decision_summary", compact_decision_summary(side, type_id)))
+            text = f"{side[:1].upper()} {type_name} {hp}/{max_hp} @{pos} {channels}"
             icon_center = (x + 15, y + 14)
-            field_side = viewer.unit_field_side(unit.side)
-            if not viewer.draw_unit_art(icon_center[0], icon_center[1], field_side, unit.type_name, 25):
-                self.draw_unit_dot(icon_center, unit.side)
+            field_side = viewer.unit_field_side(side)
+            if not viewer.draw_unit_art(icon_center[0], icon_center[1], field_side, type_name, 25):
+                self.draw_unit_dot(icon_center, side)
             text_x = x + icon_w
             self.draw_fitted_text(text, text_x, y + 2, label_w, viewer.palette["text"])
-            viewer.draw_health_bar(text_x, y + 21, max(24, label_w - 2), 4, int(unit.hp) / max(1, int(unit.max_hp)))
-            step = 50 if unit.max_hp > 100 else 10
+            viewer.draw_health_bar(text_x, y + 21, max(24, label_w - 2), 4, hp / max_hp)
+            step = 50 if max_hp > 100 else 10
             actions = [
-                (f"-{step}", "set_unit_hp", max(1, unit.hp - step)),
-                (f"+{step}", "set_unit_hp", min(unit.max_hp, unit.hp + step)),
-                ("X", "remove_unit", unit.hp),
+                (f"-{step}", "set_unit_hp", max(0, hp - step)),
+                (f"+{step}", "set_unit_hp", min(max_hp, hp + step)),
+                ("X", "remove_unit", hp),
             ]
             bx = x + icon_w + label_w + 8
             for index, (label, command, next_hp) in enumerate(actions):
@@ -195,12 +204,10 @@ class InputsPanel:
                 viewer.draw_control_button(rect, label)
                 payload = {
                     "command": command,
-                    "side": unit.side,
-                    "type_id": unit.type_id,
-                    "type": unit.type_name,
+                    "entity_id": entity_id,
                     "hp": int(next_hp),
                 }
-                self.unit_hp_buttons[f"{unit.side}:{unit.type_id}:{label}"] = (rect, payload)
+                self.unit_hp_buttons[f"{entity_id}:{label}"] = (rect, payload)
             y += row_h + 4
         return y
 

@@ -9,6 +9,7 @@ from simulator.start import (
     MOCK_PRESETS,
     build_mock_command,
     build_mock_sequence_command,
+    build_live_viewer_command,
     parse_args,
     print_mock_presets,
     print_mock_sequences,
@@ -17,6 +18,25 @@ from simulator.start import (
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def test_live_viewer_command_forwards_manual_ros_input_ownership(tmp_path: Path) -> None:
+    command = build_live_viewer_command(
+        tmp_path / "trace.jsonl",
+        0.25,
+        "127.0.0.1",
+        9001,
+        12.0,
+        80,
+        "",
+        420,
+        tmp_path.joinpath("topics.json").as_posix(),
+        "",
+        input_owner="manual_ros",
+    )
+
+    assert "--input-owner" in command
+    assert command[command.index("--input-owner") + 1] == "manual_ros"
 
 
 def test_build_mock_command_forwards_decision_context_inputs(tmp_path: Path) -> None:

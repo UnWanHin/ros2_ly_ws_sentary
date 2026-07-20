@@ -14,6 +14,7 @@ from test_trace_contract import stable_trace_row
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCENARIO_DIR = REPO_ROOT / "src" / "simulator" / "sample" / "scenarios"
+TACTICAL_BOARD_SCENE = REPO_ROOT / "src" / "simulator" / "sample" / "unit_scenes" / "tactical_board.yaml"
 
 
 def run_simulator(*args: str, extra_env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -94,6 +95,24 @@ def test_smoke_test_can_write_png_screenshot(tmp_path: Path) -> None:
 
     assert result.returncode == 0, result.stderr
     assert "smoke screenshot:" in result.stdout
+    assert screenshot.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_smoke_test_renders_tactical_board_scene(tmp_path: Path) -> None:
+    screenshot = tmp_path / "tactical-board.png"
+
+    result = run_simulator(
+        str(SCENARIO_DIR / "tactical_protect_castle.jsonl"),
+        "--unit-scene",
+        str(TACTICAL_BOARD_SCENE),
+        "--smoke-test",
+        "--no-web-stream",
+        "--smoke-screenshot",
+        str(screenshot),
+        extra_env={"SDL_VIDEODRIVER": "dummy"},
+    )
+
+    assert result.returncode == 0, result.stderr
     assert screenshot.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
 
 

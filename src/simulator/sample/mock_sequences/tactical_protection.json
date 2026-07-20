@@ -1,0 +1,31 @@
+{
+  "schema": "ly_simulator_mock_sequence_v1",
+  "description": "Place an enemy Hero in the red MyBase area so the Tactical ProtectCastle EnemyPos source can be observed in a regional offline run.",
+  "actions": [
+    {
+      "at_sec": 0.0,
+      "command": "start",
+      "description": "Open the offline start gate."
+    },
+    {
+      "at_sec": 0.2,
+      "command": "set_self_position",
+      "payload": {"x": 830, "y": 749}
+    },
+    {
+      "at_sec": 0.4,
+      "command": "set_unit",
+      "payload": {"side": "enemy", "type": "Hero", "hp": 200, "max_hp": 200, "x": 640, "y": 749}
+    },
+    {
+      "at_sec": 1.5,
+      "command": "set_unit",
+      "payload": {"side": "enemy", "type": "Hero", "hp": 200, "max_hp": 200, "x": 1180, "y": 980}
+    },
+    {
+      "at_sec": 2.5,
+      "command": "set_unit",
+      "payload": {"side": "enemy", "type": "Hero", "hp": 200, "max_hp": 200, "x": 640, "y": 749}
+    }
+  ]
+}

@@ -4,6 +4,7 @@ from simulator.control_bus import normalize_api_control_payload
 from simulator.field import FieldGeometry, relative_side_to_field_side
 from simulator.inputs_panel import compact_decision_summary
 from simulator.interactive_inputs import SimulatorInputState, load_unit_scene_file, unit_decision_summary
+from simulator.viewer import Viewer
 
 
 def test_field_geometry_converts_position_data_y() -> None:
@@ -277,6 +278,13 @@ def test_manual_ros_compatibility_facade_rejects_scene_mutations() -> None:
     assert state.units == {}
 
 
+def test_input_state_config_preserves_manual_ros_ownership() -> None:
+    state = SimulatorInputState.from_config({"input_owner": "manual_ros"}, field=FieldGeometry())
+
+    assert state.snapshot()["ownership_mode"] == "manual_ros"
+    assert not state.apply_command("set_structure_health", {"side": "friend", "structure": "base", "hp": 3000})
+
+
 def test_input_state_snapshot_exposes_json_safe_decision_context() -> None:
     state = SimulatorInputState.with_defaults(field=FieldGeometry())
 
@@ -292,6 +300,8 @@ def test_input_state_snapshot_exposes_json_safe_decision_context() -> None:
     snapshot = state.snapshot(team="red", goals={})
 
     assert snapshot["team"] == "red"
+    assert snapshot["ownership_mode"] == "mock"
+    assert snapshot["field"] == {"width_cm": 2800, "height_cm": 1500, "frame": "left_bottom_origin_cm"}
     assert snapshot["summary"]["unit_count"] == 3
     assert snapshot["summary"]["friend_units"] == 1
     assert snapshot["summary"]["enemy_units"] == 2
@@ -311,6 +321,8 @@ def test_input_state_snapshot_exposes_json_safe_decision_context() -> None:
 
     units = {(item["side"], item["type"]): item for item in snapshot["units"]}
     assert units[("enemy", "Hero")]["health_field"] == "hero"
+    assert units[("enemy", "Hero")]["unit_key"] == "hero"
+    assert units[("enemy", "Hero")]["asset_key"] == "Hero"
     assert units[("enemy", "Hero")]["position_data"] == {"car_id": 101, "raw_x": 2555, "raw_y": 600}
     assert units[("enemy", "Hero")]["decision_badges"] == ["BT-HP", "BT-POS", "UnitInfo"]
     assert units[("enemy", "Hero")]["decision_summary"] == "BT:HP,POS,UI"
@@ -324,3 +336,39 @@ def test_input_state_snapshot_exposes_json_safe_decision_context() -> None:
     assert units[("enemy", "Drone")]["decision_channels"]["position_consumed_by_bt"] is False
     assert units[("friend", "Sentry")]["field_side"] == "red"
     assert units[("friend", "Sentry")]["position_data"] == {"car_id": 7, "raw_x": 300, "raw_y": 1100}
+
+
+def test_viewer_hides_trace_units_when_an_editable_scene_is_present() -> None:
+    viewer = object.__new__(Viewer)
+    viewer.layers = {}
+    viewer.show_trace_units_with_scene = False
+    viewer.sim_input_state = SimulatorInputState.with_defaults(field=FieldGeometry())
+
+    assert viewer.show_trace_units() is True
+
+    assert viewer.sim_input_state.apply_command(
+        "place_unit",
+        {"entity_id": "enemy:hero:a", "side": "enemy", "unit_key": "hero", "x": 1200, "y": 700},
+    )
+    assert viewer.show_trace_units() is False
+
+    viewer.show_trace_units_with_scene = True
+    assert viewer.show_trace_units() is True
+
+
+def test_viewer_scene_piece_list_keeps_same_class_instances_distinct() -> None:
+    viewer = object.__new__(Viewer)
+    viewer.sim_input_state = SimulatorInputState.with_defaults(field=FieldGeometry())
+
+    assert viewer.sim_input_state.apply_command(
+        "place_unit",
+        {"entity_id": "enemy:hero:a", "side": "enemy", "unit_key": "hero", "x": 1200, "y": 700},
+    )
+    assert viewer.sim_input_state.apply_command(
+        "place_unit",
+        {"entity_id": "enemy:hero:b", "side": "enemy", "unit_key": "hero", "x": 1300, "y": 700},
+    )
+
+    pieces = viewer.sim_scene_units()
+
+    assert [unit.entity_id for unit, _ in pieces] == ["enemy:hero:a", "enemy:hero:b"]

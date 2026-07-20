@@ -107,6 +107,7 @@ colors:
 
 simulator_inputs:
   enabled: true
+  show_trace_units_with_scene: false
   unit_scene_file: ""
   structure_positions:
     outpost:

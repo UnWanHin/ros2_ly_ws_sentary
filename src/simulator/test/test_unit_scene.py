@@ -9,6 +9,7 @@ from simulator.unit_scene import build_scene_summary, iter_unit_scene_samples, m
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_SCENE = REPO_ROOT / "src" / "simulator" / "sample" / "unit_scene.json"
 FULL_ROSTER_SCENE = REPO_ROOT / "src" / "simulator" / "sample" / "unit_scenes" / "full_roster.json"
+TACTICAL_BOARD_SCENE = REPO_ROOT / "src" / "simulator" / "sample" / "unit_scenes" / "tactical_board.yaml"
 
 
 def test_unit_scene_sample_catalog_includes_default_and_full_roster() -> None:
@@ -57,6 +58,18 @@ def test_full_roster_summary_covers_all_visual_unit_assets() -> None:
     enemy_sides = {unit["field_side"] for unit in summary["units"] if unit["side"] == "enemy"}
     assert friend_sides == {"blue"}
     assert enemy_sides == {"red"}
+
+
+def test_tactical_board_scene_covers_protection_rehearsal_piece_assets() -> None:
+    summary = build_scene_summary(TACTICAL_BOARD_SCENE, team="red")
+
+    assert summary["summary"]["unit_count"] == 6
+    assert summary["summary"]["friend_units"] == 3
+    assert summary["summary"]["enemy_units"] == 3
+    assert all(unit["asset"]["sprite_available"] for unit in summary["units"])
+    enemy_hero = next(unit for unit in summary["units"] if unit["side"] == "enemy" and unit["type"] == "Hero")
+    assert enemy_hero["position_cm"] == {"x": 640, "y": 749}
+    assert enemy_hero["decision_summary"] == "BT:HP,POS,UI"
 
 
 def test_unit_scene_list_samples_cli(capsys) -> None:

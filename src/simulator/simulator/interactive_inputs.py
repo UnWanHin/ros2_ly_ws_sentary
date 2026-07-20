@@ -444,8 +444,13 @@ class SimulatorInputState:
         field: FieldGeometry | None = None,
         structure_health_overrides: dict[tuple[str, str], int] | None = None,
     ) -> "SimulatorInputState":
-        state = cls(field=field, structure_health_overrides=structure_health_overrides)
         config = as_dict(simulator_inputs)
+        state = cls(
+            field=field,
+            structure_health_overrides=structure_health_overrides,
+            team=str(config.get("team", "red")),
+            ownership_mode=str(config.get("input_owner", "mock")),
+        )
         if "initial_units" in config:
             state.apply_unit_scene(config.get("initial_units"), clear=True)
         return state
@@ -652,9 +657,11 @@ class SimulatorInputState:
                     "label": item.label,
                     "side": item.side,
                     "field_side": relative_side_to_field_side(item.side, team),
+                    "kind": item.structure,
                     "structure": item.structure,
                     "hp": hp,
                     "max_hp": item.max_hp,
+                    "step": item.step,
                     "hp_ratio": hp_ratio(hp, item.max_hp),
                     "position_cm": point_payload(self.structure_position(item, team, {})),
                 }
@@ -676,6 +683,8 @@ class SimulatorInputState:
                     "entity_id": scene_unit.entity_id,
                     "side": scene_unit.side,
                     "field_side": relative_side_to_field_side(scene_unit.side, team),
+                    "unit_key": archetype.key,
+                    "asset_key": archetype.asset_key,
                     "type_id": type_id,
                     "type": archetype.label,
                     "hp": int(scene_unit.hp),
@@ -704,6 +713,8 @@ class SimulatorInputState:
             palette.append(
                 {
                     "side": item.side,
+                    "unit_key": archetype.key if archetype is not None else "",
+                    "asset_key": archetype.asset_key if archetype is not None else "",
                     "type_id": item.type_id,
                     "type": item.type_name,
                     "hp": item.hp,
@@ -713,6 +724,13 @@ class SimulatorInputState:
             )
         return {
             "team": "blue" if str(team).strip().lower() == "blue" else "red",
+            "ownership_mode": self.scene.ownership_mode,
+            "field": {
+                "width_cm": self.field.width,
+                "height_cm": self.field.height,
+                "frame": self.catalog.field.frame,
+            },
+            "selected_entity_id": self.scene.selected_entity_id,
             "summary": {
                 "unit_count": len(units),
                 "friend_units": counts["friend"],

@@ -1,0 +1,33 @@
+schema: ly_simulator_unit_scene_v1
+description: Tactical board rehearsal with the red sentry protecting the castle while an enemy Hero enters MyBase.
+units:
+  - side: friend
+    type: Sentry
+    hp: 400
+    max_hp: 400
+    position_cm: {x: 830, y: 749}
+  - side: friend
+    type: Hero
+    hp: 200
+    max_hp: 200
+    position_cm: {x: 920, y: 1030}
+  - side: friend
+    type: Engineer
+    hp: 250
+    max_hp: 250
+    position_cm: {x: 490, y: 520}
+  - side: enemy
+    type: Hero
+    hp: 200
+    max_hp: 200
+    position_cm: {x: 640, y: 749}
+  - side: enemy
+    type: Infantry1
+    hp: 180
+    max_hp: 200
+    position_cm: {x: 1080, y: 880}
+  - side: enemy
+    type: Drone
+    hp: 150
+    max_hp: 150
+    position_cm: {x: 1320, y: 1250}

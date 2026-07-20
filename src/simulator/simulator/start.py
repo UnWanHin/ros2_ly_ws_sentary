@@ -1306,6 +1306,8 @@ def build_live_viewer_command(
     match_duration_sec: int,
     ros_state_file: str,
     unit_scene: str,
+    *,
+    input_owner: str = "mock",
 ) -> list[str]:
     cmd = [
         sys.executable,
@@ -1317,6 +1319,8 @@ def build_live_viewer_command(
         f"{follow_poll}",
         "--follow-wait",
         "600",
+        "--input-owner",
+        input_owner,
     ]
     if web_host.strip():
         cmd.extend(["--web-host", web_host.strip()])
@@ -1348,6 +1352,8 @@ def start_live_viewer(
     match_duration_sec: int,
     ros_state_file: str,
     unit_scene: str,
+    *,
+    input_owner: str = "mock",
 ) -> subprocess.Popen[bytes]:
     cmd = build_live_viewer_command(
         trace_path,
@@ -1360,6 +1366,7 @@ def start_live_viewer(
         match_duration_sec,
         ros_state_file,
         unit_scene,
+        input_owner=input_owner,
     )
     return subprocess.Popen(cmd)
 
@@ -1495,6 +1502,7 @@ def main(argv: list[str] | None = None) -> int:
             args.match_duration_sec,
             args.ros_state_file,
             unit_scene_path.as_posix() if unit_scene_path is not None else "",
+            input_owner=args.input_owner,
         )
         print(f"live viewer command: {' '.join(shlex.quote(item) for item in live_viewer_cmd)}")
 
@@ -1577,6 +1585,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.match_duration_sec,
                 args.ros_state_file,
                 unit_scene_path.as_posix() if unit_scene_path is not None else "",
+                input_owner=args.input_owner,
             )
             # Give viewer a moment to start and enter follow wait state.
             time.sleep(0.5)

@@ -170,6 +170,9 @@ def record_status_payload(record: TraceRecord) -> dict[str, Any]:
             "rfid_match": record.referee.rfid_match.as_payload(),
         },
         "bullet_info": bullet_info_status_payload(record),
+        "gimbal_feedback": gimbal_feedback_status_payload(record),
+        "control_output": control_output_status_payload(record),
+        "tactical": tactical_status_payload(record),
         "runtime_guard": {
             "fault": record.runtime_guard.fault,
             "recovering": record.runtime_guard.recovering,
@@ -210,6 +213,66 @@ def bullet_info_status_payload(record: TraceRecord) -> dict[str, Any]:
         "remaining_gold_coin": bullet.remaining_gold_coin,
         "projectile_allowance_fortress_17mm": bullet.projectile_allowance_fortress_17mm,
     }
+
+
+def gimbal_feedback_status_payload(record: TraceRecord) -> dict[str, Any]:
+    feedback = record.gimbal_feedback
+    fire_code = feedback.fire_code
+    return {
+        "available": feedback.available,
+        "age_ms": feedback.age_ms,
+        "fire_code": {
+            "field_mask": fire_code.field_mask,
+            "raw": fire_code.raw,
+            "fire_status": fire_code.fire_status,
+            "cap_state": fire_code.cap_state,
+            "follow_mode": fire_code.follow_mode,
+            "aim_mode": fire_code.aim_mode,
+            "rotate": fire_code.rotate,
+        },
+    }
+
+
+def control_output_status_payload(record: TraceRecord) -> dict[str, Any]:
+    output = record.control_output
+    fire_code = output.fire_code
+    trajectory = output.trajectory
+    return {
+        "available": output.available,
+        "sequence": output.sequence,
+        "age_ms": output.age_ms,
+        "source": output.source,
+        "angles": {
+            "published": output.angles.published,
+            "yaw": output.angles.yaw,
+            "pitch": output.angles.pitch,
+        },
+        "fire_code": {
+            "published": fire_code.published,
+            "field_mask": fire_code.field_mask,
+            "raw": fire_code.raw,
+            "fire_status": fire_code.fire_status,
+            "cap_state": fire_code.cap_state,
+            "follow_mode": fire_code.follow_mode,
+            "aim_mode": fire_code.aim_mode,
+            "rotate": fire_code.rotate,
+        },
+        "trajectory": {
+            "published": trajectory.published,
+            "available": trajectory.available,
+            "unavailable_reason": trajectory.unavailable_reason,
+            "yaw": trajectory.yaw,
+            "pitch": trajectory.pitch,
+            "yaw_omega": trajectory.yaw_omega,
+            "pitch_omega": trajectory.pitch_omega,
+            "yaw_alpha": trajectory.yaw_alpha,
+            "pitch_alpha": trajectory.pitch_alpha,
+        },
+    }
+
+
+def tactical_status_payload(record: TraceRecord) -> dict[str, Any]:
+    return record.tactical.as_payload()
 
 
 class Viewer:
@@ -285,6 +348,7 @@ class Viewer:
         self.armor_sprite_cache: dict[tuple[str, int, str], Any | None] = {}
         self.simulator_inputs = as_dict(config.get("simulator_inputs"))
         self.simulator_inputs_enabled = bool(self.simulator_inputs.get("enabled", True))
+        self.show_trace_units_with_scene = bool(self.simulator_inputs.get("show_trace_units_with_scene", False))
         self.default_field = FieldGeometry.from_config(config.get("field_cm"))
         self.sim_input_state = SimulatorInputState.from_config(
             self.simulator_inputs,
@@ -293,6 +357,7 @@ class Viewer:
         self.inputs_panel = InputsPanel(self)
         self.dragging_unit: Any | None = None
         self.drag_position: tuple[int, int] | None = None
+        self.next_scene_entity_id = 0
         self.times = [record.t for record in records]
         self.current_index = 0
         self.current_time = self.times[0]
@@ -482,8 +547,10 @@ class Viewer:
         elif key in (pg.K_3, pg.K_KP3):
             self.set_panel_tab("runtime")
         elif key in (pg.K_4, pg.K_KP4):
-            self.set_panel_tab("inputs")
+            self.set_panel_tab("control")
         elif key in (pg.K_5, pg.K_KP5):
+            self.set_panel_tab("inputs")
+        elif key in (pg.K_6, pg.K_KP6):
             self.set_panel_tab("layers")
         elif key == pg.K_s:
             self.send_match_command("start")
@@ -599,8 +666,9 @@ class Viewer:
         if field_pos is None:
             return
         x, y = field_pos
-        payload = unit.to_command_payload(int(round(x)), int(round(y)))
-        self.send_sim_command("set_unit", payload)
+        payload = self.scene_drag_payload(unit, int(round(x)), int(round(y)))
+        if payload is not None:
+            self.send_sim_command("place_unit", payload)
 
     def send_match_command(self, command: str, payload: dict[str, Any] | None = None) -> None:
         if not self.match_control_enabled or self.control_path is None or not self.follow:
@@ -618,6 +686,9 @@ class Viewer:
     def send_sim_command(self, command: str, payload: dict[str, Any]) -> None:
         if not self.controls_available():
             self.last_control_status = "sim input disabled"
+            return
+        if self.sim_input_state.scene.ownership_mode != "mock":
+            self.last_control_status = "manual_ros observer mode"
             return
         try:
             append_command(self.control_path, command, payload)
@@ -672,7 +743,7 @@ class Viewer:
         return self.inputs_panel.handle_mouse_down(pos)
 
     def handle_sim_map_mouse_down(self, pos: tuple[int, int]) -> bool:
-        if not self.simulator_inputs_enabled:
+        if not self.simulator_inputs_enabled or self.sim_input_state.scene.ownership_mode != "mock":
             return False
         image_rect = self.map_image_rect()
         if not image_rect.collidepoint(pos):
@@ -680,9 +751,38 @@ class Viewer:
         hit = self.hit_sim_unit(pos, image_rect)
         if hit is None:
             return False
-        self.dragging_unit = self.sim_input_state.units[hit]
+        unit = self.sim_input_state.scene.units.get(hit)
+        if unit is None:
+            return False
+        self.sim_input_state.scene.selected_entity_id = unit.entity_id
+        self.dragging_unit = unit
         self.drag_position = pos
         return True
+
+    def scene_drag_payload(self, unit: Any, x: int, y: int) -> dict[str, Any] | None:
+        entity_id = getattr(unit, "entity_id", None)
+        side = getattr(unit, "side", None)
+        unit_key = getattr(unit, "unit_key", None)
+        hp = getattr(unit, "hp", None)
+        if not isinstance(entity_id, str) or not isinstance(side, str) or not isinstance(unit_key, str):
+            type_name = str(getattr(unit, "type_name", "")).strip()
+            side = str(getattr(unit, "side", "")).strip().lower()
+            try:
+                archetype = self.sim_input_state.catalog.unit_by_key(type_name.lower())
+            except KeyError:
+                return None
+            self.next_scene_entity_id += 1
+            entity_id = f"{side}:{archetype.key}:pygame{self.next_scene_entity_id}"
+            unit_key = archetype.key
+            hp = getattr(unit, "hp", archetype.default_hp)
+        return {
+            "entity_id": entity_id,
+            "side": side,
+            "unit_key": unit_key,
+            "hp": int(hp),
+            "x": x,
+            "y": y,
+        }
 
     def poll_control_commands(self) -> None:
         if not self.match_control_enabled or self.control_path is None or not self.follow:
@@ -715,6 +815,10 @@ class Viewer:
 
     def web_status_metadata(self) -> dict[str, Any]:
         record = self.records[self.current_index]
+        input_state = self.sim_input_state.snapshot(team=record.team, goals=self.goals)
+        current_record = record_status_payload(record)
+        goal_position = point_payload(record_position(record, self.goals))
+        route_cm = [point_payload(point) for point in self.path_points()]
         return {
             "trace": {
                 "name": self.trace_path.name if self.trace_path is not None else "",
@@ -738,11 +842,28 @@ class Viewer:
                 "match_running": self.match_running,
                 "controls_available": self.controls_available(),
             },
-            "current_record": record_status_payload(record),
+            "current_record": current_record,
+            "scene": {
+                "ownership_mode": input_state.get("ownership_mode", "mock"),
+                "selected_entity_id": input_state.get("selected_entity_id"),
+                "show_trace_units": not bool(input_state.get("units")),
+                "units": input_state.get("units", []),
+                "structures": input_state.get("structures", []),
+            },
+            "decision": {
+                "goal": {
+                    "id": record.output.goal_id,
+                    "name": record.output.goal_name,
+                    "position_cm": goal_position,
+                },
+                "intent": current_record["intent"],
+                "route_cm": route_cm,
+            },
+            "control_output": current_record["control_output"],
             "simulator_inputs": {
                 "enabled": self.simulator_inputs_enabled,
                 "status": self.last_control_status,
-                "state": self.sim_input_state.snapshot(team=record.team, goals=self.goals),
+                "state": input_state,
             },
         }
 
@@ -842,7 +963,8 @@ class Viewer:
         if self.layers.get("scripted_path", True):
             self.draw_scripted_path(image_rect)
         if self.layers.get("units", True):
-            self.draw_units(image_rect)
+            if self.show_trace_units():
+                self.draw_units(image_rect)
             self.draw_sim_units(image_rect)
         if self.layers.get("current_goal", True):
             self.draw_current_goal(image_rect)
@@ -1186,11 +1308,13 @@ class Viewer:
                     self.draw_label(f"{goal_id}:{goal.get('name', '')}{suffix}", sx + 6, sy - 10, image_rect)
 
     def path_points(self) -> list[tuple[float, float]]:
-        if self.live_goal_history:
-            return self.live_goal_history
+        live_goal_history = getattr(self, "live_goal_history", [])
+        if live_goal_history:
+            return live_goal_history
         points: list[tuple[float, float]] = []
         last_goal: tuple[int, str, tuple[float, float] | None] | None = None
-        limit = int(self.timeline_config.get("path_history_limit", 500))
+        timeline_config = getattr(self, "timeline_config", {})
+        limit = int(timeline_config.get("path_history_limit", 500))
         for record in self.records[max(0, self.current_index - limit) : self.current_index + 1]:
             key = record.output.route_key
             if key == last_goal:
@@ -1238,6 +1362,11 @@ class Viewer:
         for unit in self.records[self.current_index].units:
             self.draw_unit(unit, image_rect)
 
+    def show_trace_units(self) -> bool:
+        if self.show_trace_units_with_scene:
+            return True
+        return not bool(self.sim_input_state.scene.units)
+
     def absolute_field_side(self, relative_side: str) -> str:
         team = self.records[self.current_index].team
         if team not in ("red", "blue"):
@@ -1283,15 +1412,25 @@ class Viewer:
     def draw_sim_units(self, image_rect: Any) -> None:
         if not self.simulator_inputs_enabled:
             return
-        for unit in self.sim_input_state.units.values():
-            self.draw_sim_unit(unit, image_rect)
+        for unit, archetype in self.sim_scene_units():
+            self.draw_sim_unit(unit, archetype, image_rect)
 
-    def draw_sim_unit(self, unit: Any, image_rect: Any) -> None:
+    def sim_scene_units(self) -> list[tuple[Any, Any]]:
+        items: list[tuple[Any, Any]] = []
+        for unit in self.sim_input_state.scene.units.values():
+            try:
+                archetype = self.sim_input_state.catalog.unit_by_key(unit.unit_key)
+            except KeyError:
+                continue
+            items.append((unit, archetype))
+        return sorted(items, key=lambda item: item[0].entity_id)
+
+    def draw_sim_unit(self, unit: Any, archetype: Any, image_rect: Any) -> None:
         pg = self.pg
         x = unit.x
         y = unit.y
         sx, sy = self.field_to_screen((x, y), image_rect)
-        type_name = unit.type_name
+        type_name = archetype.label
         type_styles = as_dict(self.unit_styles.get("types"))
         style = as_dict(type_styles.get(type_name, type_styles.get("default", {})))
         side = unit.side
@@ -1300,7 +1439,8 @@ class Viewer:
         label = str(style.get("label", type_name[:1] or "?"))
         field_side = self.unit_field_side(side)
         marker_extent = max(radius, self.unit_assets.unit_size_px // 2)
-        if not self.draw_unit_art(sx, sy, field_side, type_name, self.unit_assets.unit_size_px, selected=True):
+        selected = self.sim_input_state.scene.selected_entity_id == unit.entity_id
+        if not self.draw_unit_art(sx, sy, field_side, type_name, self.unit_assets.unit_size_px, selected=selected):
             fill = pg.Color(side_style.get("color", self.colors_raw.get(side, "#4fb3d9")))
             outline = pg.Color(side_style.get("outline", "#000000"))
             pg.draw.circle(self.screen, self.palette["white"], (sx, sy), radius + 5)
@@ -1309,11 +1449,11 @@ class Viewer:
             text = self.small_font.render(label, True, self.palette["black"])
             self.screen.blit(text, text.get_rect(center=(sx, sy)))
             marker_extent = radius
-        max_hp = max(1, int(unit.max_hp))
+        max_hp = max(1, int(archetype.max_hp))
         hp = max(0, min(max_hp, int(unit.hp)))
         self.draw_health_bar(sx - 22, sy + marker_extent + 6, 44, 5, hp / max_hp)
         if self.show_labels or self.panel_tab == "inputs":
-            channels = unit_decision_summary(side, unit.type_id)
+            channels = unit_decision_summary(side, int(archetype.position_car_id or 0))
             self.draw_label(
                 f"SIM {side}:{type_name} {hp}/{max_hp} {channels}",
                 sx + marker_extent + 7,
@@ -1321,17 +1461,17 @@ class Viewer:
                 image_rect,
             )
 
-    def hit_sim_unit(self, pos: tuple[int, int], image_rect: Any) -> tuple[str, int] | None:
-        for key, unit in reversed(list(self.sim_input_state.units.items())):
+    def hit_sim_unit(self, pos: tuple[int, int], image_rect: Any) -> str | None:
+        for unit, archetype in reversed(self.sim_scene_units()):
             x = unit.x
             y = unit.y
             sx, sy = self.field_to_screen((x, y), image_rect)
-            type_name = unit.type_name
+            type_name = archetype.label
             type_styles = as_dict(self.unit_styles.get("types"))
             style = as_dict(type_styles.get(type_name, type_styles.get("default", {})))
             radius = max(int(style.get("radius", 7)) + 8, self.unit_assets.unit_size_px // 2 + 8)
             if math.hypot(pos[0] - sx, pos[1] - sy) <= radius:
-                return key
+                return unit.entity_id
         return None
 
     def draw_drag_preview(self) -> None:
@@ -1339,8 +1479,13 @@ class Viewer:
             return
         unit = self.dragging_unit
         pg = self.pg
-        side = unit.side
-        type_name = unit.type_name
+        side = str(getattr(unit, "side", "friend"))
+        type_name = str(getattr(unit, "type_name", ""))
+        if not type_name:
+            try:
+                type_name = self.sim_input_state.catalog.unit_by_key(str(unit.unit_key)).label
+            except (AttributeError, KeyError):
+                type_name = "?"
         type_styles = as_dict(self.unit_styles.get("types"))
         style = as_dict(type_styles.get(type_name, type_styles.get("default", {})))
         side_style = as_dict(self.unit_styles.get(side, {}))
@@ -1567,6 +1712,11 @@ class Viewer:
             y = self.draw_section(x, y, "Runtime Guard", self.runtime_guard_rows(record), max_width)
             return self.draw_resource_bars(x, y, max_width, record)
 
+        if self.panel_tab == "control":
+            y = self.draw_section(x, y, "Final Control Output", self.control_output_rows(record), max_width)
+            y = self.draw_section(x, y, "Lower-Machine Feedback", self.gimbal_feedback_rows(record), max_width)
+            return self.draw_section(x, y, "Legacy Gimbal State", self.gimbal_rows(record), max_width)
+
         if self.panel_tab == "inputs":
             return self.inputs_panel.draw(x, y, max_width, panel)
 
@@ -1635,6 +1785,7 @@ class Viewer:
             ("decision", "Decision"),
             ("events", "Events"),
             ("runtime", "Runtime"),
+            ("control", "Control"),
             ("inputs", "Inputs"),
             ("layers", "Layers"),
         ]
@@ -1828,6 +1979,78 @@ class Viewer:
             ("Cap", f"cap_v={gimbal.cap_v} lower_head={gimbal.navi_lower_head}"),
             ("FireCode", f"fire={gimbal.fire_status} cap={gimbal.cap_state} follow={gimbal.follow_mode}"),
             ("Aim/Rotate", f"aim={gimbal.aim_mode} rotate={gimbal.rotate}"),
+        ]
+
+    def gimbal_feedback_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
+        feedback = record.gimbal_feedback
+        if not feedback.available:
+            return [
+                ("Available", "N"),
+                ("FireCode", "not received"),
+            ]
+        fire_code = feedback.fire_code
+        age = "-" if feedback.age_ms is None else f"{feedback.age_ms}ms"
+        return [
+            ("Available", f"Y age={age}"),
+            (
+                "FireCode",
+                " ".join(
+                    [
+                        f"fire={self.value_text(fire_code.fire_status)}",
+                        f"cap={self.value_text(fire_code.cap_state)}",
+                        f"follow={self.flag(fire_code.follow_mode)}",
+                        f"aim={self.flag(fire_code.aim_mode)}",
+                        f"rotate={self.value_text(fire_code.rotate)}",
+                    ]
+                ),
+            ),
+        ]
+
+    def control_output_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
+        output = record.control_output
+        if not output.available:
+            return [
+                ("Available", "N"),
+                ("Source", output.source),
+                ("Trajectory", output.trajectory.unavailable_reason),
+            ]
+        angles = output.angles
+        fire_code = output.fire_code
+        trajectory = output.trajectory
+        angle_text = "not published"
+        if angles.published:
+            angle_text = (
+                f"yaw={self.format_optional_float(angles.yaw)} "
+                f"pitch={self.format_optional_float(angles.pitch)}"
+            )
+        fire_text = "not published"
+        if fire_code.published:
+            fire_text = " ".join(
+                [
+                    f"fire={self.value_text(fire_code.fire_status)}",
+                    f"cap={self.value_text(fire_code.cap_state)}",
+                    f"follow={self.flag(fire_code.follow_mode)}",
+                    f"aim={self.flag(fire_code.aim_mode)}",
+                    f"rotate={self.value_text(fire_code.rotate)}",
+                ]
+            )
+        trajectory_text = (
+            f"published={self.flag(trajectory.published)} valid={self.flag(trajectory.available)}"
+        )
+        if trajectory.available:
+            trajectory_text += (
+                f" yaw={self.format_optional_float(trajectory.yaw)}"
+                f" pitch={self.format_optional_float(trajectory.pitch)}"
+            )
+        elif trajectory.unavailable_reason:
+            trajectory_text += f" reason={trajectory.unavailable_reason}"
+        age = "-" if output.age_ms is None else f"{output.age_ms}ms"
+        return [
+            ("Available", f"Y seq={self.value_text(output.sequence)} age={age}"),
+            ("Source", output.source),
+            ("Angles", angle_text),
+            ("FireCode", fire_text),
+            ("Trajectory", trajectory_text),
         ]
 
     def bullet_info_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
