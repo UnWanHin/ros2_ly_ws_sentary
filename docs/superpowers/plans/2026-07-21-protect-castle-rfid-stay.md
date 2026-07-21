@@ -10,10 +10,11 @@
 
 ## Global Constraints
 
-- Only the fresh referee `event_data` RFID branch (`status == 2 || status == 3`) may activate this stay behaviour.
+- Only the fresh raw referee `event_data` RFID branch (`status == 2 || status == 3`) may activate this stay behaviour.
 - `EnemyPos` semantics and all other ProtectCastle behaviour remain unchanged.
 - No topic, message, launch argument, or module changes.
-- `StayWhenRfid: false` preserves the current four-Castle-point RFID search behaviour.
+- `StayWhenRfid: false` preserves the current four-Castle-point RFID search and no-contact degradation behaviour.
+- `StayWhenRfid: true` bypasses no-contact degradation only while the raw `2/3` referee event remains fresh.
 - Aim, rotate, and fire remain active while only chassis navigation chase/velocity is suppressed after Castle arrival.
 
 ---
@@ -123,8 +124,11 @@ Expected: it fails before Task 1 implementation and passes after Task 1.
 
 - [ ] **Step 3: Implement only the two movement decisions**
 
-In `TrySetRegionalDefenseGoal`, compute the existing fresh RFID event once and
-use the Task 1 predicate. Replace the RFID branch candidate list with:
+In `EvaluateRegionalDefenseThreat` and `TrySetRegionalDefenseGoal`, compute a
+raw-fresh RFID stay predicate once and use it in addition to the existing
+degradable event predicate. Do not enter the no-contact degradation/cooldown
+block while that raw-fresh stay predicate is true. Replace the RFID branch
+candidate list with:
 
 ```cpp
 candidates = protect_castle_rfid_stay
@@ -272,4 +276,3 @@ Expected: no diff-check output and a clean worktree after commits.
 git add <corrected-files>
 git commit -m "test: verify fortress RFID stay policy"
 ```
-

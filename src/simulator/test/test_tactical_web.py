@@ -37,6 +37,8 @@ def tactical_metadata(*, ownership_mode: str = "mock") -> dict[str, Any]:
                 "protect_castle": {
                     "enabled": True,
                     "rfid_enabled": True,
+                    "stay_when_rfid_enabled": True,
+                    "stay_when_rfid_active": True,
                     "enemy_pos_enabled": True,
                     "rfid_event_raw_active": False,
                     "rfid_event_active": False,
@@ -136,6 +138,8 @@ def test_tactical_state_keeps_control_output_separate_from_feedback() -> None:
     assert state["gimbal_feedback"]["fire_code"]["rotate"] == 1
     assert state["control_output"]["fire_code"]["rotate"] == 0
     assert state["control_output"]["trajectory"]["available"] is True
+    assert state["tactical"]["protect_castle"]["stay_when_rfid_enabled"] is True
+    assert state["tactical"]["protect_castle"]["stay_when_rfid_active"] is True
     assert state["tactical"]["protect_castle"]["enemy_pos_active"] is True
 
 

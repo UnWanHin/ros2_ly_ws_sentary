@@ -17,6 +17,14 @@ inline bool IsProtectCastleRfidEventEnabled(
     return protect_castle_enable && rfid_enable && event_active;
 }
 
+inline bool IsProtectCastleRfidStayEnabled(
+    const bool protect_castle_enable,
+    const bool rfid_enable,
+    const bool stay_when_rfid,
+    const bool event_active) noexcept {
+    return protect_castle_enable && rfid_enable && stay_when_rfid && event_active;
+}
+
 inline bool IsProtectCastleEnemyPositionEnabled(
     const bool protect_castle_enable,
     const bool enemy_position_enable) noexcept {

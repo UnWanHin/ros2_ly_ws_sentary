@@ -6,6 +6,8 @@ behavior_tree:
         Enable: true
         # 裁判 event_data 的己方堡壘增益點被占（status 2/3）來源。
         RFID: true
+        # 對方占己方堡壘且裁判事件新鮮時，先去 Castle，抵達後不再離點追擊。
+        StayWhenRfid: true
         # /ly/position/data 的敵方座標進入我方 MyBase 來源。
         EnemyPos: true
 

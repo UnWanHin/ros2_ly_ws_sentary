@@ -1,6 +1,6 @@
 # Simulator Trace And Viewer
 
-Updated: 2026-07-20
+Updated: 2026-07-21
 
 ## Purpose
 
@@ -96,8 +96,9 @@ Structures, and Decision open; Tactical is folded by default, and Diagnostics ap
 enabled. Unit and structure health steppers retain the existing `set_unit_hp` and
 `set_structure_health` command payloads.
 
-In trace v4, `tactical.protect_castle` records configuration state and separately records RFID raw/effective
-activation and enemy-position activation. `tactical.regional_defense` carries the exact BT threat observation,
+In trace v4, `tactical.protect_castle` records configuration state including `stay_when_rfid_enabled`, and separately records RFID raw/effective
+activation, the resolved `stay_when_rfid_active` Castle-hold state, and enemy-position activation. The simulator never derives a Castle
+stay lock from piece geometry; it only displays BT-authored evidence. `tactical.regional_defense` carries the exact BT threat observation,
 last search kind, and counts. The simulator does not recreate those results from geometry. When reviewing
 FollowMode, read `control_output.fire_code.follow_mode` and `control_output.fire_code.rotate`; do not infer
 the final command from `gimbal_feedback`.

@@ -415,6 +415,8 @@ class TacticalDecisionState:
     available: bool
     protect_castle_enabled: bool | None
     protect_castle_rfid_enabled: bool | None
+    protect_castle_stay_when_rfid_enabled: bool | None
+    protect_castle_stay_when_rfid_active: bool | None
     protect_castle_enemy_pos_enabled: bool | None
     protect_castle_rfid_event_raw_active: bool | None
     protect_castle_rfid_event_active: bool | None
@@ -432,6 +434,8 @@ class TacticalDecisionState:
             "protect_castle": {
                 "enabled": self.protect_castle_enabled,
                 "rfid_enabled": self.protect_castle_rfid_enabled,
+                "stay_when_rfid_enabled": self.protect_castle_stay_when_rfid_enabled,
+                "stay_when_rfid_active": self.protect_castle_stay_when_rfid_active,
                 "enemy_pos_enabled": self.protect_castle_enemy_pos_enabled,
                 "rfid_event_raw_active": self.protect_castle_rfid_event_raw_active,
                 "rfid_event_active": self.protect_castle_rfid_event_active,

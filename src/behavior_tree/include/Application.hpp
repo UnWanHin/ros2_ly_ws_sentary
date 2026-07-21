@@ -941,6 +941,7 @@ public:
         const char* reason);
     bool IsRegionalDefenseAimSuppressActive() const noexcept;
     bool IsFortressGainPointEnemyOccupiedEventRawFresh(int referee_fresh_ms) const noexcept;
+    bool IsProtectCastleRfidStayActive(int referee_fresh_ms) const noexcept;
     bool IsFortressGainPointEnemyOccupiedEventFresh(int referee_fresh_ms) const noexcept;
     bool IsFriendPositionFresh(UnitType unit_type, int fresh_ms) const;
     bool IsFriendHealthFresh(UnitType unit_type, int fresh_ms) const;

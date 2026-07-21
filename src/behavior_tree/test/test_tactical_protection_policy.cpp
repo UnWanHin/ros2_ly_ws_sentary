@@ -21,6 +21,14 @@ TEST(TacticalProtectionPolicy, ProtectCastleRfidRequiresMasterSourceAndEvent) {
     EXPECT_FALSE(BehaviorTree::IsProtectCastleRfidEventEnabled(true, true, false));
 }
 
+TEST(TacticalProtectionPolicy, ProtectCastleRfidStayRequiresFreshRfidEventAndEveryGate) {
+    EXPECT_TRUE(BehaviorTree::IsProtectCastleRfidStayEnabled(true, true, true, true));
+    EXPECT_FALSE(BehaviorTree::IsProtectCastleRfidStayEnabled(false, true, true, true));
+    EXPECT_FALSE(BehaviorTree::IsProtectCastleRfidStayEnabled(true, false, true, true));
+    EXPECT_FALSE(BehaviorTree::IsProtectCastleRfidStayEnabled(true, true, false, true));
+    EXPECT_FALSE(BehaviorTree::IsProtectCastleRfidStayEnabled(true, true, true, false));
+}
+
 TEST(TacticalProtectionPolicy, ProtectCastleEnemyPositionRequiresMasterAndSource) {
     EXPECT_TRUE(BehaviorTree::IsProtectCastleEnemyPositionEnabled(true, true));
     EXPECT_FALSE(BehaviorTree::IsProtectCastleEnemyPositionEnabled(false, true));

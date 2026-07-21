@@ -17,7 +17,7 @@ This change applies only to the referee RFID/event source:
 - master switch: `Tactical.ProtectCastle.Enable`
 - source switch: `Tactical.ProtectCastle.RFID`
 - new behaviour switch: `Tactical.ProtectCastle.StayWhenRfid`
-- fresh referee condition: `self_fortress_gain_point_status == 2 || == 3`
+- fresh raw referee condition: `self_fortress_gain_point_status == 2 || == 3`
 
 `EnemyPos` remains an independent ProtectCastle source. Its current
 navigation, search, and chase behaviour is not changed by this work.
@@ -36,8 +36,10 @@ occupation event:
    the gain point.
 
 With `StayWhenRfid: false`, all existing RFID fortress behaviour remains
-unchanged, including its surrounding-point search. With a stale event or an
-event status of `0` or `1`, the stay lock is inactive.
+unchanged, including its surrounding-point search and no-contact degradation.
+With `StayWhenRfid: true`, a fresh raw `2/3` event does not enter the existing
+no-contact degradation/cooldown path: Castle remains the goal until the raw
+event becomes stale or changes to `0/1`.
 
 ## Interface
 

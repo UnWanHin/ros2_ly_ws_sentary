@@ -366,6 +366,8 @@ def test_v4_trace_preserves_bt_tactical_protection_evidence() -> None:
         "protect_castle": {
             "enabled": True,
             "rfid_enabled": True,
+            "stay_when_rfid_enabled": True,
+            "stay_when_rfid_active": True,
             "enemy_pos_enabled": True,
             "rfid_event_raw_active": True,
             "rfid_event_active": True,
@@ -384,11 +386,15 @@ def test_v4_trace_preserves_bt_tactical_protection_evidence() -> None:
     payload = record_status_payload(record)
 
     assert record.tactical.available is True
+    assert record.tactical.protect_castle_stay_when_rfid_enabled is True
+    assert record.tactical.protect_castle_stay_when_rfid_active is True
     assert record.tactical.protect_castle_enemy_pos_active is True
     assert record.tactical.protect_castle_rfid_event_active is True
     assert record.tactical.regional_defense_search_kind == "own_fortress_gain_point"
     assert record.tactical.regional_defense_fortress_enemy_count == 2
     assert payload["tactical"]["protect_castle"]["enemy_pos_active"] is True
+    assert payload["tactical"]["protect_castle"]["stay_when_rfid_enabled"] is True
+    assert payload["tactical"]["protect_castle"]["stay_when_rfid_active"] is True
 
 
 def test_legacy_trace_keeps_tactical_evidence_explicitly_unavailable() -> None:
@@ -396,6 +402,8 @@ def test_legacy_trace_keeps_tactical_evidence_explicitly_unavailable() -> None:
 
     assert record.tactical.available is False
     assert record.tactical.protect_castle_enabled is None
+    assert record.tactical.protect_castle_stay_when_rfid_enabled is None
+    assert record.tactical.protect_castle_stay_when_rfid_active is None
     assert record.tactical.regional_defense_search_kind == "not_recorded"
 
 
@@ -618,6 +626,8 @@ def test_record_status_payload_is_json_safe_debug_summary() -> None:
             "protect_castle": {
                 "enabled": None,
                 "rfid_enabled": None,
+                "stay_when_rfid_enabled": None,
+                "stay_when_rfid_active": None,
                 "enemy_pos_enabled": None,
                 "rfid_event_raw_active": None,
                 "rfid_event_active": None,

@@ -1,6 +1,6 @@
 # Regional 決策框架說明
 
-Updated: 2026-07-19
+Updated: 2026-07-21
 
 本文記錄目前 `behavior_tree` 裡 regional 決策的區域狀態機框架：它會做哪些任務、怎麼啟動、怎麼判斷到達、會輸出什麼控制，以及哪些階段會被高優先級邏輯打斷。
 
@@ -57,7 +57,7 @@ Regional 目前已有的主要邏輯：
 - `MyReadyRoadland` 任務：`CentralToBase -> BaseToCentral -> BaseToCentral hold -> CentralToBase return`；穿越段仍是強綁定調度段，不能被普通高優先級邏輯直接打斷。`GuardHoldSec` 到時或資源不健康時會返回並完成任務。它會維持 FollowMode；是否請求 FaceMode 由 `MyReadyRoadland.UseFaceMode` 決定，baseline 為 `false`。
 - `CommonCentral` 任務：中場巡邏路線是 `my OutpostArea -> my RightShoot -> my BuffAround2 -> my LeftShoot -> my OutpostShoot -> enemy RightShoot -> enemy OccupyArea -> enemy OutpostShoot`，啟動時也按自身位置選最近點；完成 `MaxPatrolSteps` 後退出，交回 Default scorer 重新評估下一個大區域。
 - RegionalDefense：用官方敵方位置和 `event_data` 做戰術防守；道路前/後段分別統計後聚合為同一條 RoadCorridor 防守威脅，敵方進我方 Base/Highland/PreRoadland/ReadyRoadland/CommonCentral 或己方堡壘增益點 `2/3` 都可觸發。
-- 己方堡壘增益點 `2/3`：不去 `Castle`，只在 `CastleLeft1 / CastleLeft2 / CastleRight1 / CastleRight2` 搜索；若 Base 大區敵方數達門檻且普通裝甲目標已鎖定並允許開火，才原地停車、最高小陀螺開火；長時間無官方敵方位置且無視覺目標會退化忽略一段時間。
+- 己方堡壘增益點 `2/3`：`Tactical.ProtectCastle.StayWhenRfid=true` 時只去 `Castle`，抵達後禁止底盤導航追擊與切點離開；新鮮原始裁判事件持續期間不會無接觸退化。關閉時維持 `CastleLeft1 / CastleLeft2 / CastleRight1 / CastleRight2` 搜索和既有退化保護。此開關不影響 EnemyPos。
 - Recovery：Hard 層先回 `Recovery` 點；到達後若 3 秒內血量/彈量沒有回升，會在己方 `Recovery` 子區域內切換中心探測點，避免卡在補給區邊緣。
 - MapCommand：裁判 `0x0303` 坐標模式的非零官方地圖點會成為 45 秒（`Task.MapCommand.HoldSec`）的 Task 層導航任務。它直接走 `/ly/navi/goal_pos_raw -> navi_tf_bridge -> /goal_pose`，不偽裝成區域 Goal ID，也不進入 `GoalReachState`、AreaManager 或 watchdog。相同點的 5x/100ms 和後續 1Hz 重送不續期；目標機器人模式沒有座標，不導航。Hard Recovery 每拍取消這個任務並記住該點，恢復後不會自動續走。
 - Buff：由能量機關裁判狀態、sentry info、timer、damage abort 和 timeout 決定是否進 `AimMode::Buff`；戰術站位使用 `BuffOutpost`，FaceMode 對己方目標側。
@@ -298,18 +298,18 @@ DefaultPolicy 的當前選區規則：
 
 ## RegionalDefense
 
-RegionalDefense 是事件驅動戰術層，優先級高於 Default。敵方位置判斷只使用 `/ly/position/data` 寫入的官方場地坐標，不使用 map/odom 坐標混判；AreaManager 用 `Area.hpp` 官方點位區域邊界判斷敵方是否進入我方 Base/Highland/PreRoadland/ReadyRoadland 或公共 Central，兩段道路會聚合為同一 RoadCorridor 防守威脅。城堡保護有兩條獨立來源：`Tactical.ProtectCastle.RFID` 控制 `/ly/game/event_data.self_fortress_gain_point_status == 2/3` 的堡壘事件，`Tactical.ProtectCastle.EnemyPos` 控制敵方官方坐標進入我方 Base。`ProtectCastle.Enable=false` 會同時關閉兩條來源；`RFID=false` 只關事件和其站樁火控；`EnemyPos=false` 只忽略 MyBase 敵方坐標，Highland、兩段道路與 Central 的 RegionalDefense 不受影響。ProtectHero 的英雄保護條件會在 RegionalDefense 之前檢查；只有未命中英雄保護時，普通 RegionalDefense 才接管。
+RegionalDefense 是事件驅動戰術層，優先級高於 Default。敵方位置判斷只使用 `/ly/position/data` 寫入的官方場地坐標，不使用 map/odom 坐標混判；AreaManager 用 `Area.hpp` 官方點位區域邊界判斷敵方是否進入我方 Base/Highland/PreRoadland/ReadyRoadland 或公共 Central，兩段道路會聚合為同一 RoadCorridor 防守威脅。城堡保護有兩條獨立來源：`Tactical.ProtectCastle.RFID` 控制 `/ly/game/event_data.self_fortress_gain_point_status == 2/3` 的堡壘事件，`Tactical.ProtectCastle.EnemyPos` 控制敵方官方坐標進入我方 Base。`ProtectCastle.Enable=false` 會同時關閉兩條來源；`RFID=false` 只關事件和其站樁火控；`StayWhenRfid=true` 只在新鮮原始 `2/3` 事件時鎖 Castle 並跳過無接觸退化；`EnemyPos=false` 只忽略 MyBase 敵方坐標，Highland、兩段道路與 Central 的 RegionalDefense 不受影響。ProtectHero 的英雄保護條件會在 RegionalDefense 之前檢查；只有未命中英雄保護時，普通 RegionalDefense 才接管。
 
 當前防守搜索規則：
 
 - 敵方進入我方 Base：優先去 `Castle`，再 fallback 到左右 Castle 點。
-- `/ly/game/event_data` 顯示己方堡壘增益點被對方或雙方占領：不進 `Castle`，只在 `CastleLeft1 / CastleLeft2 / CastleRight1 / CastleRight2` 裡按自身位置選最近點搜索。默認仍沿用普通裝甲模式邊走邊打；若己方 Base 大區的新鮮官方敵方位置數達到 `RegionalDefense.FortressStandEnemyCountMin`，且普通裝甲目標已鎖定並允許開火，則把底盤速度壓為 0、小陀螺覆蓋到最高檔站樁開火。
+- `/ly/game/event_data` 顯示己方堡壘增益點被對方或雙方占領：`StayWhenRfid=true` 時唯一導航點為 `Castle`；抵達後不再授權導航追擊或切點離開，直到原始事件過期或轉為 `0/1`。關閉時才在 `CastleLeft1 / CastleLeft2 / CastleRight1 / CastleRight2` 裡按自身位置選最近點搜索。兩種模式都沿用普通裝甲模式邊走邊打；若己方 Base 大區的新鮮官方敵方位置數達到 `RegionalDefense.FortressStandEnemyCountMin`，且普通裝甲目標已鎖定並允許開火，則把底盤速度壓為 0、小陀螺覆蓋到最高檔站樁開火。
 - 我方 Highland 和任一 RoadCorridor 段同時有敵方：優先去 `Castle`。
 - 敵方進入我方 PreRoadland 或 ReadyRoadland：去 `CastleRight2 -> CastleRight1 -> Castle` 搜索。
 - 敵方進入我方 Highland：去 `HoleRoad -> Highland -> Castle` 搜索，先利用 HoleRoad 視野，再進 Highland。
 - 敵方在公共 Central：去 `HoleRoad -> Castle` 搜索。
 
-搜索點會尊重 area scope，但不啟動 Base/Highland/PreRoadland/ReadyRoadland 的 AreaManager 區域任務；它只做 scope 檢查、必要的 Highland transition，然後直接下導航點。`RegionalDefense.SearchHoldSec` 和 `RegionalDefense.SearchNoTargetSec` 控制「一直找不到」後切下一個搜索點；找不到的判斷使用 autoaim 最近有效目標時間，不混用 buff/outpost 目標。堡壘增益點事件還有退化保護：若連續 `RegionalDefense.FortressNoContactDegradeSec` 秒沒有己方 Base 大區官方敵方位置、也沒有普通裝甲視覺目標，會在 `RegionalDefense.FortressDegradeCooldownSec` 秒內暫時不把 `2/3` 當硬威脅。
+搜索點會尊重 area scope，但不啟動 Base/Highland/PreRoadland/ReadyRoadland 的 AreaManager 區域任務；它只做 scope 檢查、必要的 Highland transition，然後直接下導航點。`RegionalDefense.SearchHoldSec` 和 `RegionalDefense.SearchNoTargetSec` 控制「一直找不到」後切下一個搜索點；找不到的判斷使用 autoaim 最近有效目標時間，不混用 buff/outpost 目標。堡壘增益點事件在 `StayWhenRfid=false` 時保留退化保護：若連續 `RegionalDefense.FortressNoContactDegradeSec` 秒沒有己方 Base 大區官方敵方位置、也沒有普通裝甲視覺目標，會在 `RegionalDefense.FortressDegradeCooldownSec` 秒內暫時不把 `2/3` 當硬威脅；開啟 `StayWhenRfid` 時，新鮮原始 `2/3` 事件不退化。
 
 ## ProtectHero
 

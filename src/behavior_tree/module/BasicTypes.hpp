@@ -617,6 +617,7 @@ namespace LangYa
         bool Enable{true};
         bool RFID{true};
         bool EnemyPos{true};
+        bool StayWhenRfid{false};
     };
 
     struct TacticalSetting {

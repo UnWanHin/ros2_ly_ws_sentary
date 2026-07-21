@@ -553,7 +553,7 @@ castle_match = re.search(r"^\s{6}ProtectCastle:\n((?:\s{8}.*\n)+)", config, re.M
 if castle_match is None:
     raise SystemExit("Tactical.yaml lacks Tactical.ProtectCastle")
 castle_body = castle_match.group(1)
-for key in ("Enable", "RFID", "EnemyPos"):
+for key in ("Enable", "RFID", "StayWhenRfid", "EnemyPos"):
     yaml_pattern = rf"^\s{{8}}{key}:\s+(?:true|false)\s*$"
     if re.search(yaml_pattern, castle_body, re.MULTILINE) is None:
         raise SystemExit(f"Tactical.yaml lacks Tactical.ProtectCastle.{key}")
@@ -570,6 +570,7 @@ if "Tactical.ProtectHero.Enable" not in source:
 for token in (
     "ResolveTacticalFeatureEnable",
     "IsProtectCastleRfidEventEnabled",
+    "IsProtectCastleRfidStayEnabled",
     "IsProtectCastleEnemyPositionEnabled",
 ):
     if token not in policy:
@@ -580,6 +581,7 @@ if "config.HeroProtectionSettings.Enable = ResolveTacticalFeatureEnable(" not in
 for token in (
     "config.TacticalSettings.ProtectCastle",
     "IsProtectCastleRfidEventEnabled",
+    "IsProtectCastleRfidStayEnabled",
     "IsProtectCastleEnemyPositionEnabled",
 ):
     if token not in game_loop:

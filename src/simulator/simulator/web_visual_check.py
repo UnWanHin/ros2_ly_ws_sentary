@@ -140,7 +140,7 @@ def demo_metadata() -> dict[str, Any]:
             },
             "tactical": {
                 "available": True,
-                "protect_castle": {"enabled": True, "rfid_event_active": False, "enemy_pos_active": True},
+                "protect_castle": {"enabled": True, "rfid_event_active": False, "stay_when_rfid_enabled": True, "stay_when_rfid_active": True, "enemy_pos_active": True},
                 "protect_hero": {"enabled": True, "active": False},
                 "regional_defense": {"threat_active": True, "search_kind": "own_base", "own_base_enemy_count": 1},
             },

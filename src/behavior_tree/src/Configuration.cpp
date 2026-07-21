@@ -1810,6 +1810,16 @@ namespace BehaviorTree {
             protect_castle_rfid_yaml_provided,
             protect_castle_rfid);
 
+        bool protect_castle_stay_when_rfid = protect_castle.StayWhenRfid;
+        const bool protect_castle_stay_when_rfid_yaml_provided = ReadOptionalBoolParam(
+            node_,
+            {"Tactical.ProtectCastle.StayWhenRfid", "Tactical/ProtectCastle/StayWhenRfid"},
+            protect_castle_stay_when_rfid);
+        protect_castle.StayWhenRfid = ResolveTacticalFeatureEnable(
+            protect_castle.StayWhenRfid,
+            protect_castle_stay_when_rfid_yaml_provided,
+            protect_castle_stay_when_rfid);
+
         bool protect_castle_enemy_pos = protect_castle.EnemyPos;
         const bool protect_castle_enemy_pos_yaml_provided = ReadOptionalBoolParam(
             node_,
@@ -2262,6 +2272,7 @@ namespace BehaviorTree {
         LoggerPtr->Debug("------ Tactical ------");
         LoggerPtr->Debug("ProtectCastle.Enable: {}", config.TacticalSettings.ProtectCastle.Enable);
         LoggerPtr->Debug("ProtectCastle.RFID: {}", config.TacticalSettings.ProtectCastle.RFID);
+        LoggerPtr->Debug("ProtectCastle.StayWhenRfid: {}", config.TacticalSettings.ProtectCastle.StayWhenRfid);
         LoggerPtr->Debug("ProtectCastle.EnemyPos: {}", config.TacticalSettings.ProtectCastle.EnemyPos);
         LoggerPtr->Debug("ProtectHero.Enable: {}", config.TacticalSettings.ProtectHero.Enable);
         LoggerPtr->Debug("------ SentryPositionFusion ------");

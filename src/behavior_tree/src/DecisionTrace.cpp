@@ -537,6 +537,8 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         std::max(0, config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs));
     const bool protect_castle_rfid_raw_active =
         IsFortressGainPointEnemyOccupiedEventRawFresh(tactical_referee_fresh_ms);
+    const bool protect_castle_rfid_stay_active =
+        IsProtectCastleRfidStayActive(tactical_referee_fresh_ms);
     const bool protect_castle_rfid_event_active =
         IsFortressGainPointEnemyOccupiedEventFresh(tactical_referee_fresh_ms);
     const UnitTeam tactical_enemy_team =
@@ -623,6 +625,8 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         {"protect_castle", {
             {"enabled", tactical_settings.ProtectCastle.Enable},
             {"rfid_enabled", tactical_settings.ProtectCastle.RFID},
+            {"stay_when_rfid_enabled", tactical_settings.ProtectCastle.StayWhenRfid},
+            {"stay_when_rfid_active", protect_castle_rfid_stay_active},
             {"enemy_pos_enabled", tactical_settings.ProtectCastle.EnemyPos},
             {"rfid_event_raw_active", protect_castle_rfid_raw_active},
             {"rfid_event_active", protect_castle_rfid_event_active},

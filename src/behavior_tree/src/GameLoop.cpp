@@ -1034,7 +1034,8 @@ namespace BehaviorTree {
             aimMode != AimMode::Buff &&
             aimMode != AimMode::Outpost &&
             fortress_defense_search_active &&
-            IsFortressGainPointEnemyOccupiedEventFresh(regional_referee_fresh_ms) &&
+            (IsProtectCastleRfidStayActive(regional_referee_fresh_ms) ||
+             IsFortressGainPointEnemyOccupiedEventFresh(regional_referee_fresh_ms)) &&
             isFindTargetAtomic.load(std::memory_order_relaxed);
         const bool fortress_defense_stand_still =
             fortress_defense_target_locked &&
@@ -3809,6 +3810,15 @@ namespace BehaviorTree {
              eventSelfFortressGainPointStatus_ == 3U));
     }
 
+    bool Application::IsProtectCastleRfidStayActive(const int referee_fresh_ms) const noexcept {
+        const auto& protect_castle = config.TacticalSettings.ProtectCastle;
+        return IsProtectCastleRfidStayEnabled(
+            protect_castle.Enable,
+            protect_castle.RFID,
+            protect_castle.StayWhenRfid,
+            IsFortressGainPointEnemyOccupiedEventRawFresh(referee_fresh_ms));
+    }
+
     bool Application::IsFortressGainPointEnemyOccupiedEventFresh(const int referee_fresh_ms) const noexcept {
         const auto now = std::chrono::steady_clock::now();
         if (fortressGainPointDegradedUntil_.time_since_epoch().count() != 0 &&
@@ -3893,7 +3903,10 @@ namespace BehaviorTree {
         const int referee_fresh_ms = std::max(
             std::max(0, config.TaskSettings.BuffConfirm.RefereeFreshTimeoutMs),
             std::max(0, config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs));
-        if (IsFortressGainPointEnemyOccupiedEventFresh(referee_fresh_ms)) {
+        const bool protect_castle_rfid_stay_active =
+            IsProtectCastleRfidStayActive(referee_fresh_ms);
+        if (protect_castle_rfid_stay_active ||
+            IsFortressGainPointEnemyOccupiedEventFresh(referee_fresh_ms)) {
             threat.OwnFortressGainPointEnemyOccupied = true;
             threat.HardThreat = true;
         }
@@ -3939,6 +3952,8 @@ namespace BehaviorTree {
         const int referee_fresh_ms = std::max(
             std::max(0, config.TaskSettings.BuffConfirm.RefereeFreshTimeoutMs),
             std::max(0, config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs));
+        const bool protect_castle_rfid_stay_active =
+            IsProtectCastleRfidStayActive(referee_fresh_ms);
         if (!threat.OwnFortressGainPointEnemyOccupied &&
             threat.OwnBaseCount > 0 &&
             IsFortressGainPointEnemyOccupiedEventRawFresh(referee_fresh_ms)) {
@@ -3947,37 +3962,41 @@ namespace BehaviorTree {
 
         if (threat.OwnFortressGainPointEnemyOccupied) {
             fortressGainPointEnemyCount_ = threat.OwnBaseCount;
-            const bool visual_contact_recent =
-                isFindTargetAtomic.load(std::memory_order_relaxed) ||
-                (lastTargetSeenTime.time_since_epoch().count() != 0 &&
-                 now - lastTargetSeenTime <=
-                    std::chrono::seconds(std::max(1, defense.SearchNoTargetSec)));
-            const bool has_fortress_contact =
-                threat.OwnBaseCount > 0 ||
-                visual_contact_recent;
-            if (has_fortress_contact) {
+            if (protect_castle_rfid_stay_active) {
                 fortressGainPointNoContactSince_ = {};
             } else {
-                if (fortressGainPointNoContactSince_.time_since_epoch().count() == 0) {
-                    fortressGainPointNoContactSince_ = now;
-                } else if (now - fortressGainPointNoContactSince_ >=
-                           std::chrono::seconds(std::max(1, defense.FortressNoContactDegradeSec))) {
-                    fortressGainPointDegradedUntil_ =
-                        now + std::chrono::seconds(std::max(1, defense.FortressDegradeCooldownSec));
+                const bool visual_contact_recent =
+                    isFindTargetAtomic.load(std::memory_order_relaxed) ||
+                    (lastTargetSeenTime.time_since_epoch().count() != 0 &&
+                     now - lastTargetSeenTime <=
+                        std::chrono::seconds(std::max(1, defense.SearchNoTargetSec)));
+                const bool has_fortress_contact =
+                    threat.OwnBaseCount > 0 ||
+                    visual_contact_recent;
+                if (has_fortress_contact) {
                     fortressGainPointNoContactSince_ = {};
-                    fortressGainPointEnemyCount_ = 0;
-                    regionalDefenseSearchKind_ = RegionalDefenseSearchKind::None;
-                    regionalDefenseSearchIndex_ = 0U;
-                    regionalDefenseSearchBaseGoal_ = LangYa::Home.ID;
-                    regionalDefenseSearchStartTime_ = {};
-                    if (LoggerPtr) {
-                        LoggerPtr->Warning(
-                            "Fortress gain-point event degraded: status={} no own-base enemy position and no visual target for {}s; cooldown={}s.",
-                            static_cast<int>(eventSelfFortressGainPointStatus_),
-                            std::max(1, defense.FortressNoContactDegradeSec),
-                            std::max(1, defense.FortressDegradeCooldownSec));
+                } else {
+                    if (fortressGainPointNoContactSince_.time_since_epoch().count() == 0) {
+                        fortressGainPointNoContactSince_ = now;
+                    } else if (now - fortressGainPointNoContactSince_ >=
+                               std::chrono::seconds(std::max(1, defense.FortressNoContactDegradeSec))) {
+                        fortressGainPointDegradedUntil_ =
+                            now + std::chrono::seconds(std::max(1, defense.FortressDegradeCooldownSec));
+                        fortressGainPointNoContactSince_ = {};
+                        fortressGainPointEnemyCount_ = 0;
+                        regionalDefenseSearchKind_ = RegionalDefenseSearchKind::None;
+                        regionalDefenseSearchIndex_ = 0U;
+                        regionalDefenseSearchBaseGoal_ = LangYa::Home.ID;
+                        regionalDefenseSearchStartTime_ = {};
+                        if (LoggerPtr) {
+                            LoggerPtr->Warning(
+                                "Fortress gain-point event degraded: status={} no own-base enemy position and no visual target for {}s; cooldown={}s.",
+                                static_cast<int>(eventSelfFortressGainPointStatus_),
+                                std::max(1, defense.FortressNoContactDegradeSec),
+                                std::max(1, defense.FortressDegradeCooldownSec));
+                        }
+                        return false;
                     }
-                    return false;
                 }
             }
         } else {
@@ -4029,12 +4048,14 @@ namespace BehaviorTree {
             if (threat.OwnFortressGainPointEnemyOccupied) {
                 search_kind = RegionalDefenseSearchKind::OwnFortressGainPoint;
                 reason = "own_fortress_gain_point_enemy";
-                candidates = order_nearest_base_candidates({
-                    LangYa::CastleLeft1.ID,
-                    LangYa::CastleLeft2.ID,
-                    LangYa::CastleRight1.ID,
-                    LangYa::CastleRight2.ID
-                });
+                candidates = protect_castle_rfid_stay_active
+                    ? std::vector<std::uint8_t>{LangYa::Castle.ID}
+                    : order_nearest_base_candidates({
+                        LangYa::CastleLeft1.ID,
+                        LangYa::CastleLeft2.ID,
+                        LangYa::CastleRight1.ID,
+                        LangYa::CastleRight2.ID
+                    });
             } else if (threat.OwnBaseCount > 0) {
                 search_kind = RegionalDefenseSearchKind::OwnBase;
                 reason = threat.OwnBaseCount >= defense.MultiEnemyBaseCount
