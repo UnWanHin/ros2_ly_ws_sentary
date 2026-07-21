@@ -10,9 +10,9 @@ Proposed
 
 ## Scope
 
-Only semantic `/ly/game/*` topics whose source is lower-machine uplink data are in scope.
-Existing non-`/ly/game/*` topics, raw `/ly/upload/typeid*` topics, navigation topics, and
-downlink/control topics are unchanged.
+Semantic `/ly/game/*` lower-machine uplink topics and the legacy Base/outpost health scalars
+under `/ly/friend/*` and `/ly/enemy/*` are in scope. Raw `/ly/upload/typeid*` topics,
+navigation topics, downlink/control topics, and already stamped health arrays are unchanged.
 
 ## Goal
 
@@ -39,6 +39,10 @@ consumer:
 | `/ly/game/all` | `gimbal_driver/msg/GameData` | same message with `std_msgs/Header header` added |
 | `/ly/game/time_left` | `std_msgs/UInt16` | `gimbal_driver/msg/StampedUInt16` |
 | `/ly/game/damage_difference` | `std_msgs/Int16` | `gimbal_driver/msg/StampedInt16` |
+| `/ly/friend/base_hp` | `std_msgs/UInt16` | `gimbal_driver/msg/StampedUInt16` |
+| `/ly/enemy/base_hp` | `std_msgs/UInt16` | `gimbal_driver/msg/StampedUInt16` |
+| `/ly/friend/op_hp` | `std_msgs/UInt16` | `gimbal_driver/msg/StampedUInt16` |
+| `/ly/enemy/op_hp` | `std_msgs/UInt16` | `gimbal_driver/msg/StampedUInt16` |
 
 `/ly/game/is_start` intentionally remains `std_msgs/Bool`: it is the existing startup gate and
 is not migrated in this change. The two scalar wrappers contain only `std_msgs/Header header`
@@ -60,9 +64,10 @@ lower serial TypeID
 
 ## Consumer Changes
 
-`behavior_tree` updates its typed topic aliases and subscriptions for the four migrated
-contracts. Existing decision values and launch topic names do not change. The migration must
-not alter serial packet layouts or lower-machine firmware contracts.
+`behavior_tree` updates its typed topic aliases and subscriptions for the migrated contracts
+and records receive freshness for Base HP. Existing decision values and launch topic names do
+not change. The migration must not alter serial packet layouts or lower-machine firmware
+contracts.
 
 ## Verification
 
