@@ -49,6 +49,7 @@
 #include "AimSource.hpp"
 #include "AreaManager.hpp"
 #include "DefaultStrategyManager.hpp"
+#include "DecisionExplain.hpp"
 #include "DecisionIntent.hpp"
 #include "EventManager.hpp"
 #include "FaceModeManager.hpp"
@@ -615,6 +616,8 @@ private:
     AreaManager areaManager_{};
     DefaultStrategyManager defaultStrategyManager_{};
     DecisionIntent lastDecisionIntent_{};
+    bool decisionConfigurationLogged_{false};
+    std::optional<DecisionExplain::Fingerprint> lastDecisionExplainFingerprint_{};
     EventManager eventManager_{};
     EventSnapshot eventSnapshot_{};
     PostureManager postureManager_{};
@@ -746,6 +749,12 @@ private:
         bool apply_team_offset,
         const char* detail = nullptr) const;
     void RecordDecisionIntent(DecisionIntent intent);
+    void LogDecisionConfigurationOnce();
+    void MaybeLogNavigationDecision();
+    void MaybeLogRelativeTargetDecision();
+    void MaybeLogManualOutpostGoalPoseDecision(double x_meter, double y_meter, double z_meter);
+    void LogNavigationDecisionIfChanged(
+        const DecisionExplain::NavigationObservation& observation);
     void UpdateSentryPositionFusion(std::chrono::steady_clock::time_point now);
     UnitPositionState GetSentryPositionState(std::chrono::steady_clock::time_point now) const;
     UnitPositionState GetSentryPositionState(std::chrono::steady_clock::time_point now, int fresh_ms) const;

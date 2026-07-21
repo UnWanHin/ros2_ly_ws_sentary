@@ -1,6 +1,6 @@
 # Regional 決策圖譜
 
-Updated: 2026-07-19
+Updated: 2026-07-21
 
 > 範圍：`competition_profile:=regional` 的 `behavior_tree` 決策順序、優先級、導航輸出與姿態選擇。此圖描述 source 現有行為；未自動下發強化姿態命令 `4/5/6`，它們保留給後續任務級觸發。
 
@@ -117,6 +117,12 @@ flowchart LR
 1Hz 相同重送不續期。它不是 BaseGoal，任務持有期間會清除舊目標 external-status binding 並暫停
 `/ly/navi/reach_state`，因此到達小地圖點不會被誤判為區域任務到點。完整協議與邊界見
 `docs/sentry/embedded/map_command_typeid9.md`。
+
+`behavior_tree` 在等待開賽前會打印一次實際生效的 AreaManager/Tactical 配置快照；之後只在最終
+可發布的導航決策 fingerprint 變化時打印 `[DecisionExplain][navi]`。該行由最終
+`DecisionIntent` 與最後輸出的表示組成：區域點/小地圖命令使用官方 `cm`，手動前哨 pose 使用
+`map` frame 的 `m`，相對追擊使用來源 frame 的 `rel_m`。相對追擊的位置持續更新不會每 tick
+刷屏；它在決策、目標類別或 frame 切換時打印，不是每 tick 的除錯 trace。
 
 ### `speed_level` 與 `vel` 的分工
 

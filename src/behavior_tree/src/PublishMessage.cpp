@@ -136,6 +136,7 @@ namespace BehaviorTree {
             (naviRelativeTargetValid || config.ChaseSettings.StopWhenNoTarget);
         if (chase_relative_target_publish_active) {
             PubNaviRelativeTarget();
+            MaybeLogRelativeTargetDecision();
         }
         const bool map_command_goal_active = activeMapCommandGoal_.has_value();
         if(publishNaviGoal_ &&
@@ -146,6 +147,7 @@ namespace BehaviorTree {
                 return;
             }
             if (map_command_goal_active) {
+                MaybeLogNavigationDecision();
                 PubMapCommandGoalPos();
                 return;
             }
@@ -158,9 +160,14 @@ namespace BehaviorTree {
             // - Tactical 授权 Chase 且 target_rel 有效，或 StopWhenNoTarget 要求失靶停车时，
             //   /ly/navi/target_rel 交给 bridge 输出 /goal_pose，避免固定点位覆盖追击。
             // - 官方坐标追击源有效时，发布 /ly/navi/goal_pos_raw，避免和 target_rel 同 tick 双写 /goal_pose。
-            if(chase_official_target_active) PubNaviGoalPos();
-            else if(config.NaviSettings.UseXY && !chase_bridge_active) PubNaviGoalPos();
-            else PubNaviGoal();
+            if(chase_official_target_active) {
+                PubNaviGoalPos();
+            } else if(config.NaviSettings.UseXY && !chase_bridge_active) {
+                PubNaviGoalPos();
+            } else {
+                MaybeLogNavigationDecision();
+                PubNaviGoal();
+            }
         }
     }
 
@@ -569,6 +576,7 @@ namespace BehaviorTree {
             PubManualOutpostGoalPose("manual_outpost_goal")) {
             return;
         }
+        MaybeLogNavigationDecision();
         std_msgs::msg::UInt16MultiArray msg;
         std::vector<uint16_t> data = {
             static_cast<uint16_t>(naviGoalPosition.x),
@@ -614,6 +622,10 @@ namespace BehaviorTree {
         msg.pose.position.y = config.TaskSettings.OutpostConfirm.ManualGoalMapYM;
         msg.pose.position.z = config.TaskSettings.OutpostConfirm.ManualGoalMapZM;
         msg.pose.orientation.w = 1.0;
+        MaybeLogManualOutpostGoalPoseDecision(
+            msg.pose.position.x,
+            msg.pose.position.y,
+            msg.pose.position.z);
         pub_navi_goal_pose_->publish(msg);
         UpdateNaviExternalStatusGoal(naviCommandGoal, naviGoalPosition);
 

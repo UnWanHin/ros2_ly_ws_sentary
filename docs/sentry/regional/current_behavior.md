@@ -75,6 +75,7 @@ Updated: 2026-07-21
 - `StayWhenRfid=true` 时，新鲜原始 `2/3` 裁判事件不会进入 `FortressNoContactDegradeSec` 的无接触降级；事件过期或变为 `0/1` 后才释放 Castle 守点锁。关闭该开关时，原有降级保护不变。
 - `Tactical.ProtectCastle.Enable=false` 会同时关闭城堡 RFID 与 MyBase 敌方坐标两条来源。单独设 `RFID=false` 会关闭堡垒事件与站桩火控；单独设 `EnemyPos=false` 会忽略敌方实际进入 MyBase 的防守来源，但 Highland、道路和 Central 的普通 RegionalDefense 继续有效。`StayWhenRfid` 只作用于 RFID `2/3` 来源，不改变 EnemyPos。`Tactical.ProtectHero.Enable=false` 会释放英雄保护并在同一 Tactical tick 继续尝试 RegionalDefense。
 - 如果这些层都没有输出，Finalizer 只同步策略层 blackboard，不再做旧点表兜底。
+- 以后新增会接管导航的 Tactical 功能时，必须在同一次修改中使用明确的 `DecisionReason` 并写入可读 `detail`；最终 `[DecisionExplain][navi]` 日志会据此说明哨兵为何前往该点。
 
 ---
 

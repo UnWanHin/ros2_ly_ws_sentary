@@ -3793,6 +3793,14 @@ namespace BehaviorTree {
 
         if (chase_output_active) {
             chaseTacticalAllowed_ = true;
+            if (chase_to_navi) {
+                RecordDecisionIntent(MakeDecisionIntent(
+                    DecisionReason::Chase,
+                    BaseGoalIdFromResolvedGoal(naviCommandGoal),
+                    team,
+                    true,
+                    "chase"));
+            }
         }
         return chase_output_active;
     }

@@ -287,6 +287,11 @@ if(BUILD_TESTING)
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
   )
+  ament_add_gtest(test_decision_explain test/test_decision_explain.cpp)
+  target_include_directories(test_decision_explain PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
+  )
   ament_add_gtest(test_face_mode_manager
     test/test_face_mode_manager.cpp
     src/FaceModeManager.cpp

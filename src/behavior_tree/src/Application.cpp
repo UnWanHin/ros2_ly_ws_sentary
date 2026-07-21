@@ -297,7 +297,112 @@ std::string DefaultConfigPathForProfile(const std::string& pkg_path, const std::
         // ROS 2 節點會由智能指針自動釋放
     }
 
+    void Application::LogDecisionConfigurationOnce() {
+        if (decisionConfigurationLogged_ || !LoggerPtr) {
+            return;
+        }
+
+        const auto& areas = config.RegionalAreaTaskSettings;
+        const auto& tactical = config.TacticalSettings;
+        const DecisionExplain::ConfigSnapshot snapshot{
+            .RegionalAreaTaskEnable = areas.Enable,
+            .MyBaseEnable = areas.MyBase.Enable,
+            .MyHighlandEnable = areas.MyHighland.Enable,
+            .MyPreRoadlandEnable = areas.MyPreRoadland.Enable,
+            .MyReadyRoadlandEnable = areas.MyReadyRoadland.Enable,
+            .CommonCentralEnable = areas.CommonCentral.Enable,
+            .ProtectCastleEnable = tactical.ProtectCastle.Enable,
+            .ProtectCastleRfidEnable = tactical.ProtectCastle.RFID,
+            .ProtectCastleEnemyPosEnable = tactical.ProtectCastle.EnemyPos,
+            .ProtectCastleStayWhenRfid = tactical.ProtectCastle.StayWhenRfid,
+            .ProtectHeroEnable = tactical.ProtectHero.Enable,
+            .DamageRotateDefaultGear = tactical.DamageRotate.DefaultGear,
+            .DamageRotateNoHitTimeoutMs = tactical.DamageRotate.NoHitTimeoutMs,
+            .DamageRotateGear0HoldMs = tactical.DamageRotate.Gear0HoldMs,
+            .DamageRotateGear1HoldMs = tactical.DamageRotate.Gear1HoldMs,
+            .DamageRotateGear2HoldMs = tactical.DamageRotate.Gear2HoldMs,
+            .DamageRotateScanBoostWindowMs = tactical.DamageRotate.ScanBoostWindowMs,
+            .DamageRotateScanYawPhaseMs = tactical.DamageRotate.ScanYawPhaseMs,
+        };
+        for (const auto& line : DecisionExplain::FormatConfigLines(snapshot)) {
+            LoggerPtr->Info("{}", line);
+        }
+        decisionConfigurationLogged_ = true;
+    }
+
+    void Application::MaybeLogNavigationDecision() {
+        const bool map_command_active = activeMapCommandGoal_.has_value();
+        const std::uint16_t final_x_cm = map_command_active
+            ? activeMapCommandGoal_->XCentimeter
+            : static_cast<std::uint16_t>(naviGoalPosition.x);
+        const std::uint16_t final_y_cm = map_command_active
+            ? activeMapCommandGoal_->YCentimeter
+            : static_cast<std::uint16_t>(naviGoalPosition.y);
+        const DecisionExplain::NavigationObservation observation{
+            .Intent = lastDecisionIntent_,
+            .PublishedGoalId = naviCommandGoal,
+            .XCentimeter = final_x_cm,
+            .YCentimeter = final_y_cm,
+            .PublishNaviGoal = publishNaviGoal_,
+            .NaviGoalPublishAllowed = naviGoalPublishAllowed_,
+            .OutputKind = map_command_active
+                ? DecisionExplain::NavigationOutputKind::RawMapCommand
+                : DecisionExplain::NavigationOutputKind::GoalPoint,
+        };
+        LogNavigationDecisionIfChanged(observation);
+    }
+
+    void Application::MaybeLogRelativeTargetDecision() {
+        const DecisionExplain::NavigationObservation observation{
+            .Intent = lastDecisionIntent_,
+            .PublishedGoalId = naviCommandGoal,
+            .PublishNaviGoal = publishNaviGoal_,
+            .NaviGoalPublishAllowed = naviGoalPublishAllowed_,
+            .OutputKind = DecisionExplain::NavigationOutputKind::RelativeTarget,
+            .XMeter = naviRelativeTargetX,
+            .YMeter = naviRelativeTargetY,
+            .ZMeter = naviRelativeTargetZ,
+            .FrameId = naviRelativeTargetFrameId,
+            .RelativeTargetValid = naviRelativeTargetValid,
+            .RelativeTargetArmorType = naviRelativeTargetArmorType,
+            .RelativeTargetAimMode = naviRelativeTargetAimMode,
+        };
+        LogNavigationDecisionIfChanged(observation);
+    }
+
+    void Application::MaybeLogManualOutpostGoalPoseDecision(
+        const double x_meter,
+        const double y_meter,
+        const double z_meter) {
+        const DecisionExplain::NavigationObservation observation{
+            .Intent = lastDecisionIntent_,
+            .PublishedGoalId = naviCommandGoal,
+            .PublishNaviGoal = publishNaviGoal_,
+            .NaviGoalPublishAllowed = naviGoalPublishAllowed_,
+            .OutputKind = DecisionExplain::NavigationOutputKind::ManualMapPose,
+            .XMeter = static_cast<float>(x_meter),
+            .YMeter = static_cast<float>(y_meter),
+            .ZMeter = static_cast<float>(z_meter),
+            .FrameId = "map",
+        };
+        LogNavigationDecisionIfChanged(observation);
+    }
+
+    void Application::LogNavigationDecisionIfChanged(
+        const DecisionExplain::NavigationObservation& observation) {
+        if (!LoggerPtr) {
+            return;
+        }
+        const auto fingerprint = DecisionExplain::MakeFingerprint(observation);
+        if (!fingerprint.has_value() || fingerprint == lastDecisionExplainFingerprint_) {
+            return;
+        }
+        LoggerPtr->Info("{}", DecisionExplain::FormatNavigationLine(observation));
+        lastDecisionExplainFingerprint_ = fingerprint;
+    }
+
     void Application::Run() {
+        LogDecisionConfigurationOnce();
         // 1. 等待比賽開始 (這通常會阻塞，直到收到裁判系統消息)
         WaitBeforeGame();
         leagueRouteCompatAfterGatePending_ = IsLeagueRouteCompatEnabled();
