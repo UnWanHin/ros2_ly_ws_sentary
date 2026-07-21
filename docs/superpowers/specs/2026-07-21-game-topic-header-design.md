@@ -37,11 +37,12 @@ consumer:
 | Topic | Old type | New type |
 |---|---|---|
 | `/ly/game/all` | `gimbal_driver/msg/GameData` | same message with `std_msgs/Header header` added |
-| `/ly/game/is_start` | `std_msgs/Bool` | `gimbal_driver/msg/StampedBool` |
 | `/ly/game/time_left` | `std_msgs/UInt16` | `gimbal_driver/msg/StampedUInt16` |
 | `/ly/game/damage_difference` | `std_msgs/Int16` | `gimbal_driver/msg/StampedInt16` |
 
-The three scalar wrappers contain only `std_msgs/Header header` and a `data` field of their
+`/ly/game/is_start` intentionally remains `std_msgs/Bool`: it is the existing startup gate and
+is not migrated in this change. The two scalar wrappers contain only `std_msgs/Header header`
+and a `data` field of their
 named scalar type. They do not combine unrelated game fields.
 
 ## Data Flow
@@ -54,9 +55,8 @@ lower serial TypeID
   -> per-field receive/freshness state
 ```
 
-`/ly/game/all` and `/ly/game/is_start` must use the same stamp when they originate from one
-TypeID=1 frame. `/ly/game/time_left` uses that same TypeID=1 stamp. `/ly/game/damage_difference`
-uses the TypeID=6 receive/decode stamp.
+`/ly/game/time_left` uses the same TypeID=1 receive/decode stamp as `/ly/game/all`.
+`/ly/game/damage_difference` uses the TypeID=6 receive/decode stamp.
 
 ## Consumer Changes
 
