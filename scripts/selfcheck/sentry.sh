@@ -361,6 +361,7 @@ if not profile.is_file():
 else:
     profile_text = profile.read_text(encoding="utf-8")
     required_profile = (
+        r"(?m)^\s*raw_downlink_test_mode\s*:\s*false\s*(?:#.*)?$",
         r"(?m)^\s*rotate_level\s*:\s*0\s*(?:#.*)?$",
         r"(?m)^\s*follow_mode_when_false\s*:\s*true\s*(?:#.*)?$",
         r"(?m)^\s*stale_timeout_ms\s*:\s*500\s*(?:#.*)?$",
@@ -379,6 +380,9 @@ else:
             errors.append(f"debug_node.launch.py missing {token}")
     if 'LaunchConfiguration("debug_config_file")' not in debug_text:
         errors.append("debug_node.launch.py does not load debug_config_file into the bridge")
+    for token in ("load_raw_downlink_test_mode", "raw_downlink_test_mode", "OpaqueFunction"):
+        if token not in debug_text:
+            errors.append(f"debug_node.launch.py missing raw downlink test token: {token}")
 
 if not debug_bridge.is_file():
     errors.append("debug control bridge is missing")
@@ -403,6 +407,15 @@ else:
     driver_source_text = driver_source.read_text(encoding="utf-8")
     if "MaybeApplyNavigationModeRotateHeartbeat" in driver_source_text:
         errors.append("debug_node must publish FireCode through the bridge, not driver heartbeat")
+    for token in (
+        "RawDownlinkTest.hpp",
+        "GenRawDownlinkTestSubscriptions",
+        "SendRawDownlinkTestFrame",
+        "rawDownlinkTestMode_",
+        "RAW DOWNLINK TEST MODE active",
+    ):
+        if token not in driver_source_text:
+            errors.append(f"gimbal raw downlink test mode missing source token: {token}")
 
 if not driver_launch.is_file():
     errors.append("gimbal_driver.launch.py is missing")
@@ -412,6 +425,9 @@ else:
         errors.append("gimbal use_virtual_device is not normalized to a bool parameter")
     if "LaunchConfiguration(arg_name), value_type=bool" not in driver_text:
         errors.append("gimbal forwarded bool overrides are not typed substitutions")
+    for token in ("raw_downlink_test_mode", "io_config/raw_downlink_test_mode"):
+        if token not in driver_text:
+            errors.append(f"gimbal launch missing raw downlink test argument: {token}")
     spec = importlib.util.spec_from_file_location("gimbal_driver_launch", driver_launch)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

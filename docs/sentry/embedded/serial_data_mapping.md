@@ -1,6 +1,6 @@
 # 串口上下行数据映射总表
 
-Updated: 2026-07-19
+Updated: 2026-07-21
 
 > 配置归属：`gimbal_driver` 的串口、下位机与 raw 上行诊断基线集中在
 > `src/gimbal_driver/config/gimbal_driver_config.yaml`；根目录 `config/base_config.yaml`
@@ -105,6 +105,13 @@ time_ns tx sentry_coordinate size=17 hex="21 04 ..." reason=sentry_coordinate do
 | `gimbal_raw.topic.type_ids` | `all` | 上行 TypeID 过滤，支持 `all` 或逗号列表如 `1,7,8` |
 
 raw topic 使用 `gimbal_driver/msg/GimbalRawFrame`，`data` 是原始二进制 bytes，不是 hex 字符串。`gimbal_driver` 只有在对应 topic 存在 subscriber 时才组包发布；若用 rosbag 录这些 topic，负载会转移到 DDS/rosbag 写盘。
+
+`/ly/download/typeid0x00..05` 在正常和正式链路永远是 TX 观察输出，不能作为下发入口。唯一例外是
+`ros2 launch gimbal_driver debug_node.launch.py` 的 `debug_mode.yaml` 把 `raw_downlink_test_mode` 设为
+`true`：该 debug-only 独占模式会关闭全部普通 control 写入，并将六个 per-ID topic 改为验证后写串口的
+完整帧输入。为避免节点把自己刚发出的帧重新订阅并无限重发，该模式不发布 `/ly/download/*` TX 镜像；请从
+`/ly/log/gimbal_raw_tx` 或终端 raw log 观察实际下发。详细操作见
+[gimbal_driver 模块文档](../../modules/2026-05-05_gimbal_driver.md#整包下發測試模式)。
 
 ---
 

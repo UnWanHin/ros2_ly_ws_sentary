@@ -141,5 +141,6 @@ def test_debug_raw_downlink_mode_has_an_explicit_default_and_launch_contract():
 
     assert debug_parameters["raw_downlink_test_mode"] is False
     assert "load_raw_downlink_test_mode" in debug_launch
+    assert "if not raw_downlink_test_mode:" in debug_launch
     assert '"raw_downlink_test_mode"' in driver_launch
     assert '"io_config/raw_downlink_test_mode"' in driver_launch

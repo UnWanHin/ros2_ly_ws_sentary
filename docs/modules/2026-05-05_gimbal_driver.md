@@ -1,6 +1,6 @@
 # gimbal_driver — 雲台驅動節點
 
-Updated: 2026-07-19
+Updated: 2026-07-21
 
 ## 概述
 
@@ -100,6 +100,7 @@ module baseline。`main.cpp` 對導航 debug 的預設值為關閉，因此正�
 | `stale_timeout_ms` | `/ly/navi/vel` 超過此時間沒有更新時持續下發零速度；有效 aim 超過此時間後不再接管角度/開火。 |
 | `publish_hz` | bridge 的正式 control 輸出頻率；預設 100 Hz。 |
 | `patrol` | true 時，沒有新鮮有效 aim 才使用 canonical `Patrol.yaml` 的目前 `PatrolScan.Mode` 下發雲台掃描角度。 |
+| `raw_downlink_test_mode` | `true` 時優先於 `navi_mode`、`aim_mode` 與 patrol，進入獨占整包串口測試模式。 |
 
 `config/debug_mode.yaml` 是預設的單節點 bridge profile。bridge 是 debug 期間唯一的
 `/ly/control/vel`、`/ly/control/angles`、`/ly/control/firecode` publisher；每 100 Hz 以完整
@@ -120,6 +121,30 @@ control subscriber 組包；它不得與正在發布正式 `/ly/control/*` 的 B
 軌跡字段發到獨立 `/ly/control/trajectory -> 0x05` MPC 下發；之後若有其他 driver 單節點調試 profile，可用
 `debug_config_file:=<profile.yaml>` 載入，無需改動正式入口。
 
+#### 整包下發測試模式
+
+`debug_mode.yaml` 的 `raw_downlink_test_mode` 預設是 `false`。設為 `true` 後，這是最高優先級的
+debug-only 模式：`debug.py` bridge 不會啟動，driver 也不建立任何普通 `/ly/control/*`、姿態、路徑、
+座標或 trajectory 寫入訂閱。因此 `navi_mode`、`aim_mode` 和 patrol 都不會發布或下發控制；RX 串口解析與
+`/ly/gimbal/*`、`/ly/game/*` 回饋仍維持。
+
+這時 `/ly/download/typeid0x00` 到 `/ly/download/typeid0x05` 不再是觀測輸出，而是完整物理串口帧的
+唯一輸入。每個 topic 只接受同 ID 的 `gimbal_driver/msg/GimbalRawFrame`，要求
+`direction=1`、`type_id` 與 topic 一致、`data[0]=0x21`、byte 1 一致且長度正確；`0x02` 另驗 CRC16，
+`0x04` 另驗 CRC8。校驗失敗不寫串口。因為這些 topic 同時是輸入，raw-test mode 不會把 TX 鏡像再發布
+回 `/ly/download/*`，避免 self-loop；完整 TX 請看 `/ly/log/gimbal_raw_tx`，完整 RX/TX hex 也會強制打印到
+debug node 終端並寫入 `~/Log/GimbalRaw`。
+
+例如直發一個完整 13B `0x00` 控制帧：
+
+```bash
+ros2 topic pub --once /ly/download/typeid0x00 gimbal_driver/msg/GimbalRawFrame \
+  '{direction: 1, type_id: 0, data: [33, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]}'
+```
+
+`0x02` 必須逐一發送已組好的兩個 64B fragment，`0x04` 必須帶已算好的 CRC8；最安全的測試方式是先從
+raw log/抓包取得一個完整合法幀，再原樣重發。關閉此開關後，所有 `/ly/download/*` 立即恢復為只讀 TX 鏡像。
+
 相容舊啟動腳本時，`sentry_all` 仍接受 `base_config_file:=...` 與 `config_file:=...`：其中僅
 `io_config.*` 的非導航直連鍵會依 base、override 順序路由到 driver，最後仍由明確 CLI 覆蓋。
 舊 YAML 的 slash-key 會正規化為 dot-key，以符合 driver 現有 dot-key 優先序；`navigation_test` 和
@@ -135,7 +160,9 @@ control subscriber 組包；它不得與正在發布正式 `/ly/control/*` 的 B
 | 下位機 -> 上位機 | `/ly/upload/typeid0` ... `/ly/upload/typeid11` | 當前上行 `TypeID=0..11` |
 | 上位機 -> 下位機 | `/ly/download/typeid0x00` ... `/ly/download/typeid0x05` | 當前下行 `DownlinkTypeID=0x00..0x05` |
 
-這些只供協議/HZ/hex 觀測；`/ly/game/*`、`/ly/gimbal/*` 等語義 topic 不改名、不受開關影響。
+正常模式下這些只供協議/HZ/hex 觀測；`/ly/game/*`、`/ly/gimbal/*` 等語義 topic 不改名、不受開關影響。
+只有 `debug_node.launch.py` 的 `raw_downlink_test_mode=true` 會把它們暫時改為驗證後直發的 debug input；
+該模式關閉時永遠不能從 `/ly/download/*` 寫串口。
 每個 raw topic 在沒有 subscriber 時不組包、不發布。舊 `/ly/log/gimbal_raw_rx` 與
 `/ly/log/gimbal_raw_tx` 僅保留給相容工具，正式建議觀測上述 per-ID topic。
 

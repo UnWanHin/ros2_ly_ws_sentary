@@ -117,26 +117,29 @@ def generate_launch_description():
         launch_arguments["raw_downlink_test_mode"] = (
             "true" if raw_downlink_test_mode else "false"
         )
-        return [
+        actions = [
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(gimbal_driver_launch),
                 launch_arguments=launch_arguments.items(),
             )
         ]
-
-    debug_bridge = Node(
-        package="gimbal_driver",
-        executable="debug.py",
-        name="debug_control_bridge",
-        output=LaunchConfiguration("output"),
-        parameters=[
-            LaunchConfiguration("debug_config_file"),
-            {"patrol_config_file": LaunchConfiguration("patrol_config_file")},
-        ],
-    )
+        if not raw_downlink_test_mode:
+            actions.insert(
+                0,
+                Node(
+                    package="gimbal_driver",
+                    executable="debug.py",
+                    name="debug_control_bridge",
+                    output=LaunchConfiguration("output"),
+                    parameters=[
+                        LaunchConfiguration("debug_config_file"),
+                        {"patrol_config_file": LaunchConfiguration("patrol_config_file")},
+                    ],
+                ),
+            )
+        return actions
 
     return LaunchDescription([
         *launch_arguments,
-        debug_bridge,
         OpaqueFunction(function=include_driver),
     ])
