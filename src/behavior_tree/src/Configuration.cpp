@@ -1830,6 +1830,28 @@ namespace BehaviorTree {
             protect_castle_enemy_pos_yaml_provided,
             protect_castle_enemy_pos);
 
+        bool protect_castle_base = protect_castle.Base;
+        const bool protect_castle_base_yaml_provided = ReadOptionalBoolParam(
+            node_,
+            {"Tactical.ProtectCastle.Base", "Tactical/ProtectCastle/Base"},
+            protect_castle_base);
+        protect_castle.Base = ResolveTacticalFeatureEnable(
+            protect_castle.Base,
+            protect_castle_base_yaml_provided,
+            protect_castle_base);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.ProtectCastle.OccupancyPositionFreshMs", "Tactical/ProtectCastle/OccupancyPositionFreshMs"},
+            protect_castle.OccupancyPositionFreshMs);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.ProtectCastle.CastlePositionMarginCm", "Tactical/ProtectCastle/CastlePositionMarginCm"},
+            protect_castle.CastlePositionMarginCm);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.ProtectCastle.ArrivalConfirmGraceMs", "Tactical/ProtectCastle/ArrivalConfirmGraceMs"},
+            protect_castle.ArrivalConfirmGraceMs);
+
         bool protect_hero_enable = tactical.ProtectHero.Enable;
         const bool protect_hero_yaml_provided = ReadOptionalBoolParam(
             node_,
@@ -2271,6 +2293,10 @@ namespace BehaviorTree {
         LoggerPtr->Debug("SetPostureToMoveWhenFalse: {}", config.NaviRotateControlSettings.SetPostureToMoveWhenFalse);
         LoggerPtr->Debug("------ Tactical ------");
         LoggerPtr->Debug("ProtectCastle.Enable: {}", config.TacticalSettings.ProtectCastle.Enable);
+        LoggerPtr->Debug("ProtectCastle.Base: {}", config.TacticalSettings.ProtectCastle.Base);
+        LoggerPtr->Debug("ProtectCastle.OccupancyPositionFreshMs: {}", config.TacticalSettings.ProtectCastle.OccupancyPositionFreshMs);
+        LoggerPtr->Debug("ProtectCastle.CastlePositionMarginCm: {}", config.TacticalSettings.ProtectCastle.CastlePositionMarginCm);
+        LoggerPtr->Debug("ProtectCastle.ArrivalConfirmGraceMs: {}", config.TacticalSettings.ProtectCastle.ArrivalConfirmGraceMs);
         LoggerPtr->Debug("ProtectCastle.RFID: {}", config.TacticalSettings.ProtectCastle.RFID);
         LoggerPtr->Debug("ProtectCastle.StayWhenRfid: {}", config.TacticalSettings.ProtectCastle.StayWhenRfid);
         LoggerPtr->Debug("ProtectCastle.EnemyPos: {}", config.TacticalSettings.ProtectCastle.EnemyPos);

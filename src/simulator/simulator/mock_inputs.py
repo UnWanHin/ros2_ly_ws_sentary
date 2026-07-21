@@ -218,6 +218,7 @@ def main(argv: list[str] | None = None) -> int:
             PositionData,
             RfidStatus,
             SentryInfo,
+            StampedUInt16,
             StampedUInt16MultiArray,
             Vel,
         )
@@ -316,15 +317,15 @@ def main(argv: list[str] | None = None) -> int:
             self.pub_gimbal_cap_v = self.create_publisher(UInt8, "/ly/gimbal/capV", 10)
             self.pub_team = self.create_publisher(Bool, "/ly/friend/is_team_red", 10)
             self.pub_game_start = self.create_publisher(Bool, "/ly/game/is_start", 10)
-            self.pub_time_left = self.create_publisher(UInt16, "/ly/game/time_left", 10)
+            self.pub_time_left = self.create_publisher(StampedUInt16, "/ly/game/time_left", 10)
             self.pub_ammo_left = self.create_publisher(UInt16, "/ly/friend/ammo_left", 10)
             self.pub_game_all = self.create_publisher(GameData, "/ly/game/all", 10)
             self.pub_me_hp = self.create_publisher(Health, "/ly/friend/hp", 10)
             self.pub_enemy_hp = self.create_publisher(Health, "/ly/enemy/hp", 10)
-            self.pub_friend_op_hp = self.create_publisher(UInt16, "/ly/friend/op_hp", 10)
-            self.pub_enemy_op_hp = self.create_publisher(UInt16, "/ly/enemy/op_hp", 10)
-            self.pub_friend_base_hp = self.create_publisher(UInt16, "/ly/friend/base_hp", 10)
-            self.pub_enemy_base_hp = self.create_publisher(UInt16, "/ly/enemy/base_hp", 10)
+            self.pub_friend_op_hp = self.create_publisher(StampedUInt16, "/ly/friend/op_hp", 10)
+            self.pub_enemy_op_hp = self.create_publisher(StampedUInt16, "/ly/enemy/op_hp", 10)
+            self.pub_friend_base_hp = self.create_publisher(StampedUInt16, "/ly/friend/base_hp", 10)
+            self.pub_enemy_base_hp = self.create_publisher(StampedUInt16, "/ly/enemy/base_hp", 10)
             self.pub_team_buff = self.create_publisher(BuffData, "/ly/team/buff", 10)
             self.pub_rfid = self.create_publisher(RfidStatus, "/ly/game/rfid", 10)
             self.pub_event_data = self.create_publisher(EventData, "/ly/game/event_data", 10)
@@ -477,8 +478,9 @@ def main(argv: list[str] | None = None) -> int:
                 self._apply_command(payload)
 
         @staticmethod
-        def _publish_u16(pub: object, value: int) -> None:
-            msg = UInt16()
+        def _publish_stamped_u16(pub: object, stamp: object, value: int) -> None:
+            msg = StampedUInt16()
+            msg.header.stamp = stamp
             msg.data = max(0, min(65535, int(value)))
             pub.publish(msg)
 
@@ -776,15 +778,14 @@ def main(argv: list[str] | None = None) -> int:
             game_start.data = bool(self.match_started)
             self.pub_game_start.publish(game_start)
 
-            time_left = UInt16()
-            time_left.data = self.time_left
-            self.pub_time_left.publish(time_left)
+            self._publish_stamped_u16(self.pub_time_left, now, self.time_left)
 
             ammo = UInt16()
             ammo.data = self.ammo_left
             self.pub_ammo_left.publish(ammo)
 
             game_all = GameData()
+            game_all.header.stamp = now
             game_all.gamecode = 0
             game_all.ammoleft = self.ammo_left
             game_all.timeleft = self.time_left
@@ -792,10 +793,14 @@ def main(argv: list[str] | None = None) -> int:
             game_all.exteventdata = clamp_u32(args.event_raw)
             self.pub_game_all.publish(game_all)
 
-            self._publish_u16(self.pub_friend_op_hp, projection.structures["friend"]["outpost"])
-            self._publish_u16(self.pub_enemy_op_hp, projection.structures["enemy"]["outpost"])
-            self._publish_u16(self.pub_friend_base_hp, projection.structures["friend"]["base"])
-            self._publish_u16(self.pub_enemy_base_hp, projection.structures["enemy"]["base"])
+            self._publish_stamped_u16(
+                self.pub_friend_op_hp, now, projection.structures["friend"]["outpost"])
+            self._publish_stamped_u16(
+                self.pub_enemy_op_hp, now, projection.structures["enemy"]["outpost"])
+            self._publish_stamped_u16(
+                self.pub_friend_base_hp, now, projection.structures["friend"]["base"])
+            self._publish_stamped_u16(
+                self.pub_enemy_base_hp, now, projection.structures["enemy"]["base"])
 
             self.pub_me_hp.publish(self._health_msg("friend", now, projection))
             self.pub_enemy_hp.publish(self._health_msg("enemy", now, projection))

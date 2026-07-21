@@ -54,6 +54,8 @@
 #include "gimbal_driver/msg/position_data.hpp"
 #include "gimbal_driver/msg/sentry_cmd.hpp"
 #include "gimbal_driver/msg/sentry_info.hpp"
+#include "gimbal_driver/msg/stamped_int16.hpp"
+#include "gimbal_driver/msg/stamped_u_int16.hpp"
 #include "gimbal_driver/msg/stamped_u_int16_multi_array.hpp"
 #include "gimbal_driver/msg/gimbal_state.hpp"
 #include "gimbal_driver/msg/gimbal_trajectory.hpp"
@@ -105,19 +107,19 @@ namespace
     LY_DEF_ROS_TOPIC(ly_friend_is_at_home, "/ly/friend/is_at_home", std_msgs::msg::Bool);
     LY_DEF_ROS_TOPIC(ly_friend_is_team_red, "/ly/friend/is_team_red", std_msgs::msg::Bool);
     LY_DEF_ROS_TOPIC(ly_friend_hp, "/ly/friend/hp", gimbal_driver::msg::Health);
-    LY_DEF_ROS_TOPIC(ly_friend_op_hp, "/ly/friend/op_hp", std_msgs::msg::UInt16);
-    LY_DEF_ROS_TOPIC(ly_friend_base_hp, "/ly/friend/base_hp", std_msgs::msg::UInt16);
+    LY_DEF_ROS_TOPIC(ly_friend_op_hp, "/ly/friend/op_hp", gimbal_driver::msg::StampedUInt16);
+    LY_DEF_ROS_TOPIC(ly_friend_base_hp, "/ly/friend/base_hp", gimbal_driver::msg::StampedUInt16);
 
     LY_DEF_ROS_TOPIC(ly_friend_ammo_left, "/ly/friend/ammo_left", std_msgs::msg::UInt16);
     LY_DEF_ROS_TOPIC(ly_friend_uwb_pos, "/ly/friend/uwb_pos", gimbal_driver::msg::StampedUInt16MultiArray);
     LY_DEF_ROS_TOPIC(ly_friend_uwb_yaw, "/ly/friend/uwb_yaw", std_msgs::msg::UInt16);
 
     LY_DEF_ROS_TOPIC(ly_game_is_start, "/ly/game/is_start", std_msgs::msg::Bool);
-    LY_DEF_ROS_TOPIC(ly_game_time_left, "/ly/game/time_left", std_msgs::msg::UInt16);
+    LY_DEF_ROS_TOPIC(ly_game_time_left, "/ly/game/time_left", gimbal_driver::msg::StampedUInt16);
 
     LY_DEF_ROS_TOPIC(ly_enemy_hp, "/ly/enemy/hp", gimbal_driver::msg::Health);
-    LY_DEF_ROS_TOPIC(ly_enemy_op_hp, "/ly/enemy/op_hp", std_msgs::msg::UInt16);
-    LY_DEF_ROS_TOPIC(ly_enemy_base_hp, "/ly/enemy/base_hp", std_msgs::msg::UInt16);
+    LY_DEF_ROS_TOPIC(ly_enemy_op_hp, "/ly/enemy/op_hp", gimbal_driver::msg::StampedUInt16);
+    LY_DEF_ROS_TOPIC(ly_enemy_base_hp, "/ly/enemy/base_hp", gimbal_driver::msg::StampedUInt16);
 
     LY_DEF_ROS_TOPIC(ly_game_all, "/ly/game/all", gimbal_driver::msg::GameData);
     LY_DEF_ROS_TOPIC(ly_bullet_speed, "/ly/bullet/speed", std_msgs::msg::Float32);
@@ -128,7 +130,7 @@ namespace
     LY_DEF_ROS_TOPIC(ly_game_sentry_info, "/ly/game/sentry/info", gimbal_driver::msg::SentryInfo);
     LY_DEF_ROS_TOPIC(ly_game_bullet, "/ly/game/bullet", gimbal_driver::msg::BulletInfo);
     LY_DEF_ROS_TOPIC(ly_game_map_command, "/ly/game/map_command", gimbal_driver::msg::MapCommand);
-    LY_DEF_ROS_TOPIC(ly_game_damage_difference, "/ly/game/damage_difference", std_msgs::msg::Int16);
+    LY_DEF_ROS_TOPIC(ly_game_damage_difference, "/ly/game/damage_difference", gimbal_driver::msg::StampedInt16);
         
 
     using namespace std::chrono_literals;
@@ -1123,16 +1125,21 @@ namespace
                    preciseOutpostHpFreshTimeout_;
         }
 
-        void PublishOutpostHp(std::uint16_t self_hp, std::uint16_t enemy_hp) {
+        void PublishOutpostHp(
+            std::uint16_t self_hp,
+            std::uint16_t enemy_hp,
+            const rclcpp::Time& stamp) {
             {
                 using topic = ly_enemy_op_hp;
                 topic::Msg msg;
+                msg.header.stamp = stamp;
                 msg.data = enemy_hp;
                 Node.Publisher<topic>()->publish(msg);
             }
             {
                 using topic = ly_friend_op_hp;
                 topic::Msg msg;
+                msg.header.stamp = stamp;
                 msg.data = self_hp;
                 Node.Publisher<topic>()->publish(msg);
             }
@@ -1748,13 +1755,14 @@ namespace
             PublishGimbalState(stamp);
         }
 
-        void PubGameData(const GameData& data)
+        void PubGameData(const GameData& data, const rclcpp::Time& stamp)
         {
             selfSentryRobotId_ = data.GameCode.IsMyTeamRed ? 7u : 107u;
             const bool use_legacy_outpost_hp = !HasFreshPreciseOutpostHp();
             {
                 using topic = ly_game_all;
                 topic::Msg msg;
+                msg.header.stamp = stamp;
                 msg.gamecode = *reinterpret_cast<const std::uint16_t*>(&data.GameCode);
                 msg.ammoleft = data.AmmoLeft;
                 msg.timeleft = data.TimeLeft;
@@ -1771,7 +1779,8 @@ namespace
             if (use_legacy_outpost_hp) {
                 PublishOutpostHp(
                     static_cast<std::uint16_t>(data.GameCode.SelfOutpostHealth * 25u),
-                    static_cast<std::uint16_t>(data.GameCode.EnemyOutpostHealth * 25u));
+                    static_cast<std::uint16_t>(data.GameCode.EnemyOutpostHealth * 25u),
+                    stamp);
             }
             {
                 using topic = ly_friend_is_precaution;
@@ -1800,6 +1809,7 @@ namespace
             {
                 using topic = ly_game_time_left;
                 topic::Msg msg;
+                msg.header.stamp = stamp;
                 msg.data = data.TimeLeft;
                 Node.Publisher<topic>()->publish(msg);
             }
@@ -1812,7 +1822,7 @@ namespace
             {
                 using topic = ly_game_event_data;
                 auto msg = ToEventDataMsg(data.ExtEventData);
-                msg.header.stamp = Node.GetNode()->now();
+                msg.header.stamp = stamp;
                 Node.Publisher<topic>()->publish(msg);
             }
         }
@@ -1869,11 +1879,11 @@ namespace
             }
         }
 
-        void PubHealthMyselfData(const HealthMyselfData& data){
+        void PubHealthMyselfData(const HealthMyselfData& data, const rclcpp::Time& stamp){
             {
                 using topic = ly_friend_hp;
                 topic::Msg msg;
-                msg.header.stamp = Node.GetNode()->now();
+                msg.header.stamp = stamp;
                 msg.hero = data.HeroMyself;
                 msg.engineer = data.EngineerMyself;
                 msg.infantry1 = data.Infantry1Myself;
@@ -1885,16 +1895,17 @@ namespace
             {
                 using topic = ly_friend_base_hp;
                 topic::Msg msg;
+                msg.header.stamp = stamp;
                 msg.data = data.BaseMyself;
                 Node.Publisher<topic>()->publish(msg);
             }
         }
 
-        void PubHealthEnemyData(const HealthEnemyData& data){
+        void PubHealthEnemyData(const HealthEnemyData& data, const rclcpp::Time& stamp){
             {
                 using topic = ly_enemy_hp;
                 topic::Msg msg;
-                msg.header.stamp = Node.GetNode()->now();
+                msg.header.stamp = stamp;
                 msg.hero = data.HeroEnemy;
                 msg.engineer = data.EngineerEnemy;
                 msg.infantry1 = data.Infantry1Enemy;
@@ -1906,12 +1917,13 @@ namespace
             {
                 using topic = ly_enemy_base_hp;
                 topic::Msg msg;
+                msg.header.stamp = stamp;
                 msg.data = data.BaseEnemy;
                 Node.Publisher<topic>()->publish(msg);
             }
         }
 
-        void PubChassisData(const ChassisData& data) {
+        void PubChassisData(const ChassisData& data, const rclcpp::Time& stamp) {
             const auto packed1_u32 = static_cast<std::uint32_t>(data.ChassisPacked1);
             const auto packed2_u32 = static_cast<std::uint32_t>(data.ChassisPacked2);
 
@@ -1919,7 +1931,6 @@ namespace
             const auto angular_vel_u16 = static_cast<std::uint16_t>((packed1_u32 >> 16) & 0xFFFFu);
             const auto vel_x_u16 = static_cast<std::uint16_t>(packed2_u32 & 0xFFFFu);
             const auto vel_y_u16 = static_cast<std::uint16_t>((packed2_u32 >> 16) & 0xFFFFu);
-            const auto now = Node.GetNode()->now();
 
             const auto steer_angle = DecodeI16WithScale(steer_angle_u16, 10.0f);
             const auto angular_velocity = DecodeI16WithScale(angular_vel_u16, 100.0f);
@@ -1935,7 +1946,7 @@ namespace
             {
                 using topic = ly_gimbal_chassis;
                 topic::Msg msg;
-                msg.header.stamp = now;
+                msg.header.stamp = stamp;
                 msg.steer_angle = steer_angle;
                 msg.angular_velocity = angular_velocity;
                 msg.velocity_x = velocity_x;
@@ -1951,7 +1962,7 @@ namespace
             {
                 using topic = ly_gimbal_vel;
                 topic::Msg msg;
-                msg.header.stamp = now;
+                msg.header.stamp = stamp;
                 msg.x = velocity_x;
                 msg.y = velocity_y;
                 Node.Publisher<topic>()->publish(msg);
@@ -1959,6 +1970,7 @@ namespace
             {
                 using topic = ly_game_damage_difference;
                 topic::Msg msg;
+                msg.header.stamp = stamp;
                 msg.data = data.DamageDifference;
                 Node.Publisher<topic>()->publish(msg);
             }
@@ -1994,12 +2006,14 @@ namespace
             PublishBulletInfo(now);
         }
 
-        void PubSentryInfo3AndOutpostHpData(const SentryInfo3AndOutpostHpData& data) {
+        void PubSentryInfo3AndOutpostHpData(
+            const SentryInfo3AndOutpostHpData& data,
+            const rclcpp::Time& stamp) {
             latestSentryInfo3_ = data.SentryInfo3;
             hasSentryInfo3_ = true;
             lastSentryInfo3RxTime_ = std::chrono::steady_clock::now();
             preciseOutpostHpLastRxTime_ = std::chrono::steady_clock::now();
-            PublishOutpostHp(data.SelfOutpostHealth, data.EnemyOutpostHealth);
+            PublishOutpostHp(data.SelfOutpostHealth, data.EnemyOutpostHealth, stamp);
         }
 
         void PubBulletDataAndRfid2(const BulletDataAndRfid2& data) {
@@ -2032,6 +2046,7 @@ namespace
             Device.LoopRead(DeviceError, [this](const TypedMessage<sizeof(GimbalData)>& m)
             {
                 LogUplinkRaw(m);
+                const auto stamp = Node.GetNode()->now();
                 switch (m.TypeID)
                 {
                     case GimbalData::TypeID:
@@ -2041,16 +2056,16 @@ namespace
                     case GameData::TypeID:
                     {
                         const auto& game_data = m.GetDataAs<GameData>();
-                        PubGameData(game_data);
+                        PubGameData(game_data, stamp);
                         break;
                     }
 
                     case HealthMyselfData::TypeID:
-                        PubHealthMyselfData(m.GetDataAs<HealthMyselfData>());
+                        PubHealthMyselfData(m.GetDataAs<HealthMyselfData>(), stamp);
                         break;
 
                     case HealthEnemyData::TypeID:
-                        PubHealthEnemyData(m.GetDataAs<HealthEnemyData>());
+                        PubHealthEnemyData(m.GetDataAs<HealthEnemyData>(), stamp);
                         break;
 
                     case RFIDAndBuffData::TypeID:
@@ -2063,7 +2078,7 @@ namespace
                     case ChassisData::TypeID:
                     {
                         const auto& chassis_data = m.GetDataAs<ChassisData>();
-                        PubChassisData(chassis_data);
+                        PubChassisData(chassis_data, stamp);
                         break;
                     }
                     case SentryData::TypeID:
@@ -2083,7 +2098,8 @@ namespace
                     }
                     case SentryInfo3AndOutpostHpData::TypeID:
                     {
-                        PubSentryInfo3AndOutpostHpData(m.GetDataAs<SentryInfo3AndOutpostHpData>());
+                        PubSentryInfo3AndOutpostHpData(
+                            m.GetDataAs<SentryInfo3AndOutpostHpData>(), stamp);
                         break;
                     }
                     case GimbalDynamicsData::TypeID:

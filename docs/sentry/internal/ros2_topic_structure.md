@@ -76,29 +76,29 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `/ly/gimbal/capV` | `std_msgs/msg/UInt8` | `behavior_tree` | 电容电压/电容状态回读。 |
 | `ly/gimbal/eventdata` | `std_msgs/msg/UInt32` | legacy 调试/兼容 | legacy 原始 event data，注意当前 gimbal 侧定义无前导 `/`；`behavior_tree` 不再订阅。 |
 | `/ly/game/event_data` | `gimbal_driver/msg/EventData` | `behavior_tree` | 裁判 `0x0101 event_data` 语义拆字段。 |
-| `/ly/game/all` | `gimbal_driver/msg/GameData` | `behavior_tree` | `gamecode`, `ammoleft`, `timeleft`, `selfhealth`, `exteventdata` 摘要。 |
+| `/ly/game/all` | `gimbal_driver/msg/GameData` | `behavior_tree` | `header`（driver 串口接收/解码时刻）与 `gamecode`, `ammoleft`, `timeleft`, `selfhealth`, `exteventdata` 摘要。 |
 | `/ly/game/is_start` | `std_msgs/msg/Bool` | `behavior_tree` | 比赛是否开始。 |
-| `/ly/game/time_left` | `std_msgs/msg/UInt16` | `behavior_tree` | 剩余比赛时间。 |
+| `/ly/game/time_left` | `gimbal_driver/msg/StampedUInt16` | `behavior_tree` | 剩余比赛时间；`header.stamp` 是同一 TypeID 1 的 driver 接收/解码时刻。 |
 | `/ly/friend/is_team_red` | `std_msgs/msg/Bool` | `behavior_tree` | 我方是否红方。 |
 | `/ly/friend/is_at_home` | `std_msgs/msg/Bool` | `behavior_tree` | 是否回补/回家状态。 |
 | `/ly/friend/is_precaution` | `std_msgs/msg/Bool` | `behavior_tree` | 英雄预警。 |
 | `/ly/friend/hp` | `gimbal_driver/msg/Health` | `behavior_tree` | 我方各兵种血量。 |
-| `/ly/friend/base_hp` | `std_msgs/msg/UInt16` | `behavior_tree` | 我方基地血量。 |
-| `/ly/friend/op_hp` | `std_msgs/msg/UInt16` | `behavior_tree` | 我方前哨血量；优先 TypeID 10 的 `0x0003 ally_outpost_HP` 精确值，TypeID 1 的 `GameCode.SelfOutpostHealth * 25` 只做 fallback。 |
+| `/ly/friend/base_hp` | `gimbal_driver/msg/StampedUInt16` | `behavior_tree` | 我方基地血量；`header.stamp` 是 driver 接收/解码时刻。 |
+| `/ly/friend/op_hp` | `gimbal_driver/msg/StampedUInt16` | `behavior_tree` | 我方前哨血量；优先 TypeID 10 的 `0x0003 ally_outpost_HP` 精确值，TypeID 1 的 `GameCode.SelfOutpostHealth * 25` 只做 fallback；带 driver 接收时间。 |
 | `/ly/friend/ammo_left` | `std_msgs/msg/UInt16` | `behavior_tree` | 当前弹量。 |
 | `/ly/friend/uwb_pos` | `gimbal_driver/msg/StampedUInt16MultiArray` | `behavior_tree` | 自身官方坐标融合源，`data=[x, y]`，来自下位机 TypeID 5；`header.stamp` 为 `gimbal_driver` 发布时间。 |
 | `/ly/friend/uwb_yaw` | `std_msgs/msg/UInt16` | 调试/兼容 | 自身 UWB yaw。 |
 | `/ly/game/rfid` | `gimbal_driver/msg/RfidStatus` | `behavior_tree` | 裁判 `0x0209 rfid_status` 语义拆字段；TypeID 4 的低 32 bit 和 TypeID 8 的 `rfid_status_2` 在 `gimbal_driver` 内保留 shadow，任一侧更新都会合并发布完整消息；BT 内部聚合为 `RfidMatchState`。 |
 | `/ly/enemy/hp` | `gimbal_driver/msg/Health` | `behavior_tree` | 敌方各兵种血量。 |
-| `/ly/enemy/base_hp` | `std_msgs/msg/UInt16` | `behavior_tree` | 敌方基地血量。 |
-| `/ly/enemy/op_hp` | `std_msgs/msg/UInt16` | `behavior_tree` | 敌方前哨血量；优先 TypeID 10 的 `0x0003 enemy_outpost_HP` 精确值，TypeID 1 的 `GameCode.EnemyOutpostHealth * 25` 只做 fallback。 |
+| `/ly/enemy/base_hp` | `gimbal_driver/msg/StampedUInt16` | `behavior_tree` | 敌方基地血量；`header.stamp` 是 driver 接收/解码时刻。 |
+| `/ly/enemy/op_hp` | `gimbal_driver/msg/StampedUInt16` | `behavior_tree` | 敌方前哨血量；优先 TypeID 10 的 `0x0003 enemy_outpost_HP` 精确值，TypeID 1 的 `GameCode.EnemyOutpostHealth * 25` 只做 fallback；带 driver 接收时间。 |
 | `/ly/team/buff` | `gimbal_driver/msg/BuffData` | `behavior_tree` | 队伍增益与剩余能量。 |
 | `/ly/position/data` | `gimbal_driver/msg/PositionData` | `behavior_tree` | 官方坐标系统中一组友方/敌方机器人位置；`friendcarid == Sentry` 时作为自身坐标融合源。 |
 | `/ly/bullet/speed` | `std_msgs/msg/Float32` | predictor/调试 | 旧弹速 topic，来自 TypeID 5。 |
 | `/ly/game/sentry/info` | `gimbal_driver/msg/SentryInfo` | `behavior_tree`/调试 | 裁判 `0x020D sentry_info/sentry_info_2/sentry_info_3` 语义拆字段；其中有效 `posture` 会同步覆盖 `/ly/gimbal/posture`；BT 使用 `can_activate_energy_mechanism` 判斷打能量機關確認窗口。 |
 | `/ly/game/bullet` | `gimbal_driver/msg/BulletInfo` | `behavior_tree`/调试 | TypeID 7/8 合并出的弹速、发射事件、允许发弹量、金币；BT 当前只订阅并缓存，暂不参与正式决策；RFID2 不在这里。 |
 | `/ly/game/map_command` | `gimbal_driver/msg/MapCommand` | `behavior_tree`/调试 | TypeID 9 转出的裁判 `0x0303 map_command_t`；`header.stamp` 为 `gimbal_driver` 发布时间；BT 当前只订阅并缓存，不触发导航。 |
-| `/ly/game/damage_difference` | `std_msgs/msg/Int16` | 调试/后续策略 | TypeID 6 转出的裁判 `0x0003 game_robot_HP_t` offset 8，`己方全队总伤害 - 对方全队总伤害`。 |
+| `/ly/game/damage_difference` | `gimbal_driver/msg/StampedInt16` | 调试/后续策略 | TypeID 6 转出的裁判 `0x0003 game_robot_HP_t` offset 8，`己方全队总伤害 - 对方全队总伤害`；带 driver 接收/解码时间。 |
 
 ## 3.1 Raw Debug Topics
 

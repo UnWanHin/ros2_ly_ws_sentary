@@ -312,6 +312,7 @@ std::string DefaultConfigPathForProfile(const std::string& pkg_path, const std::
             .MyReadyRoadlandEnable = areas.MyReadyRoadland.Enable,
             .CommonCentralEnable = areas.CommonCentral.Enable,
             .ProtectCastleEnable = tactical.ProtectCastle.Enable,
+            .ProtectCastleBaseEnable = tactical.ProtectCastle.Base,
             .ProtectCastleRfidEnable = tactical.ProtectCastle.RFID,
             .ProtectCastleEnemyPosEnable = tactical.ProtectCastle.EnemyPos,
             .ProtectCastleStayWhenRfid = tactical.ProtectCastle.StayWhenRfid,

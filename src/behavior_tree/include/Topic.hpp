@@ -60,6 +60,8 @@
 #include "gimbal_driver/msg/rfid_status.hpp"
 #include "gimbal_driver/msg/sentry_cmd.hpp"
 #include "gimbal_driver/msg/sentry_info.hpp"
+#include "gimbal_driver/msg/stamped_int16.hpp"
+#include "gimbal_driver/msg/stamped_u_int16.hpp"
 #include "gimbal_driver/msg/stamped_u_int16_multi_array.hpp"
 #include "gimbal_driver/msg/uwb_pos.hpp"
 #include "gimbal_driver/msg/vel.hpp"
@@ -100,18 +102,18 @@ namespace BehaviorTree {
     LY_DEF_ROS_TOPIC(ly_friend_is_at_home, "/ly/friend/is_at_home", std_msgs::msg::Bool);
     LY_DEF_ROS_TOPIC(ly_friend_is_team_red, "/ly/friend/is_team_red", std_msgs::msg::Bool);
     LY_DEF_ROS_TOPIC(ly_friend_hp, "/ly/friend/hp", gimbal_driver::msg::Health);
-    LY_DEF_ROS_TOPIC(ly_friend_op_hp, "/ly/friend/op_hp", std_msgs::msg::UInt16);
-    LY_DEF_ROS_TOPIC(ly_friend_base_hp, "/ly/friend/base_hp", std_msgs::msg::UInt16);
+    LY_DEF_ROS_TOPIC(ly_friend_op_hp, "/ly/friend/op_hp", gimbal_driver::msg::StampedUInt16);
+    LY_DEF_ROS_TOPIC(ly_friend_base_hp, "/ly/friend/base_hp", gimbal_driver::msg::StampedUInt16);
     
     LY_DEF_ROS_TOPIC(ly_friend_ammo_left, "/ly/friend/ammo_left", std_msgs::msg::UInt16);
     LY_DEF_ROS_TOPIC(ly_friend_uwb_pos, "/ly/friend/uwb_pos", gimbal_driver::msg::StampedUInt16MultiArray);
     
     LY_DEF_ROS_TOPIC(ly_game_is_start, "/ly/game/is_start", std_msgs::msg::Bool);
-    LY_DEF_ROS_TOPIC(ly_game_time_left, "/ly/game/time_left", std_msgs::msg::UInt16);
+    LY_DEF_ROS_TOPIC(ly_game_time_left, "/ly/game/time_left", gimbal_driver::msg::StampedUInt16);
     
     LY_DEF_ROS_TOPIC(ly_enemy_hp, "/ly/enemy/hp", gimbal_driver::msg::Health);
-    LY_DEF_ROS_TOPIC(ly_enemy_op_hp, "/ly/enemy/op_hp", std_msgs::msg::UInt16);
-    LY_DEF_ROS_TOPIC(ly_enemy_base_hp, "/ly/enemy/base_hp", std_msgs::msg::UInt16);
+    LY_DEF_ROS_TOPIC(ly_enemy_op_hp, "/ly/enemy/op_hp", gimbal_driver::msg::StampedUInt16);
+    LY_DEF_ROS_TOPIC(ly_enemy_base_hp, "/ly/enemy/base_hp", gimbal_driver::msg::StampedUInt16);
 
     LY_DEF_ROS_TOPIC(ly_vision_mode, "/ly/vision/mode", std_msgs::msg::UInt8);
     

@@ -254,7 +254,11 @@ namespace BehaviorTree{
 
         // ly_friend_base_hp
         GenSub<ly_friend_base_hp>([](Application& app, auto msg) {
+            const auto now = std::chrono::steady_clock::now();
             app.selfBaseHealth = msg->data;
+            app.hasReceivedSelfBaseHealth_ = true;
+            app.lastSelfBaseHealthRxTime_ = now;
+            ObserveBaseHealthForProtection(app.selfBaseDamageWindow_, msg->data, now);
         });
 
         // ly_enemy_base_hp
@@ -297,16 +301,18 @@ namespace BehaviorTree{
 
         // ly_navi_reached
         GenSub<ly_navi_reached>([](Application& app, auto msg) {
+            const auto now = std::chrono::steady_clock::now();
             app.naviReach = msg->data;
             app.hasReceivedNaviReach_ = true;
-            app.lastNaviReachRxTime_ = std::chrono::steady_clock::now();
+            app.lastNaviReachRxTime_ = now;
         });
 
         // ly_navi_reachable
         GenSub<ly_navi_reachable>([](Application& app, auto msg) {
+            const auto now = std::chrono::steady_clock::now();
             app.naviReachable = msg->data;
             app.hasReceivedNaviReachable_ = true;
-            app.lastNaviReachableRxTime_ = std::chrono::steady_clock::now();
+            app.lastNaviReachableRxTime_ = now;
         });
 
         // ly_navi_should_rotate

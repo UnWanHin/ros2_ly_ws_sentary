@@ -140,6 +140,7 @@ struct RegionalDefenseThreat {
     int EnemyPreRoadlandCount{0};
     int EnemyReadyRoadlandCount{0};
     bool OwnFortressGainPointEnemyOccupied{false};
+    bool OwnBaseDamageActive{false};
     bool HardThreat{false};
     bool SoftEnemySideThreat{false};
 };

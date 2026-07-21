@@ -532,6 +532,7 @@ void Application::WriteDecisionTrace(const std::string_view event) {
     // policy helpers that make the decision. The simulator consumes these
     // facts as observations and never reconstructs ProtectCastle from UI data.
     const auto& tactical_settings = config.TacticalSettings;
+    const auto tactical_now = std::chrono::steady_clock::now();
     const int tactical_referee_fresh_ms = std::max(
         std::max(0, config.TaskSettings.BuffConfirm.RefereeFreshTimeoutMs),
         std::max(0, config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs));
@@ -541,6 +542,12 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         IsProtectCastleRfidStayActive(tactical_referee_fresh_ms);
     const bool protect_castle_rfid_event_active =
         IsFortressGainPointEnemyOccupiedEventFresh(tactical_referee_fresh_ms);
+    const bool protect_castle_base_damage_active =
+        IsProtectCastleBaseDamageActive(tactical_now);
+    const auto castle_occupancy = ResolveProtectCastleOccupancy(tactical_now);
+    const bool self_base_hp_fresh = hasReceivedSelfBaseHealth_ &&
+        lastSelfBaseHealthRxTime_.time_since_epoch().count() != 0 &&
+        tactical_now - lastSelfBaseHealthRxTime_ <= std::chrono::milliseconds(2000);
     const UnitTeam tactical_enemy_team =
         team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
     const auto tactical_regional_threat =
@@ -624,6 +631,13 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         {"available", true},
         {"protect_castle", {
             {"enabled", tactical_settings.ProtectCastle.Enable},
+            {"base_enabled", tactical_settings.ProtectCastle.Base},
+            {"base_damage_active", protect_castle_base_damage_active},
+            {"base_hp_fresh", self_base_hp_fresh},
+            {"base_damage_remaining_ms", selfBaseDamageWindow_.ActiveUntil > tactical_now
+                ? std::chrono::duration_cast<std::chrono::milliseconds>(
+                    selfBaseDamageWindow_.ActiveUntil - tactical_now).count()
+                : 0},
             {"rfid_enabled", tactical_settings.ProtectCastle.RFID},
             {"stay_when_rfid_enabled", tactical_settings.ProtectCastle.StayWhenRfid},
             {"stay_when_rfid_active", protect_castle_rfid_stay_active},
@@ -631,6 +645,14 @@ void Application::WriteDecisionTrace(const std::string_view event) {
             {"rfid_event_raw_active", protect_castle_rfid_raw_active},
             {"rfid_event_active", protect_castle_rfid_event_active},
             {"enemy_pos_active", protect_castle_enemy_pos_active},
+            {"referee_fortress_status", static_cast<int>(eventSelfFortressGainPointStatus_)},
+            {"referee_fortress_fresh", hasReceivedEventData_ &&
+                lastEventDataRxTime_.time_since_epoch().count() != 0 &&
+                tactical_now - lastEventDataRxTime_ <= std::chrono::milliseconds(tactical_referee_fresh_ms)},
+            {"occupancy_action", CastleOccupancyActionToString(castle_occupancy.Action)},
+            {"self_likely_at_castle", castle_occupancy.SelfLikelyAtCastle},
+            {"teammate_likely_at_castle", castle_occupancy.TeammateLikelyAtCastle},
+            {"team_or_ambiguous_occupant", castle_occupancy.TeamOrAmbiguousOccupant},
         }},
         {"protect_hero", {
             {"enabled", tactical_settings.ProtectHero.Enable},
@@ -832,6 +854,7 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         {"self_outpost_hp", static_cast<int>(selfOutpostHealth)},
         {"enemy_outpost_hp", static_cast<int>(enemyOutpostHealth)},
         {"self_base_hp", static_cast<int>(selfBaseHealth)},
+        {"self_base_hp_fresh", self_base_hp_fresh},
         {"enemy_base_hp", static_cast<int>(enemyBaseHealth)},
         {"ammo", static_cast<int>(ammoLeft)},
         {"time_left", static_cast<int>(timeLeft)},

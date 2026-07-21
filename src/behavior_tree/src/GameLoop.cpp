@@ -3844,6 +3844,77 @@ namespace BehaviorTree {
             IsFortressGainPointEnemyOccupiedEventRawFresh(referee_fresh_ms));
     }
 
+    bool Application::IsProtectCastleBaseDamageActive(
+        const std::chrono::steady_clock::time_point now) const noexcept {
+        constexpr auto kBaseHealthFreshTimeout = std::chrono::milliseconds(2000);
+        const auto& protect_castle = config.TacticalSettings.ProtectCastle;
+        const bool base_health_fresh = hasReceivedSelfBaseHealth_ &&
+            lastSelfBaseHealthRxTime_.time_since_epoch().count() != 0 &&
+            now - lastSelfBaseHealthRxTime_ <= kBaseHealthFreshTimeout;
+        return BehaviorTree::IsProtectCastleBaseDamageActive(
+            protect_castle.Enable,
+            protect_castle.Base,
+            base_health_fresh,
+            selfBaseDamageWindow_,
+            now);
+    }
+
+    CastleOccupancyResolution Application::ResolveProtectCastleOccupancy(
+        const std::chrono::steady_clock::time_point now) const {
+        const auto& protect_castle = config.TacticalSettings.ProtectCastle;
+        const int position_fresh_ms = std::max(1, protect_castle.OccupancyPositionFreshMs);
+        const int castle_margin_cm = std::max(0, protect_castle.CastlePositionMarginCm);
+        const int arrival_grace_ms = std::max(0, protect_castle.ArrivalConfirmGraceMs);
+        const int referee_fresh_ms = std::max(
+            std::max(0, config.TaskSettings.BuffConfirm.RefereeFreshTimeoutMs),
+            std::max(0, config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs));
+        const bool referee_fresh = hasReceivedEventData_ &&
+            lastEventDataRxTime_.time_since_epoch().count() != 0 &&
+            now - lastEventDataRxTime_ <= std::chrono::milliseconds(referee_fresh_ms);
+        const bool self_rfid_at_castle = hasReceivedRfidStatus_ &&
+            lastRfidStatusRxTime_.time_since_epoch().count() != 0 &&
+            now - lastRfidStatusRxTime_ <= kRfidFreshTimeout &&
+            rfidMatchState.SelfFortressGainPoint;
+        const auto self_position = GetSentryPositionState(now, position_fresh_ms);
+        const bool self_position_at_castle = self_position.Fresh &&
+            Area::IsPointInsideCastleAreaWithMargin(
+                team, self_position.X, self_position.Y, castle_margin_cm);
+
+        bool teammate_at_castle = false;
+        for (const auto unit_type : RobotLists) {
+            if (unit_type == UnitType::Sentry) {
+                continue;
+            }
+            const auto teammate = GetFriendPositionState(unit_type, position_fresh_ms, now);
+            if (teammate.Fresh && Area::IsPointInsideCastleAreaWithMargin(
+                    team, teammate.X, teammate.Y, castle_margin_cm)) {
+                teammate_at_castle = true;
+                break;
+            }
+        }
+
+        const bool reached_castle = hasReceivedNaviReach_ && naviReach &&
+            lastNaviReachRxTime_.time_since_epoch().count() != 0 &&
+            now - lastNaviReachRxTime_ <= std::chrono::milliseconds(arrival_grace_ms) &&
+            BaseGoalIdFromResolvedGoal(naviCommandGoal) == LangYa::Castle.ID;
+        if (reached_castle) {
+            castleReachedGraceUntil_ = now + std::chrono::milliseconds(arrival_grace_ms);
+        }
+        const bool reached_castle_grace =
+            castleReachedGraceUntil_.time_since_epoch().count() != 0 &&
+            now < castleReachedGraceUntil_;
+
+        lastCastleOccupancy_ = ResolveCastleOccupancy({
+            .RefereeFresh = referee_fresh,
+            .RefereeStatus = eventSelfFortressGainPointStatus_,
+            .SelfRfidAtCastle = self_rfid_at_castle,
+            .SelfPositionAtCastle = self_position_at_castle,
+            .ReachedCastleGrace = reached_castle_grace,
+            .TeammatePositionAtCastle = teammate_at_castle,
+        });
+        return lastCastleOccupancy_;
+    }
+
     bool Application::IsFortressGainPointEnemyOccupiedEventFresh(const int referee_fresh_ms) const noexcept {
         const auto now = std::chrono::steady_clock::now();
         if (fortressGainPointDegradedUntil_.time_since_epoch().count() != 0 &&
@@ -3930,9 +4001,15 @@ namespace BehaviorTree {
             std::max(0, config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs));
         const bool protect_castle_rfid_stay_active =
             IsProtectCastleRfidStayActive(referee_fresh_ms);
+        const bool protect_castle_base_damage_active =
+            IsProtectCastleBaseDamageActive(now);
         if (protect_castle_rfid_stay_active ||
             IsFortressGainPointEnemyOccupiedEventFresh(referee_fresh_ms)) {
             threat.OwnFortressGainPointEnemyOccupied = true;
+            threat.HardThreat = true;
+        }
+        if (protect_castle_base_damage_active) {
+            threat.OwnBaseDamageActive = true;
             threat.HardThreat = true;
         }
 
@@ -3946,6 +4023,7 @@ namespace BehaviorTree {
         const UnitTeam my_team,
         const UnitTeam enemy_team) {
         const auto& defense = config.RegionalDefenseSettings;
+        const auto& protect_castle = config.TacticalSettings.ProtectCastle;
         const auto maybe_threat = EvaluateRegionalDefenseThreat(my_team, enemy_team);
         if (!maybe_threat.has_value()) {
             const int referee_fresh_ms = std::max(
@@ -4069,18 +4147,31 @@ namespace BehaviorTree {
             return goals;
         };
 
+        const bool protect_castle_enemy_position_active =
+            protect_castle.EnemyPos && threat.OwnBaseCount > 0;
+        const bool protect_castle_source_active =
+            threat.OwnFortressGainPointEnemyOccupied ||
+            threat.OwnBaseDamageActive ||
+            protect_castle_enemy_position_active;
+        const auto castle_occupancy = protect_castle_source_active
+            ? ResolveProtectCastleOccupancy(now)
+            : CastleOccupancyResolution{};
+
         if (threat.HardThreat) {
-            if (threat.OwnFortressGainPointEnemyOccupied) {
+            if (protect_castle_source_active) {
                 search_kind = RegionalDefenseSearchKind::OwnFortressGainPoint;
-                reason = "own_fortress_gain_point_enemy";
-                candidates = protect_castle_rfid_stay_active
-                    ? std::vector<std::uint8_t>{LangYa::Castle.ID}
-                    : order_nearest_base_candidates({
+                reason = CastleOccupancyActionToString(castle_occupancy.Action);
+                if (castle_occupancy.Action == CastleOccupancyAction::ApproachCastle ||
+                    castle_occupancy.Action == CastleOccupancyAction::HoldCastle) {
+                    candidates = {LangYa::Castle.ID};
+                } else {
+                    candidates = order_nearest_base_candidates({
                         LangYa::CastleLeft1.ID,
                         LangYa::CastleLeft2.ID,
                         LangYa::CastleRight1.ID,
                         LangYa::CastleRight2.ID
                     });
+                }
             } else if (threat.OwnBaseCount > 0) {
                 search_kind = RegionalDefenseSearchKind::OwnBase;
                 reason = threat.OwnBaseCount >= defense.MultiEnemyBaseCount
@@ -4153,17 +4244,16 @@ namespace BehaviorTree {
                 std::max(1, defense.SearchNoTargetSec) * 1000);
         };
 
-        auto current_goal_done = [&](const std::uint8_t base_goal_id) {
-            return IsBaseGoalArrived(base_goal_id, my_team, true) ||
-                IsBaseGoalExternallyUnreachable(base_goal_id, my_team, true);
-        };
+        const auto current_goal_reach = EvaluateBaseGoalReach(
+            regionalDefenseSearchBaseGoal_, my_team, true);
+        const bool current_search_done =
+            current_goal_reach.Status == GoalReachStatus::Reached ||
+            current_goal_reach.Status == GoalReachStatus::Unreachable;
 
         const bool search_held_long_enough =
             regionalDefenseSearchStartTime_.time_since_epoch().count() != 0 &&
             now - regionalDefenseSearchStartTime_ >=
                 std::chrono::seconds(std::max(1, defense.SearchHoldSec));
-        const bool current_search_done =
-            current_goal_done(regionalDefenseSearchBaseGoal_);
         const bool should_advance_search =
             same_search &&
             candidates.size() > 1U &&
@@ -4171,10 +4261,31 @@ namespace BehaviorTree {
             !visual_target_recently_seen();
 
         if (should_advance_search) {
+            const auto previous_goal = regionalDefenseSearchBaseGoal_;
             regionalDefenseSearchIndex_ =
                 (regionalDefenseSearchIndex_ + 1U) % candidates.size();
             regionalDefenseSearchBaseGoal_ = candidates[regionalDefenseSearchIndex_];
             regionalDefenseSearchStartTime_ = now;
+            if (LoggerPtr) {
+                const char* trigger = current_goal_reach.Status == GoalReachStatus::Unreachable
+                    ? "external_unreachable"
+                    : (current_goal_reach.Status == GoalReachStatus::Reached
+                        ? GoalReachReasonToString(current_goal_reach.Reason)
+                        : "search_hold_timeout");
+                LoggerPtr->Info(
+                    "Regional defense switch: {} -> {} trigger={} reach_status={} reach_reason={} external_reachable={} external_reached={}.",
+                    static_cast<int>(previous_goal),
+                    static_cast<int>(regionalDefenseSearchBaseGoal_),
+                    trigger,
+                    GoalReachStatusToString(current_goal_reach.Status),
+                    GoalReachReasonToString(current_goal_reach.Reason),
+                    current_goal_reach.ExternalReachable.has_value()
+                        ? (*current_goal_reach.ExternalReachable ? "true" : "false")
+                        : "stale",
+                    current_goal_reach.ExternalReach.has_value()
+                        ? (*current_goal_reach.ExternalReach ? "true" : "false")
+                        : "stale");
+            }
         }
 
         const auto current_goal_id =
@@ -4207,12 +4318,17 @@ namespace BehaviorTree {
             speedLevel = 1;
             if (LoggerPtr) {
                 LoggerPtr->Info(
-                    "Regional defense {} kind={} search_index={} goal={} own_fortress_gain_point_enemy={} fortress_enemy_count={} own_base={} own_highland={} own_pre_roadland={} own_ready_roadland={} common_central={} enemy_highland={} enemy_pre_roadland={} enemy_ready_roadland={}",
+                    "Regional defense {} kind={} search_index={} goal={} own_fortress_gain_point_enemy={} base_damage={} fortress_status={} castle_action={} self_likely_at_castle={} teammate_likely_at_castle={} fortress_enemy_count={} own_base={} own_highland={} own_pre_roadland={} own_ready_roadland={} common_central={} enemy_highland={} enemy_pre_roadland={} enemy_ready_roadland={}",
                     reason,
                     RegionalDefenseSearchKindToString(search_kind),
                     regionalDefenseSearchIndex_,
                     static_cast<int>(naviCommandGoal),
                     threat.OwnFortressGainPointEnemyOccupied ? 1 : 0,
+                    threat.OwnBaseDamageActive ? 1 : 0,
+                    static_cast<int>(eventSelfFortressGainPointStatus_),
+                    CastleOccupancyActionToString(castle_occupancy.Action),
+                    castle_occupancy.SelfLikelyAtCastle ? 1 : 0,
+                    castle_occupancy.TeammateLikelyAtCastle ? 1 : 0,
                     fortressGainPointEnemyCount_,
                     threat.OwnBaseCount,
                     threat.OwnHighlandCount,

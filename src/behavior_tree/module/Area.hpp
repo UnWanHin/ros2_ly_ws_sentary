@@ -329,6 +329,71 @@ namespace Area {
         return PointLookupTeam(team) == UnitTeam::Blue ? CastleBlue : CastleRed;
     }
 
+    inline bool IsPointInsideCastleAreaWithMargin(
+        const UnitTeam team,
+        const int x,
+        const int y,
+        const int margin_cm) {
+        if ((team != UnitTeam::Red && team != UnitTeam::Blue) || margin_cm < 0) {
+            return false;
+        }
+        const auto& points = PointLookupTeam(team) == UnitTeam::Blue
+            ? CastleBluePoints
+            : CastleRedPoints;
+        const auto point_inside = [&]() {
+            bool inside = false;
+            for (std::size_t i = 0, j = points.size() - 1; i < points.size(); j = i++) {
+                const auto& pi = points[i];
+                const auto& pj = points[j];
+                const long long cross =
+                    static_cast<long long>(x - static_cast<int>(pj.x)) *
+                        static_cast<long long>(static_cast<int>(pi.y) - static_cast<int>(pj.y)) -
+                    static_cast<long long>(y - static_cast<int>(pj.y)) *
+                        static_cast<long long>(static_cast<int>(pi.x) - static_cast<int>(pj.x));
+                if (cross == 0 &&
+                    x >= std::min(static_cast<int>(pi.x), static_cast<int>(pj.x)) &&
+                    x <= std::max(static_cast<int>(pi.x), static_cast<int>(pj.x)) &&
+                    y >= std::min(static_cast<int>(pi.y), static_cast<int>(pj.y)) &&
+                    y <= std::max(static_cast<int>(pi.y), static_cast<int>(pj.y))) {
+                    return true;
+                }
+                if ((static_cast<int>(pi.y) > y) != (static_cast<int>(pj.y) > y)) {
+                    const double intersection_x =
+                        static_cast<double>(static_cast<int>(pj.x) - static_cast<int>(pi.x)) *
+                            static_cast<double>(y - static_cast<int>(pi.y)) /
+                            static_cast<double>(static_cast<int>(pj.y) - static_cast<int>(pi.y)) +
+                        static_cast<double>(pi.x);
+                    if (static_cast<double>(x) < intersection_x) {
+                        inside = !inside;
+                    }
+                }
+            }
+            return inside;
+        };
+        if (point_inside()) {
+            return true;
+        }
+        const double max_distance_sq = static_cast<double>(margin_cm) * margin_cm;
+        for (std::size_t i = 0; i < points.size(); ++i) {
+            const auto& start = points[i];
+            const auto& end = points[(i + 1) % points.size()];
+            const double vx = static_cast<double>(end.x) - start.x;
+            const double vy = static_cast<double>(end.y) - start.y;
+            const double wx = static_cast<double>(x) - start.x;
+            const double wy = static_cast<double>(y) - start.y;
+            const double length_sq = vx * vx + vy * vy;
+            const double t = length_sq > 0.0
+                ? std::clamp((wx * vx + wy * vy) / length_sq, 0.0, 1.0)
+                : 0.0;
+            const double dx = static_cast<double>(x) - (start.x + t * vx);
+            const double dy = static_cast<double>(y) - (start.y + t * vy);
+            if (dx * dx + dy * dy <= max_distance_sq) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     inline const Area<std::uint16_t>& CentralHighLandAreaForTeam(const UnitTeam team) {
         return PointLookupTeam(team) == UnitTeam::Blue ? CentralHighLandBlue : CentralHighLandRed;
     }

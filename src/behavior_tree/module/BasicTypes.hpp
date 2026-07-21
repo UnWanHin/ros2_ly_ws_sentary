@@ -618,6 +618,10 @@ namespace LangYa
         bool RFID{true};
         bool EnemyPos{true};
         bool StayWhenRfid{false};
+        bool Base{true};
+        int OccupancyPositionFreshMs{2500};
+        int CastlePositionMarginCm{60};
+        int ArrivalConfirmGraceMs{3000};
     };
 
     struct TacticalSetting {

@@ -57,6 +57,7 @@
 #include "PostureManager.hpp"
 #include "OutpostEngagementLock.hpp"
 #include "StrategyManager.hpp"
+#include "TacticalProtectionPolicy.hpp"
 
 using namespace BT;
 using namespace LangYa;
@@ -340,6 +341,9 @@ private:
     std::chrono::steady_clock::time_point lastEnemyOutpostHealthRxTime_{};
     std::uint16_t enemyBaseHealth{0};  // 基地血量
     std::uint16_t selfBaseHealth{0};
+    bool hasReceivedSelfBaseHealth_{false};
+    std::chrono::steady_clock::time_point lastSelfBaseHealthRxTime_{};
+    BaseDamageWindowState selfBaseDamageWindow_{};
     std::uint16_t ammoLeft{0}; // 剩余子弹数
     std::uint16_t timeLeft{0}; // 比赛剩余时间
     std::uint16_t myselfHealth{0}; // 自己的血量
@@ -384,6 +388,8 @@ private:
     std::uint8_t eventSelfOutpostGainPointStatus_{0};
     bool eventSelfBaseGainPointStatus_{false};
     std::chrono::steady_clock::time_point lastEventDataRxTime_{};
+    mutable CastleOccupancyResolution lastCastleOccupancy_{};
+    mutable std::chrono::steady_clock::time_point castleReachedGraceUntil_{};
     bool sentryCanActivateEnergyMechanism_{false};
     bool hasReceivedSentryInfo_{false};
     std::chrono::steady_clock::time_point lastSentryInfoRxTime_{};
@@ -951,6 +957,10 @@ public:
     bool IsRegionalDefenseAimSuppressActive() const noexcept;
     bool IsFortressGainPointEnemyOccupiedEventRawFresh(int referee_fresh_ms) const noexcept;
     bool IsProtectCastleRfidStayActive(int referee_fresh_ms) const noexcept;
+    bool IsProtectCastleBaseDamageActive(
+        std::chrono::steady_clock::time_point now) const noexcept;
+    CastleOccupancyResolution ResolveProtectCastleOccupancy(
+        std::chrono::steady_clock::time_point now) const;
     bool IsFortressGainPointEnemyOccupiedEventFresh(int referee_fresh_ms) const noexcept;
     bool IsFriendPositionFresh(UnitType unit_type, int fresh_ms) const;
     bool IsFriendHealthFresh(UnitType unit_type, int fresh_ms) const;

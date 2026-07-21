@@ -367,11 +367,11 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 | `/ly/gimbal/state` | `gimbal_driver/msg/GimbalState` | 本包定义的 `header.stamp` 发布时刻、TypeID 0 角度与 TypeID 11 动态反馈组合；动态帧超时后仅角速度/角加速度清零；默认每 20ms 周期发布 |
 | `/ly/friend/is_team_red` | `Bool` | 我方是否紅隊 |
 | `/ly/game/is_start` | `Bool` | 比賽是否開始 |
-| `/ly/game/time_left` | `UInt16` | 剩餘時間 |
+| `/ly/game/time_left` | `StampedUInt16` | 剩餘時間；`header.stamp` 是 driver 串口接收/解码时刻 |
 | `/ly/friend/hp` | `Health` | 我方各機器人血量 |
 | `/ly/enemy/hp` | `Health` | 敵方各機器人血量 |
-| `/ly/friend/op_hp` | `UInt16` | 我方前哨血量；优先 TypeID 10 `0x0003 ally_outpost_HP` 精确值，TypeID 1 `SelfOutpostHealth * 25` 只做 fallback |
-| `/ly/enemy/op_hp` | `UInt16` | 敵方前哨血量；优先 TypeID 10 `0x0003 enemy_outpost_HP` 精确值，TypeID 1 `EnemyOutpostHealth * 25` 只做 fallback |
+| `/ly/friend/op_hp` | `StampedUInt16` | 我方前哨血量；优先 TypeID 10 `0x0003 ally_outpost_HP` 精确值，TypeID 1 `SelfOutpostHealth * 25` 只做 fallback；带接收时间 |
+| `/ly/enemy/op_hp` | `StampedUInt16` | 敵方前哨血量；优先 TypeID 10 `0x0003 enemy_outpost_HP` 精确值，TypeID 1 `EnemyOutpostHealth * 25` 只做 fallback；带接收时间 |
 | `/ly/friend/ammo_left` | `UInt16` | 剩餘子彈 |
 | `/ly/bullet/speed` | `Float32` | 子彈速度（m/s，当前代码发布 `PositionData.BulletSpeed / 100.0f`） |
 | `/ly/team/buff` | `BuffData` | 能量機關增益狀態 |
@@ -381,7 +381,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 | `/ly/gimbal/chassis` | `Chassis` | 底盘四元反馈（`steer_angle`, `angular_velocity`, `velocity_x`, `velocity_y`） |
 | `/ly/gimbal/posture` | `UInt8` | 姿態回讀（只由 TypeID 7 `/ly/game/sentry/info.posture` 的有效值發布；僅 1/2/3 視為有效） |
 | `/ly/game/sentry/info` | `SentryInfo` | 裁判 `0x020D sentry_info/sentry_info_2/sentry_info_3` 拆字段；`sentry_info_3` shadow 由 TypeID 10 更新，随 TypeID 7 发布 |
-| `/ly/game/damage_difference` | `Int16` | 裁判 `0x0003 game_robot_HP_t` offset 8，己方全隊總傷害與對方全隊總傷害之差 |
+| `/ly/game/damage_difference` | `StampedInt16` | 裁判 `0x0003 game_robot_HP_t` offset 8，己方全隊總傷害與對方全隊總傷害之差；带接收时间 |
 | `ly/gimbal/eventdata` | `UInt32` | 場地事件原始值（當前 topic 字符串無前導 `/`） |
 | `/ly/game/event_data` | `EventData` | 0x0101 `event_data` 按 RM2026 V1.3.0 拆字段 |
 

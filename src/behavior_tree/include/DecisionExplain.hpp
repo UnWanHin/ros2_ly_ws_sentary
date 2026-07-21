@@ -27,6 +27,7 @@ struct ConfigSnapshot {
     bool MyReadyRoadlandEnable{false};
     bool CommonCentralEnable{false};
     bool ProtectCastleEnable{false};
+    bool ProtectCastleBaseEnable{false};
     bool ProtectCastleRfidEnable{false};
     bool ProtectCastleEnemyPosEnable{false};
     bool ProtectCastleStayWhenRfid{false};
@@ -96,6 +97,7 @@ inline std::array<std::string, 3> FormatConfigLines(const ConfigSnapshot& snapsh
     std::ostringstream tactical;
     tactical << "[DecisionExplain][config] tactical protect_castle="
              << enabled(snapshot.ProtectCastleEnable)
+             << " base=" << enabled(snapshot.ProtectCastleBaseEnable)
              << " rfid=" << enabled(snapshot.ProtectCastleRfidEnable)
              << " enemy_pos=" << enabled(snapshot.ProtectCastleEnemyPosEnable)
              << " stay_when_rfid=" << enabled(snapshot.ProtectCastleStayWhenRfid)

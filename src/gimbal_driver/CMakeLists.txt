@@ -108,6 +108,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/PositionData.msg"
   "msg/SentryCmd.msg"
   "msg/SentryInfo.msg"
+  "msg/StampedInt16.msg"
+  "msg/StampedUInt16.msg"
   "msg/StampedUInt16MultiArray.msg"
   "msg/UnitInfo.msg"
   "msg/UnitInfoArray.msg"
