@@ -336,6 +336,7 @@ if(BUILD_TESTING)
   ament_add_gtest(test_mpc_gimbal_protocol
     test/test_mpc_gimbal_protocol.cpp)
   target_include_directories(test_mpc_gimbal_protocol PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/module
     ${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_cpp)
   ament_target_dependencies(test_mpc_gimbal_protocol

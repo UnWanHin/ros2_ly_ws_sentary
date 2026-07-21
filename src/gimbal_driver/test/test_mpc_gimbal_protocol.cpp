@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include "BasicTypes.hpp"
+#include "RawDownlinkTest.hpp"
 #include "crc_checker.hpp"
 #include "gimbal_driver/msg/gimbal_trajectory.hpp"
 
@@ -156,6 +157,61 @@ TEST(MapPathFragmentProtocol, UsesDocumentedCrc16Vector)
     EXPECT_EQ(
         LangYa::CalculateMapPathFragmentCrc16(payload.data(), payload.size()),
         0x6F91U);
+}
+
+template <typename T>
+std::array<std::uint8_t, sizeof(T)> RawBytes(const T& frame)
+{
+    std::array<std::uint8_t, sizeof(T)> bytes{};
+    std::memcpy(bytes.data(), &frame, bytes.size());
+    return bytes;
+}
+
+TEST(RawDownlinkTest, AcceptsEachValidPhysicalFrame)
+{
+    LangYa::GimbalControlFrame control;
+    LangYa::SentryCommandFrame sentry_command;
+    LangYa::MapPathFrame map_path;
+    const auto map_fragment = LangYa::MakeMapPathFragments(map_path, 7U).front();
+    LangYa::CustomInfoFrame custom_info;
+    LangYa::SentryCoordinateFrame coordinate;
+    coordinate.CRC8 = CRCChecker::CRC8::calculate_downlink(
+        reinterpret_cast<const std::uint8_t*>(&coordinate), sizeof(coordinate) - 1U);
+    const auto trajectory = LangYa::ToGimbalTrajectoryFrame(
+        1.0F, 2.0F, 3.0F, 4.0F, 5.0F, 6.0F);
+
+    EXPECT_TRUE(LangYa::IsValidRawDownlinkTestFrame(0x00U, RawBytes(control)));
+    EXPECT_TRUE(LangYa::IsValidRawDownlinkTestFrame(0x01U, RawBytes(sentry_command)));
+    EXPECT_TRUE(LangYa::IsValidRawDownlinkTestFrame(0x02U, RawBytes(map_fragment)));
+    EXPECT_TRUE(LangYa::IsValidRawDownlinkTestFrame(0x03U, RawBytes(custom_info)));
+    EXPECT_TRUE(LangYa::IsValidRawDownlinkTestFrame(0x04U, RawBytes(coordinate)));
+    EXPECT_TRUE(LangYa::IsValidRawDownlinkTestFrame(0x05U, RawBytes(trajectory)));
+}
+
+TEST(RawDownlinkTest, RejectsMismatchedOrCorruptedPhysicalFrames)
+{
+    LangYa::GimbalControlFrame control;
+    auto control_bytes = RawBytes(control);
+    EXPECT_FALSE(LangYa::IsValidRawDownlinkTestFrame(0x01U, control_bytes));
+    control_bytes[0] = 0U;
+    EXPECT_FALSE(LangYa::IsValidRawDownlinkTestFrame(0x00U, control_bytes));
+
+    control_bytes = RawBytes(control);
+    control_bytes[1] = 0x01U;
+    EXPECT_FALSE(LangYa::IsValidRawDownlinkTestFrame(0x00U, control_bytes));
+    EXPECT_FALSE(LangYa::IsValidRawDownlinkTestFrame(
+        0x00U, std::span<const std::uint8_t>{control_bytes.data(), control_bytes.size() - 1U}));
+
+    LangYa::MapPathFrame map_path;
+    auto map_fragment = LangYa::MakeMapPathFragments(map_path, 7U).front();
+    map_fragment.Payload[0] ^= 0x01U;
+    EXPECT_FALSE(LangYa::IsValidRawDownlinkTestFrame(0x02U, RawBytes(map_fragment)));
+
+    LangYa::SentryCoordinateFrame coordinate;
+    coordinate.CRC8 = CRCChecker::CRC8::calculate_downlink(
+        reinterpret_cast<const std::uint8_t*>(&coordinate), sizeof(coordinate) - 1U);
+    coordinate.CRC8 ^= 0x01U;
+    EXPECT_FALSE(LangYa::IsValidRawDownlinkTestFrame(0x04U, RawBytes(coordinate)));
 }
 
 }  // namespace
