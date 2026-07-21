@@ -197,3 +197,41 @@ TEST(DecisionExplain, FormatsManualMapPoseAndRelativeTargetWithTheirActualUnits)
     manual.XMeter = 8.6F;
     EXPECT_NE(manual_fingerprint, BehaviorTree::DecisionExplain::MakeFingerprint(manual));
 }
+
+TEST(DecisionExplain, FormatsHardRecoveryAndStablePatrolDetails) {
+    const auto recovery = MakeObservation(
+        BehaviorTree::DecisionReason::Recovery,
+        2U,
+        102U,
+        250U,
+        200U,
+        "enter_default hp=120 ammo=45");
+    const auto recovery_line = BehaviorTree::DecisionExplain::FormatNavigationLine(recovery);
+    EXPECT_NE(recovery_line.find("layer=hard"), std::string::npos);
+    EXPECT_NE(recovery_line.find("reason=recovery"), std::string::npos);
+    EXPECT_NE(recovery_line.find("detail=enter_default hp=120 ammo=45"), std::string::npos);
+
+    const auto area_task = MakeObservation(
+        BehaviorTree::DecisionReason::DefaultAreaPolicy,
+        8U,
+        108U,
+        1600U,
+        720U,
+        "area_task=MyHighland phase=patrol");
+    EXPECT_NE(
+        BehaviorTree::DecisionExplain::FormatNavigationLine(area_task)
+            .find("detail=area_task=MyHighland phase=patrol"),
+        std::string::npos);
+
+    const auto idle = MakeObservation(
+        BehaviorTree::DecisionReason::RegionalIdlePatrol,
+        9U,
+        109U,
+        1200U,
+        800U,
+        "index=2 hold_sec=8");
+    EXPECT_NE(
+        BehaviorTree::DecisionExplain::FormatNavigationLine(idle)
+            .find("detail=index=2 hold_sec=8"),
+        std::string::npos);
+}
