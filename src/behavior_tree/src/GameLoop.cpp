@@ -3239,8 +3239,25 @@ namespace BehaviorTree {
             return false;
         }
 
+        const auto previous_goal_id = naviCommandGoal;
+        const auto previous_goal_position = naviGoalPosition;
         ApplyRegionalAreaTaskControl(result);
         SetPositionByBaseGoal(result.BaseGoalId, result.GoalTeam, result.ApplyTeamOffset);
+        const bool goal_changed =
+            naviCommandGoal != previous_goal_id ||
+            naviGoalPosition.x != previous_goal_position.x ||
+            naviGoalPosition.y != previous_goal_position.y;
+        if (goal_changed) {
+            const std::string detail =
+                "area_task=" + std::string{RegionalAreaTaskTypeToString(result.Type)} +
+                " phase=" + RegionalAreaTaskPhaseToString(result.Phase);
+            RecordDecisionIntent(MakeDecisionIntent(
+                DecisionReason::DefaultAreaPolicy,
+                result.BaseGoalId,
+                result.GoalTeam,
+                result.ApplyTeamOffset,
+                detail.c_str()));
+        }
         if (result.ResetNaviHold) {
             naviCommandIntervalClock.reset(Seconds{std::max(1, result.NaviHoldSec)});
         }
@@ -4628,6 +4645,9 @@ namespace BehaviorTree {
             if (!AreaManager::IsValidBaseGoalId(base_goal_id)) {
                 continue;
             }
+            const auto previous_goal_id = naviCommandGoal;
+            const auto previous_goal_position = naviGoalPosition;
+            const auto previous_intent = lastDecisionIntent_;
             if (TrySetScopedPositionByBaseGoal(
                     base_goal_id,
                     my_team,
@@ -4635,6 +4655,15 @@ namespace BehaviorTree {
                     enemy_team,
                     apply_team_offset,
                     "regional_idle_patrol")) {
+                if (naviCommandGoal != previous_goal_id ||
+                    naviGoalPosition.x != previous_goal_position.x ||
+                    naviGoalPosition.y != previous_goal_position.y) {
+                    lastDecisionIntent_.Detail =
+                        "index=" + std::to_string(candidate.Index) +
+                        " hold_sec=" + std::to_string(hold_sec);
+                } else {
+                    lastDecisionIntent_ = previous_intent;
+                }
                 areaManager_.CommitRegionalIdlePatrolCandidate(candidate.Index);
                 naviCommandIntervalClock.reset(Seconds{hold_sec});
                 speedLevel = 1;
@@ -4715,6 +4744,9 @@ namespace BehaviorTree {
         }
 
         for (const auto& candidate : candidates) {
+            const auto previous_goal_id = naviCommandGoal;
+            const auto previous_goal_position = naviGoalPosition;
+            const auto previous_intent = lastDecisionIntent_;
             if (!TrySetScopedPositionByBaseGoal(
                     candidate.BaseGoalId,
                     candidate.GoalTeam,
@@ -4725,6 +4757,13 @@ namespace BehaviorTree {
                 continue;
             }
 
+            if (naviCommandGoal != previous_goal_id ||
+                naviGoalPosition.x != previous_goal_position.x ||
+                naviGoalPosition.y != previous_goal_position.y) {
+                lastDecisionIntent_.Detail = "area=" + std::string{candidate.Name};
+            } else {
+                lastDecisionIntent_ = previous_intent;
+            }
             defaultStrategyManager_.CommitRegionalAreaSelection(candidate, now);
             naviCommandIntervalClock.reset(Seconds{1});
             speedLevel = 1;
@@ -5482,6 +5521,16 @@ namespace BehaviorTree {
             naviCommandIntervalClock.reset(Seconds{1});
             if (changed) {
                 regionalRecoveryMonitorActive_ = false;
+                const std::string detail =
+                    std::string{reason} +
+                    " hp=" + std::to_string(myselfHealth) +
+                    " ammo=" + std::to_string(ammoLeft);
+                RecordDecisionIntent(MakeDecisionIntent(
+                    DecisionReason::Recovery,
+                    LangYa::Recovery.ID,
+                    MyTeam,
+                    apply_team_offset,
+                    detail.c_str()));
                 if (LoggerPtr) {
                     LoggerPtr->Info(
                         "Regional recovery target: reason={} point=({}, {}) hp={} ammo={}.",

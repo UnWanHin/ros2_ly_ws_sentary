@@ -124,6 +124,12 @@ flowchart LR
 `map` frame 的 `m`，相對追擊使用來源 frame 的 `rel_m`。相對追擊的位置持續更新不會每 tick
 刷屏；它在決策、目標類別或 frame 切換時打印，不是每 tick 的除錯 trace。
 
+Regional 的回補、Default 與閒置巡邏也使用同一最終輸出記錄。回補換點時為
+`layer=hard reason=recovery`，detail 帶當次觸發動作和 HP/彈量快照；Default AreaTask 換點時
+detail 帶 `area_task=<區域> phase=<階段>`；RegionalIdlePatrol 換點時帶
+`index=<巡邏序號> hold_sec=<保持秒數>`。同一個最終 goal/坐標重發、HP/彈量或 Default score 的
+單獨變化都不會另印一條導航決策說明。
+
 ### `speed_level` 與 `vel` 的分工
 
 ```mermaid
