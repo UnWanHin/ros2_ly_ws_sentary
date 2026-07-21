@@ -2,8 +2,11 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import yaml
+
 
 STATE_PATH = Path(__file__).resolve().parents[1] / "scripts" / "debug_control_state.py"
+PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("debug_control_state", STATE_PATH)
 assert SPEC is not None
 assert SPEC.loader is not None
@@ -126,3 +129,17 @@ def test_stale_navigation_publishes_zero_velocity():
     snapshot = state.snapshot(500_000_001, navi_mode=True, aim_mode=False)
 
     assert snapshot.velocity == (0, 0)
+
+
+def test_debug_raw_downlink_mode_has_an_explicit_default_and_launch_contract():
+    debug_config = yaml.safe_load(
+        (PACKAGE_ROOT / "config" / "debug_mode.yaml").read_text(encoding="utf-8")
+    )
+    debug_parameters = debug_config["/**"]["ros__parameters"]
+    debug_launch = (PACKAGE_ROOT / "launch" / "debug_node.launch.py").read_text(encoding="utf-8")
+    driver_launch = (PACKAGE_ROOT / "launch" / "gimbal_driver.launch.py").read_text(encoding="utf-8")
+
+    assert debug_parameters["raw_downlink_test_mode"] is False
+    assert "load_raw_downlink_test_mode" in debug_launch
+    assert '"raw_downlink_test_mode"' in driver_launch
+    assert '"io_config/raw_downlink_test_mode"' in driver_launch

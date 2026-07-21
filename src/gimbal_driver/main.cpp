@@ -71,6 +71,7 @@
 #include "module/crc_checker.hpp"
 #include "module/IODevice.hpp"
 #include "module/ROSTools.hpp"
+#include "RawDownlinkTest.hpp"
 
 using namespace LangYa;
 
@@ -226,6 +227,7 @@ namespace
         bool rawSerialTopicDownlink_{true};
         std::string rawSerialTopicTypeIds_{"all"};
         std::array<bool, 256> rawSerialTopicTypeIdEnabled_{};
+        bool rawDownlinkTestMode_{false};
         rclcpp::Publisher<gimbal_driver::msg::GimbalRawFrame>::SharedPtr rawSerialRxPublisher_{};
         rclcpp::Publisher<gimbal_driver::msg::GimbalRawFrame>::SharedPtr rawSerialTxPublisher_{};
         static constexpr std::size_t kUploadTypeIdCount = 12;
@@ -239,6 +241,8 @@ namespace
             kUploadTypeIdCount> serialModeUploadPublishers_{};
         std::array<rclcpp::Publisher<gimbal_driver::msg::GimbalRawFrame>::SharedPtr,
             kDownloadTypeIdCount> serialModeDownloadPublishers_{};
+        std::array<rclcpp::Subscription<gimbal_driver::msg::GimbalRawFrame>::SharedPtr,
+            kDownloadTypeIdCount> rawDownlinkTestSubscriptions_{};
         rclcpp::Subscription<geometry_msgs::msg::PointStamped>::SharedPtr subSentryPosition_{};
         rclcpp::Subscription<gimbal_driver::msg::GimbalTrajectory>::SharedPtr trajectorySubscription_{};
         rclcpp::Publisher<gimbal_driver::msg::GimbalState>::SharedPtr gimbalStatePublisher_{};
@@ -853,6 +857,82 @@ namespace
             PublishSerialModeDownloadTopic(data, GimbalTrajectoryFrame::DownlinkTypeIDValue);
         }
 
+        template<typename TFrame>
+        void SendRawDownlinkTestFrame(
+            const std::uint8_t expected_type_id,
+            const gimbal_driver::msg::GimbalRawFrame::ConstSharedPtr& msg) {
+            if (!rawDownlinkTestMode_ || !msg) {
+                return;
+            }
+            if (msg->direction != gimbal_driver::msg::GimbalRawFrame::DIRECTION_TX ||
+                msg->type_id != expected_type_id ||
+                !IsValidRawDownlinkTestFrame(
+                    expected_type_id,
+                    std::span<const std::uint8_t>{msg->data.data(), msg->data.size()})) {
+                roslog::warn(
+                    "Drop raw downlink test frame: expected=0x%02x direction=%u type_id=0x%02x size=%zu",
+                    static_cast<unsigned>(expected_type_id),
+                    static_cast<unsigned>(msg->direction),
+                    static_cast<unsigned>(msg->type_id),
+                    msg->data.size());
+                return;
+            }
+            if (DeviceError) {
+                return;
+            }
+
+            TFrame frame{};
+            std::memcpy(&frame, msg->data.data(), sizeof(frame));
+            if (!Device.WriteRaw(frame)) {
+                DeviceError = true;
+                return;
+            }
+            LogDownlinkRaw(frame, "raw_downlink_test");
+        }
+
+        void GenRawDownlinkTestSubscriptions() {
+            auto node = Node.GetNode();
+            for (std::size_t type_id = 0; type_id < kDownloadTypeIdCount; ++type_id) {
+                std::ostringstream topic;
+                topic << "/ly/download/typeid0x" << std::hex << std::setw(2)
+                      << std::setfill('0') << type_id;
+                rawDownlinkTestSubscriptions_[type_id] =
+                    node->create_subscription<gimbal_driver::msg::GimbalRawFrame>(
+                        topic.str(),
+                        rclcpp::SensorDataQoS(),
+                        [this, type_id](const gimbal_driver::msg::GimbalRawFrame::ConstSharedPtr msg) {
+                            switch (type_id) {
+                                case GimbalControlFrame::DownlinkTypeIDValue:
+                                    SendRawDownlinkTestFrame<GimbalControlFrame>(
+                                        GimbalControlFrame::DownlinkTypeIDValue, msg);
+                                    break;
+                                case SentryCommandFrame::DownlinkTypeIDValue:
+                                    SendRawDownlinkTestFrame<SentryCommandFrame>(
+                                        SentryCommandFrame::DownlinkTypeIDValue, msg);
+                                    break;
+                                case MapPathFragmentFrame::DownlinkTypeIDValue:
+                                    SendRawDownlinkTestFrame<MapPathFragmentFrame>(
+                                        MapPathFragmentFrame::DownlinkTypeIDValue, msg);
+                                    break;
+                                case CustomInfoFrame::DownlinkTypeIDValue:
+                                    SendRawDownlinkTestFrame<CustomInfoFrame>(
+                                        CustomInfoFrame::DownlinkTypeIDValue, msg);
+                                    break;
+                                case SentryCoordinateFrame::DownlinkTypeIDValue:
+                                    SendRawDownlinkTestFrame<SentryCoordinateFrame>(
+                                        SentryCoordinateFrame::DownlinkTypeIDValue, msg);
+                                    break;
+                                case GimbalTrajectoryFrame::DownlinkTypeIDValue:
+                                    SendRawDownlinkTestFrame<GimbalTrajectoryFrame>(
+                                        GimbalTrajectoryFrame::DownlinkTypeIDValue, msg);
+                                    break;
+                                default:
+                                    break;
+                            }
+                        });
+            }
+        }
+
         static gimbal_driver::msg::RfidStatus ToRfidStatusMsg(
             std::uint32_t raw,
             bool has_status2 = false,
@@ -1000,6 +1080,9 @@ namespace
         }
 
         void MaybeSendPostureTx() {
+            if (rawDownlinkTestMode_) {
+                return;
+            }
             if (posturePendingRepeat_ <= 0) {
                 return;
             }
@@ -1056,6 +1139,9 @@ namespace
         }
 
         void SendGimbalTrajectory(const gimbal_driver::msg::GimbalTrajectory& msg) {
+            if (rawDownlinkTestMode_) {
+                return;
+            }
             if (!IsFiniteGimbalTrajectory(
                     msg.yaw, msg.pitch, msg.yaw_omega, msg.pitch_omega,
                     msg.yaw_alpha, msg.pitch_alpha)) {
@@ -1170,6 +1256,9 @@ namespace
         }
 
         bool SendSentryCommand(const char* reason) {
+            if (rawDownlinkTestMode_) {
+                return false;
+            }
             if (DeviceError) {
                 return false;
             }
@@ -1202,6 +1291,9 @@ namespace
         }
 
         void SendMapPath(const gimbal_driver::msg::MapPath& msg, const bool require_fresh_stamp) {
+            if (rawDownlinkTestMode_) {
+                return;
+            }
             if (DeviceError) {
                 return;
             }
@@ -1230,6 +1322,9 @@ namespace
         }
 
         void SendCustomInfo(const gimbal_driver::msg::CustomInfo& msg) {
+            if (rawDownlinkTestMode_) {
+                return;
+            }
             if (DeviceError) {
                 return;
             }
@@ -1245,6 +1340,9 @@ namespace
         }
 
         void MaybeSendSentryCoordinate() {
+            if (rawDownlinkTestMode_) {
+                return;
+            }
             if (!sentryCoordPending_ || !sentryCoordValid_) {
                 return;
             }
@@ -1396,6 +1494,11 @@ namespace
 
         void GenSubs()
         {
+            if (rawDownlinkTestMode_) {
+                GenRawDownlinkTestSubscriptions();
+                return;
+            }
+
             GenSub<ly_control_angles>([](GimbalControlFrame& g, const gimbal_driver::msg::GimbalAngles& m)
                                         {
                                             g.GimbalAngles.Yaw = static_cast<float>(m.yaw);
@@ -1998,6 +2101,10 @@ namespace
         }
 
         void TestVirtualLoopback(){
+            if (rawDownlinkTestMode_) {
+                Device.LoopRead(DeviceError, [](const TypedMessage<sizeof(GimbalData)>&) {});
+                return;
+            }
             TypedMessage<sizeof(GimbalData)> test_msg{};
             GimbalControlFrame test_msg2{};
             test_msg.TypeID = GimbalData::TypeID;
@@ -2017,6 +2124,9 @@ namespace
         Application() noexcept : CallbackGenerator{
                 [this](const auto& data)
                 {
+                    if (rawDownlinkTestMode_) {
+                        return;
+                    }
                     controlShadow_ = data;
                     if (DeviceError) return;
                     if (!Device.Write(data)) {
@@ -2080,6 +2190,7 @@ namespace
             bool rawSerialTopicUplink = rawSerialTopicUplink_;
             bool rawSerialTopicDownlink = rawSerialTopicDownlink_;
             std::string rawSerialTopicTypeIds = rawSerialTopicTypeIds_;
+            bool rawDownlinkTestMode = rawDownlinkTestMode_;
             bool serialModeEnable = serialModeEnable_;
             bool serialModeUploadEnable = serialModeUploadEnable_;
             bool serialModeDownloadEnable = serialModeDownloadEnable_;
@@ -2231,6 +2342,11 @@ namespace
                 rawSerialTopicTypeIds,
                 rawSerialTopicTypeIds);
             getParamCompat(
+                "io_config/raw_downlink_test_mode",
+                "io_config.raw_downlink_test_mode",
+                rawDownlinkTestMode,
+                rawDownlinkTestMode);
+            getParamCompat(
                 "io_config/serial_mode",
                 "io_config.serial_mode",
                 serialModeEnable,
@@ -2361,6 +2477,17 @@ namespace
             navigationModeFollowModeWhenFalse_ = navigationModeFollowModeWhenFalse;
             navigationVelocityForwardEnable_ =
                 navigationTestEnable_ || (navigationModeEnable_ && navigationModeVelChainEnable_);
+            rawDownlinkTestMode_ = rawDownlinkTestMode;
+            if (rawDownlinkTestMode_) {
+                rawSerialLogEnable = true;
+                rawSerialLogUplink = true;
+                rawSerialLogDownlink = true;
+                rawSerialLogScreen = true;
+                rawSerialTopicEnable = true;
+                rawSerialTopicUplink = true;
+                rawSerialTopicDownlink = true;
+                serialModeDownloadEnable = false;
+            }
             ConfigureRawSerialLog(
                 rawSerialLogEnable,
                 rawSerialLogUplink,
@@ -2381,6 +2508,10 @@ namespace
                 serialModeDownloadEnable,
                 serialModeDownloadTypeIdEnabled);
             GenSubs();
+            if (rawDownlinkTestMode_) {
+                roslog::warn(
+                    "RAW DOWNLINK TEST MODE active: only /ly/download/typeid0x00..05 may write serial; normal control writers are disabled.");
+            }
             roslog::warn("posture_tx merged mode: repeat_count=%d repeat_interval_ms=%d",
                          postureTxRepeatCount_,
                          static_cast<int>(postureTxInterval_.count()));
@@ -2440,12 +2571,14 @@ namespace
                 static_cast<int>(gimbalStatePublishPeriod_.count()),
                 static_cast<int>(gimbalDynamicsTimeout_.count()));
 
-            subSentryPosition_ = node->create_subscription<ly_bt_sentry_position::Msg>(
-                ly_bt_sentry_position::Name,
-                10,
-                [this](const ly_bt_sentry_position::Msg::SharedPtr msg) {
-                    HandleSentryPosition(msg);
-                });
+            if (!rawDownlinkTestMode_) {
+                subSentryPosition_ = node->create_subscription<ly_bt_sentry_position::Msg>(
+                    ly_bt_sentry_position::Name,
+                    10,
+                    [this](const ly_bt_sentry_position::Msg::SharedPtr msg) {
+                        HandleSentryPosition(msg);
+                    });
+            }
 
             while (rclcpp::ok())
             {

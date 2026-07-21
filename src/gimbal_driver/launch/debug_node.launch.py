@@ -7,13 +7,36 @@ profile. It starts no behavior-tree node, so it must not run beside a BT that
 publishes the formal /ly/control/* chain.
 """
 import os
+from pathlib import Path
+
+import yaml
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+
+
+def load_raw_downlink_test_mode(debug_config_file: str) -> bool:
+    """Read the one driver-owned debug switch without passing bridge params to the driver."""
+    path = Path(debug_config_file)
+    if not path.is_file():
+        raise RuntimeError(f"debug config file does not exist: {path}")
+    with path.open(encoding="utf-8") as handle:
+        documents = list(yaml.safe_load_all(handle))
+    for document in documents:
+        if not isinstance(document, dict):
+            continue
+        params = document.get("/**", {}).get("ros__parameters", {})
+        if "raw_downlink_test_mode" not in params:
+            continue
+        value = params["raw_downlink_test_mode"]
+        if not isinstance(value, bool):
+            raise RuntimeError("raw_downlink_test_mode must be a boolean")
+        return value
+    return False
 
 
 def generate_launch_description():
@@ -85,6 +108,22 @@ def generate_launch_description():
         name: LaunchConfiguration(name) for name in argument_names
         if name not in ("debug_config_file", "patrol_config_file")
     }
+
+    def include_driver(context):
+        raw_downlink_test_mode = load_raw_downlink_test_mode(
+            LaunchConfiguration("debug_config_file").perform(context)
+        )
+        launch_arguments = dict(driver_arguments)
+        launch_arguments["raw_downlink_test_mode"] = (
+            "true" if raw_downlink_test_mode else "false"
+        )
+        return [
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(gimbal_driver_launch),
+                launch_arguments=launch_arguments.items(),
+            )
+        ]
+
     debug_bridge = Node(
         package="gimbal_driver",
         executable="debug.py",
@@ -99,8 +138,5 @@ def generate_launch_description():
     return LaunchDescription([
         *launch_arguments,
         debug_bridge,
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(gimbal_driver_launch),
-            launch_arguments=driver_arguments.items(),
-        ),
+        OpaqueFunction(function=include_driver),
     ])

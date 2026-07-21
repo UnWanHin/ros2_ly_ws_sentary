@@ -218,6 +218,10 @@ def generate_launch_description():
             "raw_topic_downlink",
             "io_config/raw_serial_topic_downlink",
             "io_config.raw_serial_topic_downlink")
+        add_bool_override(
+            "raw_downlink_test_mode",
+            "io_config/raw_downlink_test_mode",
+            "io_config.raw_downlink_test_mode")
         add_str_override(
             "raw_topic_type_ids",
             "io_config/raw_serial_topic_type_ids",
@@ -351,6 +355,11 @@ def generate_launch_description():
             "raw_topic_type_ids",
             default_value="",
             description="Comma-separated uplink TypeID list or all. Empty uses YAML config.",
+        ),
+        DeclareLaunchArgument(
+            "raw_downlink_test_mode",
+            default_value="false",
+            description="Exclusive debug-only raw downlink injection mode. Normal control writes are suppressed.",
         ),
         DeclareLaunchArgument(
             "firecode_partial_hold_ms",
