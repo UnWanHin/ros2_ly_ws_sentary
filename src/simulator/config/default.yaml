@@ -104,7 +104,7 @@ colors:
   panel2: "#202832"
   text: "#F5F7FA"
   muted: "#AEB7C2"
-  line: "#FFFFFF0F"
+  line: "#303942"
   accent: "#4DB7FF"
   friend: "#58D68D"
   enemy: "#FF6262"

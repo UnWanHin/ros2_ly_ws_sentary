@@ -1302,8 +1302,7 @@ class Viewer:
     def draw_command_bar(self, rect: WorkspaceRect) -> None:
         pg = self.pg
         bar = pg.Rect(round(rect.x), round(rect.y), round(rect.width), round(rect.height))
-        pg.draw.rect(self.screen, self.palette["panel"], bar, border_radius=10)
-        pg.draw.rect(self.screen, self.palette["line"], bar, 1, border_radius=10)
+        self.draw_flight_deck_card(bar)
         self.workspace_buttons = {}
         self.control_buttons = {}
         title = self.title_font.render("LY / FIELD WORKSPACE", True, self.palette["text"])
@@ -1336,8 +1335,7 @@ class Viewer:
     def draw_activity_rail(self, rect: WorkspaceRect) -> None:
         pg = self.pg
         rail = pg.Rect(round(rect.x), round(rect.y), round(rect.width), round(rect.height))
-        pg.draw.rect(self.screen, self.palette["panel"], rail, border_radius=10)
-        pg.draw.rect(self.screen, self.palette["line"], rail, 1, border_radius=10)
+        self.draw_flight_deck_card(rail)
         labels = [
             ("decision", "Decision"),
             ("events", "Events"),
@@ -1371,8 +1369,7 @@ class Viewer:
     def draw_operations_shelf(self, rect: WorkspaceRect) -> None:
         pg = self.pg
         shelf = pg.Rect(round(rect.x), round(rect.y), round(rect.width), round(rect.height))
-        pg.draw.rect(self.screen, self.palette["panel"], shelf, border_radius=10)
-        pg.draw.rect(self.screen, self.palette["line"], shelf, 1, border_radius=10)
+        self.draw_flight_deck_card(shelf)
         title = self.font.render("Operations", True, self.palette["text"])
         self.screen.blit(title, (shelf.x + 16, shelf.y + 11))
         state = "Expand" if self.shelf_collapsed else "Collapse"
@@ -2142,8 +2139,7 @@ class Viewer:
         if self.panel_tab != "inputs":
             self.inputs_panel.clear_buttons()
         self.layer_buttons = {}
-        pg.draw.rect(self.screen, self.palette["panel"], rect, border_radius=10)
-        pg.draw.rect(self.screen, self.palette["line"], rect, 1, border_radius=10)
+        self.draw_flight_deck_card(rect)
         self.panel_tab_buttons = {}
         if self.inspector_collapsed:
             toggle = pg.Rect(rect.x + 8, rect.y + 10, rect.width - 16, 30)
@@ -2868,6 +2864,18 @@ class Viewer:
         pg.draw.rect(self.screen, border, rect, 1, border_radius=5)
         txt = self.small_font.render(label, True, self.palette["white"] if hovered else self.palette["text"])
         self.screen.blit(txt, txt.get_rect(center=rect.center))
+
+    def draw_flight_deck_card(self, rect: Any, *, active: bool = False) -> None:
+        """Draw the shared matte Flight Deck card material without changing hit areas."""
+
+        pg = self.pg
+        shadow = rect.move(0, 3)
+        pg.draw.rect(self.screen, self.palette["black"], shadow, border_radius=12)
+        pg.draw.rect(self.screen, self.palette["panel"], rect, border_radius=12)
+        border = self.palette["accent"] if active else self.palette["line"]
+        pg.draw.rect(self.screen, border, rect, 1, border_radius=12)
+        highlight = pg.Rect(rect.x + 12, rect.y + 1, max(1, rect.width - 24), 1)
+        pg.draw.rect(self.screen, self.palette["panel2"], highlight, border_radius=1)
 
     def draw_section(self, x: int, y: int, title: str, rows: list[tuple[str, str]], max_width: int) -> int:
         pg = self.pg
