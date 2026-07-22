@@ -31,7 +31,15 @@ struct ConfigSnapshot {
     bool ProtectCastleRfidEnable{false};
     bool ProtectCastleEnemyPosEnable{false};
     bool ProtectCastleStayWhenRfid{false};
+    bool ProtectOutpostEnable{false};
+    int ProtectOutpostHealthFreshMs{0};
+    int ProtectOutpostSearchHoldSec{0};
+    int ProtectOutpostUnreachableCooldownSec{0};
     bool ProtectHeroEnable{false};
+    int ProtectCastlePriority{0};
+    int ProtectOutpostPriority{0};
+    int ProtectHeroPriority{0};
+    int ChasePriority{0};
     std::uint8_t DamageRotateDefaultGear{0};
     int DamageRotateNoHitTimeoutMs{0};
     int DamageRotateGear0HoldMs{0};
@@ -101,7 +109,15 @@ inline std::array<std::string, 3> FormatConfigLines(const ConfigSnapshot& snapsh
              << " rfid=" << enabled(snapshot.ProtectCastleRfidEnable)
              << " enemy_pos=" << enabled(snapshot.ProtectCastleEnemyPosEnable)
              << " stay_when_rfid=" << enabled(snapshot.ProtectCastleStayWhenRfid)
-             << " protect_hero=" << enabled(snapshot.ProtectHeroEnable);
+             << " protect_outpost=" << (snapshot.ProtectOutpostEnable ? "enabled" : "disabled")
+             << " health_fresh_ms=" << snapshot.ProtectOutpostHealthFreshMs
+             << " search_hold_sec=" << snapshot.ProtectOutpostSearchHoldSec
+             << " unreachable_cooldown_sec=" << snapshot.ProtectOutpostUnreachableCooldownSec
+             << " protect_hero=" << enabled(snapshot.ProtectHeroEnable)
+             << " priority.protect_castle=" << snapshot.ProtectCastlePriority
+             << " priority.protect_outpost=" << snapshot.ProtectOutpostPriority
+             << " priority.protect_hero=" << snapshot.ProtectHeroPriority
+             << " priority.chase=" << snapshot.ChasePriority;
 
     std::ostringstream damage_rotate;
     damage_rotate << "[DecisionExplain][config] damage_rotate default_gear="

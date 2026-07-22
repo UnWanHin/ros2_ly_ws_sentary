@@ -548,6 +548,10 @@ void Application::WriteDecisionTrace(const std::string_view event) {
     const bool self_base_hp_fresh = hasReceivedSelfBaseHealth_ &&
         lastSelfBaseHealthRxTime_.time_since_epoch().count() != 0 &&
         tactical_now - lastSelfBaseHealthRxTime_ <= std::chrono::milliseconds(2000);
+    const bool self_outpost_hp_fresh = hasReceivedSelfOutpostHealth_ &&
+        lastSelfOutpostHealthRxTime_.time_since_epoch().count() != 0 &&
+        tactical_now - lastSelfOutpostHealthRxTime_ <=
+            std::chrono::milliseconds(std::max(0, tactical_settings.ProtectOutpost.HealthFreshMs));
     const UnitTeam tactical_enemy_team =
         team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
     const auto tactical_regional_threat =
@@ -657,6 +661,15 @@ void Application::WriteDecisionTrace(const std::string_view event) {
         {"protect_hero", {
             {"enabled", tactical_settings.ProtectHero.Enable},
             {"active", protectHeroActive_},
+        }},
+        {"protect_outpost", {
+            {"enabled", tactical_settings.ProtectOutpost.Enable},
+            {"hp", static_cast<int>(selfOutpostHealth)},
+            {"hp_fresh", self_outpost_hp_fresh},
+            {"phase", ProtectOutpostPhaseToString(protectOutpostState_.Phase)},
+            {"event_generation", protectOutpostState_.ActiveEventGeneration},
+            {"search_hold_sec", tactical_settings.ProtectOutpost.SearchHoldSec},
+            {"priority", tactical_settings.Priority.ProtectOutpost},
         }},
         {"regional_defense", {
             {"threat_active", tactical_regional_threat.has_value()},

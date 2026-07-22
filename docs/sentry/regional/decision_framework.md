@@ -1,6 +1,6 @@
 # Regional 決策框架說明
 
-Updated: 2026-07-21
+Updated: 2026-07-22
 
 本文記錄目前 `behavior_tree` 裡 regional 決策的區域狀態機框架：它會做哪些任務、怎麼啟動、怎麼判斷到達、會輸出什麼控制，以及哪些階段會被高優先級邏輯打斷。
 
@@ -42,7 +42,7 @@ Regional 不是單一點表，而是分層策略：
 
 - `Hard`：最高優先級，先處理低血/低彈回 `Recovery`，以及 ReadyRoadland 強綁定穿越段。
 - `Task`：先處理裁判小地圖 `MapCommand`，再處理 Highland 兼容過渡和導航 watchdog 等支援任務，不擁有基本大區域狀態機。
-- `Tactical`：處理 Buff、RegionalDefense（含 ProtectCastle）、ProtectHero、Outpost 和 watchdog fallback。
+- `Tactical`：處理 Buff、RegionalDefense（含 ProtectCastle）、ProtectOutpost、ProtectHero、Outpost 和 watchdog fallback。
 - `Special`：可開關的專項巡察層，目前只包含兩點線段 Patrol，優先級低於 Tactical、高於 Default。
 - `Default`：沒有事件、沒有任務、沒有 Buff/Outpost 時，按大區域候選分數選並持續 tick `MyBase / MyHighland / MyPreRoadland / MyReadyRoadland / CommonCentral`。
 - `Finalizer`：只做策略層狀態同步，不再做舊點表 fallback。
@@ -58,6 +58,7 @@ Regional 目前已有的主要邏輯：
 - `CommonCentral` 任務：中場巡邏路線是 `my OutpostArea -> my RightShoot -> my BuffAround2 -> my LeftShoot -> my OutpostShoot -> enemy RightShoot -> enemy OccupyArea -> enemy OutpostShoot`，啟動時也按自身位置選最近點；完成 `MaxPatrolSteps` 後退出，交回 Default scorer 重新評估下一個大區域。
 - RegionalDefense：用官方敵方位置和 `event_data` 做戰術防守；道路前/後段分別統計後聚合為同一條 RoadCorridor 防守威脅，敵方進我方 Base/Highland/PreRoadland/ReadyRoadland/CommonCentral 或己方堡壘增益點 `2/3` 都可觸發。
 - 己方堡壘增益點 `2/3`：`Tactical.ProtectCastle.StayWhenRfid=true` 時只去 `Castle`，抵達後禁止底盤導航追擊與切點離開；新鮮原始裁判事件持續期間不會無接觸退化。關閉時維持 `CastleLeft1 / CastleLeft2 / CastleRight1 / CastleRight2` 搜索和既有退化保護。此開關不影響 EnemyPos。
+- ProtectOutpost：本機新鮮 `/ly/friend/op_hp` 嚴格下降時，去紅 C3 `(1011,429)` 或藍 C4 `(1789,1071)` 官方厘米點；到達後固定搜索 30 秒。相同低血值不重複起任務，新的掉血會刷新當前事件；不可達則冷卻 10 秒，冷卻內的新掉血只排隊到期後重試。
 - Recovery：Hard 層先回 `Recovery` 點；到達後若 3 秒內血量/彈量沒有回升，會在己方 `Recovery` 子區域內切換中心探測點，避免卡在補給區邊緣。
 - MapCommand：裁判 `0x0303` 坐標模式的非零官方地圖點會成為 45 秒（`Task.MapCommand.HoldSec`）的 Task 層導航任務。它直接走 `/ly/navi/goal_pos_raw -> navi_tf_bridge -> /goal_pose`，不偽裝成區域 Goal ID，也不進入 `GoalReachState`、AreaManager 或 watchdog。相同點的 5x/100ms 和後續 1Hz 重送不續期；目標機器人模式沒有座標，不導航。Hard Recovery 每拍取消這個任務並記住該點，恢復後不會自動續走。
 - Buff：由能量機關裁判狀態、sentry info、timer、damage abort 和 timeout 決定是否進 `AimMode::Buff`；戰術站位使用 `BuffOutpost`，FaceMode 對己方目標側。
@@ -89,7 +90,7 @@ EvaluateEvents -> Hard -> Task -> PreprocessData -> SelectAimTarget -> Tactical 
 - `Hard`：最高優先級保護，處理 recovery/補血補彈和 ReadyRoadland 強綁定穿越段。ReadyRoadland 強綁定段在這層 hard lock，避免被戰術層中途搶走。
 - `Task`：先接受有效 `0x0303` MapCommand 並壓過 Tactical/Special/Default，再處理 Highland 兼容過渡和導航 watchdog；不再 tick Highland/Base/PreRoadland/ReadyRoadland/Central 基本大區域狀態機。整個 Hard 層都高於 MapCommand：包含 Recovery 與不可中斷的 ReadyRoadland 穿越段。
 - `PreprocessData / SelectAimTarget`：在 Tactical 前整理可打目標、官方坐標和本 tick `targetArmor`，讓戰術層使用最新目標資料。
-- `Tactical`：regional 只保留明確戰術 overlay：`RegionalDefense`、ProtectHero、Buff/Outpost 任務站位、Chase 追擊和導航 watchdog；不再調用舊單策略點表。`LeagueSimple` 只在 `CompetitionProfile=league` 時使用，Showcase 只在明確 showcase 配置時使用。
+- `Tactical`：regional 只保留明確戰術 overlay：`RegionalDefense`、ProtectOutpost、ProtectHero、Buff/Outpost 任務站位、Chase 追擊和導航 watchdog；不再調用舊單策略點表。`Tactical.Priority` 以小數字優先排序 ProtectCastle、ProtectOutpost、ProtectHero、Chase；Hard、Task 和既有 Buff/Outpost aim 分支仍高於此表。`LeagueSimple` 只在 `CompetitionProfile=league` 時使用，Showcase 只在明確 showcase 配置時使用。
 - `Special`：可選專項層；目前 `Special.Patrol.Enable=false`。日後啟用時才巡己方 `CentralLeft` 線；`PreRoadland` 已是 Default scope 內的正式 AreaTask。Special 在 Tactical 之後，若啟用且 `SuppressChase=true`，它會主動禁止該專項期間的 Chase。
 - `Default`：無特別事件時的底層決策，只在已啟用的大區域中以程式內建的資源門檻、距離、目前區域、上次任務結果、冷卻和重試評分，再啟動 AreaManager 任務。每個 Default 區域任務都必須有完成/退出條件；任務完成後回到 scorer 重新評估，不寫死下一個大區域順序。沒有可用區域時不再 fallback 到任何舊點表。`RegionalIdlePatrol` 點表不再是正式 regional 的 Default 入口。
 - `Finalizer`：只做本 tick 策略層完成標記和黑板同步；regional 不再 fallback 到舊點表。
@@ -310,6 +311,21 @@ RegionalDefense 是事件驅動戰術層，優先級高於 Default。敵方位�
 - 敵方在公共 Central：去 `HoleRoad -> Castle` 搜索。
 
 搜索點會尊重 area scope，但不啟動 Base/Highland/PreRoadland/ReadyRoadland 的 AreaManager 區域任務；它只做 scope 檢查、必要的 Highland transition，然後直接下導航點。`RegionalDefense.SearchHoldSec` 和 `RegionalDefense.SearchNoTargetSec` 控制「一直找不到」後切下一個搜索點；找不到的判斷使用 autoaim 最近有效目標時間，不混用 buff/outpost 目標。堡壘增益點事件在 `StayWhenRfid=false` 時保留退化保護：若連續 `RegionalDefense.FortressNoContactDegradeSec` 秒沒有己方 Base 大區官方敵方位置、也沒有普通裝甲視覺目標，會在 `RegionalDefense.FortressDegradeCooldownSec` 秒內暫時不把 `2/3` 當硬威脅；開啟 `StayWhenRfid` 時，新鮮原始 `2/3` 事件不退化。
+
+## ProtectOutpost
+
+`Tactical.ProtectOutpost` 防守己方前哨，与敌方前哨 visual scout 的
+`Task.OutpostConfirm` 是两条独立链路。它只在 regional、开关启用、收到本机时间仍在
+`HealthFreshMs` 内的 `/ly/friend/op_hp` 严格下降时建立事件；第一帧、相同值、上涨、0
+值或过期回传都不会触发。事件经 `Area::ProtectOutpost` 走正常 raw 官方坐标链路：红方
+C3 `(1011,429)`、蓝方 C4 `(1789,1071)`，最终仍由唯一的 BT 导航发布出口输出。
+
+到达 C3/C4 后进入 `SearchHold` 并保持 `SearchHoldSec`（默认 30 秒）；保持中发生新的有效
+掉血会重启计时。上层 Hard/Task 或更高 Tactical 项可以暂时抢占，但不会清掉同一事件状态，回到
+本任务时仍复用同一目标。若该目标收到 `/ly/navi/reachable=false`，任务进入
+`UnreachableCooldownSec`（默认 10 秒）冷却；冷却期间不重复发点，新的掉血只在冷却结束后排队为
+一个新 Travel 事件。默认顺序由 `Tactical.Priority` 给出：ProtectCastle `1`、ProtectOutpost
+`2`、ProtectHero `3`、Chase `4`，较小数字优先，相等时按此列出的固定顺序。
 
 ## ProtectHero
 

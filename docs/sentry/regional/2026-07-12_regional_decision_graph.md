@@ -1,6 +1,6 @@
 # Regional 決策圖譜
 
-Updated: 2026-07-21
+Updated: 2026-07-22
 
 > 範圍：`competition_profile:=regional` 的 `behavior_tree` 決策順序、優先級、導航輸出與姿態選擇。此圖描述 source 現有行為；未自動下發強化姿態命令 `4/5/6`，它們保留給後續任務級觸發。
 
@@ -47,6 +47,8 @@ flowchart TD
   TACTICAL[Tactical] --> OPENING[開局前哨站/基地防守]
   TACTICAL --> BUFF[Buff 任務\nregional 預設關閉]
   TACTICAL --> OUTPOST[前哨站 visual scout / outpost task]
+  TACTICAL --> CASTLE[Protect Castle]
+  TACTICAL --> OUTPOST_DEF[Protect Outpost\nfriend op_hp drop -> C3/C4]
   TACTICAL --> HERO[Protect Hero]
   TACTICAL --> REG_DEF[Regional Defense]
   TACTICAL --> CHASE[Chase\n同一 planned Default area 才追擊]
@@ -76,6 +78,14 @@ flowchart TD
 可選 FaceMode 行為。正式 `regional_competition.json` 已把兩區加入 `NaviGoal.MyArea`；
 `MyReadyRoadland.UseFaceMode` baseline 為 `false`。ID 22 的正式座標為紅 `(515,100)`、藍
 `(2285,1400)`，因此兩個穿越點都落在新 ReadyRoadland 邊界內。
+
+`ProtectOutpost` 與敵方前哨 visual scout 是獨立任務。`/ly/friend/op_hp` 僅以 BT 本機收包時間
+判新鮮，首次回傳只建立基線；同一值不重觸發，嚴格下降才建立事件。事件使用官方厘米 C3（紅
+`1011,429`）或 C4（藍 `1789,1071`）並經既有 `/ly/navi/goal_pos_raw -> navi_tf_bridge -> /goal_pose`
+鏈路發出。抵達後保持 `SearchHoldSec=30` 秒，新的下降重置保持；不可達後沉默
+`UnreachableCooldownSec=10` 秒，期間新下降只排隊到冷卻結束。`Tactical.Priority` 僅仲裁
+ProtectCastle、ProtectOutpost、ProtectHero、Chase（數字越小越高）；Hard、Task 與既有
+Buff/Outpost aim 仍先於此表，且所有導航仍由 BT 的唯一最終發佈出口發出。
 
 Chase 不會跨過 Default 的區域承諾：只有已啟動且可讓出的 Default 任務、敵方新鮮官方座標與
 該任務完全相同的 `AreaKey`，並且 `Chase.yaml` 開啟該區時，Tactical 才發布追擊導航輸入。
@@ -118,7 +128,8 @@ flowchart LR
 `/ly/navi/reach_state`，因此到達小地圖點不會被誤判為區域任務到點。完整協議與邊界見
 `docs/sentry/embedded/map_command_typeid9.md`。
 
-`behavior_tree` 在等待開賽前會打印一次實際生效的 AreaManager/Tactical 配置快照；之後只在最終
+`behavior_tree` 在等待開賽前會打印一次實際生效的 AreaManager/Tactical 配置快照（包括
+ProtectOutpost 开关、新鲜度/保持/冷却与四项 Tactical 优先级）；之後只在最終
 可發布的導航決策 fingerprint 變化時打印 `[DecisionExplain][navi]`。該行由最終
 `DecisionIntent` 與最後輸出的表示組成：區域點/小地圖命令使用官方 `cm`，手動前哨 pose 使用
 `map` frame 的 `m`，相對追擊使用來源 frame 的 `rel_m`。相對追擊的位置持續更新不會每 tick

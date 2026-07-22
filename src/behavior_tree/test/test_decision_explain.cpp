@@ -53,7 +53,15 @@ TEST(DecisionExplain, FormatsEffectiveAreaAndTacticalSettings) {
         .ProtectCastleRfidEnable = true,
         .ProtectCastleEnemyPosEnable = false,
         .ProtectCastleStayWhenRfid = true,
+        .ProtectOutpostEnable = true,
+        .ProtectOutpostHealthFreshMs = 2000,
+        .ProtectOutpostSearchHoldSec = 30,
+        .ProtectOutpostUnreachableCooldownSec = 10,
         .ProtectHeroEnable = true,
+        .ProtectCastlePriority = 1,
+        .ProtectOutpostPriority = 2,
+        .ProtectHeroPriority = 3,
+        .ChasePriority = 4,
         .DamageRotateDefaultGear = 0,
         .DamageRotateNoHitTimeoutMs = 1800,
         .DamageRotateGear0HoldMs = 220,
@@ -68,6 +76,12 @@ TEST(DecisionExplain, FormatsEffectiveAreaAndTacticalSettings) {
     EXPECT_EQ(lines.size(), 3U);
     EXPECT_NE(lines[0].find("MyHighland=0"), std::string::npos);
     EXPECT_NE(lines[1].find("enemy_pos=0"), std::string::npos);
+    EXPECT_NE(lines[1].find("protect_outpost=enabled"), std::string::npos);
+    EXPECT_NE(lines[1].find("search_hold_sec=30"), std::string::npos);
+    EXPECT_NE(lines[1].find("priority.protect_castle=1"), std::string::npos);
+    EXPECT_NE(lines[1].find("priority.protect_outpost=2"), std::string::npos);
+    EXPECT_NE(lines[1].find("priority.protect_hero=3"), std::string::npos);
+    EXPECT_NE(lines[1].find("priority.chase=4"), std::string::npos);
 }
 
 TEST(DecisionExplain, SuppressesIdenticalPublishedNavigation) {
