@@ -2,7 +2,7 @@
 
 Offline pygame viewer for sentry behavior-tree decision traces.
 
-Updated: 2026-07-20
+Updated: 2026-07-22
 
 ## Scope
 
@@ -10,7 +10,7 @@ Updated: 2026-07-20
 - Normalizes trace rows into `DecisionOutput` records so future decision internals can change while the viewer stays centered on the final goal output.
 - Treats `simulator.trace -> simulator.model.TraceRecord` as the stable simulator-facing contract; BT-only debug fields can change without viewer changes.
 - Draws a 2D map, navigation goals, recent goal path, friendly/enemy units, HP bars, strategy, aim mode, posture, target, ammo, terrain overlays, and recent decision changes.
-- Splits the right panel into Decision / Events / Runtime / Inputs / Layers tabs so schema v2 traces can expose decision intent, event conditions, detailed goal reach, navigation status/velocity, active aim-source freshness, relative target bridge data, gimbal fire-code state, runtime guard state, offline mock-input state, and map-layer/asset status without changing the trace producer.
+- Uses a map-first docked workspace in pygame and `/tactical`: the compact Activity rail selects the existing Decision / Events / Runtime / Control / Inputs / Layers surfaces, the contextual Inspector follows the selected map object, and the collapsible Operations shelf retains replay/timeline operations.
 - Shows whether the current decision output is bridge `/goal_pose`, direct `UseXY` (`/ly/navi/goal_pos`), or goal-ID (`/ly/navi/goal`) mode.
 - Shows live ROS topic values from `/goal_pose`, `/ly/navi/goal_pos_raw`, `/ly/navi/goal`, `/ly/navi/speed_level`, `/ly/navi/should_rotate`, and `/ly/control/vel` when started through the offline live wrapper.
 - In live mode, the current-goal marker and recent path prefer live `/goal_pose`; if that topic is absent, the viewer falls back to legacy `/ly/navi/goal_pos`, trace records, and labels the marker as `TRACE`.
@@ -30,6 +30,24 @@ Updated: 2026-07-20
 - Serves a second, responsive tactical board at `/tactical`. It uses the same catalog-backed scene state as pygame, has map-piece drag/drop, structure HP controls, current BT goal/route, ProtectCastle/ProtectHero evidence, and distinct final-control versus lower-machine-feedback panels.
 - Supports explicit input ownership: `mock` is editable and publishes only through `simulator.mock_inputs`; `manual_ros` is a read-only observer for a Foxglove or ROS CLI publisher.
 - Reads trace v2/v3 for replay and trace v4 for BT-authored `tactical` evidence. `control_output` represents actual published control messages and must not be confused with `gimbal_feedback`.
+
+## Workspace Controls
+
+The native pygame viewer and browser `/tactical` are two renderers for the same catalog-backed scene and
+command bus. They do not duplicate data or decision logic. Layout/dock/zoom preferences are presentation-only.
+
+- **Battlefield:** Fit, 1:1, pointer-preserving wheel zoom, middle-button pan, Fullscreen, and **Zoom to Selection**.
+- **Activity rail:** switch the existing Decision, Events, Runtime, Control, Inputs, and Layers views without
+  covering the map.
+- **Inspector:** click blank field for Overview; click a robot, Base, Outpost, or configured area for its
+  contextual Inspector. Existing HP controls still emit `set_unit_hp` and `set_structure_health`.
+- **Operations shelf:** collapse it for a larger battlefield or expand it for replay timeline/status; Inspector
+  dock, size, visibility, and the shelf height can be reset from the command bar.
+- **Coordinates:** all placement, drag, selection, and navigation values remain official centimeter coordinates,
+  independent of visual zoom, browser perspective, or window size.
+
+`manual_ros` remains observer-only: it displays the same trace and scene state but rejects mutations so it
+never races an intentional Foxglove or ROS CLI publisher.
 
 ## Record
 

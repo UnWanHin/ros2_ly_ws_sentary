@@ -1,6 +1,6 @@
 # Simulator Trace And Viewer
 
-Updated: 2026-07-21
+Updated: 2026-07-22
 
 ## Purpose
 
@@ -11,13 +11,10 @@ control snapshot. It remains separate from asynchronous lower-machine `gimbal_fe
 The viewer shows whether the current navigation output is bridge `/goal_pose`, direct `UseXY` (`/ly/navi/goal_pos`), or goal-ID (`/ly/navi/goal`) mode.
 The right panel shows live ROS topic values from `/goal_pose`, `/ly/navi/goal_pos_raw`, `/ly/navi/goal`, `/ly/navi/speed_level`, `/ly/navi/should_rotate`, and `/ly/control/vel` when started through the offline live wrapper.
 In live mode, the current-goal marker and recent path prefer live `/goal_pose`; if that topic is absent, the viewer falls back to legacy `/ly/navi/goal_pos`, trace records, and labels the marker as `TRACE`.
-The right panel is split into five tabs:
-
-- `Decision`: current strategy, aim mode, stable decision output, official chase metadata, decision intent, and recent semantic changes.
-- `Events`: EventManager conditions, detailed goal reach state, navigation status/velocity, target freshness, hitable/reliable target sets, relative target bridge fields, referee resource state, energy/RFID data, and unit HP summaries.
-- `Runtime`: live ROS output monitor, trace navigation payload/velocity/rotate state, posture runtime (including local versus referee `sentry_info_3` timer source and enhanced posture state), 前哨交战锁（hold-7、强攻 armed/pending/active、退出原因与 200/250 阈值）、gimbal/fire-code state, and runtime guard state.
-- `Inputs`: offline mock input controls for structure HP and draggable friend/enemy unit pieces.
-- `Layers`: map-layer toggles, map-tag controls, asset catalog status, and asset provenance/license warnings.
+Both native pygame and `/tactical` use a map-first workspace: the **Activity rail** selects the existing
+Decision, Events, Runtime, Control, Inputs, and Layers surfaces; the contextual Inspector reports the
+selected map object; and the collapsible **Operations shelf** retains replay/timeline information.
+These are presentation regions, not new state or a second simulator.
 
 This is for decision review and offline decision simulation. The viewer itself does not publish ROS topics.
 In offline mode, it can send file-based control commands to `simulator.mock_inputs` for match clock and mock referee/unit inputs.
@@ -70,6 +67,15 @@ cannot claim to recompute a recorded decision from a dragged piece.
 topics. Both the browser UI and `/api/control` reject scene mutations in this mode, so mock and external
 publishers cannot race each other.
 
+The pygame map is an interactive presentation of that same scene state. Its command bar and map toolbar
+provide Fit, 1:1, **Zoom to Selection**, zoom, pan, Fullscreen, dock/collapse, and Reset Layout. Mouse
+wheel zoom preserves the official coordinate under the pointer; middle-button drag pans. The Activity rail
+keeps existing surfaces compact, while the Operations shelf can expand for the replay timeline. Clicking a
+Base, Outpost, robot, or configured map area opens its contextual Inspector; clicking empty field returns
+to battlefield Overview. Base/Outpost and robot health actions retain the existing
+`set_structure_health` / `set_unit_hp` commands. Every map interaction uses official centimeter coordinates
+and does not bypass the control bus or alter behavior-tree logic.
+
 ```bash
 # Editable scene, mock input owner, Pygame plus the browser tactical board.
 PYTHONPATH=src/simulator python3 -m simulator.start \
@@ -91,10 +97,21 @@ alter it.
 selector changes only the browser's field perspective: Blue rotates the map and mirrors screen projection,
 while pointer commands are converted back to the same official centimeter coordinates. Zoom, wheel zoom,
 Alt/middle-button pan, Reset view, accordion expansion, and Debug visibility are likewise browser-local.
-The top command bar keeps match Start/Pause/Reset and map controls direct. The inspector keeps Units,
-Structures, and Decision open; Tactical is folded by default, and Diagnostics appears only after Debug is
-enabled. Unit and structure health steppers retain the existing `set_unit_hp` and
-`set_structure_health` command payloads.
+The top command bar keeps match Start/Pause/Reset and map controls direct. The Inspector starts with
+only Overview expanded. Click a robot, Base, Outpost, or catalog area to switch its selected-object
+content; click blank field to return to the battlefield overview. Robot, Base, and Outpost inspectors
+retain the existing `set_unit_hp` and `set_structure_health` command payloads, including Apply, small
+step, Restore, Destroy, and local Undo controls. Robot roster, Decision & navigation, and Tactical state
+remain collapsed until requested; Runtime diagnostics appears only after Debug is enabled.
+
+The browser stores only presentation preferences locally (dock side, Inspector width, compact/focus
+mode, perspective, and map view). It does not persist or synthesize simulator facts. Fit, 1:1, wheel
+zoom, Alt/middle-button pan, double-click Focus, Fullscreen, Inspector resize/dock, and Reset layout are
+browser-local presentation controls.
+
+`tactical_catalog.yaml` remains the sole map catalog. The base markers use the confirmed official field
+coordinates: Red C1 `(245, 755)` cm and Blue C2 `(2555, 745)` cm. Scene command coordinates remain
+official left-bottom-origin centimeters regardless of the browser perspective.
 
 In trace v4, `tactical.protect_castle` records configuration state including `stay_when_rfid_enabled`, and separately records RFID raw/effective
 activation, the resolved `stay_when_rfid_active` Castle-hold state, and enemy-position activation. The simulator never derives a Castle
@@ -657,6 +674,14 @@ Control-bus command groups:
 - Self state: `set_self_health`, `set_ammo`, `set_posture`, `set_self_position`.
 - Structures: `set_structure_health` / `set_structure_hp`.
 - Units: `set_unit`, `set_units`, `set_unit_hp`, `remove_unit`, `clear_units`.
+
+Structure HP uses the semantic ROS value, not the lower-machine packed value: each outpost starts at
+`1500` HP and is edited/published as `0..1500` through `/ly/friend/op_hp` or `/ly/enemy/op_hp`.
+The lower machine's legacy `GameCodeType` packs this as a 6-bit value in units of 25, but
+`gimbal_driver` already expands it before publishing the ROS topic.
+
+The pygame viewer map toolbar supports `Fit`, `1:1`, zoom, and `Full`; `F11` enters/exits fullscreen,
+and `Esc` leaves fullscreen without closing the viewer.
 
 `set_self_position` accepts `x`/`y`, `position_cm`, `position`, or `pos` payloads in official field centimeters. Invalid or non-finite coordinates are ignored instead of stopping the mock publisher.
 

@@ -127,6 +127,10 @@ def test_simulator_docs_describe_tactical_board_trace_and_input_ownership() -> N
         assert "manual_ros" in text
         assert "control_output" in text
         assert "tactical_protect_castle" in text
+        assert "Zoom to Selection" in text
+        assert "Activity rail" in text
+        assert "Operations shelf" in text
+        assert "official centimeter" in text
 
 
 def test_run_steps_returns_failing_step_code(capsys) -> None:

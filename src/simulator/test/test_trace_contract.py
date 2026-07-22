@@ -181,8 +181,8 @@ def stable_trace_row() -> dict:
         "referee": {
             "self_hp": 380,
             "self_max_hp": 400,
-            "self_outpost_hp": 60,
-            "enemy_outpost_hp": 55,
+            "self_outpost_hp": 1500,
+            "enemy_outpost_hp": 1375,
             "self_base_hp": 5000,
             "enemy_base_hp": 5000,
             "ammo": 42,
@@ -346,7 +346,7 @@ def test_trace_record_exposes_stable_simulator_contract() -> None:
     assert record.navi_velocity.output_x == 6
     assert record.navi_velocity.raw_to_mps == 0.025
     assert record.navi_relative_target.frame_id == "base_link"
-    assert record.referee.self_outpost_hp == 60
+    assert record.referee.self_outpost_hp == 1500
     assert record.referee.team_buff_remaining_energy == 24
     assert record.referee.rfid_status == 65537
     assert record.referee.has_rfid_status_2 is True

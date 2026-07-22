@@ -1,10 +1,14 @@
 import json
+from types import SimpleNamespace
+
+import pygame
 
 from simulator.control_bus import normalize_api_control_payload
 from simulator.field import FieldGeometry, relative_side_to_field_side
 from simulator.inputs_panel import compact_decision_summary
 from simulator.interactive_inputs import SimulatorInputState, load_unit_scene_file, unit_decision_summary
 from simulator.viewer import Viewer
+from simulator.workspace import Rect, ViewportState
 
 
 def test_field_geometry_converts_position_data_y() -> None:
@@ -33,8 +37,123 @@ def test_structure_health_accepts_zero_and_uses_base_points() -> None:
 
     assert friend_base is not None
     assert enemy_base is not None
-    assert state.structure_position(friend_base, "red", {}) == (245.0, 750.0)
-    assert state.structure_position(enemy_base, "red", {}) == (2555.0, 750.0)
+    assert state.structure_position(friend_base, "red", {}) == (245.0, 755.0)
+    assert state.structure_position(enemy_base, "red", {}) == (2555.0, 745.0)
+
+
+def test_default_outpost_health_uses_uncompressed_referee_hp() -> None:
+    state = SimulatorInputState.with_defaults()
+
+    friend_outpost = state.find_structure("friend", "outpost")
+    enemy_outpost = state.find_structure("enemy", "outpost")
+
+    assert friend_outpost is not None
+    assert enemy_outpost is not None
+    assert friend_outpost.hp == 1500
+    assert friend_outpost.max_hp == 1500
+    assert enemy_outpost.hp == 1500
+    assert enemy_outpost.max_hp == 1500
+
+
+def test_pygame_map_structures_are_hittable_at_catalog_coordinates() -> None:
+    viewer = object.__new__(Viewer)
+    viewer.sim_input_state = SimulatorInputState.with_defaults()
+    viewer.records = [SimpleNamespace(team="red")]
+    viewer.current_index = 0
+    viewer.goals = {}
+    viewer.field_to_screen = lambda point, _image_rect: (round(point[0]), round(point[1]))
+
+    assert viewer.hit_sim_structure((245, 755), object()) == "friend_base"
+
+
+def test_pygame_selected_structure_resolves_the_map_inspector_subject() -> None:
+    viewer = object.__new__(Viewer)
+    viewer.sim_input_state = SimulatorInputState.with_defaults()
+    viewer.selected_structure_key = "friend_base"
+
+    selected = viewer.selected_structure()
+
+    assert selected is not None
+    assert selected.label == "Friend Base"
+    assert selected.structure == "base"
+
+
+def test_pygame_structure_inspector_uses_existing_health_command() -> None:
+    viewer = object.__new__(Viewer)
+    calls: list[tuple[str, dict]] = []
+    viewer.inspector_buttons = {
+        "friend_base:+500": (pygame.Rect(10, 10, 50, 20), {"side": "friend", "structure": "base", "hp": 5000})
+    }
+    viewer.send_sim_command = lambda command, payload: calls.append((command, payload))
+
+    assert viewer.handle_inspector_mouse_down((20, 15))
+    assert calls == [("set_structure_health", {"side": "friend", "structure": "base", "hp": 5000})]
+
+
+def test_pygame_map_camera_scales_the_fit_rect_without_changing_field_geometry() -> None:
+    viewer = object.__new__(Viewer)
+    viewer.pg = pygame
+    viewer.width = 1500
+    viewer.height = 900
+    viewer.panel_w = 390
+    viewer.timeline_h = 92
+    viewer.map_size = (2094, 1122)
+    viewer.field_geometry = lambda: FieldGeometry()
+    content = viewer.map_content_rect()
+    viewer.map_viewport = ViewportState.fit(
+        field_width=2800,
+        field_height=1500,
+        viewport=Rect(content.x, content.y, content.width, content.height),
+    )
+
+    fit_rect = viewer.map_image_rect()
+    viewer.adjust_map_zoom(2.0, fit_rect.center)
+    zoomed_rect = viewer.map_image_rect()
+
+    assert zoomed_rect.size == (fit_rect.width * 2, fit_rect.height * 2)
+    assert zoomed_rect.center == fit_rect.center
+
+
+def test_pygame_fullscreen_toggle_restores_the_windowed_viewport() -> None:
+    class FakeScreen:
+        def __init__(self, size: tuple[int, int]) -> None:
+            self._size = size
+
+        def get_size(self) -> tuple[int, int]:
+            return self._size
+
+    class FakeDisplay:
+        def __init__(self) -> None:
+            self.calls: list[tuple[tuple[int, int], int]] = []
+
+        def set_mode(self, size: tuple[int, int], flags: int) -> FakeScreen:
+            self.calls.append((size, flags))
+            return FakeScreen((1920, 1080) if flags == 1 else size)
+
+    display = FakeDisplay()
+    viewer = object.__new__(Viewer)
+    viewer.pg = SimpleNamespace(FULLSCREEN=1, RESIZABLE=2, display=display)
+    viewer.width = 1500
+    viewer.height = 900
+    viewer.fullscreen = False
+    viewer.windowed_size = (1500, 900)
+    viewer.scaled_map = object()
+    viewer.cached_map_key = (100, 100)
+    refresh_calls: list[bool] = []
+    viewer._refresh_map_viewport = lambda *, reset=False: refresh_calls.append(reset)
+
+    viewer.toggle_fullscreen()
+
+    assert viewer.fullscreen is True
+    assert display.calls == [((0, 0), 1)]
+    assert viewer.width == 1920
+    assert viewer.height == 1080
+    assert refresh_calls == [True]
+
+    viewer.toggle_fullscreen()
+
+    assert viewer.fullscreen is False
+    assert display.calls[-1] == ((1500, 900), 2)
 
 
 def test_unit_commands_feed_health_and_position_rows() -> None:

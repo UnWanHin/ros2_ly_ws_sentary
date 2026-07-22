@@ -18,6 +18,8 @@ from .interactive_inputs import SimulatorInputState, unit_decision_summary
 from .model import TraceRecord, UnitInfoRecord, UnitRecord
 from .panel_scroll import PanelScrollState
 from .trace import as_dict, as_list, build_changes, load_trace_incremental, parse_position
+from .workspace import Rect as WorkspaceRect
+from .workspace import Selection, ViewportState, WorkspaceLayout
 
 
 def fit_rect(pg: Any, src_size: tuple[int, int], dst_rect: Any) -> Any:
@@ -316,10 +318,18 @@ class Viewer:
         window = as_dict(config.get("window"))
         self.width = int(window.get("width", 1500))
         self.height = int(window.get("height", 900))
+        self.windowed_size = (self.width, self.height)
+        self.fullscreen = False
         self.min_width = int(window.get("min_width", 960))
         self.min_height = int(window.get("min_height", 620))
         self.panel_w = int(window.get("panel_width", 390))
         self.timeline_h = int(window.get("timeline_height", 92))
+        workspace = as_dict(config.get("workspace"))
+        self.inspector_width = max(280, int(workspace.get("inspector_width", self.panel_w)))
+        self.inspector_zone = "left" if workspace.get("inspector_zone") == "left" else "right"
+        self.inspector_collapsed = bool(workspace.get("inspector_collapsed", False))
+        self.shelf_height = max(140, int(workspace.get("shelf_height", self.timeline_h)))
+        self.shelf_collapsed = bool(workspace.get("shelf_collapsed", True))
         self.playing = not (window.get("start_paused", False) if start_paused is None else start_paused)
         self.playback_speed = float(window.get("playback_speed", 1.0) if speed is None else speed)
         self.show_labels = bool(window.get("show_point_labels", False))
@@ -357,6 +367,14 @@ class Viewer:
         self.inputs_panel = InputsPanel(self)
         self.dragging_unit: Any | None = None
         self.drag_position: tuple[int, int] | None = None
+        self.selected_structure_key: str | None = None
+        self.workspace_selection = Selection()
+        self.map_pan_anchor: tuple[int, int] | None = None
+        self.map_tool_buttons: dict[str, Any] = {}
+        self.inspector_buttons: dict[str, tuple[Any, dict[str, Any]]] = {}
+        self.workspace_buttons: dict[str, Any] = {}
+        self.activity_buttons: dict[str, Any] = {}
+        self.workspace_splitter: str | None = None
         self.next_scene_entity_id = 0
         self.times = [record.t for record in records]
         self.current_index = 0
@@ -447,7 +465,8 @@ class Viewer:
         self.map_image = pygame.image.load(str(map_path)).convert_alpha()
         self.map_size = self.map_image.get_size()
         self.scaled_map = None
-        self.cached_map_key: tuple[int, int, int, int] | None = None
+        self.cached_map_key: tuple[int, int] | None = None
+        self.map_viewport = self._new_map_viewport()
 
     def run(self) -> None:
         last = time.perf_counter()
@@ -460,10 +479,9 @@ class Viewer:
                 if event.type == self.pg.QUIT:
                     running = False
                 elif event.type == self.pg.VIDEORESIZE:
-                    self.width = max(self.min_width, event.w)
-                    self.height = max(self.min_height, event.h)
-                    self.screen = self.pg.display.set_mode((self.width, self.height), self.pg.RESIZABLE)
-                    self.cached_map_key = None
+                    if self.fullscreen:
+                        continue
+                    self.resize_workspace(event.w, event.h)
                 elif event.type == self.pg.KEYDOWN:
                     self.handle_key(event.key)
                 elif event.type == self.pg.MOUSEBUTTONDOWN:
@@ -513,8 +531,12 @@ class Viewer:
     def handle_key(self, key: int) -> None:
         pg = self.pg
         jump = int(self.timeline_config.get("jump_step", 25))
-        if key in (pg.K_ESCAPE, pg.K_q):
+        if key == pg.K_ESCAPE and self.fullscreen:
+            self.toggle_fullscreen()
+        elif key in (pg.K_ESCAPE, pg.K_q):
             pg.event.post(pg.event.Event(pg.QUIT))
+        elif key == pg.K_F11:
+            self.toggle_fullscreen()
         elif self.panel_rect().collidepoint(pg.mouse.get_pos()) and self.handle_panel_scroll_key(key):
             return
         elif key == pg.K_SPACE:
@@ -540,6 +562,10 @@ class Viewer:
             self.show_labels = not self.show_labels
         elif key == pg.K_t:
             self.goal_tags_expanded = not self.goal_tags_expanded
+        elif key == pg.K_f:
+            self.reset_map_view()
+        elif key == pg.K_0:
+            self.set_map_actual_size()
         elif key in (pg.K_1, pg.K_KP1):
             self.set_panel_tab("decision")
         elif key in (pg.K_2, pg.K_KP2):
@@ -567,8 +593,17 @@ class Viewer:
         if event.button in (4, 5):
             if self.panel_rect().collidepoint(event.pos):
                 self.scroll_panel(-48 if event.button == 4 else 48)
+            elif self.map_area_rect().collidepoint(event.pos):
+                self.adjust_map_zoom(1.15 if event.button == 4 else 1 / 1.15, event.pos)
+            return
+        if event.button == 2 and self.map_area_rect().collidepoint(event.pos):
+            self.map_pan_anchor = event.pos
             return
         if event.button != 1:
+            return
+        if self.handle_workspace_mouse_down(event.pos):
+            return
+        if self.handle_inspector_mouse_down(event.pos):
             return
         for tab, rect in self.panel_tab_buttons.items():
             if rect.collidepoint(event.pos):
@@ -596,6 +631,22 @@ class Viewer:
         if self.goal_tag_button_rect is not None and self.goal_tag_button_rect.collidepoint(event.pos):
             self.goal_tags_expanded = not self.goal_tags_expanded
             return
+        for command, rect in self.map_tool_buttons.items():
+            if rect.collidepoint(event.pos):
+                if command == "fit":
+                    self.reset_map_view()
+                elif command == "actual":
+                    self.set_map_actual_size()
+                elif command == "focus":
+                    self.zoom_to_selection()
+                elif command == "fullscreen":
+                    self.toggle_fullscreen()
+                else:
+                    self.adjust_map_zoom(
+                        1.15 if command == "zoom_in" else 1 / 1.15,
+                        rect.center,
+                    )
+                return
         if self.handle_sim_map_mouse_down(event.pos):
             return
         track = self.timeline_rect()
@@ -604,12 +655,19 @@ class Viewer:
             self.seek_index(round(ratio * (len(self.records) - 1)))
 
     def handle_mouse_wheel(self, event: Any) -> None:
-        if not self.panel_rect().collidepoint(self.pg.mouse.get_pos()):
+        pointer = self.pg.mouse.get_pos()
+        if self.panel_rect().collidepoint(pointer):
+            delta = -int(getattr(event, "y", 0)) * 48
+            if getattr(event, "flipped", False):
+                delta = -delta
+            self.scroll_panel(delta)
             return
-        delta = -int(getattr(event, "y", 0)) * 48
-        if getattr(event, "flipped", False):
-            delta = -delta
-        self.scroll_panel(delta)
+        if self.map_area_rect().collidepoint(pointer):
+            direction = int(getattr(event, "y", 0))
+            if getattr(event, "flipped", False):
+                direction = -direction
+            if direction:
+                self.adjust_map_zoom(1.15**direction, pointer)
 
     def handle_panel_scroll_key(self, key: int) -> bool:
         pg = self.pg
@@ -652,10 +710,33 @@ class Viewer:
         self.panel_scroll.scroll(self.panel_tab, delta)
 
     def handle_mouse_motion(self, event: Any) -> None:
+        if self.workspace_splitter == "inspector":
+            if self.inspector_zone == "right":
+                self.inspector_width = max(280, min(460, self.width - event.pos[0] - 40))
+            else:
+                self.inspector_width = max(280, min(460, event.pos[0] - 96))
+            self._refresh_map_viewport()
+            return
+        if self.workspace_splitter == "shelf":
+            self.shelf_collapsed = False
+            self.shelf_height = max(140, min(300, self.height - event.pos[1] - 48))
+            self._refresh_map_viewport()
+            return
+        if self.map_pan_anchor is not None:
+            dx, dy = getattr(event, "rel", (0, 0))
+            self.map_viewport.pan_by(dx, dy)
+            self.map_pan_anchor = event.pos
+            return
         if self.dragging_unit is not None:
             self.drag_position = event.pos
 
     def handle_mouse_up(self, event: Any) -> None:
+        if event.button == 1 and self.workspace_splitter is not None:
+            self.workspace_splitter = None
+            return
+        if event.button == 2:
+            self.map_pan_anchor = None
+            return
         if event.button != 1 or self.dragging_unit is None:
             return
         image_rect = self.map_image_rect()
@@ -742,22 +823,169 @@ class Viewer:
     def handle_sim_panel_mouse_down(self, pos: tuple[int, int]) -> bool:
         return self.inputs_panel.handle_mouse_down(pos)
 
+    def handle_workspace_mouse_down(self, pos: tuple[int, int]) -> bool:
+        for command, rect in self.workspace_buttons.items():
+            if not rect.collidepoint(pos):
+                continue
+            if command == "fit":
+                self.reset_map_view()
+            elif command == "actual":
+                self.set_map_actual_size()
+            elif command == "focus":
+                self.zoom_to_selection()
+            elif command == "fullscreen":
+                self.toggle_fullscreen()
+            elif command == "reset_layout":
+                self.reset_workspace_layout()
+            elif command == "toggle_dock":
+                self.inspector_zone = "left" if self.inspector_zone == "right" else "right"
+                self._refresh_map_viewport()
+            elif command == "toggle_inspector":
+                self.inspector_collapsed = not self.inspector_collapsed
+                self._refresh_map_viewport()
+            elif command == "toggle_shelf":
+                self.shelf_collapsed = not self.shelf_collapsed
+                self._refresh_map_viewport()
+            elif command == "inspector_splitter":
+                self.workspace_splitter = "inspector"
+            elif command == "shelf_splitter":
+                self.workspace_splitter = "shelf"
+            return True
+        for tab, rect in self.activity_buttons.items():
+            if rect.collidepoint(pos):
+                self.set_panel_tab(tab)
+                return True
+        return False
+
+    def reset_workspace_layout(self) -> None:
+        self.inspector_width = 320
+        self.inspector_zone = "right"
+        self.inspector_collapsed = False
+        self.shelf_height = 180
+        self.shelf_collapsed = True
+        self._refresh_map_viewport(reset=True)
+
+    def handle_inspector_mouse_down(self, pos: tuple[int, int]) -> bool:
+        for _, (rect, payload) in self.inspector_buttons.items():
+            if rect.collidepoint(pos):
+                command_payload = dict(payload)
+                command = str(command_payload.pop("_command", "set_structure_health"))
+                self.send_sim_command(command, command_payload)
+                return True
+        return False
+
+    def select_overview(self) -> None:
+        """Select the map-level inspector without changing simulator state."""
+
+        self.workspace_selection = Selection("overview", "")
+        self.selected_structure_key = None
+        self.sim_input_state.scene.selected_entity_id = None
+
+    def select_unit(self, entity_id: str) -> None:
+        """Select a catalog-backed scene robot if it exists."""
+
+        if entity_id not in self.sim_input_state.scene.units:
+            return
+        self.workspace_selection = Selection("unit", entity_id)
+        self.selected_structure_key = None
+        self.sim_input_state.scene.selected_entity_id = entity_id
+
+    def select_structure(self, structure_key: str) -> None:
+        """Select a configured Base or Outpost if it exists."""
+
+        if not any(item.key == structure_key for item in self.sim_input_state.structures):
+            return
+        self.workspace_selection = Selection("structure", structure_key)
+        self.selected_structure_key = structure_key
+        self.sim_input_state.scene.selected_entity_id = None
+
+    def select_area(self, area_key: str) -> None:
+        if self.map_area_by_key(area_key) is None:
+            return
+        self.workspace_selection = Selection("area", area_key)
+        self.selected_structure_key = None
+        self.sim_input_state.scene.selected_entity_id = None
+
     def handle_sim_map_mouse_down(self, pos: tuple[int, int]) -> bool:
-        if not self.simulator_inputs_enabled or self.sim_input_state.scene.ownership_mode != "mock":
-            return False
         image_rect = self.map_image_rect()
         if not image_rect.collidepoint(pos):
             return False
         hit = self.hit_sim_unit(pos, image_rect)
-        if hit is None:
-            return False
-        unit = self.sim_input_state.scene.units.get(hit)
-        if unit is None:
-            return False
-        self.sim_input_state.scene.selected_entity_id = unit.entity_id
-        self.dragging_unit = unit
-        self.drag_position = pos
+        if hit is not None:
+            unit = self.sim_input_state.scene.units.get(hit)
+            if unit is None:
+                return False
+            self.select_unit(unit.entity_id)
+            if self.simulator_inputs_enabled and self.sim_input_state.scene.ownership_mode == "mock":
+                self.dragging_unit = unit
+                self.drag_position = pos
+            return True
+        structure_key = self.hit_sim_structure(pos, image_rect)
+        if structure_key is not None:
+            self.select_structure(structure_key)
+            return True
+        area_key = self.hit_map_area(pos, image_rect)
+        if area_key is not None:
+            self.select_area(area_key)
+            return True
+        self.select_overview()
         return True
+
+    def map_area_items(self) -> list[dict[str, Any]]:
+        items: list[dict[str, Any]] = []
+        for zone in as_list(as_dict(self.config.get("terrain")).get("zones")):
+            if isinstance(zone, dict) and str(zone.get("name", "")).strip():
+                items.append(zone)
+        for item in as_list(as_dict(self.config.get("structures")).get("items")):
+            if isinstance(item, dict) and str(item.get("name", "")).strip():
+                items.append(item)
+        return items
+
+    def map_area_by_key(self, area_key: str) -> dict[str, Any] | None:
+        return next((item for item in self.map_area_items() if str(item.get("name", "")) == area_key), None)
+
+    def hit_map_area(self, pos: tuple[int, int], image_rect: Any) -> str | None:
+        field_pos = self.screen_to_field(pos, image_rect)
+        if field_pos is None:
+            return None
+        x, y = field_pos
+        for item in reversed(self.map_area_items()):
+            shape = str(item.get("shape", "polygon"))
+            if shape == "circle":
+                center = parse_position(item.get("center"))
+                radius = self.to_float(item.get("radius"), 0.0)
+                if center is not None and radius > 0 and math.hypot(x - center[0], y - center[1]) <= radius:
+                    return str(item["name"])
+                continue
+            points = self.map_area_field_points(item)
+            if len(points) >= 3 and self.point_in_polygon((x, y), points):
+                return str(item["name"])
+        return None
+
+    @staticmethod
+    def point_in_polygon(point: tuple[float, float], polygon: list[tuple[float, float]]) -> bool:
+        x, y = point
+        inside = False
+        previous = polygon[-1]
+        for current in polygon:
+            x1, y1 = current
+            x2, y2 = previous
+            if (y1 > y) != (y2 > y) and x < (x2 - x1) * (y - y1) / max(1e-9, y2 - y1) + x1:
+                inside = not inside
+            previous = current
+        return inside
+
+    def map_area_field_points(self, item: dict[str, Any]) -> list[tuple[float, float]]:
+        raw_points = as_list(item.get("polygon"))
+        if not raw_points and isinstance(item.get("rect"), (list, tuple)) and len(item["rect"]) >= 4:
+            x, y, width, height = item["rect"][:4]
+            raw_points = [(x, y), (x + width, y), (x + width, y + height), (x, y + height)]
+        points: list[tuple[float, float]] = []
+        for raw in raw_points:
+            point = parse_position(raw)
+            if point is not None:
+                points.append(point)
+        return points
 
     def scene_drag_payload(self, unit: Any, x: int, y: int) -> dict[str, Any] | None:
         entity_id = getattr(unit, "entity_id", None)
@@ -917,34 +1145,265 @@ class Viewer:
         self.live_ros_wall_time = self.to_float(payload.get("wall_time"), 0.0)
         self.update_live_goal_history()
 
+    def workspace_layout(self) -> WorkspaceLayout:
+        return WorkspaceLayout.desktop(
+            self.width,
+            self.height,
+            inspector_width=getattr(self, "inspector_width", self.panel_w),
+            inspector_zone=getattr(self, "inspector_zone", "right"),
+            inspector_collapsed=getattr(self, "inspector_collapsed", False),
+            shelf_height=getattr(self, "shelf_height", self.timeline_h),
+            shelf_collapsed=getattr(self, "shelf_collapsed", True),
+        )
+
+    def resize_workspace(self, width: int, height: int) -> None:
+        self.width = max(self.min_width, int(width))
+        self.height = max(self.min_height, int(height))
+        self.windowed_size = (self.width, self.height)
+        self.screen = self.pg.display.set_mode((self.width, self.height), self.pg.RESIZABLE)
+        self.cached_map_key = None
+        self._refresh_map_viewport()
+
     def map_area_rect(self) -> Any:
-        return self.pg.Rect(18, 18, self.width - self.panel_w - 36, self.height - self.timeline_h - 32)
+        rect = self.workspace_layout().viewport
+        return self.pg.Rect(round(rect.x), round(rect.y), round(rect.width), round(rect.height))
+
+    def map_content_rect(self) -> Any:
+        return self.map_area_rect().inflate(-18, -18)
+
+    def _new_map_viewport(self) -> ViewportState:
+        field = self.field_geometry()
+        content = self.map_content_rect()
+        return ViewportState.fit(
+            field_width=field.width,
+            field_height=field.height,
+            viewport=WorkspaceRect(content.x, content.y, content.width, content.height),
+        )
+
+    def _refresh_map_viewport(self, *, reset: bool = False) -> None:
+        field = self.field_geometry()
+        content = self.map_content_rect()
+        viewport = WorkspaceRect(content.x, content.y, content.width, content.height)
+        if (
+            self.map_viewport.field_width != field.width
+            or self.map_viewport.field_height != field.height
+        ):
+            self.map_viewport = ViewportState.fit(
+                field_width=field.width,
+                field_height=field.height,
+                viewport=viewport,
+            )
+            return
+        self.map_viewport.set_viewport(viewport)
+        if reset:
+            self.map_viewport.reset_to_fit()
 
     def map_image_rect(self) -> Any:
-        return fit_rect(self.pg, self.map_size, self.map_area_rect().inflate(-18, -18))
+        self._refresh_map_viewport()
+        top_left = self.map_viewport.field_to_screen(0.0, self.map_viewport.field_height)
+        bottom_right = self.map_viewport.field_to_screen(
+            self.map_viewport.field_width,
+            0.0,
+        )
+        return self.pg.Rect(
+            round(top_left[0]),
+            round(top_left[1]),
+            max(1, round(bottom_right[0] - top_left[0])),
+            max(1, round(bottom_right[1] - top_left[1])),
+        )
+
+    def reset_map_view(self) -> None:
+        self._refresh_map_viewport(reset=True)
+
+    def set_map_actual_size(self) -> None:
+        self._refresh_map_viewport()
+        self.map_viewport.actual_size(self.map_size[0])
+
+    def adjust_map_zoom(self, factor: float, anchor: tuple[int, int] | None = None) -> None:
+        self._refresh_map_viewport()
+        point = anchor or tuple(round(value) for value in self.map_viewport.viewport.center)
+        self.map_viewport.zoom_at(point[0], point[1], factor=factor)
+
+    def zoom_to_selection(self) -> None:
+        selection = getattr(self, "workspace_selection", Selection())
+        bounds: WorkspaceRect | None = None
+        if selection.kind == "unit":
+            unit = self.sim_input_state.scene.units.get(selection.key)
+            if unit is not None:
+                bounds = WorkspaceRect(unit.x - 140, unit.y - 140, 280, 280)
+        elif selection.kind == "structure":
+            structure = self.selected_structure()
+            if structure is not None:
+                position = self.sim_structure_position(structure)
+                if position is not None:
+                    bounds = WorkspaceRect(position[0] - 180, position[1] - 180, 360, 360)
+        elif selection.kind == "area":
+            item = self.map_area_by_key(selection.key)
+            if item is not None and str(item.get("shape", "")) == "circle":
+                center = parse_position(item.get("center"))
+                radius = max(1.0, self.to_float(item.get("radius"), 120.0))
+                if center is not None:
+                    bounds = WorkspaceRect(center[0] - radius, center[1] - radius, radius * 2, radius * 2)
+            elif item is not None:
+                points = self.map_area_field_points(item)
+                if points:
+                    xs, ys = zip(*points)
+                    bounds = WorkspaceRect(min(xs), min(ys), max(1.0, max(xs) - min(xs)), max(1.0, max(ys) - min(ys)))
+        if bounds is None:
+            self.reset_map_view()
+            return
+        self._refresh_map_viewport()
+        self.map_viewport.zoom_to_field_bounds(bounds)
+
+    @property
+    def map_zoom(self) -> float:
+        content = self.map_content_rect()
+        fit_scale = min(
+            content.width / self.map_viewport.field_width,
+            content.height / self.map_viewport.field_height,
+        )
+        return self.map_viewport.scale / max(0.0001, fit_scale)
+
+    def toggle_fullscreen(self) -> None:
+        if self.fullscreen:
+            self.screen = self.pg.display.set_mode(self.windowed_size, self.pg.RESIZABLE)
+            self.fullscreen = False
+        else:
+            self.windowed_size = (self.width, self.height)
+            self.screen = self.pg.display.set_mode((0, 0), self.pg.FULLSCREEN)
+            self.fullscreen = True
+        self.width, self.height = self.screen.get_size()
+        self.scaled_map = None
+        self.cached_map_key = None
+        self._refresh_map_viewport(reset=True)
 
     def panel_rect(self) -> Any:
-        return self.pg.Rect(self.width - self.panel_w, 0, self.panel_w, self.height - self.timeline_h)
+        rect = self.workspace_layout().inspector.rect
+        return self.pg.Rect(round(rect.x), round(rect.y), round(rect.width), round(rect.height))
+
+    def operations_shelf_rect(self) -> Any:
+        rect = self.workspace_layout().operations_shelf.rect
+        return self.pg.Rect(round(rect.x), round(rect.y), round(rect.width), round(rect.height))
 
     def timeline_rect(self) -> Any:
-        return self.pg.Rect(28, self.height - 52, self.width - 56, 16)
+        shelf = self.operations_shelf_rect()
+        return self.pg.Rect(shelf.x + 20, shelf.bottom - 28, max(1, shelf.width - 40), 12)
 
     def draw(self) -> None:
         self.screen.fill(self.palette["bg"])
-        self.draw_map()
-        self.draw_panel()
-        self.draw_timeline()
+        layout = self.workspace_layout()
+        self.draw_command_bar(layout.command_bar)
+        self.draw_activity_rail(layout.activity_rail)
+        self.draw_battlefield_viewport(layout.viewport)
+        self.draw_contextual_inspector(layout.inspector.rect)
+        self.draw_operations_shelf(layout.operations_shelf.rect)
         self.draw_drag_preview()
+
+    def draw_command_bar(self, rect: WorkspaceRect) -> None:
+        pg = self.pg
+        bar = pg.Rect(round(rect.x), round(rect.y), round(rect.width), round(rect.height))
+        pg.draw.rect(self.screen, self.palette["panel"], bar, border_radius=10)
+        pg.draw.rect(self.screen, self.palette["line"], bar, 1, border_radius=10)
+        self.workspace_buttons = {}
+        self.control_buttons = {}
+        title = self.title_font.render("LY / FIELD WORKSPACE", True, self.palette["text"])
+        self.screen.blit(title, (bar.x + 18, bar.y + 15))
+        record = self.records[self.current_index]
+        state = "LIVE" if self.follow else "TRACE"
+        summary = self.small_font.render(
+            f"{state}  ·  {record.strategy}  ·  {record.output.goal_name or 'No active goal'}",
+            True,
+            self.palette["muted"],
+        )
+        self.screen.blit(summary, (bar.x + 332, bar.y + 20))
+
+        controls = [("fit", "Fit"), ("actual", "1:1"), ("focus", "Focus"), ("fullscreen", "Full"), ("reset_layout", "Reset")]
+        if self.controls_available():
+            controls = [("start", "Start"), ("pause", "Pause")] + controls
+        button_w = 56
+        button_h = 40
+        gap = 8
+        x = bar.right - 14 - len(controls) * button_w - (len(controls) - 1) * gap
+        for command, label in controls:
+            button = pg.Rect(x, bar.y + 8, button_w, button_h)
+            self.draw_control_button(button, label)
+            if command in {"start", "pause"}:
+                self.control_buttons[command] = button
+            else:
+                self.workspace_buttons[command] = button
+            x += button_w + gap
+
+    def draw_activity_rail(self, rect: WorkspaceRect) -> None:
+        pg = self.pg
+        rail = pg.Rect(round(rect.x), round(rect.y), round(rect.width), round(rect.height))
+        pg.draw.rect(self.screen, self.palette["panel"], rail, border_radius=10)
+        pg.draw.rect(self.screen, self.palette["line"], rail, 1, border_radius=10)
+        labels = [
+            ("decision", "Decision"),
+            ("events", "Events"),
+            ("runtime", "Runtime"),
+            ("control", "Control"),
+            ("inputs", "Inputs"),
+            ("layers", "Layers"),
+        ]
+        self.activity_buttons = {}
+        y = rail.y + 14
+        for tab, label in labels:
+            button = pg.Rect(rail.x + 8, y, rail.width - 16, 44)
+            active = tab == self.panel_tab
+            fill = self.palette["accent"] if active else self.palette["panel2"]
+            text_color = self.palette["black"] if active else self.palette["text"]
+            pg.draw.rect(self.screen, fill, button, border_radius=7)
+            pg.draw.rect(self.screen, self.palette["line"], button, 1, border_radius=7)
+            text = self.fit_word(label, self.small_font, button.width - 6)
+            self.screen.blit(self.small_font.render(text, True, text_color), (button.x + 4, button.y + 14))
+            self.activity_buttons[tab] = button
+            y += 54
+
+    def draw_battlefield_viewport(self, rect: WorkspaceRect) -> None:
+        del rect
+        self.draw_map()
+
+    def draw_contextual_inspector(self, rect: WorkspaceRect) -> None:
+        del rect
+        self.draw_panel()
+
+    def draw_operations_shelf(self, rect: WorkspaceRect) -> None:
+        pg = self.pg
+        shelf = pg.Rect(round(rect.x), round(rect.y), round(rect.width), round(rect.height))
+        pg.draw.rect(self.screen, self.palette["panel"], shelf, border_radius=10)
+        pg.draw.rect(self.screen, self.palette["line"], shelf, 1, border_radius=10)
+        title = self.font.render("Operations", True, self.palette["text"])
+        self.screen.blit(title, (shelf.x + 16, shelf.y + 11))
+        state = "Expand" if self.shelf_collapsed else "Collapse"
+        toggle = pg.Rect(shelf.right - 96, shelf.y + 7, 80, 28)
+        self.draw_control_button(toggle, state)
+        self.workspace_buttons["toggle_shelf"] = toggle
+        if self.shelf_collapsed:
+            record = self.records[self.current_index]
+            text = self.small_font.render(
+                f"{record.t:.1f}s  ·  {record.event}  ·  {record.output.goal_name or 'No goal'}",
+                True,
+                self.palette["muted"],
+            )
+            self.screen.blit(text, (shelf.x + 116, shelf.y + 13))
+            return
+        splitter = pg.Rect(shelf.x + 120, shelf.y, max(1, shelf.width - 240), 5)
+        pg.draw.rect(self.screen, self.palette["line"], splitter, border_radius=2)
+        self.workspace_buttons["shelf_splitter"] = splitter.inflate(0, 8)
+        self.draw_timeline()
 
     def draw_map(self) -> None:
         pg = self.pg
         area = self.map_area_rect()
         pg.draw.rect(self.screen, self.palette["panel"], area, border_radius=8)
         image_rect = self.map_image_rect()
-        rect_key = (image_rect.x, image_rect.y, image_rect.width, image_rect.height)
+        rect_key = (image_rect.width, image_rect.height)
         if self.scaled_map is None or self.cached_map_key != rect_key:
             self.scaled_map = pg.transform.smoothscale(self.map_image, (image_rect.width, image_rect.height))
             self.cached_map_key = rect_key
+        previous_clip = self.screen.get_clip()
+        self.screen.set_clip(area)
         self.screen.blit(self.scaled_map, image_rect)
         pg.draw.rect(self.screen, self.palette["line"], image_rect, 1, border_radius=4)
 
@@ -968,6 +1427,22 @@ class Viewer:
             self.draw_sim_units(image_rect)
         if self.layers.get("current_goal", True):
             self.draw_current_goal(image_rect)
+        self.screen.set_clip(previous_clip)
+        self.draw_map_tools(area)
+
+    def draw_map_tools(self, area: Any) -> None:
+        self.map_tool_buttons = {}
+        labels = (("fit", "Fit"), ("actual", "1:1"), ("zoom_out", "-"), ("zoom_in", "+"), ("focus", "Focus"), ("fullscreen", "Full"))
+        x = area.x + 12
+        y = area.y + 12
+        for command, label in labels:
+            width = 44 if len(label) > 1 else 30
+            rect = self.pg.Rect(x, y, width, 26)
+            self.draw_control_button(rect, label)
+            self.map_tool_buttons[command] = rect
+            x += width + 6
+        zoom_label = self.small_font.render(f"{self.map_zoom:.2f}x", True, self.palette["text"])
+        self.screen.blit(zoom_label, (x + 4, y + 5))
 
     def field_geometry(self) -> FieldGeometry:
         record = self.records[self.current_index]
@@ -979,10 +1454,17 @@ class Viewer:
         return (field.width, field.height)
 
     def field_to_screen(self, pos: tuple[float, float], image_rect: Any) -> tuple[int, int]:
-        return field_to_screen_point(pos, image_rect, self.field_geometry())
+        del image_rect
+        self._refresh_map_viewport()
+        x, y = self.field_geometry().clamp_point(pos)
+        sx, sy = self.map_viewport.field_to_screen(x, y)
+        return (round(sx), round(sy))
 
     def screen_to_field(self, pos: tuple[int, int], image_rect: Any) -> tuple[float, float] | None:
-        return screen_to_field_point(pos, image_rect, self.field_geometry())
+        if not image_rect.collidepoint(pos):
+            return None
+        self._refresh_map_viewport()
+        return self.field_geometry().clamp_point(self.map_viewport.screen_to_field(*pos))
 
     @staticmethod
     def to_float(value: Any, default: float = 0.0) -> float:
@@ -1401,11 +1883,14 @@ class Viewer:
             ratio = max(0.0, min(1.0, hp / max_hp))
             side_color = self.palette[self.absolute_field_side(item.side)]
             radius = 10 if item.structure == "outpost" else 12
+            selected = item.key == self.selected_structure_key
+            if selected:
+                pg.draw.circle(self.screen, self.palette["accent"], (sx, sy), radius + 9, 2)
             pg.draw.circle(self.screen, self.palette["black"], (sx, sy), radius + 5)
             pg.draw.circle(self.screen, side_color, (sx, sy), radius + 2)
             pg.draw.circle(self.screen, self.palette["panel"], (sx, sy), max(2, radius - 4))
             self.draw_health_bar(sx - 22, sy + radius + 5, 44, 5, ratio)
-            if self.show_labels or self.panel_tab == "inputs":
+            if self.show_labels or self.panel_tab == "inputs" or selected:
                 label = f"{item.label} {hp}/{max_hp}"
                 self.draw_label(label, sx + radius + 8, sy - 12, image_rect)
 
@@ -1473,6 +1958,23 @@ class Viewer:
             if math.hypot(pos[0] - sx, pos[1] - sy) <= radius:
                 return unit.entity_id
         return None
+
+    def hit_sim_structure(self, pos: tuple[int, int], image_rect: Any) -> str | None:
+        for item in reversed(self.sim_input_state.structures):
+            position = self.sim_structure_position(item)
+            if position is None:
+                continue
+            sx, sy = self.field_to_screen(position, image_rect)
+            radius = 10 if item.structure == "outpost" else 12
+            if math.hypot(pos[0] - sx, pos[1] - sy) <= radius + 10:
+                return item.key
+        return None
+
+    def selected_structure(self) -> Any | None:
+        key = getattr(self, "selected_structure_key", None)
+        if not isinstance(key, str):
+            return None
+        return next((item for item in self.sim_input_state.structures if item.key == key), None)
 
     def draw_drag_preview(self) -> None:
         if self.dragging_unit is None or self.drag_position is None:
@@ -1640,17 +2142,33 @@ class Viewer:
         if self.panel_tab != "inputs":
             self.inputs_panel.clear_buttons()
         self.layer_buttons = {}
-        pg.draw.rect(self.screen, self.palette["panel"], rect)
-        pg.draw.line(self.screen, self.palette["line"], rect.topleft, rect.bottomleft, 1)
+        pg.draw.rect(self.screen, self.palette["panel"], rect, border_radius=10)
+        pg.draw.rect(self.screen, self.palette["line"], rect, 1, border_radius=10)
+        self.panel_tab_buttons = {}
+        if self.inspector_collapsed:
+            toggle = pg.Rect(rect.x + 8, rect.y + 10, rect.width - 16, 30)
+            self.draw_control_button(toggle, "Inspect")
+            self.workspace_buttons["toggle_inspector"] = toggle
+            self.panel_body_rect = None
+            return
         record = self.records[self.current_index]
         x = rect.x + 18
-        y = self.draw_panel_header(x, rect.y + 14, rect.width - 36, record)
-        y = self.draw_target_preview(x, y + 8, rect.width - 36, record)
-        y = self.draw_match_controls(x, y + 3, rect.width - 36, record)
-        y = self.draw_panel_tabs(x, y, rect.width - 36)
-        if self.bad_lines:
-            y = self.draw_text(f"Skipped bad lines: {self.bad_lines}", x, y, self.small_font, self.palette["enemy"], rect.width - 36)
-        y += 10
+        title = self.font.render("Inspector", True, self.palette["text"])
+        self.screen.blit(title, (x, rect.y + 16))
+        dock = pg.Rect(rect.right - 142, rect.y + 10, 58, 28)
+        collapse = pg.Rect(rect.right - 76, rect.y + 10, 58, 28)
+        self.draw_control_button(dock, "Dock")
+        self.draw_control_button(collapse, "Hide")
+        self.workspace_buttons["toggle_dock"] = dock
+        self.workspace_buttons["toggle_inspector"] = collapse
+        splitter_x = rect.x - 3 if self.inspector_zone == "right" else rect.right - 3
+        splitter = pg.Rect(splitter_x, rect.y + 48, 6, max(20, rect.height - 58))
+        pg.draw.rect(self.screen, self.palette["line"], splitter, border_radius=3)
+        self.workspace_buttons["inspector_splitter"] = splitter.inflate(8, 0)
+        y = self.draw_selection_inspector(x, rect.y + 54, rect.width - 36)
+        surface = self.small_font.render(self.panel_tab.upper(), True, self.palette["accent"])
+        self.screen.blit(surface, (x, y + 8))
+        y += 30
         body_rect = pg.Rect(rect.x, y, rect.width, max(1, rect.bottom - y - 10))
         self.panel_body_rect = body_rect
         self.panel_scroll.set_body_height(self.panel_tab, body_rect.height)
@@ -1665,6 +2183,121 @@ class Viewer:
         self.panel_scroll.set_content_height(self.panel_tab, content_height)
         self.clamp_panel_scroll()
         self.draw_panel_scrollbar(body_rect)
+
+    def draw_selection_inspector(self, x: int, y: int, max_width: int) -> int:
+        self.inspector_buttons = {}
+        structure = self.selected_structure()
+        if structure is None:
+            unit = self.selected_scene_unit()
+            if unit is not None:
+                return self.draw_unit_selection_inspector(x, y, max_width, unit)
+            if self.workspace_selection.kind == "area":
+                return self.draw_area_selection_inspector(x, y, max_width)
+            return self.draw_overview_selection_inspector(x, y, max_width)
+
+        pg = self.pg
+        hp = int(self.sim_input_state.structure_health.get(structure.key, structure.hp))
+        max_hp = max(1, int(structure.max_hp))
+        position = self.sim_structure_position(structure)
+        title = f"{structure.structure.upper()} INSPECTOR"
+        status = "Alive" if hp > 0 else "Destroyed"
+        coordinate = "-" if position is None else f"{position[0]:.0f}, {position[1]:.0f} cm"
+        card_h = 142
+        card = pg.Rect(x, y, max_width, card_h)
+        pg.draw.rect(self.screen, self.palette["panel2"], card, border_radius=8)
+        pg.draw.rect(self.screen, self.palette["line"], card, 1, border_radius=8)
+        self.draw_text(title, x + 12, y + 9, self.small_font, self.palette["accent"], max_width - 24)
+        self.draw_text(f"{structure.label}  {status}", x + 12, y + 30, self.font, self.palette["text"], max_width - 24)
+        self.draw_text(f"HP {hp}/{max_hp}  ·  {coordinate}", x + 12, y + 52, self.small_font, self.palette["muted"], max_width - 24)
+        self.draw_health_bar(x + 12, y + 72, max_width - 24, 5, hp / max_hp)
+
+        actions = (
+            (f"-{structure.step}", max(0, hp - int(structure.step))),
+            (f"+{structure.step}", min(max_hp, hp + int(structure.step))),
+            ("Restore", max_hp),
+            ("Destroy", 0),
+        )
+        gap = 6
+        button_w = (max_width - gap * (len(actions) - 1)) // len(actions)
+        for index, (label, next_hp) in enumerate(actions):
+            button = pg.Rect(x + index * (button_w + gap), y + 100, button_w, 32)
+            self.draw_control_button(button, label)
+            self.inspector_buttons[f"{structure.key}:{label}"] = (
+                button,
+                {"side": structure.side, "structure": structure.structure, "hp": int(next_hp)},
+            )
+        return card.bottom + 8
+
+    def selected_scene_unit(self) -> Any | None:
+        selection = getattr(self, "workspace_selection", Selection())
+        if selection.kind != "unit":
+            return None
+        return self.sim_input_state.scene.units.get(selection.key)
+
+    def draw_overview_selection_inspector(self, x: int, y: int, max_width: int) -> int:
+        pg = self.pg
+        record = self.records[self.current_index]
+        card = pg.Rect(x, y, max_width, 104)
+        pg.draw.rect(self.screen, self.palette["panel2"], card, border_radius=8)
+        pg.draw.rect(self.screen, self.palette["line"], card, 1, border_radius=8)
+        self.draw_text("BATTLEFIELD OVERVIEW", x + 12, y + 10, self.small_font, self.palette["accent"], max_width - 24)
+        self.draw_text(record.output.goal_name or "No active goal", x + 12, y + 32, self.font, self.palette["text"], max_width - 24)
+        rows = [
+            f"Layer  {record.decision_intent.layer or '-'}",
+            f"Reason  {record.decision_intent.reason or '-'}",
+            f"Output  {record.output.topic_text()}",
+        ]
+        text_y = y + 56
+        for row in rows:
+            text_y = self.draw_text(row, x + 12, text_y, self.small_font, self.palette["muted"], max_width - 24)
+        return card.bottom + 8
+
+    def draw_unit_selection_inspector(self, x: int, y: int, max_width: int, unit: Any) -> int:
+        pg = self.pg
+        try:
+            archetype = self.sim_input_state.catalog.unit_by_key(unit.unit_key)
+            label = archetype.label
+            max_hp = max(1, int(archetype.max_hp))
+        except KeyError:
+            label = str(getattr(unit, "unit_key", "Robot"))
+            max_hp = max(1, int(getattr(unit, "hp", 1)))
+        hp = max(0, min(max_hp, int(unit.hp)))
+        card = pg.Rect(x, y, max_width, 152)
+        pg.draw.rect(self.screen, self.palette["panel2"], card, border_radius=8)
+        pg.draw.rect(self.screen, self.palette["line"], card, 1, border_radius=8)
+        self.draw_text("ROBOT INSPECTOR", x + 12, y + 10, self.small_font, self.palette["accent"], max_width - 24)
+        self.draw_text(f"{unit.side.title()} {label}", x + 12, y + 32, self.font, self.palette["text"], max_width - 24)
+        self.draw_text(f"Position  {unit.x:.0f}, {unit.y:.0f} cm", x + 12, y + 54, self.small_font, self.palette["muted"], max_width - 24)
+        self.draw_text(f"HP  {hp}/{max_hp}", x + 12, y + 72, self.small_font, self.palette["muted"], max_width - 24)
+        self.draw_health_bar(x + 12, y + 92, max_width - 24, 5, hp / max_hp)
+        step = 50 if max_hp > 100 else 10
+        actions = ((f"-{step}", max(0, hp - step)), (f"+{step}", min(max_hp, hp + step)), ("Restore", max_hp), ("Destroy", 0))
+        gap = 6
+        button_w = (max_width - gap * (len(actions) - 1)) // len(actions)
+        for index, (label_text, next_hp) in enumerate(actions):
+            button = pg.Rect(x + index * (button_w + gap), y + 112, button_w, 32)
+            self.draw_control_button(button, label_text)
+            self.inspector_buttons[f"{unit.entity_id}:{label_text}"] = (
+                button,
+                {"_command": "set_unit_hp", "entity_id": unit.entity_id, "hp": int(next_hp)},
+            )
+        return card.bottom + 8
+
+    def draw_area_selection_inspector(self, x: int, y: int, max_width: int) -> int:
+        pg = self.pg
+        item = self.map_area_by_key(self.workspace_selection.key)
+        card = pg.Rect(x, y, max_width, 98)
+        pg.draw.rect(self.screen, self.palette["panel2"], card, border_radius=8)
+        pg.draw.rect(self.screen, self.palette["line"], card, 1, border_radius=8)
+        if item is None:
+            title, detail = "Field area", "Map reference"
+        else:
+            title = str(item.get("name", "Field area"))
+            detail = str(item.get("kind", item.get("level", "Reference")))
+        self.draw_text("FIELD AREA", x + 12, y + 10, self.small_font, self.palette["accent"], max_width - 24)
+        self.draw_text(title, x + 12, y + 32, self.font, self.palette["text"], max_width - 24)
+        self.draw_text(f"{detail}  ·  reference only", x + 12, y + 56, self.small_font, self.palette["muted"], max_width - 24)
+        return card.bottom + 8
 
     def draw_panel_header(self, x: int, y: int, max_width: int, record: TraceRecord) -> int:
         title = self.title_font.render("LY Simulator", True, self.palette["text"])
@@ -1790,11 +2423,14 @@ class Viewer:
             ("layers", "Layers"),
         ]
         gap = 6
-        button_w = max(58, (max_width - gap * (len(labels) - 1)) // len(labels))
+        columns = 3
+        button_w = max(58, (max_width - gap * (columns - 1)) // columns)
         button_h = 26
         self.panel_tab_buttons = {}
         for idx, (tab, label) in enumerate(labels):
-            rect = pg.Rect(x + idx * (button_w + gap), y, button_w, button_h)
+            row = idx // columns
+            col = idx % columns
+            rect = pg.Rect(x + col * (button_w + gap), y + row * (button_h + gap), button_w, button_h)
             self.panel_tab_buttons[tab] = rect
             fill = self.palette["accent"] if self.panel_tab == tab else self.palette["panel2"]
             text_color = self.palette["black"] if self.panel_tab == tab else self.palette["text"]
@@ -1802,7 +2438,8 @@ class Viewer:
             pg.draw.rect(self.screen, self.palette["line"], rect, 1, border_radius=5)
             text = self.small_font.render(label, True, text_color)
             self.screen.blit(text, text.get_rect(center=rect.center))
-        y += button_h + 8
+        rows = math.ceil(len(labels) / columns)
+        y += rows * button_h + max(0, rows - 1) * gap + 8
         pg.draw.line(self.screen, self.palette["line"], (x, y), (x + max_width, y), 1)
         return y + 8
 
@@ -2394,9 +3031,7 @@ class Viewer:
 
     def draw_timeline(self) -> None:
         pg = self.pg
-        panel = pg.Rect(0, self.height - self.timeline_h, self.width, self.timeline_h)
-        pg.draw.rect(self.screen, self.palette["panel"], panel)
-        pg.draw.line(self.screen, self.palette["line"], panel.topleft, panel.topright, 1)
+        panel = self.operations_shelf_rect()
         track = self.timeline_rect()
         pg.draw.rect(self.screen, self.palette["panel2"], track, border_radius=8)
         ratio = self.current_index / max(1, len(self.records) - 1)
@@ -2405,10 +3040,10 @@ class Viewer:
             x = track.x + round(track.width * item["index"] / max(1, len(self.records) - 1))
             pg.draw.line(self.screen, self.palette["neutral"], (x, track.y - 6), (x, track.bottom + 6), 1)
         record = self.records[self.current_index]
-        self.draw_text(self.map_path.name, track.x, track.y - 28, self.small_font, self.palette["muted"], track.width // 2)
+        self.draw_text(self.map_path.name, track.x, track.y - 24, self.small_font, self.palette["muted"], track.width // 2)
         right = f"tick={record.tick} event={record.event} output={record.output.goal_name}:{record.output.goal_id}"
         text_w = self.small_font.size(right)[0]
-        self.draw_text(right, track.right - text_w, track.y - 28, self.small_font, self.palette["muted"], text_w + 4)
+        self.draw_text(right, track.right - text_w, track.y - 24, self.small_font, self.palette["muted"], text_w + 4)
 
     def draw_text(self, text: str, x: int, y: int, font: Any, draw_color: Any, max_width: int) -> int:
         if max_width <= 0:
