@@ -35,13 +35,13 @@
       # 仅为兼容旧调试工具保留；推荐使用下面 serial_mode 的按协议 ID topic。
       raw_serial_topic_enable: false
       raw_serial_topic_uplink: true
-      raw_serial_topic_downlink: false
+      raw_serial_topic_downlink: true
       raw_serial_topic_type_ids: "all"
 
       # 按协议 ID 发布带 header.stamp 的原始帧。false 时不创建这些 publisher。
       # 语义 topic（/ly/game/*、/ly/gimbal/* 等）独立保留，不受此开关影响。
       # 每个 raw topic 仅在实际有 subscriber 时才组包发布。
-      serial_mode: false
+      serial_mode: true
       upload:
         enable: true  # /ly/upload/typeidN 的方向总开关。
         typeid0: true
