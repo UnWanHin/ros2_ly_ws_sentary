@@ -35,6 +35,8 @@ Updated: 2026-07-22
 
 The native pygame viewer and browser `/tactical` are two renderers for the same catalog-backed scene and
 command bus. They do not duplicate data or decision logic. Layout/dock/zoom preferences are presentation-only.
+Their shared product identity is **Sentinel Flight Deck**, a matte industrial command surface with
+`#4DB7FF` as the sole operation/selection accent; red and blue remain battlefield team data.
 
 - **Battlefield:** Fit, 1:1, pointer-preserving wheel zoom, middle-button pan, Fullscreen, and **Zoom to Selection**.
 - **Activity rail:** switch the existing Decision, Events, Runtime, Control, Inputs, and Layers views without

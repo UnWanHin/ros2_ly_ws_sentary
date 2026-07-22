@@ -193,7 +193,7 @@ def test_tactical_routes_use_shared_status_and_reject_manual_ros_mutation(tmp_pa
 
         status, body = get_text(stream, "/tactical")
         assert status == 200
-        assert "Sentinel Tactical Simulator" in body
+        assert "Sentinel Flight Deck" in body
         assert "pointerdown" in body
         assert "aria-live" in body
         assert 'id="tactical"' in body
@@ -321,6 +321,14 @@ def test_tactical_browser_interactions_emit_scene_commands_when_playwright_avail
                     assert map_box is not None
                     page.mouse.click(map_box["x"] + map_box["width"] * 0.40, map_box["y"] + map_box["height"] * 0.55)
 
+                    page.wait_for_function(
+                        """() => {
+                          const piece = document.querySelector(".piece[data-entity-id='enemy:hero:a']");
+                          return piece && piece.getBoundingClientRect().width > 0;
+                        }""",
+                        timeout=5000,
+                    )
+
                     piece_box = page.locator(".piece[data-entity-id='enemy:hero:a']").bounding_box()
                     assert piece_box is not None
                     drag_map_box = page.locator("#mapCanvas").bounding_box()
@@ -332,7 +340,11 @@ def test_tactical_browser_interactions_emit_scene_commands_when_playwright_avail
 
                     page.locator(".map-structure.base").click()
                     page.locator("#inspectorCards details:nth-child(2) summary").click()
-                    page.get_by_role("button", name="+500").click()
+                    health_step = page.get_by_role("button", name="+500")
+                    health_step.wait_for(state="visible")
+                    # The tactical page polls state every 500 ms and intentionally redraws inspector content.
+                    # Assert its command contract without making Playwright wait through a cosmetic hover/repaint.
+                    health_step.click(force=True)
 
                     deadline = time.monotonic() + 2.0
                     while time.monotonic() < deadline:

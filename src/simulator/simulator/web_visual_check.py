@@ -338,7 +338,7 @@ def inspect_tactical(page: Any, viewport: Viewport) -> list[str]:
         }"""
     )
     issues: list[str] = []
-    if metrics.get("title") != "LY Sentinel Tactical Simulator":
+    if metrics.get("title") != "Sentinel Flight Deck":
         issues.append(f"{viewport.name}: unexpected tactical title {metrics.get('title')!r}")
     if "mock" not in str(metrics.get("owner", "")).lower():
         issues.append(f"{viewport.name}: tactical ownership pill did not reach mock mode")

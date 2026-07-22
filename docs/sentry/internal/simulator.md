@@ -16,6 +16,10 @@ Decision, Events, Runtime, Control, Inputs, and Layers surfaces; the contextual 
 selected map object; and the collapsible **Operations shelf** retains replay/timeline information.
 These are presentation regions, not new state or a second simulator.
 
+The shared product identity is **Sentinel Flight Deck**: a presentation-only matte industrial surface with
+`#4DB7FF` as the operation/selection accent. Team red and blue remain battlefield data colours, not general
+UI accents; command bus, decision trace, ROS interfaces, and `manual_ros` observer-only behaviour are unchanged.
+
 This is for decision review and offline decision simulation. The viewer itself does not publish ROS topics.
 In offline mode, it can send file-based control commands to `simulator.mock_inputs` for match clock and mock referee/unit inputs.
 It can also preload placed units from a JSON/YAML scene with `--unit-scene`; `simulator.start` passes that same file to the viewer and mock input publisher.

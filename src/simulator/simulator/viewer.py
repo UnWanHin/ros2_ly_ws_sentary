@@ -1305,7 +1305,7 @@ class Viewer:
         self.draw_flight_deck_card(bar)
         self.workspace_buttons = {}
         self.control_buttons = {}
-        title = self.title_font.render("LY / FIELD WORKSPACE", True, self.palette["text"])
+        title = self.title_font.render("SENTINEL FLIGHT DECK", True, self.palette["text"])
         self.screen.blit(title, (bar.x + 18, bar.y + 15))
         record = self.records[self.current_index]
         state = "LIVE" if self.follow else "TRACE"
