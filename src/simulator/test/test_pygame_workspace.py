@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pygame
 
+from simulator.config import load_config
 from simulator.interactive_inputs import SimulatorInputState
 from simulator.viewer import Viewer
 from simulator.workspace import Selection
@@ -65,6 +66,17 @@ def test_viewer_workspace_layout_keeps_the_battlefield_primary() -> None:
     assert layout.inspector.zone == "right"
     assert layout.viewport.width / layout.content_width >= 0.75
     assert layout.operations_shelf.collapsed is True
+
+
+def test_default_pygame_palette_uses_flight_deck_tokens() -> None:
+    colors = load_config(None)["colors"]
+
+    assert colors["bg"] == "#111418"
+    assert colors["panel"] == "#1D232B"
+    assert colors["panel2"] == "#202832"
+    assert colors["text"] == "#F5F7FA"
+    assert colors["muted"] == "#AEB7C2"
+    assert colors["accent"] == "#4DB7FF"
 
 
 def test_area_selection_only_changes_the_contextual_inspector() -> None:

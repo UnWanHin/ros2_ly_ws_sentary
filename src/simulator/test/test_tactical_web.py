@@ -155,6 +155,14 @@ def test_tactical_workspace_exposes_dockable_map_first_shell() -> None:
     assert 'id="shelfResizeHandle"' in body
 
 
+def test_tactical_html_has_flight_deck_css_tokens() -> None:
+    body = build_tactical_html(0).decode("utf-8")
+
+    for value in ("#111418", "#171C22", "#1D232B", "#202832", "#4DB7FF"):
+        assert value in body
+    assert "--fd-border:rgba(255,255,255,.06)" in body
+
+
 def test_tactical_state_uses_resolved_goal_position_when_trace_goal_has_no_coordinates() -> None:
     metadata = tactical_metadata()
     metadata["current_record"]["goal"]["pos_cm"] = None
