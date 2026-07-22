@@ -34,6 +34,108 @@ inline bool IsProtectCastleEnemyPositionEnabled(
     return protect_castle_enable && enemy_position_enable;
 }
 
+enum class ProtectOutpostPhase : std::uint8_t {
+    Idle = 0,
+    Travel = 1,
+    SearchHold = 2,
+    Cooldown = 3,
+    Complete = 4,
+};
+
+// Pure lifecycle state for one own-outpost damage event. Runtime code owns the
+// target point and navigation command; this policy only decides event lifetime.
+struct ProtectOutpostState {
+    bool HasSample{false};
+    std::uint16_t LastHealth{0};
+    std::uint64_t ActiveEventGeneration{0};
+    ProtectOutpostPhase Phase{ProtectOutpostPhase::Idle};
+    std::chrono::steady_clock::time_point HoldStartedAt{};
+    std::chrono::steady_clock::time_point CooldownUntil{};
+    bool PendingDamageAfterCooldown{false};
+};
+
+inline bool ObserveProtectOutpostHealth(
+    ProtectOutpostState& state,
+    const std::uint16_t health,
+    const bool fresh,
+    const std::chrono::steady_clock::time_point now) noexcept {
+    if (!fresh) {
+        return false;
+    }
+    if (!state.HasSample) {
+        state.HasSample = true;
+        state.LastHealth = health;
+        return false;
+    }
+
+    const bool strict_nonzero_decrease =
+        health > 0 && state.LastHealth > 0 && health < state.LastHealth;
+    state.LastHealth = health;
+    if (!strict_nonzero_decrease) {
+        return false;
+    }
+
+    ++state.ActiveEventGeneration;
+    if (state.Phase == ProtectOutpostPhase::Cooldown) {
+        // Do not bypass an unreachable cooldown. Resume this newer event only
+        // after the cooldown deadline has elapsed.
+        state.PendingDamageAfterCooldown = true;
+        return true;
+    }
+
+    state.CooldownUntil = {};
+    state.PendingDamageAfterCooldown = false;
+    if (state.Phase == ProtectOutpostPhase::SearchHold) {
+        // Keep the selected outpost target and restart its search interval.
+        state.HoldStartedAt = now;
+    } else {
+        state.Phase = ProtectOutpostPhase::Travel;
+        state.HoldStartedAt = {};
+    }
+    return true;
+}
+
+inline ProtectOutpostState& TickProtectOutpost(
+    ProtectOutpostState& state,
+    const bool fresh,
+    const bool reached,
+    const bool unreachable,
+    const std::chrono::steady_clock::time_point now,
+    const std::chrono::milliseconds search_hold,
+    const std::chrono::milliseconds unreachable_cooldown = std::chrono::seconds(10)) noexcept {
+    // A created event remains actionable even if a later health sample expires.
+    // Freshness gates observation above, rather than cancelling an in-flight task.
+    static_cast<void>(fresh);
+
+    if ((state.Phase == ProtectOutpostPhase::Travel ||
+         state.Phase == ProtectOutpostPhase::SearchHold) && unreachable) {
+        state.Phase = ProtectOutpostPhase::Cooldown;
+        state.CooldownUntil = now + unreachable_cooldown;
+        state.PendingDamageAfterCooldown = false;
+        return state;
+    }
+
+    if (state.Phase == ProtectOutpostPhase::Travel && reached) {
+        state.Phase = ProtectOutpostPhase::SearchHold;
+        state.HoldStartedAt = now;
+        return state;
+    }
+
+    if (state.Phase == ProtectOutpostPhase::SearchHold &&
+        now >= state.HoldStartedAt + search_hold) {
+        state.Phase = ProtectOutpostPhase::Complete;
+        return state;
+    }
+
+    if (state.Phase == ProtectOutpostPhase::Cooldown && now >= state.CooldownUntil) {
+        state.Phase = state.PendingDamageAfterCooldown
+            ? ProtectOutpostPhase::Travel
+            : ProtectOutpostPhase::Complete;
+        state.PendingDamageAfterCooldown = false;
+    }
+    return state;
+}
+
 struct BaseDamageWindowState {
     bool HasSample{false};
     std::uint16_t LastHealth{0};
