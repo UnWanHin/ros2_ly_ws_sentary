@@ -163,6 +163,16 @@ def test_tactical_html_has_flight_deck_css_tokens() -> None:
     assert "--fd-border:rgba(255,255,255,.06)" in body
 
 
+def test_tactical_html_has_flight_deck_card_icon_and_motion_contract() -> None:
+    body = build_tactical_html(0).decode("utf-8")
+
+    assert "flight-deck-card" in body
+    assert 'data-lucide="crosshair"' in body
+    assert "@media (prefers-reduced-motion: reduce)" in body
+    assert "transition:transform 150ms ease-out" in body
+    assert "border-radius:12px" in body
+
+
 def test_tactical_state_uses_resolved_goal_position_when_trace_goal_has_no_coordinates() -> None:
     metadata = tactical_metadata()
     metadata["current_record"]["goal"]["pos_cm"] = None
