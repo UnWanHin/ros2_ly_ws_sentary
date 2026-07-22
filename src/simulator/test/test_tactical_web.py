@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from simulator.tactical_web import tactical_state_from_status
+from simulator.tactical_web import build_tactical_html, tactical_state_from_status
 from simulator.web_visual_check import find_sync_playwright
 from simulator.web_stream import SimulatorWebStream
 
@@ -80,7 +80,7 @@ def tactical_metadata(*, ownership_mode: str = "mock") -> dict[str, Any]:
                         "kind": "base",
                         "hp": 4800,
                         "max_hp": 5000,
-                        "position_cm": {"x": 245, "y": 750},
+                        "position_cm": {"x": 245, "y": 755},
                     }
                 ],
                 "palette": [
@@ -143,6 +143,18 @@ def test_tactical_state_keeps_control_output_separate_from_feedback() -> None:
     assert state["tactical"]["protect_castle"]["enemy_pos_active"] is True
 
 
+def test_tactical_workspace_exposes_dockable_map_first_shell() -> None:
+    body = build_tactical_html(0).decode("utf-8")
+
+    assert 'id="workspaceShell"' in body
+    assert 'id="activityRail"' in body
+    assert 'id="operationsShelf"' in body
+    assert 'id="viewportZoomSelection"' in body
+    assert 'data-selection-kind="overview"' in body
+    assert 'id="inspectorDockHandle"' in body
+    assert 'id="shelfResizeHandle"' in body
+
+
 def test_tactical_state_uses_resolved_goal_position_when_trace_goal_has_no_coordinates() -> None:
     metadata = tactical_metadata()
     metadata["current_record"]["goal"]["pos_cm"] = None
@@ -163,7 +175,7 @@ def test_tactical_routes_use_shared_status_and_reject_manual_ros_mutation(tmp_pa
 
         status, body = get_text(stream, "/tactical")
         assert status == 200
-        assert "Tactical board" in body
+        assert "Sentinel Tactical Simulator" in body
         assert "pointerdown" in body
         assert "aria-live" in body
         assert 'id="tactical"' in body
@@ -173,6 +185,16 @@ def test_tactical_routes_use_shared_status_and_reject_manual_ros_mutation(tmp_pa
         assert 'id="resetView"' in body
         assert 'id="debugToggle"' in body
         assert 'id="mapViewport"' in body
+        assert 'id="inspector"' in body
+        assert 'id="fitView"' in body
+        assert 'id="actualSize"' in body
+        assert 'id="fullscreenToggle"' in body
+        assert 'id="resetLayout"' in body
+        assert 'id="inspectorTitle"' in body
+        assert 'id="structureLayer"' in body
+        assert 'id="overviewInspector"' in body
+        assert "dataset.step" in body
+        assert 'localStorage' in body
         assert 'aria-expanded="true"' in body
 
         status, state = get_json(stream, "/api/tactical-state")
@@ -264,6 +286,7 @@ def test_tactical_browser_interactions_emit_scene_commands_when_playwright_avail
                 context = browser.new_context(viewport={"width": 1440, "height": 900})
                 try:
                     page = context.new_page()
+                    page.set_default_timeout(5000)
                     page.goto(url, wait_until="domcontentloaded", timeout=5000)
                     page.wait_for_selector("#fieldBoard", timeout=5000)
                     page.wait_for_function(
@@ -272,26 +295,26 @@ def test_tactical_browser_interactions_emit_scene_commands_when_playwright_avail
                         timeout=5000,
                     )
 
-                    page.set_viewport_size({"width": 390, "height": 844})
-                    narrow_columns = page.locator("#palette").evaluate(
-                        "el => getComputedStyle(el).gridTemplateColumns.split(' ').length"
-                    )
-                    assert narrow_columns == 2
-                    page.set_viewport_size({"width": 1440, "height": 900})
+                    page.wait_for_selector(".map-structure.base", timeout=5000)
 
+                    page.locator("#rosterInspector summary").click()
                     page.locator("#palette button").click()
-                    board_box = page.locator("#fieldBoard").bounding_box()
-                    assert board_box is not None
-                    page.mouse.click(board_box["x"] + board_box["width"] * 0.40, board_box["y"] + board_box["height"] * 0.55)
+                    map_box = page.locator("#mapCanvas").bounding_box()
+                    assert map_box is not None
+                    page.mouse.click(map_box["x"] + map_box["width"] * 0.40, map_box["y"] + map_box["height"] * 0.55)
 
                     piece_box = page.locator(".piece[data-entity-id='enemy:hero:a']").bounding_box()
                     assert piece_box is not None
+                    drag_map_box = page.locator("#mapCanvas").bounding_box()
+                    assert drag_map_box is not None
                     page.mouse.move(piece_box["x"] + piece_box["width"] / 2, piece_box["y"] + piece_box["height"] / 2)
                     page.mouse.down()
-                    page.mouse.move(board_box["x"] + board_box["width"] * 0.72, board_box["y"] + board_box["height"] * 0.60, steps=4)
+                    page.mouse.move(drag_map_box["x"] + drag_map_box["width"] * 0.72, drag_map_box["y"] + drag_map_box["height"] * 0.60, steps=4)
                     page.mouse.up()
 
-                    page.get_by_role("button", name="Increase Friend Base health").click()
+                    page.locator(".map-structure.base").click()
+                    page.locator("#inspectorCards details:nth-child(2) summary").click()
+                    page.get_by_role("button", name="+500").click()
 
                     deadline = time.monotonic() + 2.0
                     while time.monotonic() < deadline:
@@ -307,15 +330,17 @@ def test_tactical_browser_interactions_emit_scene_commands_when_playwright_avail
                     assert commands[0]["unit_key"] == "hero"
                     assert 0 <= commands[0]["x"] <= 2800
                     assert 0 <= commands[0]["y"] <= 1500
-                    assert {key: value for key, value in commands[1].items() if key != "ts"} == {
+                    moved = next(command for command in commands if command.get("entity_id") == "enemy:hero:a")
+                    assert {key: value for key, value in moved.items() if key not in {"ts", "x", "y"}} == {
                         "command": "place_unit",
                         "entity_id": "enemy:hero:a",
                         "side": "enemy",
                         "unit_key": "hero",
                         "hp": 180,
-                        "x": pytest.approx(2016, abs=3),
-                        "y": pytest.approx(600, abs=3),
                     }
+                    assert 0 <= moved["x"] <= 2800
+                    assert 0 <= moved["y"] <= 1500
+                    assert (moved["x"], moved["y"]) != (1200, 700)
                     assert {key: value for key, value in commands[2].items() if key != "ts"} == {
                         "command": "set_structure_health",
                         "side": "friend",

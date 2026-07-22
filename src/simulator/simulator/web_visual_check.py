@@ -321,16 +321,16 @@ def inspect_tactical(page: Any, viewport: Viewport) -> list[str]:
     metrics = page.evaluate(
         """() => {
           const board = document.getElementById('fieldBoard');
-          const side = document.querySelector('.side');
+          const inspector = document.getElementById('inspector');
           const boardBox = board ? board.getBoundingClientRect() : null;
-          const sideBox = side ? side.getBoundingClientRect() : null;
+          const inspectorBox = inspector ? inspector.getBoundingClientRect() : null;
           return {
             title: document.title,
             owner: document.getElementById('ownerPill')?.textContent || '',
             boardWidth: boardBox ? boardBox.width : 0,
             boardHeight: boardBox ? boardBox.height : 0,
             pieceCount: document.querySelectorAll('.piece').length,
-            sideWidth: sideBox ? sideBox.width : 0,
+            inspectorWidth: inspectorBox ? inspectorBox.width : 0,
             scrollWidth: document.documentElement.scrollWidth,
             clientWidth: document.documentElement.clientWidth,
             bodyText: document.body ? document.body.innerText : '',
@@ -338,7 +338,7 @@ def inspect_tactical(page: Any, viewport: Viewport) -> list[str]:
         }"""
     )
     issues: list[str] = []
-    if metrics.get("title") != "LY Tactical Board":
+    if metrics.get("title") != "LY Sentinel Tactical Simulator":
         issues.append(f"{viewport.name}: unexpected tactical title {metrics.get('title')!r}")
     if "mock" not in str(metrics.get("owner", "")).lower():
         issues.append(f"{viewport.name}: tactical ownership pill did not reach mock mode")
@@ -346,12 +346,12 @@ def inspect_tactical(page: Any, viewport: Viewport) -> list[str]:
         issues.append(f"{viewport.name}: tactical field is not visibly framed")
     if int(metrics.get("pieceCount") or 0) < 2:
         issues.append(f"{viewport.name}: tactical pieces are missing")
-    if float(metrics.get("sideWidth") or 0) < 250:
-        issues.append(f"{viewport.name}: tactical evidence panel is too narrow")
+    if float(metrics.get("inspectorWidth") or 0) < 250:
+        issues.append(f"{viewport.name}: tactical inspector is too narrow")
     if int(metrics.get("scrollWidth") or 0) > int(metrics.get("clientWidth") or 0) + 2:
         issues.append(f"{viewport.name}: tactical page has horizontal overflow")
     body_text = str(metrics.get("bodyText") or "")
-    for expected in ("Pieces", "Structures", "Decision", "Tactical", "Final control output", "Match"):
+    for expected in ("Overview", "Robot roster", "Tactical state", "Operations shelf"):
         if expected not in body_text:
             issues.append(f"{viewport.name}: missing tactical text {expected!r}")
     return issues

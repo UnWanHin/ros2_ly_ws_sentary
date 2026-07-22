@@ -27,15 +27,15 @@ class FakePage:
     def evaluate(self, script: str) -> dict[str, object]:
         if "fieldBoard" in script:
             return {
-                "title": "LY Tactical Board",
+                "title": "LY Sentinel Tactical Simulator",
                 "owner": "mock",
                 "boardWidth": 920,
                 "boardHeight": 492,
                 "pieceCount": 2,
-                "sideWidth": 360,
+                "inspectorWidth": 360,
                 "scrollWidth": 390,
                 "clientWidth": 390,
-                "bodyText": "Pieces Structures Selected piece Decision Tactical Final control output Lower-machine feedback Match",
+                "bodyText": "Overview Robot roster Tactical state Operations shelf",
             }
         assert "#dashboard" in script or "dashboard" in script
         return {
