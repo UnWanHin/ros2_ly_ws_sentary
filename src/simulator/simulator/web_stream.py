@@ -174,11 +174,49 @@ li {{ margin: 2px 0; }}
   #shell {{ grid-template-columns: 1fr; }}
   #dashboard {{ max-height: none; }}
 }}
+:root {{
+  --fd-root:#111418;
+  --fd-raised:#171C22;
+  --fd-panel:#1D232B;
+  --fd-card:#202832;
+  --fd-border:rgba(255,255,255,.06);
+  --fd-text:#F5F7FA;
+  --fd-muted:#AEB7C2;
+  --fd-accent:#4DB7FF;
+  --fd-warning:#FFB648;
+  --fd-danger:#FF6262;
+  --fd-success:#58D68D;
+}}
+body {{ background:var(--fd-root); color:var(--fd-text); font-size:15px; }}
+button {{ min-height:40px; padding:0 13px; border-color:var(--fd-border); border-radius:8px; background:var(--fd-panel); transition:background 150ms ease-out,border-color 150ms ease-out,transform 150ms ease-out; }}
+button:hover:not(:disabled),button:focus-visible {{ border-color:var(--fd-accent); background:var(--fd-card); transform:translateY(-1px); }}
+#topbar {{ min-height:80px; padding:12px 24px; gap:16px; background:var(--fd-raised); border-color:var(--fd-border); }}
+#title {{ display:flex; flex-direction:column; gap:2px; color:var(--fd-text); font-size:18px; line-height:1.2; }}
+#title span {{ color:var(--fd-muted); font-size:13px; font-weight:400; }}
+#pills {{ gap:8px; }}
+.pill {{ padding:6px 10px; border-color:var(--fd-border); background:var(--fd-panel); color:var(--fd-muted); font-size:13px; }}
+.pill.ready {{ color:var(--fd-success); border-color:rgba(88,214,141,.38); background:rgba(88,214,141,.08); }}
+.pill.warn {{ color:var(--fd-warning); border-color:rgba(255,182,72,.38); background:rgba(255,182,72,.08); }}
+.pill.bad {{ color:var(--fd-danger); border-color:rgba(255,98,98,.38); background:rgba(255,98,98,.08); }}
+#ctrl {{ min-height:64px; padding:12px 24px; gap:8px; background:var(--fd-raised); border-color:var(--fd-border); }}
+#msg {{ margin-left:8px; color:var(--fd-muted); font-size:13px; }}
+#shell {{ grid-template-columns:minmax(0,1fr) minmax(300px,360px); gap:16px; padding:24px; }}
+#framePane,#dashboard {{ border:1px solid var(--fd-border); border-radius:12px; background:var(--fd-panel); box-shadow:0 14px 34px rgba(0,0,0,.22); overflow:hidden; }}
+#framePane {{ align-items:center; aspect-ratio:16/9; min-height:220px; }}
+#f {{ max-width:100%; min-width:0; max-height:100%; object-fit:contain; background:#0b0f13; }}
+#dashboard {{ gap:12px; padding:16px; max-height:calc(100vh - 168px); background:var(--fd-raised); }}
+.card {{ padding:16px; border-color:var(--fd-border); border-radius:12px; background:linear-gradient(180deg,rgba(255,255,255,.025),transparent 42%),var(--fd-card); box-shadow:0 8px 18px rgba(0,0,0,.16); }}
+.card h2 {{ margin:0 0 12px; color:var(--fd-text); font-size:15px; font-weight:600; }}
+dl {{ grid-template-columns:96px minmax(0,1fr); gap:8px 12px; }}
+dt,.empty {{ color:var(--fd-muted); }}
+dd {{ color:var(--fd-text); }}
+li {{ margin:5px 0; }}
+@media (max-width:940px) {{ #topbar,#ctrl {{ padding-left:16px; padding-right:16px; }} #shell {{ grid-template-columns:1fr; gap:16px; padding:16px; }} #framePane {{ min-height:0; }} #dashboard {{ max-height:none; }} }}
 </style>
 </head>
 <body>
 <div id="topbar">
-  <div id="title">Simulator Live Stream :{int(port)}</div>
+  <div id="title"><strong>Sentinel Flight Deck</strong><span>Live stream :{int(port)}</span></div>
   <div id="pills" aria-label="stream status">
     <span id="readyPill" class="pill warn">waiting</span>
     <span id="framePill" class="pill">frame 0</span>

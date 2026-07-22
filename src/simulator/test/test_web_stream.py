@@ -334,7 +334,9 @@ def test_index_page_escapes_control_file_label(tmp_path: Path) -> None:
 def test_build_index_html_disables_controls_without_control_file() -> None:
     body = build_index_html(port=9010, control_enabled=False, control_label="", default_step_sec=7).decode("utf-8")
 
-    assert "Simulator Live Stream :9010" in body
+    assert "Sentinel Flight Deck" in body
+    assert "--fd-root:#111418" in body
+    assert "border-radius:12px" in body
     assert "control: disabled (no control_file)" in body
     assert "const controlsDisabled = true;" in body
     assert "data-seconds=\"7\"" in body
