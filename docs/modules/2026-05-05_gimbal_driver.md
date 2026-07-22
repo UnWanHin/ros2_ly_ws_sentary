@@ -234,6 +234,7 @@ main()
 | `/ly/control/vel` (`ControlVelocity`) | `GimbalControlFrame.Velocity.X/Y` | 語義速度；`use_raw=true` 時保留原 int8 下發 |
 | `/ly/control/posture` (`SentryCmd`) | `SentryCommandFrame.SentryCmd.Posture` | `0x01` 姿態指令，只使用 `FIELD_POSTURE`；`1~3` 普通、`4~6` 強化姿態 |
 | `/ly/control/sentry_cmd` (`SentryCmd`) | `SentryCommandFrame.SentryCmd` | `0x01` 完整哨兵裁判命令入口 |
+| `/Path_downsampled` (`nav_msgs/Path`) | `map_path_to_game_path_node -> MapPathFragmentFrame` x2 | 單獨 gimbal launch 的 50 點路徑來源；經同一校準矩陣轉 `/ly/game/path` 後下發 `0x02` |
 | `/ly/control/map_path` (`MapPath`) | `MapPathFragmentFrame` x2 | `0x02` 裁判 `0x0307` 小地圖路徑；重組前保留完整 50 點 |
 | `/ly/control/custom_info` (`CustomInfo`) | `CustomInfoFrame` | `0x03` 裁判 `0x0308` UTF-16 文字 |
 | `/ly/control/trajectory` (`gimbal_driver/GimbalTrajectory`) | `GimbalTrajectoryFrame.Yaw/Pitch/YawOmega/PitchOmega/YawAlpha/PitchAlpha` | `0x05` MPC 軌跡；正式由 BT、單節點由 debug bridge 將有效 `/ly/aim/result` 六字段轉換後發布；SensorData QoS、非法浮點丟棄；每次更新額外發送，舊 `0x00` 不變 |

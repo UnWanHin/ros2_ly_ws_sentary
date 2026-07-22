@@ -114,6 +114,8 @@ def generate_launch_description():
             LaunchConfiguration("debug_config_file").perform(context)
         )
         launch_arguments = dict(driver_arguments)
+        # Debug controls do not own the formal navigation-path downlink bridge.
+        launch_arguments["enable_path_downsampled_bridge"] = "false"
         launch_arguments["raw_downlink_test_mode"] = (
             "true" if raw_downlink_test_mode else "false"
         )

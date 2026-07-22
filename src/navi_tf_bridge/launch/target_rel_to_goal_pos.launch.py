@@ -266,7 +266,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             "game_path_input_topic",
-            default_value="/ly/navi/path",
+            default_value="/Path_downsampled",
         ),
         DeclareLaunchArgument(
             "game_path_output_topic",

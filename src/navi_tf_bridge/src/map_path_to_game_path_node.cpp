@@ -23,7 +23,7 @@ public:
   MapPathToGamePathNode()
   : Node("map_path_to_game_path_node")
   {
-    input_topic_ = this->declare_parameter<std::string>("input_topic", "/ly/navi/path");
+    input_topic_ = this->declare_parameter<std::string>("input_topic", "/Path_downsampled");
     output_topic_ = this->declare_parameter<std::string>("output_topic", "/ly/game/path");
     const std::string map_frame = this->declare_parameter<std::string>("map_frame", "map");
     intention_ = static_cast<std::uint8_t>(std::clamp<std::int64_t>(
@@ -121,20 +121,20 @@ private:
   {
     if (!msg || msg->poses.empty()) {
       RCLCPP_WARN_THROTTLE(
-        this->get_logger(), *this->get_clock(), 2000, "Drop empty /ly/navi/path.");
+        this->get_logger(), *this->get_clock(), 2000, "Drop empty /Path_downsampled.");
       return;
     }
     if (self_robot_id_ == 0) {
       RCLCPP_WARN_THROTTLE(
         this->get_logger(), *this->get_clock(), 2000,
-        "Drop /ly/navi/path: waiting for %s.self_robot_id.",
+        "Drop /Path_downsampled: waiting for %s.self_robot_id.",
         sentry_info_topic_.c_str());
       return;
     }
     if (!msg->header.frame_id.empty() && msg->header.frame_id != expected_map_frame_) {
       RCLCPP_WARN_THROTTLE(
         this->get_logger(), *this->get_clock(), 2000,
-        "Drop /ly/navi/path frame '%s': expected '%s'.",
+        "Drop /Path_downsampled frame '%s': expected '%s'.",
         msg->header.frame_id.c_str(), expected_map_frame_.c_str());
       return;
     }
@@ -146,7 +146,7 @@ private:
       if (!toOfficialDecimeters(msg->poses[index].pose.position, x_dm[index], y_dm[index])) {
         RCLCPP_WARN_THROTTLE(
           this->get_logger(), *this->get_clock(), 2000,
-          "Drop /ly/navi/path: point %zu cannot convert to representable official-map dm.", index);
+          "Drop /Path_downsampled: point %zu cannot convert to representable official-map dm.", index);
         return;
       }
     }
@@ -164,7 +164,7 @@ private:
       if (delta_x < -128 || delta_x > 127 || delta_y < -128 || delta_y > 127) {
         RCLCPP_WARN_THROTTLE(
           this->get_logger(), *this->get_clock(), 2000,
-          "Drop /ly/navi/path: delta %zu is (%d, %d) dm outside int8 range.",
+          "Drop /Path_downsampled: delta %zu is (%d, %d) dm outside int8 range.",
           index, delta_x, delta_y);
         return;
       }

@@ -352,6 +352,8 @@ if(BUILD_TESTING)
   add_dependencies(test_map_command_protocol ${PROJECT_NAME})
   ament_add_pytest_test(test_debug_control_bridge
     test/test_debug_control_bridge.py)
+  ament_add_pytest_test(test_path_downsampled_launch_contract
+    test/test_path_downsampled_launch_contract.py)
 endif()
 
 # ament_export_dependencies(rosidl_default_runtime)

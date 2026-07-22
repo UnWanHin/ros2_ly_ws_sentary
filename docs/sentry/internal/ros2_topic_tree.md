@@ -63,7 +63,7 @@ Updated: 2026-07-18
 ### `/ly/game/path` - 導航轉裁判路徑
 
 ```text
-/ly/navi/path : nav_msgs/msg/Path (map frame, m, navigation output)
+/Path_downsampled : nav_msgs/msg/Path (map frame, m, navigation output)
   -> navi_tf_bridge/map_path_to_game_path_node
   -> /ly/game/path : gimbal_driver/msg/MapPath (official-map dm, header.stamp preserved)
   -> gimbal_driver -> DownlinkTypeID=0x02 -> referee 0x0307 map_data_t

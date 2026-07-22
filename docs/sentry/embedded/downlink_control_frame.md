@@ -77,7 +77,7 @@ byte 0 都是 `0x21` (`'!'`)，byte 1 是 `DownlinkTypeID`；之後的 frame 長
 下位機「每次串口寫入最多 64B」限制，driver 把那 105B payload 分成兩個固定 64B fragment；
 兩段到齊前，下位機不得封裝或發送裁判 `0x0307`。
 
-正式導航鏈路是 `/ly/navi/path`（`nav_msgs/Path`，`map` frame、m）經
+正式導航路徑來源是 `/Path_downsampled`（`nav_msgs/Path`，`map` frame、m）經
 `map_path_to_game_path_node` 用 `navi_tf_bridge` 校準矩陣反算成 official-map dm，發布
 `/ly/game/path`（`gimbal_driver/msg/MapPath`）後由 `gimbal_driver` 下發。本 bridge 固定
 `intention=3`，最多取 50 點，第一點寫 start，後 49 點寫相鄰 delta。輸入 `header.stamp`
@@ -92,6 +92,8 @@ path 使用一個新的 8-bit sequence，連續寫出 index `0`、`1` 兩段，�
 
 `SenderId` 使用裁判附錄二的自身**機器人 ID**：紅方哨兵為 `7`，藍方哨兵為 `107`。
 `gimbal_driver` 將此身份封裝為 `/ly/game/sentry/info.self_robot_id`（隊色未知時為 `0`）；
+單獨 `ros2 launch gimbal_driver gimbal_driver.launch.py` 預設也會啟動該 bridge（須先 source
+同一工作區的 `navi_tf_bridge`）；正式 `sentry_all` 僅保留這一個 owner，避免同一路徑重複下發。
 `map_path_to_game_path_node` 只訂閱該 SentryInfo 欄位。`self_robot_id=0` 時不發布
 `/ly/game/path`，因此不會用固定 `0` 或選手端 ID 下發。
 

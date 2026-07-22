@@ -866,6 +866,9 @@ def generate_launch_description():
                 "publish_goal_pose": effective_navi_publish_goal_pose,
                 "publish_goal_pos": "false",
                 "enable_goal_pos_raw_bridge": "true",
+                # gimbal_driver.launch.py owns the sole /Path_downsampled ->
+                # /ly/game/path bridge in the formal stack.
+                "enable_game_path_bridge": "false",
                 "goal_pos_raw_frame": "map",
                 "preferred_distance_cm": resolved_chase_preferred_distance_cm,
                 "distance_deadband_cm": resolved_chase_distance_deadband_cm,
@@ -967,6 +970,7 @@ def generate_launch_description():
                 "legacy_config_file": config_file,
                 "output": output,
                 "use_virtual_device": gimbal_use_virtual_device,
+                "enable_path_downsampled_bridge": "true",
                 "firecode_partial_hold_ms": firecode_partial_hold_ms,
                 "velocity_raw_to_mps": velocity_raw_to_mps,
                 "raw_log_enable": gimbal_raw_log_enable,

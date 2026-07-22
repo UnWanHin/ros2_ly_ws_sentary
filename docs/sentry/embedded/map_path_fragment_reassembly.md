@@ -17,7 +17,7 @@ fragment 接收器。不要让旧 107B parser 和新 parser 同时消费同一�
 下位机只负责将它从两次物理串口写入中复原，随后向裁判系统发送一次完整的 `0x0307`。
 
 ```text
-/ly/navi/path
+/Path_downsampled
   -> map_path_to_game_path_node
   -> /ly/game/path (完整 50 点 MapPath)
   -> gimbal_driver

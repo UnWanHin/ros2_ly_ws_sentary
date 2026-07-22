@@ -90,7 +90,7 @@ flowchart TB
   BT_CMD[/ly/control/sentry_cmd] --> DL01[0x01 SentryCommandFrame\n6B / 0x0120]
   TEAM[TypeID 1 GameCode\nIsMyTeamRed] --> SENTRY_INFO[/ly/game/sentry/info\nSentryInfo.self_robot_id]
   SENTRY_INFO --> PATH_BRIDGE
-  NAV_PATH[/ly/navi/path\nnav_msgs/Path map/m + stamp] --> PATH_BRIDGE[map_path_to_game_path_node\n同一 navi_tf_bridge 矩陣反算]
+  NAV_PATH[/Path_downsampled\nnav_msgs/Path map/m + stamp] --> PATH_BRIDGE[map_path_to_game_path_node\n同一 navi_tf_bridge 矩陣反算]
   PATH_BRIDGE --> GAME_PATH[/ly/game/path\nMapPath official dm + 原 stamp]
   GAME_PATH --> FRESH{stamp 非 0 且\n<= 5s?}
   FRESH -->|是| DL02[0x02 MapPathFragmentFrame\n64B x2 -> 107B / 50 points / 0x0307]

@@ -167,6 +167,7 @@ def generate_launch_description():
             launch_arguments={
                 "config_file": LaunchConfiguration("gimbal_config_file"),
                 "use_virtual_device": LaunchConfiguration("use_virtual_device"),
+                "enable_path_downsampled_bridge": "false",
                 "output": output,
             }.items(),
             condition=IfCondition(LaunchConfiguration("use_gimbal")),

@@ -27,6 +27,7 @@ import yaml
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, LogInfo, OpaqueFunction, Shutdown
+from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -115,8 +116,12 @@ def load_legacy_gimbal_parameters(
 
 def generate_launch_description():
     gimbal_driver_share = get_package_share_directory("gimbal_driver")
+    navi_tf_bridge_share = get_package_share_directory("navi_tf_bridge")
     default_base_config_file = os.path.join(
         gimbal_driver_share, "config", "gimbal_driver_config.yaml"
+    )
+    default_path_bridge_config_file = os.path.join(
+        navi_tf_bridge_share, "config", "tf_config.yaml"
     )
 
     def build_node(context):
@@ -257,6 +262,25 @@ def generate_launch_description():
             ]))
         actions.append(
             Node(
+                package="navi_tf_bridge",
+                executable="map_path_to_game_path_node",
+                name="map_path_to_game_path_node",
+                output=output_value,
+                condition=IfCondition(LaunchConfiguration("enable_path_downsampled_bridge")),
+                parameters=[
+                    default_path_bridge_config_file,
+                    {
+                        "input_topic": LaunchConfiguration("path_downsampled_topic"),
+                        "output_topic": "/ly/game/path",
+                        "map_frame": "map",
+                        "intention": 3,
+                        "sentry_info_topic": "/ly/game/sentry/info",
+                    },
+                ],
+            )
+        )
+        actions.append(
+            Node(
                 package="gimbal_driver",
                 executable="gimbal_driver_node",
                 name="gimbal_driver",
@@ -300,6 +324,12 @@ def generate_launch_description():
             "use_virtual_device",
             default_value="false",
             description="Whether to use virtual serial device in gimbal_driver.",
+        ),
+        DeclareLaunchArgument("enable_path_downsampled_bridge", default_value="true"),
+        DeclareLaunchArgument(
+            "path_downsampled_topic",
+            default_value="/Path_downsampled",
+            description="nav_msgs/Path source converted to /ly/game/path before serial downlink.",
         ),
         DeclareLaunchArgument(
             "raw_log_enable",

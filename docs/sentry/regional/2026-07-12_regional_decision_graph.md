@@ -120,7 +120,7 @@ flowchart LR
 
   TEAM[TypeID 1 GameCode\nIsMyTeamRed] --> SENTRY_INFO[/ly/game/sentry/info\nSentryInfo.self_robot_id]
   SENTRY_INFO --> PATH_BRIDGE
-  NAV_PATH[/ly/navi/path\nnav_msgs/Path map/m] --> PATH_BRIDGE[map_path_to_game_path_node\nmap -> official inverse matrix]
+  NAV_PATH[/Path_downsampled\nnav_msgs/Path map/m] --> PATH_BRIDGE[map_path_to_game_path_node\nmap -> official inverse matrix]
   PATH_BRIDGE --> GAME_PATH[/ly/game/path\nMapPath dm + 原 header.stamp]
   GAME_PATH --> REF_PATH[0x02 -> map_data_t]
 ```

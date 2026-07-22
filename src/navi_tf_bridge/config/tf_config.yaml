@@ -82,7 +82,7 @@ target_rel_to_goal_pos_node:
 # then MapPointer applies its inverse for the outbound map_data_t coordinates.
 map_path_to_game_path_node:
   ros__parameters:
-    input_topic: /ly/navi/path
+    input_topic: /Path_downsampled
     output_topic: /ly/game/path
     map_frame: map
     intention: 3
