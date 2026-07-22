@@ -79,6 +79,17 @@ def test_default_pygame_palette_uses_flight_deck_tokens() -> None:
     assert colors["accent"] == "#4DB7FF"
 
 
+def test_viewer_activity_rail_uses_compact_symbol_and_title_pairs() -> None:
+    assert Viewer.activity_rail_items() == (
+        ("decision", "◎", "Decision"),
+        ("events", "◌", "Events"),
+        ("runtime", "⌁", "Runtime"),
+        ("control", "⌘", "Control"),
+        ("inputs", "◈", "Inputs"),
+        ("layers", "▤", "Layers"),
+    )
+
+
 def test_area_selection_only_changes_the_contextual_inspector() -> None:
     viewer = object.__new__(Viewer)
     viewer.sim_input_state = SimulatorInputState.with_defaults()

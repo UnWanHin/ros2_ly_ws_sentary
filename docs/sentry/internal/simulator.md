@@ -19,6 +19,8 @@ These are presentation regions, not new state or a second simulator.
 The shared product identity is **Sentinel Flight Deck**: a presentation-only matte industrial surface with
 `#4DB7FF` as the operation/selection accent. Team red and blue remain battlefield data colours, not general
 UI accents; command bus, decision trace, ROS interfaces, and `manual_ros` observer-only behaviour are unchanged.
+The native pygame renderer now mirrors the browser workspace composition with a compact icon Activity rail,
+map-first viewport, contextual Inspector cards, and Operations shelf; it remains a renderer of the same state.
 
 This is for decision review and offline decision simulation. The viewer itself does not publish ROS topics.
 In offline mode, it can send file-based control commands to `simulator.mock_inputs` for match clock and mock referee/unit inputs.

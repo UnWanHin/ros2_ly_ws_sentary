@@ -1336,27 +1336,32 @@ class Viewer:
         pg = self.pg
         rail = pg.Rect(round(rect.x), round(rect.y), round(rect.width), round(rect.height))
         self.draw_flight_deck_card(rail)
-        labels = [
-            ("decision", "Decision"),
-            ("events", "Events"),
-            ("runtime", "Runtime"),
-            ("control", "Control"),
-            ("inputs", "Inputs"),
-            ("layers", "Layers"),
-        ]
         self.activity_buttons = {}
         y = rail.y + 14
-        for tab, label in labels:
+        for tab, icon, _label in self.activity_rail_items():
             button = pg.Rect(rail.x + 8, y, rail.width - 16, 44)
             active = tab == self.panel_tab
             fill = self.palette["accent"] if active else self.palette["panel2"]
             text_color = self.palette["black"] if active else self.palette["text"]
             pg.draw.rect(self.screen, fill, button, border_radius=7)
             pg.draw.rect(self.screen, self.palette["line"], button, 1, border_radius=7)
-            text = self.fit_word(label, self.small_font, button.width - 6)
-            self.screen.blit(self.small_font.render(text, True, text_color), (button.x + 4, button.y + 14))
+            glyph = self.font.render(icon, True, text_color)
+            self.screen.blit(glyph, glyph.get_rect(center=button.center))
             self.activity_buttons[tab] = button
             y += 54
+
+    @staticmethod
+    def activity_rail_items() -> tuple[tuple[str, str, str], ...]:
+        """Keep the native rail compact while retaining the browser surface names."""
+
+        return (
+            ("decision", "◎", "Decision"),
+            ("events", "◌", "Events"),
+            ("runtime", "⌁", "Runtime"),
+            ("control", "⌘", "Control"),
+            ("inputs", "◈", "Inputs"),
+            ("layers", "▤", "Layers"),
+        )
 
     def draw_battlefield_viewport(self, rect: WorkspaceRect) -> None:
         del rect
@@ -1370,7 +1375,7 @@ class Viewer:
         pg = self.pg
         shelf = pg.Rect(round(rect.x), round(rect.y), round(rect.width), round(rect.height))
         self.draw_flight_deck_card(shelf)
-        title = self.font.render("Operations", True, self.palette["text"])
+        title = self.font.render("Operations shelf", True, self.palette["text"])
         self.screen.blit(title, (shelf.x + 16, shelf.y + 11))
         state = "Expand" if self.shelf_collapsed else "Collapse"
         toggle = pg.Rect(shelf.right - 96, shelf.y + 7, 80, 28)
@@ -1383,7 +1388,7 @@ class Viewer:
                 True,
                 self.palette["muted"],
             )
-            self.screen.blit(text, (shelf.x + 116, shelf.y + 13))
+            self.screen.blit(text, (shelf.x + 16 + title.get_width() + 18, shelf.y + 13))
             return
         splitter = pg.Rect(shelf.x + 120, shelf.y, max(1, shelf.width - 240), 5)
         pg.draw.rect(self.screen, self.palette["line"], splitter, border_radius=2)
@@ -1393,7 +1398,7 @@ class Viewer:
     def draw_map(self) -> None:
         pg = self.pg
         area = self.map_area_rect()
-        pg.draw.rect(self.screen, self.palette["panel"], area, border_radius=8)
+        self.draw_flight_deck_card(area)
         image_rect = self.map_image_rect()
         rect_key = (image_rect.width, image_rect.height)
         if self.scaled_map is None or self.cached_map_key != rect_key:
@@ -1402,7 +1407,7 @@ class Viewer:
         previous_clip = self.screen.get_clip()
         self.screen.set_clip(area)
         self.screen.blit(self.scaled_map, image_rect)
-        pg.draw.rect(self.screen, self.palette["line"], image_rect, 1, border_radius=4)
+        pg.draw.rect(self.screen, self.palette["line"], image_rect, 1, border_radius=10)
 
         if self.layers.get("terrain", True):
             self.draw_terrain(image_rect)
@@ -2200,8 +2205,7 @@ class Viewer:
         coordinate = "-" if position is None else f"{position[0]:.0f}, {position[1]:.0f} cm"
         card_h = 142
         card = pg.Rect(x, y, max_width, card_h)
-        pg.draw.rect(self.screen, self.palette["panel2"], card, border_radius=8)
-        pg.draw.rect(self.screen, self.palette["line"], card, 1, border_radius=8)
+        self.draw_flight_deck_inner_card(card, active=True)
         self.draw_text(title, x + 12, y + 9, self.small_font, self.palette["accent"], max_width - 24)
         self.draw_text(f"{structure.label}  {status}", x + 12, y + 30, self.font, self.palette["text"], max_width - 24)
         self.draw_text(f"HP {hp}/{max_hp}  ·  {coordinate}", x + 12, y + 52, self.small_font, self.palette["muted"], max_width - 24)
@@ -2234,8 +2238,7 @@ class Viewer:
         pg = self.pg
         record = self.records[self.current_index]
         card = pg.Rect(x, y, max_width, 104)
-        pg.draw.rect(self.screen, self.palette["panel2"], card, border_radius=8)
-        pg.draw.rect(self.screen, self.palette["line"], card, 1, border_radius=8)
+        self.draw_flight_deck_inner_card(card, active=True)
         self.draw_text("BATTLEFIELD OVERVIEW", x + 12, y + 10, self.small_font, self.palette["accent"], max_width - 24)
         self.draw_text(record.output.goal_name or "No active goal", x + 12, y + 32, self.font, self.palette["text"], max_width - 24)
         rows = [
@@ -2259,8 +2262,7 @@ class Viewer:
             max_hp = max(1, int(getattr(unit, "hp", 1)))
         hp = max(0, min(max_hp, int(unit.hp)))
         card = pg.Rect(x, y, max_width, 152)
-        pg.draw.rect(self.screen, self.palette["panel2"], card, border_radius=8)
-        pg.draw.rect(self.screen, self.palette["line"], card, 1, border_radius=8)
+        self.draw_flight_deck_inner_card(card, active=True)
         self.draw_text("ROBOT INSPECTOR", x + 12, y + 10, self.small_font, self.palette["accent"], max_width - 24)
         self.draw_text(f"{unit.side.title()} {label}", x + 12, y + 32, self.font, self.palette["text"], max_width - 24)
         self.draw_text(f"Position  {unit.x:.0f}, {unit.y:.0f} cm", x + 12, y + 54, self.small_font, self.palette["muted"], max_width - 24)
@@ -2283,8 +2285,7 @@ class Viewer:
         pg = self.pg
         item = self.map_area_by_key(self.workspace_selection.key)
         card = pg.Rect(x, y, max_width, 98)
-        pg.draw.rect(self.screen, self.palette["panel2"], card, border_radius=8)
-        pg.draw.rect(self.screen, self.palette["line"], card, 1, border_radius=8)
+        self.draw_flight_deck_inner_card(card, active=True)
         if item is None:
             title, detail = "Field area", "Map reference"
         else:
@@ -2877,20 +2878,53 @@ class Viewer:
         highlight = pg.Rect(rect.x + 12, rect.y + 1, max(1, rect.width - 24), 1)
         pg.draw.rect(self.screen, self.palette["panel2"], highlight, border_radius=1)
 
+    def draw_flight_deck_inner_card(self, rect: Any, *, active: bool = False) -> None:
+        """Draw an Inspector card with the same material grammar at a denser scale."""
+
+        pg = self.pg
+        shadow = rect.move(0, 2)
+        pg.draw.rect(self.screen, self.palette["black"], shadow, border_radius=12)
+        pg.draw.rect(self.screen, self.palette["panel2"], rect, border_radius=12)
+        border = self.palette["accent"] if active else self.palette["line"]
+        pg.draw.rect(self.screen, border, rect, 1, border_radius=12)
+        highlight = pg.Rect(rect.x + 12, rect.y + 1, max(1, rect.width - 24), 1)
+        pg.draw.rect(self.screen, self.palette["line"], highlight, border_radius=1)
+
+    @staticmethod
+    def wrapped_line_count(text: str, font: Any, max_width: int) -> int:
+        if max_width <= 0:
+            return 0
+        words = str(text).split() or [""]
+        lines = 1
+        line = ""
+        for word in words:
+            candidate = word if not line else f"{line} {word}"
+            if font.size(candidate)[0] <= max_width:
+                line = candidate
+                continue
+            lines += 1
+            line = word
+        return lines
+
     def draw_section(self, x: int, y: int, title: str, rows: list[tuple[str, str]], max_width: int) -> int:
         pg = self.pg
-        y += 3
-        self.draw_text(title, x, y, self.font, self.palette["accent"], max_width)
-        y += 24
         key_w = min(90, max(72, max_width // 4))
+        value_width = max(1, max_width - key_w - 24)
+        line_height = self.small_font.get_linesize()
+        row_heights = [max(line_height, self.wrapped_line_count(value, self.small_font, value_width) * line_height) for _, value in rows]
+        card_h = 40 + sum(height + 5 for height in row_heights) + 14
+        card = pg.Rect(x, y + 3, max_width, card_h)
+        self.draw_flight_deck_inner_card(card)
+        content_x = card.x + 12
+        content_y = card.y + 12
+        self.draw_text(title, content_x, content_y, self.font, self.palette["accent"], max_width - 24)
+        content_y += 26
         for key, value in rows:
             key_surface = self.small_font.render(key, True, self.palette["muted"])
-            self.screen.blit(key_surface, (x, y + 2))
-            y = self.draw_text(value, x + key_w, y, self.small_font, self.palette["text"], max_width - key_w)
-            y += 2
-        y += 8
-        pg.draw.line(self.screen, self.palette["line"], (x, y), (x + max_width, y), 1)
-        return y + 8
+            self.screen.blit(key_surface, (content_x, content_y + 2))
+            content_y = self.draw_text(value, content_x + key_w, content_y, self.small_font, self.palette["text"], value_width)
+            content_y += 5
+        return card.bottom + 12
 
     def ros_output_rows(self, record: TraceRecord) -> list[tuple[str, str]]:
         output = record.output
