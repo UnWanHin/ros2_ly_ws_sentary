@@ -374,6 +374,18 @@ def test_v4_trace_preserves_bt_tactical_protection_evidence() -> None:
             "enemy_pos_active": True,
         },
         "protect_hero": {"enabled": True, "active": False},
+        "protect_outpost": {
+            "enabled": True,
+            "hp": 1480,
+            "hp_fresh": True,
+            "destroyed": False,
+            "phase": "travel",
+            "event_generation": 3,
+            "damage_window_ms": 2000,
+            "damage_threshold_hp": 20,
+            "search_hold_sec": 30,
+            "priority": 2,
+        },
         "regional_defense": {
             "threat_active": True,
             "search_kind": "own_fortress_gain_point",
@@ -390,11 +402,17 @@ def test_v4_trace_preserves_bt_tactical_protection_evidence() -> None:
     assert record.tactical.protect_castle_stay_when_rfid_active is True
     assert record.tactical.protect_castle_enemy_pos_active is True
     assert record.tactical.protect_castle_rfid_event_active is True
+    assert record.tactical.protect_outpost_phase == "travel"
+    assert record.tactical.protect_outpost_damage_window_ms == 2000
+    assert record.tactical.protect_outpost_damage_threshold_hp == 20
+    assert record.tactical.protect_outpost_destroyed is False
     assert record.tactical.regional_defense_search_kind == "own_fortress_gain_point"
     assert record.tactical.regional_defense_fortress_enemy_count == 2
     assert payload["tactical"]["protect_castle"]["enemy_pos_active"] is True
     assert payload["tactical"]["protect_castle"]["stay_when_rfid_enabled"] is True
     assert payload["tactical"]["protect_castle"]["stay_when_rfid_active"] is True
+    assert payload["tactical"]["protect_outpost"]["phase"] == "travel"
+    assert payload["tactical"]["protect_outpost"]["damage_threshold_hp"] == 20
 
 
 def test_legacy_trace_keeps_tactical_evidence_explicitly_unavailable() -> None:
@@ -632,6 +650,18 @@ def test_record_status_payload_is_json_safe_debug_summary() -> None:
                 "rfid_event_raw_active": None,
                 "rfid_event_active": None,
                 "enemy_pos_active": None,
+            },
+            "protect_outpost": {
+                "enabled": None,
+                "hp": None,
+                "hp_fresh": None,
+                "destroyed": None,
+                "phase": "not_recorded",
+                "event_generation": None,
+                "damage_window_ms": None,
+                "damage_threshold_hp": None,
+                "search_hold_sec": None,
+                "priority": None,
             },
             "protect_hero": {"enabled": None, "active": None},
             "regional_defense": {

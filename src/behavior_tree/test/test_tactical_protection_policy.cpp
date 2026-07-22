@@ -12,22 +12,46 @@ BehaviorTree::ProtectOutpostState ActiveProtectOutpostTravelState() {
     BehaviorTree::ProtectOutpostState state;
     const auto start = std::chrono::steady_clock::time_point{} + 1s;
     EXPECT_FALSE(BehaviorTree::ObserveProtectOutpostHealth(state, 1500, true, start));
-    EXPECT_TRUE(BehaviorTree::ObserveProtectOutpostHealth(state, 1499, true, start + 1s));
+    EXPECT_TRUE(BehaviorTree::ObserveProtectOutpostHealth(state, 1480, true, start + 1s, 2s, 20));
     return state;
 }
 
-TEST(TacticalProtectionPolicy, ProtectOutpostStartsOnlyOnFreshStrictDecrease) {
+TEST(TacticalProtectionPolicy, ProtectOutpostStartsOnlyAfterThresholdDamageWithinWindow) {
     BehaviorTree::ProtectOutpostState state;
     const auto now = std::chrono::steady_clock::time_point{} + 1s;
 
     EXPECT_FALSE(BehaviorTree::ObserveProtectOutpostHealth(state, 1500, true, now));
-    EXPECT_FALSE(BehaviorTree::ObserveProtectOutpostHealth(state, 1500, true, now + 1s));
-    EXPECT_FALSE(BehaviorTree::ObserveProtectOutpostHealth(state, 1499, false, now + 2s));
-    EXPECT_TRUE(BehaviorTree::ObserveProtectOutpostHealth(state, 1499, true, now + 3s));
+    EXPECT_FALSE(BehaviorTree::ObserveProtectOutpostHealth(state, 1490, true, now + 1s, 2s, 20));
+    EXPECT_FALSE(BehaviorTree::ObserveProtectOutpostHealth(state, 1481, false, now + 2s, 2s, 20));
+    EXPECT_FALSE(BehaviorTree::ObserveProtectOutpostHealth(state, 1481, true, now + 2s, 2s, 20));
+    EXPECT_TRUE(BehaviorTree::ObserveProtectOutpostHealth(state, 1480, true, now + 2s, 2s, 20));
     EXPECT_EQ(state.Phase, BehaviorTree::ProtectOutpostPhase::Travel);
     const auto generation = state.ActiveEventGeneration;
-    EXPECT_FALSE(BehaviorTree::ObserveProtectOutpostHealth(state, 1499, true, now + 4s));
+    EXPECT_FALSE(BehaviorTree::ObserveProtectOutpostHealth(state, 1479, true, now + 3s, 2s, 20));
     EXPECT_EQ(state.ActiveEventGeneration, generation);
+}
+
+TEST(TacticalProtectionPolicy, ProtectOutpostExpiresDamageWindowBeforeThreshold) {
+    BehaviorTree::ProtectOutpostState state;
+    const auto now = std::chrono::steady_clock::time_point{} + 1s;
+
+    EXPECT_FALSE(BehaviorTree::ObserveProtectOutpostHealth(state, 1500, true, now));
+    EXPECT_FALSE(BehaviorTree::ObserveProtectOutpostHealth(state, 1485, true, now + 3s, 2s, 20));
+    EXPECT_FALSE(BehaviorTree::ObserveProtectOutpostHealth(state, 1470, true, now + 4s, 2s, 20));
+    EXPECT_TRUE(BehaviorTree::ObserveProtectOutpostHealth(state, 1465, true, now + 5s, 2s, 20));
+    EXPECT_EQ(state.Phase, BehaviorTree::ProtectOutpostPhase::Travel);
+}
+
+TEST(TacticalProtectionPolicy, ProtectOutpostZeroHealthCancelsAndRebuildCanRetrigger) {
+    auto state = ActiveProtectOutpostTravelState();
+    const auto now = std::chrono::steady_clock::time_point{} + 10s;
+
+    EXPECT_FALSE(BehaviorTree::ObserveProtectOutpostHealth(state, 0, true, now, 2s, 20));
+    EXPECT_EQ(state.Phase, BehaviorTree::ProtectOutpostPhase::Idle);
+    EXPECT_FALSE(state.HasSample);
+    EXPECT_FALSE(BehaviorTree::ObserveProtectOutpostHealth(state, 1500, true, now + 1s, 2s, 20));
+    EXPECT_TRUE(BehaviorTree::ObserveProtectOutpostHealth(state, 1480, true, now + 2s, 2s, 20));
+    EXPECT_EQ(state.Phase, BehaviorTree::ProtectOutpostPhase::Travel);
 }
 
 TEST(TacticalProtectionPolicy, ProtectOutpostHoldsAfterArrivalAndConsumesEvent) {
@@ -49,9 +73,9 @@ TEST(TacticalProtectionPolicy, ProtectOutpostCompleteNeedsAnotherStrictDecreaseT
     BehaviorTree::TickProtectOutpost(state, true, true, false, now + 30s, 30s);
 
     EXPECT_EQ(state.Phase, BehaviorTree::ProtectOutpostPhase::Complete);
-    EXPECT_FALSE(BehaviorTree::ObserveProtectOutpostHealth(state, 1499, true, now + 31s));
+    EXPECT_FALSE(BehaviorTree::ObserveProtectOutpostHealth(state, 1500, true, now + 31s, 2s, 20));
     EXPECT_EQ(state.Phase, BehaviorTree::ProtectOutpostPhase::Complete);
-    EXPECT_TRUE(BehaviorTree::ObserveProtectOutpostHealth(state, 1498, true, now + 32s));
+    EXPECT_TRUE(BehaviorTree::ObserveProtectOutpostHealth(state, 1480, true, now + 32s, 2s, 20));
     EXPECT_EQ(state.Phase, BehaviorTree::ProtectOutpostPhase::Travel);
 }
 
@@ -60,7 +84,8 @@ TEST(TacticalProtectionPolicy, ProtectOutpostFreshDamageWhileHoldingRestartsSear
     const auto now = std::chrono::steady_clock::time_point{} + 10s;
     BehaviorTree::TickProtectOutpost(state, true, true, false, now, 30s);
 
-    EXPECT_TRUE(BehaviorTree::ObserveProtectOutpostHealth(state, 1498, true, now + 20s));
+    EXPECT_FALSE(BehaviorTree::ObserveProtectOutpostHealth(state, 1480, true, now + 19s, 2s, 20));
+    EXPECT_TRUE(BehaviorTree::ObserveProtectOutpostHealth(state, 1460, true, now + 20s, 2s, 20));
     EXPECT_EQ(state.Phase, BehaviorTree::ProtectOutpostPhase::SearchHold);
     EXPECT_EQ(BehaviorTree::TickProtectOutpost(state, true, true, false, now + 49s, 30s).Phase,
               BehaviorTree::ProtectOutpostPhase::SearchHold);
@@ -99,8 +124,9 @@ TEST(TacticalProtectionPolicy, ProtectOutpostDamageDuringCooldownQueuesTravelUnt
 
     BehaviorTree::TickProtectOutpost(state, true, false, true, now, 30s, 5s);
     EXPECT_EQ(state.Phase, BehaviorTree::ProtectOutpostPhase::Cooldown);
-    EXPECT_TRUE(BehaviorTree::ObserveProtectOutpostHealth(state, 1498, true, now + 1s));
-    EXPECT_EQ(state.LastHealth, 1498);
+    EXPECT_FALSE(BehaviorTree::ObserveProtectOutpostHealth(state, 1480, true, now, 2s, 20));
+    EXPECT_TRUE(BehaviorTree::ObserveProtectOutpostHealth(state, 1460, true, now + 1s, 2s, 20));
+    EXPECT_EQ(state.LastHealth, 1460);
     EXPECT_EQ(state.Phase, BehaviorTree::ProtectOutpostPhase::Cooldown);
     EXPECT_EQ(BehaviorTree::TickProtectOutpost(state, true, false, false, now + 4s, 30s, 5s).Phase,
               BehaviorTree::ProtectOutpostPhase::Cooldown);

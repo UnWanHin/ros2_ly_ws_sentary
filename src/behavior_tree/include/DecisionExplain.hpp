@@ -33,6 +33,8 @@ struct ConfigSnapshot {
     bool ProtectCastleStayWhenRfid{false};
     bool ProtectOutpostEnable{false};
     int ProtectOutpostHealthFreshMs{0};
+    int ProtectOutpostDamageWindowMs{0};
+    int ProtectOutpostDamageThresholdHp{0};
     int ProtectOutpostSearchHoldSec{0};
     int ProtectOutpostUnreachableCooldownSec{0};
     bool ProtectHeroEnable{false};
@@ -111,6 +113,8 @@ inline std::array<std::string, 3> FormatConfigLines(const ConfigSnapshot& snapsh
              << " stay_when_rfid=" << enabled(snapshot.ProtectCastleStayWhenRfid)
              << " protect_outpost=" << (snapshot.ProtectOutpostEnable ? "enabled" : "disabled")
              << " health_fresh_ms=" << snapshot.ProtectOutpostHealthFreshMs
+             << " damage_window_ms=" << snapshot.ProtectOutpostDamageWindowMs
+             << " damage_threshold_hp=" << snapshot.ProtectOutpostDamageThresholdHp
              << " search_hold_sec=" << snapshot.ProtectOutpostSearchHoldSec
              << " unreachable_cooldown_sec=" << snapshot.ProtectOutpostUnreachableCooldownSec
              << " protect_hero=" << enabled(snapshot.ProtectHeroEnable)

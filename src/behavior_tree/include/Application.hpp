@@ -341,6 +341,7 @@ private:
     std::chrono::steady_clock::time_point lastEnemyOutpostHealthRxTime_{};
     bool hasReceivedSelfOutpostHealth_{false};
     std::chrono::steady_clock::time_point lastSelfOutpostHealthRxTime_{};
+    std::chrono::steady_clock::time_point lastObservedSelfOutpostHealthRxTime_{};
     ProtectOutpostState protectOutpostState_{};
     std::uint16_t enemyBaseHealth{0};  // 基地血量
     std::uint16_t selfBaseHealth{0};

@@ -58,6 +58,9 @@ inline const char* ProtectOutpostPhaseToString(const ProtectOutpostPhase phase) 
 struct ProtectOutpostState {
     bool HasSample{false};
     std::uint16_t LastHealth{0};
+    bool HasDamageWindow{false};
+    std::uint16_t DamageWindowStartHealth{0};
+    std::chrono::steady_clock::time_point DamageWindowStartedAt{};
     std::uint64_t ActiveEventGeneration{0};
     ProtectOutpostPhase Phase{ProtectOutpostPhase::Idle};
     std::chrono::steady_clock::time_point HoldStartedAt{};
@@ -69,23 +72,55 @@ inline bool ObserveProtectOutpostHealth(
     ProtectOutpostState& state,
     const std::uint16_t health,
     const bool fresh,
-    const std::chrono::steady_clock::time_point now) noexcept {
+    const std::chrono::steady_clock::time_point now,
+    const std::chrono::milliseconds damage_window = std::chrono::seconds(2),
+    const int damage_threshold_hp = 20) noexcept {
     if (!fresh) {
+        return false;
+    }
+    if (health == 0) {
+        // A destroyed outpost must immediately release any in-flight defense
+        // goal. A later rebuild starts from a fresh positive-health baseline.
+        state = {};
         return false;
     }
     if (!state.HasSample) {
         state.HasSample = true;
         state.LastHealth = health;
+        state.HasDamageWindow = true;
+        state.DamageWindowStartHealth = health;
+        state.DamageWindowStartedAt = now;
         return false;
     }
 
-    const bool strict_nonzero_decrease =
-        health > 0 && state.LastHealth > 0 && health < state.LastHealth;
+    const auto safe_damage_window = damage_window.count() > 0
+        ? damage_window
+        : std::chrono::milliseconds(1);
+    const int safe_damage_threshold_hp = damage_threshold_hp > 0
+        ? damage_threshold_hp
+        : 1;
+    const bool window_expired = !state.HasDamageWindow ||
+        now - state.DamageWindowStartedAt > safe_damage_window;
+
+    if (health >= state.LastHealth || window_expired) {
+        state.LastHealth = health;
+        state.HasDamageWindow = true;
+        state.DamageWindowStartHealth = health;
+        state.DamageWindowStartedAt = now;
+        return false;
+    }
+
     state.LastHealth = health;
-    if (!strict_nonzero_decrease) {
+    const int damage_in_window =
+        static_cast<int>(state.DamageWindowStartHealth) - static_cast<int>(health);
+    if (damage_in_window < safe_damage_threshold_hp) {
         return false;
     }
 
+    // One event consumes this window. A later damage event needs another full
+    // threshold drop instead of retriggering on each lower report.
+    state.DamageWindowStartHealth = health;
+    state.DamageWindowStartedAt = now;
     ++state.ActiveEventGeneration;
     if (state.Phase == ProtectOutpostPhase::Cooldown) {
         // Do not bypass an unreachable cooldown. Resume this newer event only

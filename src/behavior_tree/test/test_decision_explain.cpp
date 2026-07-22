@@ -55,6 +55,8 @@ TEST(DecisionExplain, FormatsEffectiveAreaAndTacticalSettings) {
         .ProtectCastleStayWhenRfid = true,
         .ProtectOutpostEnable = true,
         .ProtectOutpostHealthFreshMs = 2000,
+        .ProtectOutpostDamageWindowMs = 2000,
+        .ProtectOutpostDamageThresholdHp = 20,
         .ProtectOutpostSearchHoldSec = 30,
         .ProtectOutpostUnreachableCooldownSec = 10,
         .ProtectHeroEnable = true,
@@ -77,6 +79,8 @@ TEST(DecisionExplain, FormatsEffectiveAreaAndTacticalSettings) {
     EXPECT_NE(lines[0].find("MyHighland=0"), std::string::npos);
     EXPECT_NE(lines[1].find("enemy_pos=0"), std::string::npos);
     EXPECT_NE(lines[1].find("protect_outpost=enabled"), std::string::npos);
+    EXPECT_NE(lines[1].find("damage_window_ms=2000"), std::string::npos);
+    EXPECT_NE(lines[1].find("damage_threshold_hp=20"), std::string::npos);
     EXPECT_NE(lines[1].find("search_hold_sec=30"), std::string::npos);
     EXPECT_NE(lines[1].find("priority.protect_castle=1"), std::string::npos);
     EXPECT_NE(lines[1].find("priority.protect_outpost=2"), std::string::npos);

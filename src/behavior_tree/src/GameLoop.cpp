@@ -3865,6 +3865,7 @@ namespace BehaviorTree {
         const auto& setting = config.TacticalSettings.ProtectOutpost;
         if (!setting.Enable || IsLeagueProfile() || IsShowcasePatrolEnabled()) {
             protectOutpostState_ = {};
+            lastObservedSelfOutpostHealthRxTime_ = {};
             return;
         }
 
@@ -3890,8 +3891,24 @@ namespace BehaviorTree {
 
         const auto old_phase = protectOutpostState_.Phase;
         const auto old_generation = protectOutpostState_.ActiveEventGeneration;
-        (void)ObserveProtectOutpostHealth(
-            protectOutpostState_, selfOutpostHealth, health_fresh, now);
+        const bool has_new_health_sample = health_fresh &&
+            lastSelfOutpostHealthRxTime_ != lastObservedSelfOutpostHealthRxTime_;
+        const bool outpost_destroyed = has_new_health_sample && selfOutpostHealth == 0;
+        if (has_new_health_sample) {
+            lastObservedSelfOutpostHealthRxTime_ = lastSelfOutpostHealthRxTime_;
+            (void)ObserveProtectOutpostHealth(
+                protectOutpostState_,
+                selfOutpostHealth,
+                true,
+                lastSelfOutpostHealthRxTime_,
+                std::chrono::milliseconds(std::max(1, setting.DamageWindowMs)),
+                std::max(1, setting.DamageThresholdHp));
+        }
+        if (outpost_destroyed && owns_navigation_goal) {
+            naviGoalPublishAllowed_ = false;
+            naviExternalStatusGoalInitialized_ = false;
+            areaManager_.ClearProgressWatchdog();
+        }
         TickProtectOutpost(
             protectOutpostState_,
             health_fresh,
@@ -3912,6 +3929,9 @@ namespace BehaviorTree {
                 health_fresh ? 1 : 0,
                 static_cast<int>(target.x),
                 static_cast<int>(target.y));
+        }
+        if (LoggerPtr && outpost_destroyed && owns_navigation_goal) {
+            LoggerPtr->Info("ProtectOutpost: own outpost destroyed, revoke C3/C4 navigation.");
         }
     }
 

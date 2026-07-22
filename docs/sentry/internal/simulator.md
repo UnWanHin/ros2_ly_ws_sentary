@@ -103,6 +103,11 @@ last search kind, and counts. The simulator does not recreate those results from
 FollowMode, read `control_output.fire_code.follow_mode` and `control_output.fire_code.rotate`; do not infer
 the final command from `gimbal_feedback`.
 
+`tactical.protect_outpost` records the BT-owned own-outpost HP, freshness, destruction flag, phase, event
+generation, damage window, damage threshold, search hold, and priority. Offline replay displays this evidence
+without deriving damage from scene edits; `destroyed=true` means the formal BT revoked the C3/C4 task, while a
+later positive HP sample is only a new baseline until the configured damage threshold is reached again.
+
 Foxglove MCAP export writes the existing decision/metrics/goal channels plus:
 
 - `/sentry/simulator/decision/control_output`

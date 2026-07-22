@@ -1874,6 +1874,14 @@ namespace BehaviorTree {
             protect_outpost.HealthFreshMs);
         ReadOptionalIntParam(
             node_,
+            {"Tactical.ProtectOutpost.DamageWindowMs", "Tactical/ProtectOutpost/DamageWindowMs"},
+            protect_outpost.DamageWindowMs);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.ProtectOutpost.DamageThresholdHp", "Tactical/ProtectOutpost/DamageThresholdHp"},
+            protect_outpost.DamageThresholdHp);
+        ReadOptionalIntParam(
+            node_,
             {"Tactical.ProtectOutpost.SearchHoldSec", "Tactical/ProtectOutpost/SearchHoldSec"},
             protect_outpost.SearchHoldSec);
         ReadOptionalIntParam(
@@ -1885,6 +1893,8 @@ namespace BehaviorTree {
         priority.ProtectHero = std::max(0, priority.ProtectHero);
         priority.Chase = std::max(0, priority.Chase);
         protect_outpost.HealthFreshMs = std::max(0, protect_outpost.HealthFreshMs);
+        protect_outpost.DamageWindowMs = std::max(1, protect_outpost.DamageWindowMs);
+        protect_outpost.DamageThresholdHp = std::max(1, protect_outpost.DamageThresholdHp);
         protect_outpost.SearchHoldSec = std::max(0, protect_outpost.SearchHoldSec);
         protect_outpost.UnreachableCooldownSec = std::max(0, protect_outpost.UnreachableCooldownSec);
 

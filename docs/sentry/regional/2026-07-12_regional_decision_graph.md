@@ -80,10 +80,12 @@ flowchart TD
 `(2285,1400)`，因此兩個穿越點都落在新 ReadyRoadland 邊界內。
 
 `ProtectOutpost` 與敵方前哨 visual scout 是獨立任務。`/ly/friend/op_hp` 僅以 BT 本機收包時間
-判新鮮，首次回傳只建立基線；同一值不重觸發，嚴格下降才建立事件。事件使用官方厘米 C3（紅
+判新鮮，首次正血量只建立窗口基線；只有 `DamageWindowMs=2000` 內累積下降至少
+`DamageThresholdHp=20` 才建立事件，小幅或跨窗口下降不會觸發。新鮮 `0 HP` 立即撤銷 C3/C4
+並清空事件；重建後正血量會成為新基線，後續重新達門檻的掉血可再次觸發。事件使用官方厘米 C3（紅
 `1011,429`）或 C4（藍 `1789,1071`）並經既有 `/ly/navi/goal_pos_raw -> navi_tf_bridge -> /goal_pose`
-鏈路發出。抵達後保持 `SearchHoldSec=30` 秒，新的下降重置保持；不可達後沉默
-`UnreachableCooldownSec=10` 秒，期間新下降只排隊到冷卻結束。`Tactical.Priority` 僅仲裁
+鏈路發出。抵達後保持 `SearchHoldSec=30` 秒，新的達門檻下降重置保持；不可達後沉默
+`UnreachableCooldownSec=10` 秒，期間新的達門檻下降只排隊到冷卻結束。`Tactical.Priority` 僅仲裁
 ProtectCastle、ProtectOutpost、ProtectHero、Chase（數字越小越高）；Hard、Task 與既有
 Buff/Outpost aim 仍先於此表，且所有導航仍由 BT 的唯一最終發佈出口發出。
 
@@ -129,7 +131,7 @@ flowchart LR
 `docs/sentry/embedded/map_command_typeid9.md`。
 
 `behavior_tree` 在等待開賽前會打印一次實際生效的 AreaManager/Tactical 配置快照（包括
-ProtectOutpost 开关、新鲜度/保持/冷却与四项 Tactical 优先级）；之後只在最終
+ProtectOutpost 开关、新鲜度/掉血窗口/门槛、保持/冷却与四项 Tactical 优先级）；之後只在最終
 可發布的導航決策 fingerprint 變化時打印 `[DecisionExplain][navi]`。該行由最終
 `DecisionIntent` 與最後輸出的表示組成：區域點/小地圖命令使用官方 `cm`，手動前哨 pose 使用
 `map` frame 的 `m`，相對追擊使用來源 frame 的 `rel_m`。相對追擊的位置持續更新不會每 tick

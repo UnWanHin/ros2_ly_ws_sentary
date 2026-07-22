@@ -58,7 +58,7 @@ Regional 目前已有的主要邏輯：
 - `CommonCentral` 任務：中場巡邏路線是 `my OutpostArea -> my RightShoot -> my BuffAround2 -> my LeftShoot -> my OutpostShoot -> enemy RightShoot -> enemy OccupyArea -> enemy OutpostShoot`，啟動時也按自身位置選最近點；完成 `MaxPatrolSteps` 後退出，交回 Default scorer 重新評估下一個大區域。
 - RegionalDefense：用官方敵方位置和 `event_data` 做戰術防守；道路前/後段分別統計後聚合為同一條 RoadCorridor 防守威脅，敵方進我方 Base/Highland/PreRoadland/ReadyRoadland/CommonCentral 或己方堡壘增益點 `2/3` 都可觸發。
 - 己方堡壘增益點 `2/3`：`Tactical.ProtectCastle.StayWhenRfid=true` 時只去 `Castle`，抵達後禁止底盤導航追擊與切點離開；新鮮原始裁判事件持續期間不會無接觸退化。關閉時維持 `CastleLeft1 / CastleLeft2 / CastleRight1 / CastleRight2` 搜索和既有退化保護。此開關不影響 EnemyPos。
-- ProtectOutpost：本機新鮮 `/ly/friend/op_hp` 嚴格下降時，去紅 C3 `(1011,429)` 或藍 C4 `(1789,1071)` 官方厘米點；到達後固定搜索 30 秒。相同低血值不重複起任務，新的掉血會刷新當前事件；不可達則冷卻 10 秒，冷卻內的新掉血只排隊到期後重試。
+- ProtectOutpost：本機新鮮 `/ly/friend/op_hp` 在 `DamageWindowMs=2000` 內相對窗口基線累積下降至少 `DamageThresholdHp=20` 時，去紅 C3 `(1011,429)` 或藍 C4 `(1789,1071)` 官方厘米點；到達後固定搜索 30 秒。小幅下降或跨窗口的下降不觸發；`0 HP` 立即撤銷 C3/C4 並清空事件。重建後的正血量先成為新基線，之後再次達門檻的掉血可重新起任務；不可達則冷卻 10 秒，冷卻內的新達門檻掉血只排隊到期後重試。
 - Recovery：Hard 層先回 `Recovery` 點；到達後若 3 秒內血量/彈量沒有回升，會在己方 `Recovery` 子區域內切換中心探測點，避免卡在補給區邊緣。
 - MapCommand：裁判 `0x0303` 坐標模式的非零官方地圖點會成為 45 秒（`Task.MapCommand.HoldSec`）的 Task 層導航任務。它直接走 `/ly/navi/goal_pos_raw -> navi_tf_bridge -> /goal_pose`，不偽裝成區域 Goal ID，也不進入 `GoalReachState`、AreaManager 或 watchdog。相同點的 5x/100ms 和後續 1Hz 重送不續期；目標機器人模式沒有座標，不導航。Hard Recovery 每拍取消這個任務並記住該點，恢復後不會自動續走。
 - Buff：由能量機關裁判狀態、sentry info、timer、damage abort 和 timeout 決定是否進 `AimMode::Buff`；戰術站位使用 `BuffOutpost`，FaceMode 對己方目標側。
@@ -316,12 +316,14 @@ RegionalDefense 是事件驅動戰術層，優先級高於 Default。敵方位�
 
 `Tactical.ProtectOutpost` 防守己方前哨，与敌方前哨 visual scout 的
 `Task.OutpostConfirm` 是两条独立链路。它只在 regional、开关启用、收到本机时间仍在
-`HealthFreshMs` 内的 `/ly/friend/op_hp` 严格下降时建立事件；第一帧、相同值、上涨、0
-值或过期回传都不会触发。事件经 `Area::ProtectOutpost` 走正常 raw 官方坐标链路：红方
+`HealthFreshMs` 内的 `/ly/friend/op_hp` 在 `DamageWindowMs` 内相对窗口基线累计下降至少
+`DamageThresholdHp` 时建立事件；默认是 2 秒内 20 HP。第一帧、相同值、小于门槛的掉血、上涨
+或过期回传都不会触发；新鲜 `0 HP` 会立即清空事件并撤销仍持有的 C3/C4。重建后的首笔正血量
+只建立基线，之后再达到门槛才触发。事件经 `Area::ProtectOutpost` 走正常 raw 官方坐标链路：红方
 C3 `(1011,429)`、蓝方 C4 `(1789,1071)`，最终仍由唯一的 BT 导航发布出口输出。
 
 到达 C3/C4 后进入 `SearchHold` 并保持 `SearchHoldSec`（默认 30 秒）；保持中发生新的有效
-掉血会重启计时。上层 Hard/Task 或更高 Tactical 项可以暂时抢占，但不会清掉同一事件状态，回到
+达门槛的新掉血会重启计时。上层 Hard/Task 或更高 Tactical 项可以暂时抢占，但不会清掉同一事件状态，回到
 本任务时仍复用同一目标。若该目标收到 `/ly/navi/reachable=false`，任务进入
 `UnreachableCooldownSec`（默认 10 秒）冷却；冷却期间不重复发点，新的掉血只在冷却结束后排队为
 一个新 Travel 事件。默认顺序由 `Tactical.Priority` 给出：ProtectCastle `1`、ProtectOutpost

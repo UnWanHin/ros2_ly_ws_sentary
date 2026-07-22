@@ -25,10 +25,12 @@ behavior_tree:
         CastlePositionMarginCm: 60
         ArrivalConfirmGraceMs: 3000
 
-      # 我方前哨血量新鮮且嚴格下降時，前往官方 C3/C4；到達後原地搜索。
+      # 我方前哨血量在窗口內累積下降達門檻時，前往官方 C3/C4；0 HP 立即取消。
       ProtectOutpost:
         Enable: true
         HealthFreshMs: 2000
+        DamageWindowMs: 2000
+        DamageThresholdHp: 20
         SearchHoldSec: 30
         UnreachableCooldownSec: 10
 

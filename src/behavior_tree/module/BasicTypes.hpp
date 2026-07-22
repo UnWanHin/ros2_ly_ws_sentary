@@ -625,6 +625,8 @@ namespace LangYa
     struct ProtectOutpostSetting {
         bool Enable{true};
         int HealthFreshMs{2000};
+        int DamageWindowMs{2000};
+        int DamageThresholdHp{20};
         int SearchHoldSec{30};
         int UnreachableCooldownSec{10};
     };

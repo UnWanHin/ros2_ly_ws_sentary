@@ -365,6 +365,7 @@ public:
     const NaviProgressWatchdogRuntime& ProgressWatchdogRuntime() const noexcept {
         return progress_watchdog_;
     }
+    void ClearProgressWatchdog() noexcept { progress_watchdog_.Clear(); }
     NaviProgressWatchdogDecision TickProgressWatchdog(const NaviProgressWatchdogInput& input);
     void CommitProgressWatchdogFallback(
         AreaTimePoint now,

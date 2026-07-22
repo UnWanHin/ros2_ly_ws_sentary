@@ -562,6 +562,16 @@ def empty_tactical_state() -> TacticalDecisionState:
         protect_castle_rfid_event_raw_active=None,
         protect_castle_rfid_event_active=None,
         protect_castle_enemy_pos_active=None,
+        protect_outpost_enabled=None,
+        protect_outpost_hp=None,
+        protect_outpost_hp_fresh=None,
+        protect_outpost_destroyed=None,
+        protect_outpost_phase="not_recorded",
+        protect_outpost_event_generation=None,
+        protect_outpost_damage_window_ms=None,
+        protect_outpost_damage_threshold_hp=None,
+        protect_outpost_search_hold_sec=None,
+        protect_outpost_priority=None,
         protect_hero_enabled=None,
         protect_hero_active=None,
         regional_defense_threat_active=None,
@@ -577,6 +587,7 @@ def normalize_tactical(raw: dict[str, Any]) -> TacticalDecisionState:
         return empty_tactical_state()
 
     protect_castle = as_dict(tactical.get("protect_castle"))
+    protect_outpost = as_dict(tactical.get("protect_outpost"))
     protect_hero = as_dict(tactical.get("protect_hero"))
     regional_defense = as_dict(tactical.get("regional_defense"))
     return TacticalDecisionState(
@@ -589,6 +600,16 @@ def normalize_tactical(raw: dict[str, Any]) -> TacticalDecisionState:
         protect_castle_rfid_event_raw_active=optional_bool(protect_castle.get("rfid_event_raw_active")),
         protect_castle_rfid_event_active=optional_bool(protect_castle.get("rfid_event_active")),
         protect_castle_enemy_pos_active=optional_bool(protect_castle.get("enemy_pos_active")),
+        protect_outpost_enabled=optional_bool(protect_outpost.get("enabled")),
+        protect_outpost_hp=optional_integer(protect_outpost.get("hp")),
+        protect_outpost_hp_fresh=optional_bool(protect_outpost.get("hp_fresh")),
+        protect_outpost_destroyed=optional_bool(protect_outpost.get("destroyed")),
+        protect_outpost_phase=str(protect_outpost.get("phase", "unknown")),
+        protect_outpost_event_generation=optional_integer(protect_outpost.get("event_generation")),
+        protect_outpost_damage_window_ms=optional_integer(protect_outpost.get("damage_window_ms")),
+        protect_outpost_damage_threshold_hp=optional_integer(protect_outpost.get("damage_threshold_hp")),
+        protect_outpost_search_hold_sec=optional_integer(protect_outpost.get("search_hold_sec")),
+        protect_outpost_priority=optional_integer(protect_outpost.get("priority")),
         protect_hero_enabled=optional_bool(protect_hero.get("enabled")),
         protect_hero_active=optional_bool(protect_hero.get("active")),
         regional_defense_threat_active=optional_bool(regional_defense.get("threat_active")),

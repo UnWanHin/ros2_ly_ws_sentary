@@ -421,6 +421,16 @@ class TacticalDecisionState:
     protect_castle_rfid_event_raw_active: bool | None
     protect_castle_rfid_event_active: bool | None
     protect_castle_enemy_pos_active: bool | None
+    protect_outpost_enabled: bool | None
+    protect_outpost_hp: int | None
+    protect_outpost_hp_fresh: bool | None
+    protect_outpost_destroyed: bool | None
+    protect_outpost_phase: str
+    protect_outpost_event_generation: int | None
+    protect_outpost_damage_window_ms: int | None
+    protect_outpost_damage_threshold_hp: int | None
+    protect_outpost_search_hold_sec: int | None
+    protect_outpost_priority: int | None
     protect_hero_enabled: bool | None
     protect_hero_active: bool | None
     regional_defense_threat_active: bool | None
@@ -440,6 +450,18 @@ class TacticalDecisionState:
                 "rfid_event_raw_active": self.protect_castle_rfid_event_raw_active,
                 "rfid_event_active": self.protect_castle_rfid_event_active,
                 "enemy_pos_active": self.protect_castle_enemy_pos_active,
+            },
+            "protect_outpost": {
+                "enabled": self.protect_outpost_enabled,
+                "hp": self.protect_outpost_hp,
+                "hp_fresh": self.protect_outpost_hp_fresh,
+                "destroyed": self.protect_outpost_destroyed,
+                "phase": self.protect_outpost_phase,
+                "event_generation": self.protect_outpost_event_generation,
+                "damage_window_ms": self.protect_outpost_damage_window_ms,
+                "damage_threshold_hp": self.protect_outpost_damage_threshold_hp,
+                "search_hold_sec": self.protect_outpost_search_hold_sec,
+                "priority": self.protect_outpost_priority,
             },
             "protect_hero": {
                 "enabled": self.protect_hero_enabled,

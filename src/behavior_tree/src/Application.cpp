@@ -318,6 +318,8 @@ std::string DefaultConfigPathForProfile(const std::string& pkg_path, const std::
             .ProtectCastleStayWhenRfid = tactical.ProtectCastle.StayWhenRfid,
             .ProtectOutpostEnable = tactical.ProtectOutpost.Enable,
             .ProtectOutpostHealthFreshMs = tactical.ProtectOutpost.HealthFreshMs,
+            .ProtectOutpostDamageWindowMs = tactical.ProtectOutpost.DamageWindowMs,
+            .ProtectOutpostDamageThresholdHp = tactical.ProtectOutpost.DamageThresholdHp,
             .ProtectOutpostSearchHoldSec = tactical.ProtectOutpost.SearchHoldSec,
             .ProtectOutpostUnreachableCooldownSec = tactical.ProtectOutpost.UnreachableCooldownSec,
             .ProtectHeroEnable = tactical.ProtectHero.Enable,
