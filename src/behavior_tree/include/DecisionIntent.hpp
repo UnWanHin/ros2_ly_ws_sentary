@@ -50,7 +50,8 @@ enum class DecisionReason : std::uint8_t {
     SpecialPatrol = 22,
     MapCommand = 23,
     Chase = 24,
-    Recovery = 25
+    Recovery = 25,
+    ProtectOutpost = 26
 };
 
 struct DecisionIntent {
@@ -106,6 +107,7 @@ inline const char* DecisionReasonToString(const DecisionReason reason) noexcept 
         case DecisionReason::MapCommand: return "map_command";
         case DecisionReason::Chase: return "chase";
         case DecisionReason::Recovery: return "recovery";
+        case DecisionReason::ProtectOutpost: return "protect_outpost";
         default: return "unknown";
     }
 }
@@ -141,6 +143,7 @@ inline DecisionReason DecisionReasonFromString(const std::string_view reason) no
     if (reason == "map_command") return DecisionReason::MapCommand;
     if (reason == "chase") return DecisionReason::Chase;
     if (reason == "recovery") return DecisionReason::Recovery;
+    if (reason == "protect_outpost") return DecisionReason::ProtectOutpost;
     return DecisionReason::Unknown;
 }
 
@@ -176,6 +179,7 @@ inline DecisionLayer DecisionLayerForReason(const DecisionReason reason) noexcep
         case DecisionReason::AreaScopeBlocked:
         case DecisionReason::ProtectHero:
         case DecisionReason::Chase:
+        case DecisionReason::ProtectOutpost:
             return DecisionLayer::Tactical;
         case DecisionReason::SpecialPatrol:
             return DecisionLayer::Special;

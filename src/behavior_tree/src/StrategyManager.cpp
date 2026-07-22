@@ -1,5 +1,7 @@
 #include "../include/Application.hpp"
 
+#include <algorithm>
+#include <array>
 #include <limits>
 #include <optional>
 #include <string>
@@ -285,16 +287,6 @@ bool StrategyManager::RunTactical(Application& app) {
         }
     }
 
-    if (app.TrySetProtectHeroGoal(my_team, enemy_team)) {
-        MarkHandled(app, StrategyLayer::Tactical);
-        return true;
-    }
-
-    if (app.TrySetRegionalDefenseGoal(my_team, enemy_team)) {
-        MarkHandled(app, StrategyLayer::Tactical);
-        return true;
-    }
-
     if (app.IsOutpostVisualScoutNavigationActive() && app.aimMode != AimMode::Outpost) {
         if (app.naviCommandIntervalClock.trigger()) {
             app.TrySetOutpostVisualScoutTravelGoal(
@@ -319,9 +311,54 @@ bool StrategyManager::RunTactical(Application& app) {
         return true;
     }
 
-    if (app.TryApplyChaseTactical()) {
-        MarkHandled(app, StrategyLayer::Tactical);
-        return true;
+    enum class TacticalPriorityAction : std::uint8_t {
+        ProtectCastle = 0,
+        ProtectOutpost = 1,
+        ProtectHero = 2,
+        Chase = 3,
+    };
+    struct TacticalPriorityCandidate {
+        TacticalPriorityAction Action;
+        int Priority;
+        int TieBreak;
+    };
+    const auto& priority = app.config.TacticalSettings.Priority;
+    std::array<TacticalPriorityCandidate, 4> candidates{{
+        {TacticalPriorityAction::ProtectCastle, priority.ProtectCastle, 0},
+        {TacticalPriorityAction::ProtectOutpost, priority.ProtectOutpost, 1},
+        {TacticalPriorityAction::ProtectHero, priority.ProtectHero, 2},
+        {TacticalPriorityAction::Chase, priority.Chase, 3},
+    }};
+    std::stable_sort(
+        candidates.begin(),
+        candidates.end(),
+        [](const TacticalPriorityCandidate& lhs, const TacticalPriorityCandidate& rhs) {
+            if (lhs.Priority != rhs.Priority) {
+                return lhs.Priority < rhs.Priority;
+            }
+            return lhs.TieBreak < rhs.TieBreak;
+        });
+
+    for (const auto candidate : candidates) {
+        bool selected = false;
+        switch (candidate.Action) {
+            case TacticalPriorityAction::ProtectCastle:
+                selected = app.TrySetRegionalDefenseGoal(my_team, enemy_team);
+                break;
+            case TacticalPriorityAction::ProtectOutpost:
+                selected = app.TrySetProtectOutpostGoal(my_team, enemy_team);
+                break;
+            case TacticalPriorityAction::ProtectHero:
+                selected = app.TrySetProtectHeroGoal(my_team, enemy_team);
+                break;
+            case TacticalPriorityAction::Chase:
+                selected = app.TryApplyChaseTactical();
+                break;
+        }
+        if (selected) {
+            MarkHandled(app, StrategyLayer::Tactical);
+            return true;
+        }
     }
 
     return false;

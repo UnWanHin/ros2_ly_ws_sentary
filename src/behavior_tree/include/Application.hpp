@@ -339,6 +339,9 @@ private:
     std::uint16_t selfOutpostHealth{0}; // 我方前哨站血量
     bool hasReceivedEnemyOutpostHealth_{false};
     std::chrono::steady_clock::time_point lastEnemyOutpostHealthRxTime_{};
+    bool hasReceivedSelfOutpostHealth_{false};
+    std::chrono::steady_clock::time_point lastSelfOutpostHealthRxTime_{};
+    ProtectOutpostState protectOutpostState_{};
     std::uint16_t enemyBaseHealth{0};  // 基地血量
     std::uint16_t selfBaseHealth{0};
     bool hasReceivedSelfBaseHealth_{false};
@@ -969,6 +972,8 @@ public:
         UnitTeam my_team,
         UnitTeam enemy_team) const;
     bool TrySetRegionalDefenseGoal(UnitTeam my_team, UnitTeam enemy_team);
+    void UpdateProtectOutpostState(std::chrono::steady_clock::time_point now);
+    bool TrySetProtectOutpostGoal(UnitTeam my_team, UnitTeam enemy_team);
     bool TrySetProtectHeroGoal(UnitTeam my_team, UnitTeam enemy_team);
     bool TrySetSpecialPatrolGoal(UnitTeam my_team, UnitTeam enemy_team);
     bool TickNaviProgressWatchdog(UnitTeam my_team, UnitTeam enemy_team);

@@ -1852,6 +1852,42 @@ namespace BehaviorTree {
             {"Tactical.ProtectCastle.ArrivalConfirmGraceMs", "Tactical/ProtectCastle/ArrivalConfirmGraceMs"},
             protect_castle.ArrivalConfirmGraceMs);
 
+        auto& priority = tactical.Priority;
+        ReadOptionalIntParam(node_, {"Tactical.Priority.ProtectCastle", "Tactical/Priority/ProtectCastle"}, priority.ProtectCastle);
+        ReadOptionalIntParam(node_, {"Tactical.Priority.ProtectOutpost", "Tactical/Priority/ProtectOutpost"}, priority.ProtectOutpost);
+        ReadOptionalIntParam(node_, {"Tactical.Priority.ProtectHero", "Tactical/Priority/ProtectHero"}, priority.ProtectHero);
+        ReadOptionalIntParam(node_, {"Tactical.Priority.Chase", "Tactical/Priority/Chase"}, priority.Chase);
+
+        auto& protect_outpost = tactical.ProtectOutpost;
+        bool protect_outpost_enable = protect_outpost.Enable;
+        const bool protect_outpost_yaml_provided = ReadOptionalBoolParam(
+            node_,
+            {"Tactical.ProtectOutpost.Enable", "Tactical/ProtectOutpost/Enable"},
+            protect_outpost_enable);
+        protect_outpost.Enable = ResolveTacticalFeatureEnable(
+            protect_outpost.Enable,
+            protect_outpost_yaml_provided,
+            protect_outpost_enable);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.ProtectOutpost.HealthFreshMs", "Tactical/ProtectOutpost/HealthFreshMs"},
+            protect_outpost.HealthFreshMs);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.ProtectOutpost.SearchHoldSec", "Tactical/ProtectOutpost/SearchHoldSec"},
+            protect_outpost.SearchHoldSec);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.ProtectOutpost.UnreachableCooldownSec", "Tactical/ProtectOutpost/UnreachableCooldownSec"},
+            protect_outpost.UnreachableCooldownSec);
+        priority.ProtectCastle = std::max(0, priority.ProtectCastle);
+        priority.ProtectOutpost = std::max(0, priority.ProtectOutpost);
+        priority.ProtectHero = std::max(0, priority.ProtectHero);
+        priority.Chase = std::max(0, priority.Chase);
+        protect_outpost.HealthFreshMs = std::max(0, protect_outpost.HealthFreshMs);
+        protect_outpost.SearchHoldSec = std::max(0, protect_outpost.SearchHoldSec);
+        protect_outpost.UnreachableCooldownSec = std::max(0, protect_outpost.UnreachableCooldownSec);
+
         bool protect_hero_enable = tactical.ProtectHero.Enable;
         const bool protect_hero_yaml_provided = ReadOptionalBoolParam(
             node_,

@@ -821,6 +821,7 @@ namespace BehaviorTree {
             0,
             BaseGoalIdFromResolvedGoal(naviCommandGoal),
             GoalReachTimeoutSecForBaseGoal(BaseGoalIdFromResolvedGoal(naviCommandGoal)));
+        UpdateProtectOutpostState(now);
 
         eventSnapshot_ = eventManager_.Evaluate(
             EventEvaluateInput{
@@ -3859,6 +3860,104 @@ namespace BehaviorTree {
             now);
     }
 
+    void Application::UpdateProtectOutpostState(
+        const std::chrono::steady_clock::time_point now) {
+        const auto& setting = config.TacticalSettings.ProtectOutpost;
+        if (!setting.Enable || IsLeagueProfile() || IsShowcasePatrolEnabled()) {
+            protectOutpostState_ = {};
+            return;
+        }
+
+        const bool health_fresh = hasReceivedSelfOutpostHealth_ &&
+            lastSelfOutpostHealthRxTime_.time_since_epoch().count() != 0 &&
+            now - lastSelfOutpostHealthRxTime_ <=
+                std::chrono::milliseconds(std::max(0, setting.HealthFreshMs));
+        const auto target = Area::ProtectOutpost(team);
+        const auto target_goal_id = ResolveGoalId(LangYa::ProtectOutpost.ID, team, true);
+        const bool owns_navigation_goal =
+            naviCommandGoal == target_goal_id &&
+            naviGoalPosition.x == target.x &&
+            naviGoalPosition.y == target.y;
+        const auto reach = owns_navigation_goal
+            ? EvaluateNaviGoalReach(
+                target_goal_id,
+                target,
+                std::max(1, config.DecisionAutonomySettings.NaviGoal.HighlandCompatArriveDistanceCm),
+                0,
+                LangYa::ProtectOutpost.ID,
+                0)
+            : GoalReachState{};
+
+        const auto old_phase = protectOutpostState_.Phase;
+        const auto old_generation = protectOutpostState_.ActiveEventGeneration;
+        (void)ObserveProtectOutpostHealth(
+            protectOutpostState_, selfOutpostHealth, health_fresh, now);
+        TickProtectOutpost(
+            protectOutpostState_,
+            health_fresh,
+            owns_navigation_goal && reach.Status == GoalReachStatus::Reached,
+            owns_navigation_goal && reach.Status == GoalReachStatus::Unreachable,
+            now,
+            std::chrono::seconds(std::max(0, setting.SearchHoldSec)),
+            std::chrono::seconds(std::max(0, setting.UnreachableCooldownSec)));
+
+        if (LoggerPtr &&
+            (old_phase != protectOutpostState_.Phase ||
+             old_generation != protectOutpostState_.ActiveEventGeneration)) {
+            LoggerPtr->Info(
+                "ProtectOutpost: phase={} generation={} hp={} fresh={} target=({}, {}).",
+                ProtectOutpostPhaseToString(protectOutpostState_.Phase),
+                protectOutpostState_.ActiveEventGeneration,
+                selfOutpostHealth,
+                health_fresh ? 1 : 0,
+                static_cast<int>(target.x),
+                static_cast<int>(target.y));
+        }
+    }
+
+    bool Application::TrySetProtectOutpostGoal(
+        const UnitTeam my_team,
+        const UnitTeam enemy_team) {
+        (void)enemy_team;
+        const auto& setting = config.TacticalSettings.ProtectOutpost;
+        if (!setting.Enable ||
+            GetStrategyMode() != StrategyMode::Regional ||
+            IsLeagueProfile() ||
+            IsShowcasePatrolEnabled() ||
+            (protectOutpostState_.Phase != ProtectOutpostPhase::Travel &&
+             protectOutpostState_.Phase != ProtectOutpostPhase::SearchHold)) {
+            return false;
+        }
+
+        const auto target = Area::ProtectOutpost(my_team);
+        const auto target_goal_id = ResolveGoalId(LangYa::ProtectOutpost.ID, my_team, true);
+        const bool goal_changed = naviCommandGoal != target_goal_id ||
+            naviGoalPosition.x != target.x ||
+            naviGoalPosition.y != target.y ||
+            !naviGoalPublishAllowed_;
+        if (goal_changed) {
+            naviCommandGoal = target_goal_id;
+            naviGoalPosition = target;
+            naviGoalPublishAllowed_ = true;
+            naviExternalStatusGoalInitialized_ = false;
+            UpdateNaviProgressWatchdogGoal(LangYa::ProtectOutpost.ID, my_team, true);
+            naviCommandIntervalClock.reset(Seconds{1});
+        }
+        speedLevel = 1;
+
+        std::string detail = "phase=";
+        detail += ProtectOutpostPhaseToString(protectOutpostState_.Phase);
+        detail += " generation=" + std::to_string(protectOutpostState_.ActiveEventGeneration);
+        detail += " priority=" + std::to_string(config.TacticalSettings.Priority.ProtectOutpost);
+        RecordDecisionIntent(MakeDecisionIntent(
+            DecisionReason::ProtectOutpost,
+            LangYa::ProtectOutpost.ID,
+            my_team,
+            true,
+            detail.c_str()));
+        return true;
+    }
+
     CastleOccupancyResolution Application::ResolveProtectCastleOccupancy(
         const std::chrono::steady_clock::time_point now) const {
         const auto& protect_castle = config.TacticalSettings.ProtectCastle;
@@ -5049,6 +5148,7 @@ namespace BehaviorTree {
             case LangYa::PreRoadland.ID: assign_position(LangYa::PreRoadland, BehaviorTree::Area::PreRoadland); break;
             case LangYa::CentralLeftA.ID: assign_point(LangYa::CentralLeftA, BehaviorTree::Area::CentralLeft.A(goal_team)); break;
             case LangYa::CentralLeftB.ID: assign_point(LangYa::CentralLeftB, BehaviorTree::Area::CentralLeft.B(goal_team)); break;
+            case LangYa::ProtectOutpost.ID: assign_position(LangYa::ProtectOutpost, BehaviorTree::Area::ProtectOutpost); break;
             default:
                 LoggerPtr->Warning("Unknown base goal id={}, fallback to Home.", static_cast<int>(base_goal_id));
                 effective_base_goal_id = LangYa::Home.ID;

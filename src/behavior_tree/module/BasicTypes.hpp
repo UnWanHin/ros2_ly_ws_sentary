@@ -326,6 +326,8 @@ namespace LangYa
     static constexpr TeamedLocation PreRoadland{ 25 };
     static constexpr TeamedLocation CentralLeftA{ 26 };
     static constexpr TeamedLocation CentralLeftB{ 27 };
+    // Tactical ProtectOutpost uses the official C3/C4 defense positions.
+    static constexpr TeamedLocation ProtectOutpost{ 28 };
 
     /// @brief 团队类型
     enum class NaviTeam : std::uint8_t
@@ -613,6 +615,20 @@ namespace LangYa
         bool Enable{true};
     };
 
+    struct TacticalPrioritySetting {
+        int ProtectCastle{1};
+        int ProtectOutpost{2};
+        int ProtectHero{3};
+        int Chase{4};
+    };
+
+    struct ProtectOutpostSetting {
+        bool Enable{true};
+        int HealthFreshMs{2000};
+        int SearchHoldSec{30};
+        int UnreachableCooldownSec{10};
+    };
+
     struct ProtectCastleSetting {
         bool Enable{true};
         bool RFID{true};
@@ -626,7 +642,9 @@ namespace LangYa
 
     struct TacticalSetting {
         DamageRotateSetting DamageRotate{};
+        TacticalPrioritySetting Priority{};
         ProtectCastleSetting ProtectCastle{};
+        ProtectOutpostSetting ProtectOutpost{};
         TacticalFeatureSetting ProtectHero{};
     };
 

@@ -1,6 +1,14 @@
 behavior_tree:
   ros__parameters:
     Tactical:
+      # Tactical task arbitration: lower number has higher priority. Hard and
+      # Task layers stay above this table; Buff/Outpost aim tasks are unchanged.
+      Priority:
+        ProtectCastle: 1
+        ProtectOutpost: 2
+        ProtectHero: 3
+        Chase: 4
+
       # 城堡防守總開關；關閉時 RFID 與 MyBase 敵方座標兩條來源都不啟用。
       ProtectCastle:
         Enable: true
@@ -16,6 +24,13 @@ behavior_tree:
         OccupancyPositionFreshMs: 2500
         CastlePositionMarginCm: 60
         ArrivalConfirmGraceMs: 3000
+
+      # 我方前哨血量新鮮且嚴格下降時，前往官方 C3/C4；到達後原地搜索。
+      ProtectOutpost:
+        Enable: true
+        HealthFreshMs: 2000
+        SearchHoldSec: 30
+        UnreachableCooldownSec: 10
 
       # 控制己方 Hero 位於高地/ProtectHero 區域時的戰術保護站位。
       ProtectHero:

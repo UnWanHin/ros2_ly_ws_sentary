@@ -939,6 +939,8 @@ namespace Area {
     static const Location<std::uint16_t> CentralToBase{ {515, 100}, {2285, 1400} };
     static const Location<std::uint16_t> BuffOutpost{ {1220, 1350}, {1580, 150} };
     static const Location<std::uint16_t> OutpostGuard{ {969, 368}, {1831, 1132} };
+    // Official C3/C4 positions used for own-outpost emergency defense.
+    static const Location<std::uint16_t> ProtectOutpost{ {1011, 429}, {1789, 1071} };
     static const Location<std::uint16_t> PreRoadland{ {457, 72}, {2343, 1428} };
     static const Line<std::uint16_t> CentralLeft{
         Location<std::uint16_t>{

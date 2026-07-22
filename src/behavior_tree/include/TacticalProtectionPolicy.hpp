@@ -42,6 +42,17 @@ enum class ProtectOutpostPhase : std::uint8_t {
     Complete = 4,
 };
 
+inline const char* ProtectOutpostPhaseToString(const ProtectOutpostPhase phase) noexcept {
+    switch (phase) {
+        case ProtectOutpostPhase::Idle: return "idle";
+        case ProtectOutpostPhase::Travel: return "travel";
+        case ProtectOutpostPhase::SearchHold: return "search_hold";
+        case ProtectOutpostPhase::Cooldown: return "cooldown";
+        case ProtectOutpostPhase::Complete: return "complete";
+        default: return "idle";
+    }
+}
+
 // Pure lifecycle state for one own-outpost damage event. Runtime code owns the
 // target point and navigation command; this policy only decides event lifetime.
 struct ProtectOutpostState {

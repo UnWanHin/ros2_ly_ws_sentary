@@ -250,6 +250,8 @@ namespace BehaviorTree{
         // ly_friend_op_hp
         GenSub<ly_friend_op_hp>([](Application& app, auto msg) {
             app.selfOutpostHealth = msg->data;
+            app.hasReceivedSelfOutpostHealth_ = true;
+            app.lastSelfOutpostHealthRxTime_ = std::chrono::steady_clock::now();
         });
 
         // ly_friend_base_hp

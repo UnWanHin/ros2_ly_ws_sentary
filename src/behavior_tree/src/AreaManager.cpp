@@ -1606,6 +1606,7 @@ Area::Point<std::uint16_t> AreaManager::GoalPointByBaseId(
         case LangYa::PreRoadland.ID: return Area::PreRoadland(goal_team);
         case LangYa::CentralLeftA.ID: return Area::CentralLeft.A(goal_team);
         case LangYa::CentralLeftB.ID: return Area::CentralLeft.B(goal_team);
+        case LangYa::ProtectOutpost.ID: return Area::ProtectOutpost(goal_team);
         default: return Area::Home(goal_team);
     }
 }
