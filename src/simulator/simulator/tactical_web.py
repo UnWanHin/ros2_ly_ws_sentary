@@ -126,6 +126,7 @@ def tactical_state_from_status(
         "ready": bool(root.get("ready", False)),
         "field": _field(raw_scene),
         "scene": {
+            "team": "blue" if str(raw_scene.get("team", "")).strip().lower() == "blue" else "red",
             "enabled": enabled,
             "ownership_mode": ownership_mode,
             "can_edit": edit_reason == "editable",
@@ -145,13 +146,18 @@ def tactical_state_from_status(
         "gimbal_feedback": dict(as_dict(record.get("gimbal_feedback"))),
         "control_output": dict(as_dict(record.get("control_output"))),
         "tactical": dict(as_dict(record.get("tactical"))),
-        "match": {"time_left": replay.get("match_time_left"), "running": bool(replay.get("match_running", False))},
+        "match": {
+            "time_left": replay.get("match_time_left"),
+            "duration_sec": _positive_int(replay.get("match_duration_sec"), 420),
+            "running": bool(replay.get("match_running", False)),
+        },
         "stream": {"frame_url": "/frame.jpg", "map_url": "/tactical-map.png", "frame_id": root.get("frame_id")},
     }
 
 
 def is_scene_mutation(command: str) -> bool:
     return str(command).strip().lower() in {
+        "set_team",
         "place_unit", "set_unit", "set_units", "set_unit_hp", "remove_unit", "clear_units",
         "set_structure_health", "set_structure_hp", "set_self_health", "set_ammo", "set_posture",
         "set_self_position",
@@ -265,14 +271,77 @@ window.addEventListener('pointermove',event=>{if(drag&&drag.id===event.pointerId
 viewport.addEventListener('pointerup',event=>{if(!drag)return;const structure=event.target.closest('.structure');event.stopImmediatePropagation();finishPieceDrag(event);if(structure)select('structure',structure.dataset.structureKey)},true);
 setInterval(()=>{renderPersistentRoster();preserveLegacyMapSelectors()},120);
 </script>'''
+    # The current workspace owns piece drag handlers.  Only keep the palette
+    # adapter required by the retained roster card; do not override pointer
+    # handlers with the legacy compatibility layer.
+    compatibility = r'''<script>
+function renderPersistentRoster(){if(!state)return;const palette=document.getElementById('palette');if(!palette)return;palette.innerHTML=(state.scene.palette||[]).map((unit,index)=>'<button type="button" data-unit-index="'+index+'">'+(unit.asset_url?'<img src="'+unit.asset_url+'" alt="">':'<span class="mark">'+text(unit.type).slice(0,1)+'</span>')+'<span>'+text(unit.type)+'</span></button>').join('');for(const button of palette.querySelectorAll('button'))button.onclick=()=>{paletteChoice=state.scene.palette[Number(button.dataset.unitIndex)];document.getElementById('tactical').textContent='Placement armed: '+text(paletteChoice.type)};}
+const inspectorUiState=new Map();
+	const workspaceRenderMap=renderMap;
+	renderMap=()=>{workspaceRenderMap();pieces.querySelectorAll('.piece img').forEach(image=>{image.draggable=false});for(const element of pieces.querySelectorAll('.piece')){const unit=(state.scene.units||[]).find(item=>item.entity_id===element.dataset.entityId),fieldSide=unit&&unit.field_side;element.classList.toggle('friend',unit&&unit.side==='friend');element.classList.toggle('enemy',unit&&unit.side==='enemy');element.classList.toggle('field-red',fieldSide==='red');element.classList.toggle('field-blue',fieldSide==='blue')}for(const element of structures.querySelectorAll('.structure')){const structure=(state.scene.structures||[]).find(item=>item.key===element.dataset.structureKey),fieldSide=structure&&structure.field_side;element.classList.toggle('field-red',fieldSide==='red');element.classList.toggle('field-blue',fieldSide==='blue')}};
+document.addEventListener('dragstart',event=>{if(event.target.closest('.piece img'))event.preventDefault()});
+function inspectorStateKey(){return selection.kind+'|'+selection.key+'|'+view.surface}
+function inspectorCardKey(card,index){return inspectorStateKey()+'|'+index+'|'+(card.querySelector('summary')?.childNodes[0]?.textContent||'')}
+function captureInspectorUiState(){const host=document.getElementById('inspectorCards');if(!host)return;host.querySelectorAll('details.card').forEach((card,index)=>{const key=inspectorCardKey(card,index),inputs={};card.querySelectorAll('input').forEach((input,inputIndex)=>{inputs[input.id||inputIndex]=input.value});inspectorUiState.set(key,{open:card.open,inputs})})}
+const workspaceRenderInspector=renderInspector;
+renderInspector=()=>{captureInspectorUiState();workspaceRenderInspector();const host=document.getElementById('inspectorCards');host.querySelectorAll('details.card').forEach((card,index)=>{const saved=inspectorUiState.get(inspectorCardKey(card,index));if(saved){card.open=saved.open;card.querySelectorAll('input').forEach((input,inputIndex)=>{const value=saved.inputs[input.id||inputIndex];if(value!==undefined)input.value=value})}card.addEventListener('toggle',captureInspectorUiState);card.querySelectorAll('input').forEach(input=>input.addEventListener('input',captureInspectorUiState))})};
+setInterval(renderPersistentRoster,120);
+</script>'''
+    interaction = r'''<script>
+const selectionBox=document.createElement('div');selectionBox.id='selectionBox';selectionBox.hidden=true;Object.assign(selectionBox.style,{position:'absolute',zIndex:'20',border:'1px solid #4DB7FF',background:'#4DB7FF22',pointerEvents:'none'});viewport.append(selectionBox);let boxStart=null;
+function clearContextMenu(){document.getElementById('battleContextMenu')?.remove()}
+function moveActivePiece(event){if(!drag||drag.id!==event.pointerId)return false;const point=readPoint(event);drag.lastPoint=point;drag.moved=drag.moved||Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)>4;if(drag.moved&&drag.element){drag.element.classList.add('dragging');position(drag.element,point)}return true}
+function finishActivePieceDrag(event){if(!drag||drag.id!==event.pointerId)return false;const done=drag;drag=null;if(done.element)done.element.classList.remove('dragging');if(done.moved){const point=done.lastPoint||readPoint(event);command({command:'place_unit',entity_id:done.unit.entity_id,side:done.unit.side,unit_key:done.unit.unit_key,hp:done.unit.hp,x:point.x,y:point.y})}else{select('unit',done.unit.entity_id)}return true}
+window.addEventListener('pointermove',moveActivePiece,true);
+window.addEventListener('pointerup',finishActivePieceDrag,true);
+window.addEventListener('pointercancel',event=>{if(drag&&drag.id===event.pointerId){if(drag.element)drag.element.classList.remove('dragging');drag=null}},true);
+viewport.addEventListener('pointerdown',event=>{if(event.button!==0||paletteChoice||event.target.closest('.piece,.structure,.area'))return;boxStart={id:event.pointerId,x:event.clientX,y:event.clientY};selectionBox.hidden=false;event.stopImmediatePropagation()},{capture:true});
+viewport.addEventListener('pointermove',event=>{if(!boxStart||boxStart.id!==event.pointerId)return;const left=Math.min(boxStart.x,event.clientX),top=Math.min(boxStart.y,event.clientY),width=Math.abs(event.clientX-boxStart.x),height=Math.abs(event.clientY-boxStart.y),r=viewport.getBoundingClientRect();Object.assign(selectionBox.style,{left:(left-r.left)+'px',top:(top-r.top)+'px',width:width+'px',height:height+'px'});},{capture:true});
+viewport.addEventListener('pointerup',event=>{if(!boxStart||boxStart.id!==event.pointerId)return;const start=readPoint({clientX:boxStart.x,clientY:boxStart.y}),end=readPoint(event),minX=Math.min(start.x,end.x),maxX=Math.max(start.x,end.x),minY=Math.min(start.y,end.y),maxY=Math.max(start.y,end.y);for(const el of pieces.querySelectorAll('.piece')){const unit=(state.scene.units||[]).find(item=>item.entity_id===el.dataset.entityId),p=unit&&unit.position_cm;el.classList.toggle('selected',Boolean(p&&p.x>=minX&&p.x<=maxX&&p.y>=minY&&p.y<=maxY))}selectionBox.hidden=true;boxStart=null;event.stopImmediatePropagation()},{capture:true});
+viewport.addEventListener('contextmenu',event=>{const piece=event.target.closest('.piece'),structure=event.target.closest('.structure');if(!piece&&!structure)return;event.preventDefault();clearContextMenu();const target=piece?(state.scene.units||[]).find(item=>item.entity_id===piece.dataset.entityId):(state.scene.structures||[]).find(item=>item.key===structure.dataset.structureKey);if(!target)return;const menu=document.createElement('div');menu.id='battleContextMenu';Object.assign(menu.style,{position:'fixed',zIndex:'100',left:event.clientX+'px',top:event.clientY+'px',minWidth:'150px',padding:'6px',background:'#202832',border:'1px solid rgba(255,255,255,.12)',borderRadius:'8px',boxShadow:'0 12px 30px #0008'});const focus=document.createElement('button');focus.textContent='Focus';focus.onclick=()=>{select(piece?'unit':'structure',piece?target.entity_id:target.key);centerOn(target.position_cm,Math.max(view.zoom,1.7));clearContextMenu()};menu.append(focus);if(piece&&state.scene.can_edit){const remove=document.createElement('button');remove.textContent='Remove';remove.onclick=()=>{command({command:'remove_unit',entity_id:target.entity_id});clearContextMenu()};menu.append(remove)}for(const button of menu.querySelectorAll('button'))Object.assign(button.style,{display:'block',width:'100%',height:'34px',border:0,background:'transparent',color:'#F5F7FA',textAlign:'left',cursor:'pointer'});document.body.append(menu)},{capture:true});
+document.addEventListener('pointerdown',event=>{if(!event.target.closest('#battleContextMenu'))clearContextMenu()});
+</script>'''
+    clock_ui = r'''<script>
+function matchClockText(seconds){const whole=Math.max(0,Math.round(Number(seconds)||0));return String(Math.floor(whole/60)).padStart(2,'0')+':'+String(whole%60).padStart(2,'0')}
+function matchClockSeconds(value,limit){const match=String(value).trim().match(/^(\d{1,2}):(\d{2})$/);if(!match||Number(match[2])>=60)return null;return clamp(Number(match[1])*60+Number(match[2]),0,limit)}
+function renderMatchClock(){if(!state)return;const match=state.match||{},limit=Math.max(1,Number(match.duration_sec)||420),time=clamp(Number(match.time_left)||0,0,limit),readonly=!state.scene.can_edit;const clock=document.getElementById('matchClock'),timeline=document.getElementById('matchTimelineRange'),input=document.getElementById('matchTimeInput'),stateLabel=document.getElementById('matchState');clock.textContent=matchClockText(time);clock.dataset.running=String(Boolean(match.running));timeline.max=String(limit);timeline.value=String(Math.round(time));if(document.activeElement!==input)input.value=matchClockText(time);stateLabel.textContent=match.running?'RUNNING':'PAUSED';stateLabel.className='pill '+(match.running?'good':'warn');for(const button of document.querySelectorAll('[data-match-command]'))button.disabled=readonly;timeline.disabled=readonly;input.disabled=readonly}
+function sendMatchTime(commandName,seconds){command({command:commandName,seconds})}
+for(const button of document.querySelectorAll('[data-match-command]'))button.onclick=()=>sendMatchTime(button.dataset.matchCommand,Number(button.dataset.seconds)||0);
+const matchTimeline=document.getElementById('matchTimelineRange'),matchTimeInput=document.getElementById('matchTimeInput');matchTimeline.onchange=()=>sendMatchTime('set_time_left',Number(matchTimeline.value));matchTimeInput.onchange=()=>{const seconds=matchClockSeconds(matchTimeInput.value,Math.max(1,Number(state.match&&state.match.duration_sec)||420));if(seconds===null){matchTimeInput.value=matchClockText(state.match&&state.match.time_left);announce('Use mm:ss');return}sendMatchTime('set_time_left',seconds)};matchTimeInput.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();matchTimeInput.onchange()}};
+	function renderTeamPill(){const pill=document.getElementById('teamPill');if(!pill||!state)return;const team=state.scene&&state.scene.team==='blue'?'BLUE':'RED';pill.textContent='MY TEAM · '+team;pill.className='pill team-'+team.toLowerCase()}
+	const workspaceRender=render;render=()=>{if(state&&state.scene)view.side=state.scene.team==='blue'?'blue':'red';workspaceRender();renderMatchClock();renderTeamPill()};
+	</script>'''
     return (
         page.replace("__MAP_OBJECTS__", json.dumps(_map_objects(), separators=(",", ":")))
+        # `side` is friend/enemy relative to the selected sentry.  Border color is
+        # deliberately reserved for physical red/blue field teams below.
+        .replace(".piece.enemy .ring{border-color:#bd7074}", "")
         .replace(
             "</style>",
             "#pieceLayer{pointer-events:none}.piece{pointer-events:auto}"
+            ".piece img{pointer-events:none;user-select:none;-webkit-user-drag:none}"
+            ".team-red{color:#efc4c6;border-color:#855258;background:#2a1f22}.team-blue{color:#c9e7ff;border-color:#4f7695;background:#162936}"
+            ".piece.field-red .ring,.structure.field-red{border-color:#bd7074}.piece.field-blue .ring,.structure.field-blue{border-color:#6d9ccb}"
+            "#workspaceShell.focus{grid-template-columns:0 minmax(0,1fr) var(--inspector)}"
+            "#workspaceShell.focus[data-inspector-dock=left]{grid-template-columns:var(--inspector) 0 minmax(0,1fr)}"
+            ".match-clock{min-width:78px;font:700 20px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:0;color:var(--fd-text);font-variant-numeric:tabular-nums}.match-clock[data-running=true]{color:#d9efff}.match-timeline{display:grid;grid-template-columns:auto minmax(120px,1fr) 74px auto;align-items:center;gap:12px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}.match-timeline label{color:var(--muted)}.match-timeline input[type=range]{width:100%;accent-color:var(--accent)}.match-timeline input[type=text]{height:40px;width:74px;padding:0 8px;border:1px solid var(--line);border-radius:6px;background:#11181e;text-align:center;font-variant-numeric:tabular-nums}.match-adjust{display:flex;gap:8px}.match-adjust button{height:40px;min-width:52px;padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2)}.match-adjust button:hover{border-color:var(--accent);background:var(--accent-soft)}"
             "@media(max-width:820px){#workspaceShell,#workspaceShell[data-inspector-dock=left]{grid-template-rows:auto auto auto}#battlefieldWorkspace{min-height:0}#mapViewport{flex:none;aspect-ratio:28/15}}"
+            "@media(max-width:620px){.match-timeline{grid-template-columns:1fr 74px}.match-timeline label,.match-timeline .match-adjust{grid-column:1/-1}.match-timeline .match-adjust{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}}"
             "@media(max-width:560px){#commandBar .commands{flex:0 0 100%;width:100%}}"
             "</style>",
+        )
+        .replace(
+            '<div class="group" id="matchActions"><button class="button primary" data-command="start">Start</button><button class="button" data-command="pause">Pause</button><button class="button" data-command="reset">Reset</button></div>',
+            '<div class="group" id="matchActions"><span id="matchClock" class="match-clock" data-running="false">07:00</span><button class="button primary" data-command="start">Start</button><button class="button" data-command="pause">Pause</button><button id="rewind10" class="icon-button" type="button" data-match-command="rewind" data-seconds="10" title="Add 10 seconds" aria-label="Add 10 seconds">+10</button><button id="forward10" class="icon-button" type="button" data-match-command="forward" data-seconds="10" title="Subtract 10 seconds" aria-label="Subtract 10 seconds">-10</button><button class="button" data-command="reset">Reset</button></div>',
+        )
+        .replace(
+            '<span class="pill" id="ownerPill">mock</span>',
+            '<span class="pill" id="teamPill">MY TEAM · RED</span><span class="pill" id="ownerPill">mock</span>',
+        )
+        .replace('aria-label="Field perspective"', 'aria-label="My simulated team"')
+        .replace(
+            '<div class="shelf-data" id="shelfData"></div>',
+            '<div id="matchTimeline" class="match-timeline"><label for="matchTimeInput">Match time</label><input id="matchTimelineRange" type="range" min="0" max="420" value="420" aria-label="Match time remaining"><input id="matchTimeInput" type="text" inputmode="numeric" value="07:00" aria-label="Match time in minutes and seconds"><span id="matchState" class="pill warn">PAUSED</span><div class="match-adjust"><button id="rewind30" type="button" data-match-command="rewind" data-seconds="30" title="Add 30 seconds">+30s</button><button type="button" data-match-command="rewind" data-seconds="10" title="Add 10 seconds">+10s</button><button type="button" data-match-command="forward" data-seconds="10" title="Subtract 10 seconds">-10s</button><button id="forward30" type="button" data-match-command="forward" data-seconds="30" title="Subtract 30 seconds">-30s</button></div></div><div class="shelf-data" id="shelfData"></div>',
         )
         .replace(
             "const p=readPoint(event);command({command:'place_unit',entity_id:done.unit.entity_id",
@@ -289,7 +358,44 @@ setInterval(()=>{renderPersistentRoster();preserveLegacyMapSelectors()},120);
             '<div id="inspectorCards"></div></aside>',
             '<div id="inspectorCards"></div><span id="overviewInspector" hidden></span><details class="card" id="rosterInspector"><summary>Robot roster<small>Scene placement</small></summary><div class="card-body"><div class="roster" id="palette"></div></div></details><details class="card"><summary>Tactical state<small>Current trace</small></summary><div class="card-body">Tactical evidence is shown by the selected workspace surface.</div></details></aside>',
         )
-        .replace("</script></body>", "</script>" + compatibility + "</body>")
+        .replace(
+            '<button class="icon-button" id="undoButton" disabled title="Undo">↶</button>',
+            '<button class="icon-button" id="undoButton" disabled title="Undo">↶</button><button class="icon-button" id="inspectorClose" title="Close Inspector" aria-label="Close Inspector">×</button>',
+        )
+        .replace(
+            '<button class="rail-button" id="dockToggle" title="Move Inspector">⇄</button>',
+            '<button class="rail-button" id="inspectorToggle" title="Show Inspector" aria-label="Show Inspector">▤</button><button class="rail-button" id="dockToggle" title="Move Inspector">⇄</button>',
+        )
+        .replace(
+            "</style>",
+            "#workspaceShell.inspector-collapsed #inspector{padding:0;overflow:hidden}#workspaceShell.inspector-collapsed #inspector>*{visibility:hidden}</style>",
+            1,
+        )
+        .replace(
+            "$('dockToggle').onclick=()=>{view.inspectorDock=view.inspectorDock==='right'?'left':'right';applyView()};",
+            "$('inspectorClose').onclick=()=>{view.inspectorCollapsed=true;applyView()};$('inspectorToggle').onclick=()=>{view.inspectorCollapsed=false;applyView()};$('dockToggle').onclick=()=>{view.inspectorDock=view.inspectorDock==='right'?'left':'right';applyView()};",
+        )
+        .replace(
+            "$('viewSideRed').onclick=()=>{view.side='red';render()};$('viewSideBlue').onclick=()=>{view.side='blue';render()};",
+            "$('viewSideRed').onclick=()=>command({command:'set_team',team:'red'});$('viewSideBlue').onclick=()=>command({command:'set_team',team:'blue'});",
+        )
+        .replace(
+            "position(e,u.position_cm);e.onpointerdown=event=>{if(!state.scene.can_edit)return;drag={id:event.pointerId,unit:u,startX:event.clientX,startY:event.clientY,moved:false};viewport.setPointerCapture(event.pointerId);event.stopPropagation()};",
+            "position(e,u.position_cm);e.dataset.entityId=u.entity_id;e.onpointerdown=event=>{if(!state.scene.can_edit)return;drag={id:event.pointerId,unit:u,element:e,startX:event.clientX,startY:event.clientY,moved:false,lastPoint:readPoint(event)};viewport.setPointerCapture(event.pointerId);event.stopPropagation()};",
+        )
+        .replace(
+            "position(e,s.position_cm);e.onclick=event=>{event.stopPropagation();select('structure',s.key)};",
+            "position(e,s.position_cm);e.dataset.structureKey=s.key;e.onclick=event=>{event.stopPropagation();select('structure',s.key)};",
+        )
+        .replace(
+            "if(drag&&drag.id===event.pointerId){drag.moved=drag.moved||Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)>4}});",
+            "if(drag&&drag.id===event.pointerId){drag.lastPoint=p;drag.moved=drag.moved||Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)>4;if(drag.moved){drag.element.classList.add('dragging');position(drag.element,p)}}});",
+        )
+        .replace(
+            "if(drag&&drag.id===event.pointerId){const done=drag;drag=null;if(done.moved)",
+            "if(drag&&drag.id===event.pointerId){const done=drag;done.element.classList.remove('dragging');drag=null;if(done.moved)",
+        )
+        .replace("</script></body>", "</script>" + compatibility + interaction + clock_ui + "</body>")
         .encode("utf-8")
     )
 

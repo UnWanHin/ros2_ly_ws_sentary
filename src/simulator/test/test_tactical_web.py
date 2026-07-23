@@ -14,7 +14,7 @@ from simulator.web_visual_check import find_sync_playwright
 from simulator.web_stream import SimulatorWebStream
 
 
-def tactical_metadata(*, ownership_mode: str = "mock") -> dict[str, Any]:
+def tactical_metadata(*, ownership_mode: str = "mock", team: str = "red") -> dict[str, Any]:
     return {
         "control_enabled": True,
         "replay": {"controls_available": True},
@@ -56,6 +56,7 @@ def tactical_metadata(*, ownership_mode: str = "mock") -> dict[str, Any]:
         "simulator_inputs": {
             "enabled": True,
             "state": {
+                "team": team,
                 "ownership_mode": ownership_mode,
                 "field": {"width_cm": 2800, "height_cm": 1500, "frame": "left_bottom_origin_cm"},
                 "selected_entity_id": "enemy:hero:a",
@@ -81,7 +82,16 @@ def tactical_metadata(*, ownership_mode: str = "mock") -> dict[str, Any]:
                         "hp": 4800,
                         "max_hp": 5000,
                         "position_cm": {"x": 245, "y": 755},
-                    }
+                    },
+                    {
+                        "key": "friend_outpost",
+                        "label": "Friend Outpost",
+                        "side": "friend",
+                        "kind": "outpost",
+                        "hp": 1500,
+                        "max_hp": 1500,
+                        "position_cm": {"x": 1011, "y": 429},
+                    },
                 ],
                 "palette": [
                     {"side": "enemy", "unit_key": "hero", "asset_key": "Hero", "type": "Hero", "hp": 200, "max_hp": 200}
@@ -133,6 +143,7 @@ def test_tactical_state_keeps_control_output_separate_from_feedback() -> None:
 
     assert state["field"] == {"width_cm": 2800, "height_cm": 1500, "frame": "left_bottom_origin_cm"}
     assert state["scene"]["ownership_mode"] == "mock"
+    assert state["scene"]["team"] == "red"
     assert state["scene"]["show_trace_units"] is False
     assert state["decision"]["goal"]["id"] == 25
     assert state["gimbal_feedback"]["fire_code"]["rotate"] == 1
@@ -141,6 +152,195 @@ def test_tactical_state_keeps_control_output_separate_from_feedback() -> None:
     assert state["tactical"]["protect_castle"]["stay_when_rfid_enabled"] is True
     assert state["tactical"]["protect_castle"]["stay_when_rfid_active"] is True
     assert state["tactical"]["protect_castle"]["enemy_pos_active"] is True
+
+
+def test_tactical_state_keeps_the_configured_team_color() -> None:
+    state = tactical_state_from_status(tactical_metadata(team="blue"))
+
+    assert state["scene"]["team"] == "blue"
+
+
+def test_tactical_html_exposes_a_persistent_team_badge() -> None:
+    body = build_tactical_html(0).decode("utf-8")
+
+    assert 'id="teamPill"' in body
+
+
+def test_team_switch_buttons_emit_a_validated_team_command(tmp_path: Path) -> None:
+    factory, reason = find_sync_playwright()
+    if factory is None:
+        pytest.skip(f"Playwright unavailable: {reason}")
+
+    stream, control_file = started_stream(tmp_path)
+    try:
+        stream.update_metadata(tactical_metadata(team="red"))
+        with factory() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            try:
+                page = browser.new_page(viewport={"width": 1440, "height": 900})
+                page.goto(f"http://127.0.0.1:{stream.port}/tactical", wait_until="domcontentloaded")
+                team_badge = page.locator("#teamPill")
+                team_badge.wait_for(state="visible")
+                assert team_badge.text_content() == "MY TEAM · RED"
+
+                page.locator("#viewSideBlue").click()
+                deadline = time.monotonic() + 2.0
+                while time.monotonic() < deadline and not control_file.exists():
+                    page.wait_for_timeout(25)
+                command = json.loads(control_file.read_text(encoding="utf-8").splitlines()[-1])
+                assert {key: value for key, value in command.items() if key != "ts"} == {
+                    "command": "set_team",
+                    "team": "blue",
+                }
+            finally:
+                browser.close()
+    finally:
+        stream.stop()
+
+
+def test_piece_border_uses_physical_field_side_after_team_switch(tmp_path: Path) -> None:
+    factory, reason = find_sync_playwright()
+    if factory is None:
+        pytest.skip(f"Playwright unavailable: {reason}")
+
+    stream, _control_file = started_stream(tmp_path)
+    try:
+        metadata = tactical_metadata(team="blue")
+        units = metadata["simulator_inputs"]["state"]["units"]
+        units[0].update({"side": "friend", "field_side": "blue"})
+        units.append(
+            {
+                "entity_id": "enemy:hero:b",
+                "side": "enemy",
+                "field_side": "red",
+                "unit_key": "hero",
+                "asset_key": "Hero",
+                "type": "Hero",
+                "hp": 180,
+                "max_hp": 200,
+                "position_cm": {"x": 1800, "y": 700},
+            }
+        )
+        units.extend(
+            [
+                {
+                    "entity_id": "friend:hero:c",
+                    "side": "friend",
+                    "field_side": "red",
+                    "unit_key": "hero",
+                    "asset_key": "Hero",
+                    "type": "Hero",
+                    "hp": 180,
+                    "max_hp": 200,
+                    "position_cm": {"x": 1500, "y": 550},
+                },
+                {
+                    "entity_id": "enemy:hero:d",
+                    "side": "enemy",
+                    "field_side": "blue",
+                    "unit_key": "hero",
+                    "asset_key": "Hero",
+                    "type": "Hero",
+                    "hp": 180,
+                    "max_hp": 200,
+                    "position_cm": {"x": 2100, "y": 550},
+                },
+            ]
+        )
+        stream.update_metadata(metadata)
+        with factory() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            try:
+                page = browser.new_page(viewport={"width": 1440, "height": 900})
+                page.goto(f"http://127.0.0.1:{stream.port}/tactical", wait_until="domcontentloaded")
+                page.locator(".piece").first.wait_for(state="visible")
+                page.wait_for_timeout(250)
+                assert page.locator(".piece.friend.field-blue").count() == 1
+                assert page.locator(".piece.enemy.field-red").count() == 1
+                assert page.locator(".piece.friend.field-red .ring").evaluate(
+                    "element => getComputedStyle(element).borderColor"
+                ) == "rgb(189, 112, 116)"
+                assert page.locator(".piece.enemy.field-blue .ring").evaluate(
+                    "element => getComputedStyle(element).borderColor"
+                ) == "rgb(109, 156, 203)"
+            finally:
+                browser.close()
+    finally:
+        stream.stop()
+
+
+def test_piece_border_css_never_uses_relative_friend_or_enemy_roles() -> None:
+    body = build_tactical_html(0).decode("utf-8")
+
+    assert ".piece.enemy .ring" not in body
+    assert ".piece.friend .ring" not in body
+    assert ".piece.field-red .ring" in body
+    assert ".piece.field-blue .ring" in body
+
+
+def test_tactical_state_exposes_match_clock_bounds() -> None:
+    metadata = tactical_metadata()
+    metadata["replay"].update({"match_time_left": 365, "match_duration_sec": 420, "match_running": True})
+
+    state = tactical_state_from_status(metadata)
+
+    assert state["match"] == {"time_left": 365, "duration_sec": 420, "running": True}
+
+
+def test_tactical_html_exposes_match_clock_controls() -> None:
+    body = build_tactical_html(0).decode("utf-8")
+
+    for identifier in (
+        "matchClock",
+        "matchTimeline",
+        "matchTimeInput",
+        "rewind10",
+        "rewind30",
+        "forward10",
+        "forward30",
+    ):
+        assert f'id="{identifier}"' in body
+
+
+def test_tactical_match_clock_emits_time_only_commands_and_keeps_inspector(tmp_path: Path) -> None:
+    factory, reason = find_sync_playwright()
+    if factory is None:
+        pytest.skip(f"Playwright unavailable: {reason}")
+
+    stream, control_file = started_stream(tmp_path)
+    try:
+        metadata = tactical_metadata()
+        metadata["replay"].update({"match_time_left": 420, "match_duration_sec": 420, "match_running": False})
+        stream.update_metadata(metadata)
+        with factory() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            try:
+                page = browser.new_page(viewport={"width": 1440, "height": 900})
+                page.goto(f"http://127.0.0.1:{stream.port}/tactical", wait_until="domcontentloaded")
+                page.wait_for_selector("#matchClock")
+                page.locator(".structure.base").click()
+                page.wait_for_function("document.getElementById('inspectorTitle')?.textContent.includes('Friend Base')")
+
+                page.locator("#rewind10").click()
+                page.locator("#matchTimeInput").fill("03:15")
+                page.locator("#matchTimeInput").press("Enter")
+
+                deadline = time.monotonic() + 2.0
+                while time.monotonic() < deadline:
+                    if control_file.exists() and len(control_file.read_text(encoding="utf-8").splitlines()) >= 2:
+                        break
+                    page.wait_for_timeout(25)
+                commands = [json.loads(line) for line in control_file.read_text(encoding="utf-8").splitlines()]
+                assert [{key: value for key, value in command.items() if key != "ts"} for command in commands[-2:]] == [
+                    {"command": "rewind", "seconds": 10},
+                    {"command": "set_time_left", "seconds": 195},
+                ]
+                assert page.locator("#inspector").is_visible()
+                assert page.locator("#inspectorTitle").text_content() == "Friend Base"
+            finally:
+                browser.close()
+    finally:
+        stream.stop()
 
 
 def test_tactical_workspace_exposes_dockable_map_first_shell() -> None:
@@ -211,7 +411,8 @@ def test_tactical_routes_use_shared_status_and_reject_manual_ros_mutation(tmp_pa
         assert 'id="inspectorTitle"' in body
         assert 'id="structureLayer"' in body
         assert 'id="overviewInspector"' in body
-        assert "dataset.step" in body
+        assert "dataset.entityId" in body
+        assert "drag.element.classList.add('dragging')" in body
         assert 'localStorage' in body
         assert 'aria-expanded="true"' in body
 
@@ -313,7 +514,7 @@ def test_tactical_browser_interactions_emit_scene_commands_when_playwright_avail
                         timeout=5000,
                     )
 
-                    page.wait_for_selector(".map-structure.base", timeout=5000)
+                    page.wait_for_selector(".structure.base", timeout=5000)
 
                     page.locator("#rosterInspector summary").click()
                     page.locator("#palette button").click()
@@ -329,17 +530,24 @@ def test_tactical_browser_interactions_emit_scene_commands_when_playwright_avail
                         timeout=5000,
                     )
 
-                    piece_box = page.locator(".piece[data-entity-id='enemy:hero:a']").bounding_box()
+                    piece = page.locator(".piece[data-entity-id='enemy:hero:a']")
+                    piece.wait_for(state="visible")
+                    piece_box = piece.bounding_box()
                     assert piece_box is not None
                     drag_map_box = page.locator("#mapCanvas").bounding_box()
                     assert drag_map_box is not None
                     page.mouse.move(piece_box["x"] + piece_box["width"] / 2, piece_box["y"] + piece_box["height"] / 2)
                     page.mouse.down()
                     page.mouse.move(drag_map_box["x"] + drag_map_box["width"] * 0.72, drag_map_box["y"] + drag_map_box["height"] * 0.60, steps=4)
+                    assert piece.evaluate(
+                        "element => element.classList.contains('dragging')"
+                    )
                     page.mouse.up()
 
-                    page.locator(".map-structure.base").click()
-                    page.locator("#inspectorCards details:nth-child(2) summary").click()
+                    page.locator(".structure.base").click()
+                    health_summary = page.locator("#inspectorCards details").nth(1).locator("summary").bounding_box()
+                    assert health_summary is not None
+                    page.mouse.click(health_summary["x"] + 20, health_summary["y"] + 20)
                     health_step = page.get_by_role("button", name="+500")
                     health_step.wait_for(state="visible")
                     # The tactical page polls state every 500 ms and intentionally redraws inspector content.
@@ -381,6 +589,205 @@ def test_tactical_browser_interactions_emit_scene_commands_when_playwright_avail
                     assert (tmp_path / "tactical-interactions.png").is_file()
                 finally:
                     context.close()
+            finally:
+                browser.close()
+    finally:
+        stream.stop()
+
+
+def test_inspector_stays_open_across_selection_until_explicitly_closed(tmp_path: Path) -> None:
+    factory, reason = find_sync_playwright()
+    if factory is None:
+        pytest.skip(f"Playwright unavailable: {reason}")
+
+    stream, _control_file = started_stream(tmp_path)
+    try:
+        stream.update_metadata(tactical_metadata())
+        with factory() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            try:
+                context = browser.new_context(viewport={"width": 1440, "height": 900})
+                page = context.new_page()
+                page.goto(f"http://127.0.0.1:{stream.port}/tactical", wait_until="domcontentloaded")
+                page.wait_for_selector(".structure.base")
+
+                page.locator(".structure.base").click()
+                page.wait_for_function("document.getElementById('inspectorTitle')?.textContent.includes('Friend Base')")
+                assert page.locator("#inspector").is_visible()
+                handle = page.locator("#inspectorDockHandle").bounding_box()
+                assert handle is not None
+                page.mouse.move(handle["x"] + handle["width"] / 2, handle["y"] + 80)
+                page.mouse.down()
+                page.mouse.move(handle["x"] - 56, handle["y"] + 80)
+                page.mouse.up()
+                assert int(page.locator("#workspaceShell").evaluate(
+                    "element => parseInt(element.style.getPropertyValue('--inspector'), 10)"
+                )) > 320
+
+                piece_box = page.locator(".piece").bounding_box()
+                assert piece_box is not None
+                page.mouse.click(piece_box["x"] + piece_box["width"] / 2, piece_box["y"] + piece_box["height"] / 2)
+                page.wait_for_function("document.getElementById('inspectorTitle')?.textContent.includes('Hero')")
+                assert page.locator("#inspector").is_visible()
+
+                page.locator("#inspectorClose").click()
+                page.wait_for_function("document.getElementById('workspaceShell')?.classList.contains('inspector-collapsed')")
+                page.locator("#inspectorToggle").click()
+                page.wait_for_function("!document.getElementById('workspaceShell')?.classList.contains('inspector-collapsed')")
+                assert page.locator("#inspectorTitle").text_content() == "Hero"
+            finally:
+                browser.close()
+    finally:
+        stream.stop()
+
+
+def test_inspector_health_card_and_editor_survive_live_refresh(tmp_path: Path) -> None:
+    factory, reason = find_sync_playwright()
+    if factory is None:
+        pytest.skip(f"Playwright unavailable: {reason}")
+
+    stream, _control_file = started_stream(tmp_path)
+    try:
+        stream.update_metadata(tactical_metadata())
+        with factory() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            try:
+                page = browser.new_page(viewport={"width": 1440, "height": 900})
+                page.goto(f"http://127.0.0.1:{stream.port}/tactical", wait_until="domcontentloaded")
+                page.wait_for_selector(".structure.base")
+                page.locator(".structure.base").click()
+                health = page.locator("#inspectorCards details").nth(1)
+                summary_box = health.locator("summary").bounding_box()
+                assert summary_box is not None
+                page.mouse.click(summary_box["x"] + 20, summary_box["y"] + 20)
+                page.locator("#hpValue").fill("4300")
+
+                # State is refreshed every 500 ms. A live editor must retain both its
+                # expanded state and a user-entered, unapplied value across that refresh.
+                page.wait_for_timeout(1200)
+                assert health.evaluate("element => element.open")
+                assert page.locator("#hpValue").input_value() == "4300"
+            finally:
+                browser.close()
+    finally:
+        stream.stop()
+
+
+def test_piece_drag_updates_visual_position_while_live_refreshes(tmp_path: Path) -> None:
+    factory, reason = find_sync_playwright()
+    if factory is None:
+        pytest.skip(f"Playwright unavailable: {reason}")
+
+    stream, _control_file = started_stream(tmp_path)
+    try:
+        stream.update_metadata(tactical_metadata())
+        with factory() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            try:
+                page = browser.new_page(viewport={"width": 1440, "height": 900})
+                page.goto(f"http://127.0.0.1:{stream.port}/tactical", wait_until="domcontentloaded")
+                piece = page.locator(".piece[data-entity-id='enemy:hero:a']")
+                piece.wait_for(state="visible")
+                piece_box = piece.bounding_box()
+                map_box = page.locator("#mapCanvas").bounding_box()
+                assert piece_box is not None and map_box is not None
+                before_left = piece.evaluate("element => element.style.left")
+
+                page.mouse.move(piece_box["x"] + piece_box["width"] / 2, piece_box["y"] + piece_box["height"] / 2)
+                page.mouse.down()
+                page.mouse.move(map_box["x"] + map_box["width"] * 0.78, map_box["y"] + map_box["height"] * 0.64, steps=5)
+                page.wait_for_timeout(700)
+
+                assert piece.evaluate("element => element.classList.contains('dragging')")
+                assert piece.evaluate("element => element.style.left") != before_left
+                page.mouse.up()
+            finally:
+                browser.close()
+    finally:
+        stream.stop()
+
+
+def test_outpost_inspector_emits_live_health_command(tmp_path: Path) -> None:
+    factory, reason = find_sync_playwright()
+    if factory is None:
+        pytest.skip(f"Playwright unavailable: {reason}")
+
+    stream, control_file = started_stream(tmp_path)
+    try:
+        stream.update_metadata(tactical_metadata())
+        with factory() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            try:
+                page = browser.new_page(viewport={"width": 1440, "height": 900})
+                page.goto(f"http://127.0.0.1:{stream.port}/tactical", wait_until="domcontentloaded")
+                outpost = page.locator(".structure.outpost")
+                outpost.click()
+                page.wait_for_function("document.getElementById('inspectorTitle')?.textContent.includes('Friend Outpost')")
+                health_summary = page.locator("#inspectorCards details").nth(1).locator("summary").bounding_box()
+                assert health_summary is not None
+                page.mouse.click(health_summary["x"] + 20, health_summary["y"] + 20)
+                page.locator("#inspectorCards details").nth(1).locator("button").nth(0).click()
+
+                deadline = time.monotonic() + 2.0
+                while time.monotonic() < deadline and not control_file.exists():
+                    page.wait_for_timeout(25)
+                command = json.loads(control_file.read_text(encoding="utf-8").splitlines()[-1])
+                assert {key: value for key, value in command.items() if key != "ts"} == {
+                    "command": "set_structure_health",
+                    "side": "friend",
+                    "structure": "outpost",
+                    "hp": 1400,
+                }
+            finally:
+                browser.close()
+    finally:
+        stream.stop()
+
+
+def test_focus_mode_keeps_the_persistent_inspector_visible(tmp_path: Path) -> None:
+    factory, reason = find_sync_playwright()
+    if factory is None:
+        pytest.skip(f"Playwright unavailable: {reason}")
+
+    stream, _control_file = started_stream(tmp_path)
+    try:
+        stream.update_metadata(tactical_metadata())
+        with factory() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            try:
+                page = browser.new_page(viewport={"width": 1440, "height": 900})
+                page.goto(f"http://127.0.0.1:{stream.port}/tactical", wait_until="domcontentloaded")
+                page.wait_for_selector("#inspector")
+                page.locator("#focusToggle").click()
+                page.wait_for_timeout(350)
+
+                box = page.locator("#inspector").bounding_box()
+                assert box is not None
+                assert box["width"] >= 300
+                assert page.locator("#inspectorTitle").is_visible()
+            finally:
+                browser.close()
+    finally:
+        stream.stop()
+
+
+def test_piece_art_cannot_capture_the_browser_native_image_drag(tmp_path: Path) -> None:
+    factory, reason = find_sync_playwright()
+    if factory is None:
+        pytest.skip(f"Playwright unavailable: {reason}")
+
+    stream, _control_file = started_stream(tmp_path)
+    try:
+        stream.update_metadata(tactical_metadata())
+        with factory() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            try:
+                page = browser.new_page(viewport={"width": 1440, "height": 900})
+                page.goto(f"http://127.0.0.1:{stream.port}/tactical", wait_until="domcontentloaded")
+                art = page.locator(".piece img")
+                art.wait_for(state="visible")
+                assert art.evaluate("element => element.draggable") is False
+                assert art.evaluate("element => getComputedStyle(element).pointerEvents") == "none"
             finally:
                 browser.close()
     finally:
