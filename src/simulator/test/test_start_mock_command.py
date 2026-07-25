@@ -262,7 +262,7 @@ def test_multi_unit_mock_preset_uses_sample_unit_scene() -> None:
 
     assert args.mode == "regional"
     assert "--mock-external-aim true" in shell_cmd
-    assert "--enemy-outpost-health 44" in shell_cmd
+    assert "--enemy-outpost-health 1100" in shell_cmd
     assert str((REPO_ROOT / "src" / "simulator" / "sample" / "unit_scene.json").resolve()) in shell_cmd
 
 
@@ -274,7 +274,7 @@ def test_full_roster_mock_preset_uses_full_roster_scene() -> None:
     assert args.mode == "regional"
     assert "--mock-external-aim true" in shell_cmd
     assert "--ammo-left 120" in shell_cmd
-    assert "--enemy-outpost-health 60" in shell_cmd
+    assert "--enemy-outpost-health 1500" in shell_cmd
     assert str((REPO_ROOT / "src" / "simulator" / "sample" / "unit_scenes" / "full_roster.json").resolve()) in shell_cmd
     assert "start_sentry_all.sh" not in shell_cmd
 

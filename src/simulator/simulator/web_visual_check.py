@@ -381,28 +381,15 @@ def run_browser_check(
                     try:
                         page = context.new_page()
                         page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
-                        page.wait_for_selector("#dashboard", timeout=timeout_ms)
+                        page.wait_for_selector("#fieldBoard", timeout=timeout_ms)
                         page.wait_for_function(
-                            "document.getElementById('readyPill')?.textContent.includes('ready')",
-                            timeout=timeout_ms,
-                        )
-                        page.wait_for_function("document.getElementById('f')?.naturalWidth > 0", timeout=timeout_ms)
-                        issues.extend(inspect_dashboard(page, viewport))
-                        screenshot_path = output_dir / f"web-dashboard-{viewport.name}.png"
-                        page.screenshot(path=screenshot_path.as_posix(), full_page=True)
-                        screenshots.append(screenshot_path.as_posix())
-
-                        tactical_page = context.new_page()
-                        tactical_page.goto(f"{url}/tactical", wait_until="domcontentloaded", timeout=timeout_ms)
-                        tactical_page.wait_for_selector("#fieldBoard", timeout=timeout_ms)
-                        tactical_page.wait_for_function(
                             "document.getElementById('ownerPill')?.textContent.includes('mock')",
                             timeout=timeout_ms,
                         )
-                        issues.extend(inspect_tactical(tactical_page, viewport))
-                        tactical_screenshot_path = output_dir / f"web-tactical-{viewport.name}.png"
-                        tactical_page.screenshot(path=tactical_screenshot_path.as_posix(), full_page=True)
-                        screenshots.append(tactical_screenshot_path.as_posix())
+                        issues.extend(inspect_tactical(page, viewport))
+                        screenshot_path = output_dir / f"web-tactical-{viewport.name}.png"
+                        page.screenshot(path=screenshot_path.as_posix(), full_page=True)
+                        screenshots.append(screenshot_path.as_posix())
                     except Exception as exc:
                         issues.append(f"{viewport.name}: browser check failed: {exc}")
                     finally:
@@ -441,9 +428,7 @@ def run_visual_check(
             map_path=resolve_path("tools/maps/basemaps/buff_map_field.png").as_posix(),
         )
         stream.start()
-        frame = DemoSurface(1500, 900, demo_frame_rgb())
         stream.update_metadata(demo_metadata())
-        stream.publish_surface(frame, DemoPygame())
         url = f"http://127.0.0.1:{stream.port}" if host in ("0.0.0.0", "127.0.0.1", "localhost", "") else f"http://{host}:{stream.port}"
 
         ready, health_error = wait_for_healthz(url, timeout_sec=timeout_sec)

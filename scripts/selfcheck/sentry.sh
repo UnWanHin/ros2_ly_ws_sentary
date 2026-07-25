@@ -577,11 +577,25 @@ for key in ("Enable", "RFID", "StayWhenRfid", "EnemyPos"):
     if parameter not in source:
         raise SystemExit(f"Configuration.cpp does not read {parameter}")
 
-hero_pattern = r"^\s{6}ProtectHero:\n\s{8}Enable:\s+(?:true|false)\s*$"
-if re.search(hero_pattern, config, re.MULTILINE) is None:
-    raise SystemExit("Tactical.yaml lacks Tactical.ProtectHero.Enable")
-if "Tactical.ProtectHero.Enable" not in source:
-    raise SystemExit("Configuration.cpp does not read Tactical.ProtectHero.Enable")
+hero_match = re.search(r"^\s{6}ProtectHero:\n((?:\s{8}.*\n)+)", config, re.MULTILINE)
+if hero_match is None:
+    raise SystemExit("Tactical.yaml lacks Tactical.ProtectHero")
+hero_body = hero_match.group(1)
+for key, value_pattern in (
+    ("Enable", r"(?:true|false)"),
+    ("StartElapsedSec", r"\d+"),
+    ("HoldSec", r"\d+"),
+    ("NoEnemyReleaseSec", r"\d+"),
+    ("FriendPositionFreshMs", r"\d+"),
+    ("FriendHealthFreshMs", r"\d+"),
+    ("GoalBaseId", r"\d+"),
+):
+    yaml_pattern = rf"^\s{{8}}{key}:\s+{value_pattern}\s*$"
+    if re.search(yaml_pattern, hero_body, re.MULTILINE) is None:
+        raise SystemExit(f"Tactical.yaml lacks Tactical.ProtectHero.{key}")
+    parameter = f"Tactical.ProtectHero.{key}"
+    if parameter not in source:
+        raise SystemExit(f"Configuration.cpp does not read {parameter}")
 
 for token in (
     "ResolveTacticalFeatureEnable",
@@ -592,8 +606,12 @@ for token in (
     if token not in policy:
         raise SystemExit(f"TacticalProtectionPolicy.hpp lacks {token}")
 
-if "config.HeroProtectionSettings.Enable = ResolveTacticalFeatureEnable(" not in source:
-    raise SystemExit("Tactical.ProtectHero does not override HeroProtection.Enable")
+for token in (
+    "protect_hero = config.HeroProtectionSettings",
+    "config.HeroProtectionSettings = protect_hero",
+):
+    if token not in source:
+        raise SystemExit("Tactical.ProtectHero does not preserve the legacy HeroProtection baseline")
 for token in (
     "config.TacticalSettings.ProtectCastle",
     "IsProtectCastleRfidEventEnabled",
@@ -604,6 +622,12 @@ for token in (
         raise SystemExit(f"GameLoop.cpp lacks ProtectCastle handling: {token}")
 if "enable_own_base_enemy_position" not in area_manager:
     raise SystemExit("AreaManager.cpp does not gate the MyBase enemy-position source")
+for token in (
+    "const auto& protection = config.TacticalSettings.ProtectHero",
+    "protect_hero_threat_ready",
+):
+    if token not in game_loop and token not in (root / "src/behavior_tree/src/DecisionTrace.cpp").read_text():
+        raise SystemExit(f"ProtectHero runtime/trace contract lacks {token}")
 PY
   then
     pass "Tactical ProtectCastle/ProtectHero YAML-to-decision contract"

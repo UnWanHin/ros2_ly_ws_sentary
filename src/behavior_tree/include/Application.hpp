@@ -402,6 +402,8 @@ private:
     bool is_game_begin{false}; // 比赛开始的标志
     FireCodeType RecFireCode{}; // 云台的火控数据
     std::uint8_t postureState{0}; // 云台/下位机回传姿态: 0=未知, 1=进攻, 2=防御, 3=移动
+    bool hasReceivedPostureState_{false};
+    std::chrono::steady_clock::time_point lastPostureStateRxTime_{};
     std::uint8_t capV{0};
     std::uint8_t naviLowerHead{0};
 
@@ -434,6 +436,13 @@ private:
     ArmorData targetArmor{}; // 目标装甲板，包括距离
     AimData externalAimData{}; // 外部 sentry_msgs/AimResult follow/角度/开火门控
     AimData faceModeData{}; // 接收 FaceMode 解算出来的固定点朝向角
+    struct FaceModeSolverStatusState {
+        bool Received{false};
+        bool Function{false};
+        bool ManualTarget{false};
+        std::uint32_t TargetUpdateCount{0};
+        std::chrono::steady_clock::time_point LastRx{};
+    } faceModeSolverStatus{};
     GimbalControlData gimbalControlData{}; /// 发送给云台的角度控制数据，火控数据等
     std::uint8_t postureCommand{0}; // 姿态控制指令: 0=不下发, 1=进攻, 2=防御, 3=移动
     std::atomic<bool> isFindTargetAtomic{false}; // 在回调函数中，每接收一次消息就会被置为true，然后在发送完控制数据之后置为false
@@ -856,7 +865,9 @@ public:
     void SetChaseTacticalAllowed(bool allowed) noexcept { chaseTacticalAllowed_ = allowed; }
     bool IsChaseTacticalAllowed() const noexcept { return chaseTacticalAllowed_; }
     bool CanAuthorizeChaseTactical() const noexcept;
-    bool TryApplyChaseTactical();
+    bool TryApplyChaseTactical(
+        std::optional<AreaKey> explicit_allowed_area = std::nullopt,
+        const char* decision_detail = "chase");
     bool ShouldSuppressChaseForSpecialPatrol() const noexcept;
     bool RunStrategyLayerHard();
     bool RunStrategyLayerDefault();

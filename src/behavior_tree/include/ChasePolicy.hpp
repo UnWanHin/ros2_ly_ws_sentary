@@ -24,6 +24,9 @@ struct ChasePolicyContext {
     bool RegionalProfile{false};
     bool YieldablePlan{false};
     std::optional<RegionalAreaTaskRuntime> Plan{};
+    // Tactical defense may authorize exactly one area without inventing a
+    // synthetic Default plan. The same target freshness/area/YAML gates apply.
+    std::optional<AreaKey> ExplicitAllowedArea{};
     bool TargetPositionFresh{false};
     std::optional<ResolvedAreaKey> TargetArea{};
 };

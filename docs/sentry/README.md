@@ -1,6 +1,6 @@
 # Sentry Current Docs
 
-Updated: 2026-05-06
+Updated: 2026-07-21
 
 `docs/sentry` 只放当前有效的哨兵专项说明，不再按日期堆放历史记录。历史改动、旧 runbook、旧接口迁移记录放到 `docs/record/`。
 
@@ -14,6 +14,11 @@ Updated: 2026-05-06
 | `external/` | 外部导航等非本仓节点提供的 ROS topic/interface |
 | `embedded/` | 电控/下位机串口协议、上下行数据映射和下发控制幀 |
 | `info/` | 当前策略会用到的赛规血量、弹量、回血、兑弹、脱战信息 |
+
+正式 BT 的唯一入口、XML、Aim/Chase/FaceMode 坐标边界与测试 launch 清单见
+[regional/behavior_tree_runtime_map.md](regional/behavior_tree_runtime_map.md)。
+外部 Aim 到 BT、追击 `/goal_pose` 与官方敌方位置 fallback 的完整坐标链见
+[regional/bt_aim_navi_coordinate_chain.md](regional/bt_aim_navi_coordinate_chain.md)。
 
 ## 维护约定
 

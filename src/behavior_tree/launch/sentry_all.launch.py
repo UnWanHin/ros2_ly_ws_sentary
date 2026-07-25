@@ -17,6 +17,7 @@
 - behavior_tree 会接管 /ly/control/*，调试外部控制脚本时不要并行启动。
 """
 import json
+import math
 import os
 from datetime import datetime
 from pathlib import Path
@@ -64,6 +65,24 @@ def _config_bool(raw, default: bool) -> bool:
     if normalized:
         return normalized == "true"
     return default
+
+
+def _navi_goal_pose_uniform_scale_from_yaml(config_path: Path) -> str:
+    """Read the bridge default once so formal launch keeps YAML authoritative."""
+    try:
+        with open(config_path, encoding="utf-8") as fh:
+            root = yaml.safe_load(fh) or {}
+        node_config = root.get("target_rel_to_goal_pos_node", {})
+        parameters = node_config.get("ros__parameters", {})
+        scale = float(parameters.get("goal_pose_uniform_scale", 1.0))
+        if math.isfinite(scale) and scale > 0.0:
+            return str(scale)
+    except Exception as ex:
+        print(
+            f"[sentry_all] failed to load goal_pose_uniform_scale from "
+            f"'{config_path}': {ex}. Falling back to 1.0."
+        )
+    return "1.0"
 
 
 def _regional_area_scope_from_yaml(config_path: Path) -> tuple[list[str], list[str]]:
@@ -330,6 +349,12 @@ def generate_launch_description():
         "config",
         "tf_config.yaml",
     ])
+    navi_tf_bridge_config_path = (
+        Path(get_package_share_directory("navi_tf_bridge")) / "config" / "tf_config.yaml"
+    )
+    default_goal_pose_uniform_scale = _navi_goal_pose_uniform_scale_from_yaml(
+        navi_tf_bridge_config_path
+    )
     default_base_config_file = os.path.join(behavior_tree_config_root, "base_config.yaml")
     default_gimbal_driver_config_file = os.path.join(
         gimbal_driver_share, "config", "gimbal_driver_config.yaml"
@@ -406,6 +431,7 @@ def generate_launch_description():
     use_gimbal = LaunchConfiguration("use_gimbal")
     use_behavior_tree = LaunchConfiguration("use_behavior_tree")
     use_navi_tf_bridge = LaunchConfiguration("use_navi_tf_bridge")
+    goal_pose_uniform_scale = LaunchConfiguration("goal_pose_uniform_scale")
     use_face_mode_solver = LaunchConfiguration("use_face_mode_solver")
     resolved_use_navi_tf_bridge = LaunchConfiguration("resolved_use_navi_tf_bridge")
     resolved_chase_preferred_distance_cm = LaunchConfiguration(
@@ -699,6 +725,14 @@ def generate_launch_description():
             description="Optional override. Empty means load NaviSetting.ToNavi from bt_config_file.",
         ),
         DeclareLaunchArgument(
+            "goal_pose_uniform_scale",
+            default_value=default_goal_pose_uniform_scale,
+            description=(
+                "Final navi_tf_bridge /goal_pose x/y scale about the map origin. "
+                "Defaults to navi_tf_bridge tf_config.yaml."
+            ),
+        ),
+        DeclareLaunchArgument(
             "use_face_mode_solver",
             default_value="true",
             description="Launch map_aim_point_node in BT FaceMode mode: /ly/face_mode/target_raw -> /ly/face_mode/angles.",
@@ -810,6 +844,7 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] decision_trace_file: ", decision_trace_file]),
         LogInfo(msg=["[sentry_all] decision_trace_every_n_ticks: ", decision_trace_every_n_ticks]),
         LogInfo(msg=["[sentry_all] use_navi_tf_bridge: ", use_navi_tf_bridge]),
+        LogInfo(msg=["[sentry_all] goal_pose_uniform_scale: ", goal_pose_uniform_scale]),
         LogInfo(msg=["[sentry_all] use_face_mode_solver: ", use_face_mode_solver]),
         LogInfo(msg=["[sentry_all] resolved_use_navi_tf_bridge: ", resolved_use_navi_tf_bridge]),
         LogInfo(msg=[
@@ -865,6 +900,7 @@ def generate_launch_description():
                 "output_goal_pose_topic": "/goal_pose", #"output_goal_pose_topic": "/goal_pose_debug"
                 "publish_goal_pose": effective_navi_publish_goal_pose,
                 "publish_goal_pos": "false",
+                "goal_pose_uniform_scale": goal_pose_uniform_scale,
                 "enable_goal_pos_raw_bridge": "true",
                 # gimbal_driver.launch.py owns the sole /Path_downsampled ->
                 # /ly/game/path bridge in the formal stack.

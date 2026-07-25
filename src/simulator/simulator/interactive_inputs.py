@@ -468,6 +468,10 @@ class SimulatorInputState:
         return self.scene.structure_health
 
     @property
+    def team(self) -> str:
+        return self.scene.team
+
+    @property
     def units(self) -> dict[tuple[str, int], UnitState]:
         grouped: dict[tuple[str, int], list[Any]] = {}
         for unit in self.scene.units.values():
@@ -557,6 +561,12 @@ class SimulatorInputState:
         name = str(command).strip().lower()
         if self.scene.ownership_mode == "manual_ros":
             return False
+        if name == "set_team":
+            team = str(body.get("team", "")).strip().lower()
+            if team not in {"red", "blue"}:
+                return False
+            self.scene.team = team
+            return True
         if name == "set_self_health":
             self.self_health = body.get("hp", body.get("health", body.get("self_health")))
             return True
@@ -642,8 +652,9 @@ class SimulatorInputState:
                 )
         return sorted(rows, key=lambda item: (item.side, item.type_id))
 
-    def snapshot(self, team: str = "red", goals: dict[int, dict[str, Any]] | None = None) -> dict[str, Any]:
+    def snapshot(self, team: str | None = None, goals: dict[int, dict[str, Any]] | None = None) -> dict[str, Any]:
         del goals
+        team = self.team if team is None else team
         projection = self.scene.project_ros_inputs()
         structures: list[dict[str, Any]] = []
         destroyed_structures: list[str] = []

@@ -41,7 +41,7 @@ def import_pygame():
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Offline pygame viewer for behavior_tree decision JSONL traces.")
+    parser = argparse.ArgumentParser(description="Browser-first simulator for behavior_tree decision JSONL traces.")
     parser.add_argument("trace", nargs="?", default="", help="Decision trace JSONL. Defaults to config paths.sample_trace.")
     parser.add_argument("--config", default="", help="Optional YAML override for viewer layout, colors, field, and goals.")
     parser.add_argument(
@@ -66,15 +66,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--web-stream",
         dest="web_stream",
         action="store_true",
-        help="Enable HTTP frame streaming from pygame window (overrides YAML).",
+        help="Enable the HTTP Tactical Board (overrides YAML).",
     )
     parser.add_argument(
         "--no-web-stream",
         dest="web_stream",
         action="store_false",
-        help="Disable HTTP frame streaming (overrides YAML).",
+        help="Disable the HTTP Tactical Board and use the native debug renderer.",
     )
     parser.set_defaults(web_stream=None)
+    parser.add_argument(
+        "--debug-pygame",
+        action="store_true",
+        help="Open the native pygame debug renderer. The browser Tactical Board remains the production UI.",
+    )
     parser.add_argument("--web-host", default="", help="HTTP stream bind host (overrides YAML web_stream.host).")
     parser.add_argument("--web-port", type=int, default=0, help="HTTP stream bind port (overrides YAML web_stream.port).")
     parser.add_argument("--web-fps", type=float, default=0.0, help="Max stream FPS (overrides YAML web_stream.fps).")
@@ -294,8 +299,6 @@ def main(argv: list[str] | None = None) -> int:
     records: list = []
     bad_lines = 0
     follow_offset = 0
-    pygame = None
-    pygame_initialized = False
     streamer = None
 
     if web_stream_enabled and not args.validate_only and not args.export_foxglove.strip():
@@ -314,11 +317,11 @@ def main(argv: list[str] | None = None) -> int:
             streamer.start()
             if web_host == "0.0.0.0":
                 print(
-                    f"web stream: http://127.0.0.1:{web_port}/ "
-                    f"(tactical: /tactical, LAN: http://<your-ip>:{web_port}/tactical)"
+                    f"tactical board: http://127.0.0.1:{web_port}/ "
+                    f"(LAN: http://<your-ip>:{web_port}/)"
                 )
             else:
-                print(f"web stream: http://{web_host}:{web_port}/ (tactical: /tactical)")
+                print(f"tactical board: http://{web_host}:{web_port}/")
         except Exception as exc:
             print(f"web stream disabled: {exc}", file=sys.stderr)
             streamer = None
@@ -362,12 +365,8 @@ def main(argv: list[str] | None = None) -> int:
             export_records_to_mcap(records, output_path)
         except RuntimeError as exc:
             print(str(exc), file=sys.stderr)
-            if pygame_initialized:
-                pygame.quit()
             return 2
         print(f"wrote {len(records)} records to {output_path}")
-        if pygame_initialized:
-            pygame.quit()
         return 0
 
     if args.validate_only:
@@ -375,14 +374,38 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(validation_payload, ensure_ascii=True, indent=2))
         else:
             print(format_validation(records, validation_issues))
-        if pygame_initialized:
-            pygame.quit()
         return 2 if any(issue.severity == "error" for issue in validation_issues) else 0
 
-    if pygame is None:
-        pygame = import_pygame()
-        pygame.init()
-        pygame_initialized = True
+    debug_pygame = bool(args.debug_pygame or args.smoke_test or not web_stream_enabled)
+    if not debug_pygame:
+        if streamer is None:
+            print("browser runtime requires the Tactical Board HTTP server", file=sys.stderr)
+            return 2
+        from .runtime import SimulationRuntime
+
+        runtime = SimulationRuntime(
+            records=records,
+            config=config,
+            goals=goals,
+            bad_lines=bad_lines,
+            trace_path=trace_path,
+            goal_names=goal_names if args.follow else None,
+            follow=args.follow,
+            follow_poll_sec=args.follow_poll,
+            follow_offset=follow_offset,
+            start_paused=True if args.start_paused else None,
+            speed=args.speed if args.speed > 0 else None,
+        )
+        try:
+            streamer.update_metadata(runtime.web_status_metadata())
+            runtime.run(streamer)
+        finally:
+            streamer.stop()
+        return 0
+
+    pygame = import_pygame()
+    pygame.init()
+    pygame_initialized = True
 
     try:
         viewer = Viewer(

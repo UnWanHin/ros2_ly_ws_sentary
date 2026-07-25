@@ -127,7 +127,7 @@ MOCK_PRESETS: dict[str, dict[str, object]] = {
         "mock_ammo": 80,
         "mock_self_health": 360,
         "mock_enemy_health": 180,
-        "mock_enemy_outpost_health": 44,
+        "mock_enemy_outpost_health": 1100,
         "mock_team_buff_attack": 1,
         "mock_team_buff_remaining_energy": 27,
         "mock_rfid_center_gain_point": True,
@@ -146,7 +146,7 @@ MOCK_PRESETS: dict[str, dict[str, object]] = {
         "mock_ammo": 120,
         "mock_self_health": 390,
         "mock_enemy_health": 220,
-        "mock_enemy_outpost_health": 60,
+        "mock_enemy_outpost_health": 1500,
         "mock_enemy_base_health": 5000,
         "mock_team_buff_attack": 1,
         "mock_team_buff_remaining_energy": 18,
@@ -160,7 +160,7 @@ MOCK_PRESETS: dict[str, dict[str, object]] = {
         "mock_time_left": 398,
         "mock_ammo": 5,
         "mock_self_health": 118,
-        "mock_enemy_outpost_health": 44,
+        "mock_enemy_outpost_health": 1100,
         "mock_self_position_x": 183,
         "mock_self_position_y": 245,
         "mock_navi_reachable": True,
@@ -482,8 +482,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--mock-cap-v", type=int, default=0, help="Mock /ly/gimbal/capV.")
     parser.add_argument("--mock-self-health", type=int, default=400, help="Mock sentry HP (default: 400).")
     parser.add_argument("--mock-enemy-health", type=int, default=400, help="Default enemy unit HP (default: 400).")
-    parser.add_argument("--mock-self-outpost-health", type=int, default=60, help="Mock self outpost HP.")
-    parser.add_argument("--mock-enemy-outpost-health", type=int, default=60, help="Mock enemy outpost HP.")
+    parser.add_argument("--mock-self-outpost-health", type=int, default=1500, help="Mock self outpost HP.")
+    parser.add_argument("--mock-enemy-outpost-health", type=int, default=1500, help="Mock enemy outpost HP.")
     parser.add_argument("--mock-self-base-health", type=int, default=5000, help="Mock self base HP.")
     parser.add_argument("--mock-enemy-base-health", type=int, default=5000, help="Mock enemy base HP.")
     parser.add_argument("--mock-team-buff-recovery", type=int, default=0, help="Mock /ly/team/buff recoverybuff.")
@@ -783,7 +783,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--live-view",
         action="store_true",
-        help="Open pygame viewer while decision is running (follow growing trace file).",
+        help="Start the browser Tactical Board while decision is running (follow growing trace file).",
+    )
+    parser.add_argument(
+        "--live-debug-pygame",
+        action="store_true",
+        help="Use the native pygame debug renderer for --live-view instead of the browser-only runtime.",
     )
     parser.add_argument(
         "--live-follow-poll",
@@ -1289,7 +1294,7 @@ def build_offline_bt_config(root: Path, source_config: Path) -> Path:
 
 
 def run_viewer(trace_path: Path, unit_scene: str = "") -> int:
-    cmd = [sys.executable, "-m", "simulator.main", trace_path.as_posix()]
+    cmd = [sys.executable, "-m", "simulator.main", trace_path.as_posix(), "--debug-pygame", "--no-web-stream"]
     if unit_scene.strip():
         cmd.extend(["--unit-scene", unit_scene])
     return subprocess.run(cmd, check=False).returncode
@@ -1308,6 +1313,7 @@ def build_live_viewer_command(
     unit_scene: str,
     *,
     input_owner: str = "mock",
+    debug_pygame: bool = False,
 ) -> list[str]:
     cmd = [
         sys.executable,
@@ -1338,6 +1344,8 @@ def build_live_viewer_command(
         cmd.extend(["--ros-state-file", str(Path(ros_state_file).expanduser().resolve())])
     if str(unit_scene).strip():
         cmd.extend(["--unit-scene", unit_scene])
+    if debug_pygame:
+        cmd.append("--debug-pygame")
     return cmd
 
 
@@ -1354,6 +1362,7 @@ def start_live_viewer(
     unit_scene: str,
     *,
     input_owner: str = "mock",
+    debug_pygame: bool = False,
 ) -> subprocess.Popen[bytes]:
     cmd = build_live_viewer_command(
         trace_path,
@@ -1367,6 +1376,7 @@ def start_live_viewer(
         ros_state_file,
         unit_scene,
         input_owner=input_owner,
+        debug_pygame=debug_pygame,
     )
     return subprocess.Popen(cmd)
 
@@ -1503,6 +1513,7 @@ def main(argv: list[str] | None = None) -> int:
             args.ros_state_file,
             unit_scene_path.as_posix() if unit_scene_path is not None else "",
             input_owner=args.input_owner,
+            debug_pygame=args.live_debug_pygame,
         )
         print(f"live viewer command: {' '.join(shlex.quote(item) for item in live_viewer_cmd)}")
 
@@ -1586,6 +1597,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.ros_state_file,
                 unit_scene_path.as_posix() if unit_scene_path is not None else "",
                 input_owner=args.input_owner,
+                debug_pygame=args.live_debug_pygame,
             )
             # Give viewer a moment to start and enter follow wait state.
             time.sleep(0.5)

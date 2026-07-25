@@ -99,9 +99,9 @@ structures:
     label: Friend Outpost
     side: friend
     kind: outpost
-    default_hp: 60
-    max_hp: 60
-    step: 10
+    default_hp: 1500
+    max_hp: 1500
+    step: 100
     health_topic: /ly/friend/op_hp
     positions_cm:
       red: [1090, 370]
@@ -110,9 +110,9 @@ structures:
     label: Enemy Outpost
     side: enemy
     kind: outpost
-    default_hp: 60
-    max_hp: 60
-    step: 10
+    default_hp: 1500
+    max_hp: 1500
+    step: 100
     health_topic: /ly/enemy/op_hp
     positions_cm:
       red: [1090, 370]
@@ -126,8 +126,8 @@ structures:
     step: 500
     health_topic: /ly/friend/base_hp
     positions_cm:
-      red: [245, 750]
-      blue: [2555, 750]
+      red: [245, 755]
+      blue: [2555, 745]
   - key: enemy_base
     label: Enemy Base
     side: enemy
@@ -137,14 +137,14 @@ structures:
     step: 500
     health_topic: /ly/enemy/base_hp
     positions_cm:
-      red: [245, 750]
-      blue: [2555, 750]
+      red: [245, 755]
+      blue: [2555, 745]
 
 # Goal IDs and field coordinates intentionally match the maintained simulator
 # default configuration and therefore the current behavior-tree trace labels.
 goals:
   - {id: 0, key: home, label: Home, category: home, marker_style: home, positions_cm: {red: [393, 810], blue: [2408, 683]}}
-  - {id: 1, key: base, label: Base, category: base, marker_style: objective, positions_cm: {red: [245, 750], blue: [2555, 750]}}
+  - {id: 1, key: base, label: Base, category: base, marker_style: objective, positions_cm: {red: [245, 755], blue: [2555, 745]}}
   - {id: 2, key: recovery, label: Recovery, category: recovery, marker_style: recovery, positions_cm: {red: [183, 245], blue: [2619, 1249]}}
   - {id: 3, key: buff_shoot, label: BuffShoot, category: buff, marker_style: tactical, positions_cm: {red: [924, 1388], blue: [1872, 115]}}
   - {id: 4, key: left_high_land, label: LeftHighLand, category: highland, marker_style: tactical, positions_cm: {red: [406, 1332], blue: [2392, 187]}}

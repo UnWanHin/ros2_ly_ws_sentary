@@ -558,6 +558,8 @@ namespace LangYa
 
     struct StartGateSetting {
         bool AllowGimbalPatrolBeforeStart{false};
+        std::string GimbalStrategy{"patrol"};
+        int FaceModeStatusFreshMs{500};
     };
 
     struct NaviSetting {
@@ -611,9 +613,19 @@ namespace LangYa
         int ScanYawPhaseMs{160};
     };
 
-    struct TacticalFeatureSetting {
+    struct ProtectHeroSetting {
         bool Enable{true};
+        int StartElapsedSec{120};
+        int HoldSec{30};
+        int NoEnemyReleaseSec{8};
+        int FriendPositionFreshMs{2500};
+        int FriendHealthFreshMs{2500};
+        std::uint8_t GoalBaseId{Highland.ID};
     };
+
+    // Legacy JSON used HeroProtection. Keep its type and Config field so old
+    // competition profiles remain valid; Tactical.ProtectHero is the runtime owner.
+    using HeroProtectionSetting = ProtectHeroSetting;
 
     struct TacticalPrioritySetting {
         int ProtectCastle{1};
@@ -647,7 +659,7 @@ namespace LangYa
         TacticalPrioritySetting Priority{};
         ProtectCastleSetting ProtectCastle{};
         ProtectOutpostSetting ProtectOutpost{};
-        TacticalFeatureSetting ProtectHero{};
+        ProtectHeroSetting ProtectHero{};
     };
 
     struct SentryPositionFusionSourceSetting {
@@ -764,6 +776,7 @@ namespace LangYa
         int MaxSinglePostureSec{180}; // 规则: 单姿态累计超过该值会降档
         int EarlyRotateSec{165};      // 接近降档前提前轮换
         int RefereeInfo3FreshMs{1500}; // 0x020D sentry_info_3 新鲜时优先使用裁判剩余秒数
+        int FeedbackFreshMs{1000};    // /ly/gimbal/posture 回读最大有效年龄
         int RefereeRemainWarnSec{20}; // 裁判姿态剩余秒数不高于此值时开始降低候选分数
         int RefereeRemainPenalty{5};  // 剩余秒数进入预警区后的最大扣分
         int RefereeZeroRemainPenalty{20}; // 裁判剩余秒数为0时的候选扣分
@@ -812,16 +825,6 @@ namespace LangYa
         std::uint16_t StrongHealthMin{250};
         std::uint16_t StrongAmmoMin{40};
         int MultiEnemyBaseCount{2};
-    };
-
-    struct HeroProtectionSetting {
-        bool Enable{true};
-        int StartElapsedSec{120};
-        int HoldSec{30};
-        int NoEnemyReleaseSec{8};
-        int FriendPositionFreshMs{2500};
-        int FriendHealthFreshMs{2500};
-        std::uint8_t GoalBaseId{Highland.ID};
     };
 
     struct NaviProgressWatchdogSetting {

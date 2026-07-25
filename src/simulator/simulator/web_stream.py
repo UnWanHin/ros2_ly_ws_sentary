@@ -457,6 +457,7 @@ class SimulatorWebStream:
         self._frame_id = 0
         self._last_publish_monotonic = 0.0
         self._last_frame_wall_time = 0.0
+        self._last_state_wall_time = 0.0
         self._metadata: dict[str, Any] = {}
         self.control_file: Path | None = None
         if str(control_file).strip():
@@ -468,11 +469,6 @@ class SimulatorWebStream:
             if candidate.is_file() and candidate.suffix.lower() in {".png", ".jpg", ".jpeg"}:
                 self.map_path = candidate
         self.tactical_assets = TacticalAssetRegistry.load()
-
-        try:
-            from PIL import Image  # noqa: F401
-        except ImportError as exc:
-            raise RuntimeError("Pillow is required for web stream: pip install Pillow") from exc
 
     def start(self) -> None:
         if self._httpd is not None:
@@ -522,9 +518,16 @@ class SimulatorWebStream:
         frame, frame_id, last_frame_time = self.snapshot()
         has_frame = frame is not None
         frame_age_sec = max(0.0, time.time() - last_frame_time) if has_frame and last_frame_time > 0 else None
+        with self._lock:
+            metadata = dict(self._metadata)
+            state_time = self._last_state_wall_time
+        has_state = state_time > 0.0
+        state_age_sec = max(0.0, time.time() - state_time) if has_state else None
         payload = {
             "ok": True,
-            "ready": has_frame,
+            "ready": has_state,
+            "has_state": has_state,
+            "state_age_sec": state_age_sec,
             "has_frame": has_frame,
             "frame_id": frame_id,
             "last_frame_time": last_frame_time,
@@ -537,8 +540,6 @@ class SimulatorWebStream:
             "jpeg_quality": self.jpeg_quality,
             "default_step_sec": self.default_step_sec,
         }
-        with self._lock:
-            metadata = dict(self._metadata)
         for key, value in metadata.items():
             if key not in payload:
                 payload[key] = value
@@ -550,6 +551,7 @@ class SimulatorWebStream:
             return
         with self._lock:
             self._metadata.update(clean)
+            self._last_state_wall_time = time.time()
 
     def control_label(self) -> str:
         return self.control_file.name if self.control_file is not None else ""
@@ -609,12 +611,9 @@ class SimulatorWebStream:
                 return
 
             def _serve_index(self) -> None:
-                body = build_index_html(
-                    port=outer.port,
-                    control_enabled=outer.control_file is not None,
-                    control_label=outer.control_label(),
-                    default_step_sec=outer.default_step_sec,
-                )
+                # The browser Tactical Board is the only production UI.  The
+                # optional /frame.jpg endpoint is native-pygame debug output.
+                body = build_tactical_html(outer.port)
                 self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Cache-Control", "no-store")

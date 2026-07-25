@@ -1,8 +1,13 @@
 # Regional 決策圖譜
 
-Updated: 2026-07-22
+Updated: 2026-07-23
 
 > 範圍：`competition_profile:=regional` 的 `behavior_tree` 決策順序、優先級、導航輸出與姿態選擇。此圖描述 source 現有行為；未自動下發強化姿態命令 `4/5/6`，它們保留給後續任務級觸發。
+
+正式入口、實際 XML、BT/bridge topic owner，以及所有測試用 BT launch 的邊界見
+[behavior_tree_runtime_map.md](behavior_tree_runtime_map.md)。
+外部 Aim 的 `frame_id`、BT Chase 授權、精確官方敵方點 fallback 與 `/goal_pose` 停距站位的
+座標邊界見 [bt_aim_navi_coordinate_chain.md](bt_aim_navi_coordinate_chain.md)。
 
 ## 1. 每 tick 的實際順序
 
@@ -89,6 +94,11 @@ flowchart TD
 ProtectCastle、ProtectOutpost、ProtectHero、Chase（數字越小越高）；Hard、Task 與既有
 Buff/Outpost aim 仍先於此表，且所有導航仍由 BT 的唯一最終發佈出口發出。
 
+ProtectHero 的全部有效參數由 `Tactical.yaml` 的 `Tactical.ProtectHero` 提供：開局時間、導航
+保持、無敵情釋放、Hero 位置/血量新鮮度與目標 base goal 都可直接改 YAML。舊 JSON
+`HeroProtection` 只在未提供 YAML 欄位時作相容基線；trace 的 `tactical.protect_hero` 會列出每個
+gate，避免只看到 `active=false` 而不知道原因。
+
 Chase 不會跨過 Default 的區域承諾：只有已啟動且可讓出的 Default 任務、敵方新鮮官方座標與
 該任務完全相同的 `AreaKey`，並且 `Chase.yaml` 開啟該區時，Tactical 才發布追擊導航輸入。
 拒絕後保留原區域任務的既有 goal；它不影響外部 aim 的瞄準或 fire。這條策略在 Tactical 內，
@@ -160,6 +170,7 @@ flowchart LR
 flowchart TD
   INFO3[TypeID 10\nsentry_info_3] --> INFO_TOPIC[/ly/game/sentry/info\nremaining seconds + age_ms]
   INFO_TOPIC --> FRESH{has info3 且\nage <= RefereeInfo3FreshMs?\n預設 1500ms}
+  POSTURE_STATE[/ly/gimbal/posture\nUInt8 回讀] --> POSTURE_FRESH{本機收包 age <=\nFeedbackFreshMs?\n預設 1000ms}
   LOCAL[本地 AccumSec\n持續累積，永不停止] --> TIMER
   FRESH -->|是| TIMER[PostureManager 計時來源]
   FRESH -->|否| TIMER
@@ -175,6 +186,8 @@ flowchart TD
   OVERRIDE --> HYST[ScoreHysteresis\n避免姿態抖動]
   BASE --> HYST
   HYST --> CMD[只自動下發 1/2/3\nAttack/Defense/Move]
+  POSTURE_FRESH --> ACK[PostureManager\n僅新鮮且匹配才確認 pending]
+  ACK --> CMD
   CMD --> TOPIC[/ly/control/posture]
   TOPIC --> SENTCMD[/ly/control/sentry_cmd]
   SENTCMD --> DL[Downlink 0x01\nRM2026 V2.0 0x0120]
@@ -185,6 +198,11 @@ flowchart TD
 | 設定 | 預設 | 作用 |
 |---|---:|---|
 | `Posture.RefereeInfo3FreshMs` | 1500 ms | `sentry_info_3` 新鮮時才覆蓋官方剩餘秒數 |
+| `Posture.FeedbackFreshMs` | 1000 ms | `/ly/gimbal/posture` 僅在本機實際收到回讀後的此窗口內可確認 pending；回讀接收時間還必須不早於該 pending 命令，逾時標記 stale |
+
+`/ly/gimbal/posture` 是無 header 的 `UInt8`，因此不能從協議上證明下位機採樣時間。BT 使用
+`keep_last(1)` 限制積壓，並拒絕在命令前已被 BT 接收的回讀；若要完全保證下位機因果 ACK，必須由
+下位機在未來協議中回顯命令序號或時間戳。
 | `Posture.RefereeRemainWarnSec` | 20 s | 剩餘秒數進入懲罰區間 |
 | `Posture.RefereeRemainPenalty` | 5 | 1..WarnSec 的最大候選扣分 |
 | `Posture.RefereeZeroRemainPenalty` | 20 | 剩餘 0 秒的強扣分 |

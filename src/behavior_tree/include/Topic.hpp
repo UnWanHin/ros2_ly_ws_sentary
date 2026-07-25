@@ -55,6 +55,7 @@
 #include "gimbal_driver/msg/control_velocity.hpp"
 #include "gimbal_driver/msg/event_data.hpp"
 #include "gimbal_driver/msg/fire_code.hpp"
+#include "gimbal_driver/msg/face_mode_status.hpp"
 #include "gimbal_driver/msg/health.hpp"
 #include "gimbal_driver/msg/map_command.hpp"
 #include "gimbal_driver/msg/rfid_status.hpp"
@@ -121,6 +122,7 @@ namespace BehaviorTree {
     LY_DEF_ROS_TOPIC(ly_bt_sentry_position, "/ly/bt/sentry_position", geometry_msgs::msg::PointStamped);
     LY_DEF_ROS_TOPIC(ly_face_mode_angles, "/ly/face_mode/angles", gimbal_driver::msg::GimbalAngles);
     LY_DEF_ROS_TOPIC(ly_face_mode_target_raw, "/ly/face_mode/target_raw", std_msgs::msg::UInt16MultiArray);
+    LY_DEF_ROS_TOPIC(ly_gimbal_face_mode_status, "/ly/gimbal/facemode", gimbal_driver::msg::FaceModeStatus);
 
 #ifdef LY_ENABLE_SENTRY_MSGS
     LY_DEF_ROS_TOPIC(ly_aim_armor_targets, "/ly/aim/armor_targets", sentry_msgs::msg::AimTargetArray);

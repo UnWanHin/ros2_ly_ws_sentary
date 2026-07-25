@@ -37,6 +37,15 @@ inline constexpr std::uint8_t ToPostureValue(const SentryPosture posture) noexce
     return IsValidPosture(posture) ? static_cast<std::uint8_t>(posture) : 0U;
 }
 
+inline bool IsPostureFeedbackFresh(
+    const bool has_received,
+    const std::chrono::steady_clock::time_point received_at,
+    const int fresh_ms,
+    const std::chrono::steady_clock::time_point now) noexcept {
+    return has_received && fresh_ms > 0 && now >= received_at &&
+        now - received_at <= std::chrono::milliseconds(fresh_ms);
+}
+
 struct PostureMode {
     SentryPosture Base{SentryPosture::Unknown};
     bool Enhanced{false};
@@ -73,6 +82,7 @@ struct PostureFeedback {
     bool Enhanced{false};
     bool Fresh{false};
     bool EnhancedFresh{false};
+    std::chrono::steady_clock::time_point ReceivedAt{};
 };
 
 struct PostureRequestPolicy {

@@ -129,7 +129,20 @@ install(DIRECTORY config
 )
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
   find_package(ament_cmake_pytest REQUIRED)
+  ament_add_gtest(goal_output
+    test/test_goal_output.cpp
+    src/goal_output.cpp
+  )
+  target_include_directories(goal_output PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+  )
+  ament_target_dependencies(goal_output
+    rclcpp
+    std_msgs
+    geometry_msgs
+  )
   ament_add_pytest_test(camera_frame_fallback_contract
     test/test_camera_frame_fallback_contract.py
   )

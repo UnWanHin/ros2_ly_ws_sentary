@@ -76,6 +76,8 @@ public:
       this->declare_parameter<bool>("publish_navi_position", true);
     const bool publish_goal_pos = this->declare_parameter<bool>("publish_goal_pos", false);
     const bool publish_goal_pose = this->declare_parameter<bool>("publish_goal_pose", true);
+    const double goal_pose_uniform_scale =
+      this->declare_parameter<double>("goal_pose_uniform_scale", 1.0);
     const double navi_position_publish_hz =
       std::max(1.0, this->declare_parameter<double>("navi_position_publish_hz", 10.0));
     const bool invert_y_axis = this->declare_parameter<bool>("invert_y_axis", false);
@@ -215,6 +217,7 @@ public:
       .publish_target_map = publish_target_map,
       .publish_goal_pos = publish_goal_pos,
       .publish_goal_pose = publish_goal_pose,
+      .goal_pose_uniform_scale = goal_pose_uniform_scale,
       .invert_y_axis = invert_y_axis,
       .y_axis_max_cm = y_axis_max_cm,
       .uint16_encode_enabled = goal_pos_uint16_encode_enabled,
@@ -418,7 +421,7 @@ private:
 
     RCLCPP_INFO(
       this->get_logger(),
-      "Started target_rel -> goal bridge. in=%s goal_pos_out=%s publish_goal_pos=%s goal_pose_out=%s publish_goal_pose=%s map_frame=%s base_frame=%s "
+      "Started target_rel -> goal bridge. in=%s goal_pos_out=%s publish_goal_pos=%s goal_pose_out=%s publish_goal_pose=%s goal_pose_uniform_scale=%.6f map_frame=%s base_frame=%s "
       "fallback_base_frame=%s target_rel_default_frame=%s armor_targets_in=%s target_official_out=%s publish_target_official=%s raw_goal_in=%s raw_goal_frame=%s invert_y_axis=%s y_axis_max_cm=%d preferred_distance_cm=%d "
       "goal_u16_encode=%s enc=[[%.6f,0,%.3f],[0,%.6f,%.3f]] dec=[[%.6f,0,%.3f],[0,%.6f,%.3f]] "
       "distance_deadband_cm=%d stop_when_no_target=%s allow_reverse_goal=%s "
@@ -430,6 +433,7 @@ private:
       output.publish_goal_pos ? "true" : "false",
       output_goal_pose_topic_.c_str(),
       output.publish_goal_pose ? "true" : "false",
+      output.goal_pose_uniform_scale,
       output.map_frame.c_str(),
       chase.base_frame.c_str(),
       chase.fallback_base_frame.c_str(),

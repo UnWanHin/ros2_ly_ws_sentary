@@ -27,6 +27,9 @@ target_rel_to_goal_pos_node:
     publish_goal_pos: false
     # Publish geometry_msgs/PoseStamped directly to navigation after map-frame conversion.
     publish_goal_pose: true
+    # Final /goal_pose planar output scale. 1.0 preserves calibrated map meters;
+    # values below/above 1.0 contract/expand x/y about the map origin.
+    goal_pose_uniform_scale: 1.0
     invert_y_axis: false
     y_axis_max_cm: 1500
     # Optional UInt16 encoding on output_goal_pos_topic when publish_goal_pos=true:

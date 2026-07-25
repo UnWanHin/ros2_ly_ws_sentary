@@ -1,8 +1,13 @@
 # 哨兵工程全鏈路圖
 
-Updated: 2026-07-18
+Updated: 2026-07-21
 
 > 範圍：`ros2_ly_ws_sentry` 的當前正式 decision-only 主鏈。外部導航、外部 `sentry.aim`、外部 `sentry_tf` 與下位機韌體不在本倉庫內；圖中只標示它們的 ROS 或串口契約，不把其內部實作當作本工程事實。
+
+外部 Aim 的 `frame_id`、BT Chase 授權、`/goal_pose` 停距目標與官方敌方位置 fallback 的完整边界见
+[../sentry/regional/bt_aim_navi_coordinate_chain.md](../sentry/regional/bt_aim_navi_coordinate_chain.md)。
+最終 `/goal_pose` 可用 `goal_pose_uniform_scale` 對 map 原點做 X/Y 等比例校正；它不改官方地圖或 BT
+決策座標，參數用法見 [navi_tf_bridge 模組說明](../modules/2026-05-04_navi_tf_bridge.md)。
 
 ## 1. 工程主鏈
 

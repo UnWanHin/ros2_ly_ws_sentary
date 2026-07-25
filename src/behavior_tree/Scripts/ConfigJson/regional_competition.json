@@ -169,6 +169,7 @@
         "SwitchCooldownSec": 5,
         "MaxSinglePostureSec": 180,
         "EarlyRotateSec": 165,
+        "FeedbackFreshMs": 1000,
         "MinHoldSec": 10,
         "PendingAckTimeoutMs": 600,
         "RetryIntervalMs": 300,

@@ -26,6 +26,7 @@ public:
         Regional = 1,
         Buff = 2,
         Outpost = 3,
+        StartGate = 4,
     };
 
     struct ControlState {
@@ -72,6 +73,20 @@ public:
         LangYa::UnitTeam target_team,
         const TargetPublisher::SharedPtr& publisher);
 
+    // Opening-only fixed target request. It shares the normal FaceMode output
+    // arbitration and stale-angle fallback instead of publishing gimbal control directly.
+    bool RequestStartGateOutpost(
+        LangYa::UnitTeam enemy_team,
+        const TargetPublisher::SharedPtr& publisher);
+
+    static bool StartGateOutpostSolutionReady(
+        bool status_fresh,
+        bool solver_function,
+        bool manual_target,
+        std::uint32_t target_update_count,
+        std::uint32_t target_update_count_floor,
+        bool face_mode_angles_fresh) noexcept;
+
     bool RequestRegionalTask(
         const RegionalAreaTaskTickResult& result,
         const TargetPublisher::SharedPtr& publisher);
@@ -79,6 +94,7 @@ public:
 private:
     static constexpr std::uint8_t kRegionalPriority = 10;
     static constexpr std::uint8_t kAimTaskPriority = 20;
+    static constexpr std::uint8_t kStartGatePriority = 5;
 
     bool RegisterRequest(
         Source source,

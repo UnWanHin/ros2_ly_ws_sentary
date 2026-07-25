@@ -17,43 +17,24 @@ class FakePage:
         assert timeout > 0
 
     def wait_for_selector(self, selector: str, timeout: int) -> None:
-        assert selector in {"#dashboard", "#fieldBoard"}
+        assert selector == "#fieldBoard"
         assert timeout > 0
 
     def wait_for_function(self, expression: str, timeout: int) -> None:
-        assert "readyPill" in expression or "naturalWidth" in expression or "ownerPill" in expression
+        assert "ownerPill" in expression
         assert timeout > 0
 
     def evaluate(self, script: str) -> dict[str, object]:
-        if "fieldBoard" in script:
-            return {
-                "title": "Sentinel Flight Deck",
-                "owner": "mock",
-                "boardWidth": 920,
-                "boardHeight": 492,
-                "pieceCount": 2,
-                "inspectorWidth": 360,
-                "scrollWidth": 390,
-                "clientWidth": 390,
-                "bodyText": "Overview Robot roster Tactical state Operations shelf",
-            }
-        assert "#dashboard" in script or "dashboard" in script
         return {
-            "title": "Simulator Live",
-            "readyText": "ready",
-            "validationText": "validation PASS",
-            "naturalWidth": 1500,
-            "naturalHeight": 900,
-            "frameWidth": 920,
-            "frameHeight": 552,
-            "dashboardWidth": 390,
-            "dashboardHeight": 800,
-            "cardCount": 6,
-            "emptyCards": 0,
+            "title": "Sentinel Flight Deck",
+            "owner": "mock",
+            "boardWidth": 920,
+            "boardHeight": 492,
+            "pieceCount": 2,
+            "inspectorWidth": 360,
             "scrollWidth": 390,
             "clientWidth": 390,
-            "shellColumns": "390px",
-            "bodyText": "Trace Replay Current Decision Simulator Inputs Placed Units Alerts",
+            "bodyText": "Overview Robot roster Tactical state Operations shelf",
         }
 
     def screenshot(self, path: str, full_page: bool) -> None:
@@ -149,9 +130,7 @@ def test_visual_check_captures_desktop_and_narrow_screenshots_with_browser(tmp_p
     assert result["status"] == "pass"
     assert result["findings"] == []
     assert [Path(path).name for path in result["screenshots"]] == [
-        "web-dashboard-desktop.png",
         "web-tactical-desktop.png",
-        "web-dashboard-narrow.png",
         "web-tactical-narrow.png",
     ]
     for path in result["screenshots"]:

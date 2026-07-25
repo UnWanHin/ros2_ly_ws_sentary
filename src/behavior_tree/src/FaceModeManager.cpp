@@ -124,6 +124,39 @@ bool FaceModeManager::RequestAimTarget(
     return true;
 }
 
+bool FaceModeManager::RequestStartGateOutpost(
+    const LangYa::UnitTeam enemy_team,
+    const TargetPublisher::SharedPtr& publisher) {
+    if (!RegisterRequest(
+            Source::StartGate,
+            true,
+            true,
+            RegionalAreaTaskPhase::Idle,
+            kStartGatePriority)) {
+        return false;
+    }
+    if (!publisher) {
+        return false;
+    }
+
+    publisher->publish(BuildTargetMessage(Area::OutpostPose(enemy_team)));
+    return true;
+}
+
+bool FaceModeManager::StartGateOutpostSolutionReady(
+    const bool status_fresh,
+    const bool solver_function,
+    const bool manual_target,
+    const std::uint32_t target_update_count,
+    const std::uint32_t target_update_count_floor,
+    const bool face_mode_angles_fresh) noexcept {
+    return status_fresh &&
+           solver_function &&
+           !manual_target &&
+           target_update_count > target_update_count_floor &&
+           face_mode_angles_fresh;
+}
+
 bool FaceModeManager::RequestRegionalTask(
     const RegionalAreaTaskTickResult& result,
     const TargetPublisher::SharedPtr& publisher) {

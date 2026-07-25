@@ -28,7 +28,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--no-view",
         action="store_true",
-        help="Disable pygame live view (enabled by default).",
+        help="Disable the browser Tactical Board (enabled by default).",
+    )
+    parser.add_argument(
+        "--debug-pygame",
+        action="store_true",
+        help="Launch the optional native pygame debug renderer instead of the browser-first runtime.",
     )
     parser.add_argument(
         "--bt-config",
@@ -251,6 +256,8 @@ def main(argv: list[str] | None = None) -> int:
     ]
     if not args.no_view:
         decision_cmd.append("--live-view")
+    if args.debug_pygame:
+        decision_cmd.append("--live-debug-pygame")
     if args.web_port > 0:
         decision_cmd.extend(["--live-web-port", str(args.web_port)])
     if args.match_duration_sec > 0:

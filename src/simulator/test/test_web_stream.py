@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from simulator.web_stream import SimulatorWebStream, build_index_html
+from simulator.web_stream import SimulatorWebStream
 
 
 class FakeSurface:
@@ -115,7 +115,7 @@ def post_raw(stream: SimulatorWebStream, path: str, body: bytes) -> tuple[int, d
         return exc.code, json.loads(exc.read().decode("utf-8"))
 
 
-def test_status_and_healthz_report_readiness_before_and_after_frame(tmp_path: Path) -> None:
+def test_status_and_healthz_report_readiness_from_shared_state_without_pygame_frame(tmp_path: Path) -> None:
     control_file = tmp_path / "control.jsonl"
     stream = started_stream(tmp_path, control_file=control_file)
     try:
@@ -123,6 +123,7 @@ def test_status_and_healthz_report_readiness_before_and_after_frame(tmp_path: Pa
         assert status_code == 200
         assert status["ok"] is True
         assert status["ready"] is False
+        assert status["has_state"] is False
         assert status["has_frame"] is False
         assert status["frame_id"] == 0
         assert status["last_frame_time"] == 0.0
@@ -140,16 +141,15 @@ def test_status_and_healthz_report_readiness_before_and_after_frame(tmp_path: Pa
         assert health["ok"] is False
         assert health["ready"] is False
 
-        stream.publish_surface(FakeSurface(), FakePygame())
+        stream.update_metadata({"current_record": {"tick": 1}})
 
         status_code, status = get_json(stream, "/status.json")
         assert status_code == 200
         assert status["ok"] is True
         assert status["ready"] is True
-        assert status["has_frame"] is True
-        assert status["frame_id"] == 1
-        assert status["last_frame_time"] > 0
-        assert 0 <= status["frame_age_sec"] < 2.0
+        assert status["has_state"] is True
+        assert status["has_frame"] is False
+        assert status["state_age_sec"] is not None
 
         health_code, health = get_json(stream, "/healthz")
         assert health_code == 200
@@ -213,7 +213,8 @@ def test_status_metadata_cannot_override_core_stream_fields(tmp_path: Path) -> N
 
         assert status_code == 200
         assert status["ok"] is True
-        assert status["ready"] is False
+        assert status["ready"] is True
+        assert status["has_state"] is True
         assert status["frame_id"] == 0
         assert status["control_file"] == ""
         assert status["trace"] == {"name": "decision_trace.jsonl"}
@@ -300,47 +301,24 @@ def test_control_api_writes_command_and_rejects_bad_payloads(tmp_path: Path) -> 
         stream.stop()
 
 
-def test_index_page_does_not_disclose_absolute_control_file_path(tmp_path: Path) -> None:
+def test_root_is_the_direct_tactical_board_not_a_pygame_frame_dashboard(tmp_path: Path) -> None:
     control_file = tmp_path / "control.jsonl"
     stream = started_stream(tmp_path, control_file=control_file)
     try:
         status_code, body = get_text(stream, "/")
 
         assert status_code == 200
-        assert "control: enabled (control.jsonl)" in body
-        assert "simulator status dashboard" in body
-        assert "Simulator Inputs" in body
-        assert "Current Decision" in body
-        assert "validationPill" in body
-        assert "updateDashboard" in body
+        assert "Sentinel Flight Deck" in body
+        assert 'id="fieldBoard"' in body
+        assert 'id="inspector"' in body
+        assert 'id="f"' not in body
+        assert "/frame.jpg" not in body
         assert control_file.parent.as_posix() not in body
+        tactical_status, tactical_body = get_text(stream, "/tactical")
+        assert tactical_status == 200
+        assert tactical_body == body
     finally:
         stream.stop()
-
-
-def test_index_page_escapes_control_file_label(tmp_path: Path) -> None:
-    control_file = tmp_path / "control<&bad>.jsonl"
-    stream = started_stream(tmp_path, control_file=control_file)
-    try:
-        status_code, body = get_text(stream, "/")
-
-        assert status_code == 200
-        assert "control: enabled (control&lt;&amp;bad&gt;.jsonl)" in body
-        assert "control<&bad>.jsonl" not in body
-    finally:
-        stream.stop()
-
-
-def test_build_index_html_disables_controls_without_control_file() -> None:
-    body = build_index_html(port=9010, control_enabled=False, control_label="", default_step_sec=7).decode("utf-8")
-
-    assert "Sentinel Flight Deck" in body
-    assert "--fd-root:#111418" in body
-    assert "border-radius:12px" in body
-    assert "control: disabled (no control_file)" in body
-    assert "const controlsDisabled = true;" in body
-    assert "data-seconds=\"7\"" in body
-    assert "simulator status dashboard" in body
 
 
 def test_control_api_reports_disabled_control_file(tmp_path: Path) -> None:

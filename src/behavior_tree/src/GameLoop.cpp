@@ -3500,7 +3500,9 @@ namespace BehaviorTree {
             !IsShowcasePatrolEnabled();
     }
 
-    bool Application::TryApplyChaseTactical() {
+    bool Application::TryApplyChaseTactical(
+        std::optional<AreaKey> explicit_allowed_area,
+        const char* decision_detail) {
         if (!CanAuthorizeChaseTactical()) {
             return false;
         }
@@ -3572,6 +3574,7 @@ namespace BehaviorTree {
                 .Plan = areaManager_.RegionalAreaTaskActive()
                     ? std::optional<RegionalAreaTaskRuntime>{areaManager_.RegionalAreaTask()}
                     : std::nullopt,
+                .ExplicitAllowedArea = explicit_allowed_area,
                 .TargetPositionFresh = target_position.Fresh,
                 .TargetArea = target_area});
         if (!chase_policy.Allowed) {
@@ -3817,7 +3820,7 @@ namespace BehaviorTree {
                     BaseGoalIdFromResolvedGoal(naviCommandGoal),
                     team,
                     true,
-                    "chase"));
+                    decision_detail ? decision_detail : "chase"));
             }
         }
         return chase_output_active;
@@ -4379,6 +4382,31 @@ namespace BehaviorTree {
             (current_search_done || search_held_long_enough) &&
             !visual_target_recently_seen();
 
+        const bool protect_castle_perimeter_defense =
+            protect_castle_source_active &&
+            castle_occupancy.Action == CastleOccupancyAction::PerimeterDefense;
+        const auto try_protect_castle_perimeter_chase = [&]() {
+            if (!protect_castle_perimeter_defense) {
+                return false;
+            }
+            const auto active_output_reach = EvaluateNaviGoalReach(
+                naviCommandGoal,
+                naviGoalPosition,
+                std::max(1, config.DecisionAutonomySettings.NaviGoal.HighlandCompatArriveDistanceCm),
+                0,
+                BaseGoalIdFromResolvedGoal(naviCommandGoal),
+                GoalReachTimeoutSecForBaseGoal(BaseGoalIdFromResolvedGoal(naviCommandGoal)));
+            if (active_output_reach.Status == GoalReachStatus::Unreachable) {
+                return false;
+            }
+            return TryApplyChaseTactical(
+                AreaKey{
+                    .Side = AreaSide::My,
+                    .Kind = Area::MainAreaKind::Base,
+                    .Team = my_team},
+                "protect_castle_perimeter_chase");
+        };
+
         if (should_advance_search) {
             const auto previous_goal = regionalDefenseSearchBaseGoal_;
             regionalDefenseSearchIndex_ =
@@ -4409,13 +4437,6 @@ namespace BehaviorTree {
 
         const auto current_goal_id =
             ResolveGoalId(regionalDefenseSearchBaseGoal_, my_team, true);
-        if (same_search &&
-            !should_advance_search &&
-            regionalDefenseSearchBaseGoal_ != LangYa::Home.ID &&
-            naviCommandGoal == current_goal_id) {
-            return true;
-        }
-
         auto set_defense_goal = [&](const std::uint8_t goal_id) {
             if (!AreaManager::IsValidBaseGoalId(goal_id)) {
                 return false;
@@ -4461,25 +4482,45 @@ namespace BehaviorTree {
             return true;
         };
 
+        if (same_search &&
+            !should_advance_search &&
+            regionalDefenseSearchBaseGoal_ != LangYa::Home.ID &&
+            naviCommandGoal == current_goal_id) {
+            if (!try_protect_castle_perimeter_chase()) {
+                // An official-coordinate Chase may have overwritten this point
+                // on the prior tick. Reapply the perimeter fallback and reset
+                // the external reach-status binding only when it differs.
+                const auto perimeter_point = AreaManager::GoalPointByBaseId(
+                    regionalDefenseSearchBaseGoal_, my_team);
+                if (naviGoalPosition.x != perimeter_point.x ||
+                    naviGoalPosition.y != perimeter_point.y) {
+                    set_defense_goal(regionalDefenseSearchBaseGoal_);
+                }
+            }
+            return true;
+        }
+
         for (std::size_t attempt = 0; attempt < candidates.size(); ++attempt) {
             const auto index = (regionalDefenseSearchIndex_ + attempt) % candidates.size();
             regionalDefenseSearchIndex_ = index;
             regionalDefenseSearchBaseGoal_ = candidates[index];
             if (set_defense_goal(regionalDefenseSearchBaseGoal_)) {
                 regionalDefenseSearchStartTime_ = now;
+                try_protect_castle_perimeter_chase();
                 return true;
             }
         }
 
-        return false;
+        // A valid ProtectCastle occupancy must not fall through to generic
+        // Chase when the area scope refuses every fixed defense point.
+        return protect_castle_source_active;
     }
 
     bool Application::TrySetProtectHeroGoal(
         const UnitTeam my_team,
         const UnitTeam enemy_team) {
-        const auto& protection = config.HeroProtectionSettings;
-        if (!config.TacticalSettings.ProtectHero.Enable ||
-            !protection.Enable ||
+        const auto& protection = config.TacticalSettings.ProtectHero;
+        if (!protection.Enable ||
             IsLeagueProfile() ||
             IsShowcasePatrolEnabled() ||
             ElapsedSeconds() < protection.StartElapsedSec) {

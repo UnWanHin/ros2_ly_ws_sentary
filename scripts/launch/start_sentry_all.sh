@@ -16,6 +16,7 @@ DEFAULT_BASE_CONFIG_FILE="${ROOT_DIR}/config/base_config.yaml"
 DEFAULT_OVERRIDE_CONFIG_FILE="${ROOT_DIR}/config/override_config.yaml"
 DEFAULT_AREA_MANAGER_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/AreaManager.yaml"
 DEFAULT_TASK_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/Task.yaml"
+DEFAULT_CHASE_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/Chase.yaml"
 DEFAULT_NAVI_ROTATE_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/NaviRotateControl.yaml"
 DEFAULT_TACTICAL_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/Tactical.yaml"
 DEFAULT_PATROL_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/Patrol.yaml"
@@ -392,6 +393,13 @@ if ! has_launch_arg_key "task_config_file"; then
   echo "[INFO] default task_config_file=${DEFAULT_TASK_CONFIG_FILE}"
 else
   for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == task_config_file:=* ]] && echo "[INFO] override task_config_file=${arg#task_config_file:=}"; done
+fi
+
+if ! has_launch_arg_key "chase_config_file"; then
+  LAUNCH_ARGS=("chase_config_file:=${DEFAULT_CHASE_CONFIG_FILE}" "${LAUNCH_ARGS[@]}")
+  echo "[INFO] default chase_config_file=${DEFAULT_CHASE_CONFIG_FILE}"
+else
+  for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == chase_config_file:=* ]] && echo "[INFO] override chase_config_file=${arg#chase_config_file:=}"; done
 fi
 
 if ! has_launch_arg_key "navi_rotate_config_file"; then

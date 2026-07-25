@@ -141,8 +141,8 @@ def test_catalog_captures_existing_structure_and_goal_positions() -> None:
 
     friend_base = catalog.structure_by_key("friend_base")
     assert friend_base.health_topic == "/ly/friend/base_hp"
-    assert friend_base.position_for_field_side("red") == (245.0, 750.0)
-    assert friend_base.position_for_field_side("blue") == (2555.0, 750.0)
+    assert friend_base.position_for_field_side("red") == (245.0, 755.0)
+    assert friend_base.position_for_field_side("blue") == (2555.0, 745.0)
 
     castle = catalog.goal_by_id(6)
     assert castle.key == "castle"

@@ -75,13 +75,15 @@ ChasePolicyResult EvaluateRegionalChasePolicy(
     if (!setting.Enable) {
         return ChasePolicyResult{.Allowed = false, .Reason = ChasePolicyReason::Disabled};
     }
-    if (!context.YieldablePlan || !context.Plan.has_value()) {
-        return ChasePolicyResult{.Allowed = false, .Reason = ChasePolicyReason::NoYieldablePlan};
-    }
-
-    const auto planned_area = PlannedAreaKeyForChase(*context.Plan);
-    if (!planned_area.has_value()) {
-        return ChasePolicyResult{.Allowed = false, .Reason = ChasePolicyReason::NoPlannedArea};
+    std::optional<AreaKey> allowed_area = context.ExplicitAllowedArea;
+    if (!allowed_area.has_value()) {
+        if (!context.YieldablePlan || !context.Plan.has_value()) {
+            return ChasePolicyResult{.Allowed = false, .Reason = ChasePolicyReason::NoYieldablePlan};
+        }
+        allowed_area = PlannedAreaKeyForChase(*context.Plan);
+        if (!allowed_area.has_value()) {
+            return ChasePolicyResult{.Allowed = false, .Reason = ChasePolicyReason::NoPlannedArea};
+        }
     }
     if (!context.TargetPositionFresh) {
         return ChasePolicyResult{.Allowed = false, .Reason = ChasePolicyReason::TargetPositionStale};
@@ -92,10 +94,10 @@ ChasePolicyResult EvaluateRegionalChasePolicy(
     if (context.TargetArea->UsedNearestFallback) {
         return ChasePolicyResult{.Allowed = false, .Reason = ChasePolicyReason::TargetAreaNearestFallback};
     }
-    if (context.TargetArea->Key != *planned_area) {
+    if (context.TargetArea->Key != *allowed_area) {
         return ChasePolicyResult{.Allowed = false, .Reason = ChasePolicyReason::TargetAreaMismatch};
     }
-    if (!IsPlannedAreaEnabled(setting, *planned_area)) {
+    if (!IsPlannedAreaEnabled(setting, *allowed_area)) {
         return ChasePolicyResult{.Allowed = false, .Reason = ChasePolicyReason::PlannedAreaDisabled};
     }
     return ChasePolicyResult{.Allowed = true, .Reason = ChasePolicyReason::Allowed};

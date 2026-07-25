@@ -8,6 +8,16 @@
 namespace navi_tf_bridge
 {
 
+geometry_msgs::msg::Point ScaleGoalPosePoint(
+  const geometry_msgs::msg::Point & point_map,
+  double uniform_scale)
+{
+  auto scaled = point_map;
+  scaled.x *= uniform_scale;
+  scaled.y *= uniform_scale;
+  return scaled;
+}
+
 GoalOutput::GoalOutput(Config config)
 : config_(std::move(config))
 {
@@ -25,6 +35,12 @@ const GoalOutput::Config & GoalOutput::config() const
 
 void GoalOutput::sanitize(rclcpp::Node & node)
 {
+  if (!std::isfinite(config_.goal_pose_uniform_scale) || config_.goal_pose_uniform_scale <= 0.0) {
+    RCLCPP_WARN(
+      node.get_logger(),
+      "goal_pose_uniform_scale must be finite and > 0, fallback to 1.0");
+    config_.goal_pose_uniform_scale = 1.0;
+  }
   if (std::abs(config_.uint16_encode_x_scale) <= 1e-9) {
     RCLCPP_WARN(
       node.get_logger(),
@@ -111,7 +127,7 @@ void GoalOutput::publishMapPointAsGoalPose(
   geometry_msgs::msg::PoseStamped out;
   out.header.frame_id = config_.map_frame;
   out.header.stamp = (stamp.nanoseconds() == 0) ? node.now() : stamp;
-  out.pose.position = point_map;
+  out.pose.position = ScaleGoalPosePoint(point_map, config_.goal_pose_uniform_scale);
   out.pose.orientation.w = 1.0;
   publishers.goal_pose->publish(out);
 }

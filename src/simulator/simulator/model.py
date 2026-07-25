@@ -433,6 +433,26 @@ class TacticalDecisionState:
     protect_outpost_priority: int | None
     protect_hero_enabled: bool | None
     protect_hero_active: bool | None
+    protect_hero_priority: int | None
+    protect_hero_profile_ready: bool | None
+    protect_hero_elapsed_ready: bool | None
+    protect_hero_position_fresh: bool | None
+    protect_hero_position_valid: bool | None
+    protect_hero_x_cm: int | None
+    protect_hero_y_cm: int | None
+    protect_hero_in_highland: bool | None
+    protect_hero_in_protect_area: bool | None
+    protect_hero_health_fresh: bool | None
+    protect_hero_known_dead: bool | None
+    protect_hero_own_base_enemy_count: int | None
+    protect_hero_own_highland_enemy_count: int | None
+    protect_hero_threat_ready: bool | None
+    protect_hero_start_elapsed_sec: int | None
+    protect_hero_hold_sec: int | None
+    protect_hero_no_enemy_release_sec: int | None
+    protect_hero_position_fresh_ms: int | None
+    protect_hero_health_fresh_ms: int | None
+    protect_hero_goal_base_id: int | None
     regional_defense_threat_active: bool | None
     regional_defense_search_kind: str
     regional_defense_fortress_enemy_count: int | None
@@ -466,6 +486,26 @@ class TacticalDecisionState:
             "protect_hero": {
                 "enabled": self.protect_hero_enabled,
                 "active": self.protect_hero_active,
+                "priority": self.protect_hero_priority,
+                "profile_ready": self.protect_hero_profile_ready,
+                "elapsed_ready": self.protect_hero_elapsed_ready,
+                "position_fresh": self.protect_hero_position_fresh,
+                "position_valid": self.protect_hero_position_valid,
+                "hero_x_cm": self.protect_hero_x_cm,
+                "hero_y_cm": self.protect_hero_y_cm,
+                "in_highland": self.protect_hero_in_highland,
+                "in_protect_area": self.protect_hero_in_protect_area,
+                "health_fresh": self.protect_hero_health_fresh,
+                "known_dead": self.protect_hero_known_dead,
+                "own_base_enemy_count": self.protect_hero_own_base_enemy_count,
+                "own_highland_enemy_count": self.protect_hero_own_highland_enemy_count,
+                "threat_ready": self.protect_hero_threat_ready,
+                "start_elapsed_sec": self.protect_hero_start_elapsed_sec,
+                "hold_sec": self.protect_hero_hold_sec,
+                "no_enemy_release_sec": self.protect_hero_no_enemy_release_sec,
+                "position_fresh_ms": self.protect_hero_position_fresh_ms,
+                "health_fresh_ms": self.protect_hero_health_fresh_ms,
+                "goal_base_id": self.protect_hero_goal_base_id,
             },
             "regional_defense": {
                 "threat_active": self.regional_defense_threat_active,

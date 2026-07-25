@@ -1,6 +1,6 @@
 # 哨兵决策行为说明（纯行为版）
 
-Updated: 2026-07-21
+Updated: 2026-07-23
 
 > 目的：只描述“机器人会怎么做”，不讲实现细节。
 
@@ -73,7 +73,7 @@ Updated: 2026-07-21
 - Regional 的无事件行为由 Default 大区域任务和 AreaManager 状态机决定；战术层只保留 RegionalDefense、Buff/Outpost 任务站位和导航 watchdog 这类明确 overlay。
 - `/ly/game/event_data` 显示己方堡垒增益点状态为 `2` 或 `3` 时，`Tactical.ProtectCastle.StayWhenRfid=true` 会让 RegionalDefense 只去 `Castle`；在裁判事件仍新鲜期间，哨兵抵达后不再以导航追击或切点离开 Castle，但继续瞄准、旋转和开火。`StayWhenRfid=false` 保持原本在四个 Castle 边点搜索的行为。若己方 Base 大区内新鲜敌方位置数达到 `RegionalDefense.FortressStandEnemyCountMin`，且当前普通装甲目标已锁定并允许开火，则原地停速度、小陀螺切最高档开火。
 - `StayWhenRfid=true` 时，新鲜原始 `2/3` 裁判事件不会进入 `FortressNoContactDegradeSec` 的无接触降级；事件过期或变为 `0/1` 后才释放 Castle 守点锁。关闭该开关时，原有降级保护不变。
-- `Tactical.ProtectCastle.Enable=false` 会同时关闭城堡 RFID 与 MyBase 敌方坐标两条来源。单独设 `RFID=false` 会关闭堡垒事件与站桩火控；单独设 `EnemyPos=false` 会忽略敌方实际进入 MyBase 的防守来源，但 Highland、道路和 Central 的普通 RegionalDefense 继续有效。`StayWhenRfid` 只作用于 RFID `2/3` 来源，不改变 EnemyPos。`Tactical.ProtectHero.Enable=false` 会释放英雄保护并在同一 Tactical tick 继续尝试 RegionalDefense。
+- `Tactical.ProtectCastle.Enable=false` 会同时关闭城堡 RFID 与 MyBase 敌方坐标两条来源。单独设 `RFID=false` 会关闭堡垒事件与站桩火控；单独设 `EnemyPos=false` 会忽略敌方实际进入 MyBase 的防守来源，但 Highland、道路和 Central 的普通 RegionalDefense 继续有效。`StayWhenRfid` 只作用于 RFID `2/3` 来源，不改变 EnemyPos。`Tactical.ProtectHero` 完整管理英雄保护的开关、开局延时、保持/释放、新鲜度和守护目标；`Enable=false` 会释放英雄保护并在同一 Tactical tick 继续尝试 RegionalDefense。
 - 如果这些层都没有输出，Finalizer 只同步策略层 blackboard，不再做旧点表兜底。
 - 以后新增会接管导航的 Tactical 功能时，必须在同一次修改中使用明确的 `DecisionReason` 并写入可读 `detail`；最终 `[DecisionExplain][navi]` 日志会据此说明哨兵为何前往该点。
 

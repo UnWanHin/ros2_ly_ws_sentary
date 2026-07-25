@@ -1,6 +1,6 @@
 # simulator
 
-Offline pygame viewer for sentry behavior-tree decision traces.
+Browser-first offline simulator for sentry behavior-tree decision traces.
 
 Updated: 2026-07-22
 
@@ -10,13 +10,13 @@ Updated: 2026-07-22
 - Normalizes trace rows into `DecisionOutput` records so future decision internals can change while the viewer stays centered on the final goal output.
 - Treats `simulator.trace -> simulator.model.TraceRecord` as the stable simulator-facing contract; BT-only debug fields can change without viewer changes.
 - Draws a 2D map, navigation goals, recent goal path, friendly/enemy units, HP bars, strategy, aim mode, posture, target, ammo, terrain overlays, and recent decision changes.
-- Uses a map-first docked workspace in pygame and `/tactical`: the compact Activity rail selects the existing Decision / Events / Runtime / Control / Inputs / Layers surfaces, the contextual Inspector follows the selected map object, and the collapsible Operations shelf retains replay/timeline operations.
+- Uses one map-first browser workspace: the compact Activity rail selects the existing Decision / Events / Runtime / Control / Inputs / Layers surfaces, the contextual Inspector follows the selected map object, and the collapsible Operations shelf retains replay/timeline operations.
 - Shows whether the current decision output is bridge `/goal_pose`, direct `UseXY` (`/ly/navi/goal_pos`), or goal-ID (`/ly/navi/goal`) mode.
 - Shows live ROS topic values from `/goal_pose`, `/ly/navi/goal_pos_raw`, `/ly/navi/goal`, `/ly/navi/speed_level`, `/ly/navi/should_rotate`, and `/ly/control/vel` when started through the offline live wrapper.
 - In live mode, the current-goal marker and recent path prefer live `/goal_pose`; if that topic is absent, the viewer falls back to legacy `/ly/navi/goal_pos`, trace records, and labels the marker as `TRACE`.
 - Draws rule-aware structure overlays (walls, energy mechanism, outposts) on top of the 2D map.
 - Supports a YAML-configured scripted path overlay with configurable waypoint list and movement speed.
-- Adds offline match-time control for super confrontation regional tests: start, pause, rewind, forward, reset.
+- Adds offline match-time control for super confrontation regional tests: start, pause, rewind, forward, reset, and exact remaining-time entry.
 - Adds an `Inputs` tab for offline decision simulation: click enemy/friend outpost/base HP controls, drag friend/enemy unit pieces onto the map, drag placed pieces to move them, and adjust placed-piece HP.
 - In offline live mode, input controls write to the simulator command bus; `simulator.mock_inputs` publishes the resulting structure HP, unit HP, and unit positions into the existing behavior-tree input topics.
 - Can preload friend/enemy units from a JSON/YAML unit scene with `--unit-scene`; the launcher passes the same file to the live viewer and mock publishers.
@@ -27,15 +27,17 @@ Updated: 2026-07-22
 - Runs automated full-roster sprite visibility QA against a clean visual config, while keeping the normal full-roster smoke screenshot for manual UI/overlay review.
 - Uses `tools/maps/basemaps/buff_map_field.png` by default, but the map is selectable.
 - Keeps window size, field size, colors, point coordinates, terrain overlays, unit styles, layer switches, and web stream defaults in `config/default.yaml`.
-- Serves a second, responsive tactical board at `/tactical`. It uses the same catalog-backed scene state as pygame, has map-piece drag/drop, structure HP controls, current BT goal/route, ProtectCastle/ProtectHero evidence, and distinct final-control versus lower-machine-feedback panels.
+- Serves the responsive Tactical Board at `/` (with `/tactical` retained as the same-page alias). It directly renders catalog-backed shared state, map-piece drag/drop, structure HP controls, current BT goal/route, ProtectCastle/ProtectHero evidence, and distinct final-control versus lower-machine-feedback panels.
 - Supports explicit input ownership: `mock` is editable and publishes only through `simulator.mock_inputs`; `manual_ros` is a read-only observer for a Foxglove or ROS CLI publisher.
 - Reads trace v2/v3 for replay and trace v4 for BT-authored `tactical` evidence. `control_output` represents actual published control messages and must not be confused with `gimbal_feedback`.
 
 ## Workspace Controls
 
-The native pygame viewer and browser `/tactical` are two renderers for the same catalog-backed scene and
-command bus. They do not duplicate data or decision logic. Layout/dock/zoom preferences are presentation-only.
-Their shared product identity is **Sentinel Flight Deck**, a matte industrial command surface with
+The browser Tactical Board is the sole production renderer and the only inspector, toolbar, timeline, and log
+surface. `SimulationRuntime` advances trace/match/scene state without a display server; `tactical_web.py` reads
+that state directly through `/api/tactical-state`. Native pygame is an optional debug renderer only and its
+`/frame.jpg` output is never embedded in the production page. Layout/dock/zoom preferences are presentation-only.
+The shared product identity is **Sentinel Flight Deck**, a matte industrial command surface with
 `#4DB7FF` as the sole operation/selection accent; red and blue remain battlefield team data.
 
 - **Battlefield:** Fit, 1:1, pointer-preserving wheel zoom, middle-button pan, Fullscreen, and **Zoom to Selection**.
@@ -43,6 +45,10 @@ Their shared product identity is **Sentinel Flight Deck**, a matte industrial co
   covering the map.
 - **Inspector:** click blank field for Overview; click a robot, Base, Outpost, or configured area for its
   contextual Inspector. Existing HP controls still emit `set_unit_hp` and `set_structure_health`.
+- **Match clock:** the command bar shows the real-time countdown with Start/Pause, Reset, and `+/-10s`.
+  Expand the Operations shelf for a time slider, `mm:ss` input, and `+/-30s` controls.
+- **My team:** Red/Blue selects the simulated sentry team through `set_team`. `friend` and `enemy` retain
+  their relative meaning; their pieces and structures use the resulting physical red/blue field side.
 - **Operations shelf:** collapse it for a larger battlefield or expand it for replay timeline/status; Inspector
   dock, size, visibility, and the shelf height can be reset from the command bar.
 - **Coordinates:** all placement, drag, selection, and navigation values remain official centimeter coordinates,
@@ -50,6 +56,11 @@ Their shared product identity is **Sentinel Flight Deck**, a matte industrial co
 
 `manual_ros` remains observer-only: it displays the same trace and scene state but rejects mutations so it
 never races an intentional Foxglove or ROS CLI publisher.
+
+`rewind` increases remaining match time, `forward` decreases it, and `set_time_left` assigns it. Values are
+clamped to `match_control.duration_sec`. These controls alter only the formal mock match clock: they never
+restore robot positions, structure HP, referee flags, or decision-trace history. The behavior tree continues
+from the current scene with the revised time value.
 
 ## Record
 
@@ -98,13 +109,13 @@ Auto-open pygame after record exits:
 PYTHONPATH=src/simulator python3 -m simulator.start --mode league --play
 ```
 
-Open pygame while decision is running:
+Start the browser Tactical Board while decision is running:
 
 ```bash
 PYTHONPATH=src/simulator python3 -m simulator.start --mode league --live-view
 ```
 
-When live view starts, it also opens HTTP frame streaming by default (port from YAML `web_stream.port`, default `9000`):
+When live view starts, the Tactical Board is available at the HTTP root (port from YAML `web_stream.port`, default `9000`):
 
 - `http://127.0.0.1:9000/` (local browser)
 - `http://<your-ip>:9000/` (LAN browser)
@@ -115,7 +126,7 @@ Override live-view stream port from wrapper:
 PYTHONPATH=src/simulator python3 -m simulator.start --mode league --live-view --live-web-port 9010
 ```
 
-The tactical board is available on the same server:
+`/tactical` is a compatibility alias for the same board; do not use it as a separate interface:
 
 ```text
 http://127.0.0.1:9000/tactical
@@ -179,13 +190,11 @@ PYTHONPATH=src/simulator python3 -m simulator.start \
   --bt-config league/chase_only_competition.json
 ```
 
-Add pygame live view in offline mode:
+Use the native pygame debug renderer in offline mode only when investigating rendering/input issues:
 
 ```bash
 PYTHONPATH=src/simulator python3 -m simulator.start \
-  --offline-decision \
-  --mode league \
-  --live-view
+  --offline-decision --mode league --live-view --live-debug-pygame
 ```
 
 Before launching live view, `simulator.start` now auto-cleans stale old `simulator.main` viewer processes.
@@ -450,6 +459,9 @@ The viewer, `/api/control`, and `simulator.mock_sequence` all write the same JSO
 Supported command groups:
 
 - Match clock: `start`, `pause`, `reset`, `rewind`, `forward`, `set_time_left`.
+- Team: `set_team` with `team: "red"` or `team: "blue"`. It changes the existing
+  `/ly/friend/is_team_red` mock input and relative friend/enemy-to-field-color mapping without resetting
+  placed units, coordinates, or HP.
 - Self state: `set_self_health`, `set_ammo`, `set_posture`, `set_self_position`.
 - Structures: `set_structure_health` / `set_structure_hp`.
 - Units: `set_unit`, `set_units`, `set_unit_hp`, `remove_unit`, `clear_units`.

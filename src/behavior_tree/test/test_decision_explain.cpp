@@ -60,6 +60,12 @@ TEST(DecisionExplain, FormatsEffectiveAreaAndTacticalSettings) {
         .ProtectOutpostSearchHoldSec = 30,
         .ProtectOutpostUnreachableCooldownSec = 10,
         .ProtectHeroEnable = true,
+        .ProtectHeroStartElapsedSec = 120,
+        .ProtectHeroHoldSec = 30,
+        .ProtectHeroNoEnemyReleaseSec = 8,
+        .ProtectHeroFriendPositionFreshMs = 2500,
+        .ProtectHeroFriendHealthFreshMs = 2500,
+        .ProtectHeroGoalBaseId = 8,
         .ProtectCastlePriority = 1,
         .ProtectOutpostPriority = 2,
         .ProtectHeroPriority = 3,
@@ -82,6 +88,13 @@ TEST(DecisionExplain, FormatsEffectiveAreaAndTacticalSettings) {
     EXPECT_NE(lines[1].find("damage_window_ms=2000"), std::string::npos);
     EXPECT_NE(lines[1].find("damage_threshold_hp=20"), std::string::npos);
     EXPECT_NE(lines[1].find("search_hold_sec=30"), std::string::npos);
+    EXPECT_NE(lines[1].find("protect_hero=1"), std::string::npos);
+    EXPECT_NE(lines[1].find("hero_start_elapsed_sec=120"), std::string::npos);
+    EXPECT_NE(lines[1].find("hero_hold_sec=30"), std::string::npos);
+    EXPECT_NE(lines[1].find("hero_no_enemy_release_sec=8"), std::string::npos);
+    EXPECT_NE(lines[1].find("hero_position_fresh_ms=2500"), std::string::npos);
+    EXPECT_NE(lines[1].find("hero_health_fresh_ms=2500"), std::string::npos);
+    EXPECT_NE(lines[1].find("hero_goal_base_id=8"), std::string::npos);
     EXPECT_NE(lines[1].find("priority.protect_castle=1"), std::string::npos);
     EXPECT_NE(lines[1].find("priority.protect_outpost=2"), std::string::npos);
     EXPECT_NE(lines[1].find("priority.protect_hero=3"), std::string::npos);

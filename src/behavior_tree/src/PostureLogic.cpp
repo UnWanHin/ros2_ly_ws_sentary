@@ -414,10 +414,15 @@ void Application::UpdatePostureCommand(const bool has_target) {
         requested = *outpostEngagementDecision_.Intent;
         request_policy = PostureRequestPolicy::OutpostLock();
     }
+    const bool posture_feedback_fresh = IsPostureFeedbackFresh(
+        hasReceivedPostureState_,
+        lastPostureStateRxTime_,
+        std::max(1, config.PostureSettings.FeedbackFreshMs),
+        now);
     const auto decision = postureManager_.Tick(
         now,
         requested,
-        {postureState, referee_timer.Enhanced, IsValidPosture(ToPosture(postureState)), referee_timer.Fresh},
+        {postureState, referee_timer.Enhanced, posture_feedback_fresh, referee_timer.Fresh, lastPostureStateRxTime_},
         referee_timer,
         request_policy);
     if (outpostEngagementDecision_.EnhancedPending && std::string_view(decision.Reason) == "pending_preserved") {

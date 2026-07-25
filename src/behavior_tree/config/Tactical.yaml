@@ -17,6 +17,7 @@ behavior_tree:
         # 裁判 event_data 的己方堡壘增益點被占（status 2/3）來源。
         RFID: true
         # 對方占己方堡壘且裁判事件新鮮時，先去 Castle，抵達後不再離點追擊。
+        # 只有己方/雙方占領但我未在 Castle 時才守四個外圍點；外圍 Chase 由 ChasePolicy.MyBase 開關。
         StayWhenRfid: true
         # /ly/position/data 的敵方座標進入我方 MyBase 來源。
         EnemyPos: true
@@ -34,9 +35,21 @@ behavior_tree:
         SearchHoldSec: 30
         UnreachableCooldownSec: 10
 
-      # 控制己方 Hero 位於高地/ProtectHero 區域時的戰術保護站位。
+      # 己方 Hero 位於高地/ProtectHero 區域時的戰術保護站位。此處是正式運行時
+      # 的唯一權威；舊 JSON HeroProtection 僅在未提供這些 YAML 欄位時作相容基線。
       ProtectHero:
         Enable: true
+        # 比賽開始後達此秒數才可觸發；0 表示開局立即允許。
+        StartElapsedSec: 120
+        # 保護導航目標的最長重發保持時間（秒）。
+        HoldSec: 30
+        # 已啟動後，連續沒有任何 RegionalDefense 敵情多久才釋放（秒）。
+        NoEnemyReleaseSec: 8
+        # Hero 官方位置、血量的最大可接受資料年齡（毫秒）。
+        FriendPositionFreshMs: 2500
+        FriendHealthFreshMs: 2500
+        # 守護目標的 base goal；預設 Highland。
+        GoalBaseId: 8
 
       DamageRotate:
         # 全域底盤小陀螺預設。

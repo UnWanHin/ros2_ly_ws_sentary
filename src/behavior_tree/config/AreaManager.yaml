@@ -15,9 +15,9 @@ behavior_tree:
         MyPreRoadland:
           Enable: true
         MyReadyRoadland:
-          Enable: true
+          Enable: false
         CommonCentral:
-          Enable: true
+          Enable: false
 
       # 自身位置融合：UWB 優先，其次導航，再其次底盤 PositionData。
       SentryPositionFusion:

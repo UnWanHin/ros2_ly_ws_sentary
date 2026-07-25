@@ -97,3 +97,36 @@ TEST(FaceModeManagerTest, MissingAnglesUsesConfiguredPatrolFallback) {
     EXPECT_FALSE(decision.Active);
     EXPECT_TRUE(decision.UsePatrolFallback);
 }
+
+TEST(FaceModeManagerTest, StartGateOutpostRequestFallsBackToOutpostPatrolWithoutAngles) {
+    BehaviorTree::FaceModeManager manager;
+    manager.BeginCycle();
+    manager.RequestStartGateOutpost(LangYa::UnitTeam::Red, nullptr);
+
+    LangYa::AimData missing_angles;
+    LangYa::PatrolScanSetting patrol;
+    patrol.FaceModeFallbackEnable = true;
+    patrol.OutpostFaceModeFallbackMode = 3;
+
+    const auto decision = manager.Resolve(
+        missing_angles, EnabledFaceMode(), patrol, false, false, false,
+        std::chrono::steady_clock::now());
+
+    EXPECT_TRUE(decision.Requested);
+    EXPECT_FALSE(decision.Active);
+    EXPECT_TRUE(decision.UsePatrolFallback);
+    EXPECT_EQ(decision.RequestSource, BehaviorTree::FaceModeManager::Source::StartGate);
+}
+
+TEST(FaceModeManagerTest, StartGateAcceptsOnlyFreshPostRequestNonManualSolution) {
+    EXPECT_TRUE(BehaviorTree::FaceModeManager::StartGateOutpostSolutionReady(
+        true, true, false, 8, 7, true));
+    EXPECT_FALSE(BehaviorTree::FaceModeManager::StartGateOutpostSolutionReady(
+        false, true, false, 8, 7, true));
+    EXPECT_FALSE(BehaviorTree::FaceModeManager::StartGateOutpostSolutionReady(
+        true, true, true, 8, 7, true));
+    EXPECT_FALSE(BehaviorTree::FaceModeManager::StartGateOutpostSolutionReady(
+        true, true, false, 7, 7, true));
+    EXPECT_FALSE(BehaviorTree::FaceModeManager::StartGateOutpostSolutionReady(
+        true, true, false, 8, 7, false));
+}

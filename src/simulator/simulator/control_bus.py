@@ -16,6 +16,7 @@ MATCH_CONTROL_COMMANDS = {
 }
 
 SIMULATOR_INPUT_COMMANDS = {
+    "set_team",
     "set_self_health",
     "set_ammo",
     "set_posture",
@@ -48,6 +49,11 @@ def normalize_api_control_payload(
         return (None, {}, f"unsupported command: {command}")
 
     payload = {key: value for key, value in data.items() if key not in {"command", "ts"}}
+    if command == "set_team":
+        team = str(data.get("team", "")).strip().lower()
+        if team not in {"red", "blue"}:
+            return (None, {}, "team must be red or blue")
+        return (command, {"team": team}, None)
     if command in CANONICAL_SCENE_COMMANDS:
         try:
             from .scene import normalize_scene_command

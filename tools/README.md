@@ -7,9 +7,10 @@ Run these commands from the workspace root:
 ./tools/Library.sh
 ```
 
-`Simulator.sh` starts the offline Regional simulator with the complete tactical
-roster. Its default page is `http://127.0.0.1:9011/tactical`; all arguments are
-passed through to `scripts/python/start.py`.
+`Simulator.sh` starts the browser-first offline Regional simulator with the complete tactical
+roster. Its only production page is `http://127.0.0.1:9011/` (`/tactical` is an alias); all
+arguments are passed through to `scripts/python/start.py`. Native pygame is optional debug-only:
+add `--debug-pygame` when a local diagnostic window is specifically needed.
 
 `Library.sh` serves the local documentation website at `http://127.0.0.1:1037/`.
 Its Documentation, Graph, and Split modes are live views of `docs/**/*.md`:

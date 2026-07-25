@@ -560,10 +560,39 @@ void Application::WriteDecisionTrace(const std::string_view event) {
     const int tactical_own_base_enemy_count = tactical_regional_threat.has_value()
         ? tactical_regional_threat->OwnBaseCount
         : 0;
+    const int tactical_own_highland_enemy_count = tactical_regional_threat.has_value()
+        ? tactical_regional_threat->OwnHighlandCount
+        : 0;
     const bool protect_castle_enemy_pos_active =
         tactical_settings.ProtectCastle.Enable &&
         tactical_settings.ProtectCastle.EnemyPos &&
         tactical_own_base_enemy_count > 0;
+    const auto& protect_hero = tactical_settings.ProtectHero;
+    const auto hero_position = GetFriendPositionState(
+        UnitType::Hero,
+        protect_hero.FriendPositionFreshMs,
+        tactical_now);
+    const bool protect_hero_position_valid = hero_position.Fresh &&
+        hero_position.X > 0 && hero_position.Y > 0 &&
+        hero_position.X <= kTraceFieldWidthCm && hero_position.Y <= kTraceFieldHeightCm;
+    const bool protect_hero_in_highland = protect_hero_position_valid &&
+        Area::IsPointInsideMainArea(
+            team,
+            Area::MainAreaKind::Highland,
+            hero_position.X,
+            hero_position.Y);
+    const bool protect_hero_in_area = protect_hero_position_valid &&
+        Area::IsPointInsideProtectHeroArea(team, hero_position.X, hero_position.Y);
+    const bool protect_hero_health_fresh =
+        IsFriendHealthFresh(UnitType::Hero, protect_hero.FriendHealthFreshMs);
+    const bool protect_hero_known_dead = protect_hero_health_fresh &&
+        friendRobots[UnitType::Hero].currentHealth_ == 0;
+    const bool protect_hero_threat_ready = tactical_own_base_enemy_count > 0 &&
+        tactical_own_highland_enemy_count > 0;
+    const bool protect_hero_profile_ready =
+        !IsLeagueProfile() && !IsShowcasePatrolEnabled();
+    const bool protect_hero_elapsed_ready =
+        ElapsedSeconds() >= protect_hero.StartElapsedSec;
 
     json record;
     record["schema"] = "ly_decision_trace_v1";
@@ -660,8 +689,28 @@ void Application::WriteDecisionTrace(const std::string_view event) {
             {"team_or_ambiguous_occupant", castle_occupancy.TeamOrAmbiguousOccupant},
         }},
         {"protect_hero", {
-            {"enabled", tactical_settings.ProtectHero.Enable},
+            {"enabled", protect_hero.Enable},
             {"active", protectHeroActive_},
+            {"priority", tactical_settings.Priority.ProtectHero},
+            {"profile_ready", protect_hero_profile_ready},
+            {"elapsed_ready", protect_hero_elapsed_ready},
+            {"position_fresh", hero_position.Fresh},
+            {"position_valid", protect_hero_position_valid},
+            {"hero_x_cm", hero_position.X},
+            {"hero_y_cm", hero_position.Y},
+            {"in_highland", protect_hero_in_highland},
+            {"in_protect_area", protect_hero_in_area},
+            {"health_fresh", protect_hero_health_fresh},
+            {"known_dead", protect_hero_known_dead},
+            {"own_base_enemy_count", tactical_own_base_enemy_count},
+            {"own_highland_enemy_count", tactical_own_highland_enemy_count},
+            {"threat_ready", protect_hero_threat_ready},
+            {"start_elapsed_sec", protect_hero.StartElapsedSec},
+            {"hold_sec", protect_hero.HoldSec},
+            {"no_enemy_release_sec", protect_hero.NoEnemyReleaseSec},
+            {"position_fresh_ms", protect_hero.FriendPositionFreshMs},
+            {"health_fresh_ms", protect_hero.FriendHealthFreshMs},
+            {"goal_base_id", static_cast<int>(protect_hero.GoalBaseId)},
         }},
         {"protect_outpost", {
             {"enabled", tactical_settings.ProtectOutpost.Enable},
@@ -780,6 +829,7 @@ void Application::WriteDecisionTrace(const std::string_view event) {
             case FaceModeManager::Source::Regional: return "regional";
             case FaceModeManager::Source::Buff: return "buff";
             case FaceModeManager::Source::Outpost: return "outpost";
+            case FaceModeManager::Source::StartGate: return "start_gate";
             default: return "none";
         }
     };

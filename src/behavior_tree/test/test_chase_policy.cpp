@@ -44,6 +44,20 @@ ChasePolicyContext SameHighlandContext() {
     return context;
 }
 
+ChasePolicyContext CastlePerimeterContext() {
+    ChasePolicyContext context;
+    context.RegionalProfile = true;
+    context.TargetPositionFresh = true;
+    context.ExplicitAllowedArea = AreaKey{
+        .Side = AreaSide::My,
+        .Kind = MainAreaKind::Base,
+        .Team = UnitTeam::Red};
+    context.TargetArea = ResolvedAreaKey{
+        .Key = *context.ExplicitAllowedArea,
+        .UsedNearestFallback = false};
+    return context;
+}
+
 }  // namespace
 
 TEST(ChasePolicyTest, AllowsFreshExactTargetInEnabledPlannedArea) {
@@ -115,6 +129,37 @@ TEST(ChasePolicyTest, RejectsMissingOrUnyieldablePlan) {
     context = SameHighlandContext();
     context.YieldablePlan = false;
     EXPECT_FALSE(EvaluateRegionalChasePolicy(EnabledPolicy(), context).Allowed);
+}
+
+TEST(ChasePolicyTest, CastlePerimeterDefenseAllowsFreshExactMyBaseTargetWithoutDefaultPlan) {
+    auto setting = EnabledPolicy();
+    setting.MyBase = true;
+
+    const auto result = EvaluateRegionalChasePolicy(setting, CastlePerimeterContext());
+
+    EXPECT_TRUE(result.Allowed);
+}
+
+TEST(ChasePolicyTest, CastlePerimeterDefenseRejectsStaleCrossAreaNearestOrDisabledTarget) {
+    auto setting = EnabledPolicy();
+    setting.MyBase = true;
+    auto context = CastlePerimeterContext();
+
+    context.TargetPositionFresh = false;
+    EXPECT_FALSE(EvaluateRegionalChasePolicy(setting, context).Allowed);
+
+    context = CastlePerimeterContext();
+    context.TargetArea = ResolvedAreaKey{
+        .Key = AreaKey{.Side = AreaSide::My, .Kind = MainAreaKind::Highland, .Team = UnitTeam::Red},
+        .UsedNearestFallback = false};
+    EXPECT_FALSE(EvaluateRegionalChasePolicy(setting, context).Allowed);
+
+    context = CastlePerimeterContext();
+    context.TargetArea->UsedNearestFallback = true;
+    EXPECT_FALSE(EvaluateRegionalChasePolicy(setting, context).Allowed);
+
+    setting.MyBase = false;
+    EXPECT_FALSE(EvaluateRegionalChasePolicy(setting, CastlePerimeterContext()).Allowed);
 }
 
 TEST(ChasePolicyTest, RejectsSideMismatchAndPolicyDisable) {

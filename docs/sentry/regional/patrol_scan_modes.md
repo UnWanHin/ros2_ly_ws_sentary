@@ -83,6 +83,25 @@ TaskOverrides:
 
 所以正式默認是：FaceMode 失角、前哨 FaceMode 失角、前哨受擊退出搜索都走 mode2；不是再由 `FaceMode` 分散指定。
 
+## Start Gate FaceMode
+
+`Task.yaml` 的 `StartGate.GimbalStrategy` 控制 gated 啟動、收到 `/ly/game/is_start=true` 前的雲台行為：
+
+```yaml
+StartGate:
+  GimbalStrategy: face_mode_outpost  # patrol | face_mode_outpost
+```
+
+- `patrol`：沿用 `PatrolScan.Mode` 與 `StartGatePitchOffsetDeg`。
+- `face_mode_outpost`（正式目前設定）：持續對敵方前哨發布 `/ly/face_mode/target_raw`，只在收到新鮮的
+  `/ly/face_mode/angles`，且 `/ly/gimbal/facemode` 在 `FaceModeStatusFreshMs`（默認 500 ms）內
+  確認該 solver 非 manual、正在輸出，並已處理本次 StartGate 請求後的新 target generation 時採用
+  FaceMode 角度。最後一筆有效角度可保持 `FaceMode.LostTargetHoldMs`；其後若角度或 status 不符合，強制改用
+  `OutpostFaceModeFallbackMode` 掃描。這條開局安全回退不受一般 `FaceModeFallbackEnable` 或
+  `AllowGimbalPatrolBeforeStart` 關閉影響。
+
+這個策略只改雲台角度來源；開局底盤速度、fire、rotate、follow 仍持續壓為 0。
+
 前哨專項 debug profile 仍可局部覆蓋，例如 `src/behavior_tree/config/OutpostRegionalTest.yaml` 和 `src/behavior_tree/Scripts/ConfigJson/regional/debug/outpost_regional_test.json` 會把 `PatrolScan.TaskOverrides.OutpostFaceModeFallbackMode` 設成 `3`，用來測高位 fallback；這是 profile override，不是主鏈默認。
 
 ## Pitch Offsets

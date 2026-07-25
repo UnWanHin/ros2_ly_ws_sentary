@@ -122,8 +122,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--ammo-left", type=int, default=200)
     parser.add_argument("--self-health", type=int, default=400)
     parser.add_argument("--enemy-health", type=int, default=400)
-    parser.add_argument("--self-outpost-health", type=int, default=60)
-    parser.add_argument("--enemy-outpost-health", type=int, default=60)
+    parser.add_argument("--self-outpost-health", type=int, default=1500)
+    parser.add_argument("--enemy-outpost-health", type=int, default=1500)
     parser.add_argument("--self-base-health", type=int, default=5000)
     parser.add_argument("--enemy-base-health", type=int, default=5000)
     parser.add_argument("--team-buff-recovery", type=int, default=0)
@@ -250,7 +250,8 @@ def main(argv: list[str] | None = None) -> int:
     class MockDecisionInputs(Node):
         def __init__(self) -> None:
             super().__init__("simulator_mock_inputs")
-            self.team_red = args.team == "red"
+            self.team = "blue" if args.team == "blue" else "red"
+            self.team_red = self.team == "red"
             self.match_duration_sec = max(1, min(65535, int(args.match_duration_sec)))
             self.time_left_float = float(max(0, min(self.match_duration_sec, int(args.time_left))))
             self.time_left = int(math.ceil(self.time_left_float))
@@ -435,6 +436,14 @@ def main(argv: list[str] | None = None) -> int:
                     return
                 self.time_left_float = target
                 self._clamp_time_left()
+                return
+            if command == "set_team":
+                team = str(payload.get("team", "")).strip().lower()
+                if team not in {"red", "blue"}:
+                    return
+                self.team = team
+                self.team_red = team == "red"
+                self.sim_input_state.apply_command("set_team", {"team": team})
                 return
             if command == "set_self_health":
                 hp = clamp_u16(payload.get("hp", payload.get("health", payload.get("self_health", self.self_health))))

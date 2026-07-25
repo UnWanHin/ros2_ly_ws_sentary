@@ -2,8 +2,9 @@ behavior_tree:
   ros__parameters:
     ChasePolicy:
       # Regional 追击仅在当前 Default 计划区域与敌方精确所在区域相同时允许。
+      # ProtectCastle 的 PerimeterDefense 复用同一开关：只追当前 targetArmor，且必须精确在 MyBase。
       Enable: true
-      MyBase: false
+      MyBase: true
       MyHighland: true
       MyPreRoadland: true
       MyReadyRoadland: false

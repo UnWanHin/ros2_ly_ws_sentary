@@ -246,7 +246,7 @@ void TreeTick() {
 
 這個函數決定最終發出什麼角度和火控碼：
 
-1. **小陀螺控制**：`Tactical.yaml` 的 `DamageRotate` 管全域預設檔與受擊 ramp（預設 0 -> 1 -> 2 -> 3）。同檔的 `ProtectCastle.Enable` 是城堡防守總開關：`RFID` 控制堡壘增益點事件和站樁 3 檔火控，`EnemyPos` 控制敵方實際進入 MyBase 的防守來源；關掉 `EnemyPos` 不會關掉 Highland、道路或 Central 的普通 RegionalDefense。`ProtectHero.Enable` 最終覆蓋 HeroProtection 基線。启用 `NaviRotateControl.yaml` 后，新鲜 `/ly/navi/should_rotate=false` 会在最後强制 `FollowMode+Rotate=0`，因此壓過受擊 ramp；新鲜 `true` 只释放导航的临时 Follow 输出，不能取消其他 BT 策略已请求的 Follow。当前配置不关闭 regional 区域任务 FaceMode。`SetPostureToMoveWhenFalse=true` 时，同一笔新鲜 false 还会把本 tick 的期望姿态改为 Move，仍由既有 `PostureManager` 执行 5 秒切换冷却、hold 和 pending/retry；在冷却等待期间变回 true 或超时会取消这次未送出的 Move 请求，不会在稍后补切。
+1. **小陀螺控制**：`Tactical.yaml` 的 `DamageRotate` 管全域預設檔與受擊 ramp（預設 0 -> 1 -> 2 -> 3）。同檔的 `ProtectCastle.Enable` 是城堡防守總開關：`RFID` 控制堡壘增益點事件和站樁 3 檔火控，`EnemyPos` 控制敵方實際進入 MyBase 的防守來源；關掉 `EnemyPos` 不會關掉 Highland、道路或 Central 的普通 RegionalDefense。`Tactical.ProtectHero` 則完整擁有英雄保護的開關、時序、新鮮度與目標；舊 JSON `HeroProtection` 只作未覆蓋欄位的相容基線。启用 `NaviRotateControl.yaml` 后，新鲜 `/ly/navi/should_rotate=false` 会在最後强制 `FollowMode+Rotate=0`，因此壓過受擊 ramp；新鲜 `true` 只释放导航的临时 Follow 输出，不能取消其他 BT 策略已请求的 Follow。当前配置不关闭 regional 区域任务 FaceMode。`SetPostureToMoveWhenFalse=true` 时，同一笔新鲜 false 还会把本 tick 的期望姿态改为 Move，仍由既有 `PostureManager` 执行 5 秒切换冷却、hold 和 pending/retry；在冷却等待期间变回 true 或超时会取消这次未送出的 Move 请求，不会在稍后补切。
 2. **FaceMode 仲裁**：所有 Regional、Buff、Outpost 固定朝向任务只能向 `FaceModeManager` 提交请求；manager 以 `Outpost/Buff > Regional` 收敛本拍唯一请求，再统一处理视觉目标优先、导航释放兼容、角度新鲜度/保持、巡逻 fallback 和停火意图，回传单一 `Decision` 给 `PublishTogether()`。`sentry_all.launch.py` 默认拉起 `map_aim_point_node`，把 `/ly/face_mode/target_raw` 的官方地图目标用 TF 相对几何解成 `/ly/face_mode/angles`；最终只有 `PublishTogether()` 发布 `/ly/control/angles` 和 `/ly/control/firecode`。FaceMode 本身不清零 `FireCode.Rotate`，底盘小陀螺继续由原策略输出。
 3. **FollowMode 優先級**：任何 BT 策略在本拍輸出的 `FireCode.FollowMode=1` 都在最後壓過受擊與防守 Rotate 決策，強制 `Rotate=0`；同時停止巡邏掃描、保持當前雲台角，並停止新的 `FireStatus` 翻轉。
 4. **本輪收到目標回調時**：
@@ -281,7 +281,7 @@ void TreeTick() {
 | `/ly/friend/uwb_pos` | `SentryPositionFusion` source | 雷達/UWB 自身坐標，`StampedUInt16MultiArray data=[x,y]` 帶 `header.stamp` |
 | `/ly/position/data` | `friendRobots`, `enemyRobots`（更新position） | 通用位置；`friendcarid == Sentry` 會進 `SentryPositionFusion`，其他 friend/enemy 仍直接更新 `friendRobots/enemyRobots`；raw `(0,0)` 視為 unknown，不刷新 BT 狀態 |
 | `/ly/gimbal/angles` | `gimbalAngles` | 當前雲台角 |
-| `/ly/gimbal/posture` | `postureState` | 姿態回讀（0未知/1進攻/2防禦/3移動） |
+| `/ly/gimbal/posture` | `postureState` | 姿態回讀（0未知/1進攻/2防禦/3移動）；BT 訂閱採 `keep_last(1)`，以本機收包時間判定 `Posture.FeedbackFreshMs`（預設 1000 ms），且回讀接收不得早於 pending 命令；過期或命令前回讀不可確認切換 |
 | `/ly/game/sentry/info` | `postureRefereeTimer_`、能量機關狀態 | `sentry_info_3` 的普通/強化姿態剩餘秒數在 `sentry_info_3_age_ms <= Posture.RefereeInfo3FreshMs`（預設 1500ms）時優先校正姿態輪換/弱化判定；超時或缺失即回退內部 `AccumSec` |
 | `/ly/gimbal/vel` | `naviVelocity` | 底盤速度反饋 |
 | `/ly/predictor/target` | `autoAimData`, `isFindTargetAtomic` | 普通瞄準角度；当前已恢复为老链路语义：消息一到就锁，`autoaim` 侧直接视为可跟随且可开火 |
@@ -347,6 +347,9 @@ void TreeTick() {
   - true=直接跳過 `is_start` 門控（調試用，默認 false）
 - `StartGate.AllowGimbalPatrolBeforeStart`
   - YAML 開關在 `src/behavior_tree/config/Task.yaml`；`true` 時 gated 啟動等待 `/ly/game/is_start=true` 期間只壓零底盤速度/小陀螺，雲台仍按 `PatrolScan.Mode` 掃描；start-gate pitch offset 在 `src/behavior_tree/config/Patrol.yaml` 的 `PatrolScan.TaskOverrides.StartGatePitchOffsetDeg`
+- `StartGate.GimbalStrategy`
+  - `patrol` 沿用 `PatrolScan.Mode`；正式 `Task.yaml` 目前選用 `face_mode_outpost`，在開局門控期間持續向 `/ly/face_mode/target_raw` 請求敵方前哨固定朝向。缺省或非法值仍安全回退 `patrol`。
+  - FaceMode 回讀由 `/ly/face_mode/angles` 進入同一個 `FaceModeManager` 仲裁；另要求 `/ly/gimbal/facemode` 在 `StartGate.FaceModeStatusFreshMs` 內確認 solver 非 manual、正在輸出，且其 `target_update_count` 已超過本次 StartGate 請求前的基線，才採用同拍新鮮角度。這避免把手動目標、舊目標或舊角度誤當成前哨解算；status 或角度缺失時會按 `PatrolScan.TaskOverrides.OutpostFaceModeFallbackMode` 回退。兩種策略均保持底盤速度、fire、rotate、follow 為 0。
 - `league_referee_stale_timeout_ms:=0`
   - 0=禁用新鮮度檢查（默認）；>0 時聯盟賽回補會檢查 hp/ammo 回傳是否過期
 

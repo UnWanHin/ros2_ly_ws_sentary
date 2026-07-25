@@ -24,7 +24,6 @@ void PostureManager::Reset(TimePoint now, SentryPosture initial_posture) {
     last_switch_ = now;
     pending_since_ = now;
     last_command_ = now;
-    last_feedback_ = now;
 }
 
 void PostureManager::accumulate_time(const double dt_seconds) {
@@ -35,29 +34,32 @@ void PostureManager::accumulate_time(const double dt_seconds) {
     runtime_.LocalDegraded[idx] = runtime_.AccumSec[idx] >= static_cast<double>(config_.MaxSinglePostureSec);
 }
 
-void PostureManager::update_feedback(const TimePoint now, const PostureFeedback feedback) {
+bool PostureManager::update_feedback(const TimePoint now, const PostureFeedback feedback) {
     const auto feedback_base = ToPosture(feedback.Base);
     if (feedback.Fresh && IsValidPosture(feedback_base)) {
         has_feedback_ = true;
-        last_feedback_ = now;
         runtime_.FeedbackStale = false;
         runtime_.Current = {feedback_base, feedback.EnhancedFresh && feedback.Enhanced};
         const bool pending_matches = runtime_.HasPending &&
             runtime_.Pending.Base == feedback_base &&
             (!runtime_.Pending.Enhanced || (feedback.EnhancedFresh && feedback.Enhanced)) &&
             (runtime_.Pending.Enhanced || !feedback.EnhancedFresh || !feedback.Enhanced);
-        if (pending_matches) {
+        const bool received_after_pending = !runtime_.HasPending ||
+            feedback.ReceivedAt >= pending_since_;
+        if (pending_matches && received_after_pending) {
             runtime_.HasPending = false;
             runtime_.Pending = {};
             runtime_.RetryCount = 0;
             last_switch_ = now;
+            return true;
         }
-        return;
+        return false;
     }
 
-    if (has_feedback_ && now - last_feedback_ > std::chrono::seconds(2)) {
+    if (has_feedback_) {
         runtime_.FeedbackStale = true;
     }
+    return false;
 }
 
 void PostureManager::update_referee_timer(const PostureRefereeTimer& referee_timer) {
@@ -144,7 +146,7 @@ PostureDecision PostureManager::Tick(
     }
     last_tick_ = now;
 
-    update_feedback(now, feedback);
+    const bool feedback_confirmed_pending = update_feedback(now, feedback);
     update_referee_timer(referee_timer);
     for (const auto posture : {SentryPosture::Attack, SentryPosture::Defense, SentryPosture::Move}) {
         const auto idx = ToPostureValue(posture);
@@ -169,15 +171,12 @@ PostureDecision PostureManager::Tick(
         }
     }
 
+    if (feedback_confirmed_pending) {
+        decision.Reason = "pending_confirmed";
+        return decision;
+    }
+
     if (runtime_.HasPending) {
-        if (runtime_.Current == runtime_.Pending) {
-            runtime_.HasPending = false;
-            runtime_.Pending = {};
-            runtime_.RetryCount = 0;
-            last_switch_ = now;
-            decision.Reason = "pending_confirmed";
-            return decision;
-        }
 
         const auto pending_elapsed = now - pending_since_;
         if (pending_elapsed < std::chrono::milliseconds(config_.PendingAckTimeoutMs)) {
@@ -260,7 +259,7 @@ PostureDecision PostureManager::Tick(
     return Tick(
         now,
         {desired_posture, false},
-        {feedback_posture_value, referee_timer.Enhanced, IsValidPosture(ToPosture(feedback_posture_value)), referee_timer.Fresh},
+        {feedback_posture_value, referee_timer.Enhanced, IsValidPosture(ToPosture(feedback_posture_value)), referee_timer.Fresh, now},
         referee_timer,
         {});
 }

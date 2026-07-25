@@ -174,8 +174,10 @@ namespace BehaviorTree{
         });
 
         // ly_gimbal_posture
-        GenSub<ly_gimbal_posture>([](Application& app, auto msg) {
+        GenSubWithQoS<ly_gimbal_posture>(rclcpp::QoS(1), [](Application& app, auto msg) {
             app.postureState = msg->data;
+            app.hasReceivedPostureState_ = true;
+            app.lastPostureStateRxTime_ = std::chrono::steady_clock::now();
         });
 
         // ly_gimbal_capV
@@ -646,6 +648,16 @@ namespace BehaviorTree{
                 msg->yaw,
                 msg->pitch,
                 std::chrono::steady_clock::now());
+        });
+
+        // FaceMode angles do not identify the target. StartGate accepts them only
+        // when this solver status confirms the requested fixed outpost target.
+        GenSub<ly_gimbal_face_mode_status>([](Application& app, auto msg) {
+            app.faceModeSolverStatus.Received = true;
+            app.faceModeSolverStatus.Function = msg->function;
+            app.faceModeSolverStatus.ManualTarget = msg->manual_target;
+            app.faceModeSolverStatus.TargetUpdateCount = msg->target_update_count;
+            app.faceModeSolverStatus.LastRx = std::chrono::steady_clock::now();
         });
 
         // ly_enemy_hp

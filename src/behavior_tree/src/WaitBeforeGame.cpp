@@ -47,10 +47,18 @@ namespace BehaviorTree {
         float gate_patrol_center_yaw = 0.0f;
         float gate_patrol_last_yaw = 0.0f;
         float gate_patrol_phase_rad = 0.0f;
+        bool gate_face_mode_target_generation_initialized = false;
+        std::uint32_t gate_face_mode_target_generation_floor = 0;
         bool bypass_logged = false;
         const bool gate_gimbal_patrol_enabled =
             config.StartGateSettings.AllowGimbalPatrolBeforeStart &&
             !config.AimDebugSettings.StopScan;
+        const bool gate_face_mode_outpost_enabled =
+            config.StartGateSettings.GimbalStrategy == "face_mode_outpost" &&
+            !config.AimDebugSettings.StopScan &&
+            !debugBypassGameStart_;
+        const bool gate_patrol_strategy =
+            config.StartGateSettings.GimbalStrategy == "patrol";
         const bool damage_open_gate_enabled = config.DamageOpenGateSettings.Enable;
         const std::uint16_t damage_open_gate_threshold =
             std::max<std::uint16_t>(1, config.DamageOpenGateSettings.HealthDropThreshold);
@@ -65,6 +73,10 @@ namespace BehaviorTree {
         if (gate_gimbal_patrol_enabled) {
             LoggerPtr->Info(
                 "Start gate gimbal patrol enabled: chassis velocity/rotate stay zero before game start.");
+        }
+        if (gate_face_mode_outpost_enabled) {
+            LoggerPtr->Info(
+                "Start gate FaceMode enabled: face enemy outpost; stale/missing angles fall back to outpost patrol.");
         }
 
         // [ROS 2] 不再依賴文件系統判斷，直接等待 is_game_begin 標誌
@@ -95,14 +107,81 @@ namespace BehaviorTree {
             gimbalControlData.FireCode.Rotate = 0;
             gimbalControlData.FireCode.FollowMode = 0;
             gimbalControlData.FireCode.AimMode = 0;
-            if (gate_gimbal_patrol_enabled && !debugBypassGameStart_) {
+            bool start_gate_face_mode_active = false;
+            bool start_gate_face_mode_fallback = false;
+            if (gate_face_mode_outpost_enabled) {
+                if (config.FaceModeSettings.Enable) {
+                    if (!gate_face_mode_target_generation_initialized) {
+                        gate_face_mode_target_generation_floor =
+                            faceModeSolverStatus.Received
+                                ? faceModeSolverStatus.TargetUpdateCount
+                                : 0;
+                        gate_face_mode_target_generation_initialized = true;
+                    }
+                    faceModeManager_.BeginCycle();
+                    const auto enemy_team =
+                        team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
+                    (void)faceModeManager_.RequestStartGateOutpost(
+                        enemy_team,
+                        pub_face_mode_target_raw_);
+                    const auto face_mode_decision = faceModeManager_.Resolve(
+                        faceModeData,
+                        config.FaceModeSettings,
+                        config.PatrolScanSettings,
+                        false,
+                        false,
+                        false,
+                        now_steady);
+                    lastFaceModeDecision_ = face_mode_decision;
+                    const bool status_fresh =
+                        faceModeSolverStatus.Received &&
+                        faceModeSolverStatus.LastRx.time_since_epoch().count() != 0 &&
+                        now_steady - faceModeSolverStatus.LastRx <=
+                            std::chrono::milliseconds(
+                                config.StartGateSettings.FaceModeStatusFreshMs);
+                    const bool solver_accepts_start_gate_target =
+                        FaceModeManager::StartGateOutpostSolutionReady(
+                            status_fresh,
+                            faceModeSolverStatus.Function,
+                            faceModeSolverStatus.ManualTarget,
+                            faceModeSolverStatus.TargetUpdateCount,
+                            gate_face_mode_target_generation_floor,
+                            faceModeData.Fresh);
+                    // StartGate face_mode_outpost has an explicit safety contract: if
+                    // there is no usable fixed-target angle, always scan the configured
+                    // outpost fallback. It intentionally does not inherit the generic
+                    // task fallback-disable switch.
+                    start_gate_face_mode_active =
+                        face_mode_decision.Angles.has_value() && solver_accepts_start_gate_target;
+                    start_gate_face_mode_fallback = !start_gate_face_mode_active;
+                    if (start_gate_face_mode_active) {
+                        gimbalControlData.GimbalAngles =
+                            face_mode_decision.Angles.value_or(gimbalAngles);
+                    }
+                } else {
+                    // A selected FaceMode strategy without its solver enabled must not leave
+                    // the opening gimbal idle; use the configured patrol fallback instead.
+                    start_gate_face_mode_fallback = true;
+                }
+                // CacheAngles marks a callback fresh for one control cycle. LastValidTime
+                // remains available for the configured LostTargetHoldMs window.
+                faceModeData.Fresh = false;
+            }
+
+            const bool run_start_gate_patrol =
+                !debugBypassGameStart_ &&
+                ((gate_patrol_strategy && gate_gimbal_patrol_enabled) ||
+                 (gate_face_mode_outpost_enabled && start_gate_face_mode_fallback));
+            if (run_start_gate_patrol) {
                 if (!gate_patrol_center_initialized) {
                     gate_patrol_center_initialized = true;
                     gate_patrol_center_yaw = gimbalAngles.Yaw;
                     gate_patrol_last_yaw = gimbalAngles.Yaw;
                 }
 
-                const int patrol_mode = config.PatrolScanSettings.Mode;
+                const int patrol_mode = start_gate_face_mode_fallback
+                    ? config.PatrolScanSettings.OutpostFaceModeFallbackMode
+                    : config.PatrolScanSettings.Mode;
                 const auto& patrol_scan = config.PatrolScanSettings;
                 float next_yaw = gate_patrol_last_yaw;
                 if (patrol_mode == 2) {
@@ -167,7 +246,7 @@ namespace BehaviorTree {
                         gimbalControlData.GimbalAngles.Pitch);
                     last_gate_patrol_log = now_steady;
                 }
-            } else {
+            } else if (!start_gate_face_mode_active) {
                 gimbalControlData.GimbalAngles.Yaw = gimbalAngles.Yaw;
                 gimbalControlData.GimbalAngles.Pitch = AngleType{0};
             }

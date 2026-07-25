@@ -373,7 +373,30 @@ def test_v4_trace_preserves_bt_tactical_protection_evidence() -> None:
             "rfid_event_active": True,
             "enemy_pos_active": True,
         },
-        "protect_hero": {"enabled": True, "active": False},
+        "protect_hero": {
+            "enabled": True,
+            "active": True,
+            "priority": 3,
+            "profile_ready": True,
+            "elapsed_ready": True,
+            "position_fresh": True,
+            "position_valid": True,
+            "hero_x_cm": 1160,
+            "hero_y_cm": 950,
+            "in_highland": True,
+            "in_protect_area": False,
+            "health_fresh": True,
+            "known_dead": False,
+            "own_base_enemy_count": 1,
+            "own_highland_enemy_count": 2,
+            "threat_ready": True,
+            "start_elapsed_sec": 120,
+            "hold_sec": 30,
+            "no_enemy_release_sec": 8,
+            "position_fresh_ms": 2500,
+            "health_fresh_ms": 2500,
+            "goal_base_id": 8,
+        },
         "protect_outpost": {
             "enabled": True,
             "hp": 1480,
@@ -406,6 +429,10 @@ def test_v4_trace_preserves_bt_tactical_protection_evidence() -> None:
     assert record.tactical.protect_outpost_damage_window_ms == 2000
     assert record.tactical.protect_outpost_damage_threshold_hp == 20
     assert record.tactical.protect_outpost_destroyed is False
+    assert record.tactical.protect_hero_active is True
+    assert record.tactical.protect_hero_threat_ready is True
+    assert record.tactical.protect_hero_own_highland_enemy_count == 2
+    assert record.tactical.protect_hero_goal_base_id == 8
     assert record.tactical.regional_defense_search_kind == "own_fortress_gain_point"
     assert record.tactical.regional_defense_fortress_enemy_count == 2
     assert payload["tactical"]["protect_castle"]["enemy_pos_active"] is True
@@ -413,6 +440,9 @@ def test_v4_trace_preserves_bt_tactical_protection_evidence() -> None:
     assert payload["tactical"]["protect_castle"]["stay_when_rfid_active"] is True
     assert payload["tactical"]["protect_outpost"]["phase"] == "travel"
     assert payload["tactical"]["protect_outpost"]["damage_threshold_hp"] == 20
+    assert payload["tactical"]["protect_hero"]["priority"] == 3
+    assert payload["tactical"]["protect_hero"]["hero_x_cm"] == 1160
+    assert payload["tactical"]["protect_hero"]["goal_base_id"] == 8
 
 
 def test_legacy_trace_keeps_tactical_evidence_explicitly_unavailable() -> None:
@@ -663,7 +693,30 @@ def test_record_status_payload_is_json_safe_debug_summary() -> None:
                 "search_hold_sec": None,
                 "priority": None,
             },
-            "protect_hero": {"enabled": None, "active": None},
+            "protect_hero": {
+                "enabled": None,
+                "active": None,
+                "priority": None,
+                "profile_ready": None,
+                "elapsed_ready": None,
+                "position_fresh": None,
+                "position_valid": None,
+                "hero_x_cm": None,
+                "hero_y_cm": None,
+                "in_highland": None,
+                "in_protect_area": None,
+                "health_fresh": None,
+                "known_dead": None,
+                "own_base_enemy_count": None,
+                "own_highland_enemy_count": None,
+                "threat_ready": None,
+                "start_elapsed_sec": None,
+                "hold_sec": None,
+                "no_enemy_release_sec": None,
+                "position_fresh_ms": None,
+                "health_fresh_ms": None,
+                "goal_base_id": None,
+            },
             "regional_defense": {
                 "threat_active": None,
                 "search_kind": "not_recorded",

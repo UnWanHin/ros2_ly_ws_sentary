@@ -318,6 +318,10 @@ def generate_launch_description():
             default_value=_bool_default(get_bridge_default("publish_goal_pose", True)),
         ),
         DeclareLaunchArgument(
+            "goal_pose_uniform_scale",
+            default_value=str(float(get_bridge_default("goal_pose_uniform_scale", 1.0))),
+        ),
+        DeclareLaunchArgument(
             "invert_y_axis",
             default_value=_bool_default(get_bridge_default("invert_y_axis", False)),
         ),
@@ -528,6 +532,9 @@ def generate_launch_description():
                 ),
                 "publish_goal_pose": ParameterValue(
                     LaunchConfiguration("publish_goal_pose"), value_type=bool
+                ),
+                "goal_pose_uniform_scale": ParameterValue(
+                    LaunchConfiguration("goal_pose_uniform_scale"), value_type=float
                 ),
                 "invert_y_axis": ParameterValue(
                     LaunchConfiguration("invert_y_axis"), value_type=bool

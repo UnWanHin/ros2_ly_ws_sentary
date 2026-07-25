@@ -26,6 +26,19 @@ def test_relative_side_maps_to_absolute_team_side() -> None:
     assert relative_side_to_field_side("enemy", "blue") == "red"
 
 
+def test_team_switch_updates_relative_scene_colors() -> None:
+    state = SimulatorInputState.with_defaults()
+    assert state.apply_command("set_unit", {"side": "friend", "type": "Sentry", "x": 245, "y": 755})
+    assert state.apply_command("set_unit", {"side": "enemy", "type": "Sentry", "x": 2555, "y": 745})
+
+    assert state.apply_command("set_team", {"team": "blue"})
+    snapshot = state.snapshot()
+
+    assert snapshot["team"] == "blue"
+    assert next(item for item in snapshot["units"] if item["side"] == "friend")["field_side"] == "blue"
+    assert next(item for item in snapshot["units"] if item["side"] == "enemy")["field_side"] == "red"
+
+
 def test_structure_health_accepts_zero_and_uses_base_points() -> None:
     state = SimulatorInputState.with_defaults()
 
@@ -319,6 +332,19 @@ def test_control_bus_accepts_simulator_input_commands() -> None:
     assert error is None
     assert command == "set_self_position"
     assert payload == {"x": 820, "y": 830}
+
+    command, payload, error = normalize_api_control_payload(
+        {"command": "set_team", "team": "BLUE"},
+        default_step_sec=10,
+    )
+    assert (command, payload, error) == ("set_team", {"team": "blue"}, None)
+
+    command, _payload, error = normalize_api_control_payload(
+        {"command": "set_team", "team": "green"},
+        default_step_sec=10,
+    )
+    assert command is None
+    assert error == "team must be red or blue"
 
 
 def test_control_bus_accepts_and_validates_canonical_place_unit() -> None:

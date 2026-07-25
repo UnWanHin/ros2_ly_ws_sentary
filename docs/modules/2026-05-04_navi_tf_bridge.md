@@ -6,6 +6,10 @@
 
 它不负责定位，也不维护 TF 树；gimbal TF 由外部 `sentry_tf` 发布，导航／定位 TF 由外部导航或定位节点发布，`navi_tf_bridge` 只查询和使用。
 
+正式 BT 的外部 Aim frame 选择、Chase 授权、`/goal_pose` 停距目标与
+`/ly/navi/target_official` 精确敌方位置 fallback 的全链路见
+[../sentry/regional/bt_aim_navi_coordinate_chain.md](../sentry/regional/bt_aim_navi_coordinate_chain.md)。
+
 ## 当前职责拆分
 
 | 组件 | 作用 |
@@ -40,6 +44,21 @@
 | 发布 | `/ly/navi/target_map` | debug target map，按配置可开关 |
 | 发布 | `/ly/navi/target_official` | 有效 `/ly/navi/target_rel` 或 `/ly/aim/armor_targets` 里的 target point 反算回 official-map cm，`data=[official_x_cm, official_y_cm, armor_type]`，给 BT 敌方位置 fallback 使用 |
 | 发布 | `/ly/navi/position` | `map_frame <- base_frame` 反解出的自身位置；`data=[official_x_cm, official_y_cm]` 保持官方地图 cm，`header.stamp` 使用 TF source stamp，`map_point` 保留 map 系 m 坐标并附带 `map_frame/source_frame` |
+
+### `/goal_pose` 输出比例
+
+`target_rel_to_goal_pos_node` 的 `goal_pose_uniform_scale` 默认 `1.0`。它仅在最终发布
+`/goal_pose` 时将 `map` 坐标的 X/Y 按 map 原点等比例缩放；固定官方点和 Chase 都经过这一个
+出口，因此两条链路一致。它不改原始官方 cm、TF 标定矩阵、`/ly/navi/target_official`、Z 或姿态。
+
+正式 regional 可临时覆盖：
+
+```bash
+./scripts/start.sh gated --mode regional goal_pose_uniform_scale:=0.95
+```
+
+也可改 `navi_tf_bridge/config/tf_config.yaml` 后重启（非 symlink install 需要重新构建该包）。数值
+必须是有限正数；非法值会记录 WARN 并使用 `1.0`。
 | 发布 | `/ly/control/angles` | FaceMode 独立测试/直接控制输出 |
 | 发布 | `/ly/face_mode/angles` | 正式 BT 链路的 FaceMode solver 输出 |
 | 发布 | `/ly/control/firecode` | FaceMode 可选 firecode 输出 |

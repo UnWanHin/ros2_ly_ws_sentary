@@ -653,6 +653,9 @@ namespace LangYa {
     void from_json(const json& j, StartGateSetting& sg) {
         sg.AllowGimbalPatrolBeforeStart =
             j.value("AllowGimbalPatrolBeforeStart", sg.AllowGimbalPatrolBeforeStart);
+        sg.GimbalStrategy = j.value("GimbalStrategy", sg.GimbalStrategy);
+        sg.FaceModeStatusFreshMs =
+            j.value("FaceModeStatusFreshMs", sg.FaceModeStatusFreshMs);
     }
 
     void from_json(const json& j, NaviSetting& ns) {
@@ -829,6 +832,7 @@ namespace LangYa {
         ps.MaxSinglePostureSec = j.value("MaxSinglePostureSec", ps.MaxSinglePostureSec);
         ps.EarlyRotateSec = j.value("EarlyRotateSec", ps.EarlyRotateSec);
         ps.RefereeInfo3FreshMs = j.value("RefereeInfo3FreshMs", ps.RefereeInfo3FreshMs);
+        ps.FeedbackFreshMs = j.value("FeedbackFreshMs", ps.FeedbackFreshMs);
         ps.RefereeRemainWarnSec = j.value("RefereeRemainWarnSec", ps.RefereeRemainWarnSec);
         ps.RefereeRemainPenalty = j.value("RefereeRemainPenalty", ps.RefereeRemainPenalty);
         ps.RefereeZeroRemainPenalty = j.value("RefereeZeroRemainPenalty", ps.RefereeZeroRemainPenalty);
@@ -1898,19 +1902,52 @@ namespace BehaviorTree {
         protect_outpost.SearchHoldSec = std::max(0, protect_outpost.SearchHoldSec);
         protect_outpost.UnreachableCooldownSec = std::max(0, protect_outpost.UnreachableCooldownSec);
 
-        bool protect_hero_enable = tactical.ProtectHero.Enable;
+        // HeroProtection remains a legacy JSON baseline. Tactical.ProtectHero
+        // is the canonical runtime setting after YAML parameter overrides.
+        auto& protect_hero = tactical.ProtectHero;
+        protect_hero = config.HeroProtectionSettings;
+        const bool protect_hero_baseline_enable = protect_hero.Enable;
+        bool protect_hero_enable = protect_hero.Enable;
         const bool protect_hero_yaml_provided = ReadOptionalBoolParam(
             node_,
             {"Tactical.ProtectHero.Enable", "Tactical/ProtectHero/Enable"},
             protect_hero_enable);
-        tactical.ProtectHero.Enable = ResolveTacticalFeatureEnable(
-            tactical.ProtectHero.Enable,
+        protect_hero.Enable = ResolveTacticalFeatureEnable(
+            protect_hero_baseline_enable,
             protect_hero_yaml_provided,
             protect_hero_enable);
-        config.HeroProtectionSettings.Enable = ResolveTacticalFeatureEnable(
-            config.HeroProtectionSettings.Enable,
-            protect_hero_yaml_provided,
-            protect_hero_enable);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.ProtectHero.StartElapsedSec", "Tactical/ProtectHero/StartElapsedSec"},
+            protect_hero.StartElapsedSec);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.ProtectHero.HoldSec", "Tactical/ProtectHero/HoldSec"},
+            protect_hero.HoldSec);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.ProtectHero.NoEnemyReleaseSec", "Tactical/ProtectHero/NoEnemyReleaseSec"},
+            protect_hero.NoEnemyReleaseSec);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.ProtectHero.FriendPositionFreshMs", "Tactical/ProtectHero/FriendPositionFreshMs"},
+            protect_hero.FriendPositionFreshMs);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.ProtectHero.FriendHealthFreshMs", "Tactical/ProtectHero/FriendHealthFreshMs"},
+            protect_hero.FriendHealthFreshMs);
+        int protect_hero_goal_base_id = static_cast<int>(protect_hero.GoalBaseId);
+        if (ReadOptionalIntParam(
+                node_,
+                {"Tactical.ProtectHero.GoalBaseId", "Tactical/ProtectHero/GoalBaseId"},
+                protect_hero_goal_base_id)) {
+            protect_hero.GoalBaseId = static_cast<std::uint8_t>(
+                std::clamp(protect_hero_goal_base_id, 0, 255));
+        }
+
+        // Preserve the legacy Config member as an effective-value mirror for
+        // old callers and configuration diagnostics during this migration.
+        config.HeroProtectionSettings = protect_hero;
     }
 
     void Application::ApplyPatrolScanParameterOverrides() {
@@ -2079,6 +2116,20 @@ namespace BehaviorTree {
                 "StartGate/AllowGimbalPatrolBeforeStart"
             },
             setting.AllowGimbalPatrolBeforeStart);
+        ReadOptionalStringParam(
+            node_,
+            {
+                "StartGate.GimbalStrategy",
+                "StartGate/GimbalStrategy"
+            },
+            setting.GimbalStrategy);
+        ReadOptionalIntParam(
+            node_,
+            {
+                "StartGate.FaceModeStatusFreshMs",
+                "StartGate/FaceModeStatusFreshMs"
+            },
+            setting.FaceModeStatusFreshMs);
     }
 
     void Application::ApplyExternalAimParameterOverrides() {
@@ -2260,6 +2311,12 @@ namespace BehaviorTree {
         LoggerPtr->Debug(
             "AllowGimbalPatrolBeforeStart: {}",
             config.StartGateSettings.AllowGimbalPatrolBeforeStart);
+        LoggerPtr->Debug(
+            "GimbalStrategy: {}",
+            config.StartGateSettings.GimbalStrategy);
+        LoggerPtr->Debug(
+            "FaceModeStatusFreshMs: {}",
+            config.StartGateSettings.FaceModeStatusFreshMs);
         LoggerPtr->Debug("------ Task ------");
         LoggerPtr->Debug("Buff: {}", config.TaskSettings.Buff);
         LoggerPtr->Debug("Outpost: {}", config.TaskSettings.Outpost);
@@ -2346,7 +2403,15 @@ namespace BehaviorTree {
         LoggerPtr->Debug("ProtectCastle.RFID: {}", config.TacticalSettings.ProtectCastle.RFID);
         LoggerPtr->Debug("ProtectCastle.StayWhenRfid: {}", config.TacticalSettings.ProtectCastle.StayWhenRfid);
         LoggerPtr->Debug("ProtectCastle.EnemyPos: {}", config.TacticalSettings.ProtectCastle.EnemyPos);
-        LoggerPtr->Debug("ProtectHero.Enable: {}", config.TacticalSettings.ProtectHero.Enable);
+        LoggerPtr->Debug(
+            "ProtectHero: enable={} start_elapsed_sec={} hold_sec={} no_enemy_release_sec={} position_fresh_ms={} health_fresh_ms={} goal_base_id={}",
+            config.TacticalSettings.ProtectHero.Enable,
+            config.TacticalSettings.ProtectHero.StartElapsedSec,
+            config.TacticalSettings.ProtectHero.HoldSec,
+            config.TacticalSettings.ProtectHero.NoEnemyReleaseSec,
+            config.TacticalSettings.ProtectHero.FriendPositionFreshMs,
+            config.TacticalSettings.ProtectHero.FriendHealthFreshMs,
+            static_cast<int>(config.TacticalSettings.ProtectHero.GoalBaseId));
         LoggerPtr->Debug("------ SentryPositionFusion ------");
         LoggerPtr->Debug("Enable: {}", config.SentryPositionFusionSettings.Enable);
         LoggerPtr->Debug("Mode: {}", config.SentryPositionFusionSettings.Mode);
@@ -2408,14 +2473,6 @@ namespace BehaviorTree {
         LoggerPtr->Debug("StrongHealthMin: {}", config.RegionalDefenseSettings.StrongHealthMin);
         LoggerPtr->Debug("StrongAmmoMin: {}", config.RegionalDefenseSettings.StrongAmmoMin);
         LoggerPtr->Debug("MultiEnemyBaseCount: {}", config.RegionalDefenseSettings.MultiEnemyBaseCount);
-        LoggerPtr->Debug("------ HeroProtection ------");
-        LoggerPtr->Debug("Enable: {}", config.HeroProtectionSettings.Enable);
-        LoggerPtr->Debug("StartElapsedSec: {}", config.HeroProtectionSettings.StartElapsedSec);
-        LoggerPtr->Debug("HoldSec: {}", config.HeroProtectionSettings.HoldSec);
-        LoggerPtr->Debug("NoEnemyReleaseSec: {}", config.HeroProtectionSettings.NoEnemyReleaseSec);
-        LoggerPtr->Debug("FriendPositionFreshMs: {}", config.HeroProtectionSettings.FriendPositionFreshMs);
-        LoggerPtr->Debug("FriendHealthFreshMs: {}", config.HeroProtectionSettings.FriendHealthFreshMs);
-        LoggerPtr->Debug("GoalBaseId: {}", static_cast<int>(config.HeroProtectionSettings.GoalBaseId));
         LoggerPtr->Debug("------ NaviProgressWatchdog ------");
         LoggerPtr->Debug("Enable: {}", config.NaviProgressWatchdogSettings.Enable);
         LoggerPtr->Debug("MoveProgressCm: {}", config.NaviProgressWatchdogSettings.MoveProgressCm);
@@ -2599,6 +2656,7 @@ namespace BehaviorTree {
         LoggerPtr->Debug("MaxSinglePostureSec: {}", config.PostureSettings.MaxSinglePostureSec);
         LoggerPtr->Debug("EarlyRotateSec: {}", config.PostureSettings.EarlyRotateSec);
         LoggerPtr->Debug("RefereeInfo3FreshMs: {}", config.PostureSettings.RefereeInfo3FreshMs);
+        LoggerPtr->Debug("FeedbackFreshMs: {}", config.PostureSettings.FeedbackFreshMs);
         LoggerPtr->Debug("RefereeRemainWarnSec: {}", config.PostureSettings.RefereeRemainWarnSec);
         LoggerPtr->Debug("RefereeRemainPenalty: {}", config.PostureSettings.RefereeRemainPenalty);
         LoggerPtr->Debug("RefereeZeroRemainPenalty: {}", config.PostureSettings.RefereeZeroRemainPenalty);
@@ -2810,6 +2868,40 @@ namespace BehaviorTree {
                 config.FaceModeSettings.LostTargetHoldMs);
             config.FaceModeSettings.LostTargetHoldMs = 300;
         }
+        auto& start_gate = config.StartGateSettings;
+        std::transform(
+            start_gate.GimbalStrategy.begin(),
+            start_gate.GimbalStrategy.end(),
+            start_gate.GimbalStrategy.begin(),
+            [](const unsigned char ch) {
+                if (ch == '-' || ch == ' ') {
+                    return '_';
+                }
+                return static_cast<char>(std::tolower(ch));
+            });
+        if (start_gate.GimbalStrategy == "facemode" ||
+            start_gate.GimbalStrategy == "face_mode") {
+            start_gate.GimbalStrategy = "face_mode_outpost";
+        }
+        if (start_gate.GimbalStrategy != "patrol" &&
+            start_gate.GimbalStrategy != "face_mode_outpost") {
+            LoggerPtr->Warning(
+                "Invalid StartGate.GimbalStrategy='{}', fallback to patrol.",
+                start_gate.GimbalStrategy);
+            start_gate.GimbalStrategy = "patrol";
+        }
+        if (start_gate.FaceModeStatusFreshMs <= 0) {
+            LoggerPtr->Warning(
+                "Invalid StartGate.FaceModeStatusFreshMs={}, fallback to 500.",
+                start_gate.FaceModeStatusFreshMs);
+            start_gate.FaceModeStatusFreshMs = 500;
+        }
+        if (config.PostureSettings.FeedbackFreshMs <= 0) {
+            LoggerPtr->Warning(
+                "Invalid Posture.FeedbackFreshMs={}, fallback to 1000.",
+                config.PostureSettings.FeedbackFreshMs);
+            config.PostureSettings.FeedbackFreshMs = 1000;
+        }
         if (config.ExternalAimSettings.ResultFreshTimeoutMs <= 0) {
             LoggerPtr->Warning(
                 "Invalid ExternalAim.ResultFreshTimeoutMs={}, fallback to 300.",
@@ -3001,36 +3093,38 @@ namespace BehaviorTree {
                                config.RegionalDefenseSettings.MultiEnemyBaseCount);
             config.RegionalDefenseSettings.MultiEnemyBaseCount = 2;
         }
-        if (config.HeroProtectionSettings.StartElapsedSec < 0) {
-            LoggerPtr->Warning("Invalid HeroProtection.StartElapsedSec={}, fallback to 120.",
-                               config.HeroProtectionSettings.StartElapsedSec);
-            config.HeroProtectionSettings.StartElapsedSec = 120;
+        auto& protect_hero = config.TacticalSettings.ProtectHero;
+        if (protect_hero.StartElapsedSec < 0) {
+            LoggerPtr->Warning("Invalid Tactical.ProtectHero.StartElapsedSec={}, fallback to 120.",
+                               protect_hero.StartElapsedSec);
+            protect_hero.StartElapsedSec = 120;
         }
-        if (config.HeroProtectionSettings.HoldSec <= 0) {
-            LoggerPtr->Warning("Invalid HeroProtection.HoldSec={}, fallback to 30.",
-                               config.HeroProtectionSettings.HoldSec);
-            config.HeroProtectionSettings.HoldSec = 30;
+        if (protect_hero.HoldSec <= 0) {
+            LoggerPtr->Warning("Invalid Tactical.ProtectHero.HoldSec={}, fallback to 30.",
+                               protect_hero.HoldSec);
+            protect_hero.HoldSec = 30;
         }
-        if (config.HeroProtectionSettings.NoEnemyReleaseSec <= 0) {
-            LoggerPtr->Warning("Invalid HeroProtection.NoEnemyReleaseSec={}, fallback to 8.",
-                               config.HeroProtectionSettings.NoEnemyReleaseSec);
-            config.HeroProtectionSettings.NoEnemyReleaseSec = 8;
+        if (protect_hero.NoEnemyReleaseSec <= 0) {
+            LoggerPtr->Warning("Invalid Tactical.ProtectHero.NoEnemyReleaseSec={}, fallback to 8.",
+                               protect_hero.NoEnemyReleaseSec);
+            protect_hero.NoEnemyReleaseSec = 8;
         }
-        if (config.HeroProtectionSettings.FriendPositionFreshMs <= 0) {
-            LoggerPtr->Warning("Invalid HeroProtection.FriendPositionFreshMs={}, fallback to 2500.",
-                               config.HeroProtectionSettings.FriendPositionFreshMs);
-            config.HeroProtectionSettings.FriendPositionFreshMs = 2500;
+        if (protect_hero.FriendPositionFreshMs <= 0) {
+            LoggerPtr->Warning("Invalid Tactical.ProtectHero.FriendPositionFreshMs={}, fallback to 2500.",
+                               protect_hero.FriendPositionFreshMs);
+            protect_hero.FriendPositionFreshMs = 2500;
         }
-        if (config.HeroProtectionSettings.FriendHealthFreshMs <= 0) {
-            LoggerPtr->Warning("Invalid HeroProtection.FriendHealthFreshMs={}, fallback to 2500.",
-                               config.HeroProtectionSettings.FriendHealthFreshMs);
-            config.HeroProtectionSettings.FriendHealthFreshMs = 2500;
+        if (protect_hero.FriendHealthFreshMs <= 0) {
+            LoggerPtr->Warning("Invalid Tactical.ProtectHero.FriendHealthFreshMs={}, fallback to 2500.",
+                               protect_hero.FriendHealthFreshMs);
+            protect_hero.FriendHealthFreshMs = 2500;
         }
-        if (!AreaManager::IsValidBaseGoalId(config.HeroProtectionSettings.GoalBaseId)) {
-            LoggerPtr->Warning("Invalid HeroProtection.GoalBaseId={}, fallback to Highland.",
-                               static_cast<int>(config.HeroProtectionSettings.GoalBaseId));
-            config.HeroProtectionSettings.GoalBaseId = LangYa::Highland.ID;
+        if (!AreaManager::IsValidBaseGoalId(protect_hero.GoalBaseId)) {
+            LoggerPtr->Warning("Invalid Tactical.ProtectHero.GoalBaseId={}, fallback to Highland.",
+                               static_cast<int>(protect_hero.GoalBaseId));
+            protect_hero.GoalBaseId = LangYa::Highland.ID;
         }
+        config.HeroProtectionSettings = protect_hero;
         if (config.NaviProgressWatchdogSettings.MoveProgressCm <= 0) {
             LoggerPtr->Warning("Invalid NaviProgressWatchdog.MoveProgressCm={}, fallback to 80.",
                                config.NaviProgressWatchdogSettings.MoveProgressCm);

@@ -23,6 +23,7 @@ def generate_launch_description():
         DeclareLaunchArgument("fallback_base_frame", default_value="baselink"),
         DeclareLaunchArgument("publish_goal_pos", default_value="false"),
         DeclareLaunchArgument("publish_goal_pose", default_value="true"),
+        DeclareLaunchArgument("goal_pose_uniform_scale", default_value="1.0"),
         DeclareLaunchArgument("goal_pos_uint16_encode_enabled", default_value="false"),
         DeclareLaunchArgument("goal_pos_uint16_encode_x_scale", default_value="1.0"),
         DeclareLaunchArgument("goal_pos_uint16_encode_y_scale", default_value="1.0"),
@@ -45,6 +46,7 @@ def generate_launch_description():
             "fallback_base_frame": LaunchConfiguration("fallback_base_frame"),
             "publish_goal_pos": LaunchConfiguration("publish_goal_pos"),
             "publish_goal_pose": LaunchConfiguration("publish_goal_pose"),
+            "goal_pose_uniform_scale": LaunchConfiguration("goal_pose_uniform_scale"),
             "goal_pos_uint16_encode_enabled": LaunchConfiguration(
                 "goal_pos_uint16_encode_enabled"
             ),
