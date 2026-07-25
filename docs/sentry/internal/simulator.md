@@ -1,6 +1,6 @@
 # Simulator Trace And Viewer
 
-Updated: 2026-07-23
+Updated: 2026-07-25
 
 ## Purpose
 
@@ -184,6 +184,10 @@ ros2 launch behavior_tree sentry_all.launch.py mode:=league \
 ```
 
 Leaving `decision_trace_enabled:=false` means no trace file is opened or written, even if a path is accidentally supplied.
+
+Trace is observational only. If JSON serialization or the trace file write fails after startup,
+`behavior_tree` closes and disables the trace for the rest of that run; it does not alter the BT tick,
+navigation output, Tactical policy, or control topics.
 
 Optional indexed wrapper (reads `src/behavior_tree/Scripts/ConfigJson`):
 

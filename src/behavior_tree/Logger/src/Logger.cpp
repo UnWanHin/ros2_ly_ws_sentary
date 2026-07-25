@@ -1,7 +1,10 @@
 #include "Utils/Logger/Logger.hpp"
 
+#include <algorithm>
+
 namespace Utils :: Logger {
-    Logger::Logger() : stop_(false) {
+    Logger::Logger(const std::size_t max_queue_depth)
+        : stop_(false), max_queue_depth_(std::max<std::size_t>(1, max_queue_depth)) {
         thread_ = std::thread(&Logger::ProcessQueue, this);
         timer_thread_ = std::thread(&Logger::TimerTask, this);
     }
@@ -16,13 +19,23 @@ namespace Utils :: Logger {
     }
 
     void Logger::AddPolicy(std::shared_ptr<LogPolicy> policy) {
+        std::lock_guard<std::mutex> lock(mutex_);
         policies_.push_back(policy);
     }
     void Logger::Flush() {
-        std::lock_guard<std::mutex> lock(mutex_);
-        for (auto& policy : policies_) {
+        std::vector<std::shared_ptr<LogPolicy>> policies;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            policies = policies_;
+        }
+        for (auto& policy : policies) {
             policy->Flush();
         }
+    }
+
+    std::uint64_t Logger::DroppedMessageCount() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return dropped_message_count_;
     }
 
     void Logger::FormatMessage(std::ostringstream& oss, const std::string& format) {
@@ -38,10 +51,15 @@ namespace Utils :: Logger {
             }
             LogMessage message = std::move(queue_.front());
             queue_.pop();
+            const auto policies = policies_;
             lock.unlock();
 
-            for (auto& policy : policies_) {
-                policy->Write(message.level, message.message);
+            for (const auto& policy : policies) {
+                try {
+                    policy->Write(message.level, message.message);
+                } catch (...) {
+                    // A diagnostic policy must never terminate the BT runtime.
+                }
             }
         }
     }

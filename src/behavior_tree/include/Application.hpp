@@ -1064,7 +1064,7 @@ public:
     void ApplyFaceModeParameterOverrides();
     void ApplyExternalAimParameterOverrides();
     bool InitDecisionTrace();
-    void WriteDecisionTrace(std::string_view event);
+    void WriteDecisionTrace(std::string_view event) noexcept;
     void CloseDecisionTrace();
     void StartRuntimeGuard();
     void StopRuntimeGuard();

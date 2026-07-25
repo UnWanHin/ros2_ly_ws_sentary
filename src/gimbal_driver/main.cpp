@@ -592,29 +592,46 @@ namespace
             const char* type,
             const T& item,
             const std::string& extra = {}) {
-            std::lock_guard lock{rawSerialLogMutex_};
-            if (!rawSerialLogEnable_) {
-                return;
-            }
-
-            std::ostringstream line;
-            line << WallTimeNs()
-                 << " " << direction
-                 << " " << type
-                 << " size=" << sizeof(T)
-                 << " hex=\"" << BytesToHex(item) << "\"";
-            if (!extra.empty()) {
-                line << " " << extra;
-            }
-
-            if (rawSerialLogFile_) {
-                rawSerialLogFile_ << line.str() << '\n';
-                if (rawSerialLogFlush_) {
-                    rawSerialLogFile_.flush();
+            try {
+                std::lock_guard lock{rawSerialLogMutex_};
+                if (!rawSerialLogEnable_) {
+                    return;
                 }
-            }
-            if (rawSerialLogScreen_) {
-                roslog::info("%s", line.str().c_str());
+
+                std::ostringstream line;
+                line << WallTimeNs()
+                     << " " << direction
+                     << " " << type
+                     << " size=" << sizeof(T)
+                     << " hex=\"" << BytesToHex(item) << "\"";
+                if (!extra.empty()) {
+                    line << " " << extra;
+                }
+
+                if (rawSerialLogFile_) {
+                    rawSerialLogFile_ << line.str() << '\n';
+                    if (rawSerialLogFlush_) {
+                        rawSerialLogFile_.flush();
+                    }
+                    if (!rawSerialLogFile_) {
+                        rawSerialLogEnable_ = false;
+                        rawSerialLogFile_.close();
+                        roslog::error("gimbal raw serial log disabled after a write failure");
+                    }
+                }
+                if (rawSerialLogScreen_) {
+                    roslog::info("%s", line.str().c_str());
+                }
+            } catch (const std::exception& ex) {
+                std::lock_guard lock{rawSerialLogMutex_};
+                rawSerialLogEnable_ = false;
+                rawSerialLogFile_.close();
+                roslog::error("gimbal raw serial log disabled after exception: %s", ex.what());
+            } catch (...) {
+                std::lock_guard lock{rawSerialLogMutex_};
+                rawSerialLogEnable_ = false;
+                rawSerialLogFile_.close();
+                roslog::error("gimbal raw serial log disabled after an unknown exception");
             }
         }
 

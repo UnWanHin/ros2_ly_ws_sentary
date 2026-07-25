@@ -169,6 +169,8 @@ Run()
 
 `decision_trace_enabled:=true` 且 `decision_trace_file` 非空時，`behavior_tree` 每隔 `decision_trace_every_n_ticks` 個 tick 寫一行 JSONL。該文件由 `src/simulator` 離線播放，不改變任何 ROS topic 或決策控制鏈。默認 `decision_trace_enabled:=false`，正常比賽不開檔、不寫 trace。
 
+BT 應用文字日誌和 trace 都是觀測層：檔案 logger 使用有界背景隊列，寫盤壓力下會丟棄診斷行而不阻塞決策；檔案 policy 寫入失敗會只停用該 policy。trace 在 JSON 序列化或寫盤失敗時會自行關閉。這些情況不改變 BT tick、任務選擇、導航或 `/ly/control/*` 輸出。
+
 Trace 會保留 `navi_goal` 原始資料，同時輸出穩定的 `decision_output` 模型。後續決策內部改成新的橋接或策略流程時，viewer 優先看 `decision_output.goal_pos_cm`、output topic、publish flags，而不是直接耦合到某個舊策略欄位。
 
 典型啟動：

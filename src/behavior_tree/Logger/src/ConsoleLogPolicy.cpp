@@ -29,6 +29,10 @@ namespace Utils::Logger {
     void ConsoleLogPolicy::Write(LogLevel level, const std::string& message) {
         {
             std::lock_guard<std::mutex> lock(queue_mutex_);
+            if (message_queue_.size() >= kMaxQueuedMessages) {
+                ++dropped_message_count_;
+                return;
+            }
             message_queue_.push({level, message});
         }
         condition_.notify_one();
@@ -59,7 +63,8 @@ namespace Utils::Logger {
         auto now = std::chrono::system_clock::now();
         auto now_c = std::chrono::system_clock::to_time_t(now);
         auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
-        auto tm = *std::localtime(&now_c);
+        std::tm tm{};
+        localtime_r(&now_c, &tm);
         std::ostringstream oss;
 #ifdef __linux__
         oss << "\033[32m[" << std::put_time(&tm, "%Y-%m-%d %H:%M:%S") << "." << std::setw(3) << std::setfill('0') << now_ms.count() << "]\033[0m ";

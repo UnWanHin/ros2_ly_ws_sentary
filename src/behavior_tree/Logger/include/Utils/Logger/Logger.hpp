@@ -6,6 +6,8 @@
 #include <thread>
 #include <condition_variable>
 #include <atomic>
+#include <cstddef>
+#include <cstdint>
 #include <future>
 #include <sstream>
 #include <chrono>
@@ -14,18 +16,32 @@ namespace Utils::Logger {
 
     class Logger {
     public:
-        Logger();
+        explicit Logger(std::size_t max_queue_depth = 4096);
         ~Logger();
 
         void AddPolicy(std::shared_ptr<LogPolicy> policy);
 
         void Flush();
+        std::uint64_t DroppedMessageCount() const;
         template <typename... Args>
         void Log(LogLevel level, const std::string& format, Args... args) {
             std::ostringstream oss;
             FormatMessage(oss, format, args...);
             {
                 std::lock_guard<std::mutex> lock(mutex_);
+                if (queue_.size() >= max_queue_depth_) {
+                    ++dropped_message_count_;
+                    ++pending_drop_notice_count_;
+                    return;
+                }
+                if (pending_drop_notice_count_ > 0 && queue_.size() + 1 < max_queue_depth_) {
+                    queue_.push({
+                        LogLevel::Warning,
+                        "Logger queue recovered; dropped " +
+                            std::to_string(pending_drop_notice_count_) + " records."
+                    });
+                    pending_drop_notice_count_ = 0;
+                }
                 queue_.push({level, oss.str()});
             }
             condition_.notify_one();
@@ -60,12 +76,15 @@ namespace Utils::Logger {
         };
 
         std::vector<std::shared_ptr<LogPolicy>> policies_;
-        std::mutex mutex_;
+        mutable std::mutex mutex_;
         std::queue<LogMessage> queue_;
         std::condition_variable condition_;
         std::thread thread_;
         std::thread timer_thread_;
         std::atomic<bool> stop_;
+        const std::size_t max_queue_depth_;
+        std::uint64_t dropped_message_count_{0};
+        std::uint64_t pending_drop_notice_count_{0};
 
         static void FormatMessage(std::ostringstream& oss, const std::string& format);
         template <typename T, typename... Args>

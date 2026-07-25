@@ -7,7 +7,9 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <filesystem>
+#include <stdexcept>
 
 using namespace LangYa;
 using namespace BehaviorTree;
@@ -449,10 +451,12 @@ void Application::CloseDecisionTrace() {
     decisionTraceEnabled_ = false;
 }
 
-void Application::WriteDecisionTrace(const std::string_view event) {
+void Application::WriteDecisionTrace(const std::string_view event) noexcept {
     if (!decisionTraceEnabled_ || !decisionTraceStream_.is_open()) {
         return;
     }
+
+    try {
 
     const bool is_tick_event = event == "tick";
     std::uint64_t trace_tick = decisionTraceTickCount_;
@@ -1009,6 +1013,22 @@ void Application::WriteDecisionTrace(const std::string_view event) {
     ++decisionTraceWriteCount_;
     if (!is_tick_event || (decisionTraceWriteCount_ % 20) == 0) {
         decisionTraceStream_.flush();
+    }
+    if (!decisionTraceStream_) {
+        throw std::runtime_error("trace write failed");
+    }
+    } catch (const std::exception& ex) {
+        decisionTraceEnabled_ = false;
+        if (decisionTraceStream_.is_open()) {
+            decisionTraceStream_.close();
+        }
+        std::fprintf(stderr, "Decision trace disabled after write failure: %s\n", ex.what());
+    } catch (...) {
+        decisionTraceEnabled_ = false;
+        if (decisionTraceStream_.is_open()) {
+            decisionTraceStream_.close();
+        }
+        std::fprintf(stderr, "Decision trace disabled after an unknown write failure\n");
     }
 }
 

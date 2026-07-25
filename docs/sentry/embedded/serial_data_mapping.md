@@ -1,6 +1,6 @@
 # 串口上下行数据映射总表
 
-Updated: 2026-07-21
+Updated: 2026-07-25
 
 > 配置归属：`gimbal_driver` 的串口、下位机与 raw 上行诊断基线集中在
 > `src/gimbal_driver/config/gimbal_driver_config.yaml`；根目录 `config/base_config.yaml`
@@ -94,6 +94,8 @@ time_ns tx sentry_coordinate size=17 hex="21 04 ..." reason=sentry_coordinate do
 ```
 
 注意：`gimbal_raw.file.type_ids` 只过滤上行 `TypeID`。下行是否记录只由 `gimbal_raw.file.downlink` 控制。
+文件打开或后续写入失败会自动关闭 raw 文件记录；语义上行解析、控制下发和 raw ROS topic
+不会因此停用。该文件记录仍是短时诊断工具，正式全程记录应优先使用独立的 rosbag 进程。
 
 同一套 raw 数据也可以选择发布成 ROS2 topic，避免每帧转 hex 和写磁盘：
 

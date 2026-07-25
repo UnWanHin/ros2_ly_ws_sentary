@@ -10,6 +10,8 @@
 #include <thread>
 #include <condition_variable>
 #include <atomic>
+#include <cstddef>
+#include <cstdint>
 
 namespace Utils::Logger {
 
@@ -33,6 +35,8 @@ namespace Utils::Logger {
         std::condition_variable condition_;
         std::thread thread_;
         std::atomic<bool> stop_;
+        static constexpr std::size_t kMaxQueuedMessages = 4096;
+        std::uint64_t dropped_message_count_{0};
 
         void ProcessQueue();
         static std::string FormatMessage(LogLevel level, const std::string& message);
