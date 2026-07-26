@@ -4,6 +4,7 @@
 
 #include "../include/Application.hpp"
 #include "../include/AimSource.hpp"
+#include "../include/NaviSpeedLevel.hpp"
 
 #include <algorithm>
 
@@ -135,6 +136,8 @@ namespace BehaviorTree {
             !chase_official_target_active &&
             (naviRelativeTargetValid || config.ChaseSettings.StopWhenNoTarget);
         if (chase_relative_target_publish_active) {
+            // Chase is not a Recovery task; do not retain a previous Recovery fast level.
+            speedLevel = kNaviSpeedNormal;
             PubNaviRelativeTarget();
             MaybeLogRelativeTargetDecision();
         }
@@ -147,6 +150,7 @@ namespace BehaviorTree {
                 return;
             }
             if (map_command_goal_active) {
+                speedLevel = kNaviSpeedNormal;
                 MaybeLogNavigationDecision();
                 PubMapCommandGoalPos();
                 return;
@@ -550,6 +554,7 @@ namespace BehaviorTree {
         msg.armor_type = naviRelativeTargetArmorType;
         msg.aim_mode = naviRelativeTargetAimMode;
         pub_navi_target_rel_->publish(msg);
+        PubNaviSpeedLevel(speedLevel);
     }
 
     /**
@@ -563,11 +568,16 @@ namespace BehaviorTree {
             pub_navi_goal_->publish(msg);
             UpdateNaviExternalStatusGoal(naviCommandGoal, naviGoalPosition);
         }
-        {
-            std_msgs::msg::UInt8 msg;
-            msg.data = speedLevel;
-            pub_navi_speed_level_->publish(msg);
+        PubNaviSpeedLevel(speedLevel);
+    }
+
+    void Application::PubNaviSpeedLevel(const std::uint8_t requested_level) {
+        if (!config.NaviControlSettings.IsPubNaviSpeedLevel || !pub_navi_speed_level_) {
+            return;
         }
+        std_msgs::msg::UInt8 msg;
+        msg.data = NormalizeNaviSpeedLevel(requested_level);
+        pub_navi_speed_level_->publish(msg);
     }
 
     void Application::PubNaviGoalPos() {
@@ -586,10 +596,12 @@ namespace BehaviorTree {
         if (config.NaviSettings.ToNavi && pub_navi_goal_pos_raw_) {
             // 统一由 navi_tf_bridge 输出 /goal_pose，BT 仅发布 raw 点位输入。
             pub_navi_goal_pos_raw_->publish(msg);
+            PubNaviSpeedLevel(speedLevel);
             UpdateNaviExternalStatusGoal(naviCommandGoal, naviGoalPosition);
             return;
         }
         pub_navi_goal_pos_->publish(msg);
+        PubNaviSpeedLevel(speedLevel);
         UpdateNaviExternalStatusGoal(naviCommandGoal, naviGoalPosition);
     }
 
@@ -604,6 +616,7 @@ namespace BehaviorTree {
         // An arbitrary official-map point must not mutate area ownership or
         // the composite GoalReach state used by formal regional tasks.
         pub_navi_goal_pos_raw_->publish(msg);
+        PubNaviSpeedLevel(kNaviSpeedNormal);
     }
 
     bool Application::PubManualOutpostGoalPose(const char* reason) {
@@ -614,6 +627,7 @@ namespace BehaviorTree {
         const auto goal_id = ResolveGoalId(LangYa::BuffOutpost.ID, team, true);
         naviCommandGoal = goal_id;
         naviGoalPosition = AreaManager::GoalPointByBaseId(LangYa::BuffOutpost.ID, team);
+        speedLevel = kNaviSpeedNormal;
 
         geometry_msgs::msg::PoseStamped msg;
         msg.header.stamp = node_->now();
@@ -627,6 +641,7 @@ namespace BehaviorTree {
             msg.pose.position.y,
             msg.pose.position.z);
         pub_navi_goal_pose_->publish(msg);
+        PubNaviSpeedLevel(speedLevel);
         UpdateNaviExternalStatusGoal(naviCommandGoal, naviGoalPosition);
 
         static auto last_manual_goal_log = std::chrono::steady_clock::time_point{};

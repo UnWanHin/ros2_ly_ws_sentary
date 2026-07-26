@@ -12,7 +12,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SCRIPT_NAME="$(basename "$0")"
 
 SOURCE_BT_CONFIG="${SOURCE_BT_CONFIG:-${ROOT_DIR}/src/behavior_tree/Scripts/ConfigJson/regional/debug/armor_patrol_test.json}"
-DEFAULT_NAVI_ROTATE_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/NaviRotateControl.yaml"
+DEFAULT_NAVI_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/Navi.yaml"
 
 USE_NOGATE=1
 OFFLINE_MODE=0
@@ -25,7 +25,7 @@ AREA_LIMIT_ENABLED="${AREA_LIMIT_ENABLED:-false}"
 RESPECT_IS_ROTATE=0
 OUTPUT="${OUTPUT:-screen}"
 TEMP_BT_CONFIG=""
-TEMP_NAVI_ROTATE_CONFIG=""
+TEMP_NAVI_CONFIG=""
 START_ARGS=(--mode regional --no-prompt)
 LAUNCH_ARGS=()
 
@@ -60,8 +60,8 @@ Options:
   --scan [true|false]              Enable gimbal patrol scan when no target. Default: ${SCAN_ENABLED}
   --scan-mode <1|2|3>              PatrolScan.Mode. Default: ${SCAN_MODE}
   --area-limit [true|false]        Enable Chase.AreaLimit. Default: ${AREA_LIMIT_ENABLED}
-  --respect-is-rotate              Use normal NaviRotateControl.yaml and obey /ly/navi/should_rotate.
-  --ignore-is-rotate               Disable NaviRotateControl for this test. Default.
+  --respect-is-rotate              Use normal Navi.yaml and obey /ly/navi/should_rotate.
+  --ignore-is-rotate               Disable Navi control for this test. Default.
   --nogate                         Bypass /ly/game/is_start. Default.
   --with-gate                      Do not bypass /ly/game/is_start.
   --online                         Use real gimbal device config. Default.
@@ -238,18 +238,19 @@ with open(dst, "w", encoding="utf-8") as f:
 PY
 }
 
-make_navi_rotate_config() {
+make_navi_config() {
   if (( RESPECT_IS_ROTATE == 1 )); then
-    TEMP_NAVI_ROTATE_CONFIG="${DEFAULT_NAVI_ROTATE_CONFIG_FILE}"
+    TEMP_NAVI_CONFIG="${DEFAULT_NAVI_CONFIG_FILE}"
     return
   fi
 
-  TEMP_NAVI_ROTATE_CONFIG="$(mktemp /tmp/ly_chase_navi_rotate_XXXXXX.yaml)"
-  cat > "${TEMP_NAVI_ROTATE_CONFIG}" <<'YAML'
+  TEMP_NAVI_CONFIG="$(mktemp /tmp/ly_chase_navi_XXXXXX.yaml)"
+  cat > "${TEMP_NAVI_CONFIG}" <<'YAML'
 behavior_tree:
   ros__parameters:
-    NaviRotateControl:
+    Navi:
       Enable: false
+      Is_pub_navi_speed_level: true
       FreshTimeoutMs: 500
       DefaultIsRotate: true
       ForceFollowModeWhenFalse: false
@@ -264,8 +265,8 @@ cleanup() {
     rm -f "${TEMP_BT_CONFIG}"
   fi
   if (( RESPECT_IS_ROTATE == 0 )) &&
-     [[ -n "${TEMP_NAVI_ROTATE_CONFIG}" && -f "${TEMP_NAVI_ROTATE_CONFIG}" ]]; then
-    rm -f "${TEMP_NAVI_ROTATE_CONFIG}"
+     [[ -n "${TEMP_NAVI_CONFIG}" && -f "${TEMP_NAVI_CONFIG}" ]]; then
+    rm -f "${TEMP_NAVI_CONFIG}"
   fi
 }
 
@@ -419,7 +420,7 @@ cleanup_existing_stack "${CLEANUP_EXISTING}" \
 
 trap cleanup EXIT
 make_bt_config
-make_navi_rotate_config
+make_navi_config
 
 add_launch_arg_if_missing "bt_config_file" "${TEMP_BT_CONFIG}"
 add_launch_arg_if_missing "debug_bypass_is_start" "$([[ "${USE_NOGATE}" == "1" ]] && printf true || printf false)"
@@ -427,7 +428,7 @@ add_launch_arg_if_missing "wait_for_game_start_timeout_sec" "0"
 add_launch_arg_if_missing "competition_profile" "regional"
 add_launch_arg_if_missing "publish_navi_goal" "false"
 add_launch_arg_if_missing "navi_publish_goal_pose" "true"
-add_launch_arg_if_missing "navi_rotate_config_file" "${TEMP_NAVI_ROTATE_CONFIG}"
+add_launch_arg_if_missing "navi_config_file" "${TEMP_NAVI_CONFIG}"
 add_launch_arg_if_missing "output" "${OUTPUT}"
 
 if (( OFFLINE_MODE == 1 )); then
@@ -440,6 +441,6 @@ echo "[INFO] chase output: /ly/navi/target_rel -> /goal_pose" >&2
 echo "[INFO] fire=${FIRE_ENABLED} rotate=${ROTATE_ENABLED} scan=${SCAN_ENABLED} scan_mode=${SCAN_MODE} area_limit=${AREA_LIMIT_ENABLED}" >&2
 echo "[INFO] respect_should_rotate=${RESPECT_IS_ROTATE} source_bt_config=${SOURCE_BT_CONFIG}" >&2
 echo "[INFO] generated bt_config=${TEMP_BT_CONFIG}" >&2
-echo "[INFO] navi_rotate_config=${TEMP_NAVI_ROTATE_CONFIG}" >&2
+echo "[INFO] navi_config=${TEMP_NAVI_CONFIG}" >&2
 
 "${ROOT_DIR}/scripts/launch/start_sentry_all.sh" "${START_ARGS[@]}" -- "${LAUNCH_ARGS[@]}"

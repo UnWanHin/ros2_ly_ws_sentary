@@ -591,8 +591,10 @@ namespace LangYa
         std::string TargetDefaultFrame{"gimbal_world"};
     };
 
-    struct NaviRotateControlSetting {
+    struct NaviControlSetting {
         bool Enable{false};
+        // Publish the selected navigation speed level beside each outgoing navigation command.
+        bool IsPubNaviSpeedLevel{false};
         int FreshTimeoutMs{500};
         bool DefaultIsRotate{true};
         bool ForceFollowModeWhenFalse{true};
@@ -1031,7 +1033,7 @@ namespace LangYa
         NaviSetting NaviSettings{};
         FaceModeSetting FaceModeSettings{};
         ExternalAimSetting ExternalAimSettings{};
-        NaviRotateControlSetting NaviRotateControlSettings{};
+        NaviControlSetting NaviControlSettings{};
         TacticalSetting TacticalSettings{};
         SentryPositionFusionSetting SentryPositionFusionSettings{};
         LeagueStrategySetting LeagueStrategySettings{};

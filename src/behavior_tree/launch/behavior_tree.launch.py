@@ -37,10 +37,10 @@ def generate_launch_description():
         "config",
         "Chase.yaml",
     )
-    default_navi_rotate_config_file = os.path.join(
+    default_navi_config_file = os.path.join(
         behavior_tree_share,
         "config",
-        "NaviRotateControl.yaml",
+        "Navi.yaml",
     )
     default_tactical_config_file = os.path.join(
         behavior_tree_share,
@@ -65,7 +65,7 @@ def generate_launch_description():
     area_manager_config_file = LaunchConfiguration("area_manager_config_file")
     task_config_file = LaunchConfiguration("task_config_file")
     chase_config_file = LaunchConfiguration("chase_config_file")
-    navi_rotate_config_file = LaunchConfiguration("navi_rotate_config_file")
+    navi_config_file = LaunchConfiguration("navi_config_file")
     tactical_config_file = LaunchConfiguration("tactical_config_file")
     patrol_config_file = LaunchConfiguration("patrol_config_file")
     special_config_file = LaunchConfiguration("special_config_file")
@@ -114,9 +114,9 @@ def generate_launch_description():
             description="Regional Chase ownership YAML for behavior_tree.",
         ),
         DeclareLaunchArgument(
-            "navi_rotate_config_file",
-            default_value=default_navi_rotate_config_file,
-            description="External navigation rotate/follow compatibility YAML for behavior_tree.",
+            "navi_config_file",
+            default_value=default_navi_config_file,
+            description="Navigation rotate/follow and speed-level YAML for behavior_tree.",
         ),
         DeclareLaunchArgument(
             "tactical_config_file",
@@ -178,7 +178,7 @@ def generate_launch_description():
         LogInfo(msg=["[behavior_tree] area_manager_config_file: ", area_manager_config_file]),
         LogInfo(msg=["[behavior_tree] task_config_file: ", task_config_file]),
         LogInfo(msg=["[behavior_tree] chase_config_file: ", chase_config_file]),
-        LogInfo(msg=["[behavior_tree] navi_rotate_config_file: ", navi_rotate_config_file]),
+        LogInfo(msg=["[behavior_tree] navi_config_file: ", navi_config_file]),
         LogInfo(msg=["[behavior_tree] tactical_config_file: ", tactical_config_file]),
         LogInfo(msg=["[behavior_tree] patrol_config_file: ", patrol_config_file]),
         LogInfo(msg=["[behavior_tree] special_config_file: ", special_config_file]),
@@ -201,7 +201,7 @@ def generate_launch_description():
                 area_manager_config_file,
                 task_config_file,
                 chase_config_file,
-                navi_rotate_config_file,
+                navi_config_file,
                 tactical_config_file,
                 patrol_config_file,
                 special_config_file,

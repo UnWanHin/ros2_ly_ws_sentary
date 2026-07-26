@@ -23,4 +23,8 @@ Updated: 2026-07-08
 
 `/ly/navi/reached=false` 不能永久否决 BT 的自身坐标距离判断。goal-start grace 之后，如果融合自身坐标已经进入到达半径，BT 可以判定内部 composite reached。正式任务链路现在通过 `GoalReachState` / `/ly/navi/reach_state` 观测和消费这个结果，任务层不应直接消费 raw `/ly/navi/reached`。
 
-`/ly/navi/should_rotate` 由 `src/behavior_tree/config/NaviRotateControl.yaml` 控制是否启用。默认配置中 500 ms 内没有新消息时按 `DefaultIsRotate=true` 处理；新鲜 `true` 会按 `ClearFollowModeWhenTrue=true` 释放 `FollowMode`，但当前 `ClearRegionalFaceModeWhenTrue=false`，Regional 任务的 FaceMode 仍由 BT 自己决定；新鲜 `false` 只在本轮输出强制 `FollowMode`，不会因为旧消息长时间卡住。
+`/ly/navi/should_rotate` 由 `src/behavior_tree/config/Navi.yaml` 的 `Navi.Enable` 控制是否启用。默认配置中 500 ms 内没有新消息时按 `DefaultIsRotate=true` 处理；新鲜 `true` 会按 `ClearFollowModeWhenTrue=true` 释放 `FollowMode`，但当前 `ClearRegionalFaceModeWhenTrue=false`，Regional 任务的 FaceMode 仍由 BT 自己决定；新鲜 `false` 只在本轮输出强制 `FollowMode`，不会因为旧消息长时间卡住。
+
+同一文件的 `Navi.Is_pub_navi_speed_level=true` 会令 BT 对导航命令同时发出
+`/ly/navi/speed_level`（`std_msgs/msg/UInt8`）：`0=停`、`1=正常`、`2=高速`，其他值在
+发布边界改为 `1`。该话题只到外部导航，不经过下位机串口。

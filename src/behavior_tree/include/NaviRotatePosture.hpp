@@ -8,7 +8,7 @@
 namespace BehaviorTree {
 
 inline bool ShouldRequestMovePostureWhenNaviFalse(
-    const LangYa::NaviRotateControlSetting& setting,
+    const LangYa::NaviControlSetting& setting,
     const bool has_received,
     const std::chrono::steady_clock::time_point received_at,
     const std::chrono::steady_clock::time_point now,

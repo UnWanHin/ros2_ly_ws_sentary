@@ -391,7 +391,7 @@ void Application::UpdatePostureCommand(const bool has_target) {
     const bool has_target_recent = has_target || HasRecentTarget();
     auto desired = SelectDesiredPosture(has_target_recent);
     const bool navi_move_override = ShouldRequestMovePostureWhenNaviFalse(
-        config.NaviRotateControlSettings,
+        config.NaviControlSettings,
         hasReceivedNaviIsRotate_,
         lastNaviIsRotateRxTime_,
         now,

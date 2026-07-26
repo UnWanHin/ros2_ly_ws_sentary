@@ -120,7 +120,7 @@ flowchart LR
   REGIONAL --> GOAL[/ly/navi/goal]
   REGIONAL --> RAW[/ly/navi/goal_pos_raw]
   REGIONAL --> REL[/ly/navi/target_rel\n追擊]
-  REGIONAL --> SPEED[/ly/navi/speed_level\n策略檔位原樣發送]
+  REGIONAL --> SPEED[/ly/navi/speed_level\nNavi.yaml 開關；0/1/2]
   RAW --> TF[navi_tf_bridge] --> POSE[/goal_pose]
   REL --> TF
   GOAL --> NAV[外部導航]
@@ -157,12 +157,14 @@ detail 帶 `area_task=<區域> phase=<階段>`；RegionalIdlePatrol 換點時帶
 
 ```mermaid
 flowchart LR
-  LEVEL[BT speedLevel\nUInt8 0/1/...] --> TOPIC[/ly/navi/speed_level] --> EXT[外部導航\n檔位表不在本倉]
+  LEVEL[BT speedLevel\nUInt8 僅 0/1/2] --> TOPIC[/ly/navi/speed_level] --> EXT[外部導航\n檔位表不在本倉]
   RAW_VEL[BT naviVelocity.X/Y] --> SCALE[固定 raw * 0.025\n轉 x_mps/y_mps] --> CONTROL[/ly/control/vel] --> GD[gimbal_driver] --> LOWER[下位機]
 ```
 
-- `speed_level` 不是 `/ly/control/vel` 的乘數，兩條鏈路在 BT 內互相獨立。
-- 目前本倉只確認 BT 發送 `UInt8`；外部導航端 `0/1/2` 對應的限速或倍率未納入本圖，不能在此倉推定。
+- `Navi.yaml` 的 `Navi.Is_pub_navi_speed_level=true` 才啟用 `speed_level` 發布；它不經
+  `gimbal_driver` 或下位機串口。`0=停`、`1=正常`、`2=高速`，其他內部值在發布邊界改為 `1`。
+- Recovery 事件固定申請 `2`；其餘正式導航、追擊、小地圖命令與手動前哨導航為 `1`。`speed_level`
+  不是 `/ly/control/vel` 的乘數，兩條鏈路在 BT 內互相獨立；外部導航的實際限速/倍率仍不在本倉斷言範圍。
 
 ## 4. 姿態選擇與計時來源
 
@@ -238,7 +240,7 @@ flowchart TB
 
 - `src/behavior_tree/Scripts/main.xml`
 - `src/behavior_tree/src/StrategyManager.cpp`、`src/behavior_tree/src/GameLoop.cpp`、`src/behavior_tree/src/FaceModeManager.cpp`、`src/behavior_tree/src/ChasePolicy.cpp`
-- `src/behavior_tree/config/AreaManager.yaml`、`src/behavior_tree/config/Task.yaml`、`src/behavior_tree/config/Chase.yaml`、`src/behavior_tree/config/Special.yaml`
+- `src/behavior_tree/config/AreaManager.yaml`、`src/behavior_tree/config/Navi.yaml`、`src/behavior_tree/config/Task.yaml`、`src/behavior_tree/config/Chase.yaml`、`src/behavior_tree/config/Special.yaml`
 - `src/behavior_tree/src/PostureLogic.cpp`、`src/behavior_tree/src/PostureManager.cpp`
 - `src/behavior_tree/src/PublishMessage.cpp`
 - `src/behavior_tree/Scripts/ConfigJson/regional_competition.json`

@@ -4,8 +4,8 @@
 
 namespace {
 
-LangYa::NaviRotateControlSetting EnabledSetting() {
-    LangYa::NaviRotateControlSetting setting;
+LangYa::NaviControlSetting EnabledSetting() {
+    LangYa::NaviControlSetting setting;
     setting.Enable = true;
     setting.SetPostureToMoveWhenFalse = true;
     setting.FreshTimeoutMs = 500;

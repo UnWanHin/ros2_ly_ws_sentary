@@ -498,11 +498,11 @@ void Application::WriteDecisionTrace(const std::string_view event) noexcept {
         hasReceivedNaviIsRotate_ &&
         lastNaviIsRotateRxTime_.time_since_epoch().count() != 0 &&
         now - lastNaviIsRotateRxTime_ <=
-            std::chrono::milliseconds(config.NaviRotateControlSettings.FreshTimeoutMs);
+            std::chrono::milliseconds(config.NaviControlSettings.FreshTimeoutMs);
     const bool effective_navi_should_rotate =
         navi_should_rotate_fresh
             ? naviIsRotate
-            : config.NaviRotateControlSettings.DefaultIsRotate;
+            : config.NaviControlSettings.DefaultIsRotate;
     const bool enable_chase_to_navi =
         chaseTacticalAllowed_ &&
         config.ChaseSettings.Enable && config.ChaseSettings.ToNavi;

@@ -153,9 +153,13 @@ Regional 任務主要使用這些導航/定位輸入：
 
 `/ly/navi/should_rotate` 是外部導航給 BT 的地形兼容控制信號，類型是 `std_msgs/msg/Bool`。這裡的 `Rotate` 指 `FireCode.Rotate`，也就是下發給下位機的小陀螺檔位/rotate level，不是雲台 yaw 角速度。它只管本輪火控裡的 `FollowMode` 和小陀螺 `Rotate`；目前配置不以它釋放 regional 區域任務 FaceMode，也不負責選導航點、啟動、取消或推進任何 AreaManager task。
 
-配置入口是 `src/behavior_tree/config/NaviRotateControl.yaml`：
+配置入口是 `src/behavior_tree/config/Navi.yaml`：
 
 - `Enable=true` 時啟用這條外部控制鏈。
+- `Is_pub_navi_speed_level=true` 時，BT 對每個固定導航輸出同步發布
+  `/ly/navi/speed_level`。它是外部導航 ROS topic，不經 `gimbal_driver` 或任何串口
+  TypeID；僅定義 `0=停、1=正常、2=高速`，其他內部值發出前一律收斂為 `1`。Recovery
+  事件使用 `2`；普通任務、追擊、小地圖命令與手動前哨導航使用 `1`。
 - `FreshTimeoutMs=500`，超過這個時間沒有新消息時按 `DefaultIsRotate=true` 處理，避免舊的 `false` 長時間卡住底盤。
 - `DefaultIsRotate=true` 表示沒有新鮮信號時回到 BT 正常小陀螺/雲台巡邏策略。
 - `ForceFollowModeWhenFalse=true`：收到新鮮 `false` 時，只在最終下發 `FireCode` 前臨時合併 `FollowMode=1`；這個 bit 不會觸發 BT 停火/停巡航分支。
@@ -352,12 +356,12 @@ Highland(FollowMode bit + optional FaceMode + explicit stop-fire)
   -> 完成
 ```
 
-上面的 `FollowMode bit / FaceMode / stop-fire` 是三個獨立輸出。正式配置裡 `NaviRotateControl.Enable=true` 時，進出 Highland 時實際是否停小陀螺主要由外部導航的 `/ly/navi/should_rotate` 決定。
+上面的 `FollowMode bit / FaceMode / stop-fire` 是三個獨立輸出。正式配置裡 `Navi.Enable=true` 時，進出 Highland 時實際是否停小陀螺主要由外部導航的 `/ly/navi/should_rotate` 決定。
 
 進入 Highland 和離開 Highland 時：
 
-- 若未啟用 `NaviRotateControl`，AreaTask 可按結果寫 `FollowMode`；
-- 若啟用 `NaviRotateControl`，AreaTask 不直接寫 `FollowMode`，由 `/ly/navi/should_rotate=false` 觸發；
+- 若未啟用 `Navi.Enable`，AreaTask 可按結果寫 `FollowMode`；
+- 若啟用 `Navi.Enable`，AreaTask 不直接寫 `FollowMode`，由 `/ly/navi/should_rotate=false` 觸發；
 - 如果 `MyHighland.UseFaceMode=true`，才會發布 regional FaceMode 目標；
 - 兼容 phase 仍會停火。
 

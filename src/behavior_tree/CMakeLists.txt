@@ -277,6 +277,11 @@ if(BUILD_TESTING)
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
   )
+  ament_add_gtest(test_navi_speed_level test/test_navi_speed_level.cpp)
+  target_include_directories(test_navi_speed_level PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
+  )
   ament_add_gtest(test_damage_rotate_policy test/test_damage_rotate_policy.cpp)
   target_include_directories(test_damage_rotate_policy PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

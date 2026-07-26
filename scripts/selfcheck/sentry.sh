@@ -636,6 +636,52 @@ PY
   fi
 }
 
+check_navi_config_contract() {
+  if python3 - "${ROOT_DIR}" <<'PY'
+from pathlib import Path
+import sys
+import yaml
+
+root = Path(sys.argv[1])
+navi_path = root / "src/behavior_tree/config/Navi.yaml"
+if not navi_path.is_file():
+    raise SystemExit("Navi.yaml is missing")
+
+params = yaml.safe_load(navi_path.read_text(encoding="utf-8"))
+navi = params.get("behavior_tree", {}).get("ros__parameters", {}).get("Navi")
+if not isinstance(navi, dict):
+    raise SystemExit("Navi.yaml lacks behavior_tree.ros__parameters.Navi")
+if not isinstance(navi.get("Is_pub_navi_speed_level"), bool):
+    raise SystemExit("Navi.yaml lacks boolean Navi.Is_pub_navi_speed_level")
+
+configuration = (root / "src/behavior_tree/src/Configuration.cpp").read_text(encoding="utf-8")
+publisher = (root / "src/behavior_tree/src/PublishMessage.cpp").read_text(encoding="utf-8")
+formal_launch = (root / "src/behavior_tree/launch/sentry_all.launch.py").read_text(encoding="utf-8")
+for token in (
+    '"Navi.Is_pub_navi_speed_level"',
+    "config.NaviControlSettings.IsPubNaviSpeedLevel",
+):
+    if token not in configuration and token not in publisher:
+        raise SystemExit(f"BT does not consume Navi speed-level config: {token}")
+for token in (
+    "void Application::PubNaviSpeedLevel",
+    "NormalizeNaviSpeedLevel(requested_level)",
+    "PubNaviSpeedLevel(speedLevel)",
+    "PubNaviSpeedLevel(kNaviSpeedNormal)",
+):
+    if token not in publisher:
+        raise SystemExit(f"BT speed-level publication is incomplete: {token}")
+for token in ('"Navi.yaml"', '"navi_config_file"'):
+    if token not in formal_launch:
+        raise SystemExit(f"formal launch does not load Navi.yaml: {token}")
+PY
+  then
+    pass "Navi.yaml speed-level YAML-to-navigation-output contract"
+  else
+    return
+  fi
+}
+
 trim_text() {
   local text="$1"
   text="${text#"${text%%[![:space:]]*}"}"
@@ -994,6 +1040,7 @@ if (( RUNTIME_ONLY == 0 )); then
   check_file_exists "${ROOT_DIR}/src/gimbal_driver/config/gimbal_driver_config.yaml"
   check_file_exists "${ROOT_DIR}/src/gimbal_driver/config/debug_mode.yaml"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/config/AreaManager.yaml"
+  check_file_exists "${ROOT_DIR}/src/behavior_tree/config/Navi.yaml"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/config/Tactical.yaml"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/config/Special.yaml"
   check_file_exists "${ROOT_DIR}/config/base_config.yaml"
@@ -1108,6 +1155,7 @@ if (( RUNTIME_ONLY == 0 )); then
   fi
 
   check_gimbal_debug_profile_contract
+  check_navi_config_contract
   check_area_manager_enable_contract
   check_tactical_protection_enable_contract
 fi

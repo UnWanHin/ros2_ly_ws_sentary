@@ -699,8 +699,10 @@ namespace LangYa {
         ea.TargetDefaultFrame = j.value("TargetDefaultFrame", ea.TargetDefaultFrame);
     }
 
-    void from_json(const json& j, NaviRotateControlSetting& nr) {
+    void from_json(const json& j, NaviControlSetting& nr) {
         nr.Enable = j.value("Enable", nr.Enable);
+        nr.IsPubNaviSpeedLevel = j.value(
+            "Is_pub_navi_speed_level", nr.IsPubNaviSpeedLevel);
         nr.FreshTimeoutMs = j.value("FreshTimeoutMs", nr.FreshTimeoutMs);
         nr.DefaultIsRotate = j.value("DefaultIsRotate", nr.DefaultIsRotate);
         nr.ForceFollowModeWhenFalse = j.value("ForceFollowModeWhenFalse", nr.ForceFollowModeWhenFalse);
@@ -1199,8 +1201,8 @@ namespace LangYa {
         if (j.contains("ExternalAim")) {
             j.at("ExternalAim").get_to(c.ExternalAimSettings);
         }
-        if (j.contains("NaviRotateControl")) {
-            j.at("NaviRotateControl").get_to(c.NaviRotateControlSettings);
+        if (j.contains("Navi")) {
+            j.at("Navi").get_to(c.NaviControlSettings);
         }
         if (j.contains("SentryPositionFusion")) {
             j.at("SentryPositionFusion").get_to(c.SentryPositionFusionSettings);
@@ -1700,62 +1702,69 @@ namespace BehaviorTree {
         }
     }
 
-    void Application::ApplyNaviRotateControlParameterOverrides() {
-        auto& setting = config.NaviRotateControlSettings;
+    void Application::ApplyNaviControlParameterOverrides() {
+        auto& setting = config.NaviControlSettings;
         ReadOptionalBoolParam(
             node_,
             {
-                "NaviRotateControl.Enable",
-                "NaviRotateControl/Enable"
+                "Navi.Enable",
+                "Navi/Enable"
             },
             setting.Enable);
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "Navi.Is_pub_navi_speed_level",
+                "Navi/Is_pub_navi_speed_level"
+            },
+            setting.IsPubNaviSpeedLevel);
         ReadOptionalIntParam(
             node_,
             {
-                "NaviRotateControl.FreshTimeoutMs",
-                "NaviRotateControl/FreshTimeoutMs"
+                "Navi.FreshTimeoutMs",
+                "Navi/FreshTimeoutMs"
             },
             setting.FreshTimeoutMs);
         ReadOptionalBoolParam(
             node_,
             {
-                "NaviRotateControl.DefaultIsRotate",
-                "NaviRotateControl/DefaultIsRotate"
+                "Navi.DefaultIsRotate",
+                "Navi/DefaultIsRotate"
             },
             setting.DefaultIsRotate);
         ReadOptionalBoolParam(
             node_,
             {
-                "NaviRotateControl.ForceFollowModeWhenFalse",
-                "NaviRotateControl/ForceFollowModeWhenFalse"
+                "Navi.ForceFollowModeWhenFalse",
+                "Navi/ForceFollowModeWhenFalse"
             },
             setting.ForceFollowModeWhenFalse);
         ReadOptionalBoolParam(
             node_,
             {
-                "NaviRotateControl.ClearFollowModeWhenTrue",
-                "NaviRotateControl/ClearFollowModeWhenTrue"
+                "Navi.ClearFollowModeWhenTrue",
+                "Navi/ClearFollowModeWhenTrue"
             },
             setting.ClearFollowModeWhenTrue);
         ReadOptionalBoolParam(
             node_,
             {
-                "NaviRotateControl.ClearRegionalFaceModeWhenTrue",
-                "NaviRotateControl/ClearRegionalFaceModeWhenTrue"
+                "Navi.ClearRegionalFaceModeWhenTrue",
+                "Navi/ClearRegionalFaceModeWhenTrue"
             },
             setting.ClearRegionalFaceModeWhenTrue);
         ReadOptionalBoolParam(
             node_,
             {
-                "NaviRotateControl.StopRotateWhenFalse",
-                "NaviRotateControl/StopRotateWhenFalse"
+                "Navi.StopRotateWhenFalse",
+                "Navi/StopRotateWhenFalse"
             },
             setting.StopRotateWhenFalse);
         ReadOptionalBoolParam(
             node_,
             {
-                "NaviRotateControl.SetPostureToMoveWhenFalse",
-                "NaviRotateControl/SetPostureToMoveWhenFalse"
+                "Navi.SetPostureToMoveWhenFalse",
+                "Navi/SetPostureToMoveWhenFalse"
             },
             setting.SetPostureToMoveWhenFalse);
     }
@@ -2250,7 +2259,7 @@ namespace BehaviorTree {
             config.DecisionAutonomySettings.NaviGoal);
         ApplySpecialParameterOverrides();
         ApplyStartGateParameterOverrides();
-        ApplyNaviRotateControlParameterOverrides();
+        ApplyNaviControlParameterOverrides();
         ApplyTacticalParameterOverrides();
         ApplyPatrolScanParameterOverrides();
         ApplyFaceModeParameterOverrides();
@@ -2387,15 +2396,16 @@ namespace BehaviorTree {
         LoggerPtr->Debug("UseTargetArrayAsArmorList: {}", config.ExternalAimSettings.UseTargetArrayAsArmorList);
         LoggerPtr->Debug("PublishSelectTarget: {}", config.ExternalAimSettings.PublishSelectTarget);
         LoggerPtr->Debug("TargetDefaultFrame: {}", config.ExternalAimSettings.TargetDefaultFrame);
-        LoggerPtr->Debug("------ NaviRotateControl ------");
-        LoggerPtr->Debug("Enable: {}", config.NaviRotateControlSettings.Enable);
-        LoggerPtr->Debug("FreshTimeoutMs: {}", config.NaviRotateControlSettings.FreshTimeoutMs);
-        LoggerPtr->Debug("DefaultIsRotate: {}", config.NaviRotateControlSettings.DefaultIsRotate);
-        LoggerPtr->Debug("ForceFollowModeWhenFalse: {}", config.NaviRotateControlSettings.ForceFollowModeWhenFalse);
-        LoggerPtr->Debug("ClearFollowModeWhenTrue: {}", config.NaviRotateControlSettings.ClearFollowModeWhenTrue);
-        LoggerPtr->Debug("ClearRegionalFaceModeWhenTrue: {}", config.NaviRotateControlSettings.ClearRegionalFaceModeWhenTrue);
-        LoggerPtr->Debug("StopRotateWhenFalse: {}", config.NaviRotateControlSettings.StopRotateWhenFalse);
-        LoggerPtr->Debug("SetPostureToMoveWhenFalse: {}", config.NaviRotateControlSettings.SetPostureToMoveWhenFalse);
+        LoggerPtr->Debug("------ Navi ------");
+        LoggerPtr->Debug("Enable: {}", config.NaviControlSettings.Enable);
+        LoggerPtr->Debug("Is_pub_navi_speed_level: {}", config.NaviControlSettings.IsPubNaviSpeedLevel);
+        LoggerPtr->Debug("FreshTimeoutMs: {}", config.NaviControlSettings.FreshTimeoutMs);
+        LoggerPtr->Debug("DefaultIsRotate: {}", config.NaviControlSettings.DefaultIsRotate);
+        LoggerPtr->Debug("ForceFollowModeWhenFalse: {}", config.NaviControlSettings.ForceFollowModeWhenFalse);
+        LoggerPtr->Debug("ClearFollowModeWhenTrue: {}", config.NaviControlSettings.ClearFollowModeWhenTrue);
+        LoggerPtr->Debug("ClearRegionalFaceModeWhenTrue: {}", config.NaviControlSettings.ClearRegionalFaceModeWhenTrue);
+        LoggerPtr->Debug("StopRotateWhenFalse: {}", config.NaviControlSettings.StopRotateWhenFalse);
+        LoggerPtr->Debug("SetPostureToMoveWhenFalse: {}", config.NaviControlSettings.SetPostureToMoveWhenFalse);
         LoggerPtr->Debug("------ Tactical ------");
         LoggerPtr->Debug("ProtectCastle.Enable: {}", config.TacticalSettings.ProtectCastle.Enable);
         LoggerPtr->Debug("ProtectCastle.Base: {}", config.TacticalSettings.ProtectCastle.Base);
@@ -2921,11 +2931,11 @@ namespace BehaviorTree {
             LoggerPtr->Warning("ExternalAim.TargetDefaultFrame is empty, fallback to gimbal_world.");
             config.ExternalAimSettings.TargetDefaultFrame = "gimbal_world";
         }
-        if (config.NaviRotateControlSettings.FreshTimeoutMs <= 0) {
+        if (config.NaviControlSettings.FreshTimeoutMs <= 0) {
             LoggerPtr->Warning(
-                "Invalid NaviRotateControl.FreshTimeoutMs={}, fallback to 500.",
-                config.NaviRotateControlSettings.FreshTimeoutMs);
-            config.NaviRotateControlSettings.FreshTimeoutMs = 500;
+                "Invalid Navi.FreshTimeoutMs={}, fallback to 500.",
+                config.NaviControlSettings.FreshTimeoutMs);
+            config.NaviControlSettings.FreshTimeoutMs = 500;
         }
         auto& damage_rotate = config.TacticalSettings.DamageRotate;
         damage_rotate.DefaultGear = ClampRotateGear(damage_rotate.DefaultGear);

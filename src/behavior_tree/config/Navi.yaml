@@ -1,6 +1,9 @@
 behavior_tree:
   ros__parameters:
-    NaviRotateControl:
+    Navi:
+      # 速度档是导航 ROS topic，不经过 gimbal_driver 或下位机串口。
+      # 0=停、1=正常、2=高速；BT 对其他值统一按 1 发布。
+      Is_pub_navi_speed_level: true
       # 外部导航通过 /ly/navi/should_rotate 控制最终控制码；可选地在新鲜 false 时请求 Move 姿态。
       Enable: true  # 是否采纳导航 should_rotate；false 时完全使用 BT 自己的旋转策略。
       FreshTimeoutMs: 500  # 导航旋转指令的新鲜度（毫秒）；超时后按 DefaultIsRotate。

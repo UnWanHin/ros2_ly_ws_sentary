@@ -939,14 +939,14 @@ namespace BehaviorTree {
         bool navi_rotate_control_stop_request = false;
         bool navi_rotate_control_release_request = false;
         bool navi_rotate_control_follow_output = false;
-        if (config.NaviRotateControlSettings.Enable) {
-            bool external_is_rotate = config.NaviRotateControlSettings.DefaultIsRotate;
+        if (config.NaviControlSettings.Enable) {
+            bool external_is_rotate = config.NaviControlSettings.DefaultIsRotate;
             const auto rotate_control_now = std::chrono::steady_clock::now();
             const bool external_is_rotate_fresh =
                 hasReceivedNaviIsRotate_ &&
                 lastNaviIsRotateRxTime_.time_since_epoch().count() != 0 &&
                 rotate_control_now - lastNaviIsRotateRxTime_ <=
-                    std::chrono::milliseconds(config.NaviRotateControlSettings.FreshTimeoutMs);
+                    std::chrono::milliseconds(config.NaviControlSettings.FreshTimeoutMs);
             if (external_is_rotate_fresh) {
                 external_is_rotate = naviIsRotate;
             }
@@ -954,10 +954,10 @@ namespace BehaviorTree {
             navi_rotate_control_release_request =
                 external_is_rotate_fresh &&
                 external_is_rotate &&
-                config.NaviRotateControlSettings.ClearFollowModeWhenTrue;
+                config.NaviControlSettings.ClearFollowModeWhenTrue;
             if (!navi_rotate_control_release_request &&
                 navi_rotate_control_stop_request &&
-                config.NaviRotateControlSettings.ForceFollowModeWhenFalse) {
+                config.NaviControlSettings.ForceFollowModeWhenFalse) {
                 navi_rotate_control_follow_output = true;
             }
         }
@@ -1050,7 +1050,7 @@ namespace BehaviorTree {
             gimbalControlData.FireCode.Rotate = 3;
         }
         if (navi_rotate_control_stop_request &&
-            config.NaviRotateControlSettings.StopRotateWhenFalse) {
+            config.NaviControlSettings.StopRotateWhenFalse) {
             gimbalControlData.FireCode.Rotate = 0;
         }
         gimbalControlData.FireCode.Rotate = ResolveRotateGearWithFollowPriority(
@@ -1109,7 +1109,7 @@ namespace BehaviorTree {
             config.PatrolScanSettings,
             visual_target_has_face_priority,
             navi_rotate_control_release_request,
-            config.NaviRotateControlSettings.ClearRegionalFaceModeWhenTrue,
+            config.NaviControlSettings.ClearRegionalFaceModeWhenTrue,
             now);
         lastFaceModeDecision_ = face_mode_decision;
         const bool face_mode_requested = face_mode_decision.Requested;
@@ -3089,7 +3089,7 @@ namespace BehaviorTree {
 
     void Application::ApplyRegionalAreaTaskControl(const RegionalAreaTaskTickResult& result) {
         (void)faceModeManager_.RequestRegionalTask(result, pub_face_mode_target_raw_);
-        if (!config.NaviRotateControlSettings.Enable) {
+        if (!config.NaviControlSettings.Enable) {
             gimbalControlData.FireCode.FollowMode = result.FollowMode ? 1 : 0;
         }
         if (result.SuppressFire) {
@@ -4751,7 +4751,7 @@ namespace BehaviorTree {
                 };
                 naviGoalPublishAllowed_ = true;
                 naviCommandIntervalClock.reset(Seconds{1});
-                speedLevel = 0;
+                speedLevel = 1;
                 UpdateNaviProgressWatchdogGoal(target_base_goal, my_team, apply_team_offset);
                 specialPatrolHoldActive_ = false;
                 if (LoggerPtr) {
@@ -5619,7 +5619,7 @@ namespace BehaviorTree {
                     runtime.ApplyTeamOffset == apply_team_offset &&
                     TickNaviAreaTransition()) {
                     naviCommandIntervalClock.reset(Seconds{1});
-                    speedLevel = 1;
+                    speedLevel = 2;
                     return true;
                 }
             }
@@ -5630,12 +5630,12 @@ namespace BehaviorTree {
                     apply_team_offset,
                     reason)) {
                 naviCommandIntervalClock.reset(Seconds{1});
-                speedLevel = 1;
+                speedLevel = 2;
                 return true;
             }
             SetPositionByBaseGoal(LangYa::Recovery.ID, MyTeam, apply_team_offset);
             naviCommandIntervalClock.reset(Seconds{1});
-            speedLevel = 1;
+            speedLevel = 2;
             return true;
         };
         if (IsLeagueProfile()) {
@@ -5826,7 +5826,7 @@ namespace BehaviorTree {
             naviCommandGoal = recovery_goal_id;
             naviGoalPosition = point;
             naviGoalPublishAllowed_ = true;
-            speedLevel = 1;
+            speedLevel = 2;
             UpdateNaviProgressWatchdogGoal(LangYa::Recovery.ID, MyTeam, apply_team_offset);
             naviCommandIntervalClock.reset(Seconds{1});
             if (changed) {
@@ -5865,7 +5865,7 @@ namespace BehaviorTree {
                         runtime.ApplyTeamOffset == apply_team_offset &&
                         TickNaviAreaTransition()) {
                         naviCommandIntervalClock.reset(Seconds{1});
-                        speedLevel = 1;
+                        speedLevel = 2;
                         return true;
                     }
                 }
@@ -5877,7 +5877,7 @@ namespace BehaviorTree {
                         apply_team_offset,
                         "regional_recovery")) {
                     naviCommandIntervalClock.reset(Seconds{1});
-                    speedLevel = 1;
+                    speedLevel = 2;
                     return true;
                 }
             }

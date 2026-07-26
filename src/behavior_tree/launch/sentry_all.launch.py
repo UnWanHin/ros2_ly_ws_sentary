@@ -363,7 +363,7 @@ def generate_launch_description():
     default_area_manager_config_file = os.path.join(behavior_tree_config_root, "AreaManager.yaml")
     default_task_config_file = os.path.join(behavior_tree_config_root, "Task.yaml")
     default_chase_config_file = os.path.join(behavior_tree_config_root, "Chase.yaml")
-    default_navi_rotate_config_file = os.path.join(behavior_tree_config_root, "NaviRotateControl.yaml")
+    default_navi_config_file = os.path.join(behavior_tree_config_root, "Navi.yaml")
     default_tactical_config_file = os.path.join(behavior_tree_config_root, "Tactical.yaml")
     default_patrol_config_file = os.path.join(behavior_tree_config_root, "Patrol.yaml")
     default_special_config_file = os.path.join(behavior_tree_config_root, "Special.yaml")
@@ -373,7 +373,7 @@ def generate_launch_description():
     area_manager_config_file = LaunchConfiguration("area_manager_config_file")
     task_config_file = LaunchConfiguration("task_config_file")
     chase_config_file = LaunchConfiguration("chase_config_file")
-    navi_rotate_config_file = LaunchConfiguration("navi_rotate_config_file")
+    navi_config_file = LaunchConfiguration("navi_config_file")
     tactical_config_file = LaunchConfiguration("tactical_config_file")
     patrol_config_file = LaunchConfiguration("patrol_config_file")
     special_config_file = LaunchConfiguration("special_config_file")
@@ -507,9 +507,9 @@ def generate_launch_description():
             description="Regional Chase ownership YAML for behavior_tree.",
         ),
         DeclareLaunchArgument(
-            "navi_rotate_config_file",
-            default_value=default_navi_rotate_config_file,
-            description="External navigation rotate/follow compatibility YAML for behavior_tree.",
+            "navi_config_file",
+            default_value=default_navi_config_file,
+            description="Navigation rotate/follow and speed-level YAML for behavior_tree.",
         ),
         DeclareLaunchArgument(
             "tactical_config_file",
@@ -787,7 +787,7 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] area_manager_config: ", area_manager_config_file]),
         LogInfo(msg=["[sentry_all] task_config: ", task_config_file]),
         LogInfo(msg=["[sentry_all] chase_config: ", chase_config_file]),
-        LogInfo(msg=["[sentry_all] navi_rotate_config: ", navi_rotate_config_file]),
+        LogInfo(msg=["[sentry_all] navi_config: ", navi_config_file]),
         LogInfo(msg=["[sentry_all] tactical_config: ", tactical_config_file]),
         LogInfo(msg=["[sentry_all] patrol_config: ", patrol_config_file]),
         LogInfo(msg=["[sentry_all] special_config: ", special_config_file]),
@@ -1032,7 +1032,7 @@ def generate_launch_description():
                 area_manager_config_file,
                 task_config_file,
                 chase_config_file,
-                navi_rotate_config_file,
+                navi_config_file,
                 tactical_config_file,
                 patrol_config_file,
                 special_config_file,

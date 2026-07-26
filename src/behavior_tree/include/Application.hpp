@@ -814,6 +814,7 @@ public:
     void PubNaviGoal();
     void PubNaviGoalPos();
     void PubMapCommandGoalPos();
+    void PubNaviSpeedLevel(std::uint8_t requested_level);
     void PubNaviReachState();
     bool PubManualOutpostGoalPose(const char* reason);
     void PubFriendInfo();
@@ -1064,7 +1065,7 @@ public:
     void ApplyAreaManagerParameterOverrides();
     void ApplySpecialParameterOverrides();
     void ApplyStartGateParameterOverrides();
-    void ApplyNaviRotateControlParameterOverrides();
+    void ApplyNaviControlParameterOverrides();
     void ApplyTacticalParameterOverrides();
     void ApplyPatrolScanParameterOverrides();
     void ApplyFaceModeParameterOverrides();
