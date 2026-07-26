@@ -150,11 +150,65 @@ bool FaceModeManager::StartGateOutpostSolutionReady(
     const std::uint32_t target_update_count,
     const std::uint32_t target_update_count_floor,
     const bool face_mode_angles_fresh) noexcept {
-    return status_fresh &&
-           solver_function &&
-           !manual_target &&
-           target_update_count > target_update_count_floor &&
-           face_mode_angles_fresh;
+    return DiagnoseStartGateOutpostSolution(
+               true,
+               status_fresh,
+               solver_function,
+               manual_target,
+               target_update_count,
+               target_update_count_floor,
+               face_mode_angles_fresh) == StartGateOutpostReadiness::Ready;
+}
+
+FaceModeManager::StartGateOutpostReadiness
+FaceModeManager::DiagnoseStartGateOutpostSolution(
+    const bool status_received,
+    const bool status_fresh,
+    const bool solver_function,
+    const bool manual_target,
+    const std::uint32_t target_update_count,
+    const std::uint32_t target_update_count_floor,
+    const bool face_mode_angles_fresh) noexcept {
+    if (!status_received) {
+        return StartGateOutpostReadiness::StatusMissing;
+    }
+    if (!status_fresh) {
+        return StartGateOutpostReadiness::StatusStale;
+    }
+    if (!solver_function) {
+        return StartGateOutpostReadiness::SolverFunctionDisabled;
+    }
+    if (manual_target) {
+        return StartGateOutpostReadiness::ManualTarget;
+    }
+    if (target_update_count <= target_update_count_floor) {
+        return StartGateOutpostReadiness::TargetNotUpdated;
+    }
+    if (!face_mode_angles_fresh) {
+        return StartGateOutpostReadiness::AnglesNotFresh;
+    }
+    return StartGateOutpostReadiness::Ready;
+}
+
+const char* FaceModeManager::StartGateOutpostReadinessName(
+    const StartGateOutpostReadiness readiness) noexcept {
+    switch (readiness) {
+    case StartGateOutpostReadiness::Ready:
+        return "accepted";
+    case StartGateOutpostReadiness::StatusMissing:
+        return "solver_status_missing";
+    case StartGateOutpostReadiness::StatusStale:
+        return "solver_status_stale";
+    case StartGateOutpostReadiness::SolverFunctionDisabled:
+        return "solver_function_false";
+    case StartGateOutpostReadiness::ManualTarget:
+        return "solver_manual_target";
+    case StartGateOutpostReadiness::TargetNotUpdated:
+        return "target_generation_not_advanced";
+    case StartGateOutpostReadiness::AnglesNotFresh:
+        return "angles_missing_or_stale";
+    }
+    return "unknown";
 }
 
 bool FaceModeManager::RequestRegionalTask(

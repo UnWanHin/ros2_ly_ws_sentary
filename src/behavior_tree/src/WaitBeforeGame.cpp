@@ -5,12 +5,30 @@
 #include "../include/Application.hpp"
 #include <algorithm>
 #include <cmath>
+#include <optional>
 
 using namespace LangYa;
 
 namespace BehaviorTree {
     namespace {
     constexpr float kGatePatrolTwoPi = 6.2831853071795864769f;
+
+    struct GateFaceModeLogState {
+        bool TargetPublish{false};
+        bool Active{false};
+        bool Fallback{false};
+        bool StatusReceived{false};
+        bool StatusFresh{false};
+        bool Function{false};
+        bool ManualTarget{false};
+        bool TargetAdvanced{false};
+        bool AnglesFresh{false};
+        bool AnglesAvailable{false};
+        FaceModeManager::StartGateOutpostReadiness Readiness{
+            FaceModeManager::StartGateOutpostReadiness::StatusMissing};
+
+        bool operator==(const GateFaceModeLogState&) const = default;
+    };
 
     float NormalizeGatePatrolAngleNear(const float angle, const float reference) {
         return reference + static_cast<float>(std::remainder(angle - reference, 360.0f));
@@ -49,6 +67,8 @@ namespace BehaviorTree {
         float gate_patrol_phase_rad = 0.0f;
         bool gate_face_mode_target_generation_initialized = false;
         std::uint32_t gate_face_mode_target_generation_floor = 0;
+        std::optional<GateFaceModeLogState> last_gate_face_mode_log_state;
+        bool gate_face_mode_disabled_logged = false;
         bool bypass_logged = false;
         const bool gate_gimbal_patrol_enabled =
             config.StartGateSettings.AllowGimbalPatrolBeforeStart &&
@@ -121,7 +141,7 @@ namespace BehaviorTree {
                     faceModeManager_.BeginCycle();
                     const auto enemy_team =
                         team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
-                    (void)faceModeManager_.RequestStartGateOutpost(
+                    const bool face_mode_target_published = faceModeManager_.RequestStartGateOutpost(
                         enemy_team,
                         pub_face_mode_target_raw_);
                     const auto face_mode_decision = faceModeManager_.Resolve(
@@ -139,14 +159,17 @@ namespace BehaviorTree {
                         now_steady - faceModeSolverStatus.LastRx <=
                             std::chrono::milliseconds(
                                 config.StartGateSettings.FaceModeStatusFreshMs);
-                    const bool solver_accepts_start_gate_target =
-                        FaceModeManager::StartGateOutpostSolutionReady(
+                    const auto solver_readiness =
+                        FaceModeManager::DiagnoseStartGateOutpostSolution(
+                            faceModeSolverStatus.Received,
                             status_fresh,
                             faceModeSolverStatus.Function,
                             faceModeSolverStatus.ManualTarget,
                             faceModeSolverStatus.TargetUpdateCount,
                             gate_face_mode_target_generation_floor,
                             faceModeData.Fresh);
+                    const bool solver_accepts_start_gate_target =
+                        solver_readiness == FaceModeManager::StartGateOutpostReadiness::Ready;
                     // StartGate face_mode_outpost has an explicit safety contract: if
                     // there is no usable fixed-target angle, always scan the configured
                     // outpost fallback. It intentionally does not inherit the generic
@@ -154,6 +177,43 @@ namespace BehaviorTree {
                     start_gate_face_mode_active =
                         face_mode_decision.Angles.has_value() && solver_accepts_start_gate_target;
                     start_gate_face_mode_fallback = !start_gate_face_mode_active;
+                    const char* outcome = start_gate_face_mode_active
+                        ? "accepted"
+                        : (solver_accepts_start_gate_target
+                            ? "angles_unavailable"
+                            : FaceModeManager::StartGateOutpostReadinessName(solver_readiness));
+                    const GateFaceModeLogState log_state{
+                        face_mode_target_published,
+                        start_gate_face_mode_active,
+                        start_gate_face_mode_fallback,
+                        faceModeSolverStatus.Received,
+                        status_fresh,
+                        faceModeSolverStatus.Function,
+                        faceModeSolverStatus.ManualTarget,
+                        faceModeSolverStatus.TargetUpdateCount > gate_face_mode_target_generation_floor,
+                        faceModeData.Fresh,
+                        face_mode_decision.Angles.has_value(),
+                        solver_readiness};
+                    if (!last_gate_face_mode_log_state ||
+                        log_state != *last_gate_face_mode_log_state) {
+                        LoggerPtr->Info(
+                            "StartGate FaceMode: source=start_gate requested=1 target_publish={} active={} "
+                            "fallback=patrol_mode_{} outcome={} status(received={} fresh={} function={} "
+                            "manual={} target_updates={} floor={}) angles(fresh={} available={}).",
+                            face_mode_target_published ? 1 : 0,
+                            start_gate_face_mode_active ? 1 : 0,
+                            config.PatrolScanSettings.OutpostFaceModeFallbackMode,
+                            outcome,
+                            faceModeSolverStatus.Received ? 1 : 0,
+                            status_fresh ? 1 : 0,
+                            faceModeSolverStatus.Function ? 1 : 0,
+                            faceModeSolverStatus.ManualTarget ? 1 : 0,
+                            faceModeSolverStatus.TargetUpdateCount,
+                            gate_face_mode_target_generation_floor,
+                            faceModeData.Fresh ? 1 : 0,
+                            face_mode_decision.Angles.has_value() ? 1 : 0);
+                        last_gate_face_mode_log_state = log_state;
+                    }
                     if (start_gate_face_mode_active) {
                         gimbalControlData.GimbalAngles =
                             face_mode_decision.Angles.value_or(gimbalAngles);
@@ -162,6 +222,13 @@ namespace BehaviorTree {
                     // A selected FaceMode strategy without its solver enabled must not leave
                     // the opening gimbal idle; use the configured patrol fallback instead.
                     start_gate_face_mode_fallback = true;
+                    if (!gate_face_mode_disabled_logged) {
+                        LoggerPtr->Info(
+                            "StartGate FaceMode: source=start_gate requested=0 active=0 "
+                            "fallback=patrol_mode_{} outcome=face_mode_disabled.",
+                            config.PatrolScanSettings.OutpostFaceModeFallbackMode);
+                        gate_face_mode_disabled_logged = true;
+                    }
                 }
                 // CacheAngles marks a callback fresh for one control cycle. LastValidTime
                 // remains available for the configured LostTargetHoldMs window.

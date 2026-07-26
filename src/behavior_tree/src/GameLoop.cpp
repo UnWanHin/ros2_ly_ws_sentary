@@ -42,6 +42,20 @@ namespace BehaviorTree {
     // 丢 1~2 帧时保留锁角，避免抖动；时间过长会让云台“粘住旧目标”。
     constexpr auto kLostTargetHold = std::chrono::milliseconds(200);
 
+    struct FaceModeRuntimeLogState {
+        FaceModeManager::Source Source{FaceModeManager::Source::None};
+        int Phase{0};
+        bool Requested{false};
+        bool Active{false};
+        bool Fallback{false};
+        bool AnglesAvailable{false};
+        bool SuppressFire{false};
+        bool VisualPriority{false};
+        bool NavigationRelease{false};
+
+        bool operator==(const FaceModeRuntimeLogState&) const = default;
+    };
+
     std::string NormalizeConfigToken(std::string value) {
         std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
             if (c == '-' || c == ' ') {
@@ -1123,6 +1137,68 @@ namespace BehaviorTree {
             patrolScanCenterInitialized_ = false;
             patrolScanActiveMode_ = 0;
         };
+        const auto face_mode_source_name = [](const FaceModeManager::Source source) {
+            switch (source) {
+            case FaceModeManager::Source::Regional:
+                return "regional";
+            case FaceModeManager::Source::Buff:
+                return "buff";
+            case FaceModeManager::Source::Outpost:
+                return "outpost";
+            case FaceModeManager::Source::StartGate:
+                return "start_gate";
+            case FaceModeManager::Source::None:
+                return "none";
+            }
+            return "unknown";
+        };
+        const bool navigation_releases_regional_face_mode =
+            navi_rotate_control_release_request &&
+            config.NaviControlSettings.ClearRegionalFaceModeWhenTrue &&
+            face_mode_decision.RequestSource == FaceModeManager::Source::Regional;
+        const char* face_mode_outcome = "not_requested";
+        if (face_mode_active) {
+            face_mode_outcome = "accepted";
+        } else if (!face_mode_requested &&
+                   face_mode_decision.RequestSource != FaceModeManager::Source::None &&
+                   !config.FaceModeSettings.Enable) {
+            face_mode_outcome = "face_mode_disabled";
+        } else if (visual_target_has_face_priority) {
+            face_mode_outcome = "visual_target_priority";
+        } else if (navigation_releases_regional_face_mode) {
+            face_mode_outcome = "navigation_release";
+        } else if (face_mode_fallback_patrol_scan) {
+            face_mode_outcome = "angles_missing_or_stale";
+        } else if (face_mode_requested) {
+            face_mode_outcome = "angles_unavailable_fallback_disabled";
+        }
+        const FaceModeRuntimeLogState face_mode_log_state{
+            face_mode_decision.RequestSource,
+            static_cast<int>(face_mode_decision.Phase),
+            face_mode_requested,
+            face_mode_active,
+            face_mode_fallback_patrol_scan,
+            face_mode_decision.Angles.has_value(),
+            face_mode_decision.SuppressFire,
+            visual_target_has_face_priority,
+            navigation_releases_regional_face_mode};
+        static std::optional<FaceModeRuntimeLogState> last_face_mode_log_state;
+        if (!last_face_mode_log_state || face_mode_log_state != *last_face_mode_log_state) {
+            LoggerPtr->Info(
+                "FaceMode runtime: source={} requested={} active={} fallback={} outcome={} "
+                "angles_available={} suppress_fire={} visual_priority={} navi_release={} phase={}",
+                face_mode_source_name(face_mode_decision.RequestSource),
+                face_mode_requested ? 1 : 0,
+                face_mode_active ? 1 : 0,
+                face_mode_fallback_patrol_scan ? 1 : 0,
+                face_mode_outcome,
+                face_mode_decision.Angles.has_value() ? 1 : 0,
+                face_mode_decision.SuppressFire ? 1 : 0,
+                visual_target_has_face_priority ? 1 : 0,
+                navigation_releases_regional_face_mode ? 1 : 0,
+                static_cast<int>(face_mode_decision.Phase));
+            last_face_mode_log_state = face_mode_log_state;
+        }
         if (face_mode_active) {
             reset_patrol_scan_state();
             gimbalControlData.FireCode.AimMode = 0;
@@ -1131,14 +1207,6 @@ namespace BehaviorTree {
             }
             nextAngles = face_mode_decision.Angles.value_or(gimbalAngles);
 
-            static auto last_face_mode_log = std::chrono::steady_clock::time_point{};
-            if (now - last_face_mode_log > std::chrono::seconds(2)) {
-                LoggerPtr->Debug(
-                    "FaceMode active: keep rotate policy, stop patrol scan, {} gimbal angles, suppress_fire={}",
-                    face_mode_decision.Angles.has_value() ? "use FaceMode" : "hold current",
-                    face_mode_decision.SuppressFire ? 1 : 0);
-                last_face_mode_log = now;
-            }
         } else if (has_target_for_angles) {
             reset_patrol_scan_state();
             LoggerPtr->Debug(

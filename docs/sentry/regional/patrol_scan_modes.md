@@ -1,6 +1,6 @@
 # Patrol Scan Modes
 
-Updated: 2026-07-08
+Updated: 2026-07-26
 
 本文只說 `behavior_tree` 內部雲台巡邏掃描。它不是 `/ly/vision/mode`，也不是區域導航巡邏；它是在 BT 沒有可用目標角度時，自己計算 `/ly/control/angles` 的 fallback 掃描。
 
@@ -101,6 +101,11 @@ StartGate:
   `AllowGimbalPatrolBeforeStart` 關閉影響。
 
 這個策略只改雲台角度來源；開局底盤速度、fire、rotate、follow 仍持續壓為 0。
+
+`behavior_tree` 只會在 FaceMode 結論變化時輸出一次診斷：`StartGate FaceMode` 會列出 target
+是否成功發布、solver status 新鮮度、`function/manual_target`、target generation 與角度新鮮度，並以
+`outcome` 指明採用或回退原因；正常運行期則以 `FaceMode runtime` 記錄來源、視覺/導航仲裁、失角
+fallback 與最終接管結果。這些日誌只做可觀測性，不改變仲裁與巡邏策略。
 
 前哨專項 debug profile 仍可局部覆蓋，例如 `src/behavior_tree/config/OutpostRegionalTest.yaml` 和 `src/behavior_tree/Scripts/ConfigJson/regional/debug/outpost_regional_test.json` 會把 `PatrolScan.TaskOverrides.OutpostFaceModeFallbackMode` 設成 `3`，用來測高位 fallback；這是 profile override，不是主鏈默認。
 

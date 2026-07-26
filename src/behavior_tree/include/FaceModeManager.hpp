@@ -49,6 +49,19 @@ public:
         std::optional<LangYa::GimbalAnglesType> Angles{};
     };
 
+    // The opening fixed-target contract has more gates than the normal
+    // FaceMode arbitration. Keep the diagnostic result adjacent to the gate
+    // itself so runtime logs and tests cannot describe a different policy.
+    enum class StartGateOutpostReadiness : std::uint8_t {
+        Ready = 0,
+        StatusMissing,
+        StatusStale,
+        SolverFunctionDisabled,
+        ManualTarget,
+        TargetNotUpdated,
+        AnglesNotFresh,
+    };
+
     // Start a request collection cycle before evaluating BT tasks.
     void BeginCycle() noexcept;
     const ControlState& Control() const noexcept { return control_; }
@@ -86,6 +99,18 @@ public:
         std::uint32_t target_update_count,
         std::uint32_t target_update_count_floor,
         bool face_mode_angles_fresh) noexcept;
+
+    static StartGateOutpostReadiness DiagnoseStartGateOutpostSolution(
+        bool status_received,
+        bool status_fresh,
+        bool solver_function,
+        bool manual_target,
+        std::uint32_t target_update_count,
+        std::uint32_t target_update_count_floor,
+        bool face_mode_angles_fresh) noexcept;
+
+    static const char* StartGateOutpostReadinessName(
+        StartGateOutpostReadiness readiness) noexcept;
 
     bool RequestRegionalTask(
         const RegionalAreaTaskTickResult& result,

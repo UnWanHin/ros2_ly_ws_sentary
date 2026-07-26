@@ -130,3 +130,39 @@ TEST(FaceModeManagerTest, StartGateAcceptsOnlyFreshPostRequestNonManualSolution)
     EXPECT_FALSE(BehaviorTree::FaceModeManager::StartGateOutpostSolutionReady(
         true, true, false, 8, 7, false));
 }
+
+TEST(FaceModeManagerTest, StartGateDiagnosticNamesTheFirstRejectedGate) {
+    using Readiness = BehaviorTree::FaceModeManager::StartGateOutpostReadiness;
+
+    EXPECT_EQ(
+        BehaviorTree::FaceModeManager::DiagnoseStartGateOutpostSolution(
+            false, false, false, true, 0, 0, false),
+        Readiness::StatusMissing);
+    EXPECT_EQ(
+        BehaviorTree::FaceModeManager::DiagnoseStartGateOutpostSolution(
+            true, false, false, true, 0, 0, false),
+        Readiness::StatusStale);
+    EXPECT_EQ(
+        BehaviorTree::FaceModeManager::DiagnoseStartGateOutpostSolution(
+            true, true, false, true, 0, 0, false),
+        Readiness::SolverFunctionDisabled);
+    EXPECT_EQ(
+        BehaviorTree::FaceModeManager::DiagnoseStartGateOutpostSolution(
+            true, true, true, true, 0, 0, false),
+        Readiness::ManualTarget);
+    EXPECT_EQ(
+        BehaviorTree::FaceModeManager::DiagnoseStartGateOutpostSolution(
+            true, true, true, false, 7, 7, true),
+        Readiness::TargetNotUpdated);
+    EXPECT_EQ(
+        BehaviorTree::FaceModeManager::DiagnoseStartGateOutpostSolution(
+            true, true, true, false, 8, 7, false),
+        Readiness::AnglesNotFresh);
+    EXPECT_EQ(
+        BehaviorTree::FaceModeManager::DiagnoseStartGateOutpostSolution(
+            true, true, true, false, 8, 7, true),
+        Readiness::Ready);
+    EXPECT_STREQ(
+        BehaviorTree::FaceModeManager::StartGateOutpostReadinessName(Readiness::TargetNotUpdated),
+        "target_generation_not_advanced");
+}
