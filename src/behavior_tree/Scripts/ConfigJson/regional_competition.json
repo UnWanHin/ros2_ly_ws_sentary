@@ -107,7 +107,8 @@
                 "Enable": false,
                 "DisableRotate": true,
                 "ArriveDistanceCm": 20,
-                "TimeoutSec": 6
+                "TimeoutSec": 6,
+                "NearGoalConfirmWaitMs": 1500
             },
             "BuffOutpostCompat": {
                 "Enable": true,

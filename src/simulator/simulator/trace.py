@@ -377,6 +377,8 @@ def normalize_goal_reach(raw: dict[str, Any], output: DecisionOutput) -> GoalRea
         distance_fallback_allowed=boolean(state.get("distance_fallback_allowed")),
         within_arrive_distance=boolean(state.get("within_arrive_distance")),
         within_face_distance=boolean(state.get("within_face_distance")),
+        near_goal_confirm_pending=boolean(state.get("near_goal_confirm_pending")),
+        near_goal_confirm_elapsed_ms=integer(state.get("near_goal_confirm_elapsed_ms"), 0),
         timeout=boolean(state.get("timeout")),
     )
 

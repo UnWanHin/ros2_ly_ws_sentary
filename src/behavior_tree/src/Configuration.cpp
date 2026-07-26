@@ -871,6 +871,7 @@ namespace LangYa {
             na.HighlandCompatArriveDistanceCm = compat.value("ArriveDistanceCm", na.HighlandCompatArriveDistanceCm);
             na.HighlandCompatTimeoutSec = compat.value("TimeoutSec", na.HighlandCompatTimeoutSec);
             na.DistanceFallbackGraceMs = compat.value("DistanceFallbackGraceMs", na.DistanceFallbackGraceMs);
+            na.NearGoalConfirmWaitMs = compat.value("NearGoalConfirmWaitMs", na.NearGoalConfirmWaitMs);
         }
         if (j.contains("BuffOutpostCompat") && j.at("BuffOutpostCompat").is_object()) {
             const auto& compat = j.at("BuffOutpostCompat");
@@ -886,6 +887,7 @@ namespace LangYa {
         na.BuffOutpostCompatTimeoutSec =
             j.value("BuffOutpostCompatTimeoutSec", na.BuffOutpostCompatTimeoutSec);
         na.DistanceFallbackGraceMs = j.value("DistanceFallbackGraceMs", na.DistanceFallbackGraceMs);
+        na.NearGoalConfirmWaitMs = j.value("NearGoalConfirmWaitMs", na.NearGoalConfirmWaitMs);
     }
 
     void from_json(const json& j, AimTargetAutonomySetting& aa) {
@@ -2586,12 +2588,13 @@ namespace BehaviorTree {
             LoggerPtr->Debug("  {}", area);
         }
         LoggerPtr->Debug(
-            "NaviGoal.HighlandCompat(enable/disable_rotate/arrive_cm/timeout_s/distance_fallback_grace_ms): {}/{}/{}/{}/{}",
+            "NaviGoal.HighlandCompat(enable/disable_rotate/arrive_cm/timeout_s/distance_fallback_grace_ms/near_goal_confirm_wait_ms): {}/{}/{}/{}/{}/{}",
             config.DecisionAutonomySettings.NaviGoal.HighlandCompatEnable,
             config.DecisionAutonomySettings.NaviGoal.HighlandCompatDisableRotate,
             config.DecisionAutonomySettings.NaviGoal.HighlandCompatArriveDistanceCm,
             config.DecisionAutonomySettings.NaviGoal.HighlandCompatTimeoutSec,
-            config.DecisionAutonomySettings.NaviGoal.DistanceFallbackGraceMs);
+            config.DecisionAutonomySettings.NaviGoal.DistanceFallbackGraceMs,
+            config.DecisionAutonomySettings.NaviGoal.NearGoalConfirmWaitMs);
         LoggerPtr->Debug(
             "NaviGoal.BuffOutpostCompat(enable/timeout_s): {}/{}",
             config.DecisionAutonomySettings.NaviGoal.BuffOutpostCompatEnable,
@@ -3764,6 +3767,11 @@ namespace BehaviorTree {
             LoggerPtr->Warning("Invalid DecisionAutonomy.NaviGoal.DistanceFallbackGraceMs={}, fallback to 3000.",
                                autonomy.NaviGoal.DistanceFallbackGraceMs);
             autonomy.NaviGoal.DistanceFallbackGraceMs = 3000;
+        }
+        if (autonomy.NaviGoal.NearGoalConfirmWaitMs < 0) {
+            LoggerPtr->Warning("Invalid DecisionAutonomy.NaviGoal.NearGoalConfirmWaitMs={}, clamp to 0.",
+                               autonomy.NaviGoal.NearGoalConfirmWaitMs);
+            autonomy.NaviGoal.NearGoalConfirmWaitMs = 0;
         }
         clamp_non_negative(autonomy.AimTarget.PriorityWeight, "DecisionAutonomy.AimTarget.PriorityWeight");
         clamp_non_negative(autonomy.AimTarget.DistanceWeight, "DecisionAutonomy.AimTarget.DistanceWeight");

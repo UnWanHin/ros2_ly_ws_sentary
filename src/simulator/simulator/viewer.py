@@ -111,6 +111,8 @@ def record_status_payload(record: TraceRecord) -> dict[str, Any]:
             "external_reachable": goal_reach.external_reachable,
             "position_fresh": goal_reach.position_fresh,
             "has_position": goal_reach.has_position,
+            "near_goal_confirm_pending": goal_reach.near_goal_confirm_pending,
+            "near_goal_confirm_elapsed_ms": goal_reach.near_goal_confirm_elapsed_ms,
             "timeout": goal_reach.timeout,
         },
         "navi_status": {
@@ -2514,6 +2516,7 @@ class Viewer:
             ("Position", f"has={self.flag(reach.has_position)} fresh={self.flag(reach.position_fresh)} dist={self.format_optional_float(reach.distance_cm, '{:.0f}cm')}"),
             ("Thresholds", f"arrive={reach.arrive_distance_cm}cm face={reach.face_distance_cm}cm fallback={self.flag(reach.distance_fallback_allowed)}"),
             ("Within", f"arrive={self.flag(reach.within_arrive_distance)} face={self.flag(reach.within_face_distance)} timeout={self.flag(reach.timeout)}"),
+            ("Near goal", f"pending={self.flag(reach.near_goal_confirm_pending)} elapsed={reach.near_goal_confirm_elapsed_ms}ms"),
         ]
 
     def navi_state_rows(self, record: TraceRecord) -> list[tuple[str, str]]:

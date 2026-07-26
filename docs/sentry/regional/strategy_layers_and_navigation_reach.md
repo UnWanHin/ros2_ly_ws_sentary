@@ -1,6 +1,6 @@
 # Strategy Layers And Navigation Reach
 
-Updated: 2026-07-19
+Updated: 2026-07-26
 
 本文記錄 `behavior_tree` 裡 regional 策略分層、各層目前實際做的事情，以及導航到達判斷 `/ly/navi/reached`、坐標距離兜底和 progress watchdog 的關係。
 
@@ -133,7 +133,7 @@ Default 是底層行為。它只應該在 Hard/Task/Tactical/Special 都沒接�
 1. goal id 必須有效。
 2. `/ly/navi/reachable` 如果對當前 goal 新鮮且為 `false`，直接判定 `unreachable`。
 3. `/ly/navi/reached` 如果對當前 goal 新鮮且為 `true`，立即判定到達。
-4. `/ly/navi/reached` 缺失或新鮮值為 `false` 時，先等 `DecisionAutonomy.NaviGoal.DistanceFallbackGraceMs`；超過 grace 後才用自身融合坐標和 goal 坐標距離做兜底。默認 grace 是 3000 ms。
+4. `/ly/navi/reached` 缺失或新鮮值為 `false` 時，先等 `DecisionAutonomy.NaviGoal.DistanceFallbackGraceMs`；超過 grace 後，首次進入到達半徑仍要等 `DecisionAutonomy.NaviGoal.HighlandCompat.NearGoalConfirmWaitMs`。正式 regional 是 1500 ms；到期且仍在半徑內才用自身融合坐標和 goal 坐標距離做兜底。默認 goal-start grace 是 3000 ms。
 5. 如果配置了 goal timeout，超時會進入 `timeout` status；timeout 是任務保護語義，不等同於物理 reached。
 
 `/ly/navi/reached` 的新鮮條件不是單純 2 秒內收到就算，它還要求：
@@ -165,8 +165,8 @@ regional area task、recovery 與 navigation watchdog 都只消費這個 composi
 
 ```text
 fresh /ly/navi/reached true  -> 立即到達
-fresh /ly/navi/reached false -> goal-start grace 期內未到達；超時後允許 20 cm 坐標兜底
-no fresh reached             -> goal-start grace 期內未到達；超時後允許 20 cm 坐標兜底
+fresh /ly/navi/reached false -> goal-start grace 期內未到達；超時後進 20 cm 再等近點確認，確認到期才坐標兜底
+no fresh reached             -> goal-start grace 期內未到達；超時後進 20 cm 再等近點確認，確認到期才坐標兜底
 ```
 
 這樣可以避免導航端一直回 false 時，BT 已經到點卻仍等到 travel timeout 再切下一個 regional 點。
@@ -262,12 +262,16 @@ watchdog 不再擁有獨立到達半徑；它和其他消費者使用同一個
 
 ## 當前改動
 
-目前 `DistanceFallbackGraceMs` 是 goal-start grace，不是 near-goal grace：
+`DistanceFallbackGraceMs` 是 goal-start grace，不是 near-goal grace：
 
 - goal 改變時，`UpdateNaviExternalStatusGoal()` 會更新當前 goal id、goal 坐標和 goal start time。
 - `IsBaseGoalArrived()` 中，`/ly/navi/reached=true` 立即到達。
 - `/ly/navi/reached=false` 或沒有 fresh `/ly/navi/reached` 時，goal start 後的 grace 期內不使用 20 cm 坐標兜底。
-- grace 超時後，如果自身融合坐標仍在 20 cm 內，使用坐標兜底判定到達。
+- grace 超時後，如果自身融合坐標首次進入 20 cm 內，對目前實際下發的 `naviCommandGoal` 開始
+  `NearGoalConfirmWaitMs=1500` 的連續確認；新鮮 `reached=true` 可立即結束等待，否則到期且仍在
+  20 cm 內才使用坐標兜底判定到達。
+- 離開 20 cm、定位失鮮、goal 改變、`reachable=false` 或已收到 `reached=true` 都會清除確認計時；
+  任務層探查的非當前候選點不會影響這個計時。
 
 這個改動不需要改 ROS topic，也不需要改導航端協議。它解決的是導航端一直發布 fresh `false`，而 BT 明明已經到點卻只能等到 `TravelTimeoutSec` 後切點的情況。
 

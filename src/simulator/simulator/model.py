@@ -244,6 +244,8 @@ class GoalReachState:
     distance_fallback_allowed: bool
     within_arrive_distance: bool
     within_face_distance: bool
+    near_goal_confirm_pending: bool
+    near_goal_confirm_elapsed_ms: int
     timeout: bool
 
     @property

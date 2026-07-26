@@ -2840,6 +2840,10 @@ namespace BehaviorTree {
         state.ExternalReachable = external_reachable;
         const auto external_reach = GetExternalNaviReachForGoal(goal_id, goal_position);
         state.ExternalReach = external_reach;
+        const bool is_active_command_goal =
+            goal_id == naviCommandGoal &&
+            goal_position.x == naviGoalPosition.x &&
+            goal_position.y == naviGoalPosition.y;
 
         const int distance_fallback_grace_ms =
             std::max(0, config.DecisionAutonomySettings.NaviGoal.DistanceFallbackGraceMs);
@@ -2878,22 +2882,51 @@ namespace BehaviorTree {
         }
 
         if (external_reachable.has_value() && !*external_reachable) {
+            if (is_active_command_goal) {
+                nearGoalArrivalConfirm_.Reset();
+            }
             state.Status = GoalReachStatus::Unreachable;
             state.Reason = GoalReachReason::ExternalUnreachable;
             return state;
         }
         if (external_reach.has_value() && *external_reach) {
+            if (is_active_command_goal) {
+                nearGoalArrivalConfirm_.Reset();
+            }
             state.Status = GoalReachStatus::Reached;
             state.Reason = GoalReachReason::ExternalReached;
             return state;
         }
         if (distance_fallback_grace_ms > 0 &&
             grace_active) {
+            if (is_active_command_goal) {
+                nearGoalArrivalConfirm_.Reset();
+            }
             state.Status = GoalReachStatus::Traveling;
             state.Reason = GoalReachReason::GraceActive;
             return state;
         }
-        if (state.WithinArriveDistance) {
+        const bool use_position_distance = position_usable_for_distance && state.WithinArriveDistance;
+        bool near_goal_confirmed = use_position_distance;
+        if (is_active_command_goal) {
+            const int near_goal_confirm_wait_ms =
+                std::max(0, config.DecisionAutonomySettings.NaviGoal.NearGoalConfirmWaitMs);
+            near_goal_confirmed = nearGoalArrivalConfirm_.Observe(
+                goal_id,
+                goal_position,
+                use_position_distance,
+                now,
+                near_goal_confirm_wait_ms);
+            state.NearGoalConfirmPending = use_position_distance && !near_goal_confirmed;
+            state.NearGoalConfirmElapsedMs = nearGoalArrivalConfirm_.ElapsedMs(now);
+        }
+        if (state.NearGoalConfirmPending) {
+            state.DistanceFallbackAllowed = false;
+            state.Status = GoalReachStatus::Traveling;
+            state.Reason = GoalReachReason::NearGoalConfirmPending;
+            return state;
+        }
+        if (near_goal_confirmed) {
             state.Status = GoalReachStatus::Reached;
             state.Reason = GoalReachReason::PositionDistance;
             return state;

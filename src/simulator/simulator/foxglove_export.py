@@ -342,6 +342,8 @@ def record_to_decision_frame(record: TraceRecord) -> dict[str, Any]:
             "distance_fallback_allowed": goal_reach.distance_fallback_allowed,
             "within_arrive_distance": goal_reach.within_arrive_distance,
             "within_face_distance": goal_reach.within_face_distance,
+            "near_goal_confirm_pending": goal_reach.near_goal_confirm_pending,
+            "near_goal_confirm_elapsed_ms": goal_reach.near_goal_confirm_elapsed_ms,
             "timeout": goal_reach.timeout,
         },
         "navi_status": {

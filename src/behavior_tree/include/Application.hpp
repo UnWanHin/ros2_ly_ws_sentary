@@ -54,6 +54,7 @@
 #include "EventManager.hpp"
 #include "FaceModeManager.hpp"
 #include "MapCommandTask.hpp"
+#include "NearGoalArrivalConfirm.hpp"
 #include "PostureManager.hpp"
 #include "OutpostEngagementLock.hpp"
 #include "StrategyManager.hpp"
@@ -127,7 +128,8 @@ enum class GoalReachReason : std::uint8_t {
     GraceActive = 4,
     PositionStale = 5,
     InvalidGoal = 6,
-    Timeout = 7
+    Timeout = 7,
+    NearGoalConfirmPending = 8
 };
 
 inline const char* GoalReachReasonToString(const GoalReachReason reason) {
@@ -140,6 +142,7 @@ inline const char* GoalReachReasonToString(const GoalReachReason reason) {
         case GoalReachReason::PositionStale: return "position_stale";
         case GoalReachReason::InvalidGoal: return "invalid_goal";
         case GoalReachReason::Timeout: return "timeout";
+        case GoalReachReason::NearGoalConfirmPending: return "near_goal_confirm_pending";
         default: return "none";
     }
 }
@@ -165,6 +168,8 @@ struct GoalReachState {
     bool DistanceFallbackAllowed{false};
     bool WithinArriveDistance{false};
     bool WithinFaceDistance{false};
+    bool NearGoalConfirmPending{false};
+    int NearGoalConfirmElapsedMs{0};
     bool Timeout{false};
 };
 
@@ -499,6 +504,7 @@ private:
     rclcpp::Time naviExternalStatusGoalStartRosTime_{};
     std::uint8_t naviExternalStatusGoalId_{0};
     Area::Point<std::uint16_t> naviExternalStatusGoalPosition_{};
+    mutable NearGoalArrivalConfirm nearGoalArrivalConfirm_{};
     bool regionalRecoveryProbeActive_{false};
     std::size_t regionalRecoveryProbeIndex_{0};
     bool regionalRecoveryMonitorActive_{false};

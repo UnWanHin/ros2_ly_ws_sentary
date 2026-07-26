@@ -117,6 +117,8 @@ def stable_trace_row() -> dict:
             "distance_fallback_allowed": True,
             "within_arrive_distance": False,
             "within_face_distance": True,
+            "near_goal_confirm_pending": False,
+            "near_goal_confirm_elapsed_ms": 0,
             "timeout": False,
         },
         "navi_velocity": {
@@ -338,6 +340,8 @@ def test_trace_record_exposes_stable_simulator_contract() -> None:
     assert record.goal_reach.status == "traveling"
     assert record.goal_reach.reason == "position_distance"
     assert record.goal_reach.distance_cm == 94.0
+    assert record.goal_reach.near_goal_confirm_pending is False
+    assert record.goal_reach.near_goal_confirm_elapsed_ms == 0
     assert record.navi_status.should_rotate is True
     assert record.navi_status.reachable is True
     assert record.face_mode.active is True
@@ -479,6 +483,26 @@ def test_goal_reach_preserves_known_but_stale_position_contract() -> None:
     assert payload["goal_reach"]["position_fresh"] is False
 
 
+def test_goal_reach_preserves_near_goal_confirmation_trace_fields() -> None:
+    raw = stable_trace_row()
+    raw["goal_reach_state"].update(
+        {
+            "reason": "near_goal_confirm_pending",
+            "reason_id": 8,
+            "near_goal_confirm_pending": True,
+            "near_goal_confirm_elapsed_ms": 940,
+        }
+    )
+
+    record = normalize_record(raw, 0, {18: "OccupyArea"})
+    payload = record_status_payload(record)
+
+    assert record.goal_reach.near_goal_confirm_pending is True
+    assert record.goal_reach.near_goal_confirm_elapsed_ms == 940
+    assert payload["goal_reach"]["near_goal_confirm_pending"] is True
+    assert payload["goal_reach"]["near_goal_confirm_elapsed_ms"] == 940
+
+
 def test_missing_rfid_trace_fields_remain_unknown_not_false() -> None:
     raw = stable_trace_row()
     raw["referee"].pop("rfid_status")
@@ -553,6 +577,8 @@ def test_record_status_payload_is_json_safe_debug_summary() -> None:
             "external_reachable": True,
             "position_fresh": True,
             "has_position": True,
+            "near_goal_confirm_pending": False,
+            "near_goal_confirm_elapsed_ms": 0,
             "timeout": False,
         },
         "navi_status": {

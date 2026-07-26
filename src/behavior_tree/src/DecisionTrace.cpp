@@ -755,6 +755,8 @@ void Application::WriteDecisionTrace(const std::string_view event) noexcept {
         {"distance_fallback_allowed", current_goal_reach.DistanceFallbackAllowed},
         {"within_arrive_distance", current_goal_reach.WithinArriveDistance},
         {"within_face_distance", current_goal_reach.WithinFaceDistance},
+        {"near_goal_confirm_pending", current_goal_reach.NearGoalConfirmPending},
+        {"near_goal_confirm_elapsed_ms", current_goal_reach.NearGoalConfirmElapsedMs},
         {"timeout", current_goal_reach.Timeout},
     };
     record["units"] = {

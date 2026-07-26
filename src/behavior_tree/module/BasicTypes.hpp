@@ -809,6 +809,7 @@ namespace LangYa
         bool BuffOutpostCompatEnable{false};
         int BuffOutpostCompatTimeoutSec{6};
         int DistanceFallbackGraceMs{3000};
+        int NearGoalConfirmWaitMs{1500};
     };
 
     struct RegionalDefenseSetting {
