@@ -1,6 +1,6 @@
 # 0x02 地图路径分片重组与裁判系统发送（下位机对接）
 
-Updated: 2026-07-18
+Updated: 2026-07-27
 
 本文是下位机固件实现 `DownlinkTypeID=0x02` 地图路径的交接规范。它只描述上位机到
 下位机的两段 64B 串口帧，以及下位机重组成一份裁判系统 `0x0307 map_data_t` 后的发送。
@@ -28,6 +28,26 @@ fragment 接收器。不要让旧 107B parser 和新 parser 同时消费同一�
 
 `gimbal_driver` 对同一条路径连续写出 fragment 0、fragment 1，不插入 sleep、重试或其他
 `0x02` frame；每条新路径使用递增的 8-bit `Sequence`。
+
+## 1.1 上位机输入与下发前提
+
+下位机不需要订阅 ROS，但联调时必须知道 `0x02` 只有在以下上游条件满足时才会出现：
+
+| 环节 | 当前正式行为 | 不满足时 |
+|---|---|---|
+| 路径输入 | `nav_msgs/msg/Path` 发布到 `/Path_downsampled`；独立启动 `ros2 launch gimbal_driver gimbal_driver.launch.py` 时 bridge 默认启用 | 没有 path，不下发 |
+| 坐标系 | `header.frame_id` 为空或为 `map`；点位单位为 m | 非空且不是 `map` 时 bridge 丢弃整条 path |
+| 点数 | 取输入的前 50 点；第 1 点是 start，后续 49 段是相邻 delta | 超过 50 点时，**只发送前 50 点**；少于 50 点时，未写入的 delta 保持 `0` |
+| 坐标转换 | `map` m 使用正式 official-map -> map 校准矩阵的逆矩阵反算为 official-map cm，再四舍五入为 dm | 非有限值、无法反算、起点不在 `uint16` 范围，或任一相邻 delta 超出 `int8 [-128,127]` 时，丢弃整条 path |
+| 身份 | `/ly/game/sentry/info.self_robot_id`；红方哨兵 `7`、蓝方哨兵 `107` | `sender_id=0` 时 bridge 不发布 `/ly/game/path` |
+| 时效 | `/ly/game/path.header.stamp` 继承输入 Path；`gimbal_driver` 仅接受非零且不超过 `game_path_fresh_timeout_ms` 的消息，默认 5000 ms | 驱动不写任何 `0x02` frame |
+
+也就是说，裁判侧的 `map_data_t` 固定拥有 start 加 49 对 delta；输入不足 50 个有效导航点时，尾部
+零 delta 表示重复上一点，不是下位机漏收。输入超过 50 点被上位机截断是当前正式行为；若导航希望
+保留更远的路线，应在导航侧先做 50 点内的下采样，而不是要求下位机拼接第三帧。
+
+`/ly/control/map_path` 是保留的手动/测试入口，也会生成相同的两段 `0x02`，但它不做上述 timestamp
+新鲜度检查。正式导航只应使用 `/Path_downsampled -> /ly/game/path`，现场不要同时向两个入口发布。
 
 ## 2. 固定 64B 物理帧
 
