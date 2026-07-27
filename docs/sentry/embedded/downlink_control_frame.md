@@ -1,6 +1,6 @@
 # 上位機下發協議總覽（給下位機）
 
-Updated: 2026-07-18
+Updated: 2026-07-27
 
 > 配置归属：`io_config.game_path_fresh_timeout_ms`、自身坐标下发频率/时效与串口 raw
 > 诊断都在 `src/gimbal_driver/config/gimbal_driver_config.yaml`。正式 `sentry_all` 与
@@ -84,7 +84,8 @@ byte 0 都是 `0x21` (`'!'`)，byte 1 是 `DownlinkTypeID`；之後的 frame 長
 會原樣保留到 `/ly/game/path.header.stamp` 供 ROS 觀察；`map_data_t` 本身沒有 timestamp 欄位，
 所以串口 `0x02` 無法攜帶時間戳。
 
-`gimbal_driver` 不會週期性重發已收的 path。它只在收到 topic 消息時嘗試下發；每次接受的
+`gimbal_driver` 不會週期性重發已收的 path。它只在收到 topic 消息時嘗試下發；兩個 MapPath
+入口共用裁判 `0x0307` 的 **1 Hz** 限頻，時間窗口內的新路徑會直接丟棄、不排隊。每次接受的
 path 使用一個新的 8-bit sequence，連續寫出 index `0`、`1` 兩段，不插入 sleep 或重試。對正式
 `/ly/game/path`，`header.stamp` 為 0 或距上位機 ROS 時間超過
 `io_config.game_path_fresh_timeout_ms`（預設 5000ms）會拒絕下發。收到帶新 timestamp 的 path

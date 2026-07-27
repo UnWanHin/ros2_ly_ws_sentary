@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include "BasicTypes.hpp"
+#include "MapPathRateLimiter.hpp"
 #include "RawDownlinkTest.hpp"
 #include "crc_checker.hpp"
 #include "gimbal_driver/msg/gimbal_trajectory.hpp"
@@ -157,6 +158,17 @@ TEST(MapPathFragmentProtocol, UsesDocumentedCrc16Vector)
     EXPECT_EQ(
         LangYa::CalculateMapPathFragmentCrc16(payload.data(), payload.size()),
         0x6F91U);
+}
+
+TEST(MapPathRateLimiter, EnforcesOneHertzAcrossAcceptedPaths)
+{
+    using Clock = LangYa::MapPathRateLimiter::Clock;
+    const auto start = Clock::time_point{};
+    LangYa::MapPathRateLimiter limiter{std::chrono::milliseconds{1000}};
+
+    EXPECT_TRUE(limiter.TryAcquire(start));
+    EXPECT_FALSE(limiter.TryAcquire(start + std::chrono::milliseconds{999}));
+    EXPECT_TRUE(limiter.TryAcquire(start + std::chrono::milliseconds{1000}));
 }
 
 template <typename T>

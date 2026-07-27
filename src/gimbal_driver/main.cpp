@@ -70,6 +70,7 @@
 #include <geometry_msgs/msg/point_stamped.hpp>
 
 #include "module/BasicTypes.hpp"
+#include "module/MapPathRateLimiter.hpp"
 #include "module/crc_checker.hpp"
 #include "module/IODevice.hpp"
 #include "module/ROSTools.hpp"
@@ -153,6 +154,7 @@ namespace
         std::chrono::milliseconds firecodePartialHold_{100};
         std::chrono::milliseconds navigationTestStaleTimeout_{500};
         std::chrono::milliseconds gamePathFreshTimeout_{5000};
+        MapPathRateLimiter mapPathRateLimiter_{std::chrono::seconds{1}};
         std::uint8_t nextMapPathSequence_{0};
         std::chrono::milliseconds gimbalDynamicsTimeout_{200};
         std::chrono::milliseconds gimbalStatePublishPeriod_{20};
@@ -1326,6 +1328,10 @@ namespace
             }
             if (msg.intention < 1 || msg.intention > 3) {
                 roslog::warn("Invalid map path intention: %u (expect 1/2/3)", msg.intention);
+                return;
+            }
+            if (!mapPathRateLimiter_.TryAcquire(std::chrono::steady_clock::now())) {
+                roslog::warn("Drop map path: referee 0x0307 rate limit is 1 Hz");
                 return;
             }
             MapPathFrame frame;
