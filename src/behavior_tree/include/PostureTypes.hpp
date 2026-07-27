@@ -134,7 +134,10 @@ inline SentryPosture SelectTransitPosture(
         : runtime.RefereeRemainingSec;
     const auto move_index = ToPostureValue(SentryPosture::Move);
     const auto reserve = static_cast<std::uint8_t>(std::clamp(reserve_sec, 0, 255));
-    if (remaining[move_index] > reserve) {
+    // Reserve a positive Move budget before it is exhausted. Once the referee
+    // reports zero, keep Move for travel instead of trading chassis mobility
+    // for another posture's remaining time.
+    if (remaining[move_index] == 0 || remaining[move_index] > reserve) {
         return SentryPosture::Move;
     }
 

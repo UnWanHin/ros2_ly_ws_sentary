@@ -40,6 +40,14 @@ TEST(RegionalTaskPostureTest, TransitUsesAttackWhenItHasTheLargestUsableBudget) 
         BehaviorTree::SentryPosture::Attack);
 }
 
+TEST(RegionalTaskPostureTest, TransitKeepsMoveWhenOfficialMoveBudgetIsExhausted) {
+    const auto runtime = FreshRuntime(80, 60, 0);
+
+    EXPECT_EQ(
+        BehaviorTree::SelectTransitPosture(runtime, 20),
+        BehaviorTree::SentryPosture::Move);
+}
+
 TEST(RegionalTaskPostureTest, TransitFallsBackToMoveWithoutFreshOfficialTimer) {
     auto runtime = FreshRuntime(80, 60, 10);
     runtime.UsingRefereeTimer = false;

@@ -217,9 +217,10 @@ flowchart TD
 區域狀態機，也保留原有姿態仲裁，不產生此 hint：
 `Transit`（行進、超時或不可達保底階段）通常請求 Move；只有已由 goal-scoped composite arrival
 確認、且正處於既有 15 秒 hold 的 `ArrivedHold` 才解除該 Move 覆蓋，回到原有目標/受擊/資源評分來選
-Attack 或 Defense。新鮮 TypeID 10 `sentry_info_3` 顯示 Move 剩餘小於等於 `RefereeRemainWarnSec` 時，
-Transit 會在 Attack/Defense 中選擇剩餘時間較多的一檔，平分時選 Defense；沒有新鮮官方計時則保守維持
-Move。Recovery、Buff、前哨、既有硬 Defense、導航與前哨鎖定仲裁順序不改，所有請求仍受 5 秒切換
+Attack 或 Defense。新鮮 TypeID 10 `sentry_info_3` 顯示 Move 剩餘介於 1 秒與
+`RefereeRemainWarnSec` 之間時，Transit 會在 Attack/Defense 中選擇剩餘時間較多的一檔，平分時選
+Defense；Move 已為 0 時仍請求 Move，避免為保留其他姿態時間而犧牲底盤移動能力。沒有新鮮官方計時則
+保守維持 Move。Recovery、Buff、前哨、既有硬 Defense、導航與前哨鎖定仲裁順序不改，所有請求仍受 5 秒切換
 冷卻、10 秒最短保持與回讀 ACK 約束，故不能宣稱在資料延遲或冷卻期間絕對不會進入弱化。
 
 ## 5. 發布與下發

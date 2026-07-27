@@ -463,8 +463,9 @@ YAML、ROS topic 或第二套計時：
 - `None`：沒有 Default RegionalAreaTask，不干預既有 posture。
 
 當下位機 TypeID 10 的裁判 `0x020D sentry_info_3` 新鮮（`Posture.RefereeInfo3FreshMs=1500ms`）且
-Move 剩餘時間落入 `RefereeRemainWarnSec=20s` 預警時，Transit 會改用 Attack/Defense 中官方剩餘時間較多
-的一檔，平分選 Defense；沒有新鮮 TypeID 10 時維持 Move。這是預留 Move 姿態預算，不影響既有
+Move 剩餘時間介於 1 秒與 `RefereeRemainWarnSec=20s` 預警時，Transit 會改用 Attack/Defense 中官方
+剩餘時間較多的一檔，平分選 Defense；Move 已為 0 時仍維持 Move，避免其他姿態的底盤移動功率折損。
+沒有新鮮 TypeID 10 時同樣維持 Move。這是預留 Move 姿態預算，不影響既有
 PostureManager 的 5 秒切換冷卻、10 秒最短保持、回讀確認與 Retry，也不改 Recovery、Buff、前哨、硬
 Defense、導航或前哨鎖定的優先級。
 
