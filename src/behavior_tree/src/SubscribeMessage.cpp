@@ -187,6 +187,7 @@ namespace BehaviorTree{
 
         // ly_game_event_data: semantic referee 0x0101 event_data topic.
         GenSub<ly_game_event_data>([](Application& app, auto msg) {
+            const auto now = std::chrono::steady_clock::now();
             app.extEventData = msg->raw;
             app.eventSelfSmallEnergyStatus_ = msg->self_small_energy_status;
             app.eventSelfLargeEnergyStatus_ = msg->self_large_energy_status;
@@ -194,7 +195,19 @@ namespace BehaviorTree{
             app.eventSelfOutpostGainPointStatus_ = msg->self_outpost_gain_point_status;
             app.eventSelfBaseGainPointStatus_ = msg->self_base_gain_point_status;
             app.hasReceivedEventData_ = true;
-            app.lastEventDataRxTime_ = std::chrono::steady_clock::now();
+            app.lastEventDataRxTime_ = now;
+            const auto& protect_castle = app.config.TacticalSettings.ProtectCastle;
+            if (protect_castle.Enable && protect_castle.RFID) {
+                ObserveCastleCaptureAttribution(
+                    app.castleCaptureAttribution_,
+                    app.eventSelfFortressGainPointStatus_,
+                    app.selfFortressRfidActive_,
+                    now,
+                    std::chrono::milliseconds(std::max(
+                        1, protect_castle.RfidCaptureTransitionWindowMs)));
+            } else {
+                app.castleCaptureAttribution_ = {};
+            }
         });
 
         // ly_game_sentry_info: referee 0x020D sentry_info/sentry_info_2 semantic topic.
@@ -342,6 +355,10 @@ namespace BehaviorTree{
             app.hasRfidStatus2 = msg->has_rfid_status_2;
             app.rfidStatus2 = msg->rfid_status_2_raw;
             app.rfidMatchState = BuildRfidMatchState(*msg);
+            app.selfFortressRfidActive_ = app.rfidMatchState.SelfFortressGainPoint;
+            if (!app.selfFortressRfidActive_) {
+                app.castleCaptureAttribution_.SelfCaptureConfirmed = false;
+            }
             app.hasReceivedRfidStatus_ = true;
             app.lastRfidStatusRxTime_ = std::chrono::steady_clock::now();
         });

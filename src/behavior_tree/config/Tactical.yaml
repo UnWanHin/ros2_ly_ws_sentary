@@ -17,7 +17,7 @@ behavior_tree:
         # 裁判 event_data 的己方堡壘增益點被占（status 2/3）來源。
         RFID: true
         # 對方占己方堡壘且裁判事件新鮮時，先去 Castle，抵達後不再離點追擊。
-        # 只有己方/雙方占領但我未在 Castle 時才守四個外圍點；外圍 Chase 由 ChasePolicy.MyBase 開關。
+        # 只有 RFID 證實本車完成 0/2 -> 1/3 轉換時才站樁；其餘我方/雙方占領守四個外圍點。
         StayWhenRfid: true
         # /ly/position/data 的敵方座標進入我方 MyBase 來源。
         EnemyPos: true
@@ -25,6 +25,9 @@ behavior_tree:
         OccupancyPositionFreshMs: 2500
         CastlePositionMarginCm: 60
         ArrivalConfirmGraceMs: 3000
+        # 仅当我方堡垒 RFID 已有效时，裁判占领状态由 0/2 转成 1/3 的最大确认窗口。
+        # 用于归因“本哨兵完成占领”，不是 event_data 或 RFID 本身的新鲜度。
+        RfidCaptureTransitionWindowMs: 3000
 
       # 我方前哨血量在窗口內累積下降達門檻時，前往官方 C3/C4；0 HP 立即取消。
       ProtectOutpost:

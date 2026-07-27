@@ -654,6 +654,7 @@ namespace LangYa
         int OccupancyPositionFreshMs{2500};
         int CastlePositionMarginCm{60};
         int ArrivalConfirmGraceMs{3000};
+        int RfidCaptureTransitionWindowMs{3000};
     };
 
     struct TacticalSetting {

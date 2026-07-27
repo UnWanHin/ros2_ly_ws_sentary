@@ -1866,6 +1866,10 @@ namespace BehaviorTree {
             node_,
             {"Tactical.ProtectCastle.ArrivalConfirmGraceMs", "Tactical/ProtectCastle/ArrivalConfirmGraceMs"},
             protect_castle.ArrivalConfirmGraceMs);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.ProtectCastle.RfidCaptureTransitionWindowMs", "Tactical/ProtectCastle/RfidCaptureTransitionWindowMs"},
+            protect_castle.RfidCaptureTransitionWindowMs);
 
         auto& priority = tactical.Priority;
         ReadOptionalIntParam(node_, {"Tactical.Priority.ProtectCastle", "Tactical/Priority/ProtectCastle"}, priority.ProtectCastle);
@@ -1912,6 +1916,8 @@ namespace BehaviorTree {
         protect_outpost.DamageThresholdHp = std::max(1, protect_outpost.DamageThresholdHp);
         protect_outpost.SearchHoldSec = std::max(0, protect_outpost.SearchHoldSec);
         protect_outpost.UnreachableCooldownSec = std::max(0, protect_outpost.UnreachableCooldownSec);
+        protect_castle.RfidCaptureTransitionWindowMs =
+            std::max(1, protect_castle.RfidCaptureTransitionWindowMs);
 
         // HeroProtection remains a legacy JSON baseline. Tactical.ProtectHero
         // is the canonical runtime setting after YAML parameter overrides.
@@ -2412,6 +2418,7 @@ namespace BehaviorTree {
         LoggerPtr->Debug("ProtectCastle.OccupancyPositionFreshMs: {}", config.TacticalSettings.ProtectCastle.OccupancyPositionFreshMs);
         LoggerPtr->Debug("ProtectCastle.CastlePositionMarginCm: {}", config.TacticalSettings.ProtectCastle.CastlePositionMarginCm);
         LoggerPtr->Debug("ProtectCastle.ArrivalConfirmGraceMs: {}", config.TacticalSettings.ProtectCastle.ArrivalConfirmGraceMs);
+        LoggerPtr->Debug("ProtectCastle.RfidCaptureTransitionWindowMs: {}", config.TacticalSettings.ProtectCastle.RfidCaptureTransitionWindowMs);
         LoggerPtr->Debug("ProtectCastle.RFID: {}", config.TacticalSettings.ProtectCastle.RFID);
         LoggerPtr->Debug("ProtectCastle.StayWhenRfid: {}", config.TacticalSettings.ProtectCastle.StayWhenRfid);
         LoggerPtr->Debug("ProtectCastle.EnemyPos: {}", config.TacticalSettings.ProtectCastle.EnemyPos);

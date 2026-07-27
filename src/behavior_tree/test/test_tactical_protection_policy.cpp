@@ -247,14 +247,23 @@ TEST(TacticalProtectionPolicy, CastleOccupancyUsesPerimeterWhenFriendlyStatusAnd
     EXPECT_TRUE(result.TeamOrAmbiguousOccupant);
 }
 
-TEST(TacticalProtectionPolicy, CastleOccupancyHoldsOnlyForDirectSelfPresence) {
-    const auto direct_presence = BehaviorTree::ResolveCastleOccupancy({
+TEST(TacticalProtectionPolicy, CastleOccupancyHoldsOnlyForConfirmedSelfCapture) {
+    const auto confirmed_capture = BehaviorTree::ResolveCastleOccupancy({
+        .RefereeFresh = true,
+        .RefereeStatus = 3,
+        .SelfRfidAtCastle = true,
+        .SelfCaptureConfirmed = true,
+    });
+    EXPECT_EQ(confirmed_capture.Action, BehaviorTree::CastleOccupancyAction::HoldCastle);
+    EXPECT_TRUE(confirmed_capture.SelfLikelyAtCastle);
+
+    const auto direct_presence_without_transition = BehaviorTree::ResolveCastleOccupancy({
         .RefereeFresh = true,
         .RefereeStatus = 3,
         .SelfRfidAtCastle = true,
     });
-    EXPECT_EQ(direct_presence.Action, BehaviorTree::CastleOccupancyAction::HoldCastle);
-    EXPECT_TRUE(direct_presence.SelfLikelyAtCastle);
+    EXPECT_EQ(direct_presence_without_transition.Action, BehaviorTree::CastleOccupancyAction::PerimeterDefense);
+    EXPECT_FALSE(direct_presence_without_transition.SelfLikelyAtCastle);
 
     const auto grace_only = BehaviorTree::ResolveCastleOccupancy({
         .RefereeFresh = true,
@@ -264,6 +273,44 @@ TEST(TacticalProtectionPolicy, CastleOccupancyHoldsOnlyForDirectSelfPresence) {
     EXPECT_EQ(grace_only.Action, BehaviorTree::CastleOccupancyAction::PerimeterDefense);
     EXPECT_FALSE(grace_only.SelfLikelyAtCastle);
     EXPECT_TRUE(grace_only.TeamOrAmbiguousOccupant);
+}
+
+TEST(TacticalProtectionPolicy, CastleOccupancyAttributesCaptureToSelfOnlyAcrossRfidBackedTransition) {
+    const auto start = std::chrono::steady_clock::time_point{} + 1s;
+    BehaviorTree::CastleCaptureAttributionState state;
+
+    BehaviorTree::ObserveCastleCaptureAttribution(state, 2U, true, start, 3s);
+    EXPECT_FALSE(state.SelfCaptureConfirmed);
+
+    BehaviorTree::ObserveCastleCaptureAttribution(state, 1U, true, start + 2s, 3s);
+    EXPECT_TRUE(state.SelfCaptureConfirmed);
+
+    BehaviorTree::ObserveCastleCaptureAttribution(state, 2U, true, start + 3s, 3s);
+    EXPECT_FALSE(state.SelfCaptureConfirmed);
+}
+
+TEST(TacticalProtectionPolicy, CastleOccupancyDoesNotAttributeTeammateCaptureAfterLateRfidArrival) {
+    const auto start = std::chrono::steady_clock::time_point{} + 1s;
+    BehaviorTree::CastleCaptureAttributionState state;
+
+    BehaviorTree::ObserveCastleCaptureAttribution(state, 2U, false, start, 3s);
+    BehaviorTree::ObserveCastleCaptureAttribution(state, 1U, false, start + 1s, 3s);
+    EXPECT_FALSE(state.SelfCaptureConfirmed);
+
+    // The referee already reports team occupation when this sentry enters, so
+    // this is not evidence that this sentry performed the capture.
+    BehaviorTree::ObserveCastleCaptureAttribution(state, 1U, true, start + 2s, 3s);
+    EXPECT_FALSE(state.SelfCaptureConfirmed);
+}
+
+TEST(TacticalProtectionPolicy, CastleOccupancyDoesNotAttributeCaptureAfterTransitionWindowExpires) {
+    const auto start = std::chrono::steady_clock::time_point{} + 1s;
+    BehaviorTree::CastleCaptureAttributionState state;
+
+    BehaviorTree::ObserveCastleCaptureAttribution(state, 0U, true, start, 3s);
+    BehaviorTree::ObserveCastleCaptureAttribution(state, 3U, true, start + 3001ms, 3s);
+
+    EXPECT_FALSE(state.SelfCaptureConfirmed);
 }
 
 }  // namespace

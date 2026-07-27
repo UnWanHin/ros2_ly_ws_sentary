@@ -381,6 +381,7 @@ private:
     RfidMatchState rfidMatchState{};
     bool hasReceivedRfidStatus_{false};
     std::chrono::steady_clock::time_point lastRfidStatusRxTime_{};
+    bool selfFortressRfidActive_{false};
     gimbal_driver::msg::BulletInfo bulletInfo{};
     bool hasReceivedBulletInfo_{false};
     std::chrono::steady_clock::time_point lastBulletInfoRxTime_{};
@@ -397,6 +398,7 @@ private:
     std::uint8_t eventSelfOutpostGainPointStatus_{0};
     bool eventSelfBaseGainPointStatus_{false};
     std::chrono::steady_clock::time_point lastEventDataRxTime_{};
+    CastleCaptureAttributionState castleCaptureAttribution_{};
     mutable CastleOccupancyResolution lastCastleOccupancy_{};
     mutable std::chrono::steady_clock::time_point castleReachedGraceUntil_{};
     bool sentryCanActivateEnergyMechanism_{false};

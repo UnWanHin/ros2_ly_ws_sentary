@@ -241,6 +241,7 @@ struct CastleOccupancyInput {
     std::uint8_t RefereeStatus{0};
     bool SelfRfidAtCastle{false};
     bool SelfPositionAtCastle{false};
+    bool SelfCaptureConfirmed{false};
     bool ReachedCastleGrace{false};
     bool TeammatePositionAtCastle{false};
 };
@@ -252,24 +253,71 @@ struct CastleOccupancyResolution {
     bool TeamOrAmbiguousOccupant{false};
 };
 
+inline bool IsTeamCastleOccupancyStatus(const std::uint8_t status) noexcept {
+    return status == 1U || status == 3U;
+}
+
+inline bool IsNonTeamCastleOccupancyStatus(const std::uint8_t status) noexcept {
+    return status == 0U || status == 2U;
+}
+
+// The referee only reports the team-level result. This state records a
+// non-team -> team/both transition while this sentry is continuously on its
+// own Castle RFID area, so a later teammate entry is not misattributed.
+struct CastleCaptureAttributionState {
+    bool HasRefereeStatus{false};
+    std::uint8_t LastRefereeStatus{0};
+    std::chrono::steady_clock::time_point LastNonTeamStatusAt{};
+    bool SelfCaptureConfirmed{false};
+};
+
+inline void ObserveCastleCaptureAttribution(
+    CastleCaptureAttributionState& state,
+    const std::uint8_t referee_status,
+    const bool self_rfid_at_castle,
+    const std::chrono::steady_clock::time_point now,
+    const std::chrono::milliseconds transition_window) noexcept {
+    const auto safe_window = transition_window.count() > 0
+        ? transition_window
+        : std::chrono::milliseconds(1);
+    const bool non_team = IsNonTeamCastleOccupancyStatus(referee_status);
+    const bool team = IsTeamCastleOccupancyStatus(referee_status);
+    const bool previous_non_team = state.HasRefereeStatus &&
+        IsNonTeamCastleOccupancyStatus(state.LastRefereeStatus);
+
+    if (non_team) {
+        state.LastNonTeamStatusAt = now;
+        state.SelfCaptureConfirmed = false;
+    } else if (team && previous_non_team && self_rfid_at_castle &&
+               state.LastNonTeamStatusAt.time_since_epoch().count() != 0 &&
+               now >= state.LastNonTeamStatusAt &&
+               now - state.LastNonTeamStatusAt <= safe_window) {
+        state.SelfCaptureConfirmed = true;
+    }
+
+    state.LastRefereeStatus = referee_status;
+    state.HasRefereeStatus = true;
+}
+
 inline CastleOccupancyResolution ResolveCastleOccupancy(
     const CastleOccupancyInput& input) noexcept {
     CastleOccupancyResolution result;
     result.TeammateLikelyAtCastle = input.TeammatePositionAtCastle;
     const bool direct_self_presence = input.SelfRfidAtCastle || input.SelfPositionAtCastle;
-    result.SelfLikelyAtCastle = direct_self_presence && !input.TeammatePositionAtCastle;
+    result.SelfLikelyAtCastle = input.SelfCaptureConfirmed;
     result.TeamOrAmbiguousOccupant =
         input.TeammatePositionAtCastle || (direct_self_presence && input.TeammatePositionAtCastle) ||
-        (input.ReachedCastleGrace && !direct_self_presence);
+        (direct_self_presence && !input.SelfCaptureConfirmed) ||
+        (input.ReachedCastleGrace && !input.SelfCaptureConfirmed);
 
     if (!input.RefereeFresh) {
         return result;
     }
-    if (input.RefereeStatus == 0U || input.RefereeStatus == 2U) {
+    if (IsNonTeamCastleOccupancyStatus(input.RefereeStatus)) {
         result.Action = CastleOccupancyAction::ApproachCastle;
         return result;
     }
-    if ((input.RefereeStatus == 1U || input.RefereeStatus == 3U) && direct_self_presence) {
+    if (IsTeamCastleOccupancyStatus(input.RefereeStatus) && input.SelfCaptureConfirmed) {
         result.Action = CastleOccupancyAction::HoldCastle;
         return result;
     }

@@ -4134,6 +4134,8 @@ namespace BehaviorTree {
             .RefereeStatus = eventSelfFortressGainPointStatus_,
             .SelfRfidAtCastle = self_rfid_at_castle,
             .SelfPositionAtCastle = self_position_at_castle,
+            .SelfCaptureConfirmed = protect_castle.Enable && protect_castle.RFID &&
+                castleCaptureAttribution_.SelfCaptureConfirmed && self_rfid_at_castle,
             .ReachedCastleGrace = reached_castle_grace,
             .TeammatePositionAtCastle = teammate_at_castle,
         });

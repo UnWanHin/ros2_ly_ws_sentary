@@ -303,12 +303,12 @@ DefaultPolicy 的當前選區規則：
 
 ## RegionalDefense
 
-RegionalDefense 是事件驅動戰術層，優先級高於 Default。敵方位置判斷只使用 `/ly/position/data` 寫入的官方場地坐標，不使用 map/odom 坐標混判；AreaManager 用 `Area.hpp` 官方點位區域邊界判斷敵方是否進入我方 Base/Highland/PreRoadland/ReadyRoadland 或公共 Central，兩段道路會聚合為同一 RoadCorridor 防守威脅。城堡保護有兩條獨立來源：`Tactical.ProtectCastle.RFID` 控制 `/ly/game/event_data.self_fortress_gain_point_status == 2/3` 的堡壘事件，`Tactical.ProtectCastle.EnemyPos` 控制敵方官方坐標進入我方 Base。`ProtectCastle.Enable=false` 會同時關閉兩條來源；`RFID=false` 只關事件和其站樁火控；`StayWhenRfid=true` 只在新鮮原始 `2/3` 事件時鎖 Castle 並跳過無接觸退化；`EnemyPos=false` 只忽略 MyBase 敵方坐標，Highland、兩段道路與 Central 的 RegionalDefense 不受影響。ProtectHero 的英雄保護條件會在 RegionalDefense 之前檢查；只有未命中英雄保護時，普通 RegionalDefense 才接管。
+RegionalDefense 是事件驅動戰術層，優先級高於 Default。敵方位置判斷只使用 `/ly/position/data` 寫入的官方場地坐標，不使用 map/odom 坐標混判；AreaManager 用 `Area.hpp` 官方點位區域邊界判斷敵方是否進入我方 Base/Highland/PreRoadland/ReadyRoadland 或公共 Central，兩段道路會聚合為同一 RoadCorridor 防守威脅。城堡保護有兩條獨立來源：`Tactical.ProtectCastle.RFID` 控制 `/ly/game/event_data.self_fortress_gain_point_status` 的堡壘占領結果，`Tactical.ProtectCastle.EnemyPos` 控制敵方官方坐標進入我方 Base。`ProtectCastle.Enable=false` 會同時關閉兩條來源；`RFID=false` 只關事件和其站樁火控；`StayWhenRfid=true` 只在本車 RFID 支持的占領轉換被確認時站樁 Castle；`EnemyPos=false` 只忽略 MyBase 敵方坐標，Highland、兩段道路與 Central 的 RegionalDefense 不受影響。ProtectHero 的英雄保護條件會在 RegionalDefense 之前檢查；只有未命中英雄保護時，普通 RegionalDefense 才接管。
 
 當前防守搜索規則：
 
 - 敵方進入我方 Base：優先去 `Castle`，再 fallback 到左右 Castle 點。
-- `/ly/game/event_data` 顯示己方堡壘增益點被對方或雙方占領：`StayWhenRfid=true` 時唯一導航點為 `Castle`；抵達後不再授權導航追擊或切點離開，直到原始事件過期或轉為 `0/1`。關閉時才在 `CastleLeft1 / CastleLeft2 / CastleRight1 / CastleRight2` 裡按自身位置選最近點搜索。這是 V2.0.1 規則中「比賽滿 3 分鐘、己方前哨首次被毀後，敵方單車佔堡壘累計 20 秒會使己方基地護甲展開」的前置防守告警，不等同於已展開狀態：目前上行缺少單車計時與飛鏢命中結果。兩種模式都沿用普通裝甲模式邊走邊打；若己方 Base 大區的新鮮官方敵方位置數達到 `RegionalDefense.FortressStandEnemyCountMin`，且普通裝甲目標已鎖定並允許開火，則把底盤速度壓為 0、小陀螺覆蓋到最高檔站樁開火。
+- `/ly/game/event_data.self_fortress_gain_point_status` 是堡壘**占領結果**：`0=無人`、`1=我方`、`2=敵方`、`3=雙方`；`/ly/game/rfid.friend_bastion` 只表示本哨兵正在己方 Castle RFID 區，不能單獨判占領。若裁判新鮮狀態由 `0/2` 轉為 `1/3` 的當拍本哨兵 RFID 已有效，且前一個 `0/2` 狀態不超過 `Tactical.ProtectCastle.RfidCaptureTransitionWindowMs`（預設 3000 ms），才確認為「本哨兵完成占領」。該確認在 RFID 仍有效且狀態維持 `1/3` 時才令 `StayWhenRfid=true` 唯一導航到 `Castle` 並禁止 Chase/切點；隊友已占、我之後才進 Castle，或沒有此轉換證據時，`1/3` 只守 `CastleLeft1 / CastleLeft2 / CastleRight1 / CastleRight2` 外圍點。隊友官方位置是否在 Castle 只參與上述占領歸因與 decision trace，不是救援 gate；當下位機把新鮮裁判結果由 `1/3` 更新為 `0/2`（隊友離開後無人或敵方占領），BT 不等待 friend position，會立即把 ProtectCastle 導航切到 `Castle` 搶占。這是 V2.0.1 規則中「比賽滿 3 分鐘、己方前哨首次被毀後，敵方單車佔堡壘累計 20 秒會使己方基地護甲展開」的前置防守告警，不等同於已展開狀態：目前上行缺少單車計時與飛鏢命中結果。兩種模式都沿用普通裝甲模式邊走邊打；若己方 Base 大區的新鮮官方敵方位置數達到 `RegionalDefense.FortressStandEnemyCountMin`，且普通裝甲目標已鎖定並允許開火，則把底盤速度壓為 0、小陀螺覆蓋到最高檔站樁開火。
 - 我方 Highland 和任一 RoadCorridor 段同時有敵方：優先去 `Castle`。
 - 敵方進入我方 PreRoadland 或 ReadyRoadland：去 `CastleRight2 -> CastleRight1 -> Castle` 搜索。
 - 敵方進入我方 Highland：去 `HoleRoad -> Highland -> Castle` 搜索，先利用 HoleRoad 視野，再進 Highland。
