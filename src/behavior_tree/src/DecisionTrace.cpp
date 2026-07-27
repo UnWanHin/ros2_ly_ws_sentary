@@ -694,6 +694,11 @@ void Application::WriteDecisionTrace(const std::string_view event) noexcept {
         }},
         {"protect_hero", {
             {"enabled", protect_hero.Enable},
+            {"enhanced_defense_enabled", protect_hero.EnhancedDefense.Enable},
+            {"enhanced_defense_damage_window_ms", protect_hero.EnhancedDefense.DamageWindowMs},
+            {"enhanced_defense_damage_threshold_hp", protect_hero.EnhancedDefense.DamageThresholdHp},
+            {"enhanced_defense_request_unavailable", protectHeroEnhancedDefenseUnavailable_},
+            {"enhanced_defense_recovery_deferred", protectHeroEnhancedDefenseRecoveryDeferred_},
             {"active", protectHeroActive_},
             {"priority", tactical_settings.Priority.ProtectHero},
             {"profile_ready", protect_hero_profile_ready},

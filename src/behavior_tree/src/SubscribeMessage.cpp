@@ -247,12 +247,28 @@ namespace BehaviorTree{
 
         // ly_game_all
         GenSub<ly_game_all>([](Application& app, auto msg) {
-            // 联赛回补逻辑依赖这组“最近接收时间”，用于 stale 防护。
-            if (msg->selfhealth > 0) {
-                app.myselfHealth = msg->selfhealth;
-                app.hasReceivedMyselfHealth_ = true;
-                app.lastMyselfHealthRxTime = std::chrono::steady_clock::now();
+            // 0 HP 是裁判有效状态，必须保留以识别正常读条复活的 0 -> 正血转换。
+            const auto now = std::chrono::steady_clock::now();
+            if (IsNormalRespawnHealthTransition(
+                    app.enhancedMoveHealthInitialized_,
+                    app.enhancedMoveLastHealth_,
+                    msg->selfhealth)) {
+                const int suppress_sec = std::max(
+                    0,
+                    app.config.TacticalSettings.EnhancedPosture.RecoveryMove.RespawnSuppressSec);
+                app.enhancedMoveRespawnSuppressUntil_ = now + std::chrono::seconds(suppress_sec);
+                if (app.LoggerPtr) {
+                    app.LoggerPtr->Info(
+                        "Enhanced Recovery Move suppressed for {}s after normal respawn (hp={}).",
+                        suppress_sec,
+                        msg->selfhealth);
+                }
             }
+            app.enhancedMoveLastHealth_ = msg->selfhealth;
+            app.enhancedMoveHealthInitialized_ = true;
+            app.myselfHealth = msg->selfhealth;
+            app.hasReceivedMyselfHealth_ = true;
+            app.lastMyselfHealthRxTime = now;
         });
 
         // ly_enemy_op_hp

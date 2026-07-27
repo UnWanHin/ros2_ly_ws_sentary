@@ -1877,6 +1877,25 @@ namespace BehaviorTree {
         ReadOptionalIntParam(node_, {"Tactical.Priority.ProtectHero", "Tactical/Priority/ProtectHero"}, priority.ProtectHero);
         ReadOptionalIntParam(node_, {"Tactical.Priority.Chase", "Tactical/Priority/Chase"}, priority.Chase);
 
+        auto& enhanced_posture = tactical.EnhancedPosture;
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.EnhancedPosture.ContradictionGraceMs", "Tactical/EnhancedPosture/ContradictionGraceMs"},
+            enhanced_posture.ContradictionGraceMs);
+        auto& enhanced_recovery_move = enhanced_posture.RecoveryMove;
+        ReadOptionalBoolParam(
+            node_,
+            {"Tactical.EnhancedPosture.RecoveryMove.Enable", "Tactical/EnhancedPosture/RecoveryMove/Enable"},
+            enhanced_recovery_move.Enable);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.EnhancedPosture.RecoveryMove.HealthThresholdHp", "Tactical/EnhancedPosture/RecoveryMove/HealthThresholdHp"},
+            enhanced_recovery_move.HealthThresholdHp);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.EnhancedPosture.RecoveryMove.RespawnSuppressSec", "Tactical/EnhancedPosture/RecoveryMove/RespawnSuppressSec"},
+            enhanced_recovery_move.RespawnSuppressSec);
+
         auto& protect_outpost = tactical.ProtectOutpost;
         bool protect_outpost_enable = protect_outpost.Enable;
         const bool protect_outpost_yaml_provided = ReadOptionalBoolParam(
@@ -1911,6 +1930,10 @@ namespace BehaviorTree {
         priority.ProtectOutpost = std::max(0, priority.ProtectOutpost);
         priority.ProtectHero = std::max(0, priority.ProtectHero);
         priority.Chase = std::max(0, priority.Chase);
+        enhanced_posture.ContradictionGraceMs = std::max(0, enhanced_posture.ContradictionGraceMs);
+        enhanced_recovery_move.HealthThresholdHp = std::clamp(
+            enhanced_recovery_move.HealthThresholdHp, 1, 400);
+        enhanced_recovery_move.RespawnSuppressSec = std::max(0, enhanced_recovery_move.RespawnSuppressSec);
         protect_outpost.HealthFreshMs = std::max(0, protect_outpost.HealthFreshMs);
         protect_outpost.DamageWindowMs = std::max(1, protect_outpost.DamageWindowMs);
         protect_outpost.DamageThresholdHp = std::max(1, protect_outpost.DamageThresholdHp);
@@ -1933,6 +1956,19 @@ namespace BehaviorTree {
             protect_hero_baseline_enable,
             protect_hero_yaml_provided,
             protect_hero_enable);
+        auto& protect_hero_enhanced_defense = protect_hero.EnhancedDefense;
+        ReadOptionalBoolParam(
+            node_,
+            {"Tactical.ProtectHero.EnhancedDefense.Enable", "Tactical/ProtectHero/EnhancedDefense/Enable"},
+            protect_hero_enhanced_defense.Enable);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.ProtectHero.EnhancedDefense.DamageWindowMs", "Tactical/ProtectHero/EnhancedDefense/DamageWindowMs"},
+            protect_hero_enhanced_defense.DamageWindowMs);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.ProtectHero.EnhancedDefense.DamageThresholdHp", "Tactical/ProtectHero/EnhancedDefense/DamageThresholdHp"},
+            protect_hero_enhanced_defense.DamageThresholdHp);
         ReadOptionalIntParam(
             node_,
             {"Tactical.ProtectHero.StartElapsedSec", "Tactical/ProtectHero/StartElapsedSec"},
@@ -2434,6 +2470,12 @@ namespace BehaviorTree {
         LoggerPtr->Debug("StopRotateWhenFalse: {}", config.NaviControlSettings.StopRotateWhenFalse);
         LoggerPtr->Debug("SetPostureToMoveWhenFalse: {}", config.NaviControlSettings.SetPostureToMoveWhenFalse);
         LoggerPtr->Debug("------ Tactical ------");
+        LoggerPtr->Debug(
+            "EnhancedPosture: contradiction_grace_ms={} recovery_move.enable={} recovery_move.health_threshold_hp={} recovery_move.respawn_suppress_sec={}",
+            config.TacticalSettings.EnhancedPosture.ContradictionGraceMs,
+            config.TacticalSettings.EnhancedPosture.RecoveryMove.Enable,
+            config.TacticalSettings.EnhancedPosture.RecoveryMove.HealthThresholdHp,
+            config.TacticalSettings.EnhancedPosture.RecoveryMove.RespawnSuppressSec);
         LoggerPtr->Debug("ProtectCastle.Enable: {}", config.TacticalSettings.ProtectCastle.Enable);
         LoggerPtr->Debug("ProtectCastle.Base: {}", config.TacticalSettings.ProtectCastle.Base);
         LoggerPtr->Debug("ProtectCastle.OccupancyPositionFreshMs: {}", config.TacticalSettings.ProtectCastle.OccupancyPositionFreshMs);
@@ -2444,8 +2486,11 @@ namespace BehaviorTree {
         LoggerPtr->Debug("ProtectCastle.StayWhenRfid: {}", config.TacticalSettings.ProtectCastle.StayWhenRfid);
         LoggerPtr->Debug("ProtectCastle.EnemyPos: {}", config.TacticalSettings.ProtectCastle.EnemyPos);
         LoggerPtr->Debug(
-            "ProtectHero: enable={} start_elapsed_sec={} hold_sec={} no_enemy_release_sec={} position_fresh_ms={} health_fresh_ms={} goal_base_id={}",
+            "ProtectHero: enable={} enhanced_defense.enable={} enhanced_defense.damage_window_ms={} enhanced_defense.damage_threshold_hp={} start_elapsed_sec={} hold_sec={} no_enemy_release_sec={} position_fresh_ms={} health_fresh_ms={} goal_base_id={}",
             config.TacticalSettings.ProtectHero.Enable,
+            config.TacticalSettings.ProtectHero.EnhancedDefense.Enable,
+            config.TacticalSettings.ProtectHero.EnhancedDefense.DamageWindowMs,
+            config.TacticalSettings.ProtectHero.EnhancedDefense.DamageThresholdHp,
             config.TacticalSettings.ProtectHero.StartElapsedSec,
             config.TacticalSettings.ProtectHero.HoldSec,
             config.TacticalSettings.ProtectHero.NoEnemyReleaseSec,
@@ -3139,6 +3184,16 @@ namespace BehaviorTree {
             LoggerPtr->Warning("Invalid Tactical.ProtectHero.StartElapsedSec={}, fallback to 120.",
                                protect_hero.StartElapsedSec);
             protect_hero.StartElapsedSec = 120;
+        }
+        if (protect_hero.EnhancedDefense.DamageWindowMs <= 0) {
+            LoggerPtr->Warning("Invalid Tactical.ProtectHero.EnhancedDefense.DamageWindowMs={}, fallback to 1500.",
+                               protect_hero.EnhancedDefense.DamageWindowMs);
+            protect_hero.EnhancedDefense.DamageWindowMs = 1500;
+        }
+        if (protect_hero.EnhancedDefense.DamageThresholdHp <= 0) {
+            LoggerPtr->Warning("Invalid Tactical.ProtectHero.EnhancedDefense.DamageThresholdHp={}, fallback to 30.",
+                               protect_hero.EnhancedDefense.DamageThresholdHp);
+            protect_hero.EnhancedDefense.DamageThresholdHp = 30;
         }
         if (protect_hero.HoldSec <= 0) {
             LoggerPtr->Warning("Invalid Tactical.ProtectHero.HoldSec={}, fallback to 30.",

@@ -24,6 +24,7 @@ void PostureManager::Reset(TimePoint now, SentryPosture initial_posture) {
     last_switch_ = now;
     pending_since_ = now;
     last_command_ = now;
+    enhanced_feedback_contradiction_since_ = {};
 }
 
 void PostureManager::accumulate_time(const double dt_seconds) {
@@ -64,10 +65,38 @@ bool PostureManager::update_feedback(const TimePoint now, const PostureFeedback 
 
 void PostureManager::update_referee_timer(const PostureRefereeTimer& referee_timer) {
     runtime_.RefereeTimerFresh = referee_timer.Fresh;
-    runtime_.RefereeEnhancedPosture = referee_timer.Enhanced;
+    runtime_.RefereeEnhancedPosture = referee_timer.Enhanced && !runtime_.EnhancedFeedbackQuarantined;
     runtime_.RefereeRemainingSec = referee_timer.RemainingSec;
     runtime_.RefereeEnhancedRemainingSec = referee_timer.EnhancedRemainingSec;
     runtime_.UsingRefereeTimer = referee_timer.Fresh;
+}
+
+void PostureManager::update_enhanced_feedback_contradiction(
+    const TimePoint now,
+    const PostureFeedback& feedback,
+    const PostureRefereeTimer& referee_timer) {
+    const auto base = ToPosture(feedback.Base);
+    const auto base_index = ToPostureValue(base);
+    const bool contradictory =
+        feedback.Fresh &&
+        feedback.EnhancedFresh &&
+        feedback.Enhanced &&
+        referee_timer.HasInfo3 &&
+        referee_timer.Fresh &&
+        base_index > 0U &&
+        referee_timer.EnhancedRemainingSec[base_index] == 0U;
+    if (!contradictory) {
+        enhanced_feedback_contradiction_since_ = {};
+        runtime_.EnhancedFeedbackQuarantined = false;
+        return;
+    }
+
+    if (enhanced_feedback_contradiction_since_.time_since_epoch().count() == 0) {
+        enhanced_feedback_contradiction_since_ = now;
+    }
+    const auto grace = std::chrono::milliseconds(
+        std::max(0, referee_timer.EnhancedContradictionGraceMs));
+    runtime_.EnhancedFeedbackQuarantined = now - enhanced_feedback_contradiction_since_ >= grace;
 }
 
 double PostureManager::effective_accum_sec(const SentryPosture posture) const {
@@ -146,8 +175,10 @@ PostureDecision PostureManager::Tick(
     }
     last_tick_ = now;
 
-    const bool feedback_confirmed_pending = update_feedback(now, feedback);
     update_referee_timer(referee_timer);
+    update_enhanced_feedback_contradiction(now, feedback, referee_timer);
+    update_referee_timer(referee_timer);
+    const bool feedback_confirmed_pending = update_feedback(now, feedback);
     for (const auto posture : {SentryPosture::Attack, SentryPosture::Defense, SentryPosture::Move}) {
         const auto idx = ToPostureValue(posture);
         runtime_.Degraded[idx] = effective_degraded(posture);
@@ -160,6 +191,14 @@ PostureDecision PostureManager::Tick(
     }
 
     runtime_.Desired = IsValidPostureMode(desired_posture) ? desired_posture : runtime_.Current;
+    if (runtime_.EnhancedFeedbackQuarantined) {
+        runtime_.Desired.Enhanced = false;
+        if (runtime_.HasPending && runtime_.Pending.Enhanced) {
+            runtime_.HasPending = false;
+            runtime_.Pending = {};
+            runtime_.RetryCount = 0;
+        }
+    }
 
     const auto current_idx = ToPostureValue(runtime_.Current.Base);
     if (policy.AllowEarlyRotate &&

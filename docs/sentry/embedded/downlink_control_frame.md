@@ -58,6 +58,13 @@ byte 0 都是 `0x21` (`'!'`)，byte 1 是 `DownlinkTypeID`；之後的 frame 長
 `/ly/control/posture` 只更新姿態字段，會立即發送並按既有參數重發；
 `/ly/control/sentry_cmd` 按 `field_mask` 更新完整命令 shadow 後發送一包。
 
+強化姿態 guard 預設開啟：`4=強化進攻`、`5=強化防禦`、`6=強化移動` 只有在最新 TypeID 10
+`sentry_info_3` 仍於 `io_config.enhanced_posture_guard.sentry_info3_fresh_ms`（預設 1500 ms）內，且對應
+強化剩餘時間大於 0 時才會寫出 `0x01`。缺少/過期/0 額度時 driver 拒絕該強化請求；若已快取命令在最終
+frame 組裝時失效，該 frame 的 posture 寫 `0` 並清除快取，不能因重發、同包其他欄位或重連而繞過 gate；普通
+`0..3` 與其他 `SentryCmd` 欄位不受此 guard 影響。`/ly/download/typeid0x01` raw 整包直發僅為
+raw-downlink test mode 的聯調旁路，不經此語義 guard。
+
 ### 4.1 `SentryCmd` 位語義（RM2026 V2.0）
 
 | bit | ROS 字段 | 說明 |

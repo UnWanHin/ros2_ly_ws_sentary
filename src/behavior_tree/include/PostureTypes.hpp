@@ -98,6 +98,10 @@ struct PostureRequestPolicy {
     static constexpr PostureRequestPolicy RequiredPosture() noexcept {
         return {true, false, false};
     }
+
+    static constexpr PostureRequestPolicy EnhancedDefenseHold() noexcept {
+        return {false, true, false};
+    }
 };
 
 struct PostureRefereeTimer {
@@ -106,6 +110,7 @@ struct PostureRefereeTimer {
     std::uint32_t AgeMs{std::numeric_limits<std::uint32_t>::max()};
     std::chrono::steady_clock::time_point AgeMeasuredAt{};
     bool Enhanced{false};
+    int EnhancedContradictionGraceMs{500};
     std::array<std::uint8_t, 4> RemainingSec{};
     std::array<std::uint8_t, 4> EnhancedRemainingSec{};
 };
@@ -121,6 +126,7 @@ struct PostureRuntime {
     std::array<std::uint8_t, 4> RefereeEnhancedRemainingSec{};
     bool RefereeTimerFresh{false};
     bool RefereeEnhancedPosture{false};
+    bool EnhancedFeedbackQuarantined{false};
     bool UsingRefereeTimer{false};
     bool HasPending{false};
     bool FeedbackStale{false};
@@ -134,6 +140,9 @@ enum class TaskPostureIntent : std::uint8_t {
     HardMove = 3,
     HardAttack = 4,
     HardDefense = 5,
+    ProtectHeroDefenseHold = 6,
+    ProtectHeroEnhancedDefense = 7,
+    RecoveryEnhancedMove = 8,
 };
 
 inline constexpr const char* TaskPostureIntentToString(const TaskPostureIntent intent) noexcept {
@@ -143,9 +152,21 @@ inline constexpr const char* TaskPostureIntentToString(const TaskPostureIntent i
         case TaskPostureIntent::HardMove: return "hard_move";
         case TaskPostureIntent::HardAttack: return "hard_attack";
         case TaskPostureIntent::HardDefense: return "hard_defense";
+        case TaskPostureIntent::ProtectHeroDefenseHold: return "protect_hero_defense_hold";
+        case TaskPostureIntent::ProtectHeroEnhancedDefense: return "protect_hero_enhanced_defense";
+        case TaskPostureIntent::RecoveryEnhancedMove: return "recovery_enhanced_move";
         case TaskPostureIntent::None: return "none";
     }
     return "none";
+}
+
+inline constexpr TaskPostureIntent ResolveProtectHeroHoldIntent(
+    const bool enhanced_defense_enabled,
+    const bool damage_burst,
+    const bool enhanced_defense_unavailable) noexcept {
+    return enhanced_defense_enabled && damage_burst && !enhanced_defense_unavailable
+        ? TaskPostureIntent::ProtectHeroEnhancedDefense
+        : TaskPostureIntent::ProtectHeroDefenseHold;
 }
 
 struct TaskPostureIntentState {
@@ -191,11 +212,70 @@ struct TaskPostureRequest {
     PostureRequestPolicy Policy{};
 };
 
+inline bool CanRequestEnhancedPosture(
+    const PostureRuntime& runtime,
+    const PostureRefereeTimer& referee_timer,
+    const SentryPosture posture) noexcept {
+    const auto posture_index = ToPostureValue(posture);
+    return !runtime.EnhancedFeedbackQuarantined &&
+        posture_index > 0U &&
+        referee_timer.HasInfo3 &&
+        referee_timer.Fresh &&
+        referee_timer.EnhancedRemainingSec[posture_index] > 0U;
+}
+
+inline bool CanRequestEnhancedDefense(
+    const PostureRuntime& runtime,
+    const PostureRefereeTimer& referee_timer) noexcept {
+    return CanRequestEnhancedPosture(runtime, referee_timer, SentryPosture::Defense);
+}
+
+inline bool ShouldRequestRecoveryEnhancedMove(
+    const bool regional_profile,
+    const bool enabled,
+    const bool respawn_suppressed,
+    const bool unavailable_for_current_recovery,
+    const bool recovery_traveling,
+    const bool self_health_fresh,
+    const std::uint16_t self_health,
+    const int health_threshold_hp,
+    const PostureRuntime& runtime,
+    const PostureRefereeTimer& referee_timer) noexcept {
+    return regional_profile &&
+        enabled &&
+        !respawn_suppressed &&
+        !unavailable_for_current_recovery &&
+        recovery_traveling &&
+        self_health_fresh &&
+        self_health > 0U &&
+        self_health <= static_cast<std::uint16_t>(std::max(1, health_threshold_hp)) &&
+        CanRequestEnhancedPosture(runtime, referee_timer, SentryPosture::Move);
+}
+
+inline constexpr bool IsNormalRespawnHealthTransition(
+    const bool has_previous_health,
+    const std::uint16_t previous_health,
+    const std::uint16_t current_health) noexcept {
+    return has_previous_health && previous_health == 0U && current_health > 0U;
+}
+
+inline bool ShouldDeferRecoveryForProtectHeroEnhancedDefense(
+    const bool bt_owns_protect_hero_enhanced_defense,
+    const bool switch_cooldown_ready,
+    const PostureRuntime& runtime) noexcept {
+    return bt_owns_protect_hero_enhanced_defense &&
+        !switch_cooldown_ready &&
+        runtime.Current == PostureMode{SentryPosture::Defense, true} &&
+        !runtime.EnhancedFeedbackQuarantined &&
+        !runtime.FeedbackStale;
+}
+
 inline TaskPostureRequest ResolveTaskPostureRequest(
     const TaskPostureIntent intent,
     const SentryPosture scored_posture,
     const PostureRuntime& runtime,
-    const int reserve_sec) noexcept {
+    const int reserve_sec,
+    const PostureRefereeTimer& referee_timer = {}) noexcept {
     switch (intent) {
         case TaskPostureIntent::SoftTransit:
             if (scored_posture == SentryPosture::Defense) {
@@ -209,6 +289,23 @@ inline TaskPostureRequest ResolveTaskPostureRequest(
             return {{SentryPosture::Attack, false}, PostureRequestPolicy::RequiredPosture()};
         case TaskPostureIntent::HardDefense:
             return {{SentryPosture::Defense, false}, PostureRequestPolicy::RequiredPosture()};
+        case TaskPostureIntent::ProtectHeroDefenseHold:
+            return {{SentryPosture::Defense, false}, PostureRequestPolicy::RequiredPosture()};
+        case TaskPostureIntent::ProtectHeroEnhancedDefense: {
+            const bool enhanced_available = CanRequestEnhancedDefense(runtime, referee_timer);
+            return {{SentryPosture::Defense, enhanced_available},
+                    enhanced_available
+                        ? PostureRequestPolicy::EnhancedDefenseHold()
+                        : PostureRequestPolicy::RequiredPosture()};
+        }
+        case TaskPostureIntent::RecoveryEnhancedMove: {
+            const bool enhanced_available = CanRequestEnhancedPosture(
+                runtime, referee_timer, SentryPosture::Move);
+            return {{SentryPosture::Move, enhanced_available},
+                    enhanced_available
+                        ? PostureRequestPolicy::EnhancedDefenseHold()
+                        : PostureRequestPolicy::RequiredPosture()};
+        }
         case TaskPostureIntent::SoftArrived:
         case TaskPostureIntent::None:
             return {{scored_posture, false}, {}};

@@ -70,6 +70,7 @@
 #include <geometry_msgs/msg/point_stamped.hpp>
 
 #include "module/BasicTypes.hpp"
+#include "module/EnhancedPostureGuard.hpp"
 #include "module/MapPathRateLimiter.hpp"
 #include "module/crc_checker.hpp"
 #include "module/IODevice.hpp"
@@ -151,6 +152,8 @@ namespace
         std::uint8_t postureState_{0};   // 0=未知, 1=进攻, 2=防御, 3=移动
         int postureTxRepeatCount_{3};
         std::chrono::milliseconds postureTxInterval_{20};
+        bool enhancedPostureGuardEnable_{true};
+        std::chrono::milliseconds enhancedPostureInfo3FreshTimeout_{1500};
         std::chrono::milliseconds firecodePartialHold_{100};
         std::chrono::milliseconds navigationTestStaleTimeout_{500};
         std::chrono::milliseconds gamePathFreshTimeout_{5000};
@@ -265,6 +268,57 @@ namespace
 
         static bool IsValidPostureCommand(std::uint8_t posture) noexcept {
             return posture >= 1 && posture <= 6;
+        }
+
+        bool HasFreshSentryInfo3() const noexcept {
+            return hasSentryInfo3_ &&
+                lastSentryInfo3RxTime_.time_since_epoch().count() != 0 &&
+                std::chrono::steady_clock::now() - lastSentryInfo3RxTime_ <=
+                    enhancedPostureInfo3FreshTimeout_;
+        }
+
+        bool IsPostureCommandAllowed(const std::uint8_t posture) const noexcept {
+            return IsEnhancedPostureCommandAllowed(
+                posture,
+                enhancedPostureGuardEnable_,
+                HasFreshSentryInfo3(),
+                latestSentryInfo3_);
+        }
+
+        void WarnRejectedEnhancedPosture(const char* source, const std::uint8_t posture) const {
+            roslog::warn(
+                "Reject %s enhanced posture=%u: TypeID10 fresh=%d remaining_s=%u guard=%d",
+                source,
+                posture,
+                HasFreshSentryInfo3() ? 1 : 0,
+                static_cast<unsigned int>(EnhancedPostureRemainingSec(posture, latestSentryInfo3_)),
+                enhancedPostureGuardEnable_ ? 1 : 0);
+        }
+
+        std::uint8_t PostureForTransmission(
+            const std::uint8_t posture,
+            const char* source) {
+            const auto transmitted = PostureCommandForTransmission(
+                posture,
+                enhancedPostureGuardEnable_,
+                HasFreshSentryInfo3(),
+                latestSentryInfo3_);
+            if (transmitted == posture) {
+                return transmitted;
+            }
+
+            WarnRejectedEnhancedPosture(source, posture);
+            if (posturePendingToSend_ == posture) {
+                posturePendingToSend_ = 0;
+                posturePendingRepeat_ = 0;
+            }
+            if (postureCommand_ == posture) {
+                postureCommand_ = 0;
+            }
+            if (sentryCmdShadow_.Posture == posture) {
+                sentryCmdShadow_.Posture = 0;
+            }
+            return transmitted;
         }
 
         static std::uint8_t ClampU2(std::uint8_t value) noexcept {
@@ -1112,15 +1166,23 @@ namespace
                 return;
             }
 
+            const auto pending_posture = posturePendingToSend_;
             SentryCommandFrame frame;
             frame.SentryCmd = sentryCmdShadow_;
-            frame.SentryCmd.Posture = posturePendingToSend_;
+            frame.SentryCmd.Posture = PostureForTransmission(
+                pending_posture, "posture_repeat");
             if (!Device.WriteRaw(frame)) {
                 DeviceError = true;
                 return;
             }
             LogDownlinkRaw(frame, "posture_repeat");
             sentryCmdShadow_ = frame.SentryCmd;
+
+            if (frame.SentryCmd.Posture != pending_posture) {
+                posturePendingRepeat_ = 0;
+                postureLastSent_ = 0;
+                return;
+            }
 
             posturePendingRepeat_--;
             postureNextSendTime_ = now + postureTxInterval_;
@@ -1264,6 +1326,8 @@ namespace
                 if (m.posture > 6) {
                     roslog::warn("Invalid /ly/control/sentry_cmd posture: %u (expect 0/1/2/3/4/5/6)",
                                  m.posture);
+                } else if (!IsPostureCommandAllowed(m.posture)) {
+                    WarnRejectedEnhancedPosture("/ly/control/sentry_cmd", m.posture);
                 } else {
                     const auto posture = ClampU3(m.posture);
                     command.Posture = posture;
@@ -1290,6 +1354,8 @@ namespace
             }
             SentryCommandFrame frame;
             frame.SentryCmd = sentryCmdShadow_;
+            frame.SentryCmd.Posture = PostureForTransmission(
+                frame.SentryCmd.Posture, reason);
             if (!Device.WriteRaw(frame)) {
                 DeviceError = true;
                 return false;
@@ -1592,6 +1658,10 @@ namespace
                 const auto command = msg->posture;
                 if (command != 0 && !IsValidPostureCommand(command)) {
                     roslog::warn("Invalid /ly/control/posture: %u (expect 0/1/2/3/4/5/6)", command);
+                    return;
+                }
+                if (!IsPostureCommandAllowed(command)) {
+                    WarnRejectedEnhancedPosture("/ly/control/posture", command);
                     return;
                 }
                 postureCommand_ = command;
@@ -2202,6 +2272,9 @@ namespace
             getParamCompat("io_config/baud_rate", "io_config.baud_rate", serialBaudRate, 115200);
             int postureRepeatCount = postureTxRepeatCount_;
             int postureRepeatIntervalMs = static_cast<int>(postureTxInterval_.count());
+            bool enhancedPostureGuardEnable = enhancedPostureGuardEnable_;
+            int enhancedPostureInfo3FreshMs =
+                static_cast<int>(enhancedPostureInfo3FreshTimeout_.count());
             int firecodePartialHoldMs = static_cast<int>(firecodePartialHold_.count());
             int navigationTestStaleTimeoutMs = static_cast<int>(navigationTestStaleTimeout_.count());
             int gamePathFreshTimeoutMs = static_cast<int>(gamePathFreshTimeout_.count());
@@ -2245,6 +2318,16 @@ namespace
                 "io_config.posture_repeat_interval_ms",
                 postureRepeatIntervalMs,
                 postureRepeatIntervalMs);
+            getParamCompat(
+                "io_config/enhanced_posture_guard/enable",
+                "io_config.enhanced_posture_guard.enable",
+                enhancedPostureGuardEnable,
+                enhancedPostureGuardEnable);
+            getParamCompat(
+                "io_config/enhanced_posture_guard/sentry_info3_fresh_ms",
+                "io_config.enhanced_posture_guard.sentry_info3_fresh_ms",
+                enhancedPostureInfo3FreshMs,
+                enhancedPostureInfo3FreshMs);
             getParamCompat(
                 "io_config/firecode_partial_hold_ms",
                 "io_config.firecode_partial_hold_ms",
@@ -2433,6 +2516,12 @@ namespace
                              postureRepeatIntervalMs);
                 postureRepeatIntervalMs = 20;
             }
+            if (enhancedPostureInfo3FreshMs <= 0) {
+                roslog::warn(
+                    "Invalid enhanced_posture_guard.sentry_info3_fresh_ms=%d, fallback to 1500",
+                    enhancedPostureInfo3FreshMs);
+                enhancedPostureInfo3FreshMs = 1500;
+            }
             if (firecodePartialHoldMs <= 0) {
                 roslog::warn("Invalid firecode_partial_hold_ms=%d, fallback to 100", firecodePartialHoldMs);
                 firecodePartialHoldMs = 100;
@@ -2498,6 +2587,8 @@ namespace
 
             postureTxRepeatCount_ = postureRepeatCount;
             postureTxInterval_ = std::chrono::milliseconds(postureRepeatIntervalMs);
+            enhancedPostureGuardEnable_ = enhancedPostureGuardEnable;
+            enhancedPostureInfo3FreshTimeout_ = std::chrono::milliseconds(enhancedPostureInfo3FreshMs);
             firecodePartialHold_ = std::chrono::milliseconds(firecodePartialHoldMs);
             navigationTestStaleTimeout_ = std::chrono::milliseconds(navigationTestStaleTimeoutMs);
             gamePathFreshTimeout_ = std::chrono::milliseconds(gamePathFreshTimeoutMs);
@@ -2554,6 +2645,10 @@ namespace
             roslog::warn("posture_tx merged mode: repeat_count=%d repeat_interval_ms=%d",
                          postureTxRepeatCount_,
                          static_cast<int>(postureTxInterval_.count()));
+            roslog::warn(
+                "enhanced posture guard: enable=%s sentry_info3_fresh_ms=%d",
+                enhancedPostureGuardEnable_ ? "true" : "false",
+                static_cast<int>(enhancedPostureInfo3FreshTimeout_.count()));
             roslog::warn("semantic control: firecode_partial_hold_ms=%d velocity_raw_to_mps=%.4f",
                          static_cast<int>(firecodePartialHold_.count()),
                          static_cast<double>(velocityRawToMps_));
@@ -2633,9 +2728,12 @@ namespace
                 if (navigationModeEnable_) {
                     ApplyNavigationModeRotate(navigationModeShouldRotate_);
                 }
-                sentryCmdShadow_.Posture = IsValidPostureCommand(postureCommand_) ? postureCommand_ : 0;
-                if (IsValidPostureCommand(postureCommand_)) {
-                    ArmPostureTx(postureCommand_);
+                const auto reconnect_posture = IsValidPostureCommand(postureCommand_)
+                    ? PostureForTransmission(postureCommand_, "reconnect")
+                    : 0;
+                sentryCmdShadow_.Posture = reconnect_posture;
+                if (reconnect_posture != 0) {
+                    ArmPostureTx(reconnect_posture);
                 }
                 std::jthread reading{ [this, useVirtualDevice] { useVirtualDevice ? TestVirtualLoopback() : LoopRead(); } };
                 while (!DeviceError) {

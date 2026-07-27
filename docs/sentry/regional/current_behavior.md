@@ -1,6 +1,6 @@
 # 哨兵决策行为说明（纯行为版）
 
-Updated: 2026-07-23
+Updated: 2026-07-27
 
 > 目的：只描述“机器人会怎么做”，不讲实现细节。
 
@@ -63,6 +63,20 @@ Updated: 2026-07-23
 - 普通进攻 pending/确认冷却期间只在自身 HP `<=200` 时允许转火；强攻 pending/active 时门槛为 `<=250`。
 - 敌前哨 HP 为零或过期、导航明确不可达时立即释放锁并取消该锁的 pending 姿态请求。
 - 强攻 ACK 重试耗尽时保持已确认普通进攻和 7，不自动改发防御或移动。
+
+### Hero 保护强防
+
+ProtectHero 已到自己的守护点且仍拥有该导航 goal 时，BT 优先保持普通防御 `2`。仅当 `Tactical.ProtectHero.EnhancedDefense.Enable=true`，且 `DamageWindowMs` 内累计扣血达到 `DamageThresholdHp`，才检查 TypeID 10 回读的强防剩余时间；数据新鲜且大于零时，按照既有 5 秒姿态冷却申请强防 `5`。强防带来 99% 防御，但底盘功率为 1/2、散热为 1/3，因此行进期间不会使用。
+
+- 未达到受击 burst、TypeID 10 过期或强防剩余时间为 0 时，保持普通防御 `2`，不猜测资源可用性。
+- `5` 只有在 `/ly/gimbal/posture=2` 与 `enhanced_posture=true` 的新鲜匹配回读后才确认。
+- 已确认且由本次 ProtectHero 姿态请求拥有的 `5`，只在本次姿态切换的 5 秒冷却内暂缓低血/低弹 Recovery，利用强防覆盖这段不可切换时间；冷却结束后，若仍满足原有 Recovery 阈值，立即按既有流程切到 Move `3` 并前往 Recovery。单独的下位机强防回读、回读失鲜或不再为 `5` 时都不会延后 Recovery。强防 ACK 重试耗尽后，本次 Hero 守护保持普通防御，直到任务退出或重新行进才允许新的申请，避免重复刷下发。
+
+### Recovery 强化移动
+
+只有 Regional 的低血量 Recovery 行进才会自动申请强化移动 `6`：尚未抵达回补点、HP 回读与 TypeID 10 都仍新鲜、HP 为 `1..80`、强移剩余时间大于 0，并且 YAML `Tactical.EnhancedPosture.RecoveryMove.Enable=true`。正常读条复活检测到自身 HP `0 -> 正数` 后的 30 秒内只用普通移动 `3`；抵达、HP 为 0、任一回读过期或强移 ACK 重试耗尽也回退到 `3`。这不使用 `out_of_combat` 作为复活判断。
+
+`4/5/6` 下发前都会被 driver 以最新 TypeID 10 的对应正数额度二次核对，包含快取重发、其他 sentry command 欄位更新与串口重连；若 TypeID 7 的 `enhanced_posture=true` 与 TypeID 10 的对应额度 0 持续 500 ms，BT 隔离强化确认和新请求，等待普通姿态在既有 5 秒切换冷却后收敛。单帧不同步不会触发该隔离。
 
 ---
 

@@ -460,9 +460,12 @@ Highland approach/leave、ReadyRoadland approach/cross/return 等純行進或安
 - `SoftTransit`：Default regional、ProtectOutpost 的 `Travel`、ProtectHero、固定防守點、SpecialPatrol，
   在仍前往其自己 goal 時提供。正常請求 Move；原有評分已判為 Defense 時保留防禦優先，避免行進覆蓋受擊或
   資源安全策略。
-- `SoftArrived`：Default 既有 hold、ProtectOutpost 的 `SearchHold`、ProtectHero 已到目標、固定防守點已到達、
-  SpecialPatrol 的既有 hold。解除 Move 覆蓋後，沿用原有目標、受擊、血量、彈量評分選 Attack 或 Defense。
-- `HardMove`：Recovery、Buff、或新鮮 `/ly/navi/should_rotate=false`；不允許泛用資源輪換把它改走。
+- `SoftArrived`：Default 既有 hold、ProtectOutpost 的 `SearchHold`、固定防守點已到達、SpecialPatrol 的既有 hold。
+  解除 Move 覆蓋後，沿用原有目標、受擊、血量、彈量評分選 Attack 或 Defense。
+- `ProtectHeroDefenseHold`：ProtectHero 已到自己的守護目標時固定優先普通防守 `2`。
+- `ProtectHeroEnhancedDefense`：只在 ProtectHero 駐留、`Tactical.ProtectHero.EnhancedDefense.Enable=true`，且 `DamageWindowMs` 內累積掉血達 `DamageThresholdHp` 時提供；TypeID 10 強防剩餘時間新鮮且大於 0 才申請 `5`，否則維持 `2`。行進仍是 `SoftTransit`，所以不會以半功率底盤趕路。已確認的 `5` 只在姿態 5 秒冷卻內暫緩 Recovery；冷卻結束仍低血/低彈時，或回讀不再確認強防時，既有 Move/Recovery 硬鏈路接管。
+- `RecoveryEnhancedMove`：只在 Regional Recovery 尚在行進、己方 HP 回讀與強移額度 TypeID 10 都新鮮、HP `1..Tactical.EnhancedPosture.RecoveryMove.HealthThresholdHp`（預設 80）、強移額度大於 0、且沒有正常讀條復活 `0 -> 正數` 後的 `RespawnSuppressSec`（預設 30 秒）壓制時提供，才申請強化移動 `6`。其他 Recovery 情況都是普通 Move `3`；強移 ACK 重試耗盡會在本次 Recovery 內鎖定回退，離開 Recovery 才重置。
+- `HardMove`：普通 Recovery、Buff、或新鮮 `/ly/navi/should_rotate=false`；不允許泛用資源輪換把它改走。
 - `HardDefense`：受擊 burst；前哨 engagement lock 仍以既有 lock 優先。
 - Buff/Outpost 保留原有專用語義；動態 Chase 不產生 arrived intent，避免移動目標的舊到點狀態造成停車。
 
@@ -475,8 +478,15 @@ SoftArrived 則保留輪換，讓三種普通姿態的 180 秒非恢復預算仍
 賽規 5 秒是姿態切換冷卻；目前 `Posture.MinHoldSec=10` 是已切換姿態後的 manager 防抖，兩者都不是任務
 導航停留時間。各任務仍完全沿用自己的既有 hold、切點與 preemption 規則。
 
-decision trace 的 `posture.task_intent`、`task_source` 與 `task_owns_current_goal`，以及 `[Posture]` 日誌中的
-`scored` / `desired` 欄位可直接驗收本次仲裁。
+任何 `4/5/6` 請求都需要新鮮 TypeID 10 的對應正數額度，driver 也在 topic 入口與實際串口 frame 組裝點以同一條件二次拒絕過期/0 額度的強化 frame（包含快取重發、同包其他欄位更新和重連），普通
+`0..3` 不受影響。若 TypeID 7 的 `enhanced_posture=true` 與 TypeID 10 對應額度 0 連續超過
+`Tactical.EnhancedPosture.ContradictionGraceMs=500ms`，BT 會隔離強化確認與新請求，取消強化 pending，並等待既有
+5 秒姿態冷卻後由普通命令收斂；單幀不同步不觸發隔離。
+
+decision trace 的 `posture.task_intent`、`task_source`、`task_owns_current_goal` 與
+`tactical.protect_hero.enhanced_defense_*`（包括 `recovery_deferred`），以及 `[Posture]` 日誌中的 `scored`、`desired`、
+`requested_enhanced`、`current_enhanced`、`enhanced_quarantined`、`recovery_enhanced_unavailable`、
+`respawn_suppress_remaining_ms` 欄位可直接驗收本次仲裁。
 
 ## 到達與不可達
 

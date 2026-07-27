@@ -1,6 +1,6 @@
 # 串口上下行数据映射总表
 
-Updated: 2026-07-25
+Updated: 2026-07-27
 
 > 配置归属：`gimbal_driver` 的串口、下位机与 raw 上行诊断基线集中在
 > `src/gimbal_driver/config/gimbal_driver_config.yaml`；根目录 `config/base_config.yaml`
@@ -704,6 +704,12 @@ struct SentryData {
 | 哨兵强化移动姿态剩余可持续时长，单位秒 | `bit48-55` | `enhanced_move_posture_remaining_s` |
 | 保留 | `bit56-63` | `sentry_info_3_reserved_high` |
 
+`gimbal_driver` 用收到 TypeID 10 的本机时间判定 `sentry_info_3` 新鲜度。默认 `1500 ms` 内，姿态命令
+`4/5/6` 分别只能在强攻/强防/强移对应秒数大于 0 时下发；缺少、过期或 0 秒会拒绝命令，不会静默替换为普通
+`1/2/3`。最终串口 frame 也会重复此 gate，因此缓存重发、同包其他字段更新和重连无法绕过；失效缓存会以
+`posture=0` 收敛，不能在额度恢复后自动重发。该 gate 由 `io_config.enhanced_posture_guard.enable` 和
+`io_config.enhanced_posture_guard.sentry_info3_fresh_ms` 配置，普通姿态 `0..3` 不受影响。
+
 ## 5.9 `TypeID=8` - `BulletDataAndRfid2`
 
 结构：
@@ -911,7 +917,7 @@ struct SentryInfo3AndOutpostHpData {
 | `0x0003 game_robot_HP` | 裁判系统 -> 全体机器人状态 | TypeID=6 的 `DamageDifference` 承载 offset 8 的 `int16_t damage_difference`，发布到 `/ly/game/damage_difference`；TypeID=10 承载 offset 12 `ally_outpost_HP` 和 offset 16 `enemy_outpost_HP`，优先发布到 `/ly/friend/op_hp`、`/ly/enemy/op_hp` |
 | `0x0208 projectile_allowance` | 裁判系统 -> 机器人状态 | 已通过 TypeID=8 进入 `/ly/game/bullet`；旧 `/ly/friend/ammo_left` 仍保留 TypeID=1 来源 |
 | `0x020D sentry_info/sentry_info_2/sentry_info_3` | 裁判系统 -> 哨兵状态 | `sentry_info/sentry_info_2` 通过 TypeID=7 进入 `/ly/game/sentry/info`；`sentry_info_3` 通过 TypeID=10 更新 shadow，随 TypeID=7 发布；有效 `posture` 会覆盖 `/ly/gimbal/posture` |
-| `0x0301 + data_cmd_id=0x0120 sentry_cmd` | 机器人 -> 裁判系统命令 | 姿态/完整命令经 `/ly/control/posture`、`/ly/control/sentry_cmd` 进入独立 `DownlinkTypeID=0x01 SentryCommandFrame`；V2.0 姿态为 bit21-23，能量确认在 bit24；下位机负责封装裁判 `0x0301/0x0120` |
+| `0x0301 + data_cmd_id=0x0120 sentry_cmd` | 机器人 -> 裁判系统命令 | 姿态/完整命令经 `/ly/control/posture`、`/ly/control/sentry_cmd` 进入独立 `DownlinkTypeID=0x01 SentryCommandFrame`；V2.0 姿态为 bit21-23（`4/5/6` 还需最新 TypeID 10 对应正数额度），能量确认在 bit24；下位机负责封装裁判 `0x0301/0x0120` |
 | `0x0307 map_data_t` | 机器人 -> 己方选手端路径显示 | `/ly/control/map_path` 进入两段 `DownlinkTypeID=0x02 MapPathFragmentFrame`；下位机 CRC/sequence 重组完整 50 点路径后封装裁判 `0x0307` |
 | `0x0308 custom_info_t` | 机器人 -> 己方选手端自定义文字 | `/ly/control/custom_info` 进入 `DownlinkTypeID=0x03 CustomInfoFrame`；30B UTF-16 原始字节由上游提供，下位机负责封装裁判 `0x0308` |
 | `0x0303 map_command_t` | 选手端 -> 机器人状态/指令输入 | 下位机将官方 float 米制坐标转为 int16 厘米 TypeID=9，再由 driver 还原后进入 `/ly/game/map_command`；坐标模式由 BT `Task.MapCommand` 去重后导航，目标机器人模式只缓存 |

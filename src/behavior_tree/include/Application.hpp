@@ -661,6 +661,12 @@ private:
     std::chrono::steady_clock::time_point fortressGainPointDegradedUntil_{};
     bool protectHeroActive_{false};
     std::chrono::steady_clock::time_point protectHeroLastEnemySeenTime_{};
+    bool protectHeroEnhancedDefenseUnavailable_{false};
+    bool protectHeroEnhancedDefenseRecoveryDeferred_{false};
+    bool enhancedRecoveryMoveUnavailable_{false};
+    bool enhancedMoveHealthInitialized_{false};
+    std::uint16_t enhancedMoveLastHealth_{0};
+    std::chrono::steady_clock::time_point enhancedMoveRespawnSuppressUntil_{};
     FaceModeManager faceModeManager_{};
     FaceModeManager::Decision lastFaceModeDecision_{};
     std::chrono::steady_clock::time_point lastUpdateBlackboardLogTime_{};
@@ -1054,6 +1060,7 @@ public:
     bool OutpostAimFreshOrLatched(std::chrono::steady_clock::time_point now, int hold_ms) const noexcept;
     bool IsUnderFireRecent() const;
     bool IsUnderFireBurst() const;
+    bool IsDamageBurst(int window_ms, int threshold) const;
 
     // 行为树初始化
     bool LoadBehaviorTree() noexcept;

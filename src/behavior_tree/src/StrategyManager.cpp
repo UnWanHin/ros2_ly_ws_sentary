@@ -91,7 +91,18 @@ bool StrategyManager::RunHard(Application& app) {
 
     const UnitTeam my_team = app.team;
     const UnitTeam enemy_team = app.team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
-    if (app.CheckPositionRecovery()) {
+    const bool bt_owns_protect_hero_enhanced_defense =
+        app.postureTaskIntent_.Intent == TaskPostureIntent::ProtectHeroEnhancedDefense &&
+        app.postureTaskIntent_.OwnsCurrentGoal;
+    const bool protect_hero_enhanced_defense_active =
+        ShouldDeferRecoveryForProtectHeroEnhancedDefense(
+            app.protectHeroActive_ &&
+                app.lastDecisionIntent_.Reason == DecisionReason::ProtectHero &&
+                bt_owns_protect_hero_enhanced_defense,
+            app.postureManager_.IsSwitchCooldownReady(std::chrono::steady_clock::now()),
+            app.postureManager_.Runtime());
+    app.protectHeroEnhancedDefenseRecoveryDeferred_ = protect_hero_enhanced_defense_active;
+    if (!protect_hero_enhanced_defense_active && app.CheckPositionRecovery()) {
         app.CancelMapCommandTask();
         MarkHandled(app, StrategyLayer::Hard);
         return true;

@@ -47,10 +47,15 @@ private:
     TimePoint last_switch_{};
     TimePoint pending_since_{};
     TimePoint last_command_{};
+    TimePoint enhanced_feedback_contradiction_since_{};
 
     void accumulate_time(double dt_seconds);
     bool update_feedback(TimePoint now, PostureFeedback feedback);
     void update_referee_timer(const PostureRefereeTimer& referee_timer);
+    void update_enhanced_feedback_contradiction(
+        TimePoint now,
+        const PostureFeedback& feedback,
+        const PostureRefereeTimer& referee_timer);
     double effective_accum_sec(SentryPosture posture) const;
     bool effective_degraded(SentryPosture posture) const;
     bool effective_early_rotate(SentryPosture posture) const;

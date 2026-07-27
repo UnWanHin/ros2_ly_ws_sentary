@@ -615,8 +615,16 @@ namespace LangYa
         int ScanYawPhaseMs{160};
     };
 
+    struct ProtectHeroEnhancedDefenseSetting {
+        bool Enable{false};
+        int DamageWindowMs{1500};
+        int DamageThresholdHp{30};
+    };
+
     struct ProtectHeroSetting {
         bool Enable{true};
+        // Defaults off so legacy JSON-only profiles retain their prior behavior.
+        ProtectHeroEnhancedDefenseSetting EnhancedDefense{};
         int StartElapsedSec{120};
         int HoldSec{30};
         int NoEnemyReleaseSec{8};
@@ -657,9 +665,21 @@ namespace LangYa
         int RfidCaptureTransitionWindowMs{3000};
     };
 
+    struct EnhancedRecoveryMoveSetting {
+        bool Enable{true};
+        int HealthThresholdHp{80};
+        int RespawnSuppressSec{30};
+    };
+
+    struct EnhancedPostureSetting {
+        int ContradictionGraceMs{500};
+        EnhancedRecoveryMoveSetting RecoveryMove{};
+    };
+
     struct TacticalSetting {
         DamageRotateSetting DamageRotate{};
         TacticalPrioritySetting Priority{};
+        EnhancedPostureSetting EnhancedPosture{};
         ProtectCastleSetting ProtectCastle{};
         ProtectOutpostSetting ProtectOutpost{};
         ProtectHeroSetting ProtectHero{};

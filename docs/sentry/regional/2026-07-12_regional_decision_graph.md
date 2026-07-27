@@ -2,7 +2,7 @@
 
 Updated: 2026-07-27
 
-> 範圍：`competition_profile:=regional` 的 `behavior_tree` 決策順序、優先級、導航輸出與姿態選擇。此圖描述 source 現有行為；未自動下發強化姿態命令 `4/5/6`，它們保留給後續任務級觸發。
+> 範圍：`competition_profile:=regional` 的 `behavior_tree` 決策順序、優先級、導航輸出與姿態選擇。此圖描述 source 現有行為；任務級前哨交戰鎖可下發強攻 `4`，ProtectHero 到點受擊 burst 可下發強防 `5`，低血量 Recovery 行進可在額度/重生 gate 全部通過時下發強化移動 `6`。
 
 正式入口、實際 XML、BT/bridge topic owner，以及所有測試用 BT launch 的邊界見
 [behavior_tree_runtime_map.md](behavior_tree_runtime_map.md)。
@@ -177,8 +177,11 @@ flowchart TD
   FRESH -->|是| TIMER[PostureManager 計時來源]
   FRESH -->|否| TIMER
   TIMER --> SCORE[SelectDesiredPosture]
+  TIMER --> RECOVERY
   AREA[AreaManager\nTransit / ArrivedHold] --> TRANSIT[Transit override]
+  HERO[ProtectHero 到守護點] --> HERO_READY{強防 YAML 開啟\n窗口內受擊達門檻\n且 TypeID 10 新鮮\n剩餘秒數 > 0?}
 
+  RECOVERY[Regional Recovery 行進\nHP 1..80 + 強移額度新鮮\n且非讀條復活壓制?]
   SCORE --> OVERRIDE[硬規則\nRecovery/Buff -> Move\n前哨站狀態/受擊等]
   SCORE --> BASE[普通候選評分\nAttack / Defense / Move]
   FRESH --> REMAIN[普通或強化剩餘秒數]
@@ -189,7 +192,14 @@ flowchart TD
   OVERRIDE --> TRANSIT
   BASE --> TRANSIT
   TRANSIT --> HYST[ScoreHysteresis\n避免姿態抖動]
-  HYST --> CMD[只自動下發 1/2/3\nAttack/Defense/Move]
+  HYST --> CMD[姿態命令\n1/2/3]
+  HERO_READY -->|是| CMD5[強化防守 5\n保留既有 ACK/冷卻]
+  HERO_READY -->|否| HERO_NORMAL[普通防守 2]
+  RECOVERY -->|是| CMD6[強化移動 6]
+  RECOVERY -->|否| OVERRIDE
+  CMD5 --> TOPIC
+  CMD6 --> TOPIC
+  HERO_NORMAL --> TOPIC
   POSTURE_FRESH --> ACK[PostureManager\n僅新鮮且匹配才確認 pending]
   ACK --> CMD
   CMD --> TOPIC[/ly/control/posture]
@@ -214,15 +224,18 @@ flowchart TD
 
 姿態採用一份內部 `TaskPostureIntent`，不建立第二份任務或導航資料。Default 的 `AreaManager` hint、
 ProtectOutpost `Travel/SearchHold`、ProtectHero、固定區域防守和 SpecialPatrol 都只有在仍擁有目前
-goal ID 與座標時才提供 `SoftTransit/SoftArrived`。因此 goal 被 Chase 或上層任務替換時，舊 reached 不會
-保留到姿態仲裁。SoftTransit 保留 Move 預算，但不覆蓋既有 Safety Defense；SoftArrived 回到原本 Attack/Defense 評分。Recovery、Buff、
-新鮮 `should_rotate=false` 是 `HardMove`，受擊 burst 是 `HardDefense`，前哨 lock 保持既有最高覆蓋。
+goal ID 與座標時才提供 intent。因此 goal 被 Chase 或上層任務替換時，舊 reached 不會保留到姿態仲裁。
+SoftTransit 保留 Move 預算，但不覆蓋既有 Safety Defense；SoftArrived 回到原本 Attack/Defense 評分。
+ProtectHero 到達守護點固定提供普通防守 `2`。`Tactical.ProtectHero.EnhancedDefense.Enable=true` 時，只有 `DamageWindowMs` 內累積受擊達 `DamageThresholdHp`，且新鮮 TypeID 10 的強防剩餘秒數大於零才申請 `5`；其他情況保持 `2`。已確認的強防只在姿態 5 秒冷卻內暫緩 Regional Recovery；冷卻結束後若仍低血/低彈，既有 Move/Recovery 硬鏈路立即接管。強防回讀失鮮或解除時也不延後 Recovery。Recovery 尚在行進且 HP `1..80` 時，只有強移額度 TypeID 10 新鮮正數、`RecoveryMove.Enable=true`，並且未處於本機自身 HP `0 -> 正數` 後 30 秒壓制，才提供 `RecoveryEnhancedMove=6`；其他 Recovery 仍是 `HardMove=3`。強移 ACK 重試耗盡會在本次 Recovery 內鎖定普通 Move 回退。Buff、新鮮 `should_rotate=false` 是 `HardMove`，非 ProtectHero 的受擊 burst 是 `HardDefense`，前哨 lock 保持既有最高覆蓋。
 
 新鮮 TypeID 10 `sentry_info_3` 顯示 Move 剩餘介於 1 秒與 `RefereeRemainWarnSec` 之間時，SoftTransit
 會在 Attack/Defense 中選擇剩餘時間較多的一檔，平分時選 Defense；Move 已為 0 時仍請求 Move，因為它只表示
 弱化。Transit/Hard request 禁止泛用提前輪換覆蓋；SoftArrived 保留輪換以平衡三種 180 秒、不恢復的普通姿態
 預算。所有請求仍受 5 秒切換冷卻、10 秒最短保持與回讀 ACK 約束，故資料延遲或冷卻期間不能宣稱絕對不會
-進入弱化。trace 的 `posture.task_intent/task_source/task_owns_current_goal` 是此仲裁的離線驗收輸出。
+進入弱化。`4/5/6` 都要求最新 TypeID 10 的匹配強化額度正數，driver 也會二次拒絕過期/0 額度命令；普通 `0..3`
+不受限。若 TypeID 7 的 `enhanced_posture=true` 與 TypeID 10 匹配額度 0 持續 `500ms`，BT 隔離強化確認與新請求，
+取消強化 pending，並等普通姿態經既有冷卻收斂，避免短暫跨幀不同步誤動作。trace 的
+`posture.task_intent/task_source/task_owns_current_goal` 與 `tactical.protect_hero.enhanced_defense_*` 是此仲裁的離線驗收輸出。
 
 ## 5. 發布與下發
 

@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include "BasicTypes.hpp"
+#include "EnhancedPostureGuard.hpp"
 #include "MapPathRateLimiter.hpp"
 #include "RawDownlinkTest.hpp"
 #include "crc_checker.hpp"
@@ -93,6 +94,28 @@ TEST(MpcGimbalProtocol, HandlesSampleTickOrderingAndWraparound)
     EXPECT_FALSE(IsNewerSampleTick(100U, 100U));
     EXPECT_FALSE(IsNewerSampleTick(99U, 100U));
     EXPECT_TRUE(IsNewerSampleTick(1U, 0xFFFFFFFFU));
+}
+
+TEST(EnhancedPostureGuard, OnlyAllowsEnhancedCommandsWithFreshMatchingBudget)
+{
+    constexpr std::uint64_t sentry_info_3 =
+        (static_cast<std::uint64_t>(9U) << 32U) |
+        (static_cast<std::uint64_t>(8U) << 40U) |
+        (static_cast<std::uint64_t>(7U) << 48U);
+
+    EXPECT_TRUE(LangYa::IsEnhancedPostureCommandAllowed(4U, true, true, sentry_info_3));
+    EXPECT_TRUE(LangYa::IsEnhancedPostureCommandAllowed(5U, true, true, sentry_info_3));
+    EXPECT_TRUE(LangYa::IsEnhancedPostureCommandAllowed(6U, true, true, sentry_info_3));
+    EXPECT_FALSE(LangYa::IsEnhancedPostureCommandAllowed(6U, true, false, sentry_info_3));
+    EXPECT_FALSE(LangYa::IsEnhancedPostureCommandAllowed(5U, true, true,
+        sentry_info_3 & ~(static_cast<std::uint64_t>(0xFFU) << 40U)));
+    EXPECT_TRUE(LangYa::IsEnhancedPostureCommandAllowed(3U, true, false, 0U));
+
+    EXPECT_EQ(0U, LangYa::PostureCommandForTransmission(6U, true, false, sentry_info_3));
+    EXPECT_EQ(0U, LangYa::PostureCommandForTransmission(5U, true, true,
+        sentry_info_3 & ~(static_cast<std::uint64_t>(0xFFU) << 40U)));
+    EXPECT_EQ(4U, LangYa::PostureCommandForTransmission(4U, true, true, sentry_info_3));
+    EXPECT_EQ(3U, LangYa::PostureCommandForTransmission(3U, true, false, 0U));
 }
 
 TEST(MapPathFragmentProtocol, PreservesAllFiftyPointsWithinTwo64ByteFrames)

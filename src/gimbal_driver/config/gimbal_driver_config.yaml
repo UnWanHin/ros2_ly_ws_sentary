@@ -7,6 +7,10 @@
       baud_rate: 115200  # 串口波特率。
       posture_repeat_count: 3  # 姿态命令连续下发次数。
       posture_repeat_interval_ms: 20  # 姿态重复下发间隔（毫秒）。
+      # 强化姿态 4/5/6 只能在最新 TypeID 10 显示对应强化时长大于 0 时下发。
+      enhanced_posture_guard:
+        enable: true
+        sentry_info3_fresh_ms: 1500
       firecode_partial_hold_ms: 100  # FireCode 局部更新字段保持时间（毫秒）。
       velocity_raw_to_mps: 0.025  # 导航 raw 速度到控制速度的换算系数（米/秒）。
       # /ly/game/path 的 header.stamp 超过此时效即不再下发；driver 不会周期性重发缓存路径。

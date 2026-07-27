@@ -9,6 +9,16 @@ behavior_tree:
         ProtectHero: 3
         Chase: 4
 
+      # 强化姿态的统一保护；TypeID 7/10 分帧短暂不同步不立即判故障。
+      EnhancedPosture:
+        ContradictionGraceMs: 500
+        RecoveryMove:
+          # 仅 Regional 的低血量 Recovery 行进段可申请姿态 6。
+          Enable: true
+          HealthThresholdHp: 80
+          # 裁判正常读条复活(0 -> 正血)后不立即浪费强化移动。
+          RespawnSuppressSec: 30
+
       # 城堡防守總開關；關閉時 RFID 與 MyBase 敵方座標兩條來源都不啟用。
       ProtectCastle:
         Enable: true
@@ -42,6 +52,12 @@ behavior_tree:
       # 的唯一權威；舊 JSON HeroProtection 僅在未提供這些 YAML 欄位時作相容基線。
       ProtectHero:
         Enable: true
+        # 到守護點先維持普通防守。只有這個窗口內累積扣血達門檻時，才嘗試姿態 5。
+        # 強防只在 TypeID 10 剩餘時間新鮮且大於 0 時發出；其他情況維持姿態 2。
+        EnhancedDefense:
+          Enable: true
+          DamageWindowMs: 1500
+          DamageThresholdHp: 30
         # 比賽開始後達此秒數才可觸發；0 表示開局立即允許。
         StartElapsedSec: 120
         # 保護導航目標的最長重發保持時間（秒）。

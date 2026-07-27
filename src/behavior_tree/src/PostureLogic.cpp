@@ -127,12 +127,17 @@ bool Application::IsUnderFireBurst() const {
         return true;
     }
 
-    const int window_ms = std::max(0, config.PostureSettings.DamageBurstWindowMs);
-    const int threshold = std::max(0, config.PostureSettings.DamageBurstThreshold);
+    return IsDamageBurst(
+        config.PostureSettings.DamageBurstWindowMs,
+        config.PostureSettings.DamageBurstThreshold);
+}
+
+bool Application::IsDamageBurst(const int window_ms, const int threshold) const {
     if (window_ms <= 0 || threshold <= 0) {
         return false;
     }
 
+    const auto now = std::chrono::steady_clock::now();
     std::uint32_t total_damage = 0;
     for (auto it = postureRecentDamageSamples_.rbegin(); it != postureRecentDamageSamples_.rend(); ++it) {
         if ((now - it->Time) > std::chrono::milliseconds(window_ms)) {
@@ -200,15 +205,47 @@ TaskPostureIntentState Application::ResolveTaskPostureIntent(
     };
 
     if (IsRecoveryGoal(naviCommandGoal)) {
+        const auto& enhanced_recovery_move =
+            config.TacticalSettings.EnhancedPosture.RecoveryMove;
+        const bool respawn_suppressed =
+            enhancedMoveRespawnSuppressUntil_.time_since_epoch().count() != 0 &&
+            now < enhancedMoveRespawnSuppressUntil_;
+        const bool recovery_traveling =
+            !IsBaseGoalArrived(LangYa::Recovery.ID, team, true);
+        const bool self_health_fresh =
+            hasReceivedMyselfHealth_ &&
+            lastMyselfHealthRxTime.time_since_epoch().count() != 0 &&
+            now - lastMyselfHealthRxTime <= std::chrono::milliseconds(
+                std::max(1, config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs));
+        auto referee_timer = postureRefereeTimer_;
+        if (referee_timer.HasInfo3 &&
+            referee_timer.AgeMeasuredAt.time_since_epoch().count() != 0) {
+            const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                now - referee_timer.AgeMeasuredAt).count();
+            const auto current_age_ms = static_cast<std::uint64_t>(referee_timer.AgeMs) +
+                static_cast<std::uint64_t>(std::max<decltype(elapsed_ms)>(elapsed_ms, 0));
+            referee_timer.Fresh = current_age_ms <= static_cast<std::uint64_t>(
+                std::max(0, config.PostureSettings.RefereeInfo3FreshMs));
+        }
+        const bool can_request_enhanced_move = ShouldRequestRecoveryEnhancedMove(
+            strategyMode_ == StrategyMode::Regional,
+            enhanced_recovery_move.Enable,
+            respawn_suppressed,
+            enhancedRecoveryMoveUnavailable_,
+            recovery_traveling,
+            self_health_fresh,
+            myselfHealth,
+            enhanced_recovery_move.HealthThresholdHp,
+            postureManager_.Runtime(),
+            referee_timer);
+        if (can_request_enhanced_move) {
+            return make(TaskPostureIntent::RecoveryEnhancedMove, "recovery_enhanced_move", true);
+        }
         return make(TaskPostureIntent::HardMove, "recovery", true);
     }
     if (aimMode == AimMode::Buff) {
         return make(TaskPostureIntent::HardMove, "buff", false);
     }
-    if (IsUnderFireBurst()) {
-        return make(TaskPostureIntent::HardDefense, "damage_burst", false);
-    }
-
     const auto outpost_goal_id = ResolveGoalId(LangYa::BuffOutpost.ID, team, true);
     const auto outpost_goal_position = AreaManager::GoalPointByBaseId(LangYa::BuffOutpost.ID, team);
     const bool owns_outpost_goal = naviCommandGoal == outpost_goal_id &&
@@ -247,13 +284,25 @@ TaskPostureIntentState Application::ResolveTaskPostureIntent(
             ? config.TacticalSettings.ProtectHero.GoalBaseId
             : LangYa::Highland.ID;
         if (owns_base_goal(base_goal_id, team, true)) {
+            const bool arrived = IsBaseGoalArrived(base_goal_id, team, true);
+            if (!arrived) {
+                return make(TaskPostureIntent::SoftTransit, "protect_hero", true);
+            }
+            const auto& enhanced_defense = config.TacticalSettings.ProtectHero.EnhancedDefense;
             return make(
-                IsBaseGoalArrived(base_goal_id, team, true)
-                    ? TaskPostureIntent::SoftArrived
-                    : TaskPostureIntent::SoftTransit,
+                ResolveProtectHeroHoldIntent(
+                    enhanced_defense.Enable,
+                    IsDamageBurst(
+                        enhanced_defense.DamageWindowMs,
+                        enhanced_defense.DamageThresholdHp),
+                    protectHeroEnhancedDefenseUnavailable_),
                 "protect_hero",
                 true);
         }
+    }
+
+    if (IsUnderFireBurst()) {
+        return make(TaskPostureIntent::HardDefense, "damage_burst", false);
     }
 
     const bool regional_defense_active =
@@ -512,12 +561,6 @@ void Application::UpdatePostureCommand(const bool has_target) {
     if (navi_move_override) {
         intent = {TaskPostureIntent::HardMove, "navi_should_rotate_false", false};
     }
-    const auto task_request = ResolveTaskPostureRequest(
-        intent.Intent,
-        scored_desired,
-        postureManager_.Runtime(),
-        config.PostureSettings.RefereeRemainWarnSec);
-    auto desired = task_request.Mode.Base;
     auto referee_timer = postureRefereeTimer_;
     const auto fresh_limit_ms = std::max(0, config.PostureSettings.RefereeInfo3FreshMs);
     if (referee_timer.HasInfo3 && referee_timer.AgeMeasuredAt.time_since_epoch().count() != 0) {
@@ -527,6 +570,15 @@ void Application::UpdatePostureCommand(const bool has_target) {
             static_cast<std::uint64_t>(std::max<decltype(elapsed_ms)>(elapsed_ms, 0));
         referee_timer.Fresh = current_age_ms <= static_cast<std::uint64_t>(fresh_limit_ms);
     }
+    referee_timer.EnhancedContradictionGraceMs = std::max(
+        0, config.TacticalSettings.EnhancedPosture.ContradictionGraceMs);
+    const auto task_request = ResolveTaskPostureRequest(
+        intent.Intent,
+        scored_desired,
+        postureManager_.Runtime(),
+        config.PostureSettings.RefereeRemainWarnSec,
+        referee_timer);
+    auto desired = task_request.Mode.Base;
     PostureMode requested = task_request.Mode;
     auto request_policy = task_request.Policy;
     if (outpostEngagementDecision_.Intent.has_value()) {
@@ -547,8 +599,29 @@ void Application::UpdatePostureCommand(const bool has_target) {
     if (outpostEngagementDecision_.EnhancedPending && std::string_view(decision.Reason) == "pending_preserved") {
         outpostEngagementLock_.MarkEnhancedUnavailable();
     }
+    const bool protect_hero_defense_intent =
+        intent.Intent == TaskPostureIntent::ProtectHeroDefenseHold ||
+        intent.Intent == TaskPostureIntent::ProtectHeroEnhancedDefense;
+    if (!protect_hero_defense_intent) {
+        protectHeroEnhancedDefenseUnavailable_ = false;
+    } else if (intent.Intent == TaskPostureIntent::ProtectHeroEnhancedDefense &&
+               std::string_view(decision.Reason) == "pending_preserved") {
+        protectHeroEnhancedDefenseUnavailable_ = true;
+    }
+    if (!IsRecoveryGoal(naviCommandGoal)) {
+        enhancedRecoveryMoveUnavailable_ = false;
+    } else if (intent.Intent == TaskPostureIntent::RecoveryEnhancedMove &&
+               std::string_view(decision.Reason) == "pending_preserved") {
+        enhancedRecoveryMoveUnavailable_ = true;
+    }
     postureCommand = decision.Command;
     const auto& runtime = postureManager_.Runtime();
+    const auto respawn_suppress_remaining_ms =
+        enhancedMoveRespawnSuppressUntil_.time_since_epoch().count() != 0 &&
+        now < enhancedMoveRespawnSuppressUntil_
+            ? std::chrono::duration_cast<std::chrono::milliseconds>(
+                  enhancedMoveRespawnSuppressUntil_ - now).count()
+            : 0;
 
     const bool desired_changed = desired != postureLastDesired_;
     const bool reason_changed = postureLastReason_ != decision.Reason;
@@ -558,12 +631,15 @@ void Application::UpdatePostureCommand(const bool has_target) {
 
     if (LoggerPtr && (decision.Sent || desired_changed || reason_changed)) {
         LoggerPtr->Info(
-            "[Posture] cmd={} scored={} desired={} current={} pending={} has_target_recent={} task_intent={} task_source={} task_owns_goal={} navi_move_override={} under_fire={} under_fire_burst={} feedback_stale={} referee_timer={} enhanced={} reason={}",
+            "[Posture] cmd={} scored={} desired={} requested_enhanced={} current={} current_enhanced={} pending={} pending_enhanced={} has_target_recent={} task_intent={} task_source={} task_owns_goal={} navi_move_override={} under_fire={} under_fire_burst={} feedback_stale={} referee_timer={} enhanced={} enhanced_quarantined={} recovery_enhanced_unavailable={} respawn_suppress_remaining_ms={} reason={}",
             static_cast<int>(postureCommand),
             PostureToString(scored_desired),
             PostureToString(desired),
+            requested.Enhanced ? 1 : 0,
             PostureToString(runtime.Current.Base),
+            runtime.Current.Enhanced ? 1 : 0,
             PostureToString(runtime.Pending.Base),
+            runtime.Pending.Enhanced ? 1 : 0,
             has_target_recent ? 1 : 0,
             TaskPostureIntentToString(intent.Intent),
             intent.Source,
@@ -574,6 +650,9 @@ void Application::UpdatePostureCommand(const bool has_target) {
             runtime.FeedbackStale ? 1 : 0,
             runtime.UsingRefereeTimer ? 1 : 0,
             runtime.RefereeEnhancedPosture ? 1 : 0,
+            runtime.EnhancedFeedbackQuarantined ? 1 : 0,
+            enhancedRecoveryMoveUnavailable_ ? 1 : 0,
+            respawn_suppress_remaining_ms,
             decision.Reason);
     }
 }

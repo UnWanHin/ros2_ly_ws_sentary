@@ -597,6 +597,50 @@ for key, value_pattern in (
     if parameter not in source:
         raise SystemExit(f"Configuration.cpp does not read {parameter}")
 
+enhanced_defense_match = re.search(
+    r"^\s{8}EnhancedDefense:\n((?:\s{10}.*\n)+)", hero_body, re.MULTILINE)
+if enhanced_defense_match is None:
+    raise SystemExit("Tactical.yaml lacks Tactical.ProtectHero.EnhancedDefense")
+enhanced_defense_body = enhanced_defense_match.group(1)
+for key, value_pattern in (
+    ("Enable", r"(?:true|false)"),
+    ("DamageWindowMs", r"\d+"),
+    ("DamageThresholdHp", r"\d+"),
+):
+    yaml_pattern = rf"^\s{{10}}{key}:\s+{value_pattern}\s*$"
+    if re.search(yaml_pattern, enhanced_defense_body, re.MULTILINE) is None:
+        raise SystemExit(f"Tactical.yaml lacks Tactical.ProtectHero.EnhancedDefense.{key}")
+    parameter = f"Tactical.ProtectHero.EnhancedDefense.{key}"
+    if parameter not in source:
+        raise SystemExit(f"Configuration.cpp does not read {parameter}")
+
+enhanced_posture_match = re.search(
+    r"^\s{6}EnhancedPosture:\n((?:\s{8}.*\n|\s{10}.*\n)+)", config, re.MULTILINE)
+if enhanced_posture_match is None:
+    raise SystemExit("Tactical.yaml lacks Tactical.EnhancedPosture")
+enhanced_posture_body = enhanced_posture_match.group(1)
+if re.search(r"^\s{8}ContradictionGraceMs:\s+\d+\s*$", enhanced_posture_body, re.MULTILINE) is None:
+    raise SystemExit("Tactical.yaml lacks Tactical.EnhancedPosture.ContradictionGraceMs")
+if "Tactical.EnhancedPosture.ContradictionGraceMs" not in source:
+    raise SystemExit("Configuration.cpp does not read Tactical.EnhancedPosture.ContradictionGraceMs")
+
+recovery_move_match = re.search(
+    r"^\s{8}RecoveryMove:\n((?:\s{10}.*\n)+)", enhanced_posture_body, re.MULTILINE)
+if recovery_move_match is None:
+    raise SystemExit("Tactical.yaml lacks Tactical.EnhancedPosture.RecoveryMove")
+recovery_move_body = recovery_move_match.group(1)
+for key, value_pattern in (
+    ("Enable", r"(?:true|false)"),
+    ("HealthThresholdHp", r"\d+"),
+    ("RespawnSuppressSec", r"\d+"),
+):
+    yaml_pattern = rf"^\s{{10}}{key}:\s+{value_pattern}\s*$"
+    if re.search(yaml_pattern, recovery_move_body, re.MULTILINE) is None:
+        raise SystemExit(f"Tactical.yaml lacks Tactical.EnhancedPosture.RecoveryMove.{key}")
+    parameter = f"Tactical.EnhancedPosture.RecoveryMove.{key}"
+    if parameter not in source:
+        raise SystemExit(f"Configuration.cpp does not read {parameter}")
+
 for token in (
     "ResolveTacticalFeatureEnable",
     "IsProtectCastleRfidEventEnabled",
