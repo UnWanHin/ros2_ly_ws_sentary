@@ -164,3 +164,53 @@ TEST(PostureManagerTest, CooldownBeginsAtCompositeAck) {
     EXPECT_EQ(0U, decision.Command);
     EXPECT_STREQ("cooldown", decision.Reason);
 }
+
+TEST(PostureManagerTest, RequiredDegradedMoveDoesNotAutoRotate) {
+    BehaviorTree::PostureManager manager;
+    manager.Configure(EnabledPostureSetting());
+    const auto now = BehaviorTree::PostureManager::TimePoint{};
+    manager.Reset(now, BehaviorTree::SentryPosture::Move);
+
+    BehaviorTree::PostureRefereeTimer timer;
+    timer.HasInfo3 = true;
+    timer.Fresh = true;
+    timer.RemainingSec = {0U, 180U, 180U, 0U};
+    const auto decision = manager.Tick(
+        now + 5s,
+        {BehaviorTree::SentryPosture::Move, false},
+        {3U, false, true, false, now + 5s},
+        timer,
+        BehaviorTree::PostureRequestPolicy::RequiredPosture());
+
+    EXPECT_EQ(0U, decision.Command);
+    EXPECT_EQ(BehaviorTree::SentryPosture::Move, manager.Runtime().Desired.Base);
+    EXPECT_STREQ("hold", decision.Reason);
+}
+
+TEST(TaskPostureIntentTest, SoftTransitReservesMoveAndDisablesEarlyRotation) {
+    BehaviorTree::PostureRuntime runtime;
+    runtime.UsingRefereeTimer = true;
+    runtime.RefereeRemainingSec = {0U, 100U, 90U, 0U};
+
+    const auto request = BehaviorTree::ResolveTaskPostureRequest(
+        BehaviorTree::TaskPostureIntent::SoftTransit,
+        BehaviorTree::SentryPosture::Attack,
+        runtime,
+        20);
+
+    EXPECT_EQ(BehaviorTree::SentryPosture::Move, request.Mode.Base);
+    EXPECT_FALSE(request.Policy.AllowEarlyRotate);
+}
+
+TEST(TaskPostureIntentTest, SoftArrivedKeepsNormalScoringAndRotationPolicy) {
+    BehaviorTree::PostureRuntime runtime;
+
+    const auto request = BehaviorTree::ResolveTaskPostureRequest(
+        BehaviorTree::TaskPostureIntent::SoftArrived,
+        BehaviorTree::SentryPosture::Defense,
+        runtime,
+        20);
+
+    EXPECT_EQ(BehaviorTree::SentryPosture::Defense, request.Mode.Base);
+    EXPECT_TRUE(request.Policy.AllowEarlyRotate);
+}

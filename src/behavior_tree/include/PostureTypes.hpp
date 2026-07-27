@@ -89,9 +89,14 @@ struct PostureFeedback {
 struct PostureRequestPolicy {
     bool AllowOptimisticAck{true};
     bool PreserveCurrentOnRetryExhausted{false};
+    bool AllowEarlyRotate{true};
 
     static constexpr PostureRequestPolicy OutpostLock() noexcept {
-        return {false, true};
+        return {false, true, false};
+    }
+
+    static constexpr PostureRequestPolicy RequiredPosture() noexcept {
+        return {true, false, false};
     }
 };
 
@@ -121,6 +126,27 @@ struct PostureRuntime {
     bool FeedbackStale{false};
     int RetryCount{0};
 };
+
+enum class TaskPostureIntent : std::uint8_t {
+    None = 0,
+    SoftTransit = 1,
+    SoftArrived = 2,
+    HardMove = 3,
+    HardAttack = 4,
+    HardDefense = 5,
+};
+
+inline constexpr const char* TaskPostureIntentToString(const TaskPostureIntent intent) noexcept {
+    switch (intent) {
+        case TaskPostureIntent::SoftTransit: return "soft_transit";
+        case TaskPostureIntent::SoftArrived: return "soft_arrived";
+        case TaskPostureIntent::HardMove: return "hard_move";
+        case TaskPostureIntent::HardAttack: return "hard_attack";
+        case TaskPostureIntent::HardDefense: return "hard_defense";
+        case TaskPostureIntent::None: return "none";
+    }
+    return "none";
+}
 
 inline SentryPosture SelectTransitPosture(
     const PostureRuntime& runtime,
@@ -152,6 +178,33 @@ inline SentryPosture SelectTransitPosture(
         }
     }
     return selected_remaining > 0 ? selected : SentryPosture::Move;
+}
+
+struct TaskPostureRequest {
+    PostureMode Mode{};
+    PostureRequestPolicy Policy{};
+};
+
+inline TaskPostureRequest ResolveTaskPostureRequest(
+    const TaskPostureIntent intent,
+    const SentryPosture scored_posture,
+    const PostureRuntime& runtime,
+    const int reserve_sec) noexcept {
+    switch (intent) {
+        case TaskPostureIntent::SoftTransit:
+            return {{SelectTransitPosture(runtime, reserve_sec), false},
+                    PostureRequestPolicy::RequiredPosture()};
+        case TaskPostureIntent::HardMove:
+            return {{SentryPosture::Move, false}, PostureRequestPolicy::RequiredPosture()};
+        case TaskPostureIntent::HardAttack:
+            return {{SentryPosture::Attack, false}, PostureRequestPolicy::RequiredPosture()};
+        case TaskPostureIntent::HardDefense:
+            return {{SentryPosture::Defense, false}, PostureRequestPolicy::RequiredPosture()};
+        case TaskPostureIntent::SoftArrived:
+        case TaskPostureIntent::None:
+            return {{scored_posture, false}, {}};
+    }
+    return {{scored_posture, false}, {}};
 }
 
 }  // namespace BehaviorTree

@@ -162,7 +162,8 @@ PostureDecision PostureManager::Tick(
     runtime_.Desired = IsValidPostureMode(desired_posture) ? desired_posture : runtime_.Current;
 
     const auto current_idx = ToPostureValue(runtime_.Current.Base);
-    if (current_idx > 0U &&
+    if (policy.AllowEarlyRotate &&
+        current_idx > 0U &&
         runtime_.Desired == runtime_.Current &&
         effective_early_rotate(runtime_.Current.Base)) {
         const auto alternative = choose_alternative_posture(runtime_.Current.Base);
