@@ -1,6 +1,6 @@
 # Regional 決策圖譜
 
-Updated: 2026-07-23
+Updated: 2026-07-27
 
 > 範圍：`competition_profile:=regional` 的 `behavior_tree` 決策順序、優先級、導航輸出與姿態選擇。此圖描述 source 現有行為；未自動下發強化姿態命令 `4/5/6`，它們保留給後續任務級觸發。
 
@@ -177,6 +177,7 @@ flowchart TD
   FRESH -->|是| TIMER[PostureManager 計時來源]
   FRESH -->|否| TIMER
   TIMER --> SCORE[SelectDesiredPosture]
+  AREA[AreaManager\nTransit / ArrivedHold] --> TRANSIT[Transit override]
 
   SCORE --> OVERRIDE[硬規則\nRecovery/Buff -> Move\n前哨站狀態/受擊等]
   SCORE --> BASE[普通候選評分\nAttack / Defense / Move]
@@ -185,8 +186,9 @@ flowchart TD
   REMAIN --> HOLD[當前為強化姿態時\n同類別保持 bonus]
   PENALTY --> BASE
   HOLD --> BASE
-  OVERRIDE --> HYST[ScoreHysteresis\n避免姿態抖動]
-  BASE --> HYST
+  OVERRIDE --> TRANSIT
+  BASE --> TRANSIT
+  TRANSIT --> HYST[ScoreHysteresis\n避免姿態抖動]
   HYST --> CMD[只自動下發 1/2/3\nAttack/Defense/Move]
   POSTURE_FRESH --> ACK[PostureManager\n僅新鮮且匹配才確認 pending]
   ACK --> CMD
@@ -201,14 +203,24 @@ flowchart TD
 |---|---:|---|
 | `Posture.RefereeInfo3FreshMs` | 1500 ms | `sentry_info_3` 新鮮時才覆蓋官方剩餘秒數 |
 | `Posture.FeedbackFreshMs` | 1000 ms | `/ly/gimbal/posture` 僅在本機實際收到回讀後的此窗口內可確認 pending；回讀接收時間還必須不早於該 pending 命令，逾時標記 stale |
+| `Posture.RefereeRemainWarnSec` | 20 s | 剩餘秒數進入懲罰區間，也是 Transit 保留 Move 預算的門檻 |
+| `Posture.RefereeRemainPenalty` | 5 | 1..WarnSec 的最大候選扣分 |
+| `Posture.RefereeZeroRemainPenalty` | 20 | 剩餘 0 秒的強扣分 |
+| `Posture.EnhancedCurrentPostureBonus` | 3 | 已是強化姿態時，保持相同普通類別的加分 |
 
 `/ly/gimbal/posture` 是無 header 的 `UInt8`，因此不能從協議上證明下位機採樣時間。BT 使用
 `keep_last(1)` 限制積壓，並拒絕在命令前已被 BT 接收的回讀；若要完全保證下位機因果 ACK，必須由
 下位機在未來協議中回顯命令序號或時間戳。
-| `Posture.RefereeRemainWarnSec` | 20 s | 剩餘秒數進入懲罰區間 |
-| `Posture.RefereeRemainPenalty` | 5 | 1..WarnSec 的最大候選扣分 |
-| `Posture.RefereeZeroRemainPenalty` | 20 | 剩餘 0 秒的強扣分 |
-| `Posture.EnhancedCurrentPostureBonus` | 3 | 已是強化姿態時，保持相同普通類別的加分 |
+
+只有由 Default regional policy 建立的區域任務，才會把姿態所需的到點語義收斂為
+`AreaManager` 內部 hint，沒有第二套停留計時。Buff、前哨、戰術防護等 scoped goal 即使借用同一個
+區域狀態機，也保留原有姿態仲裁，不產生此 hint：
+`Transit`（行進、超時或不可達保底階段）通常請求 Move；只有已由 goal-scoped composite arrival
+確認、且正處於既有 15 秒 hold 的 `ArrivedHold` 才解除該 Move 覆蓋，回到原有目標/受擊/資源評分來選
+Attack 或 Defense。新鮮 TypeID 10 `sentry_info_3` 顯示 Move 剩餘小於等於 `RefereeRemainWarnSec` 時，
+Transit 會在 Attack/Defense 中選擇剩餘時間較多的一檔，平分時選 Defense；沒有新鮮官方計時則保守維持
+Move。Recovery、Buff、前哨、既有硬 Defense、導航與前哨鎖定仲裁順序不改，所有請求仍受 5 秒切換
+冷卻、10 秒最短保持與回讀 ACK 約束，故不能宣稱在資料延遲或冷卻期間絕對不會進入弱化。
 
 ## 5. 發布與下發
 

@@ -221,6 +221,21 @@ enum class RegionalAreaTaskPhase : std::uint8_t {
 
 const char* RegionalAreaTaskPhaseToString(RegionalAreaTaskPhase phase);
 
+enum class RegionalAreaTaskPostureHint : std::uint8_t {
+    None = 0,
+    Transit = 1,
+    ArrivedHold = 2
+};
+
+const char* RegionalAreaTaskPostureHintToString(RegionalAreaTaskPostureHint hint);
+
+// A regional task can be used by a scoped tactical goal as well as the Default
+// regional policy. Posture coordination applies only to the latter.
+enum class RegionalAreaTaskOrigin : std::uint8_t {
+    ScopedGoal = 0,
+    DefaultPolicy = 1
+};
+
 struct RegionalAreaTaskRuntime {
     bool Active{false};
     RegionalAreaTaskType Type{RegionalAreaTaskType::None};
@@ -232,12 +247,17 @@ struct RegionalAreaTaskRuntime {
     AreaTimePoint StartTime{};
     AreaTimePoint PhaseStartTime{};
     AreaTimePoint BaseGoalArrivedTime{};
+    bool PhaseArrived{false};
+    RegionalAreaTaskOrigin Origin{RegionalAreaTaskOrigin::ScopedGoal};
     LangYa::UnitTeam OwnerTeam{LangYa::UnitTeam::Unknown};
     std::size_t PatrolIndex{0};
     int PatrolStepCount{0};
 
     void Clear() noexcept;
 };
+
+RegionalAreaTaskPostureHint ResolveRegionalAreaTaskPostureHint(
+    const RegionalAreaTaskRuntime& task) noexcept;
 
 struct RegionalAreaTaskPlan {
     RegionalAreaTaskType Type{RegionalAreaTaskType::None};
@@ -247,6 +267,7 @@ struct RegionalAreaTaskPlan {
     std::uint8_t InitialBaseGoal{LangYa::Highland.ID};
     LangYa::UnitTeam InitialGoalTeam{LangYa::UnitTeam::Unknown};
     std::size_t InitialPatrolIndex{0};
+    RegionalAreaTaskOrigin Origin{RegionalAreaTaskOrigin::ScopedGoal};
 };
 
 struct RegionalAreaTaskTickInput {

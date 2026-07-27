@@ -968,7 +968,8 @@ public:
         UnitTeam goal_team,
         UnitTeam my_team,
         bool apply_team_offset,
-        const char* reason);
+        const char* reason,
+        RegionalAreaTaskOrigin origin);
     bool TickNaviAreaTransition();
     bool TryStartNaviAreaTransition(
         std::uint8_t base_goal_id,
@@ -1011,7 +1012,8 @@ public:
         UnitTeam my_team,
         UnitTeam enemy_team,
         bool apply_team_offset = true,
-        const char* reason = nullptr);
+        const char* reason = nullptr,
+        RegionalAreaTaskOrigin origin = RegionalAreaTaskOrigin::ScopedGoal);
     bool TrySetRandomScopedPositionByBaseGoal(
         const std::vector<std::pair<std::uint8_t, UnitTeam>>& goals,
         UnitTeam my_team,

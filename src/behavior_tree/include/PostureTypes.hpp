@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstdint>
@@ -120,5 +121,34 @@ struct PostureRuntime {
     bool FeedbackStale{false};
     int RetryCount{0};
 };
+
+inline SentryPosture SelectTransitPosture(
+    const PostureRuntime& runtime,
+    const int reserve_sec) noexcept {
+    if (!runtime.UsingRefereeTimer) {
+        return SentryPosture::Move;
+    }
+
+    const auto& remaining = runtime.RefereeEnhancedPosture
+        ? runtime.RefereeEnhancedRemainingSec
+        : runtime.RefereeRemainingSec;
+    const auto move_index = ToPostureValue(SentryPosture::Move);
+    const auto reserve = static_cast<std::uint8_t>(std::clamp(reserve_sec, 0, 255));
+    if (remaining[move_index] > reserve) {
+        return SentryPosture::Move;
+    }
+
+    SentryPosture selected = SentryPosture::Unknown;
+    std::uint8_t selected_remaining = 0;
+    // Defense is visited first so an equal remaining time chooses the safer transit posture.
+    for (const auto posture : {SentryPosture::Defense, SentryPosture::Attack}) {
+        const auto index = ToPostureValue(posture);
+        if (remaining[index] > selected_remaining) {
+            selected = posture;
+            selected_remaining = remaining[index];
+        }
+    }
+    return selected_remaining > 0 ? selected : SentryPosture::Move;
+}
 
 }  // namespace BehaviorTree

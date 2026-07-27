@@ -3372,7 +3372,8 @@ namespace BehaviorTree {
         const UnitTeam goal_team,
         const UnitTeam my_team,
         const bool apply_team_offset,
-        const char* reason) {
+        const char* reason,
+        const RegionalAreaTaskOrigin origin) {
         if (!config.RegionalAreaTaskSettings.Enable ||
             (!config.RegionalAreaTaskSettings.MyHighland.Enable &&
              !config.RegionalAreaTaskSettings.MyBase.Enable &&
@@ -3388,7 +3389,7 @@ namespace BehaviorTree {
         const auto self_position = GetSentryPositionState(now);
         const bool has_self_position =
             self_position.Fresh && self_position.X > 0 && self_position.Y > 0;
-        const auto plan = areaManager_.PlanRegionalAreaTaskForGoal(
+        auto plan = areaManager_.PlanRegionalAreaTaskForGoal(
             base_goal_id,
             goal_team,
             my_team,
@@ -3403,6 +3404,7 @@ namespace BehaviorTree {
         if (!plan.has_value()) {
             return false;
         }
+        plan->Origin = origin;
         if (plan->Type == RegionalAreaTaskType::MyReadyRoadland ||
             plan->Type == RegionalAreaTaskType::CommonCentral) {
             auto referee_value_fresh = [&](const bool received, const std::chrono::steady_clock::time_point last_rx) {
@@ -5130,7 +5132,8 @@ namespace BehaviorTree {
                     my_team,
                     enemy_team,
                     true,
-                    "default_area_policy")) {
+                    "default_area_policy",
+                    RegionalAreaTaskOrigin::DefaultPolicy)) {
                 continue;
             }
 
@@ -5174,7 +5177,8 @@ namespace BehaviorTree {
         const UnitTeam my_team,
         const UnitTeam enemy_team,
         const bool apply_team_offset,
-        const char* reason) {
+        const char* reason,
+        const RegionalAreaTaskOrigin origin) {
         const auto intent_reason = reason != nullptr
             ? DecisionReasonFromString(reason)
             : DecisionReason::Unknown;
@@ -5196,7 +5200,8 @@ namespace BehaviorTree {
             return false;
         }
 
-        if (TryStartRegionalAreaTaskForGoal(base_goal_id, goal_team, my_team, apply_team_offset, reason)) {
+        if (TryStartRegionalAreaTaskForGoal(
+                base_goal_id, goal_team, my_team, apply_team_offset, reason, origin)) {
             RecordDecisionIntent(MakeDecisionIntent(
                 intent_reason,
                 base_goal_id,

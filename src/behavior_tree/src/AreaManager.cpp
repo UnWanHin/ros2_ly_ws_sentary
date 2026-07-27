@@ -298,9 +298,44 @@ void RegionalAreaTaskRuntime::Clear() noexcept {
     StartTime = AreaTimePoint{};
     PhaseStartTime = AreaTimePoint{};
     BaseGoalArrivedTime = AreaTimePoint{};
+    PhaseArrived = false;
+    Origin = RegionalAreaTaskOrigin::ScopedGoal;
     OwnerTeam = LangYa::UnitTeam::Unknown;
     PatrolIndex = 0U;
     PatrolStepCount = 0;
+}
+
+RegionalAreaTaskPostureHint ResolveRegionalAreaTaskPostureHint(
+    const RegionalAreaTaskRuntime& task) noexcept {
+    if (!task.Active || task.Origin != RegionalAreaTaskOrigin::DefaultPolicy) {
+        return RegionalAreaTaskPostureHint::None;
+    }
+
+    switch (task.Phase) {
+        case RegionalAreaTaskPhase::BasePatrol:
+        case RegionalAreaTaskPhase::CentralPatrol:
+            return task.BaseGoalArrivedTime.time_since_epoch().count() != 0
+                ? RegionalAreaTaskPostureHint::ArrivedHold
+                : RegionalAreaTaskPostureHint::Transit;
+        case RegionalAreaTaskPhase::HighlandPatrol:
+        case RegionalAreaTaskPhase::BuffShootHold:
+        case RegionalAreaTaskPhase::ReadyRoadlandHoldBaseToCentral:
+        case RegionalAreaTaskPhase::PreRoadlandHold:
+            return task.PhaseArrived
+                ? RegionalAreaTaskPostureHint::ArrivedHold
+                : RegionalAreaTaskPostureHint::Transit;
+        default:
+            return RegionalAreaTaskPostureHint::Transit;
+    }
+}
+
+const char* RegionalAreaTaskPostureHintToString(const RegionalAreaTaskPostureHint hint) {
+    switch (hint) {
+        case RegionalAreaTaskPostureHint::Transit: return "Transit";
+        case RegionalAreaTaskPostureHint::ArrivedHold: return "ArrivedHold";
+        case RegionalAreaTaskPostureHint::None: return "None";
+    }
+    return "None";
 }
 
 void NaviProgressWatchdogRuntime::Clear() noexcept {
@@ -993,6 +1028,8 @@ void AreaManager::StartRegionalAreaTask(
     regional_area_task_.StartTime = now;
     regional_area_task_.PhaseStartTime = now;
     regional_area_task_.BaseGoalArrivedTime = AreaTimePoint{};
+    regional_area_task_.PhaseArrived = false;
+    regional_area_task_.Origin = plan.Origin;
 }
 
 bool AreaManager::RegionalAreaTaskCriticalControlActive() const noexcept {
@@ -1020,6 +1057,7 @@ void AreaManager::RequestReadyRoadlandReturnToBase(const AreaTimePoint now) noex
         regional_area_task_.Phase = RegionalAreaTaskPhase::ReadyRoadlandReturnToCentralToBase;
         regional_area_task_.CurrentBaseGoal = LangYa::CentralToBase.ID;
         regional_area_task_.PhaseStartTime = now;
+        regional_area_task_.PhaseArrived = false;
         return;
     }
     if (regional_area_task_.Phase == RegionalAreaTaskPhase::ReadyRoadlandCrossToCentralToBase ||
@@ -1029,6 +1067,7 @@ void AreaManager::RequestReadyRoadlandReturnToBase(const AreaTimePoint now) noex
     regional_area_task_.Phase = RegionalAreaTaskPhase::ReadyRoadlandCrossToCentralToBase;
     regional_area_task_.CurrentBaseGoal = LangYa::CentralToBase.ID;
     regional_area_task_.PhaseStartTime = now;
+    regional_area_task_.PhaseArrived = false;
 }
 
 RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
@@ -1097,6 +1136,7 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
             if (input.IsCurrentGoalArrived) {
                 regional_area_task_.Phase = RegionalAreaTaskPhase::PreRoadlandHold;
                 regional_area_task_.PhaseStartTime = input.Now;
+                regional_area_task_.PhaseArrived = true;
             }
         }
 
@@ -1160,6 +1200,7 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
                 patrol_goal_last_arrived_);
             regional_area_task_.PhaseStartTime = input.Now;
             regional_area_task_.BaseGoalArrivedTime = AreaTimePoint{};
+            regional_area_task_.PhaseArrived = false;
             return true;
         };
 
@@ -1179,6 +1220,7 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
                 patrol_goal_last_arrived_);
             regional_area_task_.PhaseStartTime = input.Now;
             regional_area_task_.BaseGoalArrivedTime = AreaTimePoint{};
+            regional_area_task_.PhaseArrived = false;
             regional_area_task_.PatrolStepCount = 0;
         } else {
             const bool hold_started =
@@ -1198,6 +1240,7 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
             } else if (current_goal_arrived) {
                 if (!hold_started) {
                     regional_area_task_.BaseGoalArrivedTime = input.Now;
+                    regional_area_task_.PhaseArrived = true;
                     patrol_goal_last_arrived_[regional_area_task_.CurrentBaseGoal] = input.Now;
                 }
                 const auto hold_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
@@ -1230,10 +1273,13 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
         }
 
         const auto& ready_roadland_setting = input.Setting.MyReadyRoadland;
-        auto start_phase = [&](const RegionalAreaTaskPhase phase, const std::uint8_t goal) {
+        auto start_phase = [&](const RegionalAreaTaskPhase phase,
+                               const std::uint8_t goal,
+                               const bool arrived = false) {
             regional_area_task_.Phase = phase;
             regional_area_task_.CurrentBaseGoal = goal;
             regional_area_task_.PhaseStartTime = input.Now;
+            regional_area_task_.PhaseArrived = arrived;
         };
         auto phase_elapsed = [&]() {
             if (regional_area_task_.PhaseStartTime.time_since_epoch().count() == 0) {
@@ -1264,7 +1310,8 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
                         phase_timed_out(ready_roadland_setting.CrossTimeoutSec)) {
                         start_phase(
                             RegionalAreaTaskPhase::ReadyRoadlandHoldBaseToCentral,
-                            LangYa::BaseToCentral.ID);
+                            LangYa::BaseToCentral.ID,
+                            input.ReadyRoadlandBaseToCentralArrived);
                         continue;
                     }
                     break;
@@ -1367,6 +1414,7 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
                 CommonCentralPatrolGoalTeam(regional_area_task_.OwnerTeam, spec);
             regional_area_task_.PhaseStartTime = input.Now;
             regional_area_task_.BaseGoalArrivedTime = AreaTimePoint{};
+            regional_area_task_.PhaseArrived = false;
         };
 
         if (input.CentralShouldLeave) {
@@ -1408,6 +1456,7 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
         } else if (current_goal_arrived) {
             if (!hold_started) {
                 regional_area_task_.BaseGoalArrivedTime = input.Now;
+                regional_area_task_.PhaseArrived = true;
             }
             const auto hold_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
                 input.Now - regional_area_task_.BaseGoalArrivedTime);
@@ -1441,9 +1490,10 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
     }
 
     const auto& setting = input.Setting.MyHighland;
-    auto start_phase = [&](const RegionalAreaTaskPhase phase) {
+    auto start_phase = [&](const RegionalAreaTaskPhase phase, const bool arrived = false) {
         regional_area_task_.Phase = phase;
         regional_area_task_.PhaseStartTime = input.Now;
+        regional_area_task_.PhaseArrived = arrived;
     };
     auto phase_elapsed = [&]() {
         if (regional_area_task_.PhaseStartTime.time_since_epoch().count() == 0) {
@@ -1462,7 +1512,7 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
                 if (input.HighlandArrived ||
                     input.HighlandUnreachable ||
                     phase_timed_out(setting.ApproachTimeoutSec)) {
-                    start_phase(RegionalAreaTaskPhase::HighlandPatrol);
+                    start_phase(RegionalAreaTaskPhase::HighlandPatrol, input.HighlandArrived);
                     continue;
                 }
                 break;
@@ -1476,7 +1526,7 @@ RegionalAreaTaskTickResult AreaManager::TickRegionalAreaTask(
                 if (input.BuffShootArrived ||
                     input.BuffShootUnreachable ||
                     phase_timed_out(setting.BuffShootTravelTimeoutSec)) {
-                    start_phase(RegionalAreaTaskPhase::BuffShootHold);
+                    start_phase(RegionalAreaTaskPhase::BuffShootHold, input.BuffShootArrived);
                     continue;
                 }
                 break;

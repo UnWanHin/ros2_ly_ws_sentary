@@ -1,6 +1,6 @@
 # Regional 決策框架說明
 
-Updated: 2026-07-26
+Updated: 2026-07-27
 
 本文記錄目前 `behavior_tree` 裡 regional 決策的區域狀態機框架：它會做哪些任務、怎麼啟動、怎麼判斷到達、會輸出什麼控制，以及哪些階段會被高優先級邏輯打斷。
 
@@ -450,6 +450,23 @@ Default 區域任務的實際到點/guard phase 統一保持 15 秒：
 
 Highland approach/leave、ReadyRoadland approach/cross/return 等純行進或安全穿越 phase 不加入
 人為停留。不可達與 travel timeout 仍可跳過駐留並按各任務既有規則切點或完成。
+
+### Default 駐留與姿態
+
+`AreaManager` 是 Default 到點與駐留的唯一事實來源。只有由 Default regional policy 建立的任務會向
+posture 輸出內部三態提示；Buff、前哨、戰術防護等 scoped goal 借用區域狀態機時不輸出此提示，不增加
+YAML、ROS topic 或第二套計時：
+
+- `Transit`：尚在行進，或由 timeout/unreachable 進入的保底 phase；正常請求 Move。
+- `ArrivedHold`：只在 goal-scoped composite arrival 已確認且正在既有 hold 期間成立；不強制姿態，原有
+  目標、受擊、血量與彈量規則決定 Attack 或 Defense。
+- `None`：沒有 Default RegionalAreaTask，不干預既有 posture。
+
+當下位機 TypeID 10 的裁判 `0x020D sentry_info_3` 新鮮（`Posture.RefereeInfo3FreshMs=1500ms`）且
+Move 剩餘時間落入 `RefereeRemainWarnSec=20s` 預警時，Transit 會改用 Attack/Defense 中官方剩餘時間較多
+的一檔，平分選 Defense；沒有新鮮 TypeID 10 時維持 Move。這是預留 Move 姿態預算，不影響既有
+PostureManager 的 5 秒切換冷卻、10 秒最短保持、回讀確認與 Retry，也不改 Recovery、Buff、前哨、硬
+Defense、導航或前哨鎖定的優先級。
 
 ## 到達與不可達
 

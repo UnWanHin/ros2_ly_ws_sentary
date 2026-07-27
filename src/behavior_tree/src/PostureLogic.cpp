@@ -390,6 +390,18 @@ void Application::UpdatePostureCommand(const bool has_target) {
 
     const bool has_target_recent = has_target || HasRecentTarget();
     auto desired = SelectDesiredPosture(has_target_recent);
+    const auto area_posture_hint = ResolveRegionalAreaTaskPostureHint(areaManager_.RegionalAreaTask());
+    const bool transit_posture_override =
+        !IsRecoveryGoal(naviCommandGoal) &&
+        aimMode != AimMode::Buff &&
+        aimMode != AimMode::Outpost &&
+        desired != SentryPosture::Defense &&
+        area_posture_hint == RegionalAreaTaskPostureHint::Transit;
+    if (transit_posture_override) {
+        desired = SelectTransitPosture(
+            postureManager_.Runtime(),
+            config.PostureSettings.RefereeRemainWarnSec);
+    }
     const bool navi_move_override = ShouldRequestMovePostureWhenNaviFalse(
         config.NaviControlSettings,
         hasReceivedNaviIsRotate_,
@@ -438,12 +450,14 @@ void Application::UpdatePostureCommand(const bool has_target) {
 
     if (LoggerPtr && (decision.Sent || desired_changed || reason_changed)) {
         LoggerPtr->Info(
-            "[Posture] cmd={} desired={} current={} pending={} has_target_recent={} navi_move_override={} under_fire={} under_fire_burst={} feedback_stale={} referee_timer={} enhanced={} reason={}",
+            "[Posture] cmd={} desired={} current={} pending={} has_target_recent={} area_hint={} transit_override={} navi_move_override={} under_fire={} under_fire_burst={} feedback_stale={} referee_timer={} enhanced={} reason={}",
             static_cast<int>(postureCommand),
             PostureToString(desired),
             PostureToString(runtime.Current.Base),
             PostureToString(runtime.Pending.Base),
             has_target_recent ? 1 : 0,
+            RegionalAreaTaskPostureHintToString(area_posture_hint),
+            transit_posture_override ? 1 : 0,
             navi_move_override ? 1 : 0,
             IsUnderFireRecent() ? 1 : 0,
             IsUnderFireBurst() ? 1 : 0,

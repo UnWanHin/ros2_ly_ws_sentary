@@ -419,6 +419,86 @@ TEST(PreReadyRoadlandTaskTest, DefaultAreaHoldDefaultsAreFifteenSeconds) {
     EXPECT_EQ(central.GoalHoldSec, 15);
 }
 
+TEST(PreReadyRoadlandTaskTest, PostureHintRequiresVerifiedArrivalForHold) {
+    using BehaviorTree::RegionalAreaTaskOrigin;
+    using BehaviorTree::RegionalAreaTaskPhase;
+    using BehaviorTree::RegionalAreaTaskPostureHint;
+    using BehaviorTree::RegionalAreaTaskRuntime;
+    using BehaviorTree::RegionalAreaTaskType;
+
+    RegionalAreaTaskRuntime task;
+    EXPECT_EQ(
+        BehaviorTree::ResolveRegionalAreaTaskPostureHint(task),
+        RegionalAreaTaskPostureHint::None);
+
+    task.Active = true;
+    task.Type = RegionalAreaTaskType::MyPreRoadland;
+    task.Phase = RegionalAreaTaskPhase::PreRoadlandApproach;
+    EXPECT_EQ(
+        BehaviorTree::ResolveRegionalAreaTaskPostureHint(task),
+        RegionalAreaTaskPostureHint::None);
+
+    task.Origin = RegionalAreaTaskOrigin::DefaultPolicy;
+    EXPECT_EQ(
+        BehaviorTree::ResolveRegionalAreaTaskPostureHint(task),
+        RegionalAreaTaskPostureHint::Transit);
+
+    task.Phase = RegionalAreaTaskPhase::PreRoadlandHold;
+    task.PhaseArrived = false;
+    EXPECT_EQ(
+        BehaviorTree::ResolveRegionalAreaTaskPostureHint(task),
+        RegionalAreaTaskPostureHint::Transit);
+
+    task.PhaseArrived = true;
+    EXPECT_EQ(
+        BehaviorTree::ResolveRegionalAreaTaskPostureHint(task),
+        RegionalAreaTaskPostureHint::ArrivedHold);
+}
+
+TEST(PreReadyRoadlandTaskTest, HighlandTimeoutOrUnreachableDoesNotBecomeAnArrivedPostureHold) {
+    using BehaviorTree::AreaManager;
+    using BehaviorTree::RegionalAreaTaskPlan;
+    using BehaviorTree::RegionalAreaTaskPostureHint;
+    using BehaviorTree::RegionalAreaTaskTickInput;
+    using BehaviorTree::RegionalAreaTaskType;
+    using LangYa::UnitTeam;
+
+    const auto now = std::chrono::steady_clock::now();
+    LangYa::RegionalAreaTaskSetting setting;
+
+    AreaManager arrived_manager;
+    arrived_manager.StartRegionalAreaTask(RegionalAreaTaskPlan{
+        .Type = RegionalAreaTaskType::MyHighland,
+        .GoalTeam = UnitTeam::Red,
+        .InitialGoalTeam = UnitTeam::Red,
+        .Origin = BehaviorTree::RegionalAreaTaskOrigin::DefaultPolicy,
+    }, now);
+    (void)arrived_manager.TickRegionalAreaTask(RegionalAreaTaskTickInput{
+        .Setting = setting,
+        .Now = now + std::chrono::seconds(1),
+        .HighlandArrived = true,
+    });
+    EXPECT_EQ(
+        BehaviorTree::ResolveRegionalAreaTaskPostureHint(arrived_manager.RegionalAreaTask()),
+        RegionalAreaTaskPostureHint::ArrivedHold);
+
+    AreaManager unreachable_manager;
+    unreachable_manager.StartRegionalAreaTask(RegionalAreaTaskPlan{
+        .Type = RegionalAreaTaskType::MyHighland,
+        .GoalTeam = UnitTeam::Red,
+        .InitialGoalTeam = UnitTeam::Red,
+        .Origin = BehaviorTree::RegionalAreaTaskOrigin::DefaultPolicy,
+    }, now);
+    (void)unreachable_manager.TickRegionalAreaTask(RegionalAreaTaskTickInput{
+        .Setting = setting,
+        .Now = now + std::chrono::seconds(1),
+        .HighlandUnreachable = true,
+    });
+    EXPECT_EQ(
+        BehaviorTree::ResolveRegionalAreaTaskPostureHint(unreachable_manager.RegionalAreaTask()),
+        RegionalAreaTaskPostureHint::Transit);
+}
+
 TEST(PreReadyRoadlandTaskTest, CommonCentralHoldsAnArrivedPointBeforeAdvancing) {
     using BehaviorTree::AreaManager;
     using BehaviorTree::RegionalAreaTaskTickInput;
