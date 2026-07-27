@@ -451,23 +451,32 @@ Default 區域任務的實際到點/guard phase 統一保持 15 秒：
 Highland approach/leave、ReadyRoadland approach/cross/return 等純行進或安全穿越 phase 不加入
 人為停留。不可達與 travel timeout 仍可跳過駐留並按各任務既有規則切點或完成。
 
-### Default 駐留與姿態
+### 任務到點與姿態
 
-`AreaManager` 是 Default 到點與駐留的唯一事實來源。只有由 Default regional policy 建立的任務會向
-posture 輸出內部三態提示；Buff、前哨、戰術防護等 scoped goal 借用區域狀態機時不輸出此提示，不增加
-YAML、ROS topic 或第二套計時：
+每個 tick 的姿態只讀一份內部 `TaskPostureIntent`。它不增加 YAML、ROS topic 或第二套導航計時；每個固定點
+任務必須同時擁有當前輸出的 goal ID 與 goal 座標，才可以提供 intent。因此高優先級切點、動態 Chase 覆蓋
+或舊的 `/ly/navi/reached` 都不會把已離開的點誤當作已到達。
 
-- `Transit`：尚在行進，或由 timeout/unreachable 進入的保底 phase；正常請求 Move。
-- `ArrivedHold`：只在 goal-scoped composite arrival 已確認且正在既有 hold 期間成立；不強制姿態，原有
-  目標、受擊、血量與彈量規則決定 Attack 或 Defense。
-- `None`：沒有 Default RegionalAreaTask，不干預既有 posture。
+- `SoftTransit`：Default regional、ProtectOutpost 的 `Travel`、ProtectHero、固定防守點、SpecialPatrol，
+  在仍前往其自己 goal 時提供。正常請求 Move；原有評分已判為 Defense 時保留防禦優先，避免行進覆蓋受擊或
+  資源安全策略。
+- `SoftArrived`：Default 既有 hold、ProtectOutpost 的 `SearchHold`、ProtectHero 已到目標、固定防守點已到達、
+  SpecialPatrol 的既有 hold。解除 Move 覆蓋後，沿用原有目標、受擊、血量、彈量評分選 Attack 或 Defense。
+- `HardMove`：Recovery、Buff、或新鮮 `/ly/navi/should_rotate=false`；不允許泛用資源輪換把它改走。
+- `HardDefense`：受擊 burst；前哨 engagement lock 仍以既有 lock 優先。
+- Buff/Outpost 保留原有專用語義；動態 Chase 不產生 arrived intent，避免移動目標的舊到點狀態造成停車。
 
 當下位機 TypeID 10 的裁判 `0x020D sentry_info_3` 新鮮（`Posture.RefereeInfo3FreshMs=1500ms`）且
-Move 剩餘時間介於 1 秒與 `RefereeRemainWarnSec=20s` 預警時，Transit 會改用 Attack/Defense 中官方
-剩餘時間較多的一檔，平分選 Defense；Move 已為 0 時仍維持 Move，避免其他姿態的底盤移動功率折損。
-沒有新鮮 TypeID 10 時同樣維持 Move。這是預留 Move 姿態預算，不影響既有
-PostureManager 的 5 秒切換冷卻、10 秒最短保持、回讀確認與 Retry，也不改 Recovery、Buff、前哨、硬
-Defense、導航或前哨鎖定的優先級。
+Move 剩餘時間介於 1 秒與 `RefereeRemainWarnSec=20s` 預警時，`SoftTransit` 會改用 Attack/Defense 中官方
+剩餘時間較多的一檔，平分選 Defense；Move 已為 0 時仍維持 Move，因為 0 表示已弱化而非禁止使用，換成
+Attack/Defense 會再降低移動能力。Transit 和 Hard 姿態會禁止 `PostureManager` 的泛用提前輪換覆蓋這個結果；
+SoftArrived 則保留輪換，讓三種普通姿態的 180 秒非恢復預算仍能平衡。
+
+賽規 5 秒是姿態切換冷卻；目前 `Posture.MinHoldSec=10` 是已切換姿態後的 manager 防抖，兩者都不是任務
+導航停留時間。各任務仍完全沿用自己的既有 hold、切點與 preemption 規則。
+
+decision trace 的 `posture.task_intent`、`task_source` 與 `task_owns_current_goal`，以及 `[Posture]` 日誌中的
+`scored` / `desired` 欄位可直接驗收本次仲裁。
 
 ## 到達與不可達
 

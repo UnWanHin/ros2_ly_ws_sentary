@@ -212,16 +212,17 @@ flowchart TD
 `keep_last(1)` 限制積壓，並拒絕在命令前已被 BT 接收的回讀；若要完全保證下位機因果 ACK，必須由
 下位機在未來協議中回顯命令序號或時間戳。
 
-只有由 Default regional policy 建立的區域任務，才會把姿態所需的到點語義收斂為
-`AreaManager` 內部 hint，沒有第二套停留計時。Buff、前哨、戰術防護等 scoped goal 即使借用同一個
-區域狀態機，也保留原有姿態仲裁，不產生此 hint：
-`Transit`（行進、超時或不可達保底階段）通常請求 Move；只有已由 goal-scoped composite arrival
-確認、且正處於既有 15 秒 hold 的 `ArrivedHold` 才解除該 Move 覆蓋，回到原有目標/受擊/資源評分來選
-Attack 或 Defense。新鮮 TypeID 10 `sentry_info_3` 顯示 Move 剩餘介於 1 秒與
-`RefereeRemainWarnSec` 之間時，Transit 會在 Attack/Defense 中選擇剩餘時間較多的一檔，平分時選
-Defense；Move 已為 0 時仍請求 Move，避免為保留其他姿態時間而犧牲底盤移動能力。沒有新鮮官方計時則
-保守維持 Move。Recovery、Buff、前哨、既有硬 Defense、導航與前哨鎖定仲裁順序不改，所有請求仍受 5 秒切換
-冷卻、10 秒最短保持與回讀 ACK 約束，故不能宣稱在資料延遲或冷卻期間絕對不會進入弱化。
+姿態採用一份內部 `TaskPostureIntent`，不建立第二份任務或導航資料。Default 的 `AreaManager` hint、
+ProtectOutpost `Travel/SearchHold`、ProtectHero、固定區域防守和 SpecialPatrol 都只有在仍擁有目前
+goal ID 與座標時才提供 `SoftTransit/SoftArrived`。因此 goal 被 Chase 或上層任務替換時，舊 reached 不會
+保留到姿態仲裁。SoftTransit 保留 Move 預算，但不覆蓋既有 Safety Defense；SoftArrived 回到原本 Attack/Defense 評分。Recovery、Buff、
+新鮮 `should_rotate=false` 是 `HardMove`，受擊 burst 是 `HardDefense`，前哨 lock 保持既有最高覆蓋。
+
+新鮮 TypeID 10 `sentry_info_3` 顯示 Move 剩餘介於 1 秒與 `RefereeRemainWarnSec` 之間時，SoftTransit
+會在 Attack/Defense 中選擇剩餘時間較多的一檔，平分時選 Defense；Move 已為 0 時仍請求 Move，因為它只表示
+弱化。Transit/Hard request 禁止泛用提前輪換覆蓋；SoftArrived 保留輪換以平衡三種 180 秒、不恢復的普通姿態
+預算。所有請求仍受 5 秒切換冷卻、10 秒最短保持與回讀 ACK 約束，故資料延遲或冷卻期間不能宣稱絕對不會
+進入弱化。trace 的 `posture.task_intent/task_source/task_owns_current_goal` 是此仲裁的離線驗收輸出。
 
 ## 5. 發布與下發
 

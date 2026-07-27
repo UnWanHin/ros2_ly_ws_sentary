@@ -148,6 +148,12 @@ inline constexpr const char* TaskPostureIntentToString(const TaskPostureIntent i
     return "none";
 }
 
+struct TaskPostureIntentState {
+    TaskPostureIntent Intent{TaskPostureIntent::None};
+    const char* Source{"none"};
+    bool OwnsCurrentGoal{false};
+};
+
 inline SentryPosture SelectTransitPosture(
     const PostureRuntime& runtime,
     const int reserve_sec) noexcept {
@@ -192,6 +198,9 @@ inline TaskPostureRequest ResolveTaskPostureRequest(
     const int reserve_sec) noexcept {
     switch (intent) {
         case TaskPostureIntent::SoftTransit:
+            if (scored_posture == SentryPosture::Defense) {
+                return {{SentryPosture::Defense, false}, PostureRequestPolicy::RequiredPosture()};
+            }
             return {{SelectTransitPosture(runtime, reserve_sec), false},
                     PostureRequestPolicy::RequiredPosture()};
         case TaskPostureIntent::HardMove:

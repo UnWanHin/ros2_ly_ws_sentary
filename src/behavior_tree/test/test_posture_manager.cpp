@@ -202,6 +202,19 @@ TEST(TaskPostureIntentTest, SoftTransitReservesMoveAndDisablesEarlyRotation) {
     EXPECT_FALSE(request.Policy.AllowEarlyRotate);
 }
 
+TEST(TaskPostureIntentTest, SoftTransitDoesNotOverrideSafetyDefense) {
+    BehaviorTree::PostureRuntime runtime;
+
+    const auto request = BehaviorTree::ResolveTaskPostureRequest(
+        BehaviorTree::TaskPostureIntent::SoftTransit,
+        BehaviorTree::SentryPosture::Defense,
+        runtime,
+        20);
+
+    EXPECT_EQ(BehaviorTree::SentryPosture::Defense, request.Mode.Base);
+    EXPECT_FALSE(request.Policy.AllowEarlyRotate);
+}
+
 TEST(TaskPostureIntentTest, SoftArrivedKeepsNormalScoringAndRotationPolicy) {
     BehaviorTree::PostureRuntime runtime;
 
@@ -213,4 +226,17 @@ TEST(TaskPostureIntentTest, SoftArrivedKeepsNormalScoringAndRotationPolicy) {
 
     EXPECT_EQ(BehaviorTree::SentryPosture::Defense, request.Mode.Base);
     EXPECT_TRUE(request.Policy.AllowEarlyRotate);
+}
+
+TEST(TaskPostureIntentTest, HardDefenseOverridesScoreAndDisablesEarlyRotation) {
+    BehaviorTree::PostureRuntime runtime;
+
+    const auto request = BehaviorTree::ResolveTaskPostureRequest(
+        BehaviorTree::TaskPostureIntent::HardDefense,
+        BehaviorTree::SentryPosture::Move,
+        runtime,
+        20);
+
+    EXPECT_EQ(BehaviorTree::SentryPosture::Defense, request.Mode.Base);
+    EXPECT_FALSE(request.Policy.AllowEarlyRotate);
 }

@@ -181,6 +181,118 @@ void Application::RecordDamageSample(const std::chrono::steady_clock::time_point
     }
 }
 
+TaskPostureIntentState Application::ResolveTaskPostureIntent(
+    const std::chrono::steady_clock::time_point now) const {
+    const auto owns_base_goal = [&](const std::uint8_t base_goal_id,
+                                    const UnitTeam goal_team,
+                                    const bool apply_team_offset) {
+        if (!AreaManager::IsValidBaseGoalId(base_goal_id)) {
+            return false;
+        }
+        const auto expected_id = ResolveGoalId(base_goal_id, goal_team, apply_team_offset);
+        const auto expected_position = AreaManager::GoalPointByBaseId(base_goal_id, goal_team);
+        return naviCommandGoal == expected_id &&
+               naviGoalPosition.x == expected_position.x &&
+               naviGoalPosition.y == expected_position.y;
+    };
+    const auto make = [](const TaskPostureIntent intent, const char* source, const bool owns_goal) {
+        return TaskPostureIntentState{.Intent = intent, .Source = source, .OwnsCurrentGoal = owns_goal};
+    };
+
+    if (IsRecoveryGoal(naviCommandGoal)) {
+        return make(TaskPostureIntent::HardMove, "recovery", true);
+    }
+    if (aimMode == AimMode::Buff) {
+        return make(TaskPostureIntent::HardMove, "buff", false);
+    }
+    if (IsUnderFireBurst()) {
+        return make(TaskPostureIntent::HardDefense, "damage_burst", false);
+    }
+
+    const auto outpost_goal_id = ResolveGoalId(LangYa::BuffOutpost.ID, team, true);
+    const auto outpost_goal_position = AreaManager::GoalPointByBaseId(LangYa::BuffOutpost.ID, team);
+    const bool owns_outpost_goal = naviCommandGoal == outpost_goal_id &&
+        naviGoalPosition.x == outpost_goal_position.x &&
+        naviGoalPosition.y == outpost_goal_position.y;
+    const bool outpost_task_active = aimMode == AimMode::Outpost ||
+        outpostVisualScoutNavigationActive_ ||
+        outpostArmorInterruptActive_ ||
+        (outpostPostArmorFaceSearchUntil_.time_since_epoch().count() != 0 &&
+         now < outpostPostArmorFaceSearchUntil_);
+    if (outpost_task_active && owns_outpost_goal) {
+        return make(
+            IsBaseGoalArrived(LangYa::BuffOutpost.ID, team, true)
+                ? TaskPostureIntent::SoftArrived
+                : TaskPostureIntent::SoftTransit,
+            "outpost",
+            true);
+    }
+
+    const auto protect_outpost_goal = Area::ProtectOutpost(team);
+    const auto protect_outpost_goal_id = ResolveGoalId(LangYa::ProtectOutpost.ID, team, true);
+    const bool owns_protect_outpost_goal = naviCommandGoal == protect_outpost_goal_id &&
+        naviGoalPosition.x == protect_outpost_goal.x &&
+        naviGoalPosition.y == protect_outpost_goal.y;
+    if (owns_protect_outpost_goal) {
+        if (protectOutpostState_.Phase == ProtectOutpostPhase::SearchHold) {
+            return make(TaskPostureIntent::SoftArrived, "protect_outpost_search_hold", true);
+        }
+        if (protectOutpostState_.Phase == ProtectOutpostPhase::Travel) {
+            return make(TaskPostureIntent::SoftTransit, "protect_outpost_travel", true);
+        }
+    }
+
+    if (protectHeroActive_ && lastDecisionIntent_.Reason == DecisionReason::ProtectHero) {
+        const auto base_goal_id = AreaManager::IsValidBaseGoalId(config.TacticalSettings.ProtectHero.GoalBaseId)
+            ? config.TacticalSettings.ProtectHero.GoalBaseId
+            : LangYa::Highland.ID;
+        if (owns_base_goal(base_goal_id, team, true)) {
+            return make(
+                IsBaseGoalArrived(base_goal_id, team, true)
+                    ? TaskPostureIntent::SoftArrived
+                    : TaskPostureIntent::SoftTransit,
+                "protect_hero",
+                true);
+        }
+    }
+
+    const bool regional_defense_active =
+        regionalDefenseSearchKind_ != RegionalDefenseSearchKind::None &&
+        DecisionLayerForReason(lastDecisionIntent_.Reason) == DecisionLayer::RegionalDefense;
+    if (regional_defense_active && owns_base_goal(regionalDefenseSearchBaseGoal_, team, true)) {
+        return make(
+            IsBaseGoalArrived(regionalDefenseSearchBaseGoal_, team, true)
+                ? TaskPostureIntent::SoftArrived
+                : TaskPostureIntent::SoftTransit,
+            "regional_defense",
+            true);
+    }
+
+    if (lastDecisionIntent_.Reason == DecisionReason::SpecialPatrol &&
+        owns_base_goal(lastDecisionIntent_.BaseGoalId, team, true)) {
+        const bool special_hold = specialPatrolHoldActive_ &&
+            specialPatrolHoldBaseGoal_ == lastDecisionIntent_.BaseGoalId;
+        return make(
+            special_hold ? TaskPostureIntent::SoftArrived : TaskPostureIntent::SoftTransit,
+            special_hold ? "special_patrol_hold" : "special_patrol_travel",
+            true);
+    }
+
+    const auto& area_task = areaManager_.RegionalAreaTask();
+    if (area_task.Active && area_task.Origin == RegionalAreaTaskOrigin::DefaultPolicy &&
+        owns_base_goal(area_task.CurrentBaseGoal, area_task.GoalTeam, area_task.ApplyTeamOffset)) {
+        const auto hint = ResolveRegionalAreaTaskPostureHint(area_task);
+        return make(
+            hint == RegionalAreaTaskPostureHint::ArrivedHold
+                ? TaskPostureIntent::SoftArrived
+                : TaskPostureIntent::SoftTransit,
+            hint == RegionalAreaTaskPostureHint::ArrivedHold ? "default_arrived_hold" : "default_transit",
+            true);
+    }
+
+    return {};
+}
+
 SentryPosture Application::SelectDesiredPosture(const bool has_target) const {
     if (!config.PostureSettings.Enable) {
         return SentryPosture::Unknown;
@@ -389,19 +501,8 @@ void Application::UpdatePostureCommand(const bool has_target) {
     }
 
     const bool has_target_recent = has_target || HasRecentTarget();
-    auto desired = SelectDesiredPosture(has_target_recent);
-    const auto area_posture_hint = ResolveRegionalAreaTaskPostureHint(areaManager_.RegionalAreaTask());
-    const bool transit_posture_override =
-        !IsRecoveryGoal(naviCommandGoal) &&
-        aimMode != AimMode::Buff &&
-        aimMode != AimMode::Outpost &&
-        desired != SentryPosture::Defense &&
-        area_posture_hint == RegionalAreaTaskPostureHint::Transit;
-    if (transit_posture_override) {
-        desired = SelectTransitPosture(
-            postureManager_.Runtime(),
-            config.PostureSettings.RefereeRemainWarnSec);
-    }
+    const auto scored_desired = SelectDesiredPosture(has_target_recent);
+    auto intent = ResolveTaskPostureIntent(now);
     const bool navi_move_override = ShouldRequestMovePostureWhenNaviFalse(
         config.NaviControlSettings,
         hasReceivedNaviIsRotate_,
@@ -409,8 +510,14 @@ void Application::UpdatePostureCommand(const bool has_target) {
         now,
         naviIsRotate);
     if (navi_move_override) {
-        desired = SentryPosture::Move;
+        intent = {TaskPostureIntent::HardMove, "navi_should_rotate_false", false};
     }
+    const auto task_request = ResolveTaskPostureRequest(
+        intent.Intent,
+        scored_desired,
+        postureManager_.Runtime(),
+        config.PostureSettings.RefereeRemainWarnSec);
+    auto desired = task_request.Mode.Base;
     auto referee_timer = postureRefereeTimer_;
     const auto fresh_limit_ms = std::max(0, config.PostureSettings.RefereeInfo3FreshMs);
     if (referee_timer.HasInfo3 && referee_timer.AgeMeasuredAt.time_since_epoch().count() != 0) {
@@ -420,8 +527,8 @@ void Application::UpdatePostureCommand(const bool has_target) {
             static_cast<std::uint64_t>(std::max<decltype(elapsed_ms)>(elapsed_ms, 0));
         referee_timer.Fresh = current_age_ms <= static_cast<std::uint64_t>(fresh_limit_ms);
     }
-    PostureMode requested{desired, false};
-    auto request_policy = PostureRequestPolicy{};
+    PostureMode requested = task_request.Mode;
+    auto request_policy = task_request.Policy;
     if (outpostEngagementDecision_.Intent.has_value()) {
         requested = *outpostEngagementDecision_.Intent;
         request_policy = PostureRequestPolicy::OutpostLock();
@@ -447,17 +554,20 @@ void Application::UpdatePostureCommand(const bool has_target) {
     const bool reason_changed = postureLastReason_ != decision.Reason;
     postureLastDesired_ = desired;
     postureLastReason_ = decision.Reason;
+    postureTaskIntent_ = intent;
 
     if (LoggerPtr && (decision.Sent || desired_changed || reason_changed)) {
         LoggerPtr->Info(
-            "[Posture] cmd={} desired={} current={} pending={} has_target_recent={} area_hint={} transit_override={} navi_move_override={} under_fire={} under_fire_burst={} feedback_stale={} referee_timer={} enhanced={} reason={}",
+            "[Posture] cmd={} scored={} desired={} current={} pending={} has_target_recent={} task_intent={} task_source={} task_owns_goal={} navi_move_override={} under_fire={} under_fire_burst={} feedback_stale={} referee_timer={} enhanced={} reason={}",
             static_cast<int>(postureCommand),
+            PostureToString(scored_desired),
             PostureToString(desired),
             PostureToString(runtime.Current.Base),
             PostureToString(runtime.Pending.Base),
             has_target_recent ? 1 : 0,
-            RegionalAreaTaskPostureHintToString(area_posture_hint),
-            transit_posture_override ? 1 : 0,
+            TaskPostureIntentToString(intent.Intent),
+            intent.Source,
+            intent.OwnsCurrentGoal ? 1 : 0,
             navi_move_override ? 1 : 0,
             IsUnderFireRecent() ? 1 : 0,
             IsUnderFireBurst() ? 1 : 0,

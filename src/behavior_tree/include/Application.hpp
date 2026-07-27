@@ -463,6 +463,7 @@ private:
     std::uint16_t postureLastHealth_{0};
     SentryPosture postureLastDesired_{SentryPosture::Unknown};
     std::string postureLastReason_{"init"};
+    TaskPostureIntentState postureTaskIntent_{};
     bool energyActivateConfirmPulseActive_{false};
     std::chrono::steady_clock::time_point energyActivateConfirmPulseUntil_{};
     std::chrono::steady_clock::time_point nextEnergyActivateConfirmTime_{};
@@ -1031,6 +1032,8 @@ public:
     void CheckDebug();
     void UpdatePostureCommand(bool has_target);
     SentryPosture SelectDesiredPosture(bool has_target) const;
+    TaskPostureIntentState ResolveTaskPostureIntent(
+        std::chrono::steady_clock::time_point now) const;
     bool HasRecentTarget() const;
     AimSourceView CurrentAimSource() const noexcept;
     const AimData& CurrentAimData() const noexcept;

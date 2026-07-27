@@ -872,6 +872,9 @@ void Application::WriteDecisionTrace(const std::string_view event) noexcept {
         {"state", PostureValueJson(postureState)},
         {"last_desired", PostureEnumJson(postureLastDesired_)},
         {"last_reason", postureLastReason_},
+        {"task_intent", TaskPostureIntentToString(postureTaskIntent_.Intent)},
+        {"task_source", postureTaskIntent_.Source},
+        {"task_owns_current_goal", postureTaskIntent_.OwnsCurrentGoal},
         {"under_fire_recent", IsUnderFireRecent()},
         {"under_fire_burst", IsUnderFireBurst()},
         {"runtime", {
