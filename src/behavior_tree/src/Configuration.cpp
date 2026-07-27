@@ -2147,6 +2147,27 @@ namespace BehaviorTree {
                 "StartGate/FaceModeStatusFreshMs"
             },
             setting.FaceModeStatusFreshMs);
+
+        auto& damage_open_gate = config.DamageOpenGateSettings;
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "DamageOpenGate.Enable",
+                "DamageOpenGate/Enable"
+            },
+            damage_open_gate.Enable);
+        int damage_open_gate_health_drop_threshold =
+            static_cast<int>(damage_open_gate.HealthDropThreshold);
+        if (ReadOptionalIntParam(
+            node_,
+            {
+                "DamageOpenGate.HealthDropThreshold",
+                "DamageOpenGate/HealthDropThreshold"
+            },
+            damage_open_gate_health_drop_threshold)) {
+            damage_open_gate.HealthDropThreshold = static_cast<std::uint16_t>(
+                std::clamp(damage_open_gate_health_drop_threshold, 0, 65535));
+        }
     }
 
     void Application::ApplyExternalAimParameterOverrides() {

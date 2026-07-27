@@ -392,6 +392,10 @@ def generate_launch_description():
     start_gate_allow_gimbal_patrol_before_start = LaunchConfiguration(
         "start_gate_allow_gimbal_patrol_before_start"
     )
+    damage_open_gate_enable = LaunchConfiguration("damage_open_gate_enable")
+    damage_open_gate_health_drop_threshold = LaunchConfiguration(
+        "damage_open_gate_health_drop_threshold"
+    )
     firecode_partial_hold_ms = LaunchConfiguration("firecode_partial_hold_ms")
     velocity_raw_to_mps = LaunchConfiguration("velocity_raw_to_mps")
     face_mode_target_frame = LaunchConfiguration("face_mode_target_frame")
@@ -580,6 +584,16 @@ def generate_launch_description():
             "start_gate_allow_gimbal_patrol_before_start",
             default_value="true",
             description="Allow gimbal patrol scan while gated before /ly/game/is_start=true.",
+        ),
+        DeclareLaunchArgument(
+            "damage_open_gate_enable",
+            default_value="false",
+            description="Allow self-health loss to release the /ly/game/is_start gate.",
+        ),
+        DeclareLaunchArgument(
+            "damage_open_gate_health_drop_threshold",
+            default_value="30",
+            description="Self-health drop threshold that releases the start gate when enabled.",
         ),
         DeclareLaunchArgument(
             "firecode_partial_hold_ms",
@@ -813,6 +827,11 @@ def generate_launch_description():
         LogInfo(msg=[
             "[sentry_all] start_gate_allow_gimbal_patrol_before_start: ",
             start_gate_allow_gimbal_patrol_before_start,
+        ]),
+        LogInfo(msg=["[sentry_all] damage_open_gate_enable: ", damage_open_gate_enable]),
+        LogInfo(msg=[
+            "[sentry_all] damage_open_gate_health_drop_threshold: ",
+            damage_open_gate_health_drop_threshold,
         ]),
         LogInfo(msg=["[sentry_all] firecode_partial_hold_ms: ", firecode_partial_hold_ms]),
         LogInfo(msg=["[sentry_all] velocity_raw_to_mps: ", velocity_raw_to_mps]),
@@ -1049,6 +1068,14 @@ def generate_launch_description():
                         start_gate_allow_gimbal_patrol_before_start, value_type=bool),
                     "StartGate/AllowGimbalPatrolBeforeStart": ParameterValue(
                         start_gate_allow_gimbal_patrol_before_start, value_type=bool),
+                    "DamageOpenGate.Enable": ParameterValue(
+                        damage_open_gate_enable, value_type=bool),
+                    "DamageOpenGate/Enable": ParameterValue(
+                        damage_open_gate_enable, value_type=bool),
+                    "DamageOpenGate.HealthDropThreshold": ParameterValue(
+                        damage_open_gate_health_drop_threshold, value_type=int),
+                    "DamageOpenGate/HealthDropThreshold": ParameterValue(
+                        damage_open_gate_health_drop_threshold, value_type=int),
                     "ExternalAim.Enable": True,
                     "ExternalAim/Enable": True,
                     "Task.OutpostConfirm.ManualGoal.Enable": ParameterValue(

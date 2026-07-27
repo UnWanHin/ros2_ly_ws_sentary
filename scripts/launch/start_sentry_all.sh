@@ -456,6 +456,8 @@ else
 fi
 
 add_common_bool_launch_arg "start_gate.allow_gimbal_patrol_before_start" "start_gate_allow_gimbal_patrol_before_start"
+add_common_bool_launch_arg "damage_open_gate.enable" "damage_open_gate_enable"
+add_common_scalar_launch_arg "damage_open_gate.health_drop_threshold" "damage_open_gate_health_drop_threshold"
 add_common_scalar_launch_arg "face_mode.max_yaw_step_deg" "face_mode_max_yaw_step_deg"
 add_common_scalar_launch_arg "face_mode.max_pitch_step_deg" "face_mode_max_pitch_step_deg"
 

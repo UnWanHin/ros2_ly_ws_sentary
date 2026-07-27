@@ -91,7 +91,7 @@ scripts/
 - `scripts/start/sentry_all_nogate.sh`
 - 实际实现：`scripts/launch/start_sentry_all.sh`
 
-`scripts/start.sh` 下的 gated、nogate、showcase 入口都会读取 `config/common.yaml` 的现场共享开关。`rosbag: true` 时会启动 `ros2 bag record -a`，默认在 `rosbag_path: ~/Log/rosbag` 下创建带时间戳的记录目录；录制不改变硬件 IO，若要虚拟串口需另外使用 `--offline`。
+`scripts/start.sh` 下的 gated、nogate、showcase 入口都会读取 `config/common.yaml` 的现场共享开关。`damage_open_gate` 控制 gated 入口等待 `/ly/game/is_start` 时，是否允许用己方血量下降解除门控；默认关闭，门槛单位为 HP。`rosbag: true` 时会启动 `ros2 bag record -a`，默认在 `rosbag_path: ~/Log/rosbag` 下创建带时间戳的记录目录；录制不改变硬件 IO，若要虚拟串口需另外使用 `--offline`。
 
 ### 2. `armor_test` 是什么
 
