@@ -108,10 +108,12 @@ bool StrategyManager::RunHard(Application& app) {
         return true;
     }
 
-    if (app.areaManager_.RegionalAreaTaskActive() &&
-        app.areaManager_.RegionalAreaTask().Type == RegionalAreaTaskType::MyReadyRoadland &&
-        !app.areaManager_.RegionalAreaTaskCanYieldToHigherPriority()) {
-        app.CancelMapCommandTask();
+    const bool map_command_active = app.TrySetMapCommandGoal();
+    if (ShouldRunReadyRoadlandHardLock(
+            app.areaManager_.RegionalAreaTaskActive() &&
+                app.areaManager_.RegionalAreaTask().Type == RegionalAreaTaskType::MyReadyRoadland,
+            app.areaManager_.RegionalAreaTaskCanYieldToHigherPriority(),
+            map_command_active)) {
         if (app.TickRegionalAreaTask(my_team, enemy_team)) {
             MarkHandled(app, StrategyLayer::Hard, true);
             return true;

@@ -38,13 +38,13 @@ flowchart TD
 flowchart TD
   HARD[Hard] --> RECOVERY{HP < 150\n或 ammo <= 30?}
   RECOVERY -->|是| HOME[Recovery / 回補\n持續到 HP >= 380 且 ammo > 30]
-  RECOVERY -->|否| READY_LOCK[ReadyRoadland 不可中斷穿越?]
-  READY_LOCK -->|是| READY[ReadyRoadland hard lock\n取消 MapCommand]
-  READY_LOCK -->|否| TASK[Task]
+  RECOVERY -->|否| MAP_PREEMPT{有效 0x0303 坐標?}
+  MAP_PREEMPT -->|是| MAP_GOAL[MapCommand\n45s raw official cm -> bridge]
+  MAP_PREEMPT -->|否| READY_LOCK[ReadyRoadland 不可中斷穿越?]
+  READY_LOCK -->|是| READY[ReadyRoadland hard lock]
+  READY_LOCK -->|否| TASK[其他 Task]
 
-  TASK --> MAP_CMD{有效 0x0303 坐標?}
-  MAP_CMD -->|是| MAP_GOAL[MapCommand\n45s raw official cm -> bridge]
-  MAP_CMD -->|否| AREA_TRANSITION[導航區域轉換]
+  TASK --> AREA_TRANSITION[導航區域轉換]
   AREA_TRANSITION --> NAV_WATCHDOG[導航 watchdog / fallback]
   MAP_GOAL --> TACTICAL
   NAV_WATCHDOG --> TACTICAL
@@ -139,7 +139,8 @@ flowchart LR
 
 `MapCommand` 只接受官方場地內的坐標模式點，預設持有 45 秒、20cm 去重；5 次 100ms 和後續
 1Hz 相同重送不續期。它不是 BaseGoal，任務持有期間會清除舊目標 external-status binding 並暫停
-`/ly/navi/reach_state`，因此到達小地圖點不會被誤判為區域任務到點。完整協議與邊界見
+`/ly/navi/reach_state`，因此到達小地圖點不會被誤判為區域任務到點。除 Recovery 外，它會搶占
+開局前哨、Protect、Buff、Default 和 ReadyRoadland 的所有導航。完整協議與邊界見
 `docs/sentry/embedded/map_command_typeid9.md`。
 
 `behavior_tree` 在等待開賽前會打印一次實際生效的 AreaManager/Tactical 配置快照（包括

@@ -4,6 +4,7 @@
 #include "../include/EventManager.hpp"
 #include "../include/MapCommandTask.hpp"
 #include "../include/RegionalAreaScope.hpp"
+#include "../include/StrategyManager.hpp"
 #include "../module/json.hpp"
 
 #include <algorithm>
@@ -163,6 +164,13 @@ TEST(PreReadyRoadlandTaskTest, MapCommandDeduplicatesRepeatsAndDropsOwnershipOnE
         {.HasTargetPosition = true, .XMeter = 3.1F, .YMeter = 3.25F},
         setting,
         now + std::chrono::seconds(47)));
+}
+
+TEST(PreReadyRoadlandTaskTest, MapCommandPreemptsTheReadyRoadlandHardLock) {
+    EXPECT_TRUE(BehaviorTree::ShouldRunReadyRoadlandHardLock(true, false, false));
+    EXPECT_FALSE(BehaviorTree::ShouldRunReadyRoadlandHardLock(true, false, true));
+    EXPECT_FALSE(BehaviorTree::ShouldRunReadyRoadlandHardLock(true, true, false));
+    EXPECT_FALSE(BehaviorTree::ShouldRunReadyRoadlandHardLock(false, false, false));
 }
 
 TEST(PreReadyRoadlandTaskTest, AreaManagerStartsIndependentPreAndReadyRoadlandTasks) {

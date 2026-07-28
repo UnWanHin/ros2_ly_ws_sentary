@@ -17,6 +17,15 @@ enum class StrategyLayer : std::uint8_t {
 
 const char* StrategyLayerName(StrategyLayer layer) noexcept;
 
+// Recovery is evaluated before this policy. A valid MapCommand is otherwise
+// the highest navigation instruction, including during ReadyRoadland transit.
+constexpr bool ShouldRunReadyRoadlandHardLock(
+    const bool ready_roadland_active,
+    const bool ready_roadland_can_yield,
+    const bool map_command_active) noexcept {
+    return ready_roadland_active && !ready_roadland_can_yield && !map_command_active;
+}
+
 class StrategyManager {
 public:
     void Reset(Application& app) noexcept;

@@ -1,6 +1,6 @@
 # 裁判小地圖坐標導航
 
-Updated: 2026-07-19
+Updated: 2026-07-28
 
 ## 結論
 
@@ -21,7 +21,7 @@ lower TypeID=9
 - 只接受 `has_target_position=true`、有限、非 `(0,0)`、且落在官方 `0..2800cm x 0..1500cm` 的坐標；厘米取整後為 `(0,0)` 的微小值也拒絕。
 - `target_robot_id != 0` 沒有坐標，保留 topic 資料但不導航。
 - 同點 20cm 內的 5 次 100ms 重送與持續 1Hz 最新包不延長任務；相同點到期後也不會自動重啟。新座標才會開新 45 秒窗口。
-- Task 層高於 Default、Buff/Outpost、RegionalDefense、Special 和 Chase；整個 Hard 層（Recovery 及不可中斷的 ReadyRoadland 穿越）仍然最高。
+- 除 Recovery 外，MapCommand 是最高導航仲裁：高於 Default、Buff/Outpost、RegionalDefense、Special、Chase，以及不可讓出的 ReadyRoadland 穿越。有效小地圖點會立即中斷開局 120 秒前哨任務與所有其他非 Recovery 導航。
 - Recovery 期間每拍都會記錄並取消最新小地圖命令，避免恢復完成後被原有 1Hz 重送重新接管。
 
 ## 邊界
