@@ -354,6 +354,8 @@ if(BUILD_TESTING)
     test/test_debug_control_bridge.py)
   ament_add_pytest_test(test_path_downsampled_launch_contract
     test/test_path_downsampled_launch_contract.py)
+  ament_add_pytest_test(test_team_override_launch_contract
+    test/test_team_override_launch_contract.py)
 endif()
 
 # ament_export_dependencies(rosidl_default_runtime)

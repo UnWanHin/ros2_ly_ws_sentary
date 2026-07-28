@@ -13,6 +13,11 @@
         sentry_info3_fresh_ms: 1500
       firecode_partial_hold_ms: 100  # FireCode 局部更新字段保持时间（毫秒）。
       velocity_raw_to_mps: 0.025  # 导航 raw 速度到控制速度的换算系数（米/秒）。
+      # 紧急队色覆写；默认关闭，正式 /ly/friend/is_team_red 仍由下位机决定。
+      team_override:
+        enable: false
+        red: false
+        blue: false
       # /ly/game/path 的 header.stamp 超过此时效即不再下发；driver 不会周期性重发缓存路径。
       game_path_fresh_timeout_ms: 5000  # 地图路径新鲜度（毫秒）。
       gimbal_dynamics_timeout_ms: 200  # TypeID 11 动态反馈超时后仅清零动态字段。

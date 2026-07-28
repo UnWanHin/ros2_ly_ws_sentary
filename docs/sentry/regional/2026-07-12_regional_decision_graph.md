@@ -1,6 +1,6 @@
 # Regional 決策圖譜
 
-Updated: 2026-07-27
+Updated: 2026-07-28
 
 > 範圍：`competition_profile:=regional` 的 `behavior_tree` 決策順序、優先級、導航輸出與姿態選擇。此圖描述 source 現有行為；任務級前哨交戰鎖可下發強攻 `4`，ProtectHero 到點受擊 burst 可下發強防 `5`，低血量 Recovery 行進可在額度/重生 gate 全部通過時下發強化移動 `6`。
 
@@ -128,7 +128,9 @@ flowchart LR
   SPEED --> NAV
   NAV --> REACHED
 
-  TEAM[TypeID 1 GameCode\nIsMyTeamRed] --> SENTRY_INFO[/ly/game/sentry/info\nSentryInfo.self_robot_id]
+  TEAM[TypeID 1 GameCode\nIsMyTeamRed raw] --> TEAM_EFFECTIVE[gimbal_driver effective team\n唯一 /ly/friend/is_team_red publisher]
+  TEAM_EFFECTIVE --> SENTRY_INFO[/ly/game/sentry/info\nSentryInfo.self_robot_id]
+  TEAM_EFFECTIVE --> REGIONAL
   SENTRY_INFO --> PATH_BRIDGE
   NAV_PATH[/Path_downsampled\nnav_msgs/Path map/m] --> PATH_BRIDGE[map_path_to_game_path_node\nmap -> official inverse matrix]
   PATH_BRIDGE --> GAME_PATH[/ly/game/path\nMapPath dm + 原 header.stamp]

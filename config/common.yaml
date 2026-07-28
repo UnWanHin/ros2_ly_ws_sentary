@@ -12,6 +12,13 @@ rosbag_path: ~/Log/rosbag  # 带时间戳的 rosbag 输出根目录。
 firecode_partial_hold_ms: 100  # FireCode 局部字段更新后的保持时间（毫秒）。
 velocity_raw_to_mps: 0.025  # /ly/navi/vel 原始数值到 /ly/control/vel 的换算系数（米/秒）。
 
+# 紧急队色覆写。默认关闭，关闭时完全使用下位机 TypeID 1 的 IsMyTeamRed。
+# 开启后 Red/Blue 必须恰有一个为 true；非法组合自动回退下位机值。
+team_override:
+  Decide_Team: false
+  Red: false
+  Blue: false
+
 # `./scripts/start.sh gate ...` 的开局门控；底盘在 /ly/game/is_start=true 前仍被锁定。
 start_gate:
   allow_gimbal_patrol_before_start: true  # 开局等待期间是否允许云台巡逻扫描。

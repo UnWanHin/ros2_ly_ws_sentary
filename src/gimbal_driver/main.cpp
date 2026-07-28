@@ -72,6 +72,7 @@
 #include "module/BasicTypes.hpp"
 #include "module/EnhancedPostureGuard.hpp"
 #include "module/MapPathRateLimiter.hpp"
+#include "module/TeamOverride.hpp"
 #include "module/crc_checker.hpp"
 #include "module/IODevice.hpp"
 #include "module/ROSTools.hpp"
@@ -177,6 +178,7 @@ namespace
         int sentryCoordFieldWidthY_{1500};
         int sentryCoordFreshTimeoutMs_{2000};
         float velocityRawToMps_{0.025f};
+        TeamOverrideConfig teamOverrideConfig_{};
         bool navigationTestEnable_{false};
         bool navigationVelocityForwardEnable_{false};
         bool navigationModeEnable_{false};
@@ -1850,7 +1852,9 @@ namespace
 
         void PubGameData(const GameData& data, const rclcpp::Time& stamp)
         {
-            selfSentryRobotId_ = data.GameCode.IsMyTeamRed ? 7u : 107u;
+            const auto effective_team = ResolveTeamOverride(
+                teamOverrideConfig_, data.GameCode.IsMyTeamRed);
+            selfSentryRobotId_ = effective_team.is_team_red ? 7u : 107u;
             const bool use_legacy_outpost_hp = !HasFreshPreciseOutpostHp();
             {
                 using topic = ly_game_all;
@@ -1890,7 +1894,7 @@ namespace
             {
                 using topic = ly_friend_is_team_red;
                 topic::Msg msg;
-                msg.data = data.GameCode.IsMyTeamRed;
+                msg.data = effective_team.is_team_red;
                 Node.Publisher<topic>()->publish(msg);
             }
             {
@@ -2291,6 +2295,9 @@ namespace
             int navigationModeRotateLevel = navigationModeRotateLevel_;
             bool navigationModeShouldRotateEnable = navigationModeShouldRotateEnable_;
             bool navigationModeFollowModeWhenFalse = navigationModeFollowModeWhenFalse_;
+            bool teamOverrideEnable = teamOverrideConfig_.enabled;
+            bool teamOverrideRed = teamOverrideConfig_.red;
+            bool teamOverrideBlue = teamOverrideConfig_.blue;
             bool rawSerialLogEnable = rawSerialLogEnable_;
             bool rawSerialLogUplink = rawSerialLogUplink_;
             bool rawSerialLogDownlink = rawSerialLogDownlink_;
@@ -2338,6 +2345,21 @@ namespace
                 "io_config.velocity_raw_to_mps",
                 velocityRawToMps,
                 velocityRawToMps);
+            getParamCompat(
+                "io_config/team_override/enable",
+                "io_config.team_override.enable",
+                teamOverrideEnable,
+                teamOverrideEnable);
+            getParamCompat(
+                "io_config/team_override/red",
+                "io_config.team_override.red",
+                teamOverrideRed,
+                teamOverrideRed);
+            getParamCompat(
+                "io_config/team_override/blue",
+                "io_config.team_override.blue",
+                teamOverrideBlue,
+                teamOverrideBlue);
             getParamCompat(
                 "io_config/navigation_test",
                 "io_config.navigation_test",
@@ -2599,6 +2621,11 @@ namespace
             sentryCoordFieldWidthY_ = sentryCoordFieldWidthY;
             sentryCoordFreshTimeoutMs_ = sentryCoordFreshTimeoutMs;
             velocityRawToMps_ = static_cast<float>(velocityRawToMps);
+            teamOverrideConfig_ = {
+                .enabled = teamOverrideEnable,
+                .red = teamOverrideRed,
+                .blue = teamOverrideBlue,
+            };
             navigationTestEnable_ = navigationTestEnable;
             navigationModeEnable_ = navigationModeEnable;
             navigationModeVelChainEnable_ = navigationModeVelChainEnable;
@@ -2652,6 +2679,20 @@ namespace
             roslog::warn("semantic control: firecode_partial_hold_ms=%d velocity_raw_to_mps=%.4f",
                          static_cast<int>(firecodePartialHold_.count()),
                          static_cast<double>(velocityRawToMps_));
+            switch (ResolveTeamOverride(teamOverrideConfig_, false).status) {
+                case TeamOverrideStatus::Disabled:
+                    roslog::warn("team override disabled: /ly/friend/is_team_red follows lower-machine TypeID 1");
+                    break;
+                case TeamOverrideStatus::ForceRed:
+                    roslog::warn("team override active: force red; gimbal_driver remains the sole /ly/friend/is_team_red publisher");
+                    break;
+                case TeamOverrideStatus::ForceBlue:
+                    roslog::warn("team override active: force blue; gimbal_driver remains the sole /ly/friend/is_team_red publisher");
+                    break;
+                case TeamOverrideStatus::Invalid:
+                    roslog::warn("invalid team override: Red and Blue must have exactly one true; falling back to lower-machine TypeID 1");
+                    break;
+            }
             if (navigationTestEnable_) {
                 roslog::warn(
                     "navigation_test enabled: /ly/navi/vel writes lower velocity directly; stale_timeout_ms=%d",

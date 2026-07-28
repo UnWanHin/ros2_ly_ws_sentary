@@ -239,6 +239,18 @@ def generate_launch_description():
             "velocity_raw_to_mps",
             "io_config/velocity_raw_to_mps",
             "io_config.velocity_raw_to_mps")
+        add_bool_override(
+            "team_override_enable",
+            "io_config/team_override/enable",
+            "io_config.team_override.enable")
+        add_bool_override(
+            "team_override_red",
+            "io_config/team_override/red",
+            "io_config.team_override.red")
+        add_bool_override(
+            "team_override_blue",
+            "io_config/team_override/blue",
+            "io_config.team_override.blue")
 
         parameters = []
         if base_config_file_value:
@@ -400,6 +412,21 @@ def generate_launch_description():
             "velocity_raw_to_mps",
             default_value="",
             description="Navigation raw velocity scale. Empty uses YAML config.",
+        ),
+        DeclareLaunchArgument(
+            "team_override_enable",
+            default_value="",
+            description="Emergency team override enable. Empty uses YAML config.",
+        ),
+        DeclareLaunchArgument(
+            "team_override_red",
+            default_value="",
+            description="Emergency team override force-red flag. Empty uses YAML config.",
+        ),
+        DeclareLaunchArgument(
+            "team_override_blue",
+            default_value="",
+            description="Emergency team override force-blue flag. Empty uses YAML config.",
         ),
         OpaqueFunction(function=build_node),
     ])

@@ -1,6 +1,6 @@
 # gimbal_driver — 雲台驅動節點
 
-Updated: 2026-07-21
+Updated: 2026-07-28
 
 ## 概述
 
@@ -212,6 +212,12 @@ main()
 | `SentryInfo3AndOutpostHpData` (`TypeID=10`) | `PubSentryInfo3AndOutpostHpData()` | `/ly/friend/op_hp`, `/ly/enemy/op_hp`；更新 `/ly/game/sentry/info.sentry_info_3_raw` shadow |
 | `GimbalDynamicsData` (`TypeID=11`) | `PubGimbalDynamics()` | `/ly/gimbal/state` 的角速度/角加速度；CRC8、采样 tick 和 200ms 超时由 driver 检查；状态 topic 另按配置周期发布 |
 
+`GameData` 的原始 `GameCode.IsMyTeamRed` 保留在 `/ly/game/all.gamecode` 与串口原始帧中。正式
+`/ly/friend/is_team_red` 只由 `gimbal_driver` 一個 publisher 發布：默认直接透传原始位；紧急时可
+在根目录 `config/common.yaml` 使用 `team_override.Decide_Team`、`Red`、`Blue` 计算单一有效队色。
+启用时 `Red` 与 `Blue` 必须恰有一个为 `true`，否则回退原始位并在启动时报警。`SentryInfo.self_robot_id`
+也使用同一有效值（红 7、蓝 107），不会出现 topic 与 robot ID 颜色不一致。
+
 #### 「寫入」路徑：`GenSubs()` / 直接命令發送 → `Device.WriteRaw()`
 
 下行不是上行那套 `TypedMessage<TypeID=...>`。`0x00` 控制 topic 仍寫入共享的
@@ -366,7 +372,7 @@ IODevice<TypedMessage<sizeof(GimbalData)>, GimbalControlFrame>
 |-------|----------|------|
 | `/ly/gimbal/angles` | `GimbalAngles` | **最重要**：雲台當前角度，`detector` 和 `behavior_tree` 都需要 |
 | `/ly/gimbal/state` | `gimbal_driver/msg/GimbalState` | 本包定义的 `header.stamp` 发布时刻、TypeID 0 角度与 TypeID 11 动态反馈组合；动态帧超时后仅角速度/角加速度清零；默认每 20ms 周期发布 |
-| `/ly/friend/is_team_red` | `Bool` | 我方是否紅隊 |
+| `/ly/friend/is_team_red` | `Bool` | 我方是否紅隊；唯一发布者是 `gimbal_driver`。默认透传 TypeID 1，`common.yaml team_override` 紧急覆写启用时发布同一有效队色 |
 | `/ly/game/is_start` | `Bool` | 比賽是否開始 |
 | `/ly/game/time_left` | `StampedUInt16` | 剩餘時間；`header.stamp` 是 driver 串口接收/解码时刻 |
 | `/ly/friend/hp` | `Health` | 我方各機器人血量 |

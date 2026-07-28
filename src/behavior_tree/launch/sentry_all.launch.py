@@ -398,6 +398,9 @@ def generate_launch_description():
     )
     firecode_partial_hold_ms = LaunchConfiguration("firecode_partial_hold_ms")
     velocity_raw_to_mps = LaunchConfiguration("velocity_raw_to_mps")
+    team_override_enable = LaunchConfiguration("team_override_enable")
+    team_override_red = LaunchConfiguration("team_override_red")
+    team_override_blue = LaunchConfiguration("team_override_blue")
     face_mode_target_frame = LaunchConfiguration("face_mode_target_frame")
     face_mode_use_raw_goal_static_calibration = LaunchConfiguration(
         "face_mode_use_raw_goal_static_calibration"
@@ -604,6 +607,21 @@ def generate_launch_description():
             "velocity_raw_to_mps",
             default_value="0.025",
             description="gimbal_driver scale from lower raw int8 velocity to m/s.",
+        ),
+        DeclareLaunchArgument(
+            "team_override_enable",
+            default_value="false",
+            description="Use the emergency team color override in gimbal_driver.",
+        ),
+        DeclareLaunchArgument(
+            "team_override_red",
+            default_value="false",
+            description="Emergency team override: force red when enabled and blue is false.",
+        ),
+        DeclareLaunchArgument(
+            "team_override_blue",
+            default_value="false",
+            description="Emergency team override: force blue when enabled and red is false.",
         ),
         DeclareLaunchArgument(
             "face_mode_max_yaw_step_deg",
@@ -835,6 +853,9 @@ def generate_launch_description():
         ]),
         LogInfo(msg=["[sentry_all] firecode_partial_hold_ms: ", firecode_partial_hold_ms]),
         LogInfo(msg=["[sentry_all] velocity_raw_to_mps: ", velocity_raw_to_mps]),
+        LogInfo(msg=["[sentry_all] team_override_enable: ", team_override_enable]),
+        LogInfo(msg=["[sentry_all] team_override_red: ", team_override_red]),
+        LogInfo(msg=["[sentry_all] team_override_blue: ", team_override_blue]),
         LogInfo(msg=["[sentry_all] face_mode_max_yaw_step_deg: ", face_mode_max_yaw_step_deg]),
         LogInfo(msg=["[sentry_all] face_mode_max_pitch_step_deg: ", face_mode_max_pitch_step_deg]),
         LogInfo(msg=["[sentry_all] face_mode_target_frame: ", face_mode_target_frame]),
@@ -1028,6 +1049,9 @@ def generate_launch_description():
                 "enable_path_downsampled_bridge": "true",
                 "firecode_partial_hold_ms": firecode_partial_hold_ms,
                 "velocity_raw_to_mps": velocity_raw_to_mps,
+                "team_override_enable": team_override_enable,
+                "team_override_red": team_override_red,
+                "team_override_blue": team_override_blue,
                 "raw_log_enable": gimbal_raw_log_enable,
                 "raw_log_uplink": gimbal_raw_log_uplink,
                 "raw_log_downlink": gimbal_raw_log_downlink,

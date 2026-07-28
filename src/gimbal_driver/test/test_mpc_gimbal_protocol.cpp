@@ -9,10 +9,66 @@
 #include "EnhancedPostureGuard.hpp"
 #include "MapPathRateLimiter.hpp"
 #include "RawDownlinkTest.hpp"
+#include "TeamOverride.hpp"
 #include "crc_checker.hpp"
 #include "gimbal_driver/msg/gimbal_trajectory.hpp"
 
 namespace {
+
+TEST(TeamOverride, DisabledPreservesLowerMachineTeam)
+{
+    const LangYa::TeamOverrideConfig config{};
+
+    const auto red = LangYa::ResolveTeamOverride(config, true);
+    EXPECT_TRUE(red.is_team_red);
+    EXPECT_EQ(red.status, LangYa::TeamOverrideStatus::Disabled);
+
+    const auto blue = LangYa::ResolveTeamOverride(config, false);
+    EXPECT_FALSE(blue.is_team_red);
+    EXPECT_EQ(blue.status, LangYa::TeamOverrideStatus::Disabled);
+}
+
+TEST(TeamOverride, ForceRedOverridesLowerMachineTeam)
+{
+    const LangYa::TeamOverrideConfig config{
+        .enabled = true,
+        .red = true,
+        .blue = false,
+    };
+
+    const auto result = LangYa::ResolveTeamOverride(config, false);
+    EXPECT_TRUE(result.is_team_red);
+    EXPECT_EQ(result.status, LangYa::TeamOverrideStatus::ForceRed);
+}
+
+TEST(TeamOverride, ForceBlueOverridesLowerMachineTeam)
+{
+    const LangYa::TeamOverrideConfig config{
+        .enabled = true,
+        .red = false,
+        .blue = true,
+    };
+
+    const auto result = LangYa::ResolveTeamOverride(config, true);
+    EXPECT_FALSE(result.is_team_red);
+    EXPECT_EQ(result.status, LangYa::TeamOverrideStatus::ForceBlue);
+}
+
+TEST(TeamOverride, InvalidConfigurationFallsBackToLowerMachineTeam)
+{
+    for (const auto config : {
+             LangYa::TeamOverrideConfig{.enabled = true, .red = false, .blue = false},
+             LangYa::TeamOverrideConfig{.enabled = true, .red = true, .blue = true},
+         }) {
+        const auto red = LangYa::ResolveTeamOverride(config, true);
+        EXPECT_TRUE(red.is_team_red);
+        EXPECT_EQ(red.status, LangYa::TeamOverrideStatus::Invalid);
+
+        const auto blue = LangYa::ResolveTeamOverride(config, false);
+        EXPECT_FALSE(blue.is_team_red);
+        EXPECT_EQ(blue.status, LangYa::TeamOverrideStatus::Invalid);
+    }
+}
 
 TEST(MpcGimbalProtocol, RejectsNonFiniteTrajectory)
 {

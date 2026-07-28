@@ -1,6 +1,6 @@
 # ROS2 Topic And Message Tree
 
-Updated: 2026-07-18
+Updated: 2026-07-28
 
 这份文档用 tree 方式整理当前哨兵上位机 ROS2 topic 和消息结构，重点回答两个问题：
 
@@ -542,8 +542,11 @@ TypeID 0 GimbalData
 └── CapV         -> /ly/gimbal/capV
 
 TypeID 1 GameData
-├── GameCode     -> /ly/game/is_start, /ly/friend/is_team_red, /ly/friend/is_at_home, /ly/friend/is_precaution
-│                  -> /ly/game/sentry/info.self_robot_id（紅哨兵=7、藍哨兵=107；隨下次 TypeID 7 發布）
+├── GameCode     -> /ly/game/is_start, /ly/friend/is_at_home, /ly/friend/is_precaution
+│   ├── IsMyTeamRed 原始位 -> /ly/game/all.gamecode、/ly/upload/typeid1（始終不覆寫）
+│   └── effective team -> /ly/friend/is_team_red、/ly/game/sentry/info.self_robot_id
+│       （唯一正式 publisher 為 gimbal_driver；默认原始位。common.yaml team_override 開啟時 Red/Blue
+│        恰一為 true 才覆寫，否則回退原始位；紅哨兵=7、藍哨兵=107，self_robot_id 隨下次 TypeID 7 發布）
 ├── AmmoLeft     -> /ly/friend/ammo_left
 ├── TimeLeft     -> /ly/game/time_left
 ├── SelfHealth   -> /ly/game/all.selfhealth
