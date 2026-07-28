@@ -86,19 +86,24 @@ std::optional<LangYa::GimbalAnglesType> FaceModeManager::SelectAngles(
     const LangYa::AimData& data,
     const LangYa::FaceModeSetting& setting,
     const AreaTimePoint now) const noexcept {
-    if (!Requested(setting) ||
-        !data.Valid ||
-        !data.HasLatchedAngles ||
-        data.LastValidTime.time_since_epoch().count() == 0) {
+    if (!Requested(setting) || !AnglesUsable(data, setting, now)) {
         return std::nullopt;
     }
 
-    const int hold_ms = std::max(0, setting.LostTargetHoldMs);
-    if (data.Fresh ||
-        (hold_ms > 0 && now - data.LastValidTime <= std::chrono::milliseconds(hold_ms))) {
-        return data.Angles;
+    return data.Angles;
+}
+
+bool FaceModeManager::AnglesUsable(
+    const LangYa::AimData& data,
+    const LangYa::FaceModeSetting& setting,
+    const AreaTimePoint now) noexcept {
+    if (!data.Valid || !data.HasLatchedAngles ||
+        data.LastValidTime.time_since_epoch().count() == 0) {
+        return false;
     }
-    return std::nullopt;
+    const int hold_ms = std::max(0, setting.LostTargetHoldMs);
+    return data.Fresh ||
+           (hold_ms > 0 && now - data.LastValidTime <= std::chrono::milliseconds(hold_ms));
 }
 
 bool FaceModeManager::RequestAimTarget(
@@ -149,7 +154,7 @@ bool FaceModeManager::StartGateOutpostSolutionReady(
     const bool manual_target,
     const std::uint32_t target_update_count,
     const std::uint32_t target_update_count_floor,
-    const bool face_mode_angles_fresh) noexcept {
+    const bool face_mode_angles_usable) noexcept {
     return DiagnoseStartGateOutpostSolution(
                true,
                status_fresh,
@@ -157,7 +162,7 @@ bool FaceModeManager::StartGateOutpostSolutionReady(
                manual_target,
                target_update_count,
                target_update_count_floor,
-               face_mode_angles_fresh) == StartGateOutpostReadiness::Ready;
+               face_mode_angles_usable) == StartGateOutpostReadiness::Ready;
 }
 
 FaceModeManager::StartGateOutpostReadiness
@@ -168,7 +173,7 @@ FaceModeManager::DiagnoseStartGateOutpostSolution(
     const bool manual_target,
     const std::uint32_t target_update_count,
     const std::uint32_t target_update_count_floor,
-    const bool face_mode_angles_fresh) noexcept {
+    const bool face_mode_angles_usable) noexcept {
     if (!status_received) {
         return StartGateOutpostReadiness::StatusMissing;
     }
@@ -184,8 +189,8 @@ FaceModeManager::DiagnoseStartGateOutpostSolution(
     if (target_update_count <= target_update_count_floor) {
         return StartGateOutpostReadiness::TargetNotUpdated;
     }
-    if (!face_mode_angles_fresh) {
-        return StartGateOutpostReadiness::AnglesNotFresh;
+    if (!face_mode_angles_usable) {
+        return StartGateOutpostReadiness::AnglesUnavailable;
     }
     return StartGateOutpostReadiness::Ready;
 }
@@ -205,7 +210,7 @@ const char* FaceModeManager::StartGateOutpostReadinessName(
         return "solver_manual_target";
     case StartGateOutpostReadiness::TargetNotUpdated:
         return "target_generation_not_advanced";
-    case StartGateOutpostReadiness::AnglesNotFresh:
+    case StartGateOutpostReadiness::AnglesUnavailable:
         return "angles_missing_or_stale";
     }
     return "unknown";

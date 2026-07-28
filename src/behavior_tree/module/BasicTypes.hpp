@@ -467,6 +467,9 @@ namespace LangYa
         double Mode3PitchOffsetDeg{0.0};
         double Mode3PitchHalfRangeDeg{12.0};
         double Mode3PitchPeriodMs{2000.0};
+        double PassiveYawRateDegPerSec{120.0};
+        double PassivePitchRateDegPerSec{60.0};
+        int PassiveMaxIntervalMs{25};
         bool FaceModeFallbackEnable{true};
         int FaceModeFallbackMode{2};
         int OutpostFaceModeFallbackMode{2};

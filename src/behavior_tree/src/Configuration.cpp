@@ -556,6 +556,15 @@ namespace LangYa {
             ps.Mode3PitchPeriodMs =
                 mode.value("PitchPeriodMs", ps.Mode3PitchPeriodMs);
         }
+        if (j.contains("PassiveMotion") && j.at("PassiveMotion").is_object()) {
+            const auto& motion = j.at("PassiveMotion");
+            ps.PassiveYawRateDegPerSec =
+                motion.value("YawRateDegPerSec", ps.PassiveYawRateDegPerSec);
+            ps.PassivePitchRateDegPerSec =
+                motion.value("PitchRateDegPerSec", ps.PassivePitchRateDegPerSec);
+            ps.PassiveMaxIntervalMs =
+                motion.value("MaxIntervalMs", ps.PassiveMaxIntervalMs);
+        }
         if (j.contains("TaskOverrides") && j.at("TaskOverrides").is_object()) {
             read_task_override(j.at("TaskOverrides"));
         }
@@ -2079,6 +2088,18 @@ namespace BehaviorTree {
             node_,
             {"PatrolScan.Mode3.PitchPeriodMs", "PatrolScan/Mode3/PitchPeriodMs"},
             setting.Mode3PitchPeriodMs);
+        ReadOptionalDoubleParam(
+            node_,
+            {"PatrolScan.PassiveMotion.YawRateDegPerSec", "PatrolScan/PassiveMotion/YawRateDegPerSec"},
+            setting.PassiveYawRateDegPerSec);
+        ReadOptionalDoubleParam(
+            node_,
+            {"PatrolScan.PassiveMotion.PitchRateDegPerSec", "PatrolScan/PassiveMotion/PitchRateDegPerSec"},
+            setting.PassivePitchRateDegPerSec);
+        ReadOptionalIntParam(
+            node_,
+            {"PatrolScan.PassiveMotion.MaxIntervalMs", "PatrolScan/PassiveMotion/MaxIntervalMs"},
+            setting.PassiveMaxIntervalMs);
 
         if (ReadOptionalBoolParam(
                 node_,
@@ -2366,6 +2387,11 @@ namespace BehaviorTree {
             config.PatrolScanSettings.Mode3PitchOffsetDeg,
             config.PatrolScanSettings.Mode3PitchHalfRangeDeg,
             config.PatrolScanSettings.Mode3PitchPeriodMs);
+        LoggerPtr->Debug(
+            "PassiveMotion: yaw_rate={} pitch_rate={} max_interval_ms={}",
+            config.PatrolScanSettings.PassiveYawRateDegPerSec,
+            config.PatrolScanSettings.PassivePitchRateDegPerSec,
+            config.PatrolScanSettings.PassiveMaxIntervalMs);
         LoggerPtr->Debug(
             "TaskOverrides: face_fallback_enable={} face_fallback_mode={} outpost_face_fallback_mode={} outpost_damage_abort_mode={} start_gate_pitch_offset={} start_gate_apply_mode3={} outpost_pitch_offset={} outpost_apply_mode3={}",
             config.PatrolScanSettings.FaceModeFallbackEnable,
@@ -3685,6 +3711,16 @@ namespace BehaviorTree {
             patrol.Mode3PitchHalfRangeDeg, 12.0, "PatrolScan.Mode3.PitchHalfRangeDeg");
         sanitize_positive_double(
             patrol.Mode3PitchPeriodMs, 2000.0, "PatrolScan.Mode3.PitchPeriodMs");
+        sanitize_positive_double(
+            patrol.PassiveYawRateDegPerSec, 120.0, "PatrolScan.PassiveMotion.YawRateDegPerSec");
+        sanitize_positive_double(
+            patrol.PassivePitchRateDegPerSec, 60.0, "PatrolScan.PassiveMotion.PitchRateDegPerSec");
+        if (patrol.PassiveMaxIntervalMs <= 0) {
+            LoggerPtr->Warning(
+                "Invalid PatrolScan.PassiveMotion.MaxIntervalMs={}, fallback to 25.",
+                patrol.PassiveMaxIntervalMs);
+            patrol.PassiveMaxIntervalMs = 25;
+        }
         sanitize_finite_double(
             patrol.StartGatePitchOffsetDeg, 10.0, "PatrolScan.TaskOverrides.StartGatePitchOffsetDeg");
         sanitize_finite_double(

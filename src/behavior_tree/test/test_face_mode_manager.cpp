@@ -131,6 +131,31 @@ TEST(FaceModeManagerTest, StartGateAcceptsOnlyFreshPostRequestNonManualSolution)
         true, true, false, 8, 7, false));
 }
 
+TEST(FaceModeManagerTest, StartGateKeepsLatchedAnglesBetweenSolverCallbacks) {
+    const auto now = std::chrono::steady_clock::now();
+    auto held_angles = FreshFaceAngles();
+    held_angles.Fresh = false;
+    held_angles.LastValidTime = now - std::chrono::milliseconds(120);
+
+    EXPECT_TRUE(BehaviorTree::FaceModeManager::AnglesUsable(
+        held_angles, EnabledFaceMode(), now));
+    EXPECT_FALSE(BehaviorTree::FaceModeManager::AnglesUsable(
+        held_angles, EnabledFaceMode(), now + std::chrono::milliseconds(301)));
+}
+
+TEST(FaceModeManagerTest, StartGateReadmitsFaceModeAfterSolverRecovers) {
+    using Readiness = BehaviorTree::FaceModeManager::StartGateOutpostReadiness;
+
+    EXPECT_EQ(
+        BehaviorTree::FaceModeManager::DiagnoseStartGateOutpostSolution(
+            true, true, false, false, 8, 7, true),
+        Readiness::SolverFunctionDisabled);
+    EXPECT_EQ(
+        BehaviorTree::FaceModeManager::DiagnoseStartGateOutpostSolution(
+            true, true, true, false, 9, 7, true),
+        Readiness::Ready);
+}
+
 TEST(FaceModeManagerTest, StartGateDiagnosticNamesTheFirstRejectedGate) {
     using Readiness = BehaviorTree::FaceModeManager::StartGateOutpostReadiness;
 
@@ -157,7 +182,7 @@ TEST(FaceModeManagerTest, StartGateDiagnosticNamesTheFirstRejectedGate) {
     EXPECT_EQ(
         BehaviorTree::FaceModeManager::DiagnoseStartGateOutpostSolution(
             true, true, true, false, 8, 7, false),
-        Readiness::AnglesNotFresh);
+        Readiness::AnglesUnavailable);
     EXPECT_EQ(
         BehaviorTree::FaceModeManager::DiagnoseStartGateOutpostSolution(
             true, true, true, false, 8, 7, true),

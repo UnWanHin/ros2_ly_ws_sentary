@@ -28,6 +28,13 @@ behavior_tree:
         PitchHalfRangeDeg: 12.0  # 俯仰扫描半幅（度）；设为 0 则固定俯仰。
         PitchPeriodMs: 2000.0  # 俯仰完整周期（毫秒）。
 
+      # 固定点 FaceMode 与无目标 Patrol 的最终角度输出共用此平滑器；
+      # 视觉 Aim 不经过此限制，避免降低追踪响应。
+      PassiveMotion:
+        YawRateDegPerSec: 120.0
+        PitchRateDegPerSec: 60.0
+        MaxIntervalMs: 25  # BT 单拍阻塞时也不允许补发大角度跳变。
+
       TaskOverrides:
         # 已请求 FaceMode 但 /ly/face_mode/angles 缺失时，回退到云台巡逻。
         FaceModeFallbackEnable: true  # 是否启用该 FaceMode 缺失回退。

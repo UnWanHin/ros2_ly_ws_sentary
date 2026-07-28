@@ -59,7 +59,7 @@ public:
         SolverFunctionDisabled,
         ManualTarget,
         TargetNotUpdated,
-        AnglesNotFresh,
+        AnglesUnavailable,
     };
 
     // Start a request collection cycle before evaluating BT tasks.
@@ -92,13 +92,18 @@ public:
         LangYa::UnitTeam enemy_team,
         const TargetPublisher::SharedPtr& publisher);
 
+    static bool AnglesUsable(
+        const LangYa::AimData& data,
+        const LangYa::FaceModeSetting& setting,
+        AreaTimePoint now) noexcept;
+
     static bool StartGateOutpostSolutionReady(
         bool status_fresh,
         bool solver_function,
         bool manual_target,
         std::uint32_t target_update_count,
         std::uint32_t target_update_count_floor,
-        bool face_mode_angles_fresh) noexcept;
+        bool face_mode_angles_usable) noexcept;
 
     static StartGateOutpostReadiness DiagnoseStartGateOutpostSolution(
         bool status_received,
@@ -107,7 +112,7 @@ public:
         bool manual_target,
         std::uint32_t target_update_count,
         std::uint32_t target_update_count_floor,
-        bool face_mode_angles_fresh) noexcept;
+        bool face_mode_angles_usable) noexcept;
 
     static const char* StartGateOutpostReadinessName(
         StartGateOutpostReadiness readiness) noexcept;

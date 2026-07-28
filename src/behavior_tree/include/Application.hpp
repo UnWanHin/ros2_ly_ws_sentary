@@ -40,6 +40,7 @@
 #include "../module/Rate.hpp"
 #include "../module/Counter.hpp"
 #include "../module/Random.hpp"
+#include "../module/PassiveGimbalMotion.hpp"
 #include "../module/Area.hpp"
 #include "../module/ROSTools.hpp"
 
@@ -429,6 +430,7 @@ private:
     float patrolScanPhaseRad_{0.0f};
     bool patrolScanCenterInitialized_{false};
     int patrolScanActiveMode_{0}; // 0=无, 1/2=当前扫描模式
+    PassiveGimbalMotion passiveGimbalMotion_{};
     std::atomic<bool> hasReceivedGimbalAngles_{false};
     std::chrono::steady_clock::time_point lastGimbalAnglesRxTime{};
     std::vector<UnitType> reliableEnemyPosuition; 

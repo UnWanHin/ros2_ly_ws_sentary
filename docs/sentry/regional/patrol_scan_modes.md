@@ -1,6 +1,6 @@
 # Patrol Scan Modes
 
-Updated: 2026-07-26
+Updated: 2026-07-28
 
 本文只說 `behavior_tree` 內部雲台巡邏掃描。它不是 `/ly/vision/mode`，也不是區域導航巡邏；它是在 BT 沒有可用目標角度時，自己計算 `/ly/control/angles` 的 fallback 掃描。
 
@@ -93,17 +93,18 @@ StartGate:
 ```
 
 - `patrol`：沿用 `PatrolScan.Mode` 與 `StartGatePitchOffsetDeg`。
-- `face_mode_outpost`（正式目前設定）：持續對敵方前哨發布 `/ly/face_mode/target_raw`，只在收到新鮮的
-  `/ly/face_mode/angles`，且 `/ly/gimbal/facemode` 在 `FaceModeStatusFreshMs`（默認 500 ms）內
-  確認該 solver 非 manual、正在輸出，並已處理本次 StartGate 請求後的新 target generation 時採用
-  FaceMode 角度。最後一筆有效角度可保持 `FaceMode.LostTargetHoldMs`；其後若角度或 status 不符合，強制改用
-  `OutpostFaceModeFallbackMode` 掃描。這條開局安全回退不受一般 `FaceModeFallbackEnable` 或
-  `AllowGimbalPatrolBeforeStart` 關閉影響。
+- `face_mode_outpost`（正式目前設定）：持續對敵方前哨發布 `/ly/face_mode/target_raw`，要求
+  `/ly/gimbal/facemode` 在 `FaceModeStatusFreshMs`（默認 500 ms）內確認 solver 非 manual、正在輸出，並已處理
+  本次 StartGate 請求後的新 target generation。角度 callback 之間會使用最後一筆有效
+  `/ly/face_mode/angles`，最長保持 `FaceMode.LostTargetHoldMs`（默認 300 ms），避免 BT tick 比 solver callback
+  快時在 FaceMode 與 Patrol 間閃爍。`function=false`、status 過期、manual target、target generation 未推進，或持有
+  角度超時時，強制改用 `OutpostFaceModeFallbackMode` 掃描；任一後續有效 solver 回讀都會自動重新接管 FaceMode。
+  這條開局安全回退不受一般 `FaceModeFallbackEnable` 或 `AllowGimbalPatrolBeforeStart` 關閉影響。
 
 這個策略只改雲台角度來源；開局底盤速度、fire、rotate、follow 仍持續壓為 0。
 
 `behavior_tree` 只會在 FaceMode 結論變化時輸出一次診斷：`StartGate FaceMode` 會列出 target
-是否成功發布、solver status 新鮮度、`function/manual_target`、target generation 與角度新鮮度，並以
+是否成功發布、solver status 新鮮度、`function/manual_target`、target generation 與角度可用性（含持有窗口），並以
 `outcome` 指明採用或回退原因；正常運行期則以 `FaceMode runtime` 記錄來源、視覺/導航仲裁、失角
 fallback 與最終接管結果。這些日誌只做可觀測性，不改變仲裁與巡邏策略。
 
@@ -119,6 +120,20 @@ fallback 與最終接管結果。這些日誌只做可觀測性，不改變仲�
 | `OutpostPitchOffsetDeg` | `GameLoop.cpp` | `AimMode::Outpost` 無目標 scan 時，在所選 mode 的 pitch 曲線上額外抬 pitch；默認 `+15 deg`，默認可套到 mode3 |
 
 這些 offset 只在無目標 scan 分支生效。一旦 FaceMode 或視覺/外部 aim 給出有效角度，BT 直接使用該角度，不再疊加 patrol pitch offset。
+
+## Passive Motion
+
+`PatrolScan.PassiveMotion` 對固定點 FaceMode 和無目標 Patrol 的最終 `/ly/control/angles` 做速率限制：
+
+```yaml
+PassiveMotion:
+  YawRateDegPerSec: 120.0
+  PitchRateDegPerSec: 60.0
+  MaxIntervalMs: 25
+```
+
+`MaxIntervalMs` 限制單次 BT 阻塞後可補發的角度量，避免 mode1 這類逐 tick 目標在遊戲開始後顯示成大幅離散跳變。
+視覺/外部 Aim、fire tracking 與 `naviLowerHead` 直控不通過此限制，保持原本追蹤響應。
 
 ## Link Chain
 

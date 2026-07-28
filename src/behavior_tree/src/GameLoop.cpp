@@ -1105,6 +1105,7 @@ namespace BehaviorTree {
         const AimData& activeAimData = CurrentAimData();
         GimbalAnglesType nextAngles = gimbalAngles;
         VelocityType nextVelocity = naviVelocityInput;
+        bool passive_gimbal_motion_active = false;
         const bool find_target_callback = isFindTargetAtomic.load(std::memory_order_relaxed);
         bool find_target = false;
         bool has_recent_latched_target = false;
@@ -1200,6 +1201,7 @@ namespace BehaviorTree {
             last_face_mode_log_state = face_mode_log_state;
         }
         if (face_mode_active) {
+            passive_gimbal_motion_active = true;
             reset_patrol_scan_state();
             gimbalControlData.FireCode.AimMode = 0;
             if (face_mode_decision.SuppressFire) {
@@ -1277,6 +1279,7 @@ namespace BehaviorTree {
             
             if(aimMode != AimMode::Buff || face_mode_fallback_patrol_scan) {
                 if (!config.AimDebugSettings.StopScan && now - lastFoundEnemyTime > std::chrono::milliseconds(2000)) {
+                    passive_gimbal_motion_active = true;
                     static auto last_searching_log = std::chrono::steady_clock::time_point{};
                     const bool outpost_face_mode_fallback =
                         face_mode_fallback_patrol_scan && aimMode == AimMode::Outpost;
@@ -1444,6 +1447,18 @@ namespace BehaviorTree {
         // lower_head 只在未锁目标且没有 FaceMode 接管时生效，避免覆盖固定点朝向/Outpost fallback。
         if(naviLowerHead && !has_target_for_angles && !face_mode_requested) {
             nextAngles = GimbalAnglesType{gimbalAngles.Yaw, -15.0f}; //-22.5 - 26.0
+            passive_gimbal_motion_active = false;
+        }
+        if (passive_gimbal_motion_active) {
+            nextAngles = passiveGimbalMotion_.Step(
+                gimbalAngles,
+                nextAngles,
+                now,
+                config.PatrolScanSettings.PassiveYawRateDegPerSec,
+                config.PatrolScanSettings.PassivePitchRateDegPerSec,
+                config.PatrolScanSettings.PassiveMaxIntervalMs);
+        } else {
+            passiveGimbalMotion_.Reset();
         }
         gimbalControlData.GimbalAngles = nextAngles;
         naviVelocity = nextVelocity;

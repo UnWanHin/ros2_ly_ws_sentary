@@ -331,6 +331,11 @@ if(BUILD_TESTING)
     std_msgs
     gimbal_driver
   )
+  ament_add_gtest(test_passive_gimbal_motion test/test_passive_gimbal_motion.cpp)
+  target_include_directories(test_passive_gimbal_motion PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
+  )
   ament_add_gtest(test_ready_roadland_area test/test_ready_roadland_area.cpp)
   target_include_directories(test_ready_roadland_area PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

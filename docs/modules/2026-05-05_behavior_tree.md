@@ -353,7 +353,7 @@ void TreeTick() {
   - 根目錄 `config/common.yaml` 的 `damage_open_gate.enable` 與 `damage_open_gate.health_drop_threshold`。開啟時，等待門控期間自身血量相對等待期間最高值下降到門檻，即可解除 `is_start` 門控；預設 `false`，不影響常態正式啟動。
 - `StartGate.GimbalStrategy`
   - `patrol` 沿用 `PatrolScan.Mode`；正式 `Task.yaml` 目前選用 `face_mode_outpost`，在開局門控期間持續向 `/ly/face_mode/target_raw` 請求敵方前哨固定朝向。缺省或非法值仍安全回退 `patrol`。
-  - FaceMode 回讀由 `/ly/face_mode/angles` 進入同一個 `FaceModeManager` 仲裁；另要求 `/ly/gimbal/facemode` 在 `StartGate.FaceModeStatusFreshMs` 內確認 solver 非 manual、正在輸出，且其 `target_update_count` 已超過本次 StartGate 請求前的基線，才採用同拍新鮮角度。這避免把手動目標、舊目標或舊角度誤當成前哨解算；status 或角度缺失時會按 `PatrolScan.TaskOverrides.OutpostFaceModeFallbackMode` 回退。兩種策略均保持底盤速度、fire、rotate、follow 為 0。
+  - FaceMode 回讀由 `/ly/face_mode/angles` 進入同一個 `FaceModeManager` 仲裁；另要求 `/ly/gimbal/facemode` 在 `StartGate.FaceModeStatusFreshMs` 內確認 solver 非 manual、正在輸出，且其 `target_update_count` 已超過本次 StartGate 請求前的基線。角度回調間可保持最後一筆有效解至 `FaceMode.LostTargetHoldMs`，避免 solver callback 低於 BT tick 時反覆切回 Patrol；`function=false`、status 失鮮、manual 或角度持有超時仍按 `PatrolScan.TaskOverrides.OutpostFaceModeFallbackMode` 回退，後續有效 solver 回讀會自動重新接管。兩種策略均保持底盤速度、fire、rotate、follow 為 0。
 - `league_referee_stale_timeout_ms:=0`
   - 0=禁用新鮮度檢查（默認）；>0 時聯盟賽回補會檢查 hp/ammo 回傳是否過期
 

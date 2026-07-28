@@ -22,7 +22,7 @@ namespace BehaviorTree {
         bool Function{false};
         bool ManualTarget{false};
         bool TargetAdvanced{false};
-        bool AnglesFresh{false};
+        bool AnglesUsable{false};
         bool AnglesAvailable{false};
         FaceModeManager::StartGateOutpostReadiness Readiness{
             FaceModeManager::StartGateOutpostReadiness::StatusMissing};
@@ -62,6 +62,7 @@ namespace BehaviorTree {
         auto last_damage_gate_log = wait_begin;
         auto last_gate_patrol_log = wait_begin;
         bool gate_patrol_center_initialized = false;
+        PassiveGimbalMotion gate_passive_gimbal_motion;
         float gate_patrol_center_yaw = 0.0f;
         float gate_patrol_last_yaw = 0.0f;
         float gate_patrol_phase_rad = 0.0f;
@@ -159,6 +160,11 @@ namespace BehaviorTree {
                         now_steady - faceModeSolverStatus.LastRx <=
                             std::chrono::milliseconds(
                                 config.StartGateSettings.FaceModeStatusFreshMs);
+                    const bool face_mode_angles_usable =
+                        FaceModeManager::AnglesUsable(
+                            faceModeData,
+                            config.FaceModeSettings,
+                            now_steady);
                     const auto solver_readiness =
                         FaceModeManager::DiagnoseStartGateOutpostSolution(
                             faceModeSolverStatus.Received,
@@ -167,7 +173,7 @@ namespace BehaviorTree {
                             faceModeSolverStatus.ManualTarget,
                             faceModeSolverStatus.TargetUpdateCount,
                             gate_face_mode_target_generation_floor,
-                            faceModeData.Fresh);
+                            face_mode_angles_usable);
                     const bool solver_accepts_start_gate_target =
                         solver_readiness == FaceModeManager::StartGateOutpostReadiness::Ready;
                     // StartGate face_mode_outpost has an explicit safety contract: if
@@ -191,7 +197,7 @@ namespace BehaviorTree {
                         faceModeSolverStatus.Function,
                         faceModeSolverStatus.ManualTarget,
                         faceModeSolverStatus.TargetUpdateCount > gate_face_mode_target_generation_floor,
-                        faceModeData.Fresh,
+                        face_mode_angles_usable,
                         face_mode_decision.Angles.has_value(),
                         solver_readiness};
                     if (!last_gate_face_mode_log_state ||
@@ -199,7 +205,7 @@ namespace BehaviorTree {
                         LoggerPtr->Info(
                             "StartGate FaceMode: source=start_gate requested=1 target_publish={} active={} "
                             "fallback=patrol_mode_{} outcome={} status(received={} fresh={} function={} "
-                            "manual={} target_updates={} floor={}) angles(fresh={} available={}).",
+                            "manual={} target_updates={} floor={}) angles(usable={} available={}).",
                             face_mode_target_published ? 1 : 0,
                             start_gate_face_mode_active ? 1 : 0,
                             config.PatrolScanSettings.OutpostFaceModeFallbackMode,
@@ -210,7 +216,7 @@ namespace BehaviorTree {
                             faceModeSolverStatus.ManualTarget ? 1 : 0,
                             faceModeSolverStatus.TargetUpdateCount,
                             gate_face_mode_target_generation_floor,
-                            faceModeData.Fresh ? 1 : 0,
+                            face_mode_angles_usable ? 1 : 0,
                             face_mode_decision.Angles.has_value() ? 1 : 0);
                         last_gate_face_mode_log_state = log_state;
                     }
@@ -316,6 +322,17 @@ namespace BehaviorTree {
             } else if (!start_gate_face_mode_active) {
                 gimbalControlData.GimbalAngles.Yaw = gimbalAngles.Yaw;
                 gimbalControlData.GimbalAngles.Pitch = AngleType{0};
+            }
+            if (start_gate_face_mode_active || run_start_gate_patrol) {
+                gimbalControlData.GimbalAngles = gate_passive_gimbal_motion.Step(
+                    gimbalAngles,
+                    gimbalControlData.GimbalAngles,
+                    now_steady,
+                    config.PatrolScanSettings.PassiveYawRateDegPerSec,
+                    config.PatrolScanSettings.PassivePitchRateDegPerSec,
+                    config.PatrolScanSettings.PassiveMaxIntervalMs);
+            } else {
+                gate_passive_gimbal_motion.Reset();
             }
             PubNaviControlData();
             PubGimbalControlData();

@@ -32,6 +32,11 @@ flowchart TD
 
 `SelectPosture` 在導航/戰術目標決定後才執行：姿態會影響 `SentryCmd`，但不會回頭覆蓋該 tick 已選出的導航目標。
 
+開局門控的 `StartGate.GimbalStrategy=face_mode_outpost` 同樣經 `FaceModeManager` 的唯一雲台仲裁：solver status 必須在
+`FaceModeStatusFreshMs` 內、`function=true`、非 manual，且 target generation 超過本次請求前基線。最後一筆有效角度可在
+`FaceMode.LostTargetHoldMs` 內持有，避免 callback 間隔造成 FaceMode/Patrol 閃爍；任何 status/TF 真失效仍回退 Patrol，
+後續成功回讀會自動恢復 FaceMode。固定 FaceMode 與無目標 Patrol 的輸出則經 `PatrolScan.PassiveMotion` 限速；視覺 Aim 不限速。
+
 ## 2. 區域與任務優先級
 
 ```mermaid
