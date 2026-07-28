@@ -1,0 +1,22 @@
+sentry_message:
+  ros__parameters:
+    SentryMessage:
+      # Testing safety gate. False means this node creates no publishers or
+      # subscriptions and cannot send a single custom_info_t message.
+      Enable: false
+      GlobalMinIntervalMs: 500
+      StateFreshMs: 2500
+      MaxPendingMessages: 16
+
+      # Receiver IDs are referee client IDs, never robot IDs. Keep all values
+      # at 0 until the team has verified its own client-ID allocation.
+      Recipients:
+        Red: {Hero: 0, Engineer: 0, Infantry1: 0, Infantry2: 0, Infantry3: 0, Sentry: 0}
+        Blue: {Hero: 0, Engineer: 0, Infantry1: 0, Infantry2: 0, Infantry3: 0, Sentry: 0}
+
+      AttackTarget: {Enable: true, CooldownMs: 1500}
+      BaseDamage: {Enable: true, CooldownMs: 2000}
+      OutpostDamage: {Enable: true, CooldownMs: 2000}
+      CastleCapture: {Enable: true, CooldownMs: 3000}
+      NearbyAlly: {Enable: true, DistanceCm: 250, CooldownMs: 8000}
+      NearestEnemy: {Enable: true, ThreatDistanceCm: 400, CooldownMs: 5000}

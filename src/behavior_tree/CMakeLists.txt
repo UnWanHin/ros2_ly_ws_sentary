@@ -187,6 +187,11 @@ add_executable(${PROJECT_NAME}_node
   ${SRC_FILES}
 )
 
+add_executable(sentry_message_node
+  sentry_message_main.cpp
+  src/SentryMessageNode.cpp
+)
+
 if(BTCPP_IS_PINNED AND EXISTS "${BTCPP_V4_ROOT}/lib")
   set_target_properties(${PROJECT_NAME}_node PROPERTIES
     BUILD_RPATH "${BTCPP_V4_ROOT}/lib"
@@ -231,6 +236,16 @@ ament_target_dependencies(${PROJECT_NAME}_node
 )
 
 ament_target_dependencies(${PROJECT_NAME}_node sentry_msgs)
+
+ament_target_dependencies(sentry_message_node
+  rclcpp
+  std_msgs
+  gimbal_driver
+  sentry_msgs
+)
+target_include_directories(sentry_message_node PRIVATE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
 
 if(BUILD_TESTING)
   ament_add_gtest(test_outpost_engagement_lock
@@ -351,6 +366,10 @@ if(BUILD_TESTING)
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
   )
+  ament_add_gtest(test_sentry_message_policy test/test_sentry_message_policy.cpp)
+  target_include_directories(test_sentry_message_policy PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  )
 endif()
 
 add_executable(area_calculator
@@ -373,6 +392,7 @@ ament_target_dependencies(area_calculator
 # 安裝執行檔
 install(TARGETS
   ${PROJECT_NAME}_node
+  sentry_message_node
   area_calculator
   DESTINATION lib/${PROJECT_NAME}
 )

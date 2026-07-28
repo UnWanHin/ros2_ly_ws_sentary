@@ -146,6 +146,9 @@ payload 長度與 sequence；只有 index 0/1 同 sequence 都有效時才依序
 | 6-35 | `UserDataUtf16` | `uint8[30]` | 完整 30B UTF-16 原始字節，按裁判規定字節序 |
 
 `/ly/control/custom_info` 不做字串編碼轉換；上游必須已提供 30B UTF-16 原始資料。
+目前 `sentry_message_node` 可作為一個受 `Message.yaml` 總開關控制的上游：它把短文字編成
+固定 30B UTF-16LE 後發布到本 topic；關閉時不建立 publisher。下位機仍只負責原樣接收這個
+`CustomInfoFrame` 並封裝裁判 `0x0308`。
 
 ## 7. `SentryCoordinateFrame`（`0x04`，17B）
 

@@ -242,7 +242,7 @@ main()
 | `/ly/control/sentry_cmd` (`SentryCmd`) | `SentryCommandFrame.SentryCmd` | `0x01` 完整哨兵裁判命令入口 |
 | `/Path_downsampled` (`nav_msgs/Path`) | `map_path_to_game_path_node -> MapPathFragmentFrame` x2 | 單獨 gimbal launch 的 50 點路徑來源；經同一校準矩陣轉 `/ly/game/path` 後下發 `0x02`；與手動入口共用 `0x0307` 1 Hz 限頻 |
 | `/ly/control/map_path` (`MapPath`) | `MapPathFragmentFrame` x2 | `0x02` 裁判 `0x0307` 小地圖路徑；重組前保留完整 50 點，與正式入口共用 1 Hz 限頻 |
-| `/ly/control/custom_info` (`CustomInfo`) | `CustomInfoFrame` | `0x03` 裁判 `0x0308` UTF-16 文字 |
+| `/ly/control/custom_info` (`CustomInfo`) | `CustomInfoFrame` | `0x03` 裁判 `0x0308` UTF-16 文字；`sentry_message_node` 是可選的狀態通知上游，預設由 `Message.yaml` 關閉 |
 | `/ly/control/trajectory` (`gimbal_driver/GimbalTrajectory`) | `GimbalTrajectoryFrame.Yaw/Pitch/YawOmega/PitchOmega/YawAlpha/PitchAlpha` | `0x05` MPC 軌跡；正式由 BT、單節點由 debug bridge 將有效 `/ly/aim/result` 六字段轉換後發布；SensorData QoS、非法浮點丟棄；每次更新額外發送，舊 `0x00` 不變 |
 | `/ly/bt/sentry_position` (`PointStamped`) | `SentryCoordinateFrame.X_cm/Y_cm` | BT 融合後自身坐標，m 轉 cm 後下發 |
 | `/ly/navi/vel` (`Vel`) | `ControlVelocity(raw_x/raw_y,use_raw=true)` | `debug_node.launch.py` 的 100 Hz bridge 轉發到 `/ly/control/vel`；500 ms stale 時發布零速度。`navigation_test=true` 與 `vel_chain=true` 仍只保留給舊腳本／自訂 overlay 相容。正式鏈仍經 BT，`sentry_all` 不路由這兩種導航直連鍵。 |

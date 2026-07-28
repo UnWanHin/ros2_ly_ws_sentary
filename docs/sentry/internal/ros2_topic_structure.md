@@ -174,6 +174,10 @@ ros2 topic pub /ly/control/sentry_cmd gimbal_driver/msg/SentryCmd "{field_mask: 
 | `gimbal_driver/msg/Health` | `hero`, `engineer`, `infantry1`, `infantry2`, `reserve`, `sentry` | 友方/敌方血量。 |
 | `gimbal_driver/msg/RfidStatus` | `raw`, RFID gain/crossing bits, `has_rfid_status_2`, `rfid_status_2_raw` | 裁判 RFID 状态。 |
 | `gimbal_driver/msg/SentryInfo` | `sentry_info_raw`, `sentry_info_2_raw`, `sentry_info_3_raw`, exchange/revive/out_of_combat/posture/energy/enhanced posture/remaining seconds fields | 裁判 `0x020D` 哨兵状态。 |
+
+`sentry_message_node`（由 `Message.yaml` 的 `SentryMessage.Enable` 控制，默认关闭）是
+`/ly/control/custom_info` 的哨兵状态通知 publisher。它只读 `/ly/aim/*`、裁判血量/场地事件与
+`/ly/position/data`；详情见 [sentry_message.md](sentry_message.md)。
 | `gimbal_driver/msg/BulletInfo` | `initial_speed`, shoot data, projectile allowance, remaining coin | TypeID 7/8 弹丸与资源状态。 |
 | `gimbal_driver/msg/MapCommand` | `header`, `has_target_position`, `target_position_x_m`, `target_position_y_m`, `has_target_robot`, `target_robot_id`, `cmd_keyboard`, `cmd_source` | TypeID 9 / 裁判 `0x0303` 小地图命令输入。 |
 | `gimbal_driver/msg/GimbalRawFrame` | `header`, `direction`, `type_id`, `data`, `firecode_raw`, `sentry_cmd_raw` | 可选 raw 串口诊断 topic；TX `type_id=255/254/253/252/251/250` 依次为 control、sentry command、map path、custom info、sentry coordinate、trajectory。 |

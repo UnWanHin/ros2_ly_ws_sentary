@@ -367,6 +367,7 @@ def generate_launch_description():
     default_tactical_config_file = os.path.join(behavior_tree_config_root, "Tactical.yaml")
     default_patrol_config_file = os.path.join(behavior_tree_config_root, "Patrol.yaml")
     default_special_config_file = os.path.join(behavior_tree_config_root, "Special.yaml")
+    default_message_config_file = os.path.join(behavior_tree_config_root, "Message.yaml")
 
     mode = LaunchConfiguration("mode")
     config_file = LaunchConfiguration("config_file")
@@ -377,6 +378,7 @@ def generate_launch_description():
     tactical_config_file = LaunchConfiguration("tactical_config_file")
     patrol_config_file = LaunchConfiguration("patrol_config_file")
     special_config_file = LaunchConfiguration("special_config_file")
+    message_config_file = LaunchConfiguration("message_config_file")
     base_config_file = LaunchConfiguration("base_config_file")
     gimbal_driver_config_file = LaunchConfiguration("gimbal_driver_config_file")
     output = LaunchConfiguration("output")
@@ -532,6 +534,11 @@ def generate_launch_description():
             "special_config_file",
             default_value=default_special_config_file,
             description="Special strategy layer YAML for behavior_tree.",
+        ),
+        DeclareLaunchArgument(
+            "message_config_file",
+            default_value=default_message_config_file,
+            description="Read-only sentry custom-info notification YAML.",
         ),
         DeclareLaunchArgument(
             "output",
@@ -823,6 +830,7 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] tactical_config: ", tactical_config_file]),
         LogInfo(msg=["[sentry_all] patrol_config: ", patrol_config_file]),
         LogInfo(msg=["[sentry_all] special_config: ", special_config_file]),
+        LogInfo(msg=["[sentry_all] message_config: ", message_config_file]),
         LogInfo(msg=["[sentry_all] output: ", output]),
         LogInfo(msg=["[sentry_all] offline: ", offline]),
         LogInfo(msg=["[sentry_all] external aim: ", external_aim_log]),
@@ -1124,6 +1132,14 @@ def generate_launch_description():
                 }
             ],
             on_exit=Shutdown(reason="behavior_tree exited"),
+            condition=IfCondition(use_behavior_tree),
+        ),
+        Node(
+            package="behavior_tree",
+            executable="sentry_message_node",
+            name="sentry_message",
+            output=output,
+            parameters=[message_config_file],
             condition=IfCondition(use_behavior_tree),
         ),
     ]

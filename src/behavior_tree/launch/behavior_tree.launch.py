@@ -57,6 +57,11 @@ def generate_launch_description():
         "config",
         "Special.yaml",
     )
+    default_message_config_file = os.path.join(
+        behavior_tree_share,
+        "config",
+        "Message.yaml",
+    )
 
     output = LaunchConfiguration("output")
     competition_profile = LaunchConfiguration("competition_profile")
@@ -69,6 +74,7 @@ def generate_launch_description():
     tactical_config_file = LaunchConfiguration("tactical_config_file")
     patrol_config_file = LaunchConfiguration("patrol_config_file")
     special_config_file = LaunchConfiguration("special_config_file")
+    message_config_file = LaunchConfiguration("message_config_file")
     debug_bypass_is_start = LaunchConfiguration("debug_bypass_is_start")
     runtime_rearm_start_gate = LaunchConfiguration("runtime_rearm_start_gate")
     wait_for_game_start_timeout_sec = LaunchConfiguration("wait_for_game_start_timeout_sec")
@@ -134,6 +140,11 @@ def generate_launch_description():
             description="Special strategy layer YAML for behavior_tree.",
         ),
         DeclareLaunchArgument(
+            "message_config_file",
+            default_value=default_message_config_file,
+            description="Read-only sentry custom-info notification YAML.",
+        ),
+        DeclareLaunchArgument(
             "debug_bypass_is_start",
             default_value="false",
             description="Debug only: true will bypass waiting /ly/game/is_start gate.",
@@ -182,6 +193,7 @@ def generate_launch_description():
         LogInfo(msg=["[behavior_tree] tactical_config_file: ", tactical_config_file]),
         LogInfo(msg=["[behavior_tree] patrol_config_file: ", patrol_config_file]),
         LogInfo(msg=["[behavior_tree] special_config_file: ", special_config_file]),
+        LogInfo(msg=["[behavior_tree] message_config_file: ", message_config_file]),
         LogInfo(msg=["[behavior_tree] debug_bypass_is_start: ", debug_bypass_is_start]),
         LogInfo(msg=["[behavior_tree] runtime_rearm_start_gate: ", runtime_rearm_start_gate]),
         LogInfo(msg=["[behavior_tree] wait_for_game_start_timeout_sec: ", wait_for_game_start_timeout_sec]),
@@ -219,7 +231,14 @@ def generate_launch_description():
                 }
             ],
             on_exit=Shutdown(reason="behavior_tree exited"),
-        )
+        ),
+        Node(
+            package="behavior_tree",
+            executable="sentry_message_node",
+            name="sentry_message",
+            output=output,
+            parameters=[message_config_file],
+        ),
     ]
 
     return LaunchDescription(launch_args + info_logs + nodes)
