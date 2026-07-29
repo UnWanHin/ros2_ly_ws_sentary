@@ -67,7 +67,7 @@ Mode2:
 
 如果 `FaceModeFallbackEnable=false`，FaceMode 已被請求但沒有角度時不會進 patrol fallback，而是保持當前雲台角度。
 
-mode2 從 FaceMode、視覺 aim 或目標消失後的 2 秒 hold 恢復時，不會把當前雲台角當成新中心，也不會把 phase 歸零。它會沿用暫停前、已套用 `CenterDriftPerCycleDeg` 的中心與相對擺動位置，再由 `PassiveMotion` 從當前回授角平滑移向該掃描軌跡。切到 mode1、mode3 或 Buff 則仍會完整重置巡邏狀態。
+mode2 從 FaceMode、視覺 aim 或目標消失後的 2 秒 hold 恢復時，不會把當前雲台角當成新中心，也不會把 phase 歸零。它會先凍結暫停前、已套用 `CenterDriftPerCycleDeg` 的中心與相對擺動位置，並由 `PassiveMotion` 從當前回授角平滑移到該保存點；yaw 誤差小於 1 度後才繼續推進 phase 與 center drift。正常連續 mode2 不通過 `PassiveMotion`，避免掃描軌跡比限速器快時累積落後。切到 mode1、mode3 或 Buff 則仍會完整重置巡邏狀態。
 
 當前 `Patrol.yaml` 的任務覆蓋為：
 
@@ -133,7 +133,7 @@ fallback 與最終接管結果。這些日誌只做可觀測性，不改變仲�
 
 ## Passive Motion
 
-`PatrolScan.PassiveMotion` 對固定點 FaceMode 和無目標 Patrol 的最終 `/ly/control/angles` 做速率限制：
+`PatrolScan.PassiveMotion` 對固定點 FaceMode，以及被 FaceMode/視覺 aim 中斷後的 mode2 恢復段的最終 `/ly/control/angles` 做速率限制：
 
 ```yaml
 PassiveMotion:
@@ -142,8 +142,7 @@ PassiveMotion:
   MaxIntervalMs: 25
 ```
 
-`MaxIntervalMs` 限制單次 BT 阻塞後可補發的角度量，避免 mode1 這類逐 tick 目標在遊戲開始後顯示成大幅離散跳變。
-視覺/外部 Aim、fire tracking 與 `naviLowerHead` 直控不通過此限制，保持原本追蹤響應。
+`MaxIntervalMs` 限制單次 BT 阻塞後可補發的角度量。正常 mode1/mode2/mode3 Patrol、視覺/外部 Aim、fire tracking 與 `naviLowerHead` 直控不通過此限制，保持原本掃描或追蹤響應。
 
 ## Link Chain
 

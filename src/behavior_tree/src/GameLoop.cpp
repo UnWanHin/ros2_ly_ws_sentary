@@ -1137,6 +1137,7 @@ namespace BehaviorTree {
             patrolScanPhaseRad_ = 0.0f;
             patrolScanCenterInitialized_ = false;
             patrolScanActiveMode_ = 0;
+            patrolScanResumeSmoothing_ = false;
         };
         const auto face_mode_source_name = [](const FaceModeManager::Source source) {
             switch (source) {
@@ -1203,6 +1204,7 @@ namespace BehaviorTree {
         if (face_mode_active) {
             passive_gimbal_motion_active = true;
             // Mode 2 resumes its prior center/phase after a temporary fixed-angle hold.
+            patrolScanResumeSmoothing_ = patrolScanActiveMode_ == 2;
             gimbalControlData.FireCode.AimMode = 0;
             if (face_mode_decision.SuppressFire) {
                 gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
@@ -1211,6 +1213,7 @@ namespace BehaviorTree {
 
         } else if (has_target_for_angles) {
             // Preserve the Mode 2 trajectory while visual aiming temporarily owns the gimbal.
+            patrolScanResumeSmoothing_ = patrolScanActiveMode_ == 2;
             LoggerPtr->Debug(
                 "Aim target active, AimMode={}, fresh={}, held={}",
                 static_cast<int>(aimMode),
@@ -1279,7 +1282,6 @@ namespace BehaviorTree {
             
             if(aimMode != AimMode::Buff || face_mode_fallback_patrol_scan) {
                 if (!config.AimDebugSettings.StopScan && now - lastFoundEnemyTime > std::chrono::milliseconds(2000)) {
-                    passive_gimbal_motion_active = true;
                     static auto last_searching_log = std::chrono::steady_clock::time_point{};
                     const bool outpost_face_mode_fallback =
                         face_mode_fallback_patrol_scan && aimMode == AimMode::Outpost;
@@ -1312,24 +1314,27 @@ namespace BehaviorTree {
                             patrolScanOffsetYaw_ = 0.0f;
                             patrolScanPhaseRad_ = 0.0f;
                             patrolScanDirection_ = 1; // 新一轮巡逻默认先向右
+                            patrolScanResumeSmoothing_ = false;
                         }
 
-                        const float half_range = static_cast<float>(patrol_scan.Mode2YawHalfRangeDeg);
-                        const float phase_step = yaw_scan_step / std::max(half_range, 1.0f);
-                        const float center_drift_step =
-                            static_cast<float>(patrol_scan.Mode2CenterDriftPerCycleDeg) *
-                            phase_step / kTwoPi;
+                        if (!patrolScanResumeSmoothing_) {
+                            const float half_range = static_cast<float>(patrol_scan.Mode2YawHalfRangeDeg);
+                            const float phase_step = yaw_scan_step / std::max(half_range, 1.0f);
+                            const float center_drift_step =
+                                static_cast<float>(patrol_scan.Mode2CenterDriftPerCycleDeg) *
+                                phase_step / kTwoPi;
 
-                        // mode2: 讓中心點每完成一個正弦掃描週期固定右偏同樣角度。
-                        patrolScanCenterYaw_ = normalize_angle_near(
-                            patrolScanCenterYaw_ + center_drift_step,
-                            gimbalAngles.Yaw);
+                            // mode2: 讓中心點每完成一個正弦掃描週期固定右偏同樣角度。
+                            patrolScanCenterYaw_ = normalize_angle_near(
+                                patrolScanCenterYaw_ + center_drift_step,
+                                gimbalAngles.Yaw);
 
-                        patrolScanPhaseRad_ = std::fmod(patrolScanPhaseRad_ + phase_step, kTwoPi);
-                        patrolScanOffsetYaw_ = half_range * std::sin(patrolScanPhaseRad_);
-                        patrolScanDirection_ = (std::cos(patrolScanPhaseRad_) >= 0.0f) ? 1 : -1;
-                        if (patrolScanPhaseRad_ < 0.0f) {
-                            patrolScanPhaseRad_ += kTwoPi;
+                            patrolScanPhaseRad_ = std::fmod(patrolScanPhaseRad_ + phase_step, kTwoPi);
+                            patrolScanOffsetYaw_ = half_range * std::sin(patrolScanPhaseRad_);
+                            patrolScanDirection_ = (std::cos(patrolScanPhaseRad_) >= 0.0f) ? 1 : -1;
+                            if (patrolScanPhaseRad_ < 0.0f) {
+                                patrolScanPhaseRad_ += kTwoPi;
+                            }
                         }
                         yaw_scan_direction = patrolScanDirection_;
                     } else if (patrol_mode == 3) {
@@ -1387,6 +1392,21 @@ namespace BehaviorTree {
                         static_cast<AngleType>(next_scan_yaw),
                         static_cast<AngleType>(next_scan_pitch)
                     };
+
+                    if (patrol_mode == 2 && patrolScanResumeSmoothing_) {
+                        constexpr float kMode2ResumeYawToleranceDeg = 1.0f;
+                        const float yaw_error =
+                            normalize_angle_near(next_scan_yaw, gimbalAngles.Yaw) - gimbalAngles.Yaw;
+                        passive_gimbal_motion_active = true;
+                        if (std::abs(yaw_error) <= kMode2ResumeYawToleranceDeg) {
+                            patrolScanResumeSmoothing_ = false;
+                            LoggerPtr->Info(
+                                "Mode2 patrol resume synchronized: yaw_error={} center={} phase={}",
+                                yaw_error,
+                                patrolScanCenterYaw_,
+                                patrolScanPhaseRad_);
+                        }
+                    }
 
                     if (aimMode == AimMode::Outpost &&
                         (patrol_mode != 3 || patrol_scan.OutpostPitchOffsetApplyToMode3)) {
