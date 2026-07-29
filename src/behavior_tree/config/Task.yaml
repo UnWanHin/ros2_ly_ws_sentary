@@ -3,11 +3,13 @@ behavior_tree:
     StartGate:
       # 开局前保持底盘速度/小陀螺为 0；scripts/start.sh 可被 common.yaml 覆盖。
       AllowGimbalPatrolBeforeStart: true  # 是否允许开局等待期间只进行云台巡逻扫描。
-      # patrol: 按 PatrolScan.Mode 扫描；face_mode_outpost: 固定看敌方前哨，解算缺失后按
+      # FaceMode before /ly/game/is_start:
+      # patrol: 不请求 FaceMode，按 PatrolScan.Mode 扫描（当前正式设置）。
+      # face_mode_outpost: 固定看敌方前哨；解算缺失时按
       # PatrolScan.TaskOverrides.OutpostFaceModeFallbackMode 回退。
-#patrol
-      GimbalStrategy: face_mode_outpost
-      FaceModeStatusFreshMs: 500  # 仅接受此时间内确认当前前哨目标的 FaceMode solver 状态。
+      GimbalStrategy: patrol
+      # 仅 GimbalStrategy=face_mode_outpost 时使用：接受此时间内的 FaceMode solver 状态。
+      FaceModeStatusFreshMs: 500
     Task:
       Buff: false  # 是否允许 Buff 任务进入策略选择。
       Outpost: true  # 是否允许前哨任务进入策略选择。
@@ -77,6 +79,10 @@ behavior_tree:
         DamageAbortWindowMs: 1000  # 受击累计统计窗口（毫秒）。
         DamageAbortHoldMs: 5000  # 中断 Buff 后的保持时间（毫秒）。
     FaceMode:
-      # 仅允许 Buff/Outpost 或区域任务请求固定地图朝向；视觉瞄准仍有更高优先级。
-      Enable: true  # 是否启用 /ly/face_mode/angles 朝向控制。
-      # 角度缺失时的巡逻回退配置见 Patrol.yaml 的 TaskOverrides。
+      # FaceMode after /ly/game/is_start:
+      # false: 禁用固定地图朝向，Outpost/Buff 不请求 /ly/face_mode/target_raw，
+      #        /ly/face_mode/angles 不会接管云台；外部 /ly/aim/result 视觉瞄准不受影响。
+      # true: 允许 Buff/Outpost 或区域任务使用固定地图朝向。若同时要在开局使用，
+      #       还需将 StartGate.GimbalStrategy 设为 face_mode_outpost。
+      Enable: false
+      # 仅 Enable=true 时使用。角度缺失时的巡逻回退配置见 Patrol.yaml 的 TaskOverrides。

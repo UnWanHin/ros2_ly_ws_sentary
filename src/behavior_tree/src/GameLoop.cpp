@@ -3113,6 +3113,9 @@ namespace BehaviorTree {
     }
 
     void Application::ApplyAimModeFaceTarget(const UnitTeam target_team) {
+        if (!config.FaceModeSettings.Enable) {
+            return;
+        }
         (void)faceModeManager_.RequestAimTarget(
             aimMode,
             target_team,

@@ -89,17 +89,25 @@ TaskOverrides:
 
 ```yaml
 StartGate:
-  GimbalStrategy: face_mode_outpost  # patrol | face_mode_outpost
+  GimbalStrategy: patrol  # patrol | face_mode_outpost
+
+FaceMode:
+  Enable: false
 ```
 
-- `patrol`：沿用 `PatrolScan.Mode` 與 `StartGatePitchOffsetDeg`。
-- `face_mode_outpost`（正式目前設定）：持續對敵方前哨發布 `/ly/face_mode/target_raw`，要求
+- `patrol`（正式目前設定）：沿用 `PatrolScan.Mode` 與 `StartGatePitchOffsetDeg`，不請求開局 FaceMode。
+- `face_mode_outpost`：持續對敵方前哨發布 `/ly/face_mode/target_raw`，要求
   `/ly/gimbal/facemode` 在 `FaceModeStatusFreshMs`（默認 500 ms）內確認 solver 非 manual、正在輸出，並已處理
   本次 StartGate 請求後的新 target generation。角度 callback 之間會使用最後一筆有效
   `/ly/face_mode/angles`，最長保持 `FaceMode.LostTargetHoldMs`（默認 300 ms），避免 BT tick 比 solver callback
   快時在 FaceMode 與 Patrol 間閃爍。`function=false`、status 過期、manual target、target generation 未推進，或持有
   角度超時時，強制改用 `OutpostFaceModeFallbackMode` 掃描；任一後續有效 solver 回讀都會自動重新接管 FaceMode。
   這條開局安全回退不受一般 `FaceModeFallbackEnable` 或 `AllowGimbalPatrolBeforeStart` 關閉影響。
+
+`FaceMode.Enable=false`（正式目前設定）會停用開賽後所有固定點 FaceMode；Outpost/Buff 不再發布
+`/ly/face_mode/target_raw`，`/ly/face_mode/angles` 也不會接管雲台。外部 `/ly/aim/result` 的視覺瞄準不受影響。
+要重新啟用開局前哨 FaceMode，需同時將 `FaceMode.Enable` 設為 `true`，並把
+`StartGate.GimbalStrategy` 設為 `face_mode_outpost`。
 
 這個策略只改雲台角度來源；開局底盤速度、fire、rotate、follow 仍持續壓為 0。
 
