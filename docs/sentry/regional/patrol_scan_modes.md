@@ -1,6 +1,6 @@
 # Patrol Scan Modes
 
-Updated: 2026-07-28
+Updated: 2026-07-29
 
 本文只說 `behavior_tree` 內部雲台巡邏掃描。它不是 `/ly/vision/mode`，也不是區域導航巡邏；它是在 BT 沒有可用目標角度時，自己計算 `/ly/control/angles` 的 fallback 掃描。
 
@@ -34,8 +34,8 @@ config.PatrolScanSettings
 
 | Mode | 當前用途 | Yaw | Pitch |
 |---|---|---|---|
-| `1` | 默認單向掃描 | 每 tick 按 `Mode1.YawStepDegPerTick` 增加；普通裝甲受擊短窗口可用 `YawBoostStepDegPerTick` | `PitchCenterDeg + PitchHalfRangeDeg * sin(t / PitchPeriodMs)` |
-| `2` | 左右擺頭掃描，現在的 FaceMode fallback 主用模式 | 以當前 yaw 初始化中心，按 `YawHalfRangeDeg` 正弦擺動；每周期按 `CenterDriftPerCycleDeg` 漂移中心；受擊短窗口可用 boost step | `Mode2` 的 center/half-range/period 正弦 |
+| `1` | 單向掃描 | 每 tick 按 `Mode1.YawStepDegPerTick` 增加；普通裝甲受擊短窗口可用 `YawBoostStepDegPerTick` | `PitchCenterDeg + PitchHalfRangeDeg * sin(t / PitchPeriodMs)` |
+| `2` | 默認左右擺頭掃描，也是 FaceMode fallback 主用模式 | 以當前 yaw 初始化中心，按 `YawHalfRangeDeg` 正弦擺動；每周期按 `CenterDriftPerCycleDeg` 漂移中心；受擊短窗口可用 boost step | `Mode2` 的 center/half-range/period 正弦 |
 | `3` | 高 pitch 掃描 profile | 每 tick 按 `Mode3.YawStepDegPerTick` 單向掃描 | `PitchOffsetDeg + PitchHalfRangeDeg * sin(t / PitchPeriodMs)` |
 
 當前 `Patrol.yaml` 裡的 mode2 已切回 `51d6508 clean` / `a4787dc patrol test` 那套較早參數：
@@ -81,7 +81,7 @@ TaskOverrides:
   OutpostPitchOffsetApplyToMode3: true
 ```
 
-所以正式默認是：FaceMode 失角、前哨 FaceMode 失角、前哨受擊退出搜索都走 mode2；不是再由 `FaceMode` 分散指定。
+所以正式默認與 FaceMode 失角、前哨 FaceMode 失角、前哨受擊退出搜索都走 mode2；不是再由 `FaceMode` 分散指定。
 
 ## Start Gate FaceMode
 

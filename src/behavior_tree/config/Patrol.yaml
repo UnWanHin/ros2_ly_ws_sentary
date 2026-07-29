@@ -2,7 +2,7 @@ behavior_tree:
   ros__parameters:
     PatrolScan:
       # 无任务覆盖时的默认巡逻模式：1 单向偏航，2 摆动扫描，3 前哨高仰角扫描。
-      Mode: 1
+      Mode: 2
 
       Mode1:
         YawStepDegPerTick: 9.0  # 每个 BT tick 的偏航增量（度）。
