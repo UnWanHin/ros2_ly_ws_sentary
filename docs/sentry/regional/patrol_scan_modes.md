@@ -58,7 +58,7 @@ Mode2:
 `GameLoop.cpp::PublishTogether()` 的選擇順序是：
 
 1. 有 FaceMode 角度：用 `/ly/face_mode/angles`，停止 patrol scan。
-2. 有有效視覺/外部 aim 目標角度：用目標角度，重置 patrol scan。
+2. 有有效視覺/外部 aim 目標角度：用目標角度；若此前是 mode2，暫停並保留其中心、phase 與已累積的 center drift。
 3. 無目標、不是被 `AimDebug.StopScan` 禁止、且距離上次看到目標超過 2s：進 patrol scan。
 4. 進 scan 後先取 `PatrolScan.Mode`，再按任務狀態覆蓋：
    - `OutpostDamageAbortMode`：前哨任務因受擊退出後的短時搜索。
@@ -66,6 +66,8 @@ Mode2:
    - `FaceModeFallbackMode`：其他 FaceMode fallback。
 
 如果 `FaceModeFallbackEnable=false`，FaceMode 已被請求但沒有角度時不會進 patrol fallback，而是保持當前雲台角度。
+
+mode2 從 FaceMode、視覺 aim 或目標消失後的 2 秒 hold 恢復時，不會把當前雲台角當成新中心，也不會把 phase 歸零。它會沿用暫停前、已套用 `CenterDriftPerCycleDeg` 的中心與相對擺動位置，再由 `PassiveMotion` 從當前回授角平滑移向該掃描軌跡。切到 mode1、mode3 或 Buff 則仍會完整重置巡邏狀態。
 
 當前 `Patrol.yaml` 的任務覆蓋為：
 

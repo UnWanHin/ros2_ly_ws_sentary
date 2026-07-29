@@ -1202,7 +1202,7 @@ namespace BehaviorTree {
         }
         if (face_mode_active) {
             passive_gimbal_motion_active = true;
-            reset_patrol_scan_state();
+            // Mode 2 resumes its prior center/phase after a temporary fixed-angle hold.
             gimbalControlData.FireCode.AimMode = 0;
             if (face_mode_decision.SuppressFire) {
                 gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
@@ -1210,7 +1210,7 @@ namespace BehaviorTree {
             nextAngles = face_mode_decision.Angles.value_or(gimbalAngles);
 
         } else if (has_target_for_angles) {
-            reset_patrol_scan_state();
+            // Preserve the Mode 2 trajectory while visual aiming temporarily owns the gimbal.
             LoggerPtr->Debug(
                 "Aim target active, AimMode={}, fresh={}, held={}",
                 static_cast<int>(aimMode),
@@ -1393,7 +1393,11 @@ namespace BehaviorTree {
                         nextAngles.Pitch += static_cast<AngleType>(patrol_scan.OutpostPitchOffsetDeg);
                     }
                 } else {
-                    reset_patrol_scan_state();
+                    // Keep a paused Mode 2 center/phase so scan resumes on the shifted
+                    // trajectory instead of restarting at its old center after target hold.
+                    if (patrolScanActiveMode_ != 2) {
+                        reset_patrol_scan_state();
+                    }
                     nextAngles = gimbalAngles;
                     LoggerPtr->Debug(
                         "Hold current gimbal angles (latched reuse disabled or unavailable) -> Pitch: {}, Yaw: {}",
