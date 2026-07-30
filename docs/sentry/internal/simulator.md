@@ -136,8 +136,9 @@ zoom, Alt/middle-button pan, double-click Focus, Fullscreen, Inspector resize/do
 browser-local presentation controls.
 
 `tactical_catalog.yaml` remains the sole map catalog. The base markers use the confirmed official field
-coordinates: Red C1 `(245, 755)` cm and Blue C2 `(2555, 745)` cm. Scene command coordinates remain
-official left-bottom-origin centimeters regardless of the browser perspective.
+coordinates: Red C1 `(245, 755)` cm and Blue C2 `(2555, 745)` cm. BuffOutpost is Red `(1220, 1281)` cm
+and Blue `(1580, 219)` cm. Scene command coordinates remain official left-bottom-origin centimeters
+regardless of the browser perspective.
 
 In trace v4, `tactical.protect_castle` records configuration state including `stay_when_rfid_enabled`, and separately records RFID raw/effective
 activation, the resolved `stay_when_rfid_active` Castle-hold state, and enemy-position activation. The simulator never derives a Castle

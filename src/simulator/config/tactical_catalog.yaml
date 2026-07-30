@@ -166,7 +166,7 @@ goals:
   - {id: 20, key: castle_left_2, label: CastleLeft2, category: castle, marker_style: tactical, positions_cm: {red: [831, 960], blue: [1969, 540]}}
   - {id: 21, key: base_to_central, label: BaseToCentral, category: route, marker_style: route, positions_cm: {red: [1125, 155], blue: [1675, 1345]}}
   - {id: 22, key: central_to_base, label: CentralToBase, category: route, marker_style: route, positions_cm: {red: [515, 100], blue: [2285, 1400]}}
-  - {id: 23, key: buff_outpost, label: BuffOutpost, category: outpost, marker_style: tactical, positions_cm: {red: [1100, 1130], blue: [1700, 370]}}
+  - {id: 23, key: buff_outpost, label: BuffOutpost, category: outpost, marker_style: tactical, positions_cm: {red: [1220, 1281], blue: [1580, 219]}}
   - {id: 24, key: outpost_guard, label: OutpostGuard, category: outpost, marker_style: objective, positions_cm: {red: [969, 368], blue: [1831, 1132]}}
   - {id: 25, key: pre_roadland, label: PreRoadland, category: patrol, marker_style: route, positions_cm: {red: [457, 72], blue: [2343, 1428]}}
   - {id: 26, key: central_left_a, label: CentralLeft.A, category: central, marker_style: route, positions_cm: {red: [1205, 1260], blue: [1595, 240]}}
