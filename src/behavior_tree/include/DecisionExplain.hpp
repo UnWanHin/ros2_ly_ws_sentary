@@ -38,6 +38,7 @@ struct ConfigSnapshot {
     int ProtectOutpostSearchHoldSec{0};
     int ProtectOutpostUnreachableCooldownSec{0};
     bool ProtectHeroEnable{false};
+    bool ProtectHeroProactiveHoldWhenHeroInHighland{false};
     int ProtectHeroStartElapsedSec{0};
     int ProtectHeroHoldSec{0};
     int ProtectHeroNoEnemyReleaseSec{0};
@@ -124,6 +125,8 @@ inline std::array<std::string, 3> FormatConfigLines(const ConfigSnapshot& snapsh
              << " search_hold_sec=" << snapshot.ProtectOutpostSearchHoldSec
              << " unreachable_cooldown_sec=" << snapshot.ProtectOutpostUnreachableCooldownSec
              << " protect_hero=" << enabled(snapshot.ProtectHeroEnable)
+             << " hero_proactive_hold="
+             << enabled(snapshot.ProtectHeroProactiveHoldWhenHeroInHighland)
              << " hero_start_elapsed_sec=" << snapshot.ProtectHeroStartElapsedSec
              << " hero_hold_sec=" << snapshot.ProtectHeroHoldSec
              << " hero_no_enemy_release_sec=" << snapshot.ProtectHeroNoEnemyReleaseSec

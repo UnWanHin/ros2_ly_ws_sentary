@@ -15,8 +15,10 @@ from simulator.mock_inputs import (
     official_bt_point,
     parse_args,
     payload_position_cm,
+    position_publish_frames,
     uwb_raw_point,
 )
+from simulator.scene import RosProjection
 from simulator.start import main as start_main
 from simulator.start import parse_args as parse_start_args
 
@@ -172,6 +174,24 @@ def test_parse_args_accepts_decision_context_knobs() -> None:
     assert args.mock_external_aim_target_y == 1.1
     assert args.mock_external_aim_target_z == 0.3
     assert args.mock_external_aim_frame == "gimbal_world"
+
+
+def test_position_publish_frames_pair_friend_and_enemy_rows_to_avoid_burst_drops() -> None:
+    projection = RosProjection(
+        health={"friend": {}, "enemy": {}},
+        positions={
+            "friend": {1: (491, 410), 2: (490, 980), 3: (700, 680), 4: (840, 840), 5: (980, 1000), 6: (1120, 240), 7: (245, 750)},
+            "enemy": {101: (2381, 542), 102: (2235, 980), 103: (2100, 820), 104: (1960, 660), 105: (1820, 500), 106: (1680, 1260), 107: (1707, 359)},
+        },
+        structures={"friend": {}, "enemy": {}},
+        conflicts=(),
+    )
+
+    frames = position_publish_frames(projection)
+
+    assert len(frames) == 7
+    assert frames[0] == ((1, (491, 410)), (101, (2381, 542)))
+    assert frames[-1] == ((7, (245, 750)), (107, (1707, 359)))
 
 
 def test_parse_args_rejects_bad_bool() -> None:

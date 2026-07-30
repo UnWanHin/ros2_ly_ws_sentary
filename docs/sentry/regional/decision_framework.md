@@ -1,6 +1,6 @@
 # Regional 決策框架說明
 
-Updated: 2026-07-28
+Updated: 2026-07-30
 
 本文記錄目前 `behavior_tree` 裡 regional 決策的區域狀態機框架：它會做哪些任務、怎麼啟動、怎麼判斷到達、會輸出什麼控制，以及哪些階段會被高優先級邏輯打斷。
 
@@ -335,9 +335,9 @@ C3 `(1011,429)`、蓝方 C4 `(1789,1071)`，最终仍由唯一的 BT 导航发�
 
 ## ProtectHero
 
-ProtectHero 是 Tactical 層的己方英雄保護點位。`Tactical.ProtectHero` 是正式 YAML 的唯一運行時權威；舊 JSON `HeroProtection` 僅在缺少對應 YAML 欄位時提供相容基線。比賽開始 `StartElapsedSec` 秒後，如果己方 Hero 的官方坐標在 `FriendPositionFreshMs` 內、血量不是 `FriendHealthFreshMs` 內已知的 0，且落在己方 Highland 大區或 `ProtectHero` 子區域內，BT 會評估 RegionalDefense 威脅。當我方 Base 和我方 Highland 同時有新鮮敵方官方坐標時，ProtectHero 會優先於普通 RegionalDefense 下發 `GoalBaseId`，默認為 `Highland`，並用 `HoldSec` 控制駐守重發週期。
+ProtectHero 是 Tactical 層的己方英雄保護點位。`Tactical.ProtectHero` 是正式 YAML 的唯一運行時權威；舊 JSON `HeroProtection` 僅在缺少對應 YAML 欄位時提供相容基線。比賽開始 `StartElapsedSec` 秒後，如果己方 Hero 的官方坐標在 `FriendPositionFreshMs` 內、血量不是 `FriendHealthFreshMs` 內已知的 0，且落在己方 Highland 大區或 `ProtectHero` 子區域內，BT 可下發 `GoalBaseId`，默認為 `Highland`，並用 `HoldSec` 控制駐守重發週期。
 
-ProtectHero 觸發後會保持保護狀態；只要仍有 RegionalDefense 敵情就刷新保護保持時間。當連續 `NoEnemyReleaseSec` 秒沒有 RegionalDefense 敵情時，保護狀態釋放，後續 tick 交回普通 RegionalDefense、Buff/Outpost、watchdog 或 Default 區域任務。Decision trace 的 `tactical.protect_hero` 會同時記錄有效設定、Hero 座標/血量新鮮度、區域 gate、Base/Highland 敵方計數與 `threat_ready`，用於直接判斷未觸發原因。
+正式 Regional YAML 的 `ProactiveHoldWhenHeroInHighland=true` 為預防式保護：上述 Hero 條件成立即持續駐守，不等待敵方座標；只有 Hero 離開區域、位置過期或確認死亡才釋放。它仍是 Tactical priority `3`，會被 ProtectCastle、ProtectOutpost、Hard Recovery 和有效 MapCommand 暫時搶占，搶占結束後 Hero 條件仍成立便回到 Highland。設為 `false` 才恢復舊敵情模式，必須同時有我方 Base 與 Highland 的新鮮敵方官方座標才啟動，並在連續 `NoEnemyReleaseSec` 秒無 RegionalDefense 敵情後釋放。Decision trace 的 `tactical.protect_hero` 記錄 `proactive_hold_when_hero_in_highland`、Hero gate、Base/Highland 敵方計數、舊 `threat_ready` 與 `mode_gate_ready`；後者只表示預防式/舊敵情的模式 gate，不代替其他 Hero 觸發條件。
 
 ## 各區域任務
 

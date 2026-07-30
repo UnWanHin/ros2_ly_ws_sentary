@@ -60,6 +60,7 @@ TEST(DecisionExplain, FormatsEffectiveAreaAndTacticalSettings) {
         .ProtectOutpostSearchHoldSec = 30,
         .ProtectOutpostUnreachableCooldownSec = 10,
         .ProtectHeroEnable = true,
+        .ProtectHeroProactiveHoldWhenHeroInHighland = true,
         .ProtectHeroStartElapsedSec = 120,
         .ProtectHeroHoldSec = 30,
         .ProtectHeroNoEnemyReleaseSec = 8,
@@ -89,6 +90,7 @@ TEST(DecisionExplain, FormatsEffectiveAreaAndTacticalSettings) {
     EXPECT_NE(lines[1].find("damage_threshold_hp=20"), std::string::npos);
     EXPECT_NE(lines[1].find("search_hold_sec=30"), std::string::npos);
     EXPECT_NE(lines[1].find("protect_hero=1"), std::string::npos);
+    EXPECT_NE(lines[1].find("hero_proactive_hold=1"), std::string::npos);
     EXPECT_NE(lines[1].find("hero_start_elapsed_sec=120"), std::string::npos);
     EXPECT_NE(lines[1].find("hero_hold_sec=30"), std::string::npos);
     EXPECT_NE(lines[1].find("hero_no_enemy_release_sec=8"), std::string::npos);

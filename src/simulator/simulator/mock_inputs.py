@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import math
 import time
+from itertools import zip_longest
 from pathlib import Path
 
 from .control_bus import command_name, read_commands
@@ -73,6 +74,25 @@ def payload_position_cm(payload: dict, field: FieldGeometry) -> tuple[int, int] 
     if not math.isfinite(position[0]) or not math.isfinite(position[1]):
         return None
     return official_bt_point(field, int(round(position[0])), int(round(position[1])))
+
+
+def position_publish_frames(
+    projection: RosProjection,
+) -> list[
+    tuple[
+        tuple[int, tuple[int, int]] | None,
+        tuple[int, tuple[int, int]] | None,
+    ]
+]:
+    """Pair both sides into one PositionData frame per roster slot.
+
+    PositionData carries one friend and one enemy row. Publishing the two sides
+    together keeps a full roster below the subscriber queue depth instead of
+    dropping the first rows of every timer burst.
+    """
+    friend_rows = sorted(projection.positions["friend"].items())
+    enemy_rows = sorted(projection.positions["enemy"].items())
+    return list(zip_longest(friend_rows, enemy_rows, fillvalue=None))
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -545,21 +565,30 @@ def main(argv: list[str] | None = None) -> int:
             return msg
 
         def _publish_unit_positions(self, stamp: object, projection: RosProjection) -> None:
-            for side in ("friend", "enemy"):
-                for car_id, point in sorted(projection.positions[side].items()):
+            for friend_row, enemy_row in position_publish_frames(projection):
+                if friend_row is not None:
                     try:
-                        self.sim_input_state.catalog.unit_by_position_car_id(car_id, side)
+                        self.sim_input_state.catalog.unit_by_position_car_id(friend_row[0], "friend")
                     except KeyError:
-                        continue
-                    msg = PositionData()
-                    msg.header.stamp = stamp
-                    msg.friendcarid = car_id if side == "friend" else 0
-                    msg.friendx = int(point[0]) if side == "friend" else 0
-                    msg.friendy = int(point[1]) if side == "friend" else 0
-                    msg.enemycarid = car_id if side == "enemy" else 0
-                    msg.enemyx = int(point[0]) if side == "enemy" else 0
-                    msg.enemyy = int(point[1]) if side == "enemy" else 0
-                    self.pub_position_data.publish(msg)
+                        friend_row = None
+                if enemy_row is not None:
+                    try:
+                        self.sim_input_state.catalog.unit_by_position_car_id(enemy_row[0], "enemy")
+                    except KeyError:
+                        enemy_row = None
+                if friend_row is None and enemy_row is None:
+                    continue
+                msg = PositionData()
+                msg.header.stamp = stamp
+                if friend_row is not None:
+                    msg.friendcarid = friend_row[0]
+                    msg.friendx = int(friend_row[1][0])
+                    msg.friendy = int(friend_row[1][1])
+                if enemy_row is not None:
+                    msg.enemycarid = enemy_row[0]
+                    msg.enemyx = int(enemy_row[1][0])
+                    msg.enemyy = int(enemy_row[1][1])
+                self.pub_position_data.publish(msg)
 
         def _publish_navi_position(self, stamp: object) -> None:
             if not bool(args.publish_self_position):

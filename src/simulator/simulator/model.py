@@ -434,6 +434,7 @@ class TacticalDecisionState:
     protect_outpost_search_hold_sec: int | None
     protect_outpost_priority: int | None
     protect_hero_enabled: bool | None
+    protect_hero_proactive_hold_when_hero_in_highland: bool | None
     protect_hero_active: bool | None
     protect_hero_priority: int | None
     protect_hero_profile_ready: bool | None
@@ -449,6 +450,7 @@ class TacticalDecisionState:
     protect_hero_own_base_enemy_count: int | None
     protect_hero_own_highland_enemy_count: int | None
     protect_hero_threat_ready: bool | None
+    protect_hero_mode_gate_ready: bool | None
     protect_hero_start_elapsed_sec: int | None
     protect_hero_hold_sec: int | None
     protect_hero_no_enemy_release_sec: int | None
@@ -487,6 +489,7 @@ class TacticalDecisionState:
             },
             "protect_hero": {
                 "enabled": self.protect_hero_enabled,
+                "proactive_hold_when_hero_in_highland": self.protect_hero_proactive_hold_when_hero_in_highland,
                 "active": self.protect_hero_active,
                 "priority": self.protect_hero_priority,
                 "profile_ready": self.protect_hero_profile_ready,
@@ -502,6 +505,7 @@ class TacticalDecisionState:
                 "own_base_enemy_count": self.protect_hero_own_base_enemy_count,
                 "own_highland_enemy_count": self.protect_hero_own_highland_enemy_count,
                 "threat_ready": self.protect_hero_threat_ready,
+                "mode_gate_ready": self.protect_hero_mode_gate_ready,
                 "start_elapsed_sec": self.protect_hero_start_elapsed_sec,
                 "hold_sec": self.protect_hero_hold_sec,
                 "no_enemy_release_sec": self.protect_hero_no_enemy_release_sec,

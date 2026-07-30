@@ -1,6 +1,6 @@
 # Regional 決策圖譜
 
-Updated: 2026-07-28
+Updated: 2026-07-30
 
 > 範圍：`competition_profile:=regional` 的 `behavior_tree` 決策順序、優先級、導航輸出與姿態選擇。此圖描述 source 現有行為；任務級前哨交戰鎖可下發強攻 `4`，ProtectHero 到點受擊 burst 可下發強防 `5`，低血量 Recovery 行進可在額度/重生 gate 全部通過時下發強化移動 `6`。
 
@@ -100,7 +100,12 @@ ProtectCastle、ProtectOutpost、ProtectHero、Chase（數字越小越高）；H
 Buff/Outpost aim 仍先於此表，且所有導航仍由 BT 的唯一最終發佈出口發出。
 
 ProtectHero 的全部有效參數由 `Tactical.yaml` 的 `Tactical.ProtectHero` 提供：開局時間、導航
-保持、無敵情釋放、Hero 位置/血量新鮮度與目標 base goal 都可直接改 YAML。舊 JSON
+保持、Hero 位置/血量新鮮度與目標 base goal 都可直接改 YAML。正式 Regional 預設
+`ProactiveHoldWhenHeroInHighland=true`：Hero 位置新鮮、存活且位於 Highland 或 ProtectHero
+子區域時，ProtectHero 直接駐守 Highland，不等待敵方座標，也不因無敵情釋放；它的 Tactical
+priority `3` 仍低於 ProtectCastle `1`、ProtectOutpost `2`，且 Hard Recovery、MapCommand、既有
+Outpost aim 分支都會暫時搶占，之後 Hero 條件仍成立便回守。設為 `false` 才恢復舊模式：同時有
+我方 Base/Highland 敵情才啟動，連續 `NoEnemyReleaseSec` 秒無敵情後釋放。舊 JSON
 `HeroProtection` 只在未提供 YAML 欄位時作相容基線；trace 的 `tactical.protect_hero` 會列出每個
 gate，避免只看到 `active=false` 而不知道原因。
 

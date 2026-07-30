@@ -593,6 +593,9 @@ void Application::WriteDecisionTrace(const std::string_view event) noexcept {
         friendRobots[UnitType::Hero].currentHealth_ == 0;
     const bool protect_hero_threat_ready = tactical_own_base_enemy_count > 0 &&
         tactical_own_highland_enemy_count > 0;
+    const bool protect_hero_mode_gate_ready = BehaviorTree::ShouldHoldProtectHero(
+        protect_hero.ProactiveHoldWhenHeroInHighland,
+        protect_hero_threat_ready);
     const bool protect_hero_profile_ready =
         !IsLeagueProfile() && !IsShowcasePatrolEnabled();
     const bool protect_hero_elapsed_ready =
@@ -694,6 +697,8 @@ void Application::WriteDecisionTrace(const std::string_view event) noexcept {
         }},
         {"protect_hero", {
             {"enabled", protect_hero.Enable},
+            {"proactive_hold_when_hero_in_highland",
+             protect_hero.ProactiveHoldWhenHeroInHighland},
             {"enhanced_defense_enabled", protect_hero.EnhancedDefense.Enable},
             {"enhanced_defense_damage_window_ms", protect_hero.EnhancedDefense.DamageWindowMs},
             {"enhanced_defense_damage_threshold_hp", protect_hero.EnhancedDefense.DamageThresholdHp},
@@ -714,6 +719,7 @@ void Application::WriteDecisionTrace(const std::string_view event) noexcept {
             {"own_base_enemy_count", tactical_own_base_enemy_count},
             {"own_highland_enemy_count", tactical_own_highland_enemy_count},
             {"threat_ready", protect_hero_threat_ready},
+            {"mode_gate_ready", protect_hero_mode_gate_ready},
             {"start_elapsed_sec", protect_hero.StartElapsedSec},
             {"hold_sec", protect_hero.HoldSec},
             {"no_enemy_release_sec", protect_hero.NoEnemyReleaseSec},

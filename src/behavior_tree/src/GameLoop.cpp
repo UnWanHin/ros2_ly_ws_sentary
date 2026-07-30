@@ -4707,13 +4707,16 @@ namespace BehaviorTree {
         const auto now = std::chrono::steady_clock::now();
         const auto maybe_threat = EvaluateRegionalDefenseThreat(my_team, enemy_team);
         const bool has_enemy_threat = maybe_threat.has_value();
-        const bool should_start_protect =
-            has_enemy_threat &&
-            maybe_threat->OwnBaseCount > 0 &&
-            maybe_threat->OwnHighlandCount > 0;
+        const bool legacy_threat_ready = has_enemy_threat &&
+            maybe_threat->OwnBaseCount > 0 && maybe_threat->OwnHighlandCount > 0;
+        const bool should_start_protect = BehaviorTree::ShouldHoldProtectHero(
+            protection.ProactiveHoldWhenHeroInHighland,
+            legacy_threat_ready);
         if (should_start_protect) {
             protectHeroActive_ = true;
-            protectHeroLastEnemySeenTime_ = now;
+            if (has_enemy_threat) {
+                protectHeroLastEnemySeenTime_ = now;
+            }
         } else if (protectHeroActive_ && has_enemy_threat) {
             protectHeroLastEnemySeenTime_ = now;
         } else if (!protectHeroActive_) {
@@ -4764,12 +4767,14 @@ namespace BehaviorTree {
         speedLevel = 1;
         if (LoggerPtr) {
             LoggerPtr->Info(
-                "ProtectHero: elapsed={}s hero=({}, {}) in_highland={} in_protect_hero={} goal={} hold={}s no_enemy_release={}s.",
+                "ProtectHero: elapsed={}s hero=({}, {}) in_highland={} in_protect_hero={} proactive_hold={} legacy_threat_ready={} goal={} hold={}s no_enemy_release={}s.",
                 ElapsedSeconds(),
                 hero_position.X,
                 hero_position.Y,
                 hero_in_highland ? 1 : 0,
                 hero_in_protect_hero ? 1 : 0,
+                protection.ProactiveHoldWhenHeroInHighland ? 1 : 0,
+                legacy_threat_ready ? 1 : 0,
                 static_cast<int>(naviCommandGoal),
                 std::max(1, protection.HoldSec),
                 std::max(1, protection.NoEnemyReleaseSec));

@@ -628,6 +628,9 @@ namespace LangYa
         bool Enable{true};
         // Defaults off so legacy JSON-only profiles retain their prior behavior.
         ProtectHeroEnhancedDefenseSetting EnhancedDefense{};
+        // YAML-enabled regional policy: hold Highland before an enemy enters.
+        // Keep the legacy baseline false for JSON-only profiles.
+        bool ProactiveHoldWhenHeroInHighland{false};
         int StartElapsedSec{120};
         int HoldSec{30};
         int NoEnemyReleaseSec{8};

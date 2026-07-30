@@ -1,6 +1,6 @@
 # Simulator Trace And Viewer
 
-Updated: 2026-07-25
+Updated: 2026-07-30
 
 ## Purpose
 
@@ -9,7 +9,8 @@ It replays JSONL rows written by `behavior_tree` and renders the current decisio
 Trace v4 adds BT-authored `tactical` evidence plus `control_output`, which is the final published
 control snapshot. It remains separate from asynchronous lower-machine `gimbal_feedback`.
 `tactical.protect_hero` preserves the effective YAML parameters and every activation gate
-(profile/time, Hero position/health freshness, area membership, and Base/Highland threat counts),
+(profile/time, Hero position/health freshness, area membership, proactive-hold switch, and Base/Highland threat counts); its
+`mode_gate_ready` is only the proactive-or-legacy-threat branch, not a replacement for the other gates,
 so replay and Foxglove can explain an inactive Hero-protection decision without reimplementing BT policy.
 The viewer shows whether the current navigation output is bridge `/goal_pose`, direct `UseXY` (`/ly/navi/goal_pos`), or goal-ID (`/ly/navi/goal`) mode.
 The right panel shows live ROS topic values from `/goal_pose`, `/ly/navi/goal_pos_raw`, `/ly/navi/goal`, `/ly/navi/speed_level`, `/ly/navi/should_rotate`, and `/ly/control/vel` when started through the offline live wrapper.
@@ -689,6 +690,9 @@ Interactive inputs use existing ROS contracts:
 - Structure HP buttons publish `std_msgs/UInt16` through `simulator.mock_inputs` to `/ly/friend/op_hp`, `/ly/enemy/op_hp`, `/ly/friend/base_hp`, and `/ly/enemy/base_hp`.
 - Dragged unit HP publishes through `gimbal_driver/msg/Health` on `/ly/friend/hp` or `/ly/enemy/hp`.
 - Dragged unit positions publish through `gimbal_driver/msg/PositionData` on `/ly/position/data`.
+- One `PositionData` message carries one friend row and one enemy row. The mock publisher pairs
+  roster rows this way, so a full seven-versus-seven scene emits seven messages per timer cycle
+  instead of fourteen and stays within the behavior-tree subscriber queue depth.
 - Viewer coordinates are official field centimeters with left-bottom origin. `PositionData.friendy` / `enemyy` are sent as `1500 - official_y` because `behavior_tree/src/SubscribeMessage.cpp` normalizes them back to official-map y.
 - Event and referee CLI knobs publish `/ly/game/event_data`, `/ly/game/sentry/info`, `/ly/team/buff`, and `/ly/game/rfid`.
 - Bullet CLI knobs publish `/ly/game/bullet`.
@@ -696,6 +700,13 @@ Interactive inputs use existing ROS contracts:
 - Navigation CLI knobs publish `/ly/navi/reached`, `/ly/navi/reachable`, `/ly/navi/should_rotate`, `/ly/navi/vel`, `/ly/navi/lower_head`, `/ly/navi/position`, optional `/ly/friend/uwb_pos`, and optional `/ly/navi/target_official`.
 - External aim CLI knobs publish `/ly/aim/armor_targets` and `/ly/aim/result` only when `--mock-external-aim true`.
 - `/ly/navi/position` and `/ly/navi/target_official` use official field centimeters directly. `/ly/friend/uwb_pos` accepts official field centimeters in CLI flags but publishes raw y so behavior_tree reconstructs official y as `1500 - raw_y`. `/ly/position/data` also applies raw-y inversion before publish.
+
+`--mock-navi-reached` is a static input, not simulated travel: it defaults to `false`; when set
+to `true`, the mock publishes `true` on every timer tick for whichever goal is current. It does
+not move `/ly/navi/position` or determine arrival from the emitted goal. For realistic patrol
+checks leave it `false` and move the self position through the board/control bus; otherwise a
+stationary simulated sentry will eventually exercise the Regional `MyBase.TravelTimeoutSec`
+fallback and rotate to another Castle point.
 
 Control-bus command groups:
 

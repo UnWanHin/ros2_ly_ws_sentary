@@ -13,6 +13,12 @@ inline bool ResolveTacticalFeatureEnable(
     return yaml_provided ? yaml_enable : profile_baseline;
 }
 
+inline bool ShouldHoldProtectHero(
+    const bool proactive_hold_when_hero_in_highland,
+    const bool legacy_threat_ready) noexcept {
+    return proactive_hold_when_hero_in_highland || legacy_threat_ready;
+}
+
 inline bool IsProtectCastleRfidEventEnabled(
     const bool protect_castle_enable,
     const bool rfid_enable,

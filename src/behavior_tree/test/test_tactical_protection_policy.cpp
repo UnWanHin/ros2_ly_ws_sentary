@@ -154,6 +154,13 @@ TEST(TacticalProtectionPolicy, ExplicitYamlValueOverridesTheProfileBaseline) {
     EXPECT_FALSE(BehaviorTree::ResolveTacticalFeatureEnable(true, true, false));
 }
 
+TEST(TacticalProtectionPolicy, ProactiveHeroHoldDoesNotWaitForEnemyThreat) {
+    EXPECT_TRUE(BehaviorTree::ShouldHoldProtectHero(true, false));
+    EXPECT_TRUE(BehaviorTree::ShouldHoldProtectHero(true, true));
+    EXPECT_TRUE(BehaviorTree::ShouldHoldProtectHero(false, true));
+    EXPECT_FALSE(BehaviorTree::ShouldHoldProtectHero(false, false));
+}
+
 TEST(TacticalProtectionPolicy, ProtectCastleRfidRequiresMasterSourceAndEvent) {
     EXPECT_TRUE(BehaviorTree::IsProtectCastleRfidEventEnabled(true, true, true));
     EXPECT_FALSE(BehaviorTree::IsProtectCastleRfidEventEnabled(false, true, true));

@@ -1978,6 +1978,11 @@ namespace BehaviorTree {
             node_,
             {"Tactical.ProtectHero.EnhancedDefense.DamageThresholdHp", "Tactical/ProtectHero/EnhancedDefense/DamageThresholdHp"},
             protect_hero_enhanced_defense.DamageThresholdHp);
+        ReadOptionalBoolParam(
+            node_,
+            {"Tactical.ProtectHero.ProactiveHoldWhenHeroInHighland",
+             "Tactical/ProtectHero/ProactiveHoldWhenHeroInHighland"},
+            protect_hero.ProactiveHoldWhenHeroInHighland);
         ReadOptionalIntParam(
             node_,
             {"Tactical.ProtectHero.StartElapsedSec", "Tactical/ProtectHero/StartElapsedSec"},
@@ -2512,11 +2517,12 @@ namespace BehaviorTree {
         LoggerPtr->Debug("ProtectCastle.StayWhenRfid: {}", config.TacticalSettings.ProtectCastle.StayWhenRfid);
         LoggerPtr->Debug("ProtectCastle.EnemyPos: {}", config.TacticalSettings.ProtectCastle.EnemyPos);
         LoggerPtr->Debug(
-            "ProtectHero: enable={} enhanced_defense.enable={} enhanced_defense.damage_window_ms={} enhanced_defense.damage_threshold_hp={} start_elapsed_sec={} hold_sec={} no_enemy_release_sec={} position_fresh_ms={} health_fresh_ms={} goal_base_id={}",
+            "ProtectHero: enable={} enhanced_defense.enable={} enhanced_defense.damage_window_ms={} enhanced_defense.damage_threshold_hp={} proactive_hold_when_hero_in_highland={} start_elapsed_sec={} hold_sec={} no_enemy_release_sec={} position_fresh_ms={} health_fresh_ms={} goal_base_id={}",
             config.TacticalSettings.ProtectHero.Enable,
             config.TacticalSettings.ProtectHero.EnhancedDefense.Enable,
             config.TacticalSettings.ProtectHero.EnhancedDefense.DamageWindowMs,
             config.TacticalSettings.ProtectHero.EnhancedDefense.DamageThresholdHp,
+            config.TacticalSettings.ProtectHero.ProactiveHoldWhenHeroInHighland,
             config.TacticalSettings.ProtectHero.StartElapsedSec,
             config.TacticalSettings.ProtectHero.HoldSec,
             config.TacticalSettings.ProtectHero.NoEnemyReleaseSec,

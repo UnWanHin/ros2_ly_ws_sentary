@@ -52,6 +52,9 @@ behavior_tree:
       # 的唯一權威；舊 JSON HeroProtection 僅在未提供這些 YAML 欄位時作相容基線。
       ProtectHero:
         Enable: true
+        # Hero 資料新鮮、存活且在 Highland/ProtectHero 區域時，預先駐守 Highland；
+        # 不等待敵方進入。關閉時恢復舊行為，需同時有我方 Base 與 Highland 敵情才觸發。
+        ProactiveHoldWhenHeroInHighland: true
         # 到守護點先維持普通防守。只有這個窗口內累積扣血達門檻時，才嘗試姿態 5。
         # 強防只在 TypeID 10 剩餘時間新鮮且大於 0 時發出；其他情況維持姿態 2。
         EnhancedDefense:
@@ -62,7 +65,8 @@ behavior_tree:
         StartElapsedSec: 120
         # 保護導航目標的最長重發保持時間（秒）。
         HoldSec: 30
-        # 已啟動後，連續沒有任何 RegionalDefense 敵情多久才釋放（秒）。
+        # 僅在 ProactiveHoldWhenHeroInHighland=false 的舊敵情模式中：已啟動後，
+        # 連續沒有任何 RegionalDefense 敵情多久才釋放（秒）。
         NoEnemyReleaseSec: 8
         # Hero 官方位置、血量的最大可接受資料年齡（毫秒）。
         FriendPositionFreshMs: 2500
@@ -76,9 +80,9 @@ behavior_tree:
         # 最後一次受擊超過此時間後，回到 DefaultGear。
         NoHitTimeoutMs: 1800
         # 受擊 ramp：先保持 0 檔，再依序進入 1、2、3 檔。
-        Gear0HoldMs: 220
-        Gear1HoldMs: 220
-        Gear2HoldMs: 220
+        Gear0HoldMs: 1000
+        Gear1HoldMs: 1000
+        Gear2HoldMs: 1000
         # 無目標受擊期間的雲台掃描加速與抖掃方向切換。
         ScanBoostWindowMs: 1300
         ScanYawPhaseMs: 160
