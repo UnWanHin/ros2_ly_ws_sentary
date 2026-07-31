@@ -3855,6 +3855,7 @@ namespace BehaviorTree {
 
         const auto is_valid_armor_ignore = [](const int armor_id) -> bool {
             switch (static_cast<ArmorType>(armor_id)) {
+                case ArmorType::Base:
                 case ArmorType::Hero:
                 case ArmorType::Engineer:
                 case ArmorType::Infantry1:

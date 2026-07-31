@@ -1036,6 +1036,9 @@ public:
     std::uint8_t ResolveGoalId(std::uint8_t base_goal_id, UnitTeam team, bool apply_team_offset = true) const noexcept;
     void SetAimTarget();
     void RefreshOutpostEngagementLock();
+    bool HasFreshExternalAimTarget(ArmorType armor_type) const noexcept;
+    bool HasFreshSelectedExternalAimTarget() const noexcept;
+    bool SelectFreshExternalAimTarget();
     void SetAimTargetNormal();
     bool TrySetAimTargetByAutonomy();
     void SetAimMode();

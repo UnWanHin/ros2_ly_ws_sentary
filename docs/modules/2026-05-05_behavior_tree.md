@@ -396,14 +396,15 @@ void TreeTick() {
 
 比賽配置文件（`regional_competition.json` / `league_competition.json`）新增：
 
-- `AimTargetPriority`：目標優先級（按 `ArmorType` 整數 ID 排序）
-  - 默認：`[1, 3, 4, 6, 2]`（Hero > Infantry1 > Infantry2 > Sentry > Engineer）
+- `AimTargetPriority`：旧回退选靶优先级（按 `ArmorType` 整數 ID 排序）。当没有新鲜
+  `/ly/aim/armor_targets` 时才使用；外部数组新鲜时，所有未被 `AimTargetIgnore` 排除的 `0..7`
+  都可选，BT 选择最近目标。
 - `Chase`：底盤追擊配置
   - `Enable`：總開關
   - `ToNavi`：改由 BT 發布導航追擊輸入，導航側負責速度閉環
   - `UseOfficialPositionSource`：允許用 `/ly/position/data` 的敵方官方坐標作追擊源
   - `PreferOfficialPositionSource`：默認 `false`；`/ly/aim/armor_targets` 追擊點優先走 `/ly/navi/target_rel -> /goal_pose`，官方坐標只作退化來源
-  - `EnableNaviTargetOfficialFallback`：默認 `true`；正式入口由 `config/common.yaml` 的 `chase.enable_navi_target_official_fallback` 覆寫。`false` 時不接納相機/TF 反算的 `/ly/navi/target_official` 寫入 BT，仍不影響下位機官方坐標或導航追擊主鏈。
+  - `EnableNaviTargetOfficialFallback`：正式入口目前由 `config/common.yaml` 的 `chase.enable_navi_target_official_fallback=false` 關閉。`false` 時不接納相機/TF 反算的 `/ly/navi/target_official` 寫入 BT，仍不影響下位機官方坐標或導航追擊主鏈；需要臨時恢復時可顯式覆寫為 `true`。
   - `OfficialPositionFreshMs`：敵方/自身官方坐標最大有效時間；超時不使用官方源
   - `PreferredDistanceCm`：與目標保持的最適距離（cm）
   - `DistanceDeadbandCm`：距離死區（cm）

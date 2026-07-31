@@ -582,11 +582,12 @@ ReadyRoadland 非強綁定階段通常不直接取消，而是請求安全返回
 
 ## 裝甲板選敵
 
-普通裝甲板模式仍以 `AimTargetPriority` 作基礎優先級，目前正式配置為：
-
-```text
-Hero -> Infantry1 -> Infantry2 -> Sentry -> Engineer
-```
+新鲜 `/ly/aim/armor_targets` 是正式外部选靶的最高输入：BT 对未被 `AimTargetIgnore` 排除的
+`ArmorType 0..7` 全部候选并选最近目标（距离相同时较小 ID 优先），不再用 `AimTargetPriority`
+限制外部视觉数组可被选中的类型。正在生效的 Outpost engagement lock 仍保留前哨锁定，这是任务
+安全语义；`AimTargetPriority` 只保留给没有新鲜外部视觉数组时的旧回退选择。
+已选的新鲜目标进入 Attack 姿态评分，但 Recovery、Buff、受击 HardDefense、导航 HardMove、任务行进
+与姿态切换冷却仍按既有优先级生效。
 
 `DecisionAutonomy.AimTarget.Enable=true` 時，BT 會在這個優先級上疊加距離、低血量、當前目標保持、Hero/Sentry 偏置做打分。這不是舊的全局 utility strategy；`DecisionAutonomy.Enable=false` 時也可以只啟用這個局部選敵器。
 

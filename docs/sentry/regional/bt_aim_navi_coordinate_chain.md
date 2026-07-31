@@ -50,16 +50,18 @@ flowchart LR
 普通瞄准与最终 fire 走 `/ly/aim/result -> behavior_tree -> /ly/control/*`，其角度/弹道求解由外部
 `sentry.aim` 完成。BT 不把视觉位置重新解成 aim 角度，也不把 `/goal_pose` 回灌为 aim 位置。
 
-### 可见前哨的直接瞄准
+### 可见目标的直接瞄准
 
-`ArmorType::Outpost`（`id=7`）不是普通车体优先级列表的一员。只要
-`/ly/aim/armor_targets` 中有新鲜、有效且未被 `AimTargetIgnore` 排除的 `id=7`，BT 就会选中它并向
-`/ly/aim/select_target` 回传同一份视觉坐标。这条规则在开局 Outpost Task 的 120 秒窗口外仍生效，
-因此 RegionalDefense 切换为 `RotateScan` 不会阻止对已看见前哨的瞄准、跟随和开火。
+只要 `/ly/aim/armor_targets` 中有新鲜、有效且未被 `AimTargetIgnore` 排除的正式
+`ArmorType`（`id=0..7`：Base、Hero、Engineer、Infantry1/2/3、Sentry、Outpost），BT 都会候选。
+多个目标同时存在时选择最近的一個，距离相同时按较小 ID 稳定决胜；因此 `id=7` 前哨不再是唯一的
+特殊直选类型。正在生效的 Outpost engagement lock 仍会保留前哨锁定，这是任务安全语义；除此之外
+BT 向 `/ly/aim/select_target` 回传选中目标的同一份视觉坐标与 frame。
 
-该规则仅改变云台的 `targetArmor` 选择：不会重启 Outpost Task、不会覆盖 Task/Tactical 的导航 owner，
-也不会单独发布 Chase 的 `/goal_pose`。是否实际 `follow/fire` 仍由外部 `sentry.aim` 在
-`/ly/aim/result` 中按自身有效性与安全门控决定。
+已选中的新鲜视觉目标会参与 Attack 姿态评分；正常时会请求 Attack，仍可被 Recovery、Buff、受击
+HardDefense、导航 HardMove、任务行进和既有 5 秒姿态冷却覆盖。该规则不重启 Task、不覆盖
+Task/Tactical 的导航 owner，也不单独发布 Chase `/goal_pose`。是否实际 `follow/fire` 仍由外部
+`sentry.aim` 在 `/ly/aim/result` 中按自身有效性与安全门控决定。
 
 ## 3. 授权后的 Chase 到 `/goal_pose`
 
@@ -137,10 +139,10 @@ BT 对同一敌方 ID 的位置优先级为：
 
 ```yaml
 chase:
-  enable_navi_target_official_fallback: true
+  enable_navi_target_official_fallback: false
 ```
 
-默认 `true` 保持上述 fallback 行为；设为 `false` 时 BT 完全忽略
+当前默认 `false`，BT 完全忽略
 `/ly/navi/target_official`，不会用视觉反算坐标更新敌方状态或触发区域防御。bridge 仍然发布该
 topic，便于复盘，且 `/ly/position/data`、外部 aim、`/ly/navi/target_rel` 与 `/goal_pose` 均不受影响。
 

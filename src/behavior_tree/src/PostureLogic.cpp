@@ -3,6 +3,7 @@
 // Keep behavior and interface changes synchronized with related modules.
 
 #include "../include/Application.hpp"
+#include "../include/ExternalAimTargetPolicy.hpp"
 #include "../include/NaviRotatePosture.hpp"
 
 #include <algorithm>
@@ -550,7 +551,9 @@ void Application::UpdatePostureCommand(const bool has_target) {
         postureLastHealth_ = myselfHealth;
     }
 
-    const bool has_target_recent = has_target || HasRecentTarget();
+    const bool has_visible_selected_target =
+        ShouldUseVisibleExternalAimForAttackPosture(HasFreshSelectedExternalAimTarget());
+    const bool has_target_recent = has_target || has_visible_selected_target || HasRecentTarget();
     const auto scored_desired = SelectDesiredPosture(has_target_recent);
     auto intent = ResolveTaskPostureIntent(now);
     const bool navi_move_override = ShouldRequestMovePostureWhenNaviFalse(

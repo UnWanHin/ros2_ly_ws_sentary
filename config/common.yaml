@@ -32,7 +32,7 @@ damage_open_gate:
 # 相機目標經 TF 反算為 official-map 座標後，是否允許寫入 BT 敵方位置 fallback。
 # 關閉後仍保留 topic 供觀測；下位機 /ly/position/data 不受影響。
 chase:
-  enable_navi_target_official_fallback: true
+  enable_navi_target_official_fallback: false
 
 # FaceMode 指令整形；设为 0 表示不限制单次变化，yaw 应小于下位机跳变保护阈值。
 face_mode:

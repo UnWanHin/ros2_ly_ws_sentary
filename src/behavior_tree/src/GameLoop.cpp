@@ -2303,6 +2303,59 @@ namespace BehaviorTree {
         }
     }
 
+    bool Application::HasFreshExternalAimTarget(const ArmorType armor_type) const noexcept {
+        if (!config.ExternalAimSettings.Enable ||
+            !hasExternalAimTargets_ ||
+            !IsSelectableExternalAimArmor(armor_type)) {
+            return false;
+        }
+        const auto target_index = static_cast<std::size_t>(armor_type);
+        if (target_index >= externalAimTargets_.size()) {
+            return false;
+        }
+        const auto& cached = externalAimTargets_[target_index];
+        const int fresh_ms = std::max(1, config.ExternalAimSettings.TargetFreshTimeoutMs);
+        return cached.Valid &&
+            cached.LastSeen.time_since_epoch().count() != 0 &&
+            std::chrono::steady_clock::now() - cached.LastSeen <= std::chrono::milliseconds(fresh_ms);
+    }
+
+    bool Application::HasFreshSelectedExternalAimTarget() const noexcept {
+        return ShouldSelectFreshExternalAimTarget(
+            targetArmor.Type,
+            HasFreshExternalAimTarget(targetArmor.Type),
+            IsIgnoredArmorType(config.AimTargetIgnore, targetArmor.Type));
+    }
+
+    bool Application::SelectFreshExternalAimTarget() {
+        std::optional<ArmorType> selected_armor;
+        float selected_distance = std::numeric_limits<float>::infinity();
+
+        for (std::uint8_t raw_armor = static_cast<std::uint8_t>(ArmorType::Base);
+             raw_armor <= static_cast<std::uint8_t>(ArmorType::Outpost);
+             ++raw_armor) {
+            const auto armor_type = static_cast<ArmorType>(raw_armor);
+            if (!ShouldSelectFreshExternalAimTarget(
+                    armor_type,
+                    HasFreshExternalAimTarget(armor_type),
+                    IsIgnoredArmorType(config.AimTargetIgnore, armor_type))) {
+                continue;
+            }
+            const auto& candidate = externalAimTargets_[static_cast<std::size_t>(armor_type)];
+            if (!selected_armor.has_value() || candidate.Distance < selected_distance) {
+                selected_armor = armor_type;
+                selected_distance = candidate.Distance;
+            }
+        }
+
+        if (!selected_armor.has_value()) {
+            return false;
+        }
+        targetArmor.Type = *selected_armor;
+        targetArmor.Distance = selected_distance;
+        return true;
+    }
+
     void Application::SetAimTarget() {
         UnitTeam MyTeam = team, EnemyTeam = team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
         const auto self_position = GetSentryPositionState(std::chrono::steady_clock::now());
@@ -2311,44 +2364,21 @@ namespace BehaviorTree {
         const auto is_ignored_armor = [this](const ArmorType armor_type) -> bool {
             return IsIgnoredArmorType(config.AimTargetIgnore, armor_type);
         };
-        const auto fresh_external_target = [this](const ArmorType armor_type)
-            -> const ExternalAimTargetCache* {
-            if (!config.ExternalAimSettings.Enable || !hasExternalAimTargets_) {
-                return nullptr;
-            }
-            const auto target_index = static_cast<std::size_t>(armor_type);
-            if (target_index >= externalAimTargets_.size()) {
-                return nullptr;
-            }
-            const auto& cached = externalAimTargets_[target_index];
-            const auto now = std::chrono::steady_clock::now();
-            const int fresh_ms = std::max(1, config.ExternalAimSettings.TargetFreshTimeoutMs);
-            if (!cached.Valid ||
-                cached.LastSeen.time_since_epoch().count() == 0 ||
-                now - cached.LastSeen > std::chrono::milliseconds(fresh_ms)) {
-                return nullptr;
-            }
-            return &cached;
-        };
         const auto set_outpost_target = [&]() -> bool {
             if (is_ignored_armor(ArmorType::Outpost)) {
                 return false;
             }
             targetArmor.Type = ArmorType::Outpost;
             targetArmor.Distance = 30.0F;
-            if (const auto* outpost_target = fresh_external_target(ArmorType::Outpost);
-                outpost_target != nullptr) {
-                targetArmor.Distance = outpost_target->Distance;
+            if (HasFreshExternalAimTarget(ArmorType::Outpost)) {
+                targetArmor.Distance = externalAimTargets_[static_cast<std::size_t>(ArmorType::Outpost)].Distance;
             }
             return true;
         };
         if (outpostEngagementDecision_.HoldTarget && set_outpost_target()) {
             return;
         }
-        if (ShouldSelectFreshOutpostAimTarget(
-                fresh_external_target(ArmorType::Outpost) != nullptr,
-                is_ignored_armor(ArmorType::Outpost))) {
-            set_outpost_target();
+        if (SelectFreshExternalAimTarget()) {
             return;
         }
         if(aimMode == AimMode::Buff) { // 打符，修改为默认值
