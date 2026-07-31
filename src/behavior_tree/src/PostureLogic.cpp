@@ -631,7 +631,7 @@ void Application::UpdatePostureCommand(const bool has_target) {
 
     if (LoggerPtr && (decision.Sent || desired_changed || reason_changed)) {
         LoggerPtr->Info(
-            "[Posture] cmd={} scored={} desired={} requested_enhanced={} current={} current_enhanced={} pending={} pending_enhanced={} has_target_recent={} task_intent={} task_source={} task_owns_goal={} navi_move_override={} under_fire={} under_fire_burst={} feedback_stale={} referee_timer={} enhanced={} enhanced_quarantined={} recovery_enhanced_unavailable={} respawn_suppress_remaining_ms={} reason={}",
+            "[Posture] cmd={} scored={} desired={} requested_enhanced={} current={} current_enhanced={} pending={} pending_enhanced={} pending_priority={} pending_source={} has_target_recent={} task_intent={} task_source={} task_owns_goal={} navi_move_override={} under_fire={} under_fire_burst={} feedback_stale={} referee_timer={} enhanced={} enhanced_quarantined={} recovery_enhanced_unavailable={} respawn_suppress_remaining_ms={} reason={}",
             static_cast<int>(postureCommand),
             PostureToString(scored_desired),
             PostureToString(desired),
@@ -640,6 +640,8 @@ void Application::UpdatePostureCommand(const bool has_target) {
             runtime.Current.Enhanced ? 1 : 0,
             PostureToString(runtime.Pending.Base),
             runtime.Pending.Enhanced ? 1 : 0,
+            PostureRequestPriorityToString(runtime.PendingPriority),
+            runtime.PendingSource,
             has_target_recent ? 1 : 0,
             TaskPostureIntentToString(intent.Intent),
             intent.Source,

@@ -211,6 +211,65 @@ TEST(PostureManagerTest, RequiredDegradedMoveDoesNotAutoRotate) {
     EXPECT_STREQ("hold", decision.Reason);
 }
 
+TEST(PostureManagerTest, HardMoveSupersedesPendingAttack) {
+    BehaviorTree::PostureManager manager;
+    manager.Configure(EnabledPostureSetting());
+    const auto now = BehaviorTree::PostureManager::TimePoint{};
+    manager.Reset(now, BehaviorTree::SentryPosture::Move);
+
+    const auto attack = manager.Tick(
+        now + 5s,
+        {BehaviorTree::SentryPosture::Attack, false},
+        {3U, false, true, false, now + 5s},
+        {});
+    ASSERT_EQ(1U, attack.Command);
+    ASSERT_TRUE(manager.Runtime().HasPending);
+
+    const auto hard_move = BehaviorTree::ResolveTaskPostureRequest(
+        BehaviorTree::TaskPostureIntent::HardMove,
+        BehaviorTree::SentryPosture::Attack,
+        manager.Runtime(),
+        20);
+    const auto move = manager.Tick(
+        now + 5s + 700ms,
+        hard_move.Mode,
+        {3U, false, true, false, now + 5s + 700ms},
+        {},
+        hard_move.Policy);
+
+    EXPECT_EQ(3U, move.Command);
+    EXPECT_STREQ("pending_superseded", move.Reason);
+    EXPECT_EQ(BehaviorTree::SentryPosture::Move, manager.Runtime().Pending.Base);
+}
+
+TEST(PostureManagerTest, CancelPendingClearsPendingRequestMetadata) {
+    BehaviorTree::PostureManager manager;
+    manager.Configure(EnabledPostureSetting());
+    const auto now = BehaviorTree::PostureManager::TimePoint{};
+    manager.Reset(now, BehaviorTree::SentryPosture::Move);
+
+    const auto attack = manager.Tick(
+        now + 5s,
+        {BehaviorTree::SentryPosture::Attack, false},
+        {3U, false, true, false, now + 5s},
+        {},
+        BehaviorTree::PostureRequestPolicy::RequiredPosture());
+    ASSERT_EQ(1U, attack.Command);
+    ASSERT_TRUE(manager.Runtime().HasPending);
+    ASSERT_EQ(
+        BehaviorTree::PostureRequestPriority::Required,
+        manager.Runtime().PendingPriority);
+    ASSERT_STREQ("required", manager.Runtime().PendingSource);
+
+    manager.CancelPending();
+
+    EXPECT_FALSE(manager.Runtime().HasPending);
+    EXPECT_EQ(
+        BehaviorTree::PostureRequestPriority::Scored,
+        manager.Runtime().PendingPriority);
+    EXPECT_STREQ("none", manager.Runtime().PendingSource);
+}
+
 TEST(TaskPostureIntentTest, SoftTransitReservesMoveAndDisablesEarlyRotation) {
     BehaviorTree::PostureRuntime runtime;
     runtime.UsingRefereeTimer = true;

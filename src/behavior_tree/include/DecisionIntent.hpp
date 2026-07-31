@@ -94,8 +94,8 @@ inline const char* DecisionReasonToString(const DecisionReason reason) noexcept 
         case DecisionReason::CommonCentral: return "common_central";
         case DecisionReason::EnemyReadyRoadlandSoft: return "enemy_road_corridor_soft";
         case DecisionReason::EnemyHighlandSoft: return "enemy_highland_soft";
-        case DecisionReason::AimModeBuff: return "regional_tactical_buff_mode";
-        case DecisionReason::AimModeOutpost: return "regional_tactical_aim_mode";
+        case DecisionReason::AimModeBuff: return "task_buff";
+        case DecisionReason::AimModeOutpost: return "task_outpost";
         case DecisionReason::NaviProgressWatchdog: return "navi_progress_watchdog";
         case DecisionReason::RegionalIdlePatrol: return "regional_idle_patrol";
         case DecisionReason::AreaTask: return "area_task";
@@ -125,8 +125,14 @@ inline DecisionReason DecisionReasonFromString(const std::string_view reason) no
     if (reason == "common_central") return DecisionReason::CommonCentral;
     if (reason == "enemy_road_corridor_soft") return DecisionReason::EnemyReadyRoadlandSoft;
     if (reason == "enemy_highland_soft") return DecisionReason::EnemyHighlandSoft;
-    if (reason == "regional_tactical_buff_mode") return DecisionReason::AimModeBuff;
-    if (reason == "regional_tactical_aim_mode" ||
+    if (reason == "task_buff" || reason == "regional_task_buff" ||
+        reason == "regional_tactical_buff_mode") {
+        return DecisionReason::AimModeBuff;
+    }
+    if (reason == "task_outpost" ||
+        reason == "regional_task_outpost_aim" ||
+        reason == "regional_task_opening_outpost_scout_travel" ||
+        reason == "regional_tactical_aim_mode" ||
         reason == "regional_tactical_opening_outpost_aim" ||
         reason == "regional_tactical_opening_outpost_scout_travel" ||
         reason == "regional_tactical_outpost_scout_travel") {
@@ -167,7 +173,7 @@ inline DecisionLayer DecisionLayerForReason(const DecisionReason reason) noexcep
             return DecisionLayer::RegionalDefense;
         case DecisionReason::AimModeBuff:
         case DecisionReason::AimModeOutpost:
-            return DecisionLayer::AimMode;
+            return DecisionLayer::Task;
         case DecisionReason::NaviProgressWatchdog:
             return DecisionLayer::Watchdog;
         case DecisionReason::RegionalIdlePatrol:
@@ -189,15 +195,19 @@ inline DecisionLayer DecisionLayerForReason(const DecisionReason reason) noexcep
 }
 
 inline int DecisionPriorityForReason(const DecisionReason reason) noexcept {
+    if (reason == DecisionReason::Recovery) return 400;
+    if (reason == DecisionReason::MapCommand) return 390;
+    if (reason == DecisionReason::AimModeBuff || reason == DecisionReason::AimModeOutpost) return 300;
+    if (reason == DecisionReason::AreaTask || reason == DecisionReason::NaviTransition) return 280;
     switch (DecisionLayerForReason(reason)) {
         case DecisionLayer::Hard: return 400;
-        case DecisionLayer::RegionalDefense: return 300;
-        case DecisionLayer::AimMode: return 260;
-        case DecisionLayer::Watchdog: return 240;
         case DecisionLayer::Task: return 200;
         case DecisionLayer::Special: return 140;
         case DecisionLayer::Default: return 120;
         case DecisionLayer::Tactical: return 100;
+        case DecisionLayer::RegionalDefense: return 100;
+        case DecisionLayer::AimMode: return 100;
+        case DecisionLayer::Watchdog: return 90;
         case DecisionLayer::IdlePatrol: return 40;
         default: return 0;
     }

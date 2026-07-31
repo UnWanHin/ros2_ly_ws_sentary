@@ -1,6 +1,6 @@
 # Regional 決策圖譜
 
-Updated: 2026-07-30
+Updated: 2026-07-31
 
 > 範圍：`competition_profile:=regional` 的 `behavior_tree` 決策順序、優先級、導航輸出與姿態選擇。此圖描述 source 現有行為；任務級前哨交戰鎖可下發強攻 `4`，ProtectHero 到點受擊 burst 可下發強防 `5`，低血量 Recovery 行進可在額度/重生 gate 全部通過時下發強化移動 `6`。
 
@@ -45,29 +45,26 @@ flowchart TD
   RECOVERY -->|是| HOME[Recovery / 回補\n持續到 HP >= 380 且 ammo > 30]
   RECOVERY -->|否| MAP_PREEMPT{有效 0x0303 坐標?}
   MAP_PREEMPT -->|是| MAP_GOAL[MapCommand\n45s raw official cm -> bridge]
-  MAP_PREEMPT -->|否| READY_LOCK[ReadyRoadland 不可中斷穿越?]
-  READY_LOCK -->|是| READY[ReadyRoadland hard lock]
-  READY_LOCK -->|否| TASK[其他 Task]
-
+  MAP_PREEMPT -->|否| TASK[Task]
+  TASK --> OPENING[開局前哨 / visual scout]
+  TASK --> BUFF[Buff 任務\nregional 預設關閉]
   TASK --> AREA_TRANSITION[導航區域轉換]
-  AREA_TRANSITION --> NAV_WATCHDOG[導航 watchdog / fallback]
-  MAP_GOAL --> TACTICAL
-  NAV_WATCHDOG --> TACTICAL
-
-  TACTICAL[Tactical] --> OPENING[開局前哨站/基地防守]
-  TACTICAL --> BUFF[Buff 任務\nregional 預設關閉]
-  TACTICAL --> OUTPOST[前哨站 visual scout / outpost task]
-  TACTICAL --> CASTLE[Protect Castle]
-  TACTICAL --> OUTPOST_DEF[Protect Outpost\nfriend op_hp drop -> C3/C4]
-  TACTICAL --> HERO[Protect Hero]
-  TACTICAL --> REG_DEF[Regional Defense]
-  TACTICAL --> CHASE[Chase\n同一 planned Default area 才追擊]
-
+  TASK --> NAV_WATCHDOG[導航 watchdog / fallback]
+  MAP_GOAL --> SPECIAL
   OPENING --> SPECIAL
   BUFF --> SPECIAL
-  OUTPOST --> SPECIAL
+  AREA_TRANSITION --> SPECIAL
+  NAV_WATCHDOG --> SPECIAL
+
+  TACTICAL[Tactical\n僅在沒有活動 Task 時] --> CASTLE[Protect Castle]
+  TACTICAL --> OUTPOST_DEF[Protect Outpost\nfriend op_hp drop -> C3/C4]
+  TACTICAL --> HERO[Protect Hero]
+  TACTICAL --> CHASE[Chase\n同一 planned Default area 才追擊]
+
+  TASK -->|無活動 Task| TACTICAL
   HERO --> SPECIAL
-  REG_DEF --> SPECIAL
+  CASTLE --> SPECIAL
+  OUTPOST_DEF --> SPECIAL
   CHASE --> SPECIAL
 
   SPECIAL --> PATROL[Special Patrol\n預設關閉]
@@ -89,15 +86,20 @@ flowchart TD
 `MyReadyRoadland.UseFaceMode` baseline 為 `false`。ID 22 的正式座標為紅 `(515,100)`、藍
 `(2285,1400)`，因此兩個穿越點都落在新 ReadyRoadland 邊界內。
 
+導航所有權是 `Recovery > MapCommand > Task > Tactical > Special > Default`。MapCommand 雖在 Hard
+pass 觀察，但 `DecisionIntent.Layer=Task`，可直接停止同 tick 內所有非 Recovery 導航輸出。Buff、開局前哨
+與前哨 visual scout 都是 Task；開局 Task 活動時，camera 進入 MyBase 所觸發的 ProtectCastle 只能作為
+威脅觀測，不能取消或改寫前哨導航。`navi_progress_watchdog` 也在 Task pass，只有沒有活動競賽 Task 時才
+可能接管。`Tactical.Priority` 只仲裁 ProtectCastle、ProtectOutpost、ProtectHero、Chase（數字越小越高）。
+
 `ProtectOutpost` 與敵方前哨 visual scout 是獨立任務。`/ly/friend/op_hp` 僅以 BT 本機收包時間
 判新鮮，首次正血量只建立窗口基線；只有 `DamageWindowMs=2000` 內累積下降至少
 `DamageThresholdHp=20` 才建立事件，小幅或跨窗口下降不會觸發。新鮮 `0 HP` 立即撤銷 C3/C4
 並清空事件；重建後正血量會成為新基線，後續重新達門檻的掉血可再次觸發。事件使用官方厘米 C3（紅
 `1011,429`）或 C4（藍 `1789,1071`）並經既有 `/ly/navi/goal_pos_raw -> navi_tf_bridge -> /goal_pose`
 鏈路發出。抵達後保持 `SearchHoldSec=30` 秒，新的達門檻下降重置保持；不可達後沉默
-`UnreachableCooldownSec=10` 秒，期間新的達門檻下降只排隊到冷卻結束。`Tactical.Priority` 僅仲裁
-ProtectCastle、ProtectOutpost、ProtectHero、Chase（數字越小越高）；Hard、Task 與既有
-Buff/Outpost aim 仍先於此表，且所有導航仍由 BT 的唯一最終發佈出口發出。
+`UnreachableCooldownSec=10` 秒，期間新的達門檻下降只排隊到冷卻結束。所有導航仍由 BT 的唯一最終
+發佈出口發出。
 
 ProtectHero 的全部有效參數由 `Tactical.yaml` 的 `Tactical.ProtectHero` 提供：開局時間、導航
 保持、Hero 位置/血量新鮮度與目標 base goal 都可直接改 YAML。正式 Regional 預設
@@ -239,6 +241,10 @@ flowchart TD
 ProtectOutpost `Travel/SearchHold`、ProtectHero、固定區域防守和 SpecialPatrol 都只有在仍擁有目前
 goal ID 與座標時才提供 intent。因此 goal 被 Chase 或上層任務替換時，舊 reached 不會保留到姿態仲裁。
 SoftTransit 保留 Move 預算，但不覆蓋既有 Safety Defense；SoftArrived 回到原本 Attack/Defense 評分。
+每個 pending 都記錄請求優先級與來源：普通評分為 `scored`、任務指定姿態為 `required`，Recovery、Buff 和
+新鮮 `navi_should_rotate=false` 的 HardMove 為 `safety`。新的更高優先級姿態與 pending 不同時，
+`PostureManager` 立即以 `pending_superseded` 發出新命令並重設 retry；因此待確認的 Attack 不會再重發並
+覆蓋正在移動所需的 Move。`[Posture]` 日誌會同時輸出 `pending_priority` 與 `pending_source`。
 ProtectHero 到達守護點固定提供普通防守 `2`。`Tactical.ProtectHero.EnhancedDefense.Enable=true` 時，只有 `DamageWindowMs` 內累積受擊達 `DamageThresholdHp`，且新鮮 TypeID 10 的強防剩餘秒數大於零才申請 `5`；其他情況保持 `2`。已確認的強防只在姿態 5 秒冷卻內暫緩 Regional Recovery；冷卻結束後若仍低血/低彈，既有 Move/Recovery 硬鏈路立即接管。強防回讀失鮮或解除時也不延後 Recovery。Recovery 尚在行進且 HP `1..80` 時，只有強移額度 TypeID 10 新鮮正數、`RecoveryMove.Enable=true`，並且未處於本機自身 HP `0 -> 正數` 後 30 秒壓制，才提供 `RecoveryEnhancedMove=6`；其他 Recovery 仍是 `HardMove=3`。強移 ACK 重試耗盡會在本次 Recovery 內鎖定普通 Move 回退。Buff、新鮮 `should_rotate=false` 是 `HardMove`，非 ProtectHero 的受擊 burst 是 `HardDefense`，前哨 lock 保持既有最高覆蓋。
 
 新鮮 TypeID 10 `sentry_info_3` 顯示 Move 剩餘介於 1 秒與 `RefereeRemainWarnSec` 之間時，SoftTransit

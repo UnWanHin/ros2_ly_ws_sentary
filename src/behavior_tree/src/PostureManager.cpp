@@ -51,6 +51,8 @@ bool PostureManager::update_feedback(const TimePoint now, const PostureFeedback 
             runtime_.HasPending = false;
             runtime_.Pending = {};
             runtime_.RetryCount = 0;
+            runtime_.PendingPriority = PostureRequestPriority::Scored;
+            runtime_.PendingSource = "none";
             last_switch_ = now;
             return true;
         }
@@ -197,6 +199,8 @@ PostureDecision PostureManager::Tick(
             runtime_.HasPending = false;
             runtime_.Pending = {};
             runtime_.RetryCount = 0;
+            runtime_.PendingPriority = PostureRequestPriority::Scored;
+            runtime_.PendingSource = "none";
         }
     }
 
@@ -217,6 +221,21 @@ PostureDecision PostureManager::Tick(
     }
 
     if (runtime_.HasPending) {
+        const bool supersede_pending =
+            runtime_.Pending != runtime_.Desired &&
+            policy.Priority > runtime_.PendingPriority;
+        if (supersede_pending) {
+            runtime_.Pending = runtime_.Desired;
+            runtime_.PendingPriority = policy.Priority;
+            runtime_.PendingSource = policy.Source;
+            runtime_.RetryCount = 1;
+            pending_since_ = now;
+            last_command_ = now;
+            decision.Command = ToPostureCommandValue(runtime_.Pending);
+            decision.Sent = decision.Command != 0U;
+            decision.Reason = "pending_superseded";
+            return decision;
+        }
 
         const auto pending_elapsed = now - pending_since_;
         if (pending_elapsed < std::chrono::milliseconds(config_.PendingAckTimeoutMs)) {
@@ -229,6 +248,8 @@ PostureDecision PostureManager::Tick(
             runtime_.HasPending = false;
             runtime_.Pending = {};
             runtime_.RetryCount = 0;
+            runtime_.PendingPriority = PostureRequestPriority::Scored;
+            runtime_.PendingSource = "none";
             last_switch_ = now;
             decision.Reason = "optimistic_ack";
             return decision;
@@ -249,6 +270,8 @@ PostureDecision PostureManager::Tick(
             runtime_.HasPending = false;
             runtime_.Pending = {};
             runtime_.RetryCount = 0;
+            runtime_.PendingPriority = PostureRequestPriority::Scored;
+            runtime_.PendingSource = "none";
             if (policy.PreserveCurrentOnRetryExhausted) {
                 runtime_.Desired = runtime_.Current;
                 decision.Reason = "pending_preserved";
@@ -282,6 +305,8 @@ PostureDecision PostureManager::Tick(
     runtime_.Pending = runtime_.Desired;
     runtime_.HasPending = true;
     runtime_.RetryCount = 1;
+    runtime_.PendingPriority = policy.Priority;
+    runtime_.PendingSource = policy.Source;
     pending_since_ = now;
     last_command_ = now;
 
@@ -308,6 +333,8 @@ void PostureManager::CancelPending() noexcept {
     runtime_.HasPending = false;
     runtime_.Pending = {};
     runtime_.RetryCount = 0;
+    runtime_.PendingPriority = PostureRequestPriority::Scored;
+    runtime_.PendingSource = "none";
 }
 
 bool PostureManager::IsSwitchCooldownReady(const TimePoint now) const noexcept {

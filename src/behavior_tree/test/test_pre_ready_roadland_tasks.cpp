@@ -387,11 +387,17 @@ TEST(PreReadyRoadlandTaskTest, DefaultPolicyDoesNotResumePreemptedAreaOutsideSco
     EXPECT_EQ(later_candidates.front().TaskType, RegionalAreaTaskType::MyBase);
 }
 
-TEST(PreReadyRoadlandTaskTest, OpeningOutpostTravelHasAimModeDecisionIntent) {
+TEST(PreReadyRoadlandTaskTest, OpeningOutpostTravelHasTaskDecisionIntent) {
     EXPECT_EQ(
         BehaviorTree::DecisionReasonFromString(
-            "regional_tactical_opening_outpost_scout_travel"),
+            "regional_task_opening_outpost_scout_travel"),
         BehaviorTree::DecisionReason::AimModeOutpost);
+    EXPECT_EQ(
+        BehaviorTree::DecisionLayerForReason(BehaviorTree::DecisionReason::AimModeOutpost),
+        BehaviorTree::DecisionLayer::Task);
+    EXPECT_GT(
+        BehaviorTree::DecisionPriorityForReason(BehaviorTree::DecisionReason::AimModeOutpost),
+        BehaviorTree::DecisionPriorityForReason(BehaviorTree::DecisionReason::ProtectOutpost));
 }
 
 TEST(PreReadyRoadlandTaskTest, DefaultBasePatrolUsesOnlyCastlePoints) {

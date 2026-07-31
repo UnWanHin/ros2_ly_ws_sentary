@@ -135,3 +135,8 @@ TEST(OutpostOpeningHoldTest, HardHoldOwnsOpeningPriorityIndependentlyOfNormalOpe
     setting.OpeningHoldUntilWindowEnd = false;
     EXPECT_FALSE(BehaviorTree::IsOutpostOpeningPriorityActive(true, setting, 10));
 }
+
+TEST(OutpostOpeningHoldTest, ActiveOpeningTaskCannotBePreemptedByRegionalDefense) {
+    EXPECT_FALSE(BehaviorTree::CanRegionalDefensePreemptOutpostOpening(true));
+    EXPECT_TRUE(BehaviorTree::CanRegionalDefensePreemptOutpostOpening(false));
+}

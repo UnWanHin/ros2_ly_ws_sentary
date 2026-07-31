@@ -1823,28 +1823,21 @@ namespace BehaviorTree {
             const auto now = std::chrono::steady_clock::now();
             const int referee_fresh_ms = std::max(0, outpost_confirm.RefereeFreshTimeoutMs);
             const bool outpost_opening_high_priority = IsOutpostOpeningHighPriorityActive();
-            const UnitTeam enemy_team = team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
-            const auto opening_defense_threat = outpost_opening_high_priority
-                ? EvaluateRegionalDefenseThreat(team, enemy_team)
-                : std::optional<RegionalDefenseThreat>{};
-            const bool opening_base_defense_required =
-                opening_defense_threat.has_value() &&
-                opening_defense_threat->OwnBaseCount > 0;
-            if ((IsRegionalDefenseAimSuppressActive() &&
-                 (!outpost_opening_high_priority || opening_base_defense_required)) ||
-                opening_base_defense_required) {
+            const bool regional_defense_can_preempt_opening =
+                CanRegionalDefensePreemptOutpostOpening(outpost_opening_high_priority);
+            if (regional_defense_can_preempt_opening && IsRegionalDefenseAimSuppressActive()) {
                 outpostVisualScoutNavigationActive_ = false;
                 outpostPostArmorFaceSearchUntil_ = {};
                 outpostArmorInterruptActive_ = false;
                 aimMode = AimMode::RotateScan;
                 LoggerPtr->Info(
-                    "Regional defense active: suppress Outpost aim mode. opening_base_count={}",
-                    opening_defense_threat.has_value() ? opening_defense_threat->OwnBaseCount : 0);
+                    "Regional defense active: suppress Outpost aim mode outside opening Task ownership.");
                 return;
             }
             if (areaManager_.RegionalAreaTaskActive() &&
                 areaManager_.RegionalAreaTask().Type == RegionalAreaTaskType::MyReadyRoadland &&
-                !areaManager_.RegionalAreaTaskCanYieldToHigherPriority()) {
+                !areaManager_.RegionalAreaTaskCanYieldToHigherPriority() &&
+                !outpost_opening_high_priority) {
                 outpostVisualScoutNavigationActive_ = false;
                 outpostPostArmorFaceSearchUntil_ = {};
                 outpostArmorInterruptActive_ = false;

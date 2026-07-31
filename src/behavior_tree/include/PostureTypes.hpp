@@ -86,21 +86,47 @@ struct PostureFeedback {
     std::chrono::steady_clock::time_point ReceivedAt{};
 };
 
+enum class PostureRequestPriority : std::uint8_t {
+    Scored = 0,
+    Required = 1,
+    Safety = 2,
+};
+
+inline constexpr const char* PostureRequestPriorityToString(
+    const PostureRequestPriority priority) noexcept {
+    switch (priority) {
+        case PostureRequestPriority::Safety: return "safety";
+        case PostureRequestPriority::Required: return "required";
+        case PostureRequestPriority::Scored: return "scored";
+    }
+    return "scored";
+}
+
 struct PostureRequestPolicy {
     bool AllowOptimisticAck{true};
     bool PreserveCurrentOnRetryExhausted{false};
     bool AllowEarlyRotate{true};
+    PostureRequestPriority Priority{PostureRequestPriority::Scored};
+    const char* Source{"scored"};
 
     static constexpr PostureRequestPolicy OutpostLock() noexcept {
-        return {false, true, false};
+        return {false, true, false, PostureRequestPriority::Required, "outpost_lock"};
     }
 
     static constexpr PostureRequestPolicy RequiredPosture() noexcept {
-        return {true, false, false};
+        return {true, false, false, PostureRequestPriority::Required, "required"};
+    }
+
+    static constexpr PostureRequestPolicy HardMove() noexcept {
+        return {true, false, false, PostureRequestPriority::Safety, "hard_move"};
     }
 
     static constexpr PostureRequestPolicy EnhancedDefenseHold() noexcept {
-        return {false, true, false};
+        return {false, true, false, PostureRequestPriority::Required, "enhanced_defense_hold"};
+    }
+
+    static constexpr PostureRequestPolicy RecoveryMove() noexcept {
+        return {false, true, false, PostureRequestPriority::Safety, "recovery_move"};
     }
 };
 
@@ -131,6 +157,8 @@ struct PostureRuntime {
     bool HasPending{false};
     bool FeedbackStale{false};
     int RetryCount{0};
+    PostureRequestPriority PendingPriority{PostureRequestPriority::Scored};
+    const char* PendingSource{"none"};
 };
 
 enum class TaskPostureIntent : std::uint8_t {
@@ -284,7 +312,7 @@ inline TaskPostureRequest ResolveTaskPostureRequest(
             return {{SelectTransitPosture(runtime, reserve_sec), false},
                     PostureRequestPolicy::RequiredPosture()};
         case TaskPostureIntent::HardMove:
-            return {{SentryPosture::Move, false}, PostureRequestPolicy::RequiredPosture()};
+            return {{SentryPosture::Move, false}, PostureRequestPolicy::HardMove()};
         case TaskPostureIntent::HardAttack:
             return {{SentryPosture::Attack, false}, PostureRequestPolicy::RequiredPosture()};
         case TaskPostureIntent::HardDefense:
@@ -302,9 +330,7 @@ inline TaskPostureRequest ResolveTaskPostureRequest(
             const bool enhanced_available = CanRequestEnhancedPosture(
                 runtime, referee_timer, SentryPosture::Move);
             return {{SentryPosture::Move, enhanced_available},
-                    enhanced_available
-                        ? PostureRequestPolicy::EnhancedDefenseHold()
-                        : PostureRequestPolicy::RequiredPosture()};
+                    PostureRequestPolicy::RecoveryMove()};
         }
         case TaskPostureIntent::SoftArrived:
         case TaskPostureIntent::None:

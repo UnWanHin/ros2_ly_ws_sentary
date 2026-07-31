@@ -89,8 +89,6 @@ bool Application::CanAuthorizeChaseTactical() const noexcept {
 bool StrategyManager::RunHard(Application& app) {
     Reset(app);
 
-    const UnitTeam my_team = app.team;
-    const UnitTeam enemy_team = app.team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
     const bool bt_owns_protect_hero_enhanced_defense =
         app.postureTaskIntent_.Intent == TaskPostureIntent::ProtectHeroEnhancedDefense &&
         app.postureTaskIntent_.OwnsCurrentGoal;
@@ -108,16 +106,11 @@ bool StrategyManager::RunHard(Application& app) {
         return true;
     }
 
-    const bool map_command_active = app.TrySetMapCommandGoal();
-    if (ShouldRunReadyRoadlandHardLock(
-            app.areaManager_.RegionalAreaTaskActive() &&
-                app.areaManager_.RegionalAreaTask().Type == RegionalAreaTaskType::MyReadyRoadland,
-            app.areaManager_.RegionalAreaTaskCanYieldToHigherPriority(),
-            map_command_active)) {
-        if (app.TickRegionalAreaTask(my_team, enemy_team)) {
-            MarkHandled(app, StrategyLayer::Hard, true);
-            return true;
-        }
+    if (app.TrySetMapCommandGoal()) {
+        // MapCommand is a Task owner, but it is observed in the hard pass so
+        // no non-Recovery layer can publish a competing goal in this tick.
+        MarkHandled(app, StrategyLayer::Task);
+        return true;
     }
     return false;
 }
@@ -158,6 +151,41 @@ bool StrategyManager::RunTask(Application& app) {
     if (app.TrySetMapCommandGoal()) {
         MarkHandled(app, StrategyLayer::Task);
         return true;
+    }
+
+    // Competition tasks own navigation before Tactical.  AimMode is selected
+    // upstream, so these calls only materialize the already selected task
+    // goal and never infer a new tactical threat.
+    const bool competition_task_active =
+        app.IsOutpostOpeningHighPriorityActive() ||
+        app.IsOutpostVisualScoutNavigationActive() ||
+        app.aimMode == AimMode::Buff ||
+        app.aimMode == AimMode::Outpost;
+    if (competition_task_active) {
+        const UnitTeam my_team = app.team;
+        const UnitTeam enemy_team = app.team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
+        if (app.IsOutpostVisualScoutNavigationActive() && app.aimMode != AimMode::Outpost) {
+            if (app.naviCommandIntervalClock.trigger()) {
+                app.TrySetOutpostVisualScoutTravelGoal(
+                    my_team,
+                    enemy_team,
+                    "regional_task_opening_outpost_scout_travel");
+            }
+            MarkHandled(app, StrategyLayer::Task);
+            return true;
+        }
+        if (app.aimMode == AimMode::Buff || app.aimMode == AimMode::Outpost) {
+            if (app.naviCommandIntervalClock.trigger()) {
+                app.TrySetAimModeTaskGoal(
+                    my_team,
+                    enemy_team,
+                    app.aimMode == AimMode::Buff
+                        ? "regional_task_buff"
+                        : "regional_task_outpost_aim");
+            }
+            MarkHandled(app, StrategyLayer::Task);
+            return true;
+        }
     }
 
     const UnitTeam my_team = app.team;
@@ -256,73 +284,6 @@ bool StrategyManager::RunTactical(Application& app) {
 
     const UnitTeam my_team = app.team;
     const UnitTeam enemy_team = app.team == UnitTeam::Blue ? UnitTeam::Red : UnitTeam::Blue;
-    const auto opening_defense_threat = app.IsOutpostOpeningHighPriorityActive()
-        ? app.EvaluateRegionalDefenseThreat(my_team, enemy_team)
-        : std::optional<RegionalDefenseThreat>{};
-    const bool opening_base_defense_required =
-        opening_defense_threat.has_value() &&
-        opening_defense_threat->OwnBaseCount > 0;
-
-    if (opening_base_defense_required && app.TrySetRegionalDefenseGoal(my_team, enemy_team)) {
-        MarkHandled(app, StrategyLayer::Tactical);
-        return true;
-    }
-
-    if (app.aimMode == AimMode::Buff) {
-        if (app.naviCommandIntervalClock.trigger()) {
-            app.TrySetAimModeTaskGoal(my_team, enemy_team, "regional_tactical_buff_mode");
-        }
-        MarkHandled(app, StrategyLayer::Tactical);
-        return true;
-    }
-
-    if (app.IsOutpostOpeningHighPriorityActive()) {
-        if (app.IsOutpostVisualScoutNavigationActive() && app.aimMode != AimMode::Outpost) {
-            if (app.naviCommandIntervalClock.trigger()) {
-                app.TrySetOutpostVisualScoutTravelGoal(
-                    my_team,
-                    enemy_team,
-                    "regional_tactical_opening_outpost_scout_travel");
-            }
-            MarkHandled(app, StrategyLayer::Tactical);
-            return true;
-        }
-
-        if (app.aimMode == AimMode::Outpost) {
-            if (app.naviCommandIntervalClock.trigger()) {
-                app.TrySetAimModeTaskGoal(
-                    my_team,
-                    enemy_team,
-                    "regional_tactical_opening_outpost_aim");
-            }
-            MarkHandled(app, StrategyLayer::Tactical);
-            return true;
-        }
-    }
-
-    if (app.IsOutpostVisualScoutNavigationActive() && app.aimMode != AimMode::Outpost) {
-        if (app.naviCommandIntervalClock.trigger()) {
-            app.TrySetOutpostVisualScoutTravelGoal(
-                my_team,
-                enemy_team,
-                "regional_tactical_outpost_scout_travel");
-        }
-        MarkHandled(app, StrategyLayer::Tactical);
-        return true;
-    }
-
-    if (app.aimMode == AimMode::Outpost) {
-        if (app.naviCommandIntervalClock.trigger()) {
-            app.TrySetAimModeTaskGoal(my_team, enemy_team, "regional_tactical_aim_mode");
-        }
-        MarkHandled(app, StrategyLayer::Tactical);
-        return true;
-    }
-
-    if (app.TickNaviProgressWatchdog(my_team, enemy_team)) {
-        MarkHandled(app, StrategyLayer::Tactical);
-        return true;
-    }
 
     enum class TacticalPriorityAction : std::uint8_t {
         ProtectCastle = 0,

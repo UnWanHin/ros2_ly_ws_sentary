@@ -29,4 +29,11 @@ inline bool IsOutpostOpeningPriorityActive(
          IsOutpostOpeningHoldActive(outpost_enabled, setting, elapsed_sec));
 }
 
+// The configured opening task is a Task-layer owner. Tactical regional
+// defense may observe threats, but it cannot cancel that owner.
+inline constexpr bool CanRegionalDefensePreemptOutpostOpening(
+    const bool opening_task_active) noexcept {
+    return !opening_task_active;
+}
+
 }  // namespace BehaviorTree
