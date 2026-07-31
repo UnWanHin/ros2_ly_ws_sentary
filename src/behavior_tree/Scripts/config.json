@@ -92,7 +92,15 @@
         "LowHealthThreshold": 120,
         "VeryLowHealthThreshold": 80,
         "LowAmmoThreshold": 30,
-        "ScoreHysteresis": 2
+        "ScoreHysteresis": 2,
+        "DynamicTransitReserveEnable": true,
+        "TransitVelocityFreshMs": 1500,
+        "TransitNominalSpeedMps": 0.8,
+        "TransitSafetyFactor": 1.5,
+        "TransitArrivalBufferSec": 8,
+        "TransitMinReserveSec": 30,
+        "TransitMaxReserveSec": 120,
+        "TransitFallbackReserveSec": 45
     },
     "ScanCounter": 1
 }

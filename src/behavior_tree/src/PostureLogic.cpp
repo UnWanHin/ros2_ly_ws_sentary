@@ -6,6 +6,7 @@
 #include "../include/NaviRotatePosture.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 namespace BehaviorTree {
 
@@ -572,11 +573,42 @@ void Application::UpdatePostureCommand(const bool has_target) {
     }
     referee_timer.EnhancedContradictionGraceMs = std::max(
         0, config.TacticalSettings.EnhancedPosture.ContradictionGraceMs);
+
+    TransitPostureContext transit_context;
+    transit_context.Enabled = config.PostureSettings.DynamicTransitReserveEnable;
+    transit_context.AllowAttackDuringTransit = has_target_recent;
+    transit_context.NominalSpeedMps = config.PostureSettings.TransitNominalSpeedMps;
+    transit_context.SafetyFactor = config.PostureSettings.TransitSafetyFactor;
+    transit_context.ArrivalBufferSec = config.PostureSettings.TransitArrivalBufferSec;
+    transit_context.MinReserveSec = config.PostureSettings.TransitMinReserveSec;
+    transit_context.MaxReserveSec = config.PostureSettings.TransitMaxReserveSec;
+    transit_context.FallbackReserveSec = config.PostureSettings.TransitFallbackReserveSec;
+
+    const auto self_position = GetSentryPositionState(now);
+    const bool has_active_goal = naviCommandGoal != 0U &&
+        naviGoalPosition.x > 0U && naviGoalPosition.y > 0U;
+    if (has_active_goal && self_position.HasPosition && self_position.Fresh) {
+        transit_context.HasFreshDistance = true;
+        transit_context.DistanceCm = std::hypot(
+            static_cast<double>(naviGoalPosition.x) - static_cast<double>(self_position.X),
+            static_cast<double>(naviGoalPosition.y) - static_cast<double>(self_position.Y));
+    }
+    const bool velocity_timestamp_valid =
+        lastNaviVelocityRxTime_.time_since_epoch().count() != 0 &&
+        now >= lastNaviVelocityRxTime_ &&
+        now - lastNaviVelocityRxTime_ <= std::chrono::milliseconds(std::max(
+            1, config.PostureSettings.TransitVelocityFreshMs));
+    if (velocity_timestamp_valid) {
+        transit_context.HasFreshVelocity = true;
+        transit_context.VelocityMps = std::hypot(
+            static_cast<double>(naviVelocityInput.X),
+            static_cast<double>(naviVelocityInput.Y)) * 0.025;
+    }
     const auto task_request = ResolveTaskPostureRequest(
         intent.Intent,
         scored_desired,
         postureManager_.Runtime(),
-        config.PostureSettings.RefereeRemainWarnSec,
+        transit_context,
         referee_timer);
     auto desired = task_request.Mode.Base;
     PostureMode requested = task_request.Mode;
@@ -584,6 +616,12 @@ void Application::UpdatePostureCommand(const bool has_target) {
     if (outpostEngagementDecision_.Intent.has_value()) {
         requested = *outpostEngagementDecision_.Intent;
         request_policy = PostureRequestPolicy::OutpostLock();
+    }
+    if (ShouldForceDamageBurstDefense(IsRecoveryGoal(naviCommandGoal), IsUnderFireBurst())) {
+        requested = {SentryPosture::Defense, false};
+        desired = SentryPosture::Defense;
+        request_policy = PostureRequestPolicy::RequiredPosture();
+        intent = {TaskPostureIntent::HardDefense, "damage_burst", false};
     }
     const bool posture_feedback_fresh = IsPostureFeedbackFresh(
         hasReceivedPostureState_,
@@ -631,7 +669,7 @@ void Application::UpdatePostureCommand(const bool has_target) {
 
     if (LoggerPtr && (decision.Sent || desired_changed || reason_changed)) {
         LoggerPtr->Info(
-            "[Posture] cmd={} scored={} desired={} requested_enhanced={} current={} current_enhanced={} pending={} pending_enhanced={} pending_priority={} pending_source={} has_target_recent={} task_intent={} task_source={} task_owns_goal={} navi_move_override={} under_fire={} under_fire_burst={} feedback_stale={} referee_timer={} enhanced={} enhanced_quarantined={} recovery_enhanced_unavailable={} respawn_suppress_remaining_ms={} reason={}",
+            "[Posture] cmd={} scored={} desired={} requested_enhanced={} current={} current_enhanced={} pending={} pending_enhanced={} pending_priority={} pending_source={} has_target_recent={} task_intent={} task_source={} task_owns_goal={} transit_reserve_sec={} transit_distance_cm={} transit_velocity_mps={} transit_attack_allowed={} navi_move_override={} under_fire={} under_fire_burst={} feedback_stale={} referee_timer={} enhanced={} enhanced_quarantined={} recovery_enhanced_unavailable={} respawn_suppress_remaining_ms={} reason={}",
             static_cast<int>(postureCommand),
             PostureToString(scored_desired),
             PostureToString(desired),
@@ -646,6 +684,10 @@ void Application::UpdatePostureCommand(const bool has_target) {
             TaskPostureIntentToString(intent.Intent),
             intent.Source,
             intent.OwnsCurrentGoal ? 1 : 0,
+            ComputeTransitMoveReserveSec(transit_context),
+            transit_context.HasFreshDistance ? transit_context.DistanceCm : -1.0,
+            transit_context.HasFreshVelocity ? transit_context.VelocityMps : -1.0,
+            transit_context.AllowAttackDuringTransit ? 1 : 0,
             navi_move_override ? 1 : 0,
             IsUnderFireRecent() ? 1 : 0,
             IsUnderFireBurst() ? 1 : 0,

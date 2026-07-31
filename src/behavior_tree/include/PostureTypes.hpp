@@ -8,6 +8,7 @@
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <cmath>
 #include <limits>
 
 namespace BehaviorTree {
@@ -197,15 +198,62 @@ inline constexpr TaskPostureIntent ResolveProtectHeroHoldIntent(
         : TaskPostureIntent::ProtectHeroDefenseHold;
 }
 
+inline constexpr bool ShouldForceDamageBurstDefense(
+    const bool recovery_goal,
+    const bool damage_burst) noexcept {
+    return damage_burst && !recovery_goal;
+}
+
 struct TaskPostureIntentState {
     TaskPostureIntent Intent{TaskPostureIntent::None};
     const char* Source{"none"};
     bool OwnsCurrentGoal{false};
 };
 
+struct TransitPostureContext {
+    bool Enabled{true};
+    bool HasFreshDistance{false};
+    bool HasFreshVelocity{false};
+    bool AllowAttackDuringTransit{false};
+    double DistanceCm{0.0};
+    double VelocityMps{0.0};
+    double NominalSpeedMps{0.8};
+    double SafetyFactor{1.5};
+    int ArrivalBufferSec{8};
+    int MinReserveSec{30};
+    int MaxReserveSec{120};
+    int FallbackReserveSec{45};
+};
+
+inline int ComputeTransitMoveReserveSec(const TransitPostureContext& context) noexcept {
+    const int fallback = std::max(0, context.FallbackReserveSec);
+    const int minimum = std::max(0, context.MinReserveSec);
+    const int maximum = std::max(minimum, context.MaxReserveSec);
+    int reserve = std::max(fallback, minimum);
+
+    if (context.Enabled && context.HasFreshDistance && std::isfinite(context.DistanceCm) &&
+        context.DistanceCm > 0.0) {
+        const double observed_speed = context.HasFreshVelocity &&
+            std::isfinite(context.VelocityMps) && context.VelocityMps > 0.05
+            ? context.VelocityMps
+            : context.NominalSpeedMps;
+        const double safety_factor = std::max(1.0, context.SafetyFactor);
+        if (std::isfinite(observed_speed) && observed_speed > 0.05) {
+            const double eta_sec = (context.DistanceCm / 100.0) / observed_speed;
+            const double required_sec = std::ceil(
+                eta_sec * safety_factor + static_cast<double>(std::max(0, context.ArrivalBufferSec)));
+            if (std::isfinite(required_sec)) {
+                reserve = std::max(reserve, static_cast<int>(required_sec));
+            }
+        }
+    }
+
+    return std::clamp(reserve, minimum, maximum);
+}
+
 inline SentryPosture SelectTransitPosture(
     const PostureRuntime& runtime,
-    const int reserve_sec) noexcept {
+    const TransitPostureContext& context) noexcept {
     if (!runtime.UsingRefereeTimer) {
         return SentryPosture::Move;
     }
@@ -214,17 +262,16 @@ inline SentryPosture SelectTransitPosture(
         ? runtime.RefereeEnhancedRemainingSec
         : runtime.RefereeRemainingSec;
     const auto move_index = ToPostureValue(SentryPosture::Move);
-    const auto reserve = static_cast<std::uint8_t>(std::clamp(reserve_sec, 0, 255));
-    // Reserve a positive Move budget before it is exhausted. Once the referee
-    // reports zero, keep Move for travel instead of trading chassis mobility
-    // for another posture's remaining time.
+    const auto reserve = static_cast<std::uint8_t>(std::clamp(
+        ComputeTransitMoveReserveSec(context), 0, 255));
+    // Zero keeps the existing weakened-but-still-mobile semantics. A positive
+    // budget is reserved dynamically from the current travel ETA.
     if (remaining[move_index] == 0 || remaining[move_index] > reserve) {
         return SentryPosture::Move;
     }
 
     SentryPosture selected = SentryPosture::Unknown;
     std::uint8_t selected_remaining = 0;
-    // Defense is visited first so an equal remaining time chooses the safer transit posture.
     for (const auto posture : {SentryPosture::Defense, SentryPosture::Attack}) {
         const auto index = ToPostureValue(posture);
         if (remaining[index] > selected_remaining) {
@@ -233,6 +280,17 @@ inline SentryPosture SelectTransitPosture(
         }
     }
     return selected_remaining > 0 ? selected : SentryPosture::Move;
+}
+
+inline SentryPosture SelectTransitPosture(
+    const PostureRuntime& runtime,
+    const int reserve_sec) noexcept {
+    TransitPostureContext context;
+    context.Enabled = false;
+    context.MinReserveSec = 0;
+    context.MaxReserveSec = 255;
+    context.FallbackReserveSec = reserve_sec;
+    return SelectTransitPosture(runtime, context);
 }
 
 struct TaskPostureRequest {
@@ -302,14 +360,16 @@ inline TaskPostureRequest ResolveTaskPostureRequest(
     const TaskPostureIntent intent,
     const SentryPosture scored_posture,
     const PostureRuntime& runtime,
-    const int reserve_sec,
+    const TransitPostureContext& transit_context,
     const PostureRefereeTimer& referee_timer = {}) noexcept {
     switch (intent) {
         case TaskPostureIntent::SoftTransit:
-            if (scored_posture == SentryPosture::Defense) {
-                return {{SentryPosture::Defense, false}, PostureRequestPolicy::RequiredPosture()};
+            if (scored_posture == SentryPosture::Defense ||
+                (scored_posture == SentryPosture::Attack &&
+                 transit_context.AllowAttackDuringTransit)) {
+                return {{scored_posture, false}, PostureRequestPolicy::RequiredPosture()};
             }
-            return {{SelectTransitPosture(runtime, reserve_sec), false},
+            return {{SelectTransitPosture(runtime, transit_context), false},
                     PostureRequestPolicy::RequiredPosture()};
         case TaskPostureIntent::HardMove:
             return {{SentryPosture::Move, false}, PostureRequestPolicy::HardMove()};
@@ -337,6 +397,20 @@ inline TaskPostureRequest ResolveTaskPostureRequest(
             return {{scored_posture, false}, {}};
     }
     return {{scored_posture, false}, {}};
+}
+
+inline TaskPostureRequest ResolveTaskPostureRequest(
+    const TaskPostureIntent intent,
+    const SentryPosture scored_posture,
+    const PostureRuntime& runtime,
+    const int reserve_sec,
+    const PostureRefereeTimer& referee_timer = {}) noexcept {
+    TransitPostureContext context;
+    context.Enabled = false;
+    context.MinReserveSec = 0;
+    context.MaxReserveSec = 255;
+    context.FallbackReserveSec = reserve_sec;
+    return ResolveTaskPostureRequest(intent, scored_posture, runtime, context, referee_timer);
 }
 
 }  // namespace BehaviorTree

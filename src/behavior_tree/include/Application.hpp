@@ -496,6 +496,7 @@ private:
     std::uint8_t lastNaviComnamdGoal{0}; // 上一次导航目标
     VelocityType naviVelocityInput{0, 0}; /// 外部导航输入速度（/ly/navi/vel）
     VelocityType naviVelocity{0, 0}; /// 定义回调，接收导航的速度控制数据
+    std::chrono::steady_clock::time_point lastNaviVelocityRxTime_{};
     bool naviReach{false}; // /ly/navi/reached: 当前导航目标是否已到达
     bool naviReachable{true}; // /ly/navi/reachable: 当前导航目标是否有有效路径
     bool naviIsRotate{true}; // /ly/navi/should_rotate: 外部导航是否允许正常小陀螺

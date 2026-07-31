@@ -825,6 +825,14 @@ namespace LangYa
         int VeryLowHealthThreshold{80}; // 极低血阈值
         int LowAmmoThreshold{30};     // 低弹阈值
         int ScoreHysteresis{2};       // 姿态切换分差迟滞
+        bool DynamicTransitReserveEnable{true}; // 按当前导航 ETA 动态保留 Move 额度
+        int TransitVelocityFreshMs{1500}; // /ly/navi/vel 可用于 ETA 的最大年龄
+        double TransitNominalSpeedMps{0.8}; // 速度回读不可用时的保守估计
+        double TransitSafetyFactor{1.5}; // ETA 安全系数
+        int TransitArrivalBufferSec{8}; // 到点确认、减速和重规划缓冲
+        int TransitMinReserveSec{30}; // 无论距离多短，Move 最低保留
+        int TransitMaxReserveSec{120}; // 动态保留上限，避免无限期锁住 Move
+        int TransitFallbackReserveSec{45}; // 位置失鲜/无目标时的保守保留
     };
 
     struct NaviGoalAutonomySetting {

@@ -228,10 +228,15 @@ flowchart TD
 |---|---:|---|
 | `Posture.RefereeInfo3FreshMs` | 1500 ms | `sentry_info_3` 新鮮時才覆蓋官方剩餘秒數 |
 | `Posture.FeedbackFreshMs` | 1000 ms | `/ly/gimbal/posture` 僅在本機實際收到回讀後的此窗口內可確認 pending；回讀接收時間還必須不早於該 pending 命令，逾時標記 stale |
-| `Posture.RefereeRemainWarnSec` | 20 s | 剩餘秒數進入懲罰區間，也是 Transit 保留 Move 預算的門檻 |
+| `Posture.RefereeRemainWarnSec` | 20 s | 剩餘秒數進入候選分數懲罰區間；不再作為 Transit Move 門檻 |
 | `Posture.RefereeRemainPenalty` | 5 | 1..WarnSec 的最大候選扣分 |
 | `Posture.RefereeZeroRemainPenalty` | 20 | 剩餘 0 秒的強扣分 |
 | `Posture.EnhancedCurrentPostureBonus` | 3 | 已是強化姿態時，保持相同普通類別的加分 |
+| `Posture.DynamicTransitReserveEnable` | true | 開啟以 ETA 計算 Transit Move 保留 |
+| `Posture.TransitVelocityFreshMs` | 1500 ms | `/ly/navi/vel` 可用於 ETA 的新鮮窗口 |
+| `Posture.TransitNominalSpeedMps` | 0.8 m/s | 速度失鮮時的保守 ETA 速度 |
+| `Posture.TransitSafetyFactor` / `TransitArrivalBufferSec` | 1.5 / 8 s | ETA 安全係數與減速/到點確認緩衝 |
+| `Posture.TransitMinReserveSec..TransitMaxReserveSec` | 30..120 s | 動態保留 Move 的上下界；無位置時使用 45 s fallback |
 
 `/ly/gimbal/posture` 是無 header 的 `UInt8`，因此不能從協議上證明下位機採樣時間。BT 使用
 `keep_last(1)` 限制積壓，並拒絕在命令前已被 BT 接收的回讀；若要完全保證下位機因果 ACK，必須由
@@ -240,16 +245,21 @@ flowchart TD
 姿態採用一份內部 `TaskPostureIntent`，不建立第二份任務或導航資料。Default 的 `AreaManager` hint、
 ProtectOutpost `Travel/SearchHold`、ProtectHero、固定區域防守和 SpecialPatrol 都只有在仍擁有目前
 goal ID 與座標時才提供 intent。因此 goal 被 Chase 或上層任務替換時，舊 reached 不會保留到姿態仲裁。
-SoftTransit 保留 Move 預算，但不覆蓋既有 Safety Defense；SoftArrived 回到原本 Attack/Defense 評分。
+SoftTransit 的 Move 保留由新鮮官方位置到目前 goal 的距離與 `/ly/navi/vel` ETA 決定：
+`ceil(distance / speed * TransitSafetyFactor + TransitArrivalBufferSec)`，並限制在
+`TransitMinReserveSec..TransitMaxReserveSec`；速度失鮮時用 `TransitNominalSpeedMps`，位置失鮮/無 goal 時用
+`TransitFallbackReserveSec`。因此 60 秒 Move 面對短距離仍正常使用 Move，面對長距離會提前保留；不再以固定
+1..20 秒才切換。有效目標且評分為 Attack 時，SoftTransit 允許 Attack；評分為 Defense 或非 Recovery 的短時
+受擊 burst 則選 Defense。Recovery 仍是 HardMove，必定不被這個 ETA 規則覆蓋；Move 已為 0 時仍請求 Move，因為
+它只表示弱化。
 每個 pending 都記錄請求優先級與來源：普通評分為 `scored`、任務指定姿態為 `required`，Recovery、Buff 和
 新鮮 `navi_should_rotate=false` 的 HardMove 為 `safety`。新的更高優先級姿態與 pending 不同時，
 `PostureManager` 立即以 `pending_superseded` 發出新命令並重設 retry；因此待確認的 Attack 不會再重發並
 覆蓋正在移動所需的 Move。`[Posture]` 日誌會同時輸出 `pending_priority` 與 `pending_source`。
-ProtectHero 到達守護點固定提供普通防守 `2`。`Tactical.ProtectHero.EnhancedDefense.Enable=true` 時，只有 `DamageWindowMs` 內累積受擊達 `DamageThresholdHp`，且新鮮 TypeID 10 的強防剩餘秒數大於零才申請 `5`；其他情況保持 `2`。已確認的強防只在姿態 5 秒冷卻內暫緩 Regional Recovery；冷卻結束後若仍低血/低彈，既有 Move/Recovery 硬鏈路立即接管。強防回讀失鮮或解除時也不延後 Recovery。Recovery 尚在行進且 HP `1..80` 時，只有強移額度 TypeID 10 新鮮正數、`RecoveryMove.Enable=true`，並且未處於本機自身 HP `0 -> 正數` 後 30 秒壓制，才提供 `RecoveryEnhancedMove=6`；其他 Recovery 仍是 `HardMove=3`。強移 ACK 重試耗盡會在本次 Recovery 內鎖定普通 Move 回退。Buff、新鮮 `should_rotate=false` 是 `HardMove`，非 ProtectHero 的受擊 burst 是 `HardDefense`，前哨 lock 保持既有最高覆蓋。
+ProtectHero 到達守護點固定提供普通防守 `2`。`Tactical.ProtectHero.EnhancedDefense.Enable=true` 時，只有 `DamageWindowMs` 內累積受擊達 `DamageThresholdHp`，且新鮮 TypeID 10 的強防剩餘秒數大於零才申請 `5`；其他情況保持 `2`。已確認的強防只在姿態 5 秒冷卻內暫緩 Regional Recovery；冷卻結束後若仍低血/低彈，既有 Move/Recovery 硬鏈路立即接管。強防回讀失鮮或解除時也不延後 Recovery。Recovery 尚在行進且 HP `1..80` 時，只有強移額度 TypeID 10 新鮮正數、`RecoveryMove.Enable=true`，並且未處於本機自身 HP `0 -> 正數` 後 30 秒壓制，才提供 `RecoveryEnhancedMove=6`；其他 Recovery 仍是 `HardMove=3`。強移 ACK 重試耗盡會在本次 Recovery 內鎖定普通 Move 回退。Buff、新鮮 `should_rotate=false` 是 `HardMove`；非 Recovery 的受擊 burst 是 `HardDefense`，會壓過前哨交戰的 Attack，Recovery 的 Move 仍最高。
 
-新鮮 TypeID 10 `sentry_info_3` 顯示 Move 剩餘介於 1 秒與 `RefereeRemainWarnSec` 之間時，SoftTransit
-會在 Attack/Defense 中選擇剩餘時間較多的一檔，平分時選 Defense；Move 已為 0 時仍請求 Move，因為它只表示
-弱化。Transit/Hard request 禁止泛用提前輪換覆蓋；SoftArrived 保留輪換以平衡三種 180 秒、不恢復的普通姿態
+當 Move 正餘額不高於 ETA 動態保留時，SoftTransit 會在 Attack/Defense 中選擇剩餘時間較多的一檔，平分時選
+Defense。Transit/Hard request 禁止泛用提前輪換覆蓋；SoftArrived 保留輪換以平衡三種 180 秒、不恢復的普通姿態
 預算。所有請求仍受 5 秒切換冷卻、10 秒最短保持與回讀 ACK 約束，故資料延遲或冷卻期間不能宣稱絕對不會
 進入弱化。`4/5/6` 都要求最新 TypeID 10 的匹配強化額度正數，driver 也會二次拒絕過期/0 額度命令；普通 `0..3`
 不受限。若 TypeID 7 的 `enhanced_posture=true` 與 TypeID 10 匹配額度 0 持續 `500ms`，BT 隔離強化確認與新請求，

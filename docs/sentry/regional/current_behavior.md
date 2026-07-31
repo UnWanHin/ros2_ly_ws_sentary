@@ -93,6 +93,7 @@ ProtectHero 已到自己的守护点且仍拥有该导航 goal 时，BT 优先�
 - 如果这些层都没有输出，Finalizer 只同步策略层 blackboard，不再做旧点表兜底。
 - 以后新增会接管导航的 Tactical 功能时，必须在同一次修改中使用明确的 `DecisionReason` 并写入可读 `detail`；最终 `[DecisionExplain][navi]` 日志会据此说明哨兵为何前往该点。
 - 姿态 pending 也有来源优先级。普通评分请求是 `scored`，任务强制姿态是 `required`，Recovery、Buff 与新鲜 `navi_should_rotate=false` 的 Move 是 `safety`。新的更高优先级请求会以 `pending_superseded` 替换旧 pending，避免旧 Attack 重试覆盖当前必须的 Move。
+- 普通 Transit 不再用固定 20 秒阈值消耗 Move。BT 以新鲜的哨兵官方地图位置、当前导航 goal 与新鲜 `/ly/navi/vel` 估算 ETA；速度失鲜时用 `Posture.TransitNominalSpeedMps`。ETA 乘安全系数、加到点缓冲后，限制在 `TransitMinReserveSec..TransitMaxReserveSec` 内。有效目标在 Transit 中仍允许 Attack；Recovery 始终优先 Move；非 Recovery 的短时间受击 burst 强制 Defense。
 
 ---
 

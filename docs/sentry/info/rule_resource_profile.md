@@ -284,6 +284,11 @@ BT 目前只存一份 runtime 當前資源值：
 | `Posture.LowHealthThreshold` | 120 |
 | `Posture.VeryLowHealthThreshold` | 80 |
 | `Posture.LowAmmoThreshold` | 30 |
+| `Posture.DynamicTransitReserveEnable` | true |
+| `Posture.TransitNominalSpeedMps` | 0.8 m/s |
+| `Posture.TransitSafetyFactor` / `TransitArrivalBufferSec` | 1.5 / 8 s |
+| `Posture.TransitMinReserveSec..TransitMaxReserveSec` | 30..120 s |
+| `Posture.TransitFallbackReserveSec` | 45 s |
 
 代碼位置：
 
@@ -291,7 +296,7 @@ BT 目前只存一份 runtime 當前資源值：
   - ReadyRoadland/Central 健康判斷使用 `myselfHealth` 和 `ammoLeft`
   - RegionalDefense 強資源判斷使用 `StrongHealthMin/StrongAmmoMin`
 - `src/behavior_tree/src/PostureLogic.cpp`
-  - 姿態根據低血、極低血、低彈加權
+  - 姿態根據低血、極低血、低彈加權；普通 Transit 以目標距離和導航速度 ETA 動態保留 Move，目標存在時可用 Attack，短時受擊 burst 用 Defense，Recovery 保持 Move
 
 這些值明顯按「400 血哨兵」設計：300 約等於 75% 血量，250 約等於 62.5% 血量，120 約等於 30% 血量，80 約等於 20% 血量。
 

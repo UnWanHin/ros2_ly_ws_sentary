@@ -324,6 +324,12 @@ TEST(TaskPostureIntentTest, HardDefenseOverridesScoreAndDisablesEarlyRotation) {
     EXPECT_FALSE(request.Policy.AllowEarlyRotate);
 }
 
+TEST(TaskPostureIntentTest, DamageBurstForcesDefenseExceptDuringRecovery) {
+    EXPECT_TRUE(BehaviorTree::ShouldForceDamageBurstDefense(false, true));
+    EXPECT_FALSE(BehaviorTree::ShouldForceDamageBurstDefense(true, true));
+    EXPECT_FALSE(BehaviorTree::ShouldForceDamageBurstDefense(false, false));
+}
+
 TEST(TaskPostureIntentTest, ProtectHeroHoldUsesEnhancedDefenseOnlyWithFreshBudget) {
     BehaviorTree::PostureRuntime runtime;
     runtime.UsingRefereeTimer = true;

@@ -864,6 +864,16 @@ namespace LangYa {
         ps.VeryLowHealthThreshold = j.value("VeryLowHealthThreshold", ps.VeryLowHealthThreshold);
         ps.LowAmmoThreshold = j.value("LowAmmoThreshold", ps.LowAmmoThreshold);
         ps.ScoreHysteresis = j.value("ScoreHysteresis", ps.ScoreHysteresis);
+        ps.DynamicTransitReserveEnable = j.value(
+            "DynamicTransitReserveEnable", ps.DynamicTransitReserveEnable);
+        ps.TransitVelocityFreshMs = j.value("TransitVelocityFreshMs", ps.TransitVelocityFreshMs);
+        ps.TransitNominalSpeedMps = j.value("TransitNominalSpeedMps", ps.TransitNominalSpeedMps);
+        ps.TransitSafetyFactor = j.value("TransitSafetyFactor", ps.TransitSafetyFactor);
+        ps.TransitArrivalBufferSec = j.value("TransitArrivalBufferSec", ps.TransitArrivalBufferSec);
+        ps.TransitMinReserveSec = j.value("TransitMinReserveSec", ps.TransitMinReserveSec);
+        ps.TransitMaxReserveSec = j.value("TransitMaxReserveSec", ps.TransitMaxReserveSec);
+        ps.TransitFallbackReserveSec = j.value(
+            "TransitFallbackReserveSec", ps.TransitFallbackReserveSec);
     }
 
     void from_json(const json& j, NaviGoalAutonomySetting& na) {
@@ -2809,6 +2819,16 @@ namespace BehaviorTree {
         LoggerPtr->Debug("VeryLowHealthThreshold: {}", config.PostureSettings.VeryLowHealthThreshold);
         LoggerPtr->Debug("LowAmmoThreshold: {}", config.PostureSettings.LowAmmoThreshold);
         LoggerPtr->Debug("ScoreHysteresis: {}", config.PostureSettings.ScoreHysteresis);
+        LoggerPtr->Debug(
+            "DynamicTransitReserve(enable/velocity_fresh_ms/nominal_speed/safety_factor/arrival_buffer/min/max/fallback): {}/{}/{}/{}/{}/{}/{}/{}",
+            config.PostureSettings.DynamicTransitReserveEnable,
+            config.PostureSettings.TransitVelocityFreshMs,
+            config.PostureSettings.TransitNominalSpeedMps,
+            config.PostureSettings.TransitSafetyFactor,
+            config.PostureSettings.TransitArrivalBufferSec,
+            config.PostureSettings.TransitMinReserveSec,
+            config.PostureSettings.TransitMaxReserveSec,
+            config.PostureSettings.TransitFallbackReserveSec);
         LoggerPtr->Debug("------ End ------");
         LoggerPtr->Debug("Configuration completed.");
         fireRateClock.reset(config.RateSettings.FireRate);
@@ -3035,6 +3055,51 @@ namespace BehaviorTree {
                 "Invalid Posture.FeedbackFreshMs={}, fallback to 1000.",
                 config.PostureSettings.FeedbackFreshMs);
             config.PostureSettings.FeedbackFreshMs = 1000;
+        }
+        auto& posture = config.PostureSettings;
+        if (posture.TransitVelocityFreshMs <= 0) {
+            LoggerPtr->Warning(
+                "Invalid Posture.TransitVelocityFreshMs={}, fallback to 1500.",
+                posture.TransitVelocityFreshMs);
+            posture.TransitVelocityFreshMs = 1500;
+        }
+        if (!std::isfinite(posture.TransitNominalSpeedMps) || posture.TransitNominalSpeedMps <= 0.05) {
+            LoggerPtr->Warning(
+                "Invalid Posture.TransitNominalSpeedMps={}, fallback to 0.8.",
+                posture.TransitNominalSpeedMps);
+            posture.TransitNominalSpeedMps = 0.8;
+        }
+        if (!std::isfinite(posture.TransitSafetyFactor) || posture.TransitSafetyFactor < 1.0) {
+            LoggerPtr->Warning(
+                "Invalid Posture.TransitSafetyFactor={}, fallback to 1.5.",
+                posture.TransitSafetyFactor);
+            posture.TransitSafetyFactor = 1.5;
+        }
+        if (posture.TransitArrivalBufferSec < 0) {
+            LoggerPtr->Warning(
+                "Invalid Posture.TransitArrivalBufferSec={}, fallback to 8.",
+                posture.TransitArrivalBufferSec);
+            posture.TransitArrivalBufferSec = 8;
+        }
+        if (posture.TransitMinReserveSec < 0) {
+            LoggerPtr->Warning(
+                "Invalid Posture.TransitMinReserveSec={}, fallback to 30.",
+                posture.TransitMinReserveSec);
+            posture.TransitMinReserveSec = 30;
+        }
+        if (posture.TransitMaxReserveSec < posture.TransitMinReserveSec) {
+            LoggerPtr->Warning(
+                "Invalid Posture.TransitMaxReserveSec={} below min={}, using min.",
+                posture.TransitMaxReserveSec,
+                posture.TransitMinReserveSec);
+            posture.TransitMaxReserveSec = posture.TransitMinReserveSec;
+        }
+        if (posture.TransitFallbackReserveSec < posture.TransitMinReserveSec) {
+            LoggerPtr->Warning(
+                "Invalid Posture.TransitFallbackReserveSec={} below min={}, using min.",
+                posture.TransitFallbackReserveSec,
+                posture.TransitMinReserveSec);
+            posture.TransitFallbackReserveSec = posture.TransitMinReserveSec;
         }
         if (config.ExternalAimSettings.ResultFreshTimeoutMs <= 0) {
             LoggerPtr->Warning(
