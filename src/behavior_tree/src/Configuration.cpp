@@ -813,6 +813,8 @@ namespace LangYa {
         }
         cs.UseOfficialPositionSource = j.value("UseOfficialPositionSource", cs.UseOfficialPositionSource);
         cs.PreferOfficialPositionSource = j.value("PreferOfficialPositionSource", cs.PreferOfficialPositionSource);
+        cs.EnableNaviTargetOfficialFallback = j.value(
+            "EnableNaviTargetOfficialFallback", cs.EnableNaviTargetOfficialFallback);
         cs.OfficialPositionFreshMs = j.value("OfficialPositionFreshMs", cs.OfficialPositionFreshMs);
         cs.EnableInAutoAim = j.value("EnableInAutoAim", cs.EnableInAutoAim);
         cs.EnableInRotateScan = j.value("EnableInRotateScan", cs.EnableInRotateScan);
@@ -1601,6 +1603,16 @@ namespace BehaviorTree {
             config.TaskSettings.MapCommand.DedupDistanceCm);
     }
 
+    void Application::ApplyChaseParameterOverrides() {
+        ReadOptionalBoolParam(
+            node_,
+            {
+                "Chase.EnableNaviTargetOfficialFallback",
+                "Chase/EnableNaviTargetOfficialFallback"
+            },
+            config.ChaseSettings.EnableNaviTargetOfficialFallback);
+    }
+
     void Application::ApplyChasePolicyParameterOverrides() {
         auto& setting = config.ChasePolicySettings;
         auto read = [this](const char* key, bool& value) {
@@ -2341,6 +2353,7 @@ namespace BehaviorTree {
         // 一次性反序列化到 Config，后续再做范围校验与默认回退。
         config = j.get<Config>();
         ApplyTaskParameterOverrides();
+        ApplyChaseParameterOverrides();
         ApplyChasePolicyParameterOverrides();
         ApplyAreaManagerParameterOverrides();
         ApplyRegionalAreaTaskScopeOverride(
@@ -2735,6 +2748,9 @@ namespace BehaviorTree {
         LoggerPtr->Debug("Chase.ToNavi: {}", config.ChaseSettings.ToNavi);
         LoggerPtr->Debug("UseOfficialPositionSource: {}", config.ChaseSettings.UseOfficialPositionSource);
         LoggerPtr->Debug("PreferOfficialPositionSource: {}", config.ChaseSettings.PreferOfficialPositionSource);
+        LoggerPtr->Debug(
+            "EnableNaviTargetOfficialFallback: {}",
+            config.ChaseSettings.EnableNaviTargetOfficialFallback);
         LoggerPtr->Debug("OfficialPositionFreshMs: {}", config.ChaseSettings.OfficialPositionFreshMs);
         LoggerPtr->Debug("EnableInAutoAim: {}", config.ChaseSettings.EnableInAutoAim);
         LoggerPtr->Debug("EnableInRotateScan: {}", config.ChaseSettings.EnableInRotateScan);

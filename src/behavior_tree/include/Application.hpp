@@ -1078,6 +1078,7 @@ public:
     // 获取配置文件
     bool ConfigurationInit();
     void ApplyTaskParameterOverrides();
+    void ApplyChaseParameterOverrides();
     void ApplyChasePolicyParameterOverrides();
     void ApplyAreaManagerParameterOverrides();
     void ApplySpecialParameterOverrides();

@@ -398,6 +398,9 @@ def generate_launch_description():
     damage_open_gate_health_drop_threshold = LaunchConfiguration(
         "damage_open_gate_health_drop_threshold"
     )
+    enable_navi_target_official_fallback = LaunchConfiguration(
+        "enable_navi_target_official_fallback"
+    )
     firecode_partial_hold_ms = LaunchConfiguration("firecode_partial_hold_ms")
     velocity_raw_to_mps = LaunchConfiguration("velocity_raw_to_mps")
     team_override_enable = LaunchConfiguration("team_override_enable")
@@ -604,6 +607,11 @@ def generate_launch_description():
             "damage_open_gate_health_drop_threshold",
             default_value="30",
             description="Self-health drop threshold that releases the start gate when enabled.",
+        ),
+        DeclareLaunchArgument(
+            "enable_navi_target_official_fallback",
+            default_value="true",
+            description="Allow camera/TF official enemy positions to enter behavior_tree fallback state.",
         ),
         DeclareLaunchArgument(
             "firecode_partial_hold_ms",
@@ -859,6 +867,10 @@ def generate_launch_description():
             "[sentry_all] damage_open_gate_health_drop_threshold: ",
             damage_open_gate_health_drop_threshold,
         ]),
+        LogInfo(msg=[
+            "[sentry_all] enable_navi_target_official_fallback: ",
+            enable_navi_target_official_fallback,
+        ]),
         LogInfo(msg=["[sentry_all] firecode_partial_hold_ms: ", firecode_partial_hold_ms]),
         LogInfo(msg=["[sentry_all] velocity_raw_to_mps: ", velocity_raw_to_mps]),
         LogInfo(msg=["[sentry_all] team_override_enable: ", team_override_enable]),
@@ -1108,6 +1120,10 @@ def generate_launch_description():
                         damage_open_gate_health_drop_threshold, value_type=int),
                     "DamageOpenGate/HealthDropThreshold": ParameterValue(
                         damage_open_gate_health_drop_threshold, value_type=int),
+                    "Chase.EnableNaviTargetOfficialFallback": ParameterValue(
+                        enable_navi_target_official_fallback, value_type=bool),
+                    "Chase/EnableNaviTargetOfficialFallback": ParameterValue(
+                        enable_navi_target_official_fallback, value_type=bool),
                     "ExternalAim.Enable": True,
                     "ExternalAim/Enable": True,
                     "Task.OutpostConfirm.ManualGoal.Enable": ParameterValue(

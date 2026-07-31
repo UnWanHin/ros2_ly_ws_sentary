@@ -1,6 +1,6 @@
 # BT Aim、追击与坐标链路
 
-Updated: 2026-07-21
+Updated: 2026-07-31
 
 > 范围：正式入口 `./scripts/start.sh gated --mode regional` 中，外部
 > `/ly/aim/armor_targets` 如何变成 BT 的选敌/追击输入、`/goal_pose` 与
@@ -121,6 +121,17 @@ BT 对同一敌方 ID 的位置优先级为：
 当第一项在 `Chase.OfficialPositionFreshMs` 内有效时，BT 忽略第二项；否则才用 fallback，并将
 `/ly/enemy/info.position_source` 标记为 `navi_target_official`。这保证视觉换算不会覆盖更权威、
 更直接的同 ID 官方位置。
+
+正式入口的 `config/common.yaml` 可设置：
+
+```yaml
+chase:
+  enable_navi_target_official_fallback: true
+```
+
+默认 `true` 保持上述 fallback 行为；设为 `false` 时 BT 完全忽略
+`/ly/navi/target_official`，不会用视觉反算坐标更新敌方状态或触发区域防御。bridge 仍然发布该
+topic，便于复盘，且 `/ly/position/data`、外部 aim、`/ly/navi/target_rel` 与 `/goal_pose` 均不受影响。
 
 ## 5. 与固定点、FaceMode 的边界
 

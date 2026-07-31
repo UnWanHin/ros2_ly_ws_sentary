@@ -760,6 +760,7 @@ namespace LangYa
         bool ToNavi{false}; // true: publish /ly/navi/target_rel and let navi own speed control
         bool UseOfficialPositionSource{true}; // true: chase can use /ly/position/data official-map target positions
         bool PreferOfficialPositionSource{false}; // false: AimTargetArray/target_rel is preferred, official position is fallback
+        bool EnableNaviTargetOfficialFallback{true}; // camera/TF official-map position fallback into BT
         int OfficialPositionFreshMs{500};
         bool EnableInAutoAim{true};
         bool EnableInRotateScan{true};

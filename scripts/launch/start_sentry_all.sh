@@ -458,6 +458,7 @@ fi
 add_common_bool_launch_arg "start_gate.allow_gimbal_patrol_before_start" "start_gate_allow_gimbal_patrol_before_start"
 add_common_bool_launch_arg "damage_open_gate.enable" "damage_open_gate_enable"
 add_common_scalar_launch_arg "damage_open_gate.health_drop_threshold" "damage_open_gate_health_drop_threshold"
+add_common_bool_launch_arg "chase.enable_navi_target_official_fallback" "enable_navi_target_official_fallback"
 add_common_bool_launch_arg "team_override.Decide_Team" "team_override_enable"
 add_common_bool_launch_arg "team_override.Red" "team_override_red"
 add_common_bool_launch_arg "team_override.Blue" "team_override_blue"

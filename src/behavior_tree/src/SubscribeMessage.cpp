@@ -3,6 +3,7 @@
 // Keep behavior and interface changes synchronized with related modules.
 
 #include "../include/Application.hpp"
+#include "../include/EnemyPositionSourcePolicy.hpp"
 #include <algorithm>
 #include <limits>
 #include <cmath>
@@ -533,7 +534,9 @@ namespace BehaviorTree{
                 last_rx.time_since_epoch().count() != 0 &&
                 now - last_rx <= std::chrono::milliseconds(
                     std::max(1, app.config.ChaseSettings.OfficialPositionFreshMs));
-            if (has_fresh_position_data) {
+            if (!ShouldAcceptNaviTargetOfficialFallback(
+                    app.config.ChaseSettings,
+                    has_fresh_position_data)) {
                 return;
             }
 

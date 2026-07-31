@@ -403,6 +403,7 @@ void TreeTick() {
   - `ToNavi`：改由 BT 發布導航追擊輸入，導航側負責速度閉環
   - `UseOfficialPositionSource`：允許用 `/ly/position/data` 的敵方官方坐標作追擊源
   - `PreferOfficialPositionSource`：默認 `false`；`/ly/aim/armor_targets` 追擊點優先走 `/ly/navi/target_rel -> /goal_pose`，官方坐標只作退化來源
+  - `EnableNaviTargetOfficialFallback`：默認 `true`；正式入口由 `config/common.yaml` 的 `chase.enable_navi_target_official_fallback` 覆寫。`false` 時不接納相機/TF 反算的 `/ly/navi/target_official` 寫入 BT，仍不影響下位機官方坐標或導航追擊主鏈。
   - `OfficialPositionFreshMs`：敵方/自身官方坐標最大有效時間；超時不使用官方源
   - `PreferredDistanceCm`：與目標保持的最適距離（cm）
   - `DistanceDeadbandCm`：距離死區（cm）
@@ -414,7 +415,7 @@ void TreeTick() {
 `Chase.ToNavi=true` 時現在是多源輸出：
 
 - `/ly/aim/armor_targets` 追擊點有效：使用 `/ly/aim/armor_targets` 中當前選中目標的 point，帶來源 frame（默認 `gimbal_world`）發布 `/ly/navi/target_rel`，由 `navi_tf_bridge` TF 轉 `/goal_pose`；bridge 會按 `Chase.AreaLimit` 和 `ChaseEnableCrossArea` 做大區域限制。
-- 同時，`navi_tf_bridge` 會直接訂閱 `/ly/aim/armor_targets`，把 array 裡每個有效 target point 反算成 `/ly/navi/target_official`；BT 對每個 `armor_type` 做敵方位置 fallback 更新，但新鮮 `/ly/position/data` 仍優先。
+- 同時，`navi_tf_bridge` 會直接訂閱 `/ly/aim/armor_targets`，把 array 裡每個有效 target point 反算成 `/ly/navi/target_official`；當 `chase.enable_navi_target_official_fallback=true` 時，BT 才對每個 `armor_type` 做敵方位置 fallback 更新，且新鮮 `/ly/position/data` 仍優先。
 - `/ly/aim/armor_targets` 追擊點不可用且官方坐標源有效：`targetArmor -> enemyRobots[unit].position_`，結合自身官方坐標按 `PreferredDistanceCm` 留距後，BT 先按同一個 `Chase.AreaLimit` / `ChaseEnableCrossArea` 限制，再發布 `/ly/navi/goal_pos_raw`，由 `navi_tf_bridge` 的 4x4 靜態矩陣轉 `/goal_pose`。
 - `Chase.ToNavi=false` 仍是 BT 內部速度追擊，只使用視覺角度/距離計算 `/ly/gimbal/vel`。
 
