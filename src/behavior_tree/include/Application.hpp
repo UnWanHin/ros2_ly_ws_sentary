@@ -431,6 +431,7 @@ private:
     bool patrolScanCenterInitialized_{false};
     int patrolScanActiveMode_{0}; // 0=无, 1/2=当前扫描模式
     bool patrolScanResumeSmoothing_{false};
+    std::chrono::steady_clock::time_point patrolScanResumeStartedAt_{};
     PassiveGimbalMotion passiveGimbalMotion_{};
     std::atomic<bool> hasReceivedGimbalAngles_{false};
     std::chrono::steady_clock::time_point lastGimbalAnglesRxTime{};

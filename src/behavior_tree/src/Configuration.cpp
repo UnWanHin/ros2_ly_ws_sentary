@@ -544,6 +544,10 @@ namespace LangYa {
                 mode.value("PitchHalfRangeDeg", ps.Mode2PitchHalfRangeDeg);
             ps.Mode2PitchPeriodMs =
                 mode.value("PitchPeriodMs", ps.Mode2PitchPeriodMs);
+            ps.Mode2ResumeYawToleranceDeg =
+                mode.value("ResumeYawToleranceDeg", ps.Mode2ResumeYawToleranceDeg);
+            ps.Mode2ResumeMaxMs =
+                mode.value("ResumeMaxMs", ps.Mode2ResumeMaxMs);
         }
         if (j.contains("Mode3") && j.at("Mode3").is_object()) {
             const auto& mode = j.at("Mode3");
@@ -2098,6 +2102,14 @@ namespace BehaviorTree {
             node_,
             {"PatrolScan.Mode2.PitchPeriodMs", "PatrolScan/Mode2/PitchPeriodMs"},
             setting.Mode2PitchPeriodMs);
+        ReadOptionalDoubleParam(
+            node_,
+            {"PatrolScan.Mode2.ResumeYawToleranceDeg", "PatrolScan/Mode2/ResumeYawToleranceDeg"},
+            setting.Mode2ResumeYawToleranceDeg);
+        ReadOptionalIntParam(
+            node_,
+            {"PatrolScan.Mode2.ResumeMaxMs", "PatrolScan/Mode2/ResumeMaxMs"},
+            setting.Mode2ResumeMaxMs);
 
         ReadOptionalDoubleParam(
             node_,
@@ -2401,14 +2413,16 @@ namespace BehaviorTree {
             config.PatrolScanSettings.Mode1PitchHalfRangeDeg,
             config.PatrolScanSettings.Mode1PitchPeriodMs);
         LoggerPtr->Debug(
-            "Mode2: yaw_step={} yaw_boost_step={} yaw_half_range={} center_drift_per_cycle={} pitch_center={} pitch_half_range={} pitch_period_ms={}",
+            "Mode2: yaw_step={} yaw_boost_step={} yaw_half_range={} center_drift_per_cycle={} pitch_center={} pitch_half_range={} pitch_period_ms={} resume_yaw_tolerance={} resume_max_ms={}",
             config.PatrolScanSettings.Mode2YawStepDegPerTick,
             config.PatrolScanSettings.Mode2YawBoostStepDegPerTick,
             config.PatrolScanSettings.Mode2YawHalfRangeDeg,
             config.PatrolScanSettings.Mode2CenterDriftPerCycleDeg,
             config.PatrolScanSettings.Mode2PitchCenterDeg,
             config.PatrolScanSettings.Mode2PitchHalfRangeDeg,
-            config.PatrolScanSettings.Mode2PitchPeriodMs);
+            config.PatrolScanSettings.Mode2PitchPeriodMs,
+            config.PatrolScanSettings.Mode2ResumeYawToleranceDeg,
+            config.PatrolScanSettings.Mode2ResumeMaxMs);
         LoggerPtr->Debug(
             "Mode3: yaw_step={} pitch_offset={} pitch_half_range={} pitch_period_ms={}",
             config.PatrolScanSettings.Mode3YawStepDegPerTick,
@@ -3790,6 +3804,14 @@ namespace BehaviorTree {
             patrol.Mode2PitchHalfRangeDeg, 13.0, "PatrolScan.Mode2.PitchHalfRangeDeg");
         sanitize_positive_double(
             patrol.Mode2PitchPeriodMs, 500.0, "PatrolScan.Mode2.PitchPeriodMs");
+        sanitize_positive_double(
+            patrol.Mode2ResumeYawToleranceDeg, 1.0, "PatrolScan.Mode2.ResumeYawToleranceDeg");
+        if (patrol.Mode2ResumeMaxMs <= 0) {
+            LoggerPtr->Warning(
+                "Invalid PatrolScan.Mode2.ResumeMaxMs={}, fallback to 800.",
+                patrol.Mode2ResumeMaxMs);
+            patrol.Mode2ResumeMaxMs = 800;
+        }
         sanitize_positive_double(
             patrol.Mode3YawStepDegPerTick, 6.0, "PatrolScan.Mode3.YawStepDegPerTick");
         sanitize_finite_double(

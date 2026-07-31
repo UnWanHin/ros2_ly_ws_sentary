@@ -463,6 +463,8 @@ namespace LangYa
         double Mode2PitchCenterDeg{0.0};
         double Mode2PitchHalfRangeDeg{13.0};
         double Mode2PitchPeriodMs{500.0};
+        double Mode2ResumeYawToleranceDeg{1.0};
+        int Mode2ResumeMaxMs{800};
         double Mode3YawStepDegPerTick{6.0};
         double Mode3PitchOffsetDeg{0.0};
         double Mode3PitchHalfRangeDeg{12.0};

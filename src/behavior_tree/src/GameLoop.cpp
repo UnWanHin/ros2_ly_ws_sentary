@@ -6,6 +6,7 @@
 #include "../include/DamageRotatePolicy.hpp"
 #include "../include/ChasePolicy.hpp"
 #include "../include/ExternalAimTargetPolicy.hpp"
+#include "../module/Mode2PatrolResume.hpp"
 #include "../include/OutpostOpeningHold.hpp"
 #include "../include/TacticalProtectionPolicy.hpp"
 
@@ -1139,6 +1140,15 @@ namespace BehaviorTree {
             patrolScanCenterInitialized_ = false;
             patrolScanActiveMode_ = 0;
             patrolScanResumeSmoothing_ = false;
+            patrolScanResumeStartedAt_ = {};
+        };
+        const auto begin_patrol_scan_resume_smoothing = [this]() {
+            if (patrolScanActiveMode_ == 2 && !patrolScanResumeSmoothing_) {
+                patrolScanResumeSmoothing_ = true;
+                // The two-second post-target hold is intentionally outside the
+                // resume deadline. Start timing only when Mode 2 actually resumes.
+                patrolScanResumeStartedAt_ = {};
+            }
         };
         const auto face_mode_source_name = [](const FaceModeManager::Source source) {
             switch (source) {
@@ -1205,7 +1215,7 @@ namespace BehaviorTree {
         if (face_mode_active) {
             passive_gimbal_motion_active = true;
             // Mode 2 resumes its prior center/phase after a temporary fixed-angle hold.
-            patrolScanResumeSmoothing_ = patrolScanActiveMode_ == 2;
+            begin_patrol_scan_resume_smoothing();
             gimbalControlData.FireCode.AimMode = 0;
             if (face_mode_decision.SuppressFire) {
                 gimbalControlData.FireCode.FireStatus = RecFireCode.FireStatus;
@@ -1214,7 +1224,7 @@ namespace BehaviorTree {
 
         } else if (has_target_for_angles) {
             // Preserve the Mode 2 trajectory while visual aiming temporarily owns the gimbal.
-            patrolScanResumeSmoothing_ = patrolScanActiveMode_ == 2;
+            begin_patrol_scan_resume_smoothing();
             LoggerPtr->Debug(
                 "Aim target active, AimMode={}, fresh={}, held={}",
                 static_cast<int>(aimMode),
@@ -1316,6 +1326,7 @@ namespace BehaviorTree {
                             patrolScanPhaseRad_ = 0.0f;
                             patrolScanDirection_ = 1; // 新一轮巡逻默认先向右
                             patrolScanResumeSmoothing_ = false;
+                            patrolScanResumeStartedAt_ = {};
                         }
 
                         if (!patrolScanResumeSmoothing_) {
@@ -1395,17 +1406,42 @@ namespace BehaviorTree {
                     };
 
                     if (patrol_mode == 2 && patrolScanResumeSmoothing_) {
-                        constexpr float kMode2ResumeYawToleranceDeg = 1.0f;
                         const float yaw_error =
                             normalize_angle_near(next_scan_yaw, gimbalAngles.Yaw) - gimbalAngles.Yaw;
+                        if (patrolScanResumeStartedAt_.time_since_epoch().count() == 0) {
+                            patrolScanResumeStartedAt_ = now;
+                        }
+                        const int resume_elapsed_ms = static_cast<int>(
+                            std::chrono::duration_cast<std::chrono::milliseconds>(
+                                now - patrolScanResumeStartedAt_).count());
+                        const auto resume = EvaluateMode2PatrolResume(
+                            yaw_error,
+                            std::max(0, resume_elapsed_ms),
+                            static_cast<float>(patrol_scan.Mode2ResumeYawToleranceDeg),
+                            patrol_scan.Mode2ResumeMaxMs);
                         passive_gimbal_motion_active = true;
-                        if (std::abs(yaw_error) <= kMode2ResumeYawToleranceDeg) {
+                        if (!resume.ContinueSmoothing) {
                             patrolScanResumeSmoothing_ = false;
-                            LoggerPtr->Info(
-                                "Mode2 patrol resume synchronized: yaw_error={} center={} phase={}",
-                                yaw_error,
-                                patrolScanCenterYaw_,
-                                patrolScanPhaseRad_);
+                            patrolScanResumeStartedAt_ = {};
+                            if (resume.RebaseFromFeedback) {
+                                patrolScanCenterYaw_ = gimbalAngles.Yaw;
+                                patrolScanOffsetYaw_ = 0.0f;
+                                patrolScanPhaseRad_ = 0.0f;
+                                patrolScanDirection_ = 1;
+                                nextAngles.Yaw = gimbalAngles.Yaw;
+                                passive_gimbal_motion_active = false;
+                                LoggerPtr->Info(
+                                    "Mode2 patrol resume timeout -> rebase: yaw_error={} elapsed_ms={} center={}",
+                                    yaw_error,
+                                    resume_elapsed_ms,
+                                    patrolScanCenterYaw_);
+                            } else {
+                                LoggerPtr->Info(
+                                    "Mode2 patrol resume synchronized: yaw_error={} center={} phase={}",
+                                    yaw_error,
+                                    patrolScanCenterYaw_,
+                                    patrolScanPhaseRad_);
+                            }
                         }
                     }
 

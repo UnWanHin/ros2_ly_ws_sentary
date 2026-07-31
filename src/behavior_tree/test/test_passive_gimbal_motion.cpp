@@ -1,4 +1,5 @@
 #include "../module/PassiveGimbalMotion.hpp"
+#include "../module/Mode2PatrolResume.hpp"
 
 #include <gtest/gtest.h>
 
@@ -32,4 +33,21 @@ TEST(PassiveGimbalMotionTest, CapsStalledControlIntervalsToAvoidACommandJump) {
         Angles(0.0f, 0.0f), Angles(180.0f, 0.0f), start + std::chrono::milliseconds(250), 120.0, 60.0);
 
     EXPECT_NEAR(after_stall.Yaw, 3.0f, 0.01f);
+}
+
+TEST(Mode2PatrolResumeTest, RebasesWhenFeedbackCannotReachSavedTrajectoryInTime) {
+    const auto aligned = BehaviorTree::EvaluateMode2PatrolResume(
+        0.5f, 100, 1.0f, 800);
+    EXPECT_FALSE(aligned.ContinueSmoothing);
+    EXPECT_FALSE(aligned.RebaseFromFeedback);
+
+    const auto waiting = BehaviorTree::EvaluateMode2PatrolResume(
+        82.0f, 799, 1.0f, 800);
+    EXPECT_TRUE(waiting.ContinueSmoothing);
+    EXPECT_FALSE(waiting.RebaseFromFeedback);
+
+    const auto timed_out = BehaviorTree::EvaluateMode2PatrolResume(
+        82.0f, 800, 1.0f, 800);
+    EXPECT_FALSE(timed_out.ContinueSmoothing);
+    EXPECT_TRUE(timed_out.RebaseFromFeedback);
 }

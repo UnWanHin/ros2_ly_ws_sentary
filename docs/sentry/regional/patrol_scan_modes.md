@@ -1,6 +1,6 @@
 # Patrol Scan Modes
 
-Updated: 2026-07-29
+Updated: 2026-07-31
 
 本文只說 `behavior_tree` 內部雲台巡邏掃描。它不是 `/ly/vision/mode`，也不是區域導航巡邏；它是在 BT 沒有可用目標角度時，自己計算 `/ly/control/angles` 的 fallback 掃描。
 
@@ -49,6 +49,8 @@ Mode2:
   PitchCenterDeg: 0.0
   PitchHalfRangeDeg: 13.0
   PitchPeriodMs: 500.0
+  ResumeYawToleranceDeg: 1.0
+  ResumeMaxMs: 800
 ```
 
 `80a1e5f merge` 曾把 mode2 改成 `0.3 / 1.5 / 30.0 / -70.0 / 5.0 / 15.0 / 2000.0`；當前已回到 500ms 週期這套。
@@ -67,7 +69,7 @@ Mode2:
 
 如果 `FaceModeFallbackEnable=false`，FaceMode 已被請求但沒有角度時不會進 patrol fallback，而是保持當前雲台角度。
 
-mode2 從 FaceMode、視覺 aim 或目標消失後的 2 秒 hold 恢復時，不會把當前雲台角當成新中心，也不會把 phase 歸零。它會先凍結暫停前、已套用 `CenterDriftPerCycleDeg` 的中心與相對擺動位置，並由 `PassiveMotion` 從當前回授角平滑移到該保存點；yaw 誤差小於 1 度後才繼續推進 phase 與 center drift。正常連續 mode2 不通過 `PassiveMotion`，避免掃描軌跡比限速器快時累積落後。切到 mode1、mode3 或 Buff 則仍會完整重置巡邏狀態。
+mode2 從 FaceMode、視覺 aim 或目標消失後的 2 秒 hold 恢復時，不會把當前雲台角當成新中心，也不會把 phase 歸零。它會先凍結暫停前、已套用 `CenterDriftPerCycleDeg` 的中心與相對擺動位置，並由 `PassiveMotion` 從當前回授角平滑移到該保存點；yaw 誤差小於 `Mode2.ResumeYawToleranceDeg`（默認 1 度）後才繼續推進 phase 與 center drift。若等待達 `Mode2.ResumeMaxMs`（默認 800 ms）仍未對齊，BT 以當前雲台回授 yaw 重設 mode2 中心、phase 與 offset，再恢復正常掃描，避免保存軌跡不可達時永久凍結 yaw。正常連續 mode2 不通過 `PassiveMotion`，避免掃描軌跡比限速器快時累積落後。切到 mode1、mode3 或 Buff 則仍會完整重置巡邏狀態。
 
 當前 `Patrol.yaml` 的任務覆蓋為：
 

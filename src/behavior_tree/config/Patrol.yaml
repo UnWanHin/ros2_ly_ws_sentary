@@ -20,6 +20,8 @@ behavior_tree:
         PitchCenterDeg: 0.0  # 俯仰扫描中心角（度）。
         PitchHalfRangeDeg: 13.0  # 俯仰正弦扫描半幅（度）。
         PitchPeriodMs: 500.0  # 俯仰完整周期（毫秒）。
+        ResumeYawToleranceDeg: 1.0  # 目标/FaceMode 释放后恢复保存轨迹的回授偏航容差（度）。
+        ResumeMaxMs: 800  # 未能回到保存轨迹时的最大等待；超时后以当前回授角重新开始 mode2。
 
       Mode3:
         # 前哨高仰角扫描：Pitch = offset + half_range * sin(t / period)。
