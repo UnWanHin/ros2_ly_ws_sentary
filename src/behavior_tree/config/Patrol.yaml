@@ -15,11 +15,11 @@ behavior_tree:
         # 摆动扫描模式。
         YawStepDegPerTick: 1.0  # 每 tick 的偏航步长（度）。
         YawBoostStepDegPerTick: 1.1  # 加速扫描时每 tick 的偏航步长（度）。
-        YawHalfRangeDeg: 30.0  # 偏航左右摆动半幅（度）。
+        YawHalfRangeDeg: 40.0  # 偏航左右摆动半幅（度）。
         CenterDriftPerCycleDeg: -70.0  # 每轮摆动后中心角漂移（度）。
-        PitchCenterDeg: 0.0  # 俯仰扫描中心角（度）。
-        PitchHalfRangeDeg: 13.0  # 俯仰正弦扫描半幅（度）。
-        PitchPeriodMs: 500.0  # 俯仰完整周期（毫秒）。
+        PitchCenterDeg: 5.0  # 俯仰扫描中心角（度）。
+        PitchHalfRangeDeg: 14.0  # 俯仰正弦扫描半幅（度）。
+        PitchPeriodMs: 700.0  # 俯仰完整周期（毫秒）。
         ResumeYawToleranceDeg: 1.0  # 目标/FaceMode 释放后恢复保存轨迹的回授偏航容差（度）。
         ResumeMaxMs: 800  # 未能回到保存轨迹时的最大等待；超时后以当前回授角重新开始 mode2。
 

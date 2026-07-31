@@ -80,9 +80,9 @@ behavior_tree:
         # 最後一次受擊超過此時間後，回到 DefaultGear。
         NoHitTimeoutMs: 1800
         # 受擊 ramp：先保持 0 檔，再依序進入 1、2、3 檔。
-        Gear0HoldMs: 1000
-        Gear1HoldMs: 1000
-        Gear2HoldMs: 1000
+        Gear0HoldMs: 50
+        Gear1HoldMs: 220
+        Gear2HoldMs: 220
         # 無目標受擊期間的雲台掃描加速與抖掃方向切換。
         ScanBoostWindowMs: 1300
         ScanYawPhaseMs: 160
