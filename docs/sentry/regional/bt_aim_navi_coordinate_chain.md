@@ -50,6 +50,17 @@ flowchart LR
 普通瞄准与最终 fire 走 `/ly/aim/result -> behavior_tree -> /ly/control/*`，其角度/弹道求解由外部
 `sentry.aim` 完成。BT 不把视觉位置重新解成 aim 角度，也不把 `/goal_pose` 回灌为 aim 位置。
 
+### 可见前哨的直接瞄准
+
+`ArmorType::Outpost`（`id=7`）不是普通车体优先级列表的一员。只要
+`/ly/aim/armor_targets` 中有新鲜、有效且未被 `AimTargetIgnore` 排除的 `id=7`，BT 就会选中它并向
+`/ly/aim/select_target` 回传同一份视觉坐标。这条规则在开局 Outpost Task 的 120 秒窗口外仍生效，
+因此 RegionalDefense 切换为 `RotateScan` 不会阻止对已看见前哨的瞄准、跟随和开火。
+
+该规则仅改变云台的 `targetArmor` 选择：不会重启 Outpost Task、不会覆盖 Task/Tactical 的导航 owner，
+也不会单独发布 Chase 的 `/goal_pose`。是否实际 `follow/fire` 仍由外部 `sentry.aim` 在
+`/ly/aim/result` 中按自身有效性与安全门控决定。
+
 ## 3. 授权后的 Chase 到 `/goal_pose`
 
 ```mermaid

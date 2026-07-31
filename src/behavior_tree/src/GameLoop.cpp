@@ -5,6 +5,7 @@
 #include "../include/Application.hpp"
 #include "../include/DamageRotatePolicy.hpp"
 #include "../include/ChasePolicy.hpp"
+#include "../include/ExternalAimTargetPolicy.hpp"
 #include "../include/OutpostOpeningHold.hpp"
 #include "../include/TacticalProtectionPolicy.hpp"
 
@@ -2342,6 +2343,12 @@ namespace BehaviorTree {
             return true;
         };
         if (outpostEngagementDecision_.HoldTarget && set_outpost_target()) {
+            return;
+        }
+        if (ShouldSelectFreshOutpostAimTarget(
+                fresh_external_target(ArmorType::Outpost) != nullptr,
+                is_ignored_armor(ArmorType::Outpost))) {
+            set_outpost_target();
             return;
         }
         if(aimMode == AimMode::Buff) { // 打符，修改为默认值
