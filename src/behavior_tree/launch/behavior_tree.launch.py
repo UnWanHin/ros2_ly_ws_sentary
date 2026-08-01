@@ -57,6 +57,11 @@ def generate_launch_description():
         "config",
         "Special.yaml",
     )
+    default_aim_config_file = os.path.join(
+        behavior_tree_share,
+        "config",
+        "Aim.yaml",
+    )
     default_message_config_file = os.path.join(
         behavior_tree_share,
         "config",
@@ -74,6 +79,7 @@ def generate_launch_description():
     tactical_config_file = LaunchConfiguration("tactical_config_file")
     patrol_config_file = LaunchConfiguration("patrol_config_file")
     special_config_file = LaunchConfiguration("special_config_file")
+    aim_config_file = LaunchConfiguration("aim_config_file")
     message_config_file = LaunchConfiguration("message_config_file")
     debug_bypass_is_start = LaunchConfiguration("debug_bypass_is_start")
     runtime_rearm_start_gate = LaunchConfiguration("runtime_rearm_start_gate")
@@ -140,6 +146,11 @@ def generate_launch_description():
             description="Special strategy layer YAML for behavior_tree.",
         ),
         DeclareLaunchArgument(
+            "aim_config_file",
+            default_value=default_aim_config_file,
+            description="Temporary Aim priority/ignore override YAML for behavior_tree.",
+        ),
+        DeclareLaunchArgument(
             "message_config_file",
             default_value=default_message_config_file,
             description="Read-only sentry custom-info notification YAML.",
@@ -193,6 +204,7 @@ def generate_launch_description():
         LogInfo(msg=["[behavior_tree] tactical_config_file: ", tactical_config_file]),
         LogInfo(msg=["[behavior_tree] patrol_config_file: ", patrol_config_file]),
         LogInfo(msg=["[behavior_tree] special_config_file: ", special_config_file]),
+        LogInfo(msg=["[behavior_tree] aim_config_file: ", aim_config_file]),
         LogInfo(msg=["[behavior_tree] message_config_file: ", message_config_file]),
         LogInfo(msg=["[behavior_tree] debug_bypass_is_start: ", debug_bypass_is_start]),
         LogInfo(msg=["[behavior_tree] runtime_rearm_start_gate: ", runtime_rearm_start_gate]),
@@ -217,6 +229,7 @@ def generate_launch_description():
                 tactical_config_file,
                 patrol_config_file,
                 special_config_file,
+                aim_config_file,
                 {
                     "competition_profile": competition_profile,
                     "bt_config_file": bt_config_file,

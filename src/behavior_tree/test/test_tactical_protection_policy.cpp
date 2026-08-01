@@ -2,6 +2,7 @@
 
 #include <chrono>
 
+#include "Area.hpp"
 #include "TacticalProtectionPolicy.hpp"
 
 namespace {
@@ -77,6 +78,16 @@ TEST(TacticalProtectionPolicy, ProtectOutpostCompleteNeedsAnotherStrictDecreaseT
     EXPECT_EQ(state.Phase, BehaviorTree::ProtectOutpostPhase::Complete);
     EXPECT_TRUE(BehaviorTree::ObserveProtectOutpostHealth(state, 1480, true, now + 32s, 2s, 20));
     EXPECT_EQ(state.Phase, BehaviorTree::ProtectOutpostPhase::Travel);
+}
+
+TEST(TacticalProtectionPolicy, ProtectOutpostUsesOfficialTeamSpecificC3C4Point) {
+    const auto red = BehaviorTree::Area::ProtectOutpost(LangYa::UnitTeam::Red);
+    const auto blue = BehaviorTree::Area::ProtectOutpost(LangYa::UnitTeam::Blue);
+
+    EXPECT_EQ(1011U, red.x);
+    EXPECT_EQ(429U, red.y);
+    EXPECT_EQ(1789U, blue.x);
+    EXPECT_EQ(1071U, blue.y);
 }
 
 TEST(TacticalProtectionPolicy, ProtectOutpostFreshDamageWhileHoldingRestartsSearchHold) {

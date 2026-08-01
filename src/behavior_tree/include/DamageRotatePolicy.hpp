@@ -7,10 +7,60 @@
 
 namespace BehaviorTree {
 
+enum class RotateSuppressionSource : std::uint8_t {
+    None = 0,
+    StopRotate,
+    HighlandCompatibility,
+    NavigationShouldRotateFalse,
+    FollowMode,
+};
+
+inline constexpr const char* RotateSuppressionSourceToString(
+    const RotateSuppressionSource source) noexcept {
+    switch (source) {
+        case RotateSuppressionSource::StopRotate: return "stop_rotate";
+        case RotateSuppressionSource::HighlandCompatibility: return "highland_compatibility";
+        case RotateSuppressionSource::NavigationShouldRotateFalse:
+            return "navi_should_rotate_false";
+        case RotateSuppressionSource::FollowMode: return "follow_mode";
+        case RotateSuppressionSource::None: return "none";
+    }
+    return "unknown";
+}
+
+struct RotateResolution {
+    std::uint8_t Gear{0};
+    RotateSuppressionSource SuppressedBy{RotateSuppressionSource::None};
+};
+
+// The order mirrors the final firecode arbitration in PublishTogether().
+// Castle/ProtectCastle is intentionally not an input: arriving there does not
+// suppress damage rotation. Only an explicit control source may do so.
+inline RotateResolution ResolveFinalRotateGear(
+    const std::uint8_t requested_gear,
+    const bool stop_rotate,
+    const bool highland_compat_disable,
+    const bool navigation_should_rotate_false,
+    const bool follow_mode) noexcept {
+    if (stop_rotate) {
+        return {0U, RotateSuppressionSource::StopRotate};
+    }
+    if (highland_compat_disable) {
+        return {0U, RotateSuppressionSource::HighlandCompatibility};
+    }
+    if (navigation_should_rotate_false) {
+        return {0U, RotateSuppressionSource::NavigationShouldRotateFalse};
+    }
+    if (follow_mode) {
+        return {0U, RotateSuppressionSource::FollowMode};
+    }
+    return {requested_gear, RotateSuppressionSource::None};
+}
+
 inline std::uint8_t ResolveRotateGearWithFollowPriority(
     const std::uint8_t rotate_gear,
     const bool follow_mode) noexcept {
-    return follow_mode ? 0U : rotate_gear;
+    return ResolveFinalRotateGear(rotate_gear, false, false, false, follow_mode).Gear;
 }
 
 inline std::uint8_t ResolveDamageRotateGear(

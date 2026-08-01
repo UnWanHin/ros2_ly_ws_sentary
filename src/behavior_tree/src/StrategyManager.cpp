@@ -288,8 +288,9 @@ bool StrategyManager::RunTactical(Application& app) {
     enum class TacticalPriorityAction : std::uint8_t {
         ProtectCastle = 0,
         ProtectOutpost = 1,
-        ProtectHero = 2,
-        Chase = 3,
+        CommonCentral = 2,
+        ProtectHero = 3,
+        Chase = 4,
     };
     struct TacticalPriorityCandidate {
         TacticalPriorityAction Action;
@@ -297,11 +298,12 @@ bool StrategyManager::RunTactical(Application& app) {
         int TieBreak;
     };
     const auto& priority = app.config.TacticalSettings.Priority;
-    std::array<TacticalPriorityCandidate, 4> candidates{{
+    std::array<TacticalPriorityCandidate, 5> candidates{{
         {TacticalPriorityAction::ProtectCastle, priority.ProtectCastle, 0},
         {TacticalPriorityAction::ProtectOutpost, priority.ProtectOutpost, 1},
-        {TacticalPriorityAction::ProtectHero, priority.ProtectHero, 2},
-        {TacticalPriorityAction::Chase, priority.Chase, 3},
+        {TacticalPriorityAction::CommonCentral, priority.CommonCentral, 2},
+        {TacticalPriorityAction::ProtectHero, priority.ProtectHero, 3},
+        {TacticalPriorityAction::Chase, priority.Chase, 4},
     }};
     std::stable_sort(
         candidates.begin(),
@@ -321,6 +323,12 @@ bool StrategyManager::RunTactical(Application& app) {
                 break;
             case TacticalPriorityAction::ProtectOutpost:
                 selected = app.TrySetProtectOutpostGoal(my_team, enemy_team);
+                break;
+            case TacticalPriorityAction::CommonCentral:
+                selected = app.TrySetRegionalDefenseGoal(
+                    my_team,
+                    enemy_team,
+                    RegionalDefenseSelection::CommonCentral);
                 break;
             case TacticalPriorityAction::ProtectHero:
                 selected = app.TrySetProtectHeroGoal(my_team, enemy_team);

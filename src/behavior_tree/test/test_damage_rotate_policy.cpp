@@ -35,4 +35,30 @@ TEST(DamageRotatePolicy, FollowModeOverridesDamageRotate) {
     EXPECT_EQ(BehaviorTree::ResolveRotateGearWithFollowPriority(3U, false), 3U);
 }
 
+TEST(DamageRotatePolicy, CastleDoesNotImplicitlySuppressDamageRotation) {
+    const auto resolution = BehaviorTree::ResolveFinalRotateGear(3U, false, false, false, false);
+
+    EXPECT_EQ(resolution.Gear, 3U);
+    EXPECT_EQ(resolution.SuppressedBy, BehaviorTree::RotateSuppressionSource::None);
+}
+
+TEST(DamageRotatePolicy, ExplicitNavigationSuppressionIsReported) {
+    const auto resolution = BehaviorTree::ResolveFinalRotateGear(3U, false, false, true, false);
+
+    EXPECT_EQ(resolution.Gear, 0U);
+    EXPECT_EQ(
+        resolution.SuppressedBy,
+        BehaviorTree::RotateSuppressionSource::NavigationShouldRotateFalse);
+    EXPECT_STREQ(
+        BehaviorTree::RotateSuppressionSourceToString(resolution.SuppressedBy),
+        "navi_should_rotate_false");
+}
+
+TEST(DamageRotatePolicy, DebugStopHasPriorityOverAllOtherSources) {
+    const auto resolution = BehaviorTree::ResolveFinalRotateGear(3U, true, false, false, true);
+
+    EXPECT_EQ(resolution.Gear, 0U);
+    EXPECT_EQ(resolution.SuppressedBy, BehaviorTree::RotateSuppressionSource::StopRotate);
+}
+
 }  // namespace

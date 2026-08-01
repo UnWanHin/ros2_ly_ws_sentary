@@ -90,13 +90,17 @@ struct PostureFeedback {
 enum class PostureRequestPriority : std::uint8_t {
     Scored = 0,
     Required = 1,
-    Safety = 2,
+    Task = 2,
+    Safety = 3,
+    Recovery = 4,
 };
 
 inline constexpr const char* PostureRequestPriorityToString(
     const PostureRequestPriority priority) noexcept {
     switch (priority) {
         case PostureRequestPriority::Safety: return "safety";
+        case PostureRequestPriority::Recovery: return "recovery";
+        case PostureRequestPriority::Task: return "task";
         case PostureRequestPriority::Required: return "required";
         case PostureRequestPriority::Scored: return "scored";
     }
@@ -111,7 +115,7 @@ struct PostureRequestPolicy {
     const char* Source{"scored"};
 
     static constexpr PostureRequestPolicy OutpostLock() noexcept {
-        return {false, true, false, PostureRequestPriority::Required, "outpost_lock"};
+        return {false, true, false, PostureRequestPriority::Task, "outpost_lock"};
     }
 
     static constexpr PostureRequestPolicy RequiredPosture() noexcept {
@@ -123,11 +127,11 @@ struct PostureRequestPolicy {
     }
 
     static constexpr PostureRequestPolicy EnhancedDefenseHold() noexcept {
-        return {false, true, false, PostureRequestPriority::Required, "enhanced_defense_hold"};
+        return {false, true, false, PostureRequestPriority::Task, "enhanced_defense_hold"};
     }
 
     static constexpr PostureRequestPolicy RecoveryMove() noexcept {
-        return {false, true, false, PostureRequestPriority::Safety, "recovery_move"};
+        return {false, true, false, PostureRequestPriority::Recovery, "recovery_move"};
     }
 };
 
@@ -200,8 +204,13 @@ inline constexpr TaskPostureIntent ResolveProtectHeroHoldIntent(
 
 inline constexpr bool ShouldForceDamageBurstDefense(
     const bool recovery_goal,
-    const bool damage_burst) noexcept {
-    return damage_burst && !recovery_goal;
+    const bool damage_burst,
+    const TaskPostureIntent current_intent = TaskPostureIntent::None,
+    const bool enhanced_requested = false) noexcept {
+    // ProtectHero's enhanced-defense intent has already passed the same
+    // damage-burst gate. Do not downgrade it to ordinary Defense here.
+    return damage_burst && !recovery_goal && !enhanced_requested &&
+        current_intent != TaskPostureIntent::ProtectHeroEnhancedDefense;
 }
 
 struct TaskPostureIntentState {

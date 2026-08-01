@@ -3,6 +3,7 @@
 // Keep behavior and interface changes synchronized with related modules.
 
 #include "../include/Application.hpp"
+#include "../include/AimConfigPolicy.hpp"
 #include "../include/DamageRotatePolicy.hpp"
 #include "../include/RegionalAreaScope.hpp"
 #include "../include/TacticalProtectionPolicy.hpp"
@@ -12,6 +13,7 @@
 #include <cmath>
 #include <filesystem>
 #include <initializer_list>
+#include <limits>
 #include <utility>
 
 namespace {
@@ -135,6 +137,38 @@ bool ReadOptionalBoolParam(
                 return true;
             }
         }
+    }
+    return false;
+}
+
+bool ReadOptionalIntVectorParam(
+    const std::shared_ptr<rclcpp::Node>& node,
+    std::initializer_list<const char*> names,
+    std::vector<int>& value) {
+    if (!node) {
+        return false;
+    }
+    for (const auto* name : names) {
+        if (!node->has_parameter(name)) {
+            continue;
+        }
+        rclcpp::Parameter param;
+        if (!node->get_parameter(name, param) ||
+            param.get_type() != rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY) {
+            continue;
+        }
+        const auto raw = param.as_integer_array();
+        std::vector<int> parsed;
+        parsed.reserve(raw.size());
+        for (const auto item : raw) {
+            if (item < std::numeric_limits<int>::min() ||
+                item > std::numeric_limits<int>::max()) {
+                return false;
+            }
+            parsed.push_back(static_cast<int>(item));
+        }
+        value = std::move(parsed);
+        return true;
     }
     return false;
 }
@@ -1806,6 +1840,16 @@ namespace BehaviorTree {
 
     void Application::ApplyTacticalParameterOverrides() {
         auto& tactical = config.TacticalSettings;
+        ReadOptionalBoolParam(
+            node_,
+            {"Tactical.RegionalDefense.CommonCentral.Enable",
+             "Tactical/RegionalDefense/CommonCentral/Enable"},
+            tactical.RegionalDefense.CommonCentral.Enable);
+        ReadOptionalIntParam(
+            node_,
+            {"Tactical.RegionalDefense.CommonCentral.HoldSec",
+             "Tactical/RegionalDefense/CommonCentral/HoldSec"},
+            tactical.RegionalDefense.CommonCentral.HoldSec);
         auto& setting = tactical.DamageRotate;
         int default_gear = setting.DefaultGear;
         if (ReadOptionalIntParam(
@@ -1909,6 +1953,7 @@ namespace BehaviorTree {
         auto& priority = tactical.Priority;
         ReadOptionalIntParam(node_, {"Tactical.Priority.ProtectCastle", "Tactical/Priority/ProtectCastle"}, priority.ProtectCastle);
         ReadOptionalIntParam(node_, {"Tactical.Priority.ProtectOutpost", "Tactical/Priority/ProtectOutpost"}, priority.ProtectOutpost);
+        ReadOptionalIntParam(node_, {"Tactical.Priority.CommonCentral", "Tactical/Priority/CommonCentral"}, priority.CommonCentral);
         ReadOptionalIntParam(node_, {"Tactical.Priority.ProtectHero", "Tactical/Priority/ProtectHero"}, priority.ProtectHero);
         ReadOptionalIntParam(node_, {"Tactical.Priority.Chase", "Tactical/Priority/Chase"}, priority.Chase);
 
@@ -1963,6 +2008,7 @@ namespace BehaviorTree {
             protect_outpost.UnreachableCooldownSec);
         priority.ProtectCastle = std::max(0, priority.ProtectCastle);
         priority.ProtectOutpost = std::max(0, priority.ProtectOutpost);
+        priority.CommonCentral = std::max(0, priority.CommonCentral);
         priority.ProtectHero = std::max(0, priority.ProtectHero);
         priority.Chase = std::max(0, priority.Chase);
         enhanced_posture.ContradictionGraceMs = std::max(0, enhanced_posture.ContradictionGraceMs);
@@ -2299,6 +2345,52 @@ namespace BehaviorTree {
             setting.PublishSelectTarget);
     }
 
+    void Application::ApplyAimParameterOverrides() {
+        bool enabled = false;
+        const bool enable_provided = ReadOptionalBoolParam(
+            node_,
+            {
+                "Aim.Override.Enable",
+                "Aim/Override/Enable"
+            },
+            enabled);
+
+        AimConfigOverride override_config;
+        override_config.Enabled = enable_provided && enabled;
+        std::vector<int> target_priority;
+        std::vector<int> target_ignore;
+        if (override_config.Enabled) {
+            if (ReadOptionalIntVectorParam(
+                    node_,
+                    {
+                        "Aim.Override.TargetPriority",
+                        "Aim/Override/TargetPriority"
+                    },
+                    target_priority)) {
+                override_config.TargetPriority = std::move(target_priority);
+            }
+            if (ReadOptionalIntVectorParam(
+                    node_,
+                    {
+                        "Aim.Override.TargetIgnore",
+                        "Aim/Override/TargetIgnore"
+                    },
+                    target_ignore)) {
+                override_config.TargetIgnore = std::move(target_ignore);
+            }
+        }
+
+        ApplyAimConfigOverride(
+            config.AimTargetPriority,
+            config.AimTargetIgnore,
+            override_config);
+        LoggerPtr->Debug(
+            "Aim temporary override: enabled={} priority_provided={} ignore_provided={}",
+            override_config.Enabled,
+            override_config.TargetPriority.has_value(),
+            override_config.TargetIgnore.has_value());
+    }
+
     void Application::ApplyAreaManagerParameterOverrides() {
         ReadOptionalBoolParam(
             node_,
@@ -2392,6 +2484,7 @@ namespace BehaviorTree {
         ApplyLegacyFaceModePatrolOverrides(patrol_scan, face_mode);
         MirrorPatrolScanTaskOverridesToFaceMode(patrol_scan, face_mode);
         ApplyExternalAimParameterOverrides();
+        ApplyAimParameterOverrides();
         LoggerPtr->Debug("SwitchPoint: {}", config.SwitchPoint);
         LoggerPtr->Debug("------ AimDebug ------");
         LoggerPtr->Debug("StopFire: {}", config.AimDebugSettings.StopFire);
@@ -2538,6 +2631,12 @@ namespace BehaviorTree {
         LoggerPtr->Debug("StopRotateWhenFalse: {}", config.NaviControlSettings.StopRotateWhenFalse);
         LoggerPtr->Debug("SetPostureToMoveWhenFalse: {}", config.NaviControlSettings.SetPostureToMoveWhenFalse);
         LoggerPtr->Debug("------ Tactical ------");
+        LoggerPtr->Debug(
+            "RegionalDefense.CommonCentral.Enable: {}",
+            config.TacticalSettings.RegionalDefense.CommonCentral.Enable);
+        LoggerPtr->Debug(
+            "RegionalDefense.CommonCentral.HoldSec: {}",
+            config.TacticalSettings.RegionalDefense.CommonCentral.HoldSec);
         LoggerPtr->Debug(
             "EnhancedPosture: contradiction_grace_ms={} recovery_move.enable={} recovery_move.health_threshold_hp={} recovery_move.respawn_suppress_sec={}",
             config.TacticalSettings.EnhancedPosture.ContradictionGraceMs,

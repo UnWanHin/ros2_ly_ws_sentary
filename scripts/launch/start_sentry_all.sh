@@ -21,6 +21,7 @@ DEFAULT_NAVI_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/Navi.yaml"
 DEFAULT_TACTICAL_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/Tactical.yaml"
 DEFAULT_PATROL_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/Patrol.yaml"
 DEFAULT_SPECIAL_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/Special.yaml"
+DEFAULT_AIM_CONFIG_FILE="${ROOT_DIR}/src/behavior_tree/config/Aim.yaml"
 DEFAULT_COMMON_CONFIG_FILE="${ROOT_DIR}/config/common.yaml"
 
 STACK_LAUNCH_REGEX="ros2 launch behavior_tree sentry_all.launch.py"
@@ -428,6 +429,13 @@ if ! has_launch_arg_key "special_config_file"; then
   echo "[INFO] default special_config_file=${DEFAULT_SPECIAL_CONFIG_FILE}"
 else
   for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == special_config_file:=* ]] && echo "[INFO] override special_config_file=${arg#special_config_file:=}"; done
+fi
+
+if ! has_launch_arg_key "aim_config_file"; then
+  LAUNCH_ARGS=("aim_config_file:=${DEFAULT_AIM_CONFIG_FILE}" "${LAUNCH_ARGS[@]}")
+  echo "[INFO] default aim_config_file=${DEFAULT_AIM_CONFIG_FILE}"
+else
+  for arg in "${LAUNCH_ARGS[@]}"; do [[ "${arg}" == aim_config_file:=* ]] && echo "[INFO] override aim_config_file=${arg#aim_config_file:=}"; done
 fi
 
 if ! has_launch_arg_key "config_file"; then

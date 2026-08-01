@@ -148,7 +148,13 @@ def test_catalog_captures_existing_structure_and_goal_positions() -> None:
     assert castle.key == "castle"
     assert castle.position_for_field_side("red") == (666.0, 749.0)
     assert castle.position_for_field_side("blue") == (2132.0, 749.0)
-    assert len(catalog.goals) == 28
+    assert len(catalog.goals) == 31
+    assert catalog.goal_by_id(26).label == "CentralLeft.A"
+    assert catalog.goal_by_id(27).label == "CentralLeft.B"
+    assert catalog.goal_by_id(29).position_for_field_side("red") == (1000.0, 1007.0)
+    assert catalog.goal_by_id(29).position_for_field_side("blue") == (1800.0, 493.0)
+    assert catalog.goal_by_id(30).position_for_field_side("red") == (989.0, 496.0)
+    assert catalog.goal_by_id(30).position_for_field_side("blue") == (1811.0, 1004.0)
 
 
 def test_catalog_models_are_immutable() -> None:

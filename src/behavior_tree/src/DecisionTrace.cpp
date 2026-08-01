@@ -101,6 +101,9 @@ const char* GoalName(const int base_goal_id) noexcept {
         case LangYa::PreRoadland.ID: return "PreRoadland";
         case LangYa::CentralLeftA.ID: return "CentralLeft.A";
         case LangYa::CentralLeftB.ID: return "CentralLeft.B";
+        case LangYa::ProtectOutpost.ID: return "ProtectOutpost";
+        case LangYa::CentralHigh.ID: return "CentralHigh";
+        case LangYa::CentralLow.ID: return "CentralLow";
         default: return "Unknown";
     }
 }
@@ -672,6 +675,7 @@ void Application::WriteDecisionTrace(const std::string_view event) noexcept {
         {"available", true},
         {"protect_castle", {
             {"enabled", tactical_settings.ProtectCastle.Enable},
+            {"priority", tactical_settings.Priority.ProtectCastle},
             {"base_enabled", tactical_settings.ProtectCastle.Base},
             {"base_damage_active", protect_castle_base_damage_active},
             {"base_hp_fresh", self_base_hp_fresh},
@@ -742,6 +746,9 @@ void Application::WriteDecisionTrace(const std::string_view event) noexcept {
         {"regional_defense", {
             {"threat_active", tactical_regional_threat.has_value()},
             {"search_kind", RegionalDefenseSearchKindToString(regionalDefenseSearchKind_)},
+            {"common_central_enabled", tactical_settings.RegionalDefense.CommonCentral.Enable},
+            {"common_central_hold_sec", tactical_settings.RegionalDefense.CommonCentral.HoldSec},
+            {"common_central_priority", tactical_settings.Priority.CommonCentral},
             {"fortress_enemy_count", fortressGainPointEnemyCount_},
             {"own_base_enemy_count", tactical_own_base_enemy_count},
         }},

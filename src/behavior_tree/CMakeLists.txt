@@ -275,6 +275,10 @@ if(BUILD_TESTING)
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
   )
   ament_target_dependencies(test_aim_source gimbal_driver)
+  ament_add_gtest(test_aim_config_policy test/test_aim_config_policy.cpp)
+  target_include_directories(test_aim_config_policy PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  )
   ament_add_gtest(test_enemy_position_source_policy
     test/test_enemy_position_source_policy.cpp
   )
@@ -325,6 +329,12 @@ if(BUILD_TESTING)
   target_include_directories(test_tactical_protection_policy PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/module>
+  )
+  ament_add_gtest(test_regional_defense_search_policy
+    test/test_regional_defense_search_policy.cpp
+  )
+  target_include_directories(test_regional_defense_search_policy PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   )
   ament_add_gtest(test_decision_explain test/test_decision_explain.cpp)
   target_include_directories(test_decision_explain PRIVATE

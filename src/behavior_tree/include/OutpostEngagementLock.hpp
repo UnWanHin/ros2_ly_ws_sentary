@@ -66,7 +66,9 @@ private:
     bool have_enemy_hp_{false};
     std::uint16_t last_enemy_hp_{0};
     bool enhanced_armed_{false};
-    bool enhanced_attempted_{false};
+    // Set only after the posture manager has accepted an enhanced request
+    // (the request is visible as pending/active on the next tick).
+    bool enhanced_request_accepted_{false};
     bool enhanced_unavailable_{false};
 
     OutpostEngagementDecision Exit(OutpostEngagementExitReason reason) noexcept;

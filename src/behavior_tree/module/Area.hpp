@@ -942,6 +942,10 @@ namespace Area {
     // Official C3/C4 positions used for own-outpost emergency defense.
     static const Location<std::uint16_t> ProtectOutpost{ {1011, 429}, {1789, 1071} };
     static const Location<std::uint16_t> PreRoadland{ {457, 72}, {2343, 1428} };
+    // CommonCentral tactical search points. The pair is team-relative:
+    // red CentralHigh aligns with blue CentralLow, and vice versa.
+    static const Location<std::uint16_t> CentralHigh{ {1000, 1007}, {1800, 493} };
+    static const Location<std::uint16_t> CentralLow{ {989, 496}, {1811, 1004} };
     static const Line<std::uint16_t> CentralLeft{
         Location<std::uint16_t>{
             {static_cast<std::uint16_t>(RedCentralLeftLinePoints[0].x),

@@ -302,6 +302,11 @@ enum class RegionalDefenseSearchKind : std::uint8_t {
     OwnFortressGainPoint = 7
 };
 
+enum class RegionalDefenseSelection : std::uint8_t {
+    ProtectCastle = 0,
+    CommonCentral = 1,
+};
+
 inline constexpr const char* RegionalDefenseSearchKindToString(
     const RegionalDefenseSearchKind kind) noexcept {
     switch (kind) {
@@ -661,6 +666,8 @@ private:
     std::size_t regionalDefenseSearchIndex_{0};
     std::uint8_t regionalDefenseSearchBaseGoal_{LangYa::Home.ID};
     std::chrono::steady_clock::time_point regionalDefenseSearchStartTime_{};
+    std::chrono::steady_clock::time_point regionalDefenseSearchArrivedTime_{};
+    int regionalDefenseSearchDirection_{1};
     int fortressGainPointEnemyCount_{0};
     std::chrono::steady_clock::time_point fortressGainPointNoContactSince_{};
     std::chrono::steady_clock::time_point fortressGainPointDegradedUntil_{};
@@ -1005,7 +1012,14 @@ public:
     std::optional<RegionalDefenseThreat> EvaluateRegionalDefenseThreat(
         UnitTeam my_team,
         UnitTeam enemy_team) const;
-    bool TrySetRegionalDefenseGoal(UnitTeam my_team, UnitTeam enemy_team);
+    bool TrySetRegionalDefenseGoal(
+        UnitTeam my_team,
+        UnitTeam enemy_team,
+        RegionalDefenseSelection selection = RegionalDefenseSelection::ProtectCastle);
+    bool TryAdvanceRegionalDefenseCommonCentralSearch(
+        const NaviProgressWatchdogDecision& decision,
+        UnitTeam my_team,
+        std::chrono::steady_clock::time_point now);
     void UpdateProtectOutpostState(std::chrono::steady_clock::time_point now);
     bool TrySetProtectOutpostGoal(UnitTeam my_team, UnitTeam enemy_team);
     bool TrySetProtectHeroGoal(UnitTeam my_team, UnitTeam enemy_team);
@@ -1093,6 +1107,7 @@ public:
     void ApplyPatrolScanParameterOverrides();
     void ApplyFaceModeParameterOverrides();
     void ApplyExternalAimParameterOverrides();
+    void ApplyAimParameterOverrides();
     bool InitDecisionTrace();
     void WriteDecisionTrace(std::string_view event) noexcept;
     void CloseDecisionTrace();

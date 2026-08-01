@@ -367,6 +367,7 @@ def generate_launch_description():
     default_tactical_config_file = os.path.join(behavior_tree_config_root, "Tactical.yaml")
     default_patrol_config_file = os.path.join(behavior_tree_config_root, "Patrol.yaml")
     default_special_config_file = os.path.join(behavior_tree_config_root, "Special.yaml")
+    default_aim_config_file = os.path.join(behavior_tree_config_root, "Aim.yaml")
     default_message_config_file = os.path.join(behavior_tree_config_root, "Message.yaml")
 
     mode = LaunchConfiguration("mode")
@@ -378,6 +379,7 @@ def generate_launch_description():
     tactical_config_file = LaunchConfiguration("tactical_config_file")
     patrol_config_file = LaunchConfiguration("patrol_config_file")
     special_config_file = LaunchConfiguration("special_config_file")
+    aim_config_file = LaunchConfiguration("aim_config_file")
     message_config_file = LaunchConfiguration("message_config_file")
     base_config_file = LaunchConfiguration("base_config_file")
     gimbal_driver_config_file = LaunchConfiguration("gimbal_driver_config_file")
@@ -537,6 +539,11 @@ def generate_launch_description():
             "special_config_file",
             default_value=default_special_config_file,
             description="Special strategy layer YAML for behavior_tree.",
+        ),
+        DeclareLaunchArgument(
+            "aim_config_file",
+            default_value=default_aim_config_file,
+            description="Temporary Aim priority/ignore override YAML for behavior_tree.",
         ),
         DeclareLaunchArgument(
             "message_config_file",
@@ -838,6 +845,7 @@ def generate_launch_description():
         LogInfo(msg=["[sentry_all] tactical_config: ", tactical_config_file]),
         LogInfo(msg=["[sentry_all] patrol_config: ", patrol_config_file]),
         LogInfo(msg=["[sentry_all] special_config: ", special_config_file]),
+        LogInfo(msg=["[sentry_all] aim_config: ", aim_config_file]),
         LogInfo(msg=["[sentry_all] message_config: ", message_config_file]),
         LogInfo(msg=["[sentry_all] output: ", output]),
         LogInfo(msg=["[sentry_all] offline: ", offline]),
@@ -1099,6 +1107,7 @@ def generate_launch_description():
                 tactical_config_file,
                 patrol_config_file,
                 special_config_file,
+                aim_config_file,
                 {
                     "competition_profile": resolved_competition_profile,
                     "bt_config_file": resolved_bt_config_file,

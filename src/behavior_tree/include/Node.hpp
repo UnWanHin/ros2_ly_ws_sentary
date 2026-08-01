@@ -976,6 +976,8 @@ namespace BT {
         if (str == "PreRoadland") return LangYa::PreRoadland;
         if (str == "CentralLeft.A" || str == "CentralLeftA") return LangYa::CentralLeftA;
         if (str == "CentralLeft.B" || str == "CentralLeftB") return LangYa::CentralLeftB;
+        if (str == "CentralHigh") return LangYa::CentralHigh;
+        if (str == "CentralLow") return LangYa::CentralLow;
         return LangYa::Home; // 默認返回 Home
     }
 

@@ -62,6 +62,31 @@ TEST(OutpostEngagementLockTest, FreshHpDropArmsExactlyOneEnhancedAttack) {
     EXPECT_FALSE(active.Intent.has_value());
 }
 
+TEST(OutpostEngagementLockTest, HpDropStaysArmedWhileLowerPriorityTransitIsPending) {
+    BehaviorTree::OutpostEngagementLock lock;
+    const auto now = BehaviorTree::OutpostEngagementLock::TimePoint{};
+    auto input = HealthyOutpostInput();
+    input.Posture.Current = {BehaviorTree::SentryPosture::Attack, false};
+    input.Posture.HasPending = true;
+    input.Posture.Pending = {BehaviorTree::SentryPosture::Move, false};
+
+    lock.Tick(now, input);
+    input.EnemyHp = 999;
+    const auto blocked = lock.Tick(now + std::chrono::milliseconds(1), input);
+
+    EXPECT_TRUE(blocked.Active);
+    EXPECT_TRUE(blocked.EnhancedArmed);
+    EXPECT_FALSE(blocked.EnhancedUnavailable);
+    EXPECT_FALSE(blocked.Intent.has_value());
+
+    input.Posture.HasPending = false;
+    input.Posture.Current = {BehaviorTree::SentryPosture::Attack, false};
+    const auto retried = lock.Tick(now + std::chrono::milliseconds(2), input);
+
+    ASSERT_TRUE(retried.Intent.has_value());
+    EXPECT_EQ(4U, BehaviorTree::ToPostureCommandValue(*retried.Intent));
+}
+
 TEST(OutpostEngagementLockTest, LockThresholdsAre200And250) {
     const auto now = BehaviorTree::OutpostEngagementLock::TimePoint{};
 

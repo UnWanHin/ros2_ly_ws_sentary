@@ -171,3 +171,6 @@ goals:
   - {id: 25, key: pre_roadland, label: PreRoadland, category: patrol, marker_style: route, positions_cm: {red: [457, 72], blue: [2343, 1428]}}
   - {id: 26, key: central_left_a, label: CentralLeft.A, category: central, marker_style: route, positions_cm: {red: [1205, 1260], blue: [1595, 240]}}
   - {id: 27, key: central_left_b, label: CentralLeft.B, category: central, marker_style: route, positions_cm: {red: [1026, 1006], blue: [1774, 494]}}
+  - {id: 28, key: protect_outpost, label: ProtectOutpost, category: outpost, marker_style: objective, positions_cm: {red: [1011, 429], blue: [1789, 1071]}}
+  - {id: 29, key: central_high, label: CentralHigh, category: central, marker_style: route, positions_cm: {red: [1000, 1007], blue: [1800, 493]}}
+  - {id: 30, key: central_low, label: CentralLow, category: central, marker_style: route, positions_cm: {red: [989, 496], blue: [1811, 1004]}}

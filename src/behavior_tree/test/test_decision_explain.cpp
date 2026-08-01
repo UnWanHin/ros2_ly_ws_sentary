@@ -69,8 +69,9 @@ TEST(DecisionExplain, FormatsEffectiveAreaAndTacticalSettings) {
         .ProtectHeroGoalBaseId = 8,
         .ProtectCastlePriority = 1,
         .ProtectOutpostPriority = 2,
-        .ProtectHeroPriority = 3,
-        .ChasePriority = 4,
+        .CommonCentralPriority = 3,
+        .ProtectHeroPriority = 4,
+        .ChasePriority = 5,
         .DamageRotateDefaultGear = 0,
         .DamageRotateNoHitTimeoutMs = 1800,
         .DamageRotateGear0HoldMs = 220,
@@ -99,8 +100,9 @@ TEST(DecisionExplain, FormatsEffectiveAreaAndTacticalSettings) {
     EXPECT_NE(lines[1].find("hero_goal_base_id=8"), std::string::npos);
     EXPECT_NE(lines[1].find("priority.protect_castle=1"), std::string::npos);
     EXPECT_NE(lines[1].find("priority.protect_outpost=2"), std::string::npos);
-    EXPECT_NE(lines[1].find("priority.protect_hero=3"), std::string::npos);
-    EXPECT_NE(lines[1].find("priority.chase=4"), std::string::npos);
+    EXPECT_NE(lines[1].find("priority.common_central=3"), std::string::npos);
+    EXPECT_NE(lines[1].find("priority.protect_hero=4"), std::string::npos);
+    EXPECT_NE(lines[1].find("priority.chase=5"), std::string::npos);
 }
 
 TEST(DecisionExplain, SuppressesIdenticalPublishedNavigation) {

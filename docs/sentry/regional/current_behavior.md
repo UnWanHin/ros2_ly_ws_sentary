@@ -1,6 +1,6 @@
 # 哨兵决策行为说明（纯行为版）
 
-Updated: 2026-07-31
+Updated: 2026-08-01
 
 > 目的：只描述“机器人会怎么做”，不讲实现细节。
 
@@ -21,6 +21,20 @@ Updated: 2026-07-31
 - **有目标**：转向目标并进入瞄准，满足条件后开火。  
 - **没目标**：进入搜索，不会盲目持续开火。  
 - **目标丢失后**：优先继续搜索，找到后再回到打击。
+
+### 增强姿态与受击旋转
+
+- 前哨锁定时，敌方前哨血量出现有效下降且 TypeID 10 的强攻额度新鲜且大于 0，先保持目标锁定并通过唯一的 `/ly/control/posture` 出口申请强攻 `4`。普通移动的 pending 请求不会消耗这次申请；只有回读到强攻 pending/active 后才算已接受，真正失败后才回退普通 Attack。
+- ProtectHero 到点后先使用普通 Defense `2`。在配置的受击窗口内达到伤害阈值、强防额度新鲜且大于 0 时申请强防 `5`；已经形成强防意图后，不会再被通用受击分支降级成普通 Defense。额度不足、数据过期或矛盾隔离时仍安全回退普通 Defense。
+- Recovery 行进期间，低于配置血线但仍为正血、且强移额度新鲜大于 0 时申请强移 `6`；`HP=0`、重生抑制、额度耗尽或 ACK 失败回退普通 Move `3`。Recovery 的姿态请求优先级最高，且不改变外部 `/ly/navi/should_rotate`、速度或轨迹话题。
+- 受击旋转 ramp 仍按 `DamageRotate` 的 `0 -> 1 -> 2 -> 3` 输出到 `FireCode.Rotate`。Castle/ProtectCastle 本身不会压制受击旋转；只有显式 `StopRotate`、Highland 兼容、最新 `should_rotate=false` 或 FollowMode 才会最终压成 `0`。BT 日志会同时记录 `damage_detected`、`damage_gear`、`computed_gear`、`final_gear` 和 `suppressed_by`，可直接区分“没检测到受击”和“被外部控制压制”。
+
+### CommonCentral 与 ProtectOutpost
+
+- `AreaManager.yaml` 的 `RegionalAreaTask.CommonCentral` 属于 Default 区域巡逻开关；关闭时 Default 不会产生 Central 候选。`Tactical.yaml` 的 `Tactical.RegionalDefense.CommonCentral.Enable` 是另一条独立开关，默认开启，只控制敌方进入公共 Central 后的四点搜索。
+- Tactical CommonCentral 的点序列是 `HoleRoad (17) -> CentralHigh (29) -> CentralLow (30) -> OutpostGuard (24)`；到达端点后反向走 `CentralLow -> CentralHigh -> HoleRoad`。红方坐标为 CentralHigh `(1000,1007)`、CentralLow `(989,496)`，蓝方坐标为 CentralHigh `(1800,493)`、CentralLow `(1811,1004)`。旧 `CentralLeft.A/B (26/27)` 保留给原有 Special Patrol。
+- Tactical CommonCentral 旅行中不会因旧的短搜索计时器提前换点。它复用统一 `GoalReachState` 和导航 progress watchdog：只有到达后完成既有搜索驻留且未见目标，或外部明确不可达、14 秒内没有至少 80 cm 位移时，才切到另一点。
+- ProtectOutpost 的固定防守点不是 `BuffOutpost`：红方使用 C3 `(1011,429)` cm，蓝方使用 C4 `(1789,1071)` cm。事件通过伤害阈值/时间窗触发，抵达后默认 SearchHold 30 秒；前哨为 0、不可达或保持结束时释放，重建后新的有效扣血可以再次触发。
 
 ---
 
@@ -86,7 +100,7 @@ ProtectHero 已到自己的守护点且仍拥有该导航 goal 时，BT 优先�
 - `CompetitionProfile=regional` 时固定进入 `Regional`，不再使用旧单策略点表。
 - Regional 的导航归属固定为 `Recovery > MapCommand > Task（Buff、开局/视觉前哨、区域过渡、watchdog）> Tactical > Special > Default`。Task 先于 Tactical；Tactical 只能在没有活动 Task 时接管。MapCommand 是 Task 中最高优先级，只有 Recovery 可以抢占它。
 - 开局前哨、前哨 visual scout 与 Buff 都是 Task，不属于 Tactical。相机发现敌人进入 MyBase 可以触发 ProtectCastle，但不能取消活动中的开局前哨 Task；只有 Recovery、前哨毁灭/不可达、资源 gate 或该 Task 自己的结束条件可以释放它。
-- Regional 的无事件行为由 Default 大区域任务和 AreaManager 状态机决定；Tactical 只仲裁 ProtectCastle、ProtectOutpost、ProtectHero 与 Chase，导航 watchdog 属于 Task。
+- Regional 的无事件行为由 Default 大区域任务和 AreaManager 状态机决定；Tactical 仲裁 ProtectCastle、ProtectOutpost、CommonCentral、ProtectHero 与 Chase，导航 watchdog 属于 Task。CommonCentral 是独立 Tactical 候选，当前默认优先级为 `3`，不再继承 ProtectCastle 的优先级。
 - `/ly/game/event_data` 显示己方堡垒增益点状态为 `2` 或 `3` 时，`Tactical.ProtectCastle.StayWhenRfid=true` 会让 RegionalDefense 只去 `Castle`；在裁判事件仍新鲜期间，哨兵抵达后不再以导航追击或切点离开 Castle，但继续瞄准、旋转和开火。`StayWhenRfid=false` 保持原本在四个 Castle 边点搜索的行为。若己方 Base 大区内新鲜敌方位置数达到 `RegionalDefense.FortressStandEnemyCountMin`，且当前普通装甲目标已锁定并允许开火，则原地停速度、小陀螺切最高档开火。
 - `StayWhenRfid=true` 时，新鲜原始 `2/3` 裁判事件不会进入 `FortressNoContactDegradeSec` 的无接触降级；事件过期或变为 `0/1` 后才释放 Castle 守点锁。关闭该开关时，原有降级保护不变。
 - `Tactical.ProtectCastle.Enable=false` 会同时关闭城堡 RFID 与 MyBase 敌方坐标两条来源。单独设 `RFID=false` 会关闭堡垒事件与站桩火控；单独设 `EnemyPos=false` 会忽略敌方实际进入 MyBase 的防守来源，但 Highland、道路和 Central 的普通 RegionalDefense 继续有效。`StayWhenRfid` 只作用于 RFID `2/3` 来源，不改变 EnemyPos。`Tactical.ProtectHero` 完整管理英雄保护的开关、开局延时、保持/释放、新鲜度和守护目标；`Enable=false` 会释放英雄保护并在同一 Tactical tick 继续尝试 RegionalDefense。

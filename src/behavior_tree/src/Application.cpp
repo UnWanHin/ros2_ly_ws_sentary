@@ -333,6 +333,7 @@ std::string DefaultConfigPathForProfile(const std::string& pkg_path, const std::
             .ProtectHeroGoalBaseId = tactical.ProtectHero.GoalBaseId,
             .ProtectCastlePriority = tactical.Priority.ProtectCastle,
             .ProtectOutpostPriority = tactical.Priority.ProtectOutpost,
+            .CommonCentralPriority = tactical.Priority.CommonCentral,
             .ProtectHeroPriority = tactical.Priority.ProtectHero,
             .ChasePriority = tactical.Priority.Chase,
             .DamageRotateDefaultGear = tactical.DamageRotate.DefaultGear,

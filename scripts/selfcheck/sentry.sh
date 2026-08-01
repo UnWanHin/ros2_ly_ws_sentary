@@ -564,6 +564,9 @@ source = (root / "src/behavior_tree/src/Configuration.cpp").read_text()
 game_loop = (root / "src/behavior_tree/src/GameLoop.cpp").read_text()
 area_manager = (root / "src/behavior_tree/src/AreaManager.cpp").read_text()
 policy = (root / "src/behavior_tree/include/TacticalProtectionPolicy.hpp").read_text()
+basic_types = (root / "src/behavior_tree/module/BasicTypes.hpp").read_text()
+area = (root / "src/behavior_tree/module/Area.hpp").read_text()
+regional_policy = (root / "src/behavior_tree/include/RegionalDefenseSearchPolicy.hpp").read_text()
 
 castle_match = re.search(r"^\s{6}ProtectCastle:\n((?:\s{8}.*\n)+)", config, re.MULTILINE)
 if castle_match is None:
@@ -641,6 +644,43 @@ for key, value_pattern in (
     if parameter not in source:
         raise SystemExit(f"Configuration.cpp does not read {parameter}")
 
+common_central_match = re.search(
+    r"^\s{6}RegionalDefense:\n\s{8}CommonCentral:\n\s{10}Enable:\s+(true|false)\s*$",
+    config,
+    re.MULTILINE)
+if common_central_match is None:
+    raise SystemExit("Tactical.yaml lacks Tactical.RegionalDefense.CommonCentral.Enable")
+if "Tactical.RegionalDefense.CommonCentral.Enable" not in source:
+    raise SystemExit("Configuration.cpp does not read Tactical.RegionalDefense.CommonCentral.Enable")
+if "TacticalSettings.RegionalDefense.CommonCentral.Enable" not in game_loop:
+    raise SystemExit("GameLoop.cpp does not apply Tactical RegionalDefense CommonCentral gate")
+
+for key in ("ProtectCastle", "ProtectOutpost", "CommonCentral", "ProtectHero", "Chase"):
+    if re.search(rf"^\s{{8}}{key}:\s+\d+\s*$", config, re.MULTILINE) is None:
+        raise SystemExit(f"Tactical.yaml lacks numeric Tactical.Priority.{key}")
+    if f"Tactical.Priority.{key}" not in source:
+        raise SystemExit(f"Configuration.cpp does not read Tactical.Priority.{key}")
+
+for token in (
+    "CentralLeftA{ 26 }",
+    "CentralLeftB{ 27 }",
+    "ProtectOutpost{ 28 }",
+    "CentralHigh{ 29 }",
+    "CentralLow{ 30 }",
+):
+    if token not in basic_types:
+        raise SystemExit(f"BasicTypes.hpp lacks stable navigation ID: {token}")
+if "MyCentralHigh" in basic_types or "MyCentralLow" in basic_types:
+    raise SystemExit("BasicTypes.hpp still aliases CommonCentral to legacy IDs")
+for token in (
+    "CentralHigh{ {1000, 1007}, {1800, 493} }",
+    "CentralLow{ {989, 496}, {1811, 1004} }",
+):
+    if token not in area:
+        raise SystemExit(f"Area.hpp lacks CommonCentral coordinates: {token}")
+if "17U, 29U, 30U, 24U" not in regional_policy:
+    raise SystemExit("RegionalDefenseSearchPolicy.hpp has the wrong CommonCentral sequence")
+
 for token in (
     "ResolveTacticalFeatureEnable",
     "IsProtectCastleRfidEventEnabled",
@@ -677,6 +717,73 @@ PY
     pass "Tactical ProtectCastle/ProtectHero YAML-to-decision contract"
   else
     fail "Tactical ProtectCastle/ProtectHero YAML-to-decision contract"
+  fi
+}
+
+check_aim_override_contract() {
+  if python3 - "${ROOT_DIR}" <<'PY'
+from pathlib import Path
+import re
+import sys
+import yaml
+
+root = Path(sys.argv[1])
+config_path = root / "src/behavior_tree/config/Aim.yaml"
+source = (root / "src/behavior_tree/src/Configuration.cpp").read_text()
+document = yaml.safe_load(config_path.read_text()) or {}
+override = document.get("behavior_tree", {}).get("ros__parameters", {}).get("Aim", {}).get("Override", {})
+if override.get("Enable") is not False:
+    raise SystemExit("Aim.yaml temporary override must default to disabled")
+if not isinstance(override.get("TargetPriority"), list):
+    raise SystemExit("Aim.yaml TargetPriority must be a list")
+if not isinstance(override.get("TargetIgnore"), list):
+    raise SystemExit("Aim.yaml TargetIgnore must be a list")
+for launch_path in (
+    root / "src/behavior_tree/launch/sentry_all.launch.py",
+    root / "src/behavior_tree/launch/behavior_tree.launch.py",
+    root / "src/behavior_tree/launch/outpost_regional_test.launch.py",
+    root / "src/behavior_tree/launch/showcase.launch.py",
+    root / "src/behavior_tree/launch/navi_debug.launch.py",
+    root / "src/behavior_tree/launch/competition_autoaim.launch.py",
+    root / "src/behavior_tree/launch/chase_only.launch.py",
+    root / "src/behavior_tree/launch/armor_patrol_test.launch.py",
+):
+    launch = launch_path.read_text()
+    if "aim_config_file" not in launch:
+        raise SystemExit(f"{launch_path.name} does not pass aim_config_file")
+    if launch_path.name in {
+        "sentry_all.launch.py",
+        "behavior_tree.launch.py",
+    }:
+        match = re.search(
+            r'package="behavior_tree",\s*\n\s*executable="behavior_tree_node".*?parameters=\[(.*?)\n\s*\],\n\s*on_exit=',
+            launch,
+            re.DOTALL)
+        if match is None:
+            raise SystemExit(f"{launch_path.name} behavior_tree parameter block not found")
+        parameter_block = match.group(1)
+        if not (
+            parameter_block.index("special_config_file")
+            < parameter_block.index("aim_config_file")
+            < parameter_block.index('"competition_profile"')
+        ):
+            raise SystemExit(f"{launch_path.name} has the wrong Aim override order")
+for token in (
+    "ApplyAimParameterOverrides",
+    '"Aim.Override.Enable"',
+    '"Aim.Override.TargetPriority"',
+    '"Aim.Override.TargetIgnore"',
+    "ApplyAimConfigOverride",
+):
+    if token not in source:
+        raise SystemExit(f"Aim override contract missing {token}")
+if source.index("ApplyAimParameterOverrides();") > source.index("const std::vector<int> default_aim_target_priority"):
+    raise SystemExit("Aim override is applied after sanitize/default processing")
+PY
+  then
+    pass "Aim.yaml temporary priority/ignore override contract"
+  else
+    fail "Aim.yaml temporary priority/ignore override contract"
   fi
 }
 
@@ -1086,6 +1193,7 @@ if (( RUNTIME_ONLY == 0 )); then
   check_file_exists "${ROOT_DIR}/src/behavior_tree/config/AreaManager.yaml"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/config/Navi.yaml"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/config/Tactical.yaml"
+  check_file_exists "${ROOT_DIR}/src/behavior_tree/config/Aim.yaml"
   check_file_exists "${ROOT_DIR}/src/behavior_tree/config/Special.yaml"
   check_file_exists "${ROOT_DIR}/config/base_config.yaml"
   check_file_exists "${ROOT_DIR}/config/override_config.yaml"
@@ -1202,6 +1310,7 @@ if (( RUNTIME_ONLY == 0 )); then
   check_navi_config_contract
   check_area_manager_enable_contract
   check_tactical_protection_enable_contract
+  check_aim_override_contract
 fi
 
 if (( STATIC_ONLY == 0 )); then

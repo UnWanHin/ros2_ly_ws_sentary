@@ -20,11 +20,13 @@ def generate_launch_description():
     config_root = os.path.join(behavior_tree_share, "config")
     default_base_config_file = os.path.join(config_root, "base_config.yaml")
     default_override_config_file = os.path.join(config_root, "override_config.yaml")
+    default_aim_config_file = os.path.join(config_root, "Aim.yaml")
 
     launch_args = [
         DeclareLaunchArgument("mode", default_value="regional"),
         DeclareLaunchArgument("config_file", default_value=default_override_config_file),
         DeclareLaunchArgument("base_config_file", default_value=default_base_config_file),
+        DeclareLaunchArgument("aim_config_file", default_value=default_aim_config_file),
         DeclareLaunchArgument("output", default_value="screen"),
         DeclareLaunchArgument("offline", default_value="false"),
         DeclareLaunchArgument("debug_bypass_is_start", default_value="true"),
@@ -46,6 +48,7 @@ def generate_launch_description():
             "mode": LaunchConfiguration("mode"),
             "config_file": LaunchConfiguration("config_file"),
             "base_config_file": LaunchConfiguration("base_config_file"),
+            "aim_config_file": LaunchConfiguration("aim_config_file"),
             "output": LaunchConfiguration("output"),
             "offline": LaunchConfiguration("offline"),
             "debug_bypass_is_start": LaunchConfiguration("debug_bypass_is_start"),

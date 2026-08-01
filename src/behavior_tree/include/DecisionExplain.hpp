@@ -47,6 +47,7 @@ struct ConfigSnapshot {
     std::uint8_t ProtectHeroGoalBaseId{0};
     int ProtectCastlePriority{0};
     int ProtectOutpostPriority{0};
+    int CommonCentralPriority{0};
     int ProtectHeroPriority{0};
     int ChasePriority{0};
     std::uint8_t DamageRotateDefaultGear{0};
@@ -135,6 +136,7 @@ inline std::array<std::string, 3> FormatConfigLines(const ConfigSnapshot& snapsh
              << " hero_goal_base_id=" << static_cast<unsigned int>(snapshot.ProtectHeroGoalBaseId)
              << " priority.protect_castle=" << snapshot.ProtectCastlePriority
              << " priority.protect_outpost=" << snapshot.ProtectOutpostPriority
+             << " priority.common_central=" << snapshot.CommonCentralPriority
              << " priority.protect_hero=" << snapshot.ProtectHeroPriority
              << " priority.chase=" << snapshot.ChasePriority;
 

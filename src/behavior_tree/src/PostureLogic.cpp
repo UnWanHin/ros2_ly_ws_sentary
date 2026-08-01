@@ -620,7 +620,11 @@ void Application::UpdatePostureCommand(const bool has_target) {
         requested = *outpostEngagementDecision_.Intent;
         request_policy = PostureRequestPolicy::OutpostLock();
     }
-    if (ShouldForceDamageBurstDefense(IsRecoveryGoal(naviCommandGoal), IsUnderFireBurst())) {
+    if (ShouldForceDamageBurstDefense(
+            IsRecoveryGoal(naviCommandGoal),
+            IsUnderFireBurst(),
+            intent.Intent,
+            requested.Enhanced)) {
         requested = {SentryPosture::Defense, false};
         desired = SentryPosture::Defense;
         request_policy = PostureRequestPolicy::RequiredPosture();

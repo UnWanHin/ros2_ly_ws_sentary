@@ -6,8 +6,17 @@ behavior_tree:
       Priority:
         ProtectCastle: 1
         ProtectOutpost: 2
-        ProtectHero: 3
-        Chase: 4
+        CommonCentral: 3
+        ProtectHero: 4
+        Chase: 5
+
+      # Tactical CommonCentral 搜索開關；與 AreaManager.yaml 的 Default
+      # CommonCentral 巡邏開關相互獨立。
+      RegionalDefense:
+        CommonCentral:
+          Enable: true
+          # 每個 CommonCentral 點到達後的搜索駐留時間；移動中不使用此計時器切點。
+          HoldSec: 15
 
       # 强化姿态的统一保护；TypeID 7/10 分帧短暂不同步不立即判故障。
       EnhancedPosture:

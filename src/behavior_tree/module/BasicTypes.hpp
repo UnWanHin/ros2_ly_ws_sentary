@@ -328,6 +328,10 @@ namespace LangYa
     static constexpr TeamedLocation CentralLeftB{ 27 };
     // Tactical ProtectOutpost uses the official C3/C4 defense positions.
     static constexpr TeamedLocation ProtectOutpost{ 28 };
+    // Tactical CommonCentral points. Keep CentralLeft.A/B (26/27) unchanged
+    // for the legacy CentralLeft special patrol.
+    static constexpr TeamedLocation CentralHigh{ 29 };
+    static constexpr TeamedLocation CentralLow{ 30 };
 
     /// @brief 团队类型
     enum class NaviTeam : std::uint8_t
@@ -648,8 +652,19 @@ namespace LangYa
     struct TacticalPrioritySetting {
         int ProtectCastle{1};
         int ProtectOutpost{2};
-        int ProtectHero{3};
-        int Chase{4};
+        int CommonCentral{3};
+        int ProtectHero{4};
+        int Chase{5};
+    };
+
+    struct TacticalRegionalDefenseCommonCentralSetting {
+        // Tactical CommonCentral is separate from Default AreaManager.CommonCentral.
+        bool Enable{true};
+        int HoldSec{15};
+    };
+
+    struct TacticalRegionalDefenseSetting {
+        TacticalRegionalDefenseCommonCentralSetting CommonCentral{};
     };
 
     struct ProtectOutpostSetting {
@@ -687,6 +702,7 @@ namespace LangYa
     struct TacticalSetting {
         DamageRotateSetting DamageRotate{};
         TacticalPrioritySetting Priority{};
+        TacticalRegionalDefenseSetting RegionalDefense{};
         EnhancedPostureSetting EnhancedPosture{};
         ProtectCastleSetting ProtectCastle{};
         ProtectOutpostSetting ProtectOutpost{};

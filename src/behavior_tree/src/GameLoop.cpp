@@ -6,6 +6,7 @@
 #include "../include/DamageRotatePolicy.hpp"
 #include "../include/ChasePolicy.hpp"
 #include "../include/ExternalAimTargetPolicy.hpp"
+#include "../include/RegionalDefenseSearchPolicy.hpp"
 #include "../module/Mode2PatrolResume.hpp"
 #include "../include/OutpostOpeningHold.hpp"
 #include "../include/TacticalProtectionPolicy.hpp"
@@ -988,7 +989,8 @@ namespace BehaviorTree {
         static auto rotate_ramp_start_time = std::chrono::steady_clock::time_point{};
         static bool rotate_under_fire = false;
 
-        if (healthDecreaseDetector.trigger(myselfHealth)) { // 血量减少
+        const bool damage_detected_this_tick = healthDecreaseDetector.trigger(myselfHealth); // 血量减少
+        if (damage_detected_this_tick) {
             last_damage_rotate_time = rotate_now;
             if (!rotate_under_fire) {
                 rotate_under_fire = true;
@@ -1002,6 +1004,7 @@ namespace BehaviorTree {
         const auto current_base_goal_id = BaseGoalIdFromResolvedGoal(naviCommandGoal);
         const std::uint8_t default_rotate_gear = damage_rotate_setting.DefaultGear;
         std::uint8_t rotate_gear = default_rotate_gear;
+        std::uint8_t damage_rotate_gear = default_rotate_gear;
 
         if (last_damage_rotate_time.time_since_epoch().count() != 0) {
             const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -1022,23 +1025,16 @@ namespace BehaviorTree {
             } else {
                 const auto ramp_ms = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(
                     rotate_now - rotate_ramp_start_time).count());
-                rotate_gear = ResolveDamageRotateGear(
+                damage_rotate_gear = ResolveDamageRotateGear(
                     damage_rotate_setting, default_rotate_gear, ramp_ms);
+                rotate_gear = damage_rotate_gear;
             }
         }
 
-        gimbalControlData.FireCode.Rotate = rotate_gear;
-        if (config.AimDebugSettings.StopRotate) {
-            // StopRotate=true means disable chassis spin output.
-            gimbalControlData.FireCode.Rotate = 0;
-        }
         const bool highland_compat_disable_rotate_active =
             areaManager_.HighlandTransitionActive() &&
             config.DecisionAutonomySettings.NaviGoal.HighlandCompatDisableRotate &&
             !navi_rotate_control_release_request;
-        if (highland_compat_disable_rotate_active) {
-            gimbalControlData.FireCode.Rotate = 0;
-        }
         const int regional_referee_fresh_ms = std::max(
             std::max(0, config.TaskSettings.BuffConfirm.RefereeFreshTimeoutMs),
             std::max(0, config.TaskSettings.OutpostConfirm.RefereeFreshTimeoutMs));
@@ -1063,26 +1059,33 @@ namespace BehaviorTree {
         if (fortress_defense_stand_still &&
             !config.AimDebugSettings.StopRotate &&
             fortress_defense_control_allowed) {
-            gimbalControlData.FireCode.Rotate = 3;
+            rotate_gear = 3;
         }
-        if (navi_rotate_control_stop_request &&
-            config.NaviControlSettings.StopRotateWhenFalse) {
-            gimbalControlData.FireCode.Rotate = 0;
-        }
-        gimbalControlData.FireCode.Rotate = ResolveRotateGearWithFollowPriority(
-            gimbalControlData.FireCode.Rotate,
-            gimbalControlData.FireCode.FollowMode != 0 || navi_rotate_control_follow_output);
+        const std::uint8_t computed_rotate_gear = rotate_gear;
+        const bool follow_mode_output =
+            gimbalControlData.FireCode.FollowMode != 0 || navi_rotate_control_follow_output;
+        const auto rotate_resolution = ResolveFinalRotateGear(
+            computed_rotate_gear,
+            config.AimDebugSettings.StopRotate,
+            highland_compat_disable_rotate_active,
+            navi_rotate_control_stop_request && config.NaviControlSettings.StopRotateWhenFalse,
+            follow_mode_output);
+        gimbalControlData.FireCode.Rotate = rotate_resolution.Gear;
 
         static auto last_rotate_log = std::chrono::steady_clock::time_point{};
         if (now_time >= 0) {
             const auto log_now = std::chrono::steady_clock::now();
             if (log_now - last_rotate_log > std::chrono::seconds(2)) {
                 LoggerPtr->Debug(
-                    "Rotate Gear: {} (base_goal={} tactical_default={} under_fire={} damage_elapsed_ms={} no_hit_timeout_ms={})",
+                    "Rotate Gear: {} (base_goal={} tactical_default={} damage_detected={} damage_active={} damage_gear={} computed_gear={} suppressed_by={} damage_elapsed_ms={} no_hit_timeout_ms={})",
                     gimbalControlData.FireCode.Rotate,
                     static_cast<int>(current_base_goal_id),
                     static_cast<int>(default_rotate_gear),
+                    damage_detected_this_tick ? 1 : 0,
                     rotate_under_fire ? 1 : 0,
+                    static_cast<int>(damage_rotate_gear),
+                    static_cast<int>(computed_rotate_gear),
+                    RotateSuppressionSourceToString(rotate_resolution.SuppressedBy),
                     damage_rotate_elapsed_ms,
                     damage_rotate_setting.NoHitTimeoutMs);
                 last_rotate_log = log_now;
@@ -3343,7 +3346,12 @@ namespace BehaviorTree {
                         RequestReadyRoadlandSafeReturn("regional defense has higher priority");
                     }
                 }
-            } else if (TrySetRegionalDefenseGoal(my_team, enemy_team)) {
+            } else if (
+                TrySetRegionalDefenseGoal(my_team, enemy_team) ||
+                TrySetRegionalDefenseGoal(
+                    my_team,
+                    enemy_team,
+                    RegionalDefenseSelection::CommonCentral)) {
                 areaManager_.ClearRegionalAreaTask();
                 defaultStrategyManager_.RecordRegionalAreaResult(
                     active_task_type,
@@ -4356,7 +4364,8 @@ namespace BehaviorTree {
 
     bool Application::TrySetRegionalDefenseGoal(
         const UnitTeam my_team,
-        const UnitTeam enemy_team) {
+        const UnitTeam enemy_team,
+        const RegionalDefenseSelection selection) {
         const auto& defense = config.RegionalDefenseSettings;
         const auto& protect_castle = config.TacticalSettings.ProtectCastle;
         const auto maybe_threat = EvaluateRegionalDefenseThreat(my_team, enemy_team);
@@ -4383,6 +4392,8 @@ namespace BehaviorTree {
             regionalDefenseSearchIndex_ = 0U;
             regionalDefenseSearchBaseGoal_ = LangYa::Home.ID;
             regionalDefenseSearchStartTime_ = {};
+            regionalDefenseSearchArrivedTime_ = {};
+            regionalDefenseSearchDirection_ = 1;
             return false;
         }
         const auto threat = *maybe_threat;
@@ -4426,6 +4437,8 @@ namespace BehaviorTree {
                         regionalDefenseSearchIndex_ = 0U;
                         regionalDefenseSearchBaseGoal_ = LangYa::Home.ID;
                         regionalDefenseSearchStartTime_ = {};
+                        regionalDefenseSearchArrivedTime_ = {};
+                        regionalDefenseSearchDirection_ = 1;
                         if (LoggerPtr) {
                             LoggerPtr->Warning(
                                 "Fortress gain-point event degraded: status={} no own-base enemy position and no visual target for {}s; cooldown={}s.",
@@ -4493,7 +4506,21 @@ namespace BehaviorTree {
             : CastleOccupancyResolution{};
 
         if (threat.HardThreat) {
-            if (protect_castle_source_active) {
+            if (selection == RegionalDefenseSelection::CommonCentral) {
+                if (threat.CommonCentralCount > 0 &&
+                    config.TacticalSettings.RegionalDefense.CommonCentral.Enable) {
+                    search_kind = RegionalDefenseSearchKind::CommonCentral;
+                    reason = "common_central";
+                    hold_sec = std::max(
+                        1,
+                        config.TacticalSettings.RegionalDefense.CommonCentral.HoldSec);
+                    candidates = {
+                        LangYa::HoleRoad.ID,
+                        LangYa::CentralHigh.ID,
+                        LangYa::CentralLow.ID,
+                        LangYa::OutpostGuard.ID};
+                }
+            } else if (protect_castle_source_active) {
                 search_kind = RegionalDefenseSearchKind::OwnFortressGainPoint;
                 reason = CastleOccupancyActionToString(castle_occupancy.Action);
                 if (castle_occupancy.Action == CastleOccupancyAction::ApproachCastle ||
@@ -4532,10 +4559,6 @@ namespace BehaviorTree {
                 search_kind = RegionalDefenseSearchKind::OwnHighland;
                 reason = "own_highland";
                 candidates = {LangYa::HoleRoad.ID, LangYa::Highland.ID, LangYa::Castle.ID};
-            } else if (threat.CommonCentralCount > 0) {
-                search_kind = RegionalDefenseSearchKind::CommonCentral;
-                reason = "common_central";
-                candidates = {LangYa::HoleRoad.ID, LangYa::Castle.ID};
             }
         } else {
             search_kind = RegionalDefenseSearchKind::EnemySideSoft;
@@ -4547,10 +4570,20 @@ namespace BehaviorTree {
         }
 
         if (candidates.empty()) {
+            // CommonCentral is now an independent Tactical candidate. The
+            // higher-priority ProtectCastle probe runs first every tick, so
+            // it must not reset an active four-point search merely because
+            // the central threat was intentionally deferred to that candidate.
+            if (selection == RegionalDefenseSelection::ProtectCastle &&
+                regionalDefenseSearchKind_ == RegionalDefenseSearchKind::CommonCentral) {
+                return false;
+            }
             regionalDefenseSearchKind_ = RegionalDefenseSearchKind::None;
             regionalDefenseSearchIndex_ = 0U;
             regionalDefenseSearchBaseGoal_ = LangYa::Home.ID;
             regionalDefenseSearchStartTime_ = {};
+            regionalDefenseSearchArrivedTime_ = {};
+            regionalDefenseSearchDirection_ = 1;
             return false;
         }
 
@@ -4563,12 +4596,36 @@ namespace BehaviorTree {
         if (!same_search) {
             regionalDefenseSearchKind_ = search_kind;
             regionalDefenseSearchIndex_ = 0U;
-            regionalDefenseSearchBaseGoal_ = candidates.front();
+            regionalDefenseSearchDirection_ = 1;
+            if (search_kind == RegionalDefenseSearchKind::CommonCentral) {
+                const auto self_position = GetSentryPositionState(now);
+                if (self_position.Fresh && self_position.X > 0 && self_position.Y > 0) {
+                    double nearest_distance = std::numeric_limits<double>::infinity();
+                    for (std::size_t index = 0; index < candidates.size(); ++index) {
+                        const auto point = AreaManager::GoalPointByBaseId(candidates[index], my_team);
+                        const auto distance = AreaManager::DistanceSq(
+                            self_position.X,
+                            self_position.Y,
+                            static_cast<int>(point.x),
+                            static_cast<int>(point.y));
+                        if (distance < nearest_distance) {
+                            nearest_distance = distance;
+                            regionalDefenseSearchIndex_ = index;
+                        }
+                    }
+                    regionalDefenseSearchDirection_ =
+                        regionalDefenseSearchIndex_ + 1U >= candidates.size() ? -1 : 1;
+                }
+            }
+            regionalDefenseSearchBaseGoal_ = candidates[regionalDefenseSearchIndex_];
             regionalDefenseSearchStartTime_ = now;
+            regionalDefenseSearchArrivedTime_ = {};
         } else if (regionalDefenseSearchIndex_ >= candidates.size()) {
             regionalDefenseSearchIndex_ = 0U;
+            regionalDefenseSearchDirection_ = 1;
             regionalDefenseSearchBaseGoal_ = candidates.front();
             regionalDefenseSearchStartTime_ = now;
+            regionalDefenseSearchArrivedTime_ = {};
         } else {
             regionalDefenseSearchBaseGoal_ = candidates[regionalDefenseSearchIndex_];
         }
@@ -4584,16 +4641,36 @@ namespace BehaviorTree {
         const bool current_search_done =
             current_goal_reach.Status == GoalReachStatus::Reached ||
             current_goal_reach.Status == GoalReachStatus::Unreachable;
+        const bool common_central_search =
+            search_kind == RegionalDefenseSearchKind::CommonCentral;
+        const int search_hold_sec = common_central_search
+            ? hold_sec
+            : defense.SearchHoldSec;
+        if (common_central_search &&
+            current_goal_reach.Status == GoalReachStatus::Reached &&
+            regionalDefenseSearchArrivedTime_.time_since_epoch().count() == 0) {
+            regionalDefenseSearchArrivedTime_ = now;
+        }
 
+        const auto search_hold_start = common_central_search
+            ? regionalDefenseSearchArrivedTime_
+            : regionalDefenseSearchStartTime_;
         const bool search_held_long_enough =
-            regionalDefenseSearchStartTime_.time_since_epoch().count() != 0 &&
-            now - regionalDefenseSearchStartTime_ >=
-                std::chrono::seconds(std::max(1, defense.SearchHoldSec));
-        const bool should_advance_search =
-            same_search &&
-            candidates.size() > 1U &&
-            (current_search_done || search_held_long_enough) &&
-            !visual_target_recently_seen();
+            search_hold_start.time_since_epoch().count() != 0 &&
+            now - search_hold_start >=
+                std::chrono::seconds(std::max(1, search_hold_sec));
+        const bool should_advance_search = common_central_search
+            ? same_search &&
+                candidates.size() > 1U &&
+                ShouldAdvanceCommonCentralSearch({
+                    .GoalReached = current_goal_reach.Status == GoalReachStatus::Reached,
+                    .GoalUnreachable = current_goal_reach.Status == GoalReachStatus::Unreachable,
+                    .HoldElapsed = search_held_long_enough,
+                    .VisualTargetRecentlySeen = visual_target_recently_seen()})
+            : same_search &&
+                candidates.size() > 1U &&
+                (current_search_done || search_held_long_enough) &&
+                !visual_target_recently_seen();
 
         const bool protect_castle_perimeter_defense =
             protect_castle_source_active &&
@@ -4622,10 +4699,20 @@ namespace BehaviorTree {
 
         if (should_advance_search) {
             const auto previous_goal = regionalDefenseSearchBaseGoal_;
-            regionalDefenseSearchIndex_ =
-                (regionalDefenseSearchIndex_ + 1U) % candidates.size();
+            if (common_central_search) {
+                regionalDefenseSearchDirection_ = ReverseCommonCentralSearchDirection(
+                    regionalDefenseSearchIndex_ % kCommonCentralSearchGoals.size(),
+                    regionalDefenseSearchDirection_);
+                regionalDefenseSearchIndex_ = NextCommonCentralSearchIndex(
+                    regionalDefenseSearchIndex_ % kCommonCentralSearchGoals.size(),
+                    regionalDefenseSearchDirection_);
+            } else {
+                regionalDefenseSearchIndex_ =
+                    (regionalDefenseSearchIndex_ + 1U) % candidates.size();
+            }
             regionalDefenseSearchBaseGoal_ = candidates[regionalDefenseSearchIndex_];
             regionalDefenseSearchStartTime_ = now;
+            regionalDefenseSearchArrivedTime_ = {};
             if (LoggerPtr) {
                 const char* trigger = current_goal_reach.Status == GoalReachStatus::Unreachable
                     ? "external_unreachable"
@@ -4719,6 +4806,7 @@ namespace BehaviorTree {
             regionalDefenseSearchBaseGoal_ = candidates[index];
             if (set_defense_goal(regionalDefenseSearchBaseGoal_)) {
                 regionalDefenseSearchStartTime_ = now;
+                regionalDefenseSearchArrivedTime_ = {};
                 try_protect_castle_perimeter_chase();
                 return true;
             }
@@ -5029,6 +5117,49 @@ namespace BehaviorTree {
             now);
     }
 
+    bool Application::TryAdvanceRegionalDefenseCommonCentralSearch(
+        const NaviProgressWatchdogDecision& decision,
+        const UnitTeam my_team,
+        const std::chrono::steady_clock::time_point now) {
+        if (!config.TacticalSettings.RegionalDefense.CommonCentral.Enable ||
+            regionalDefenseSearchKind_ != RegionalDefenseSearchKind::CommonCentral ||
+            !decision.NeedFallback ||
+            decision.OriginalGoalTeam != my_team ||
+            !decision.OriginalApplyTeamOffset ||
+            decision.OriginalBaseGoal != regionalDefenseSearchBaseGoal_ ||
+            decision.OriginalGoalId != ResolveGoalId(
+                regionalDefenseSearchBaseGoal_, my_team, true)) {
+            return false;
+        }
+
+        // CommonCentral owns a fixed four-point search. Keep its watchdog
+        // transition inside the same tactical state machine instead of
+        // replacing it with AreaManager's generic area fallback list.
+        const auto current_index = regionalDefenseSearchIndex_ % kCommonCentralSearchGoals.size();
+        if (kCommonCentralSearchGoals[current_index] != regionalDefenseSearchBaseGoal_) {
+            return false;
+        }
+
+        const auto previous_goal = regionalDefenseSearchBaseGoal_;
+        regionalDefenseSearchDirection_ = ReverseCommonCentralSearchDirection(
+            current_index,
+            regionalDefenseSearchDirection_);
+        regionalDefenseSearchIndex_ = NextCommonCentralSearchIndex(
+            current_index,
+            regionalDefenseSearchDirection_);
+        regionalDefenseSearchBaseGoal_ = kCommonCentralSearchGoals[regionalDefenseSearchIndex_];
+        regionalDefenseSearchStartTime_ = now;
+        regionalDefenseSearchArrivedTime_ = {};
+        if (LoggerPtr) {
+            LoggerPtr->Warning(
+                "Regional defense switch: {} -> {} trigger={} search_kind=common_central.",
+                static_cast<int>(previous_goal),
+                static_cast<int>(regionalDefenseSearchBaseGoal_),
+                decision.GoalUnreachable ? "external_unreachable" : "watchdog_no_progress");
+        }
+        return true;
+    }
+
     bool Application::TickNaviProgressWatchdog(
         const UnitTeam my_team,
         const UnitTeam enemy_team) {
@@ -5072,6 +5203,12 @@ namespace BehaviorTree {
                 .Now = now
             });
         if (!decision.NeedFallback) {
+            return false;
+        }
+
+        if (TryAdvanceRegionalDefenseCommonCentralSearch(decision, my_team, now)) {
+            // Let Tactical materialize the next CommonCentral goal in this
+            // tick. The generic watchdog must not consume this transition.
             return false;
         }
 
@@ -5431,6 +5568,8 @@ namespace BehaviorTree {
             case LangYa::CentralLeftA.ID: assign_point(LangYa::CentralLeftA, BehaviorTree::Area::CentralLeft.A(goal_team)); break;
             case LangYa::CentralLeftB.ID: assign_point(LangYa::CentralLeftB, BehaviorTree::Area::CentralLeft.B(goal_team)); break;
             case LangYa::ProtectOutpost.ID: assign_position(LangYa::ProtectOutpost, BehaviorTree::Area::ProtectOutpost); break;
+            case LangYa::CentralHigh.ID: assign_position(LangYa::CentralHigh, BehaviorTree::Area::CentralHigh); break;
+            case LangYa::CentralLow.ID: assign_position(LangYa::CentralLow, BehaviorTree::Area::CentralLow); break;
             default:
                 LoggerPtr->Warning("Unknown base goal id={}, fallback to Home.", static_cast<int>(base_goal_id));
                 effective_base_goal_id = LangYa::Home.ID;

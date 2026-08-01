@@ -416,7 +416,7 @@ public:
     bool RegionalAreaTaskCanYieldToHigherPriority() const noexcept;
     void RequestReadyRoadlandReturnToBase(AreaTimePoint now) noexcept;
 
-    static constexpr std::uint8_t MaxBaseGoalId() noexcept { return LangYa::ProtectOutpost.ID; }
+    static constexpr std::uint8_t MaxBaseGoalId() noexcept { return LangYa::CentralLow.ID; }
     static bool IsValidBaseGoalId(std::uint8_t base_goal_id) noexcept;
     static bool IsReservedNonCombatGoalId(std::uint8_t base_goal_id) noexcept;
     static std::uint8_t ResolveGoalId(

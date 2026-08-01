@@ -36,6 +36,7 @@ docs/
 4. 当前主链模块文档
 [modules/2026-05-05_gimbal_driver.md](modules/2026-05-05_gimbal_driver.md)
 [modules/2026-05-05_behavior_tree.md](modules/2026-05-05_behavior_tree.md)
+[behavior_tree Aim.yaml 临时覆盖说明](modules/2026-05-05_behavior_tree.md)
 [modules/2026-05-04_navi_tf_bridge.md](modules/2026-05-04_navi_tf_bridge.md)（含 `/goal_pose` XY 比例校正）
 5. 共用接口与移除记录
 [modules/2026-04-23_auto_aim_common.md](modules/2026-04-23_auto_aim_common.md)

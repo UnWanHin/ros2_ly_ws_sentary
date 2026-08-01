@@ -296,3 +296,6 @@ goals:
   - {id: 25, name: PreRoadland, red: [457, 72], blue: [2343, 1428]}
   - {id: 26, name: CentralLeft.A, red: [1205, 1260], blue: [1595, 240]}
   - {id: 27, name: CentralLeft.B, red: [1026, 1006], blue: [1774, 494]}
+  - {id: 28, name: ProtectOutpost, red: [1011, 429], blue: [1789, 1071]}
+  - {id: 29, name: CentralHigh, red: [1000, 1007], blue: [1800, 493]}
+  - {id: 30, name: CentralLow, red: [989, 496], blue: [1811, 1004]}

@@ -1,6 +1,6 @@
 # Regional 決策圖譜
 
-Updated: 2026-07-31
+Updated: 2026-08-01
 
 > 範圍：`competition_profile:=regional` 的 `behavior_tree` 決策順序、優先級、導航輸出與姿態選擇。此圖描述 source 現有行為；任務級前哨交戰鎖可下發強攻 `4`，ProtectHero 到點受擊 burst 可下發強防 `5`，低血量 Recovery 行進可在額度/重生 gate 全部通過時下發強化移動 `6`。
 
@@ -90,7 +90,7 @@ flowchart TD
 pass 觀察，但 `DecisionIntent.Layer=Task`，可直接停止同 tick 內所有非 Recovery 導航輸出。Buff、開局前哨
 與前哨 visual scout 都是 Task；開局 Task 活動時，camera 進入 MyBase 所觸發的 ProtectCastle 只能作為
 威脅觀測，不能取消或改寫前哨導航。`navi_progress_watchdog` 也在 Task pass，只有沒有活動競賽 Task 時才
-可能接管。`Tactical.Priority` 只仲裁 ProtectCastle、ProtectOutpost、ProtectHero、Chase（數字越小越高）。
+可能接管。`Tactical.Priority` 仲裁 ProtectCastle、ProtectOutpost、CommonCentral、ProtectHero、Chase（數字越小越高）。CommonCentral 是獨立 Tactical 候選，不再繼承 ProtectCastle 的順位。
 
 `ProtectOutpost` 與敵方前哨 visual scout 是獨立任務。`/ly/friend/op_hp` 僅以 BT 本機收包時間
 判新鮮，首次正血量只建立窗口基線；只有 `DamageWindowMs=2000` 內累積下降至少
@@ -100,6 +100,14 @@ pass 觀察，但 `DecisionIntent.Layer=Task`，可直接停止同 tick 內所�
 鏈路發出。抵達後保持 `SearchHoldSec=30` 秒，新的達門檻下降重置保持；不可達後沉默
 `UnreachableCooldownSec=10` 秒，期間新的達門檻下降只排隊到冷卻結束。所有導航仍由 BT 的唯一最終
 發佈出口發出。
+
+`Tactical.RegionalDefense.CommonCentral.Enable` 只控制 Tactical 的公共 Central 威脅搜索，與
+Default 的 `AreaManager.yaml: RegionalAreaTask.CommonCentral.Enable` 分開。其四點序列為
+`HoleRoad (17) -> CentralHigh (29) -> CentralLow (30) -> OutpostGuard (24)`，到達
+`OutpostGuard` 後反向為 `CentralLow -> CentralHigh -> HoleRoad`：行進中只在共享
+`/ly/navi/reach_state` 明確不可達或同一個 `NaviProgressWatchdog` 判定 14 秒沒有 80 cm
+進度時切點；已到達時才開始 `Tactical.RegionalDefense.CommonCentral.HoldSec`（預設 15 秒）
+駐留，駐留完成且沒有新鮮視覺目標才切下一點。舊 `CentralLeft.A/B (26/27)` 不屬於這條路線。
 
 ProtectHero 的全部有效參數由 `Tactical.yaml` 的 `Tactical.ProtectHero` 提供：開局時間、導航
 保持、Hero 位置/血量新鮮度與目標 base goal 都可直接改 YAML。正式 Regional 預設
@@ -156,7 +164,7 @@ flowchart LR
 `docs/sentry/embedded/map_command_typeid9.md`。
 
 `behavior_tree` 在等待開賽前會打印一次實際生效的 AreaManager/Tactical 配置快照（包括
-ProtectOutpost 开关、新鲜度/掉血窗口/门槛、保持/冷却与四项 Tactical 优先级）；之後只在最終
+ProtectOutpost 开关、新鲜度/掉血窗口/门槛、保持/冷却与五项 Tactical 优先级）；之後只在最終
 可發布的導航決策 fingerprint 變化時打印 `[DecisionExplain][navi]`。該行由最終
 `DecisionIntent` 與最後輸出的表示組成：區域點/小地圖命令使用官方 `cm`，手動前哨 pose 使用
 `map` frame 的 `m`，相對追擊使用來源 frame 的 `rel_m`。相對追擊的位置持續更新不會每 tick

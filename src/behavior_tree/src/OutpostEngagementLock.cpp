@@ -26,12 +26,12 @@ void OutpostEngagementLock::Reset() noexcept {
     have_enemy_hp_ = false;
     last_enemy_hp_ = 0;
     enhanced_armed_ = false;
-    enhanced_attempted_ = false;
+    enhanced_request_accepted_ = false;
     enhanced_unavailable_ = false;
 }
 
 void OutpostEngagementLock::MarkEnhancedUnavailable() noexcept {
-    if (active_ && enhanced_attempted_) {
+    if (active_ && enhanced_request_accepted_) {
         enhanced_armed_ = false;
         enhanced_unavailable_ = true;
     }
@@ -73,6 +73,11 @@ OutpostEngagementDecision OutpostEngagementLock::Tick(
 
     const bool enhanced_pending = IsEnhancedAttackPending(input.Posture);
     const bool enhanced_active = IsEnhancedAttackActive(input.Posture);
+    if (enhanced_pending || enhanced_active) {
+        // A pending/active enhanced mode is the acknowledgement boundary. A
+        // damage observation alone must not consume the one-shot request.
+        enhanced_request_accepted_ = true;
+    }
     if (enhanced_active) {
         enhanced_armed_ = false;
     }
@@ -89,10 +94,10 @@ OutpostEngagementDecision OutpostEngagementLock::Tick(
     }
 
     if (have_enemy_hp_ && input.EnemyHp < last_enemy_hp_ &&
-        setting_.EnhancedAttackOnEnemyHpDrop && !enhanced_attempted_ &&
+        setting_.EnhancedAttackOnEnemyHpDrop && !enhanced_request_accepted_ &&
+        !enhanced_unavailable_ &&
         input.EnhancedAttackRemainingFresh && input.EnhancedAttackRemainingSec > 0) {
         enhanced_armed_ = true;
-        enhanced_attempted_ = true;
     }
     have_enemy_hp_ = true;
     last_enemy_hp_ = input.EnemyHp;

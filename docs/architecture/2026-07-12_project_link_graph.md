@@ -155,6 +155,11 @@ flowchart LR
 這保留舊 root YAML 的 gimbal 覆蓋功能，但不會把 root YAML 注入 BT、導航或 FaceMode；
 `navigation_test`／`navigation_mode` 等直連調試鍵只可由單節點 debug profile 載入。
 
+`behavior_tree` 的 Aim 目標優先級與 ignore 以競賽 JSON 的
+`AimTargetPriority`/`AimTargetIgnore` 為基線；所有正式及快捷 launch 都透傳
+`aim_config_file`，只有 `Aim.yaml` 中 `Aim.Override.Enable=true` 時才覆蓋明確提供的列表，
+之後仍統一執行既有 ID 合法性檢查、去重與空優先級回退。
+
 | 類別 | 是否 `sentry_all` 正式主鏈 | 說明 |
 |---|---:|---|
 | `gimbal_driver`、`behavior_tree`、`navi_tf_bridge`、`auto_aim_common`、外部 aim/TF/導航 | 是 | 比賽決策、控制和下位機通訊主鏈；`auto_aim_common` 提供 `GoalReach`、`RelativeTarget` 等共用 ROS 訊息，不是內部相機節點 |
