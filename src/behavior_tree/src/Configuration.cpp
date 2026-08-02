@@ -892,6 +892,12 @@ namespace LangYa {
         ps.PendingAckTimeoutMs = j.value("PendingAckTimeoutMs", ps.PendingAckTimeoutMs);
         ps.RetryIntervalMs = j.value("RetryIntervalMs", ps.RetryIntervalMs);
         ps.MaxRetryCount = j.value("MaxRetryCount", ps.MaxRetryCount);
+        ps.EnhancedPendingAckTimeoutMs = j.value(
+            "EnhancedPendingAckTimeoutMs", ps.EnhancedPendingAckTimeoutMs);
+        ps.EnhancedRetryIntervalMs = j.value(
+            "EnhancedRetryIntervalMs", ps.EnhancedRetryIntervalMs);
+        ps.EnhancedMaxRetryCount = j.value(
+            "EnhancedMaxRetryCount", ps.EnhancedMaxRetryCount);
         ps.OptimisticAck = j.value("OptimisticAck", ps.OptimisticAck);
         ps.TargetKeepMs = j.value("TargetKeepMs", ps.TargetKeepMs);
         ps.DamageKeepSec = j.value("DamageKeepSec", ps.DamageKeepSec);
@@ -2922,6 +2928,9 @@ namespace BehaviorTree {
         LoggerPtr->Debug("PendingAckTimeoutMs: {}", config.PostureSettings.PendingAckTimeoutMs);
         LoggerPtr->Debug("RetryIntervalMs: {}", config.PostureSettings.RetryIntervalMs);
         LoggerPtr->Debug("MaxRetryCount: {}", config.PostureSettings.MaxRetryCount);
+        LoggerPtr->Debug("EnhancedPendingAckTimeoutMs: {}", config.PostureSettings.EnhancedPendingAckTimeoutMs);
+        LoggerPtr->Debug("EnhancedRetryIntervalMs: {}", config.PostureSettings.EnhancedRetryIntervalMs);
+        LoggerPtr->Debug("EnhancedMaxRetryCount: {}", config.PostureSettings.EnhancedMaxRetryCount);
         LoggerPtr->Debug("OptimisticAck: {}", config.PostureSettings.OptimisticAck);
         LoggerPtr->Debug("TargetKeepMs: {}", config.PostureSettings.TargetKeepMs);
         LoggerPtr->Debug("DamageKeepSec: {}", config.PostureSettings.DamageKeepSec);
@@ -3170,6 +3179,24 @@ namespace BehaviorTree {
             config.PostureSettings.FeedbackFreshMs = 1000;
         }
         auto& posture = config.PostureSettings;
+        if (posture.EnhancedPendingAckTimeoutMs <= 0) {
+            LoggerPtr->Warning(
+                "Invalid Posture.EnhancedPendingAckTimeoutMs={}, fallback to 800.",
+                posture.EnhancedPendingAckTimeoutMs);
+            posture.EnhancedPendingAckTimeoutMs = 800;
+        }
+        if (posture.EnhancedRetryIntervalMs <= 0) {
+            LoggerPtr->Warning(
+                "Invalid Posture.EnhancedRetryIntervalMs={}, fallback to 300.",
+                posture.EnhancedRetryIntervalMs);
+            posture.EnhancedRetryIntervalMs = 300;
+        }
+        if (posture.EnhancedMaxRetryCount <= 0) {
+            LoggerPtr->Warning(
+                "Invalid Posture.EnhancedMaxRetryCount={}, fallback to 5.",
+                posture.EnhancedMaxRetryCount);
+            posture.EnhancedMaxRetryCount = 5;
+        }
         if (posture.TransitVelocityFreshMs <= 0) {
             LoggerPtr->Warning(
                 "Invalid Posture.TransitVelocityFreshMs={}, fallback to 1500.",

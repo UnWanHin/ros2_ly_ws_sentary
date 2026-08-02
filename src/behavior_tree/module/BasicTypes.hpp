@@ -833,6 +833,9 @@ namespace LangYa
         int PendingAckTimeoutMs{600}; // 等待回读超时
         int RetryIntervalMs{300};     // 重试间隔
         int MaxRetryCount{3};         // 最大重试次数
+        int EnhancedPendingAckTimeoutMs{800}; // 强化姿态等待回读超时
+        int EnhancedRetryIntervalMs{300};     // 强化姿态重试间隔
+        int EnhancedMaxRetryCount{5};         // 强化姿态最大重试次数
         bool OptimisticAck{true};     // 回读缺失时是否乐观确认
         int TargetKeepMs{800};        // 目标短时丢失容忍，防止姿态抖动
         int DamageKeepSec{4};         // 最近受击保持时间窗口

@@ -13,6 +13,7 @@ struct OutpostEngagementSetting {
     bool EnhancedAttackOnEnemyHpDrop{true};
     std::uint16_t NormalAttackLockExitHp{200};
     std::uint16_t EnhancedAttackLockExitHp{250};
+    int TargetLostGraceMs{800};
 };
 
 struct OutpostEngagementInput {
@@ -70,8 +71,11 @@ private:
     // (the request is visible as pending/active on the next tick).
     bool enhanced_request_accepted_{false};
     bool enhanced_unavailable_{false};
+    TimePoint target_lost_since_{};
 
-    OutpostEngagementDecision Exit(OutpostEngagementExitReason reason) noexcept;
+    OutpostEngagementDecision Exit(
+        OutpostEngagementExitReason reason,
+        bool cancel_pending = true) noexcept;
 };
 
 }  // namespace BehaviorTree

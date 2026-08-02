@@ -123,7 +123,7 @@ struct PostureRequestPolicy {
     }
 
     static constexpr PostureRequestPolicy HardMove() noexcept {
-        return {true, false, false, PostureRequestPriority::Safety, "hard_move"};
+        return {true, true, false, PostureRequestPriority::Safety, "hard_move"};
     }
 
     static constexpr PostureRequestPolicy EnhancedDefenseHold() noexcept {
@@ -373,9 +373,8 @@ inline TaskPostureRequest ResolveTaskPostureRequest(
     const PostureRefereeTimer& referee_timer = {}) noexcept {
     switch (intent) {
         case TaskPostureIntent::SoftTransit:
-            if (scored_posture == SentryPosture::Defense ||
-                (scored_posture == SentryPosture::Attack &&
-                 transit_context.AllowAttackDuringTransit)) {
+            if (scored_posture == SentryPosture::Attack ||
+                scored_posture == SentryPosture::Defense) {
                 return {{scored_posture, false}, PostureRequestPolicy::RequiredPosture()};
             }
             return {{SelectTransitPosture(runtime, transit_context), false},

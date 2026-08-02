@@ -285,6 +285,7 @@ void TreeTick() {
 | `/ly/gimbal/angles` | `gimbalAngles` | 當前雲台角 |
 | `/ly/gimbal/posture` | `postureState` | 姿態回讀（0未知/1進攻/2防禦/3移動）；BT 訂閱採 `keep_last(1)`，以本機收包時間判定 `Posture.FeedbackFreshMs`（預設 1000 ms），且回讀接收不得早於 pending 命令；過期或命令前回讀不可確認切換 |
 | `/ly/game/sentry/info` | `postureRefereeTimer_`、能量機關狀態 | `sentry_info_3` 的普通/強化姿態剩餘秒數在 `sentry_info_3_age_ms <= Posture.RefereeInfo3FreshMs`（預設 1500ms）時優先校正姿態輪換/弱化判定；超時或缺失即回退內部 `AccumSec` |
+
 | `/ly/gimbal/vel` | `naviVelocity` | 底盤速度反饋 |
 | `/ly/predictor/target` | `autoAimData`, `isFindTargetAtomic` | 普通瞄準角度；当前已恢复为老链路语义：消息一到就锁，`autoaim` 侧直接视为可跟随且可开火 |
 | `/ly/outpost/target` | `outpostAimData`, `isFindTargetAtomic` | 前哨瞄準角度；当前同样按老链路语义视为可开火 |
@@ -298,6 +299,12 @@ void TreeTick() {
 | `/ly/gimbal/capV` | `capV` | 電容電壓 |
 
 安全降級（兼容默認行為）：
+
+姿態的唯一輸出仍是 `/ly/control/posture`。普通 `1/2/3` 使用
+`Posture.PendingAckTimeoutMs=600`、`RetryIntervalMs=300`、`MaxRetryCount=3`；強化 `4/5/6`
+只在 pending 為強化時使用 `EnhancedPendingAckTimeoutMs=800`、`EnhancedRetryIntervalMs=300`、
+`EnhancedMaxRetryCount=5`。`Posture.TargetKeepMs=800` 同時是短暫目標失鮮和前哨 Target 7 lock 的唯一
+grace，避免多個目標保持時間不同步。
 
 - `/ly/friend/hp`、`/ly/enemy/hp` 只把 `hp > 0` 的單位寫入 BT 狀態；`0` 視為 unknown，不刷新血量和 freshness。
 - `/ly/position/data` 會做 ID 邊界檢查，非法 `carid` 直接忽略並節流告警；`x=0,y=0` 視為 unknown，不刷新位置和 freshness。

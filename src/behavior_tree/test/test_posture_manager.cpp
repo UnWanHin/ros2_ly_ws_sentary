@@ -158,11 +158,18 @@ TEST(PostureManagerTest, FailedOutpostRequestDoesNotIssueDefenseOrMove) {
     const auto first = manager.Tick(now + 5s, enhanced_attack, FreshAttackFeedback(false, now + 5s), {}, policy);
     const auto retry_one = manager.Tick(now + 5600ms, enhanced_attack, FreshAttackFeedback(false, now + 5600ms), {}, policy);
     const auto retry_two = manager.Tick(now + 5900ms, enhanced_attack, FreshAttackFeedback(false, now + 5900ms), {}, policy);
-    const auto exhausted = manager.Tick(now + 6200ms, enhanced_attack, FreshAttackFeedback(false, now + 6200ms), {}, policy);
+    const auto retry_three = manager.Tick(now + 6200ms, enhanced_attack, FreshAttackFeedback(false, now + 6200ms), {}, policy);
+    const auto retry_four = manager.Tick(now + 6500ms, enhanced_attack, FreshAttackFeedback(false, now + 6500ms), {}, policy);
+    const auto retry_five = manager.Tick(now + 7100ms, enhanced_attack, FreshAttackFeedback(false, now + 7100ms), {}, policy);
+    const auto exhausted = manager.Tick(now + 7400ms, enhanced_attack, FreshAttackFeedback(false, now + 7400ms), {}, policy);
 
     EXPECT_EQ(4U, first.Command);
-    EXPECT_EQ(4U, retry_one.Command);
+    EXPECT_EQ(0U, retry_one.Command);
+    EXPECT_STREQ("pending_wait", retry_one.Reason);
     EXPECT_EQ(4U, retry_two.Command);
+    EXPECT_EQ(4U, retry_three.Command);
+    EXPECT_EQ(4U, retry_four.Command);
+    EXPECT_EQ(4U, retry_five.Command);
     EXPECT_EQ(0U, exhausted.Command);
     EXPECT_EQ(BehaviorTree::SentryPosture::Attack, manager.Runtime().Current.Base);
     EXPECT_FALSE(manager.Runtime().Current.Enhanced);
@@ -240,6 +247,43 @@ TEST(PostureManagerTest, HardMoveSupersedesPendingAttack) {
     EXPECT_EQ(3U, move.Command);
     EXPECT_STREQ("pending_superseded", move.Reason);
     EXPECT_EQ(BehaviorTree::SentryPosture::Move, manager.Runtime().Pending.Base);
+}
+
+TEST(PostureManagerTest, HardMoveRetryExhaustionPreservesCurrentPosture) {
+    BehaviorTree::PostureManager manager;
+    manager.Configure(EnabledPostureSetting());
+    const auto now = BehaviorTree::PostureManager::TimePoint{};
+    manager.Reset(now, BehaviorTree::SentryPosture::Attack);
+
+    const auto hard_move = BehaviorTree::PostureRequestPolicy::HardMove();
+    ASSERT_EQ(3U, manager.Tick(
+        now + 5s,
+        {BehaviorTree::SentryPosture::Move, false},
+        {1U, false, true, false, now + 5s},
+        {},
+        hard_move).Command);
+    ASSERT_EQ(3U, manager.Tick(
+        now + 5s + 600ms,
+        {BehaviorTree::SentryPosture::Move, false},
+        {1U, false, true, false, now + 5s + 600ms},
+        {},
+        hard_move).Command);
+    ASSERT_EQ(3U, manager.Tick(
+        now + 5s + 900ms,
+        {BehaviorTree::SentryPosture::Move, false},
+        {1U, false, true, false, now + 5s + 900ms},
+        {},
+        hard_move).Command);
+
+    const auto exhausted = manager.Tick(
+        now + 5s + 1200ms,
+        {BehaviorTree::SentryPosture::Move, false},
+        {1U, false, true, false, now + 5s + 1200ms},
+        {},
+        hard_move);
+    EXPECT_EQ(0U, exhausted.Command);
+    EXPECT_STREQ("pending_preserved", exhausted.Reason);
+    EXPECT_EQ(BehaviorTree::SentryPosture::Attack, manager.Runtime().Desired.Base);
 }
 
 TEST(PostureManagerTest, EnhancedOutpostAttackSupersedesPendingTransit) {
@@ -362,14 +406,14 @@ TEST(PostureManagerTest, EnhancedRequestRetriesThenPreservesAndAllowsNormalFallb
         BehaviorTree::PostureRequestPolicy::OutpostLock());
     ASSERT_EQ(4U, first.Command);
 
-    const auto retry_one = manager.Tick(
+    const auto pending_wait = manager.Tick(
         now + 5s + 600ms,
         {BehaviorTree::SentryPosture::Attack, true},
         {3U, false, true, false, now + 5s + 600ms},
         {},
         BehaviorTree::PostureRequestPolicy::OutpostLock());
-    ASSERT_EQ(4U, retry_one.Command);
-    EXPECT_STREQ("retry_pending", retry_one.Reason);
+    ASSERT_EQ(0U, pending_wait.Command);
+    EXPECT_STREQ("pending_wait", pending_wait.Reason);
 
     const auto retry_two = manager.Tick(
         now + 5s + 900ms,
@@ -380,10 +424,37 @@ TEST(PostureManagerTest, EnhancedRequestRetriesThenPreservesAndAllowsNormalFallb
     ASSERT_EQ(4U, retry_two.Command);
     EXPECT_STREQ("retry_pending", retry_two.Reason);
 
-    const auto exhausted = manager.Tick(
+    const auto retry_three = manager.Tick(
         now + 5s + 1200ms,
         {BehaviorTree::SentryPosture::Attack, true},
         {3U, false, true, false, now + 5s + 1200ms},
+        {},
+        BehaviorTree::PostureRequestPolicy::OutpostLock());
+    ASSERT_EQ(4U, retry_three.Command);
+    EXPECT_STREQ("retry_pending", retry_three.Reason);
+
+    const auto retry_four = manager.Tick(
+        now + 5s + 1500ms,
+        {BehaviorTree::SentryPosture::Attack, true},
+        {3U, false, true, false, now + 5s + 1500ms},
+        {},
+        BehaviorTree::PostureRequestPolicy::OutpostLock());
+    ASSERT_EQ(4U, retry_four.Command);
+    EXPECT_STREQ("retry_pending", retry_four.Reason);
+
+    const auto retry_five = manager.Tick(
+        now + 5s + 1800ms,
+        {BehaviorTree::SentryPosture::Attack, true},
+        {3U, false, true, false, now + 5s + 1800ms},
+        {},
+        BehaviorTree::PostureRequestPolicy::OutpostLock());
+    ASSERT_EQ(4U, retry_five.Command);
+    EXPECT_STREQ("retry_pending", retry_five.Reason);
+
+    const auto exhausted = manager.Tick(
+        now + 5s + 2400ms,
+        {BehaviorTree::SentryPosture::Attack, true},
+        {3U, false, true, false, now + 5s + 2400ms},
         {},
         BehaviorTree::PostureRequestPolicy::OutpostLock());
     EXPECT_EQ(0U, exhausted.Command);
@@ -435,12 +506,80 @@ TEST(TaskPostureIntentTest, SoftTransitReservesMoveAndDisablesEarlyRotation) {
 
     const auto request = BehaviorTree::ResolveTaskPostureRequest(
         BehaviorTree::TaskPostureIntent::SoftTransit,
-        BehaviorTree::SentryPosture::Attack,
+        BehaviorTree::SentryPosture::Move,
         runtime,
         20);
 
     EXPECT_EQ(BehaviorTree::SentryPosture::Move, request.Mode.Base);
     EXPECT_FALSE(request.Policy.AllowEarlyRotate);
+}
+
+TEST(TaskPostureIntentTest, SoftTransitAcceptsAttackWithoutRawTargetGate) {
+    BehaviorTree::PostureRuntime runtime;
+    BehaviorTree::TransitPostureContext context;
+    context.AllowAttackDuringTransit = false;
+
+    const auto request = BehaviorTree::ResolveTaskPostureRequest(
+        BehaviorTree::TaskPostureIntent::SoftTransit,
+        BehaviorTree::SentryPosture::Attack,
+        runtime,
+        context);
+
+    EXPECT_EQ(BehaviorTree::SentryPosture::Attack, request.Mode.Base);
+    EXPECT_FALSE(request.Mode.Enhanced);
+}
+
+TEST(PostureManagerTest, EnhancedRequestUsesExtendedAckWindow) {
+    BehaviorTree::PostureManager manager;
+    auto setting = EnabledPostureSetting();
+    setting.EnhancedPendingAckTimeoutMs = 800;
+    setting.EnhancedRetryIntervalMs = 300;
+    setting.EnhancedMaxRetryCount = 5;
+    manager.Configure(setting);
+    const auto now = BehaviorTree::PostureManager::TimePoint{};
+    manager.Reset(now, BehaviorTree::SentryPosture::Move);
+
+    const auto policy = BehaviorTree::PostureRequestPolicy::OutpostLock();
+    ASSERT_EQ(4U, manager.Tick(
+        now + 5s,
+        {BehaviorTree::SentryPosture::Attack, true},
+        {3U, false, true, false, now + 5s},
+        {},
+        policy).Command);
+    const auto pending_wait = manager.Tick(
+        now + 5s + 600ms,
+        {BehaviorTree::SentryPosture::Attack, true},
+        {3U, false, true, false, now + 5s + 600ms},
+        {},
+        policy);
+    EXPECT_EQ(0U, pending_wait.Command);
+    EXPECT_STREQ("pending_wait", pending_wait.Reason);
+    ASSERT_EQ(4U, manager.Tick(
+        now + 5s + 900ms,
+        {BehaviorTree::SentryPosture::Attack, true},
+        {3U, false, true, false, now + 5s + 900ms},
+        {},
+        policy).Command);
+
+    const auto retry = manager.Tick(
+        now + 5s + 1200ms,
+        {BehaviorTree::SentryPosture::Attack, true},
+        {3U, false, true, false, now + 5s + 1200ms},
+        {},
+        policy);
+    EXPECT_EQ(4U, retry.Command);
+    EXPECT_STREQ("retry_pending", retry.Reason);
+    EXPECT_TRUE(manager.Runtime().HasPending);
+
+    const auto confirmed = manager.Tick(
+        now + 5s + 1400ms,
+        {BehaviorTree::SentryPosture::Attack, true},
+        FreshAttackFeedback(true, now + 5s + 1400ms),
+        {},
+        policy);
+    EXPECT_EQ(0U, confirmed.Command);
+    EXPECT_STREQ("pending_confirmed", confirmed.Reason);
+    EXPECT_FALSE(manager.Runtime().HasPending);
 }
 
 TEST(TaskPostureIntentTest, SoftTransitDoesNotOverrideSafetyDefense) {

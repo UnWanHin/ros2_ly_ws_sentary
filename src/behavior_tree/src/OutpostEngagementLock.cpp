@@ -28,6 +28,7 @@ void OutpostEngagementLock::Reset() noexcept {
     enhanced_armed_ = false;
     enhanced_request_accepted_ = false;
     enhanced_unavailable_ = false;
+    target_lost_since_ = {};
 }
 
 void OutpostEngagementLock::MarkEnhancedUnavailable() noexcept {
@@ -37,18 +38,20 @@ void OutpostEngagementLock::MarkEnhancedUnavailable() noexcept {
     }
 }
 
-OutpostEngagementDecision OutpostEngagementLock::Exit(const OutpostEngagementExitReason reason) noexcept {
+OutpostEngagementDecision OutpostEngagementLock::Exit(
+    const OutpostEngagementExitReason reason,
+    const bool cancel_pending) noexcept {
     Reset();
     return {
         .Active = false,
         .HoldTarget = false,
-        .CancelPending = true,
+        .CancelPending = cancel_pending,
         .ExitReason = reason,
     };
 }
 
 OutpostEngagementDecision OutpostEngagementLock::Tick(
-    const TimePoint,
+    const TimePoint now,
     const OutpostEngagementInput& input) {
     const bool eligible = setting_.Enable && input.Target7Fresh && input.SelectedTarget7 &&
         input.EnemyHpFresh && input.EnemyHp > 0;
@@ -89,9 +92,25 @@ OutpostEngagementDecision OutpostEngagementLock::Tick(
             ? OutpostEngagementExitReason::EnhancedHealthThreshold
             : OutpostEngagementExitReason::NormalHealthThreshold);
     }
-    if (!input.Target7Fresh || !input.SelectedTarget7) {
-        return Exit(OutpostEngagementExitReason::TargetLost);
+    const bool target7_valid = input.Target7Fresh && input.SelectedTarget7;
+    if (!target7_valid) {
+        if (target_lost_since_.time_since_epoch().count() == 0) {
+            target_lost_since_ = now;
+        }
+        const auto grace = std::chrono::milliseconds(std::max(0, setting_.TargetLostGraceMs));
+        if (now - target_lost_since_ <= grace) {
+            return {
+                .Active = true,
+                .HoldTarget = true,
+                .EnhancedArmed = enhanced_armed_,
+                .EnhancedUnavailable = enhanced_unavailable_,
+                .EnhancedPending = enhanced_pending,
+                .EnhancedActive = enhanced_active,
+            };
+        }
+        return Exit(OutpostEngagementExitReason::TargetLost, false);
     }
+    target_lost_since_ = {};
 
     if (have_enemy_hp_ && input.EnemyHp < last_enemy_hp_ &&
         setting_.EnhancedAttackOnEnemyHpDrop && !enhanced_request_accepted_ &&

@@ -2487,6 +2487,7 @@ namespace BehaviorTree {
             .EnhancedAttackOnEnemyHpDrop = outpost.EnhancedAttackOnEnemyHpDrop,
             .NormalAttackLockExitHp = static_cast<std::uint16_t>(std::clamp(outpost.NormalAttackLockExitHp, 0, 400)),
             .EnhancedAttackLockExitHp = static_cast<std::uint16_t>(std::clamp(outpost.EnhancedAttackLockExitHp, 0, 400)),
+            .TargetLostGraceMs = std::max(0, config.PostureSettings.TargetKeepMs),
         });
         outpostEngagementDecision_ = outpostEngagementLock_.Tick(now, {
             .Target7Fresh = OutpostAimFreshAndValid(),

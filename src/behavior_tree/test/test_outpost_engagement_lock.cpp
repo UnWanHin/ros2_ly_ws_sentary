@@ -87,6 +87,41 @@ TEST(OutpostEngagementLockTest, HpDropStaysArmedWhileLowerPriorityTransitIsPendi
     EXPECT_EQ(4U, BehaviorTree::ToPostureCommandValue(*retried.Intent));
 }
 
+TEST(OutpostEngagementLockTest, TargetSevenLossWithinGraceKeepsLockAndPending) {
+    BehaviorTree::OutpostEngagementLock lock;
+    const auto now = BehaviorTree::OutpostEngagementLock::TimePoint{};
+    auto input = HealthyOutpostInput();
+    lock.Configure({.TargetLostGraceMs = 800});
+    ASSERT_TRUE(lock.Tick(now, input).Active);
+
+    input.Target7Fresh = false;
+    input.Posture.HasPending = true;
+    input.Posture.Pending = {BehaviorTree::SentryPosture::Attack, false};
+    const auto held = lock.Tick(now + std::chrono::milliseconds(400), input);
+
+    EXPECT_TRUE(held.Active);
+    EXPECT_TRUE(held.HoldTarget);
+    EXPECT_FALSE(held.CancelPending);
+    EXPECT_FALSE(held.Intent.has_value());
+}
+
+TEST(OutpostEngagementLockTest, TargetSevenLossAfterGraceReleasesWithoutCancelingPending) {
+    BehaviorTree::OutpostEngagementLock lock;
+    const auto now = BehaviorTree::OutpostEngagementLock::TimePoint{};
+    auto input = HealthyOutpostInput();
+    lock.Configure({.TargetLostGraceMs = 800});
+    ASSERT_TRUE(lock.Tick(now, input).Active);
+
+    input.SelectedTarget7 = false;
+    ASSERT_TRUE(lock.Tick(now + std::chrono::milliseconds(1), input).Active);
+    const auto released = lock.Tick(now + std::chrono::milliseconds(802), input);
+
+    EXPECT_FALSE(released.Active);
+    EXPECT_FALSE(released.HoldTarget);
+    EXPECT_FALSE(released.CancelPending);
+    EXPECT_EQ(BehaviorTree::OutpostEngagementExitReason::TargetLost, released.ExitReason);
+}
+
 TEST(OutpostEngagementLockTest, LockThresholdsAre200And250) {
     const auto now = BehaviorTree::OutpostEngagementLock::TimePoint{};
 

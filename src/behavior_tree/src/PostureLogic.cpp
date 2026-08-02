@@ -432,10 +432,6 @@ SentryPosture Application::SelectDesiredPosture(const bool has_target) const {
     if (outpost_task_active && outpost_at_buff_outpost) {
         return SentryPosture::Attack;
     }
-    if (outpost_task_active) {
-        return SentryPosture::Move;
-    }
-
     if (low_energy) {
         score.Defense += 6;
         score.Move += 3;

@@ -1,6 +1,6 @@
 # Regional 決策框架說明
 
-Updated: 2026-08-01
+Updated: 2026-08-02
 
 本文記錄目前 `behavior_tree` 裡 regional 決策的區域狀態機框架：它會做哪些任務、怎麼啟動、怎麼判斷到達、會輸出什麼控制，以及哪些階段會被高優先級邏輯打斷。
 
@@ -458,14 +458,14 @@ Highland approach/leave、ReadyRoadland approach/cross/return 等純行進或安
 或舊的 `/ly/navi/reached` 都不會把已離開的點誤當作已到達。
 
 - `SoftTransit`：Default regional、ProtectOutpost 的 `Travel`、ProtectHero、固定防守點、SpecialPatrol，
-  在仍前往其自己 goal 時提供。正常請求 Move；原有評分已判為 Defense 時保留防禦優先，避免行進覆蓋受擊或
-  資源安全策略。
+  在仍前往其自己 goal 時提供。它只表示導航歸屬，不強制 Move：原有評分為 Attack 或 Defense 時直接保留；
+  只有評分選 Move 才使用既有 ETA/額度保留，避免行進覆蓋目標交戰、受擊或資源安全策略。
 - `SoftArrived`：Default 既有 hold、ProtectOutpost 的 `SearchHold`、固定防守點已到達、SpecialPatrol 的既有 hold。
   解除 Move 覆蓋後，沿用原有目標、受擊、血量、彈量評分選 Attack 或 Defense。
 - `ProtectHeroDefenseHold`：ProtectHero 已到自己的守護目標時固定優先普通防守 `2`。
 - `ProtectHeroEnhancedDefense`：只在 ProtectHero 駐留、`Tactical.ProtectHero.EnhancedDefense.Enable=true`，且 `DamageWindowMs` 內累積掉血達 `DamageThresholdHp` 時提供；TypeID 10 強防剩餘時間新鮮且大於 0 才申請 `5`，否則維持 `2`。行進仍是 `SoftTransit`，所以不會以半功率底盤趕路。已確認的 `5` 只在姿態 5 秒冷卻內暫緩 Recovery；冷卻結束仍低血/低彈時，或回讀不再確認強防時，既有 Move/Recovery 硬鏈路接管。
 - `RecoveryEnhancedMove`：只在 Regional Recovery 尚在行進、己方 HP 回讀與強移額度 TypeID 10 都新鮮、HP `1..Tactical.EnhancedPosture.RecoveryMove.HealthThresholdHp`（預設 80）、強移額度大於 0、且沒有正常讀條復活 `0 -> 正數` 後的 `RespawnSuppressSec`（預設 30 秒）壓制時提供，才申請強化移動 `6`。其他 Recovery 情況都是普通 Move `3`；強移 ACK 重試耗盡會在本次 Recovery 內鎖定回退，離開 Recovery 才重置。
-- `HardMove`：普通 Recovery、Buff、或新鮮 `/ly/navi/should_rotate=false`；不允許泛用資源輪換把它改走。
+- `HardMove`：普通 Recovery、Buff、或新鮮 `/ly/navi/should_rotate=false`；不允許泛用資源輪換把它改走，retry 耗盡也不會經由泛用替代姿態改送 Attack。
 - `HardDefense`：受擊 burst；前哨 engagement lock 仍以既有 lock 優先。
 - Buff/Outpost 保留原有專用語義；動態 Chase 不產生 arrived intent，避免移動目標的舊到點狀態造成停車。
 
@@ -482,6 +482,11 @@ SoftArrived 則保留輪換，讓三種普通姿態的 180 秒非恢復預算仍
 `0..3` 不受影響。若 TypeID 7 的 `enhanced_posture=true` 與 TypeID 10 對應額度 0 連續超過
 `Tactical.EnhancedPosture.ContradictionGraceMs=500ms`，BT 會隔離強化確認與新請求，取消強化 pending，並等待既有
 5 秒姿態冷卻後由普通命令收斂；單幀不同步不觸發隔離。
+
+普通姿態 `1/2/3` 保持 `PendingAckTimeoutMs=600`、`RetryIntervalMs=300`、`MaxRetryCount=3`。強化
+姿態 `4/5/6` 使用獨立 `EnhancedPendingAckTimeoutMs=800`、`EnhancedRetryIntervalMs=300`、
+`EnhancedMaxRetryCount=5`，避免 TypeID 7/10 回讀約 1.4 秒才到時被 BT 提前判定 unavailable。這些值只在
+pending 為強化姿態時使用，不改普通姿態或 ROS 下發協議。
 
 decision trace 的 `posture.task_intent`、`task_source`、`task_owns_current_goal` 與
 `tactical.protect_hero.enhanced_defense_*`（包括 `recovery_deferred`），以及 `[Posture]` 日誌中的 `scored`、`desired`、

@@ -1,6 +1,6 @@
 # 哨兵决策行为说明（纯行为版）
 
-Updated: 2026-08-01
+Updated: 2026-08-02
 
 > 目的：只描述“机器人会怎么做”，不讲实现细节。
 
@@ -66,7 +66,7 @@ Updated: 2026-08-01
 
 - 姿态会根据目标状态、受击情况、资源状态动态切换。  
 - 切换不是每帧乱跳，带有保持时间和防抖机制。  
-- 正式 Regional 的姿态切换必须等 `/ly/gimbal/posture` 回读确认；600 ms 未确认会按既有间隔重发，不能在未收到过回读时直接当作成功。
+- 正式 Regional 的姿态切换必须等 `/ly/gimbal/posture` 回读确认；普通姿态 `1/2/3` 在 600 ms 后按既有间隔重发，强化姿态 `4/5/6` 在 800 ms 后重发，并保留更长的内部 ACK/retry 窗口，不能在未收到过回读时直接当作成功。
 - 所以你看到的效果应是“有节奏地换姿态”，不是高频抖动切换。  
 
 ### 前哨强制交战锁
@@ -76,6 +76,7 @@ Updated: 2026-08-01
 - 强攻 `4` 只在 `/ly/gimbal/posture=1` 和 `/ly/game/sentry/info.enhanced_posture=true` 都新鲜匹配时确认。
 - 普通进攻 pending/确认冷却期间只在自身 HP `<=200` 时允许转火；强攻 pending/active 时门槛为 `<=250`。
 - 敌前哨 HP 为零或过期、导航明确不可达时立即释放锁并取消该锁的 pending 姿态请求。
+- Target 7/选择目标短暂失鲜时，锁会复用 `Posture.TargetKeepMs=800 ms` 保持；这段时间不会清除已发的 Attack/Defense/强化 pending。连续失鲜超过 800 ms 后释放前哨专属锁，但不取消通用 pending，由当前 Transit 的正常姿态评分接管。
 - 强攻 ACK 重试耗尽时保持已确认普通进攻和 7，不自动改发防御或移动。
 
 ### Hero 保护强防
@@ -107,7 +108,7 @@ ProtectHero 已到自己的守护点且仍拥有该导航 goal 时，BT 优先�
 - 如果这些层都没有输出，Finalizer 只同步策略层 blackboard，不再做旧点表兜底。
 - 以后新增会接管导航的 Tactical 功能时，必须在同一次修改中使用明确的 `DecisionReason` 并写入可读 `detail`；最终 `[DecisionExplain][navi]` 日志会据此说明哨兵为何前往该点。
 - 姿态 pending 也有来源优先级。普通评分请求是 `scored`，任务强制姿态是 `required`，Recovery、Buff 与新鲜 `navi_should_rotate=false` 的 Move 是 `safety`。新的更高优先级请求会以 `pending_superseded` 替换旧 pending，避免旧 Attack 重试覆盖当前必须的 Move。
-- 普通 Transit 不再用固定 20 秒阈值消耗 Move。BT 以新鲜的哨兵官方地图位置、当前导航 goal 与新鲜 `/ly/navi/vel` 估算 ETA；速度失鲜时用 `Posture.TransitNominalSpeedMps`。ETA 乘安全系数、加到点缓冲后，限制在 `TransitMinReserveSec..TransitMaxReserveSec` 内。有效目标在 Transit 中仍允许 Attack；Recovery 始终优先 Move；非 Recovery 的短时间受击 burst 强制 Defense。
+- 普通 Transit 不再用固定 20 秒阈值消耗 Move。Transit 只拥有导航 goal，不强制姿态：有效或 800 ms 内刚丢失的目标可保持 Attack，受击/低血等评分可保持 Defense，只有评分实际选择 Move 时才计算 Move 额度。BT 以新鲜的哨兵官方地图位置、当前导航 goal 与新鲜 `/ly/navi/vel` 估算 ETA；速度失鲜时用 `Posture.TransitNominalSpeedMps`。ETA 乘安全系数、加到点缓冲后，限制在 `TransitMinReserveSec..TransitMaxReserveSec` 内。Recovery 始终优先 Move；非 Recovery 的短时间受击 burst 强制 Defense。
 
 ---
 

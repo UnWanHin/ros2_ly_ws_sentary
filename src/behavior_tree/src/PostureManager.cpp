@@ -221,6 +221,22 @@ PostureDecision PostureManager::Tick(
     }
 
     if (runtime_.HasPending) {
+        const bool enhanced_pending = runtime_.Pending.Enhanced;
+        const auto pending_ack_timeout = std::chrono::milliseconds(std::max(
+            1,
+            enhanced_pending
+                ? config_.EnhancedPendingAckTimeoutMs
+                : config_.PendingAckTimeoutMs));
+        const auto retry_interval = std::chrono::milliseconds(std::max(
+            1,
+            enhanced_pending
+                ? config_.EnhancedRetryIntervalMs
+                : config_.RetryIntervalMs));
+        const int max_retry_count = std::max(
+            1,
+            enhanced_pending
+                ? config_.EnhancedMaxRetryCount
+                : config_.MaxRetryCount);
         const bool supersede_pending =
             runtime_.Pending != runtime_.Desired &&
             policy.Priority > runtime_.PendingPriority;
@@ -238,7 +254,7 @@ PostureDecision PostureManager::Tick(
         }
 
         const auto pending_elapsed = now - pending_since_;
-        if (pending_elapsed < std::chrono::milliseconds(config_.PendingAckTimeoutMs)) {
+        if (pending_elapsed < pending_ack_timeout) {
             decision.Reason = "pending_wait";
             return decision;
         }
@@ -256,8 +272,7 @@ PostureDecision PostureManager::Tick(
         }
 
         const auto retry_elapsed = now - last_command_;
-        if (runtime_.RetryCount < config_.MaxRetryCount &&
-            retry_elapsed >= std::chrono::milliseconds(config_.RetryIntervalMs)) {
+        if (runtime_.RetryCount < max_retry_count && retry_elapsed >= retry_interval) {
             runtime_.RetryCount++;
             last_command_ = now;
             decision.Command = ToPostureCommandValue(runtime_.Pending);
@@ -266,7 +281,7 @@ PostureDecision PostureManager::Tick(
             return decision;
         }
 
-        if (runtime_.RetryCount >= config_.MaxRetryCount) {
+        if (runtime_.RetryCount >= max_retry_count) {
             runtime_.HasPending = false;
             runtime_.Pending = {};
             runtime_.RetryCount = 0;
