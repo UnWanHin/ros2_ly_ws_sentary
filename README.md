@@ -1,6 +1,6 @@
 # ros2_ly_ws_sentry 接手阅读指南
 
-Updated: 2026-07-12
+Updated: 2026-08-05
 
 这是一个 ROS2 Humble / `colcon` 哨兵上位机工作区。当前 `Behavion` 主链路已经切到 **decision-only**：本仓负责下位机串口、导航/FaceMode bridge 和行为树决策；相机、检测、追踪、弹道、gimbal TF 和最终 aim/firing 判定由外部 `sentry.aim` / `sentry_tf` 提供。
 
@@ -92,6 +92,34 @@ python3 scripts/python/start.py
 打开 `http://127.0.0.1:1037/`。Documentation、Graph 和 Split 是同一份
 `docs/**/*.md` 的不同视图；Markdown 链接和 Obsidian wikilink 会自动显示为关系，
 不需要生成或维护独立图数据。
+
+## 交接：本地图谱、端口与工具
+
+下一位开发者先从这三个入口开始；它们分别服务于**理解工程**、**离线验证决策**和
+**运行／自检主链**，不要把它们与正式机器人控制界面混为一谈。
+
+| 端口 | 归属与用途 | 启动方式 | 备注 |
+| --- | --- | --- | --- |
+| `1037` | 本仓文件网站与工程关系图 | `./tools/Library.sh` | Documentation、Graph、Split 都直接读取 `docs/**/*.md`。每份 Markdown 是一个图节点，Markdown／Obsidian 链接是关系边；**不要维护独立 graph JSON**。 |
+| `9011` | 浏览器优先的离线 Tactical Simulator | `./tools/Simulator.sh` | 默认生产页面为 `/`，`/tactical` 只是别名。用于 mock／trace 的离线决策验证；pygame 仅能以 `--debug-pygame` 作为本机诊断 renderer，不是第二套生产 UI。 |
+| `9000` | 直接调用 `scripts/python/start.py` 的 simulator 默认端口 | `python3 scripts/python/start.py` | `Simulator.sh` 会明确覆盖为 `9011`。需要并行运行时用 `--web-port <port>` 或 `SIMULATOR_WEB_PORT=<port>`，避免占用同一端口。 |
+| `6011` | **不属于本仓固定接口** | 无 | 当前仓库没有 6011 的启动器、配置或 API 契约。若现场已有该端口服务，先用 `ss -ltnp | rg ':6011\\b'` 确认进程与所属工程；不得假定它是 simulator、图谱站或 ROS 主链的一部分。 |
+
+常用工具与边界：
+
+| 工具 | 用途 | 交接约束 |
+| --- | --- | --- |
+| `./tools/Library.sh` | 启动 1037 文件／图谱网站 | 文件是唯一真相；修改 `docs/` 后图谱会自动更新，不需要生成、提交或同步图数据库。 |
+| `./tools/Simulator.sh` | 启动 9011 离线 Tactical Simulator | 浏览器是唯一生产 UI；它通过既有 command bus 驱动 mock／offline 状态，不重写正式 BT、ROS 或下位机逻辑。 |
+| `./scripts/start.sh` | 正式／展示启动入口 | 正式比赛优先使用 `gated --mode league` 或 `gated --mode regional`；外部 `sentry.aim`／`sentry_tf`／导航属于仓外依赖。 |
+| `./scripts/debug.sh` | 有边界的联调入口 | 仅在对应 debug profile 使用；不要与正式 BT 对同一 `/ly/control/*` topic 并行发布。 |
+| `./scripts/selfcheck.sh sentry --static-only` | 交接后的首轮静态检查 | 改 topic、message、参数或主链时，再执行相应的 runtime／launch 检查。 |
+| `tools/Behaviortree/`、`tools/maps/`、`tools/PnPcamera/` | 分别为离线 BT XML 查看、地图／点位维护、相机内参标定 | 它们是辅助工具，不是额外的正式仿真或控制主链。 |
+
+图谱和架构的阅读顺序：先打开 1037 的 `docs/README.md`，再阅读
+[`docs/architecture/2026-07-12_project_link_graph.md`](docs/architecture/2026-07-12_project_link_graph.md)、
+[`docs/sentry/regional/current_behavior.md`](docs/sentry/regional/current_behavior.md) 与各模块文档。
+若文档与当前 source、launch、package manifest 或 message 定义冲突，以 source 为准，并在同一次修改中更新最近的文档。
 
 ## 维护约定
 
